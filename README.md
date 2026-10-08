@@ -458,12 +458,34 @@ The benchmark separates VNode construction from reconciliation and reports
 full, single-node, no-op, keyed reorder, scheduler, markup, M4B, and memory
 measurements. Compare baselines only on the same machine and Python version.
 
+## Playground and layout inspector
+
+The browser playground is a separate React project at
+[`../playground`](../playground). Start it independently from the Python
+package:
+
+```bash
+cd ../playground
+# If Node is not yet available in this terminal, load NVM first.
+nvm -v
+npm install
+npm run dev
+```
+
+It provides Monaco editing, examples, parser diagnostics, generated wrapper
+code, hierarchy/bounds/padding/spacing/alignment inspection, and preview-only
+layout edits. It never executes template references or renders desktop widgets
+in the browser; use it to understand PSX structure, not to validate native
+pixel output.
+
 ## Learn more
 
 - [Public API](docs/public-api.md)
 - [Compatibility matrix](docs/compatibility.md)
 - [Native interoperability](docs/m10-native-interoperability.md)
+- [Tutorial: adding portable widgets](docs/tutorial-adding-portable-widgets.md)
 - [Alpha release and CI](docs/m11-alpha-release.md)
+- [Playground and inspector](docs/m12-playground-inspector.md)
 - [Architecture](docs/architecture.md)
 - [Changelog](CHANGELOG.md)
 

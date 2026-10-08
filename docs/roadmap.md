@@ -18,7 +18,7 @@ feature as complete.
 | M9 | Kivy & Qt Variants | implemented; native graphical smoke remains environment-dependent |
 | M10 | Advanced UI & Native Interoperability | implemented; native adapter smoke is renderer-dependent |
 | M11 | Alpha Release | alpha release candidate |
-| M12 | PSX Playground & Visual Layout Inspector | planned |
+| M12 | PSX Playground & Visual Layout Inspector | implemented standalone React semantic development slice |
 | M13 | PSX Visual UI Builder | planned |
 
 ## M8 — current scope
