@@ -79,7 +79,11 @@ class TkinterRenderer:
             if target.native.update is not None:
                 target.native.update(target.widget, changed, removed)
             return
-        unsupported = set(removed) | (set(changed) - {"value", "label", "enabled", "spacing", "padding"})
+        # Padding and spacing are optional layout props.  A hot update may
+        # remove them, in which case the code below restores their defaults.
+        unsupported = (set(removed) - {"spacing", "padding"}) | (
+            set(changed) - {"value", "label", "enabled", "spacing", "padding"}
+        )
         if unsupported:
             raise RendererCapabilityError(
                 f"Unsupported Tkinter props for {target.node_type!r}: {', '.join(sorted(unsupported))}"

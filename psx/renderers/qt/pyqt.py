@@ -92,15 +92,19 @@ class _PyQtRenderer:
             if target.native.update is not None:
                 target.native.update(target.widget, changed, removed)
             return
-        unsupported = set(removed) | (set(changed) - {"value", "label", "enabled", "spacing", "padding"})
+        # ``padding`` and ``spacing`` are optional layout props.  Their
+        # removal during a hot update resets them to their defaults.
+        unsupported = (set(removed) - {"spacing", "padding"}) | (
+            set(changed) - {"value", "label", "enabled", "spacing", "padding"}
+        )
         if unsupported:
             raise RendererCapabilityError(f"Unsupported PyQt props: {', '.join(sorted(unsupported))}")
-        if "spacing" in changed or "padding" in changed:
+        if {"spacing", "padding"} & (set(changed) | set(removed)):
             layout = _layout(target)
-            if "spacing" in changed:
-                layout.setSpacing(int(changed["spacing"]))
-            if "padding" in changed:
-                padding = int(changed["padding"])
+            if "spacing" in changed or "spacing" in removed:
+                layout.setSpacing(int(changed.get("spacing", 0)))
+            if "padding" in changed or "padding" in removed:
+                padding = int(changed.get("padding", 0))
                 layout.setContentsMargins(padding, padding, padding, padding)
         if "value" in changed:
             target.widget.setText(str(changed["value"]))

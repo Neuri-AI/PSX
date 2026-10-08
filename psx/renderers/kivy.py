@@ -78,7 +78,11 @@ class KivyRenderer:
             if target.native.update is not None:
                 target.native.update(target.widget, changed, removed)
             return
-        unsupported = set(removed) | (set(changed) - {"value", "label", "enabled", "spacing", "padding"})
+        # Optional layout props may disappear in an in-process hot update.
+        # Accept their removal and let _apply_layout restore zero defaults.
+        unsupported = (set(removed) - {"spacing", "padding"}) | (
+            set(changed) - {"value", "label", "enabled", "spacing", "padding"}
+        )
         if unsupported:
             raise RendererCapabilityError(f"Unsupported Kivy props: {', '.join(sorted(unsupported))}")
         target.props.update(changed)

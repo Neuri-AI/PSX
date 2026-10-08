@@ -93,19 +93,25 @@ class PySide6Renderer:
             if target.native.update is not None:
                 target.native.update(target.widget, changed, removed)
             return
-        unsupported = set(removed) | (set(changed) - {"value", "label", "enabled", "spacing", "padding"})
+        # Layout properties are optional.  In particular, a hot update may
+        # change ``<Column padding={24}>`` to ``<Column>``.  Treating that
+        # removal as unsupported made an optional prop impossible to remove
+        # without restarting the application.
+        unsupported = (set(removed) - {"spacing", "padding"}) | (
+            set(changed) - {"value", "label", "enabled", "spacing", "padding"}
+        )
         if unsupported:
             raise RendererCapabilityError(
                 f"Unsupported PySide6 props for {target.node_type!r}: {', '.join(sorted(unsupported))}"
             )
-        if "spacing" in changed:
+        if "spacing" in changed or "spacing" in removed:
             if target.layout is None:
                 raise RendererCapabilityError("spacing is only supported by Row and Column.")
-            target.layout.setSpacing(int(changed["spacing"]))
-        if "padding" in changed:
+            target.layout.setSpacing(int(changed.get("spacing", 0)))
+        if "padding" in changed or "padding" in removed:
             if target.layout is None:
                 raise RendererCapabilityError("padding is only supported by Row and Column.")
-            padding = int(changed["padding"])
+            padding = int(changed.get("padding", 0))
             target.layout.setContentsMargins(padding, padding, padding, padding)
         if "value" in changed:
             if not isinstance(target.widget, QLabel):

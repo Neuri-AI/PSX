@@ -12,7 +12,7 @@ sys.path.insert(0, "src")
 from PySide6.QtWidgets import QLabel, QPushButton, QWidget
 from pydux import Action, Store
 
-from psx import App, Button, Column, Native, NativeWidget, Ref, Text, component, native_widget, psx, use_state
+from psx import App, Button, Column, Native, NativeWidget, Ref, Row, Text, component, native_widget, psx, use_state
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.integrations.pydux import StoreProvider, use_selector
@@ -82,6 +82,25 @@ class PySide6RendererTests(unittest.TestCase):
     def test_unknown_portable_prop_fails_instead_of_being_ignored(self) -> None:
         with self.assertRaises(RendererCapabilityError):
             self.reconciler.render(Text("Hello", font_size=14))
+
+    def test_removing_optional_layout_props_resets_defaults_without_recreating_layouts(self) -> None:
+        """Model the prop delta produced when a hot-reloaded template omits them."""
+        first = self.reconciler.render(
+            Column(Row(Text("Ready"), padding=8, spacing=4), padding=24, spacing=12)
+        )
+        column_handle = first.handle
+        row_handle = first.children[0].handle
+        self.assertIsInstance(column_handle, QtHandle)
+        self.assertIsInstance(row_handle, QtHandle)
+
+        second = self.reconciler.render(Column(Row(Text("Ready"))))
+
+        self.assertIs(second.handle, column_handle)
+        self.assertIs(second.children[0].handle, row_handle)
+        self.assertEqual(column_handle.layout.spacing(), 0)
+        self.assertEqual(row_handle.layout.spacing(), 0)
+        self.assertEqual(column_handle.layout.contentsMargins().left(), 0)
+        self.assertEqual(row_handle.layout.contentsMargins().left(), 0)
 
     def test_worker_state_update_is_committed_on_the_qt_event_loop(self) -> None:
         captured: dict[str, object] = {}
