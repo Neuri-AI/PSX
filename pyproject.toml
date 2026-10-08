@@ -1,0 +1,41 @@
+[project]
+name = "psx"
+version = "1.0.0a1"
+description = "PSX is a declarative and reactive UI framework for Python, featuring JSX-inspired syntax, virtual tree reconciliation, and native rendering across Qt, Kivy, and Tkinter."
+readme = "README.md"
+authors = [
+    {name = "runesc",email = "luisalfredoreyes98@gmail.com"}
+]
+license = "MIT"
+keywords = ["ui", "declarative", "reactive", "qt", "kivy", "tkinter"]
+requires-python = ">=3.10"
+dependencies = [
+]
+
+[project.optional-dependencies]
+qt = ["PySide6>=6.8; python_version < '3.16'"]
+pyqt6 = ["PyQt6>=6.8; python_version < '3.16'"]
+pyqt5 = ["PyQt5>=5.15; python_version < '3.13'"]
+kivy = ["Kivy>=2.3"]
+pydux = ["pydux>=0.1"]
+qyro = ["qyro-engine>=1.0.0a1,<2.0.0"]
+dev = ["pytest>=8.0", "build>=1.2"]
+
+[project.scripts]
+psx-transform = "psx.markup.transform:main"
+psx-dev = "psx.devtools.__main__:main"
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["psx"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

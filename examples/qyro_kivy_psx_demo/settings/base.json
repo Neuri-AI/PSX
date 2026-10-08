@@ -1,0 +1,22 @@
+{
+    "app_name": "psx-qyro-kivy-demo",
+    "author": "PSX",
+    "entry_point": "main.py",
+    "addons": [],
+    "version": "0.1.0",
+    "binding": "Kivy",
+    "hidden_imports": [
+        "__future__"
+    ],
+    "hot_reload": {
+        "enabled": true,
+        "watch": ["."],
+        "module_reload": {
+            "include": [],
+            "exclude": ["kivy.*", "numpy.*"],
+            "third_party": "restart"
+        },
+        "preserve_state": true,
+        "fallback": "restart"
+    }
+}

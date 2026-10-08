@@ -1,0 +1,22 @@
+{
+    "app_name": "qyro_tkinter_psx_demo",
+    "author": "fredo",
+    "entry_point": "main.py",
+    "addons": [],
+    "version": "1.0.0",
+    "binding": "Tkinter",
+    "hidden_imports": [
+        "__future__"
+    ],
+    "hot_reload": {
+        "enabled": true,
+        "watch": ["."],
+        "module_reload": {
+            "include": [],
+            "exclude": ["PySide6.*", "PyQt6.*", "numpy.*"],
+            "third_party": "restart"
+        },
+        "preserve_state": true,
+        "fallback": "restart"
+    }
+}

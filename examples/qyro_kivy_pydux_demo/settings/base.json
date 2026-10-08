@@ -1,0 +1,11 @@
+{
+    "app_name": "qyro_kivy_pydux_demo",
+    "author": "fredo",
+    "entry_point": "main.py",
+    "addons": [],
+    "version": "1.0.0",
+    "binding": "Kivy",
+    "hidden_imports": [
+        "__future__"
+    ]
+}
