@@ -19,6 +19,9 @@ from .contracts import (
     TEXTAREA_CONTRACT,
     INPUT_CONTRACT,
     COLUMN_CONTRACT,
+    ROW_CONTRACT,
+    SLIDER_CONTRACT,
+    SPACER_CONTRACT,
 )
 from .errors import DuplicateComponentError, UnknownComponentError
 from .vnode import VNode
@@ -116,6 +119,8 @@ def builtin_component_registry() -> ComponentRegistry:
         Row,
         Text,
         TextArea,
+        Slider,
+        Spacer,
     )
 
     registry = ComponentRegistry()
@@ -123,7 +128,8 @@ def builtin_component_registry() -> ComponentRegistry:
         "Column", Column, contract=COLUMN_CONTRACT,
         markup_integer_properties=frozenset({"spacing", "padding"})))
     registry.register_definition(ComponentDefinition(
-        "Row", Row, markup_integer_properties=frozenset({"spacing", "padding"})))
+        "Row", Row, contract=ROW_CONTRACT,
+        markup_integer_properties=frozenset({"spacing", "padding"})))
     registry.register("Text", Text, contract=TEXT_CONTRACT)
     registry.register("Button", Button, contract=BUTTON_CONTRACT)
     registry.register("Input", Input, contract=INPUT_CONTRACT)
@@ -131,4 +137,8 @@ def builtin_component_registry() -> ComponentRegistry:
     registry.register("TextArea", TextArea, contract=TEXTAREA_CONTRACT)
     registry.register("Fragment", Fragment)
     registry.register("Native", Native)
+    registry.register("Slider", Slider, contract=SLIDER_CONTRACT)
+    registry.register("Spacer", Spacer, contract=SPACER_CONTRACT)
+
+
     return registry

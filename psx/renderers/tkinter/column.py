@@ -91,8 +91,21 @@ class TkColumnAdapter:
 
     @staticmethod
     def _pack_options(container, index, spacing):
+        child = container.children[index]
         align = child_align(container.props, index)
         expand = child_expand(container.props, index)
+
+        # Un Spacer absorbe todo el sobrante vertical del Column. En Tk eso
+        # requiere fill=BOTH para que el widget ocupe completamente su
+        # parcela y expand=True para que pack le asigne el espacio libre.
+        if child.node_type == "Spacer":
+            return {
+                "side": tk.TOP,
+                "fill": tk.BOTH,
+                "expand": True,
+                "anchor": tk.CENTER,
+                "pady": (0, 0) if index == 0 else (spacing, 0),
+            }
 
         if align == "stretch":
             fill_x = True

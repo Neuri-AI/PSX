@@ -3,8 +3,6 @@ from PySide6.QtWidgets import QMainWindow
 from qyro import ApplicationContext
 from psx import psx, use_state, use_effect
 from psx.integrations.qyro import PSXComponent
-from hi import hi
-import pandas as pd
 from PySide6.QtWidgets import QPushButton
 
 class QyroQtPsxDemo(QMainWindow, PSXComponent, ApplicationContext):
@@ -21,12 +19,16 @@ class QyroQtPsxDemo(QMainWindow, PSXComponent, ApplicationContext):
             set_count(lambda value: value + 1)
 
         def decrement():
-            hi()
             set_count(lambda value: value - 1)
 
         return psx("""
             <Column padding={32} spacing={10}>
-  
+                <Text>Qyro + PSX + Qt (hot reloading ;))</Text>
+                <Text>App Title: {self.window_title}</Text>
+                <Text>Platform: {self.platform.value}</Text>
+                <Text>Frozen: {self.is_frozen}</Text>
+                <Text>Count: {count}</Text>
+                <Button on_click={increment}>Increment</Button>
                 <Button on_click={decrement}>Decrement</Button>
             </Column>
         """)

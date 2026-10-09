@@ -16,6 +16,7 @@ from psx.renderers.components.column import (
     normalize_padding,
     updated_column_props,
 )
+from qyro import container
 
 
 class QtColumnAdapter:
@@ -108,7 +109,8 @@ class QtColumnAdapter:
             widget = item.widget()
             if widget is None:
                 continue
-            stretch = 1 if child_expand(container.props, index) else 0
+            is_spacer = getattr(widget, "_psx_is_spacer", False)
+            stretch = 1 if (is_spacer or child_expand(container.props, index)) else 0
             layout.setStretch(index, stretch)
             align_name = child_align(container.props, index)
             layout.setAlignment(widget, self._alignments[align_name])

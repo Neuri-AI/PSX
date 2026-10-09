@@ -32,39 +32,36 @@ to `<Input>` raises `InvalidChildError`. Multi-line text input is handled separa
 
 ```python
 Input(value=text, placeholder="Enter text...", font_size=16, on_change=set_text, on_submit=handle_submit)
-
 ```
 
 ```python
 psx('<Input value={text} placeholder="Enter text..." password={is_secret} on_change={set_text} on_submit={handle_submit} />',
     scope={"text": text, "is_secret": True, "set_text": set_text, "handle_submit": handle_submit})
-
 ```
+Unknown properties and invalid property values raise RendererCapabilityError.
+Builders, markup, and native renderers enforce this same contract. Each update
+applies the current portable properties directly; removing an optional property
+returns it to the portable default above. No native defaults are captured.
 
+Use the separate Native(...) API for framework-specific widgets and features.
+References and keys retain their existing PSX lifecycle behavior.
 
-# Qyro: Input Component
+Qyro integration
+Inside a Qyro component, Input is used the same way. State lives in
+use_state and callbacks update it through the setter:
+
 ```python
-...
 def render(self):
     email, set_email = use_state("")
 
     def on_email_change(value):
         set_email(lambda _: value)
 
-    def on_note_change(value):
-        print(f"Nuevo texto: {value}")
     return psx("""
         <Column spacing={12} padding={30}>
           <Input value={email} placeholder="Email" on_change={on_email_change} />
         </Column>
-""")
+    """)
 ```
-
-
-Unknown properties and invalid property values raise `RendererCapabilityError`.
-Builders, markup, and native renderers enforce this same contract. Each update
-applies the current portable properties directly; removing an optional property
-returns it to the portable default above. No native defaults are captured.
-
-Use the separate `Native(...)` API for framework-specific widgets and features.
-References and keys retain their existing PSX lifecycle behavior.
+The portable contract is unchanged: value, placeholder and on_change
+mean the same thing here as in any other renderer.

@@ -44,12 +44,17 @@ from psx.renderers.components.button import apply_tk_button, updated_button_prop
 from psx.renderers.components.checkbox import apply_tk_checkbox, updated_checkbox_props
 from psx.renderers.components.input import apply_tk_input, updated_input_props
 from psx.renderers.components.textarea import apply_tk_textarea, updated_textarea_props
+from psx.renderers.components.slider import apply_tk_slider, updated_slider_props
+from psx.renderers.components.spacer import apply_tk_spacer, updated_spacer_props
+
 from psx.core.contracts import (
     validate_textarea_props,
     validate_input_props,
     validate_button_props,
     validate_checkbox_props,
-    validate_text_props
+    validate_text_props,
+    validate_slider_props,
+    validate_spacer_props,
 )
 
 _LAYOUT_PROPS = frozenset({"spacing", "padding"})
@@ -121,6 +126,14 @@ def emit_tk_textarea(widget, slot):
             slot.invoke(widget.get("1.0", "end-1c"))
     return _on_modified
 
+def emit_tk_slider(widget, slot):
+    def _on_command(value_str):
+        if getattr(widget, "_psx_updating", False):
+            return
+        slot.invoke(float(value_str))
+    return _on_command
+
+
 # -- registries -------------------------------------------------------------
 
 @dataclass(frozen=True, slots=True)
@@ -188,8 +201,6 @@ def _apply_checkbox(widget: tk.Misc, props: Mapping[str, object]) -> None:
     apply_tk_checkbox(widget, props, widget._psx_variable)
 
 
-register_layout("Row", horizontal=True)
-
 register_primitive(
     "Text", factory=ttk.Label,
     validate=validate_text_props, apply=apply_tk_text, updated_props=updated_text_props,
@@ -224,6 +235,19 @@ register_primitive(
     updated_props=updated_textarea_props,
     events={"on_change": ("<<Modified>>", emit_tk_textarea)},
 )
+register_primitive(
+    "Slider",
+    factory=ttk.Scale,
+    validate=validate_slider_props,
+    apply=apply_tk_slider,
+    updated_props=updated_slider_props,
+    events={"on_change": ("command", emit_tk_slider)},
+)
+register_primitive(
+    "Spacer", factory=ttk.Frame,
+    validate=validate_spacer_props, apply=apply_tk_spacer,
+    updated_props=updated_spacer_props,
+)
 
 # -- renderer ---------------------------------------------------------------
 
@@ -243,7 +267,9 @@ class TkinterRenderer:
         for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Input", "Native")):
             self.adapters.register(component, self._default_adapter)
         from .column import TkColumnAdapter
+        from .row import TkRowAdapter
         self.adapters.register("Column", TkColumnAdapter())
+        self.adapters.register("Row", TkRowAdapter())
         self._schedule_drain()
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:

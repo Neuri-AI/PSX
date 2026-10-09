@@ -15,32 +15,56 @@ from psx.core.contracts import (
     TEXT_PROPS,
     TEXT_DEFAULTS,
     TEXT_CONTRACT,
-    validate_text_props,
 
     # Button
     BUTTON_PROPS,
     BUTTON_DEFAULTS,
     BUTTON_CONTRACT,
-    validate_button_props,
+
+    # Slider
+    SLIDER_PROPS,
+    SLIDER_DEFAULTS,
+    SLIDER_CONTRACT,
 
     # Checkbox
     CHECKBOX_PROPS,
     CHECKBOX_DEFAULTS,
     CHECKBOX_CONTRACT,
-    validate_checkbox_props,
 
     # Input
     INPUT_PROPS,
     INPUT_DEFAULTS,
     INPUT_CONTRACT,
-    validate_input_props,
 
     # TextArea
     TEXTAREA_CONTRACT,
     TEXTAREA_PROPS,
     TEXTAREA_DEFAULTS,
-    validate_textarea_props,
+
     COLUMN_CONTRACT,
+    COLUMN_PROPS,
+    COLUMN_DEFAULTS,
+
+
+    ROW_CONTRACT,
+    ROW_PROPS,
+    ROW_DEFAULTS,
+
+    # Spacer
+    SPACER_PROPS,
+    SPACER_DEFAULTS,
+    SPACER_CONTRACT,
+)
+
+from .validators import (
+    validate_text_props,
+    validate_slider_props,
+    validate_textarea_props,
+    validate_column_props,
+    validate_row_props,
+    validate_checkbox_props,
+    validate_input_props,
+    validate_button_props,
 )
 
 if TYPE_CHECKING:
@@ -169,8 +193,18 @@ def _layout(name: str, children: tuple[object, ...], spacing: int, key: Key | No
     return create_element(name, *children, key=key, spacing=spacing, **props)
 
 
-def Row(*children: object, spacing: int = 0, key: Key | None = None, **props: object) -> VNode:
-    return _layout("Row", children, spacing, key, props)
+def Row(
+    *children: object, spacing: int = 0,
+    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
+    align: str = "stretch", expand: bool | tuple[bool, ...] = False,
+    enabled: bool = True, key: Key | None = None, ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Horizontal portable container with optional per-child expansion."""
+    options = dict(spacing=spacing, padding=padding, align=align,
+                   expand=expand, enabled=enabled, **props)
+    ROW_CONTRACT.validate_builder(options)
+    return create_element("Row", *children, key=key, ref=ref, **options)
 
 
 def Text(
@@ -288,3 +322,33 @@ def Column(
                    expand=expand, enabled=enabled, **props)
     COLUMN_CONTRACT.validate_builder(options)
     return create_element("Column", *children, key=key, ref=ref, **options)
+
+def Slider(
+    *,
+    value: float = 0.0,
+    min_value: float = 0.0,
+    max_value: float = 100.0,
+    step: float = 0.0,
+    orientation: str = "horizontal",
+    enabled: bool = True,
+    on_change: Callable[[float], None] | None = None,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    options = dict(
+        value=value, min_value=min_value, max_value=max_value,
+        step=step, orientation=orientation, enabled=enabled,
+        on_change=on_change, **props,
+    )
+    SLIDER_CONTRACT.validate_builder(options)
+    return create_element("Slider", key=key, ref=ref, **options)
+
+def Spacer(*, key: Key | None = None, ref: object | None = None, **props: object) -> VNode:
+    """Absorbe el espacio libre del padre en su eje principal.
+
+    En un ``Column`` expande verticalmente; en un ``Row``, horizontalmente.
+    El contenedor decide el eje a partir de su propia orientación.
+    """
+    SPACER_CONTRACT.validate_builder(props)
+    return create_element("Spacer", key=key, ref=ref, **props)

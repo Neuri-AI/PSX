@@ -28,24 +28,30 @@ from .plugins import (
 )
 from .renderers import ComponentAdapter, RendererAdapterRegistry
 from .core.vnode import (Button, Checkbox, Column, Fragment, Input,
-                         Row, Text, TextArea, VNode, create_element, native_widget)
+                         Row, Text, TextArea, VNode, create_element, native_widget, Slider, Spacer)
 
 __all__ = [
-    "App",
+    # Components
     "Button",
     "Column",
     "Checkbox",
     "TextArea",
+    "Slider",
+    "Row",
+    "Text",
+    "Spacer",
+    "Fragment",
+    "Native",
+    "Input",
+
+    "App",
     "ComponentDefinition",
     "ComponentAdapter",
     "ComponentRegistry",
     "DuplicateKeyError",
-    "Fragment",
     "HookOrderError",
-    "Input",
     "InvalidChildError",
     "MarkupSyntaxError",
-    "Native",
     "NativeOwnership",
     "NativeWidget",
     "PSXError",
@@ -56,9 +62,7 @@ __all__ = [
     "RendererAdapterRegistry",
     "RendererCapabilityError",
     "RendererConfigurationError",
-    "Row",
     "Ref",
-    "Text",
     "ThreadViolationError",
     "VNode",
     "component",

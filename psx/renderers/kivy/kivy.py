@@ -32,6 +32,7 @@ from kivy.uix.checkbox import CheckBox as KivyCheckBox
 from kivy.uix.textinput import TextInput
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
+from kivy.uix.slider import Slider as KivySlider
 
 from psx.core.errors import RendererCapabilityError
 from psx.core.events import EventSlot
@@ -50,12 +51,16 @@ from psx.renderers.components.button import apply_kivy_button, updated_button_pr
 from psx.renderers.components.checkbox import apply_kivy_checkbox, updated_checkbox_props
 from psx.renderers.components.input import apply_kivy_input, updated_input_props
 from psx.renderers.components.textarea import apply_kivy_textarea, updated_textarea_props
+from psx.renderers.components.slider import apply_kivy_slider, updated_slider_props
+from psx.renderers.components.spacer import apply_kivy_spacer, updated_spacer_props
 from psx.core.contracts import (
     validate_textarea_props,
     validate_input_props,
     validate_button_props,
     validate_checkbox_props,
-    validate_text_props
+    validate_text_props,
+    validate_slider_props,
+    validate_spacer_props
 )
 
 
@@ -137,6 +142,16 @@ def emit_kivy_textarea(widget, slot):
             return
         slot.invoke(value)
     return _on_text
+
+
+def emit_kivy_slider(widget, slot):
+    def _on_value(instance, value):
+        if getattr(instance, "_psx_updating", False):
+            return
+        slot.invoke(float(value))
+    return _on_value
+
+
 # -- registries -------------------------------------------------------------
 
 
@@ -209,8 +224,6 @@ def _text_destroyed(widget: Widget) -> None:
     widget.unbind(size=size_kivy_text)
 
 
-register_layout("Row", horizontal=True)
-
 register_primitive(
     "Text", factory=lambda: Label(markup=False),
     validate=validate_text_props, apply=apply_kivy_text, updated_props=updated_text_props,
@@ -246,6 +259,20 @@ register_primitive(
     updated_props=updated_textarea_props,
     events={"on_change": ("text", emit_kivy_textarea)},
 )
+
+register_primitive(
+    "Slider",
+    factory=KivySlider,
+    validate=validate_slider_props,
+    apply=apply_kivy_slider,
+    updated_props=updated_slider_props,
+    events={"on_change": ("value", emit_kivy_slider)},
+)
+register_primitive(
+    "Spacer", factory=Widget,
+    validate=validate_spacer_props, apply=apply_kivy_spacer,
+    updated_props=updated_spacer_props,
+)
 # -- renderer ---------------------------------------------------------------
 
 
@@ -260,7 +287,9 @@ class KivyRenderer:
         for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Input", "Native")):
             self.adapters.register(component, self._default_adapter)
         from .column import KivyColumnAdapter
+        from .row import KivyRowAdapter
         self.adapters.register("Column", KivyColumnAdapter())
+        self.adapters.register("Row", KivyRowAdapter())
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
@@ -379,16 +408,27 @@ class KivyRenderer:
         Appending a child touches one widget instead of rebuilding the layout.
         """
         layout = _layout(parent)
-        desired = [child.widget for child in parent.children]
-        current = layout.children
+        spacer = getattr(layout, "_psx_bottom_spacer", None)
+
+        # Kivy stores ``Widget.children`` in reverse paint/layout order. PSX
+        # keeps handles in declaration order, so reverse only while syncing to
+        # the native container (``Text, Slider`` must remain visually so).
+        desired = [child.widget for child in reversed(parent.children)]
+        # The bottom spacer is managed by the Column adapter, not by this diff.
+        current = [w for w in layout.children if w is not spacer]
+
         shared = 0
         limit = min(len(current), len(desired))
         while shared < limit and current[shared] is desired[shared]:
             shared += 1
+
         for widget in tuple(current[shared:]):
             layout.remove_widget(widget)
+
+        # When the spacer sits at index 0, visible children start at index 1.
+        offset = 1 if (spacer is not None and spacer.parent is layout) else 0
         for position in range(shared, len(desired)):
-            layout.add_widget(desired[position], index=position)
+            layout.add_widget(desired[position], index=position + offset)
 
     def destroy(self, handle: object) -> None:
         self._adapter_for(handle_adapter_key(handle)).destroy(self, handle)

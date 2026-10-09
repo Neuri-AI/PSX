@@ -46,12 +46,16 @@ from psx.renderers.components.checkbox import apply_qt_checkbox, updated_checkbo
 from psx.renderers.components.text import apply_qt_text, updated_text_props
 from psx.renderers.components.textarea import apply_qt_textarea, updated_textarea_props
 from psx.renderers.components.input import apply_qt_input, updated_input_props
+from psx.renderers.components.slider import apply_qt_slider, updated_slider_props
+from psx.renderers.components.spacer import apply_qt_spacer, updated_spacer_props
 from psx.core.contracts import (
     validate_textarea_props,
     validate_input_props,
     validate_button_props,
     validate_checkbox_props,
-    validate_text_props
+    validate_text_props,
+    validate_slider_props,
+    validate_spacer_props
 )
 
 _LAYOUT_PROPS = frozenset({"spacing", "padding"})
@@ -112,6 +116,12 @@ def emit_input_value(widget, slot):
 def emit_textarea_value(widget, slot):
     return lambda: slot.invoke(widget.toPlainText())
 
+def emit_slider_value(widget, slot):
+    props = widget._psx_props
+    factor = widget._psx_factor
+    return lambda int_value: slot.invoke(
+        props["min_value"] + int_value / factor
+    )
 
 # -- registries -------------------------------------------------------------
 
@@ -177,8 +187,6 @@ def register_layout(name: str, *, vertical: bool, replace: bool = False) -> None
 
 # -- built-in tags ----------------------------------------------------------
 
-register_layout("Row", vertical=False)
-
 register_primitive(
     "Text", qt_class="QLabel",
     validate=validate_text_props, apply=apply_qt_text, updated_props=updated_text_props,
@@ -213,7 +221,21 @@ register_primitive(
         "on_submit": ("returnPressed", lambda w, s: (lambda: s.invoke())),
     },
 )
-
+register_primitive(
+    "Slider",
+    qt_class="QSlider",
+    validate=validate_slider_props,
+    apply=apply_qt_slider,
+    updated_props=updated_slider_props,
+    events={"on_change": ("valueChanged", emit_slider_value)},
+)
+register_primitive(
+    "Spacer", qt_class="QWidget",
+    validate=validate_spacer_props,
+    apply=apply_qt_spacer,
+    updated_props=updated_spacer_props,
+    takes_binding=False,
+)
 
 # -- renderer ---------------------------------------------------------------
 
@@ -264,7 +286,9 @@ class QtRenderer:
         for component in (*_LAYOUTS, "Fragment", *_PRIMITIVES, "Native"):
             self.adapters.register(component, self._default_adapter)
         from .column import make_qt_column_adapter
+        from .row import make_qt_row_adapter
         self.adapters.register("Column", make_qt_column_adapter(self))
+        self.adapters.register("Row", make_qt_row_adapter(self))
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
