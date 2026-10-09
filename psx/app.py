@@ -23,14 +23,12 @@ class App:
             return HeadlessRenderer()
         if renderer is None:
             return App._renderer_from_qyro_settings()
-        if isinstance(renderer, str) and renderer.lower() == "pyside6":
+        if isinstance(renderer, str) and renderer.lower() in {"pyside6", "pyside2"}:
             try:
-                from psx.renderers.qt.pyside6 import PySide6Renderer
+                from psx.renderers.qt.pyside import PySide2Renderer, PySide6Renderer
             except ImportError as exc:
-                raise RendererConfigurationError(
-                    "PySide6 renderer requires the optional dependency. Install with `pip install psx[qt]`."
-                ) from exc
-            return PySide6Renderer()
+                raise RendererConfigurationError("PySide renderer requires its matching optional binding.") from exc
+            return PySide6Renderer() if renderer.lower() == "pyside6" else PySide2Renderer()
         if isinstance(renderer, str) and renderer.lower() in {"pyqt6", "pyqt5"}:
             try:
                 from psx.renderers.qt.pyqt import PyQt5Renderer, PyQt6Renderer
@@ -47,13 +45,13 @@ class App:
             return TkinterRenderer()
         if isinstance(renderer, str) and renderer.lower() == "kivy":
             try:
-                from psx.renderers.kivy import KivyRenderer
+                from psx.renderers.kivy.kivy import KivyRenderer
             except ImportError as exc:
                 raise RendererConfigurationError("Kivy renderer requires the optional Kivy dependency.") from exc
             return KivyRenderer()
         if isinstance(renderer, str):
             raise RendererConfigurationError(
-                f"Renderer {renderer!r} is not available; use 'headless', 'pyside6', 'pyqt6', 'pyqt5', 'tkinter', or 'kivy'."
+                f"Renderer {renderer!r} is not available; use 'headless', 'pyside2', 'pyside6', 'pyqt5', 'pyqt6', 'tkinter', or 'kivy'."
             )
         return renderer
 

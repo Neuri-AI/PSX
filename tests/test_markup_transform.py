@@ -30,7 +30,7 @@ def Counter(prefix):
     count, set_count = use_state(0)
     def increment():
         set_count(lambda previous: previous + 1)
-    return psx("<Column><Text>{prefix}: {count}</Text><Button on_click={increment}>+1</Button></Column>")
+    return psx('<Column><Text value={count} /><Button label="+1" on_click={increment} /></Column>')
 """,
             filename="counter_source.py",
         )
@@ -44,23 +44,38 @@ def Counter(prefix):
         root = reconciler.render(counter(prefix="Count"))
         column = root.children[0].handle
         label, button = column.children
-        self.assertEqual(label.props["value"], "Count: 0")
+        self.assertEqual(label.props["value"], "0")
         button.events["on_click"].invoke()
         renderer.flush()
-        self.assertEqual(label.props["value"], "Count: 1")
+        self.assertEqual(label.props["value"], "1")
 
     def test_static_numeric_markup_literals_need_no_lexical_scope_entry(self) -> None:
         result = transform_source(
             """
 from psx import psx
 def view():
-    return psx("<Column padding={50} spacing={12}><Text>Ready</Text></Column>")
+    return psx('<Column padding={50} spacing={12}><Text value="Ready" /></Column>')
 """,
             filename="numeric_markup.py",
         )
         node = _execute_transformed(result.source)["view"]()
         self.assertEqual(node.props["padding"], 50)
         self.assertEqual(node.props["spacing"], 12)
+
+    def test_builtin_textarea_tag_does_not_require_a_python_import(self) -> None:
+        result = transform_source(
+            """
+from psx import psx
+note = "draft"
+def view():
+    return psx('<TextArea value={note} />')
+""",
+            filename="textarea_builtin.py",
+        )
+        self.assertNotIn("'TextArea': lambda", result.source)
+        node = _execute_transformed(result.source)["view"]()
+        self.assertEqual(node.type, "TextArea")
+        self.assertEqual(node.props["value"], "draft")
 
     def test_closure_and_shadowing_follow_normal_python_lexical_rules(self) -> None:
         result = transform_source(
@@ -71,7 +86,7 @@ value = "global"
 def make(value):
     @component
     def View():
-        return psx("<Text>{value}</Text>")
+        return psx("<Text value={value} />")
     return View
 """,
             filename="closure_source.py",
@@ -103,11 +118,11 @@ class WindowModel:
 
     def render(self, refresh):
         return psx('''<Column>
-        <Text>App Title: {self.window_title}</Text>
-        <Text>Platform: {self.platform.value}</Text>
-        <Text>Frozen: {self.is_frozen}</Text>
-        <Button on_click={self.open_settings}>Settings</Button>
-        <Button on_click={refresh}>Refresh</Button>
+        <Text value={self.window_title} />
+        <Text value={self.platform.value} />
+        <Text value="Frozen" />
+        <Button label="Settings" on_click={self.open_settings} />
+        <Button label="Refresh" on_click={refresh} />
     </Column>''')
 
 @component
@@ -128,17 +143,17 @@ def View(model):
         root = Reconciler(renderer).render(namespace["View"](model=model))
         column = root.children[0].handle
         title, platform, frozen, settings, refresh = column.children
-        self.assertEqual(title.props["value"], "App Title: Initial title")
-        self.assertEqual(platform.props["value"], "Platform: macOS")
-        self.assertEqual(frozen.props["value"], "Frozen: False")
+        self.assertEqual(title.props["value"], "Initial title")
+        self.assertEqual(platform.props["value"], "macOS")
+        self.assertEqual(frozen.props["value"], "Frozen")
         self.assertEqual(model.settings_opened, 0, "handlers must not run while rendering")
         settings.events["on_click"].invoke()
         self.assertEqual(model.settings_opened, 1)
         refresh.events["on_click"].invoke()
         renderer.flush()
-        self.assertEqual(title.props["value"], "App Title: Updated title")
-        self.assertEqual(platform.props["value"], "Platform: Linux")
-        self.assertEqual(frozen.props["value"], "Frozen: True")
+        self.assertEqual(title.props["value"], "Updated title")
+        self.assertEqual(platform.props["value"], "Linux")
+        self.assertEqual(frozen.props["value"], "Frozen")
 
     def test_missing_lexical_name_and_attribute_path_have_source_diagnostics(self) -> None:
         missing_name = transform_source(
@@ -146,7 +161,7 @@ def View(model):
 from psx import Text, component, psx
 @component
 def View():
-    return psx("<Text>{not_in_scope}</Text>")
+    return psx("<Text value={not_in_scope} />")
 """,
             filename="missing_name.py",
         )
@@ -160,7 +175,7 @@ from psx import Text, psx
 class Model:
     pass
     def render(self):
-        return psx("<Text>{self.platform.value}</Text>")
+        return psx("<Text value={self.platform.value} />")
 """,
             filename="missing_attribute.py",
         )
@@ -193,9 +208,9 @@ title = "Ada"
         result = transform_source(
             """
 from psx import psx
-template = "<Text>{value}</Text>"
+template = "<Text value={value} />"
 a = psx(template)
-b = psx("<Text>{value}</Text>", scope={"value": "safe"})
+b = psx("<Text value={value} />", scope={"value": "safe"})
 """,
             filename="dynamic_source.py",
         )
@@ -207,20 +222,20 @@ b = psx("<Text>{value}</Text>", scope={"value": "safe"})
             """
 from psx import psx
 def view():
-    return psx("<Text>{value}</Text>")
+    return psx("<Text value={value} />")
 """,
             filename="map_source.py",
         )
         entry = result.source_map.entries[0]
         self.assertEqual(entry.python_line, 4)
         self.assertEqual(entry.python_column, 12)
-        self.assertEqual(entry.markup_references, ((1, 7),))
+        self.assertEqual(entry.markup_references, ((1, 14),))
 
     def test_file_transform_emits_python_and_json_source_map(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source, output, source_map = root / "view.py", root / "build.py", root / "build.psxmap.json"
-            source.write_text("from psx import psx\nnode = psx('<Text>{title}</Text>')\n", encoding="utf-8")
+            source.write_text("from psx import psx\nnode = psx('<Text value={title} />')\n", encoding="utf-8")
             result = transform_file(source, output, map_path=source_map)
             self.assertEqual(result.transformed_calls, 1)
             self.assertIn("_psx_template_0", output.read_text(encoding="utf-8"))

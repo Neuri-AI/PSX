@@ -31,6 +31,7 @@ class PsxQyroKivyDemo(PSXComponent, App, ApplicationContext):
                 <Text>Frozen: {self.is_frozen}</Text>
                 <Text>Count: {count}</Text>
                 <Button on_click={increment}>Increment</Button>
+                
             </Column>
         """)
 

@@ -10,23 +10,33 @@ from typing import TYPE_CHECKING, Callable, TypeAlias
 
 from .errors import InvalidChildError, RendererCapabilityError
 from .native import NativeWidget
-from .contracts import (
-    BUTTON_CONTRACT,
-    BUTTON_DEFAULTS,
-    BUTTON_PROPS,
-    INPUT_CONTRACT,
-    INPUT_DEFAULTS,
-    INPUT_PROPS,
-    TEXT_CONTRACT,
-    TEXT_DEFAULTS,
+from psx.core.contracts import (
+    # Text
     TEXT_PROPS,
-    validate_button_props,
-    validate_input_props,
+    TEXT_DEFAULTS,
     validate_text_props,
-    CHECKBOX_CONTRACT,
-    CHECKBOX_DEFAULTS,
+    # Button
+    BUTTON_PROPS,
+    BUTTON_DEFAULTS,
+    validate_button_props,
+    # Checkbox
     CHECKBOX_PROPS,
+    CHECKBOX_DEFAULTS,
     validate_checkbox_props,
+    # Input
+    INPUT_PROPS,
+    INPUT_DEFAULTS,
+    validate_input_props,
+    # TextArea
+    TEXTAREA_PROPS,
+    TEXTAREA_DEFAULTS,
+    validate_textarea_props,
+    # Contratos (clases)
+    TEXT_CONTRACT,
+    BUTTON_CONTRACT,
+    CHECKBOX_CONTRACT,
+    INPUT_CONTRACT,
+    TEXTAREA_CONTRACT,
 )
 
 if TYPE_CHECKING:
@@ -209,20 +219,11 @@ def Input(
     password: bool = False,
     on_change: Callable[[str], None] | None = None,
     on_submit: Callable[[], None] | None = None,
-    key: str | int | None = None,
+    key: Key | None = None,
     ref: object | None = None,
     **props: object,
 ) -> VNode:
-    """Portable single-line text input component."""
-    options = dict(value=value, placeholder=placeholder, font_size=font_size, enabled=enabled,
-                   read_only=read_only, password=password, on_change=on_change,
-                   on_submit=on_submit, **props)
-    INPUT_CONTRACT.validate_builder(options)
-
-    return create_element(
-        "Input",
-        key=key,
-        ref=ref,
+    options = dict(
         value=value,
         placeholder=placeholder,
         font_size=font_size,
@@ -231,7 +232,10 @@ def Input(
         password=password,
         on_change=on_change,
         on_submit=on_submit,
+        **props,
     )
+    INPUT_CONTRACT.validate_builder(options)
+    return create_element("Input", key=key, ref=ref, **options)
 
 
 def Checkbox(*, checked: bool = False, enabled: bool = True, on_change: Callable[[bool], None] | None = None,
@@ -240,3 +244,27 @@ def Checkbox(*, checked: bool = False, enabled: bool = True, on_change: Callable
     options = dict(checked=checked, enabled=enabled, on_change=on_change, **props)
     CHECKBOX_CONTRACT.validate_builder(options)
     return create_element("Checkbox", key=key, ref=ref, **options)
+
+def TextArea(
+    value: str = "",
+    *,
+    placeholder: str = "",
+    font_size: int | float = 14,
+    enabled: bool = True,
+    read_only: bool = False,
+    on_change: Callable[[str], None] | None = None,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    options = dict(
+        value=value,
+        placeholder=placeholder,
+        font_size=font_size,
+        enabled=enabled,
+        read_only=read_only,
+        on_change=on_change,
+        **props,
+    )
+    TEXTAREA_CONTRACT.validate_builder(options)
+    return create_element("TextArea", key=key, ref=ref, **options)

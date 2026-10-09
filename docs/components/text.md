@@ -30,7 +30,7 @@ Text("Hello", font_size=20, bold=True, color="#336699", align="center")
 ```
 
 ```python
-psx('<Text font_size={size} bold color="#336699" align="center">Hello</Text>',
+psx('<Text value="Hello" font_size={size} bold color="#336699" align="center" />',
     scope={"size": 20})
 ```
 

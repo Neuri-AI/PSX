@@ -41,6 +41,26 @@ psx('<Input value={text} placeholder="Enter text..." password={is_secret} on_cha
 
 ```
 
+
+# Qyro: Input Component
+```python
+...
+def render(self):
+    email, set_email = use_state("")
+
+    def on_email_change(value):
+        set_email(lambda _: value)
+
+    def on_note_change(value):
+        print(f"Nuevo texto: {value}")
+    return psx("""
+        <Column spacing={12} padding={30}>
+          <Input value={email} placeholder="Email" on_change={on_email_change} />
+        </Column>
+""")
+```
+
+
 Unknown properties and invalid property values raise `RendererCapabilityError`.
 Builders, markup, and native renderers enforce this same contract. Each update
 applies the current portable properties directly; removing an optional property

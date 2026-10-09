@@ -32,7 +32,7 @@ Button("Click me", font_size=18, enabled=True, on_click=handle_click)
 ```
 
 ```python
-psx('<Button font_size={size} enabled={can_click} on_click={handle_click}>Click me</Button>',
+psx('<Button label="Click me" font_size={size} enabled={can_click} on_click={handle_click} />',
     scope={"size": 18, "can_click": True, "handle_click": handle_click})
 
 ```

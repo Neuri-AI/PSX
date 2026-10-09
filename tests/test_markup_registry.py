@@ -37,22 +37,22 @@ def test_registry_isolation_controls_tag_resolution() -> None:
 def test_template_cache_is_scoped_to_registry_identity_and_version() -> None:
     clear_template_cache()
     registry = builtin_component_registry()
-    original = compile_template("<Text>ready</Text>", registry=registry)
-    assert compile_template("<Text>ready</Text>", registry=registry) is original
+    original = compile_template('<Text value="ready" />', registry=registry)
+    assert compile_template('<Text value="ready" />', registry=registry) is original
 
     @component
     def Card():
         return Text("card")
 
     registry.register("Card", Card)
-    updated = compile_template("<Text>ready</Text>", registry=registry)
+    updated = compile_template('<Text value="ready" />', registry=registry)
     assert updated is not original
     assert compile_template("<Card />", registry=registry).render().type is Card
 
     equivalent_but_distinct = builtin_component_registry()
-    assert compile_template("<Text>ready</Text>", registry=equivalent_but_distinct) is not updated
+    assert compile_template('<Text value="ready" />', registry=equivalent_but_distinct) is not updated
 
 
 def test_registry_and_legacy_primitives_are_mutually_exclusive() -> None:
     with pytest.raises(TypeError, match="either primitives or registry"):
-        compile_template("<Text>ready</Text>", primitives={"Text": Text}, registry=builtin_component_registry())
+        compile_template('<Text value="ready" />', primitives={"Text": Text}, registry=builtin_component_registry())

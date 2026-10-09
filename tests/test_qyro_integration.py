@@ -29,7 +29,7 @@ from psx.integrations.qyro import (
     use_settings,
 )
 from psx.renderers.headless import HeadlessRenderer
-from psx.renderers.qt.pyside6 import PySide6Renderer
+from psx.renderers.qt.pyside import PySide6Renderer
 
 
 class QyroIntegrationTests(unittest.TestCase):

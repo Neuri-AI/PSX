@@ -189,6 +189,8 @@ def _element(
         if value is None:
             value = content
         return constructor(_text_value(value, filename, element.span), key=key, **props)
+    if contract is not None and contract.child_policy == "none" and element.children:
+        _error(f"{definition.name} does not accept child content; use its props instead", filename, element.span)
     children = _nodes(element.children, scope, resolver, filename, lexical=lexical)
     props = _coerce_props(definition, props, filename, element.span)
     return constructor(*children, key=key, **props)

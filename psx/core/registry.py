@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 from .component import ComponentType
-from .contracts import BUTTON_CONTRACT, CHECKBOX_CONTRACT, INPUT_CONTRACT, TEXT_CONTRACT, ComponentContract
+from .contracts import BUTTON_CONTRACT, CHECKBOX_CONTRACT, TEXT_CONTRACT, ComponentContract, TEXTAREA_CONTRACT, INPUT_CONTRACT
 from .errors import DuplicateComponentError, UnknownComponentError
 from .vnode import VNode
 
@@ -96,7 +96,7 @@ def builtin_component_registry() -> ComponentRegistry:
     lazy and optional. Every call returns an isolated registry.
     """
     from .native import Native
-    from .vnode import Button, Checkbox, Column, Fragment, Input, Row, Text
+    from .vnode import Button, Checkbox, Column, Fragment, Input, Row, Text, TextArea
 
     registry = ComponentRegistry()
     registry.register_definition(ComponentDefinition("Column", Column, markup_integer_properties=frozenset({"spacing", "padding"})))
@@ -105,6 +105,7 @@ def builtin_component_registry() -> ComponentRegistry:
     registry.register("Button", Button, contract=BUTTON_CONTRACT)
     registry.register("Input", Input, contract=INPUT_CONTRACT)
     registry.register("Checkbox", Checkbox, contract=CHECKBOX_CONTRACT)
+    registry.register("TextArea", TextArea, contract=TEXTAREA_CONTRACT)
     registry.register("Fragment", Fragment)
     registry.register("Native", Native)
     return registry

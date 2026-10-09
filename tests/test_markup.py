@@ -21,13 +21,13 @@ class MarkupM4ATests(unittest.TestCase):
         markup = psx(
             """
             <Column spacing={gap}>
-                <Text>Count: {count}</Text>
-                <Button on_click={increment}>+1</Button>
+                <Text value={count} />
+                <Button label="+1" on_click={increment} />
             </Column>
             """,
             scope={"gap": 12, "count": 3, "increment": increment},
         )
-        python = Column(Text("Count: 3"), Button("+1", on_click=increment), spacing=12)
+        python = Column(Text("3"), Button("+1", on_click=increment), spacing=12)
         self.assertEqual(markup, python)
 
     def test_fragment_and_custom_component_share_the_vnode_pipeline(self) -> None:
@@ -36,7 +36,7 @@ class MarkupM4ATests(unittest.TestCase):
             return Text(user["name"])
 
         tree = psx(
-            "<><UserCard user={user} /><Text>Done</Text></>",
+            '<><UserCard user={user} /><Text value="Done" /></>',
             scope={"UserCard": UserCard, "user": {"name": "Ada"}},
         )
         self.assertEqual(tree.kind.value, "fragment")
@@ -44,27 +44,27 @@ class MarkupM4ATests(unittest.TestCase):
         self.assertEqual(tree.children[0].props["user"], {"name": "Ada"})
 
     def test_dotted_references_are_mapping_only(self) -> None:
-        tree = psx("<Text>{user.name}</Text>", scope={"user": {"name": "Ada"}})
+        tree = psx('<Text value={user.name} />', scope={"user": {"name": "Ada"}})
         self.assertEqual(tree.props["value"], "Ada")
         with self.assertRaises(MarkupSyntaxError) as error:
-            psx("<Text>{user.name}</Text>", scope={"user": object()})
+            psx('<Text value={user.name} />', scope={"user": object()})
         self.assertIn("mapping values", str(error.exception))
 
     def test_templates_are_cached_without_capturing_scope_values(self) -> None:
-        first = compile_template("<Text>{count}</Text>")
-        second = compile_template("<Text>{count}</Text>")
+        first = compile_template('<Text value={count} />')
+        second = compile_template('<Text value={count} />')
         self.assertIs(first, second)
         self.assertEqual(first.render({"count": 1}).props["value"], "1")
         self.assertEqual(second.render({"count": 2}).props["value"], "2")
 
     def test_untrusted_expression_syntax_is_rejected_without_evaluation(self) -> None:
         with self.assertRaises(MarkupSyntaxError) as error:
-            psx("<Text>{__import__('os')}</Text>", scope={})
-        self.assertIn("References must be identifiers", str(error.exception))
+            psx("<Text value={__import__('os')} />", scope={})
+            self.assertIn("Unexpected character", str(error.exception))
 
     def test_missing_scope_and_malformed_markup_have_source_diagnostics(self) -> None:
         with self.assertRaises(MarkupSyntaxError) as missing:
-            psx("<Text>{count}</Text>")
+            psx('<Text value={count} />')
         self.assertIn("scope", str(missing.exception))
         with self.assertRaises(MarkupSyntaxError) as malformed:
             psx("<Column>\n<Text>Hello</Column>", filename="counter.psx")
@@ -72,11 +72,11 @@ class MarkupM4ATests(unittest.TestCase):
         self.assertIn("Expected closing tag </Text>", str(malformed.exception))
 
     def test_static_spacing_is_converted_by_the_column_schema(self) -> None:
-        tree = psx('<Column spacing="16"><Text>Hello</Text></Column>')
+        tree = psx('<Column spacing="16"><Text value="Hello" /></Column>')
         self.assertEqual(tree.props["spacing"], 16)
 
     def test_braced_numeric_literals_are_safe_static_attribute_values(self) -> None:
-        tree = psx('<Column padding={50} spacing={12}><Text>Ready</Text></Column>')
+        tree = psx('<Column padding={50} spacing={12}><Text value="Ready" /></Column>')
         self.assertEqual(tree.props["padding"], 50)
         self.assertEqual(tree.props["spacing"], 12)
 
@@ -94,8 +94,8 @@ class MarkupM4ATests(unittest.TestCase):
             return psx(
                 """
                 <Column spacing={spacing}>
-                    <Text>Count: {count}</Text>
-                    <Button on_click={increment}>+1</Button>
+                    <Text value={count} />
+                    <Button label="+1" on_click={increment} />
                 </Column>
                 """,
                 scope={"spacing": 8, "count": count, "increment": increment},
@@ -110,7 +110,7 @@ class MarkupM4ATests(unittest.TestCase):
         self.assertIs(root.children[0].handle, column)
         self.assertIs(column.children[0], label)
         self.assertIs(column.children[1], button)
-        self.assertEqual(label.props["value"], "Count: 1")
+        self.assertEqual(label.props["value"], "1")
 
 
 if __name__ == "__main__":

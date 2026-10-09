@@ -14,7 +14,7 @@ from psx import Column, Ref, psx
 from psx.core.reconcile import Reconciler
 from psx.core.registry import builtin_component_registry
 from psx.extensions.qt_webengine import WebView
-from psx.renderers.qt.pyside6 import PySide6Renderer
+from psx.renderers.qt.pyside import PySide6Renderer
 
 
 def test_webview_custom_markup_preserves_identity_events_refs_and_cleanup() -> None:

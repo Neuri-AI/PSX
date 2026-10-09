@@ -5,7 +5,7 @@ import importlib
 from collections.abc import Mapping
 
 from psx.core.errors import RendererCapabilityError
-from psx.core.vnode import TEXT_DEFAULTS, TEXT_PROPS, validate_text_props
+from psx.core.contracts import TEXT_DEFAULTS, TEXT_PROPS, validate_text_props
 
 
 def text_props(props: Mapping[str, object]) -> dict[str, object]:

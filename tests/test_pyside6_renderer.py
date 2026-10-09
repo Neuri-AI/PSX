@@ -16,7 +16,8 @@ from psx import App, Button, Checkbox, Column, Input, Native, NativeWidget, Ref,
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.integrations.pydux import StoreProvider, use_selector
-from psx.renderers.qt.pyside6 import PySide6Renderer, QtHandle
+from psx.renderers.qt.pyside import PySide6Renderer
+from psx.renderers.qt.pyqt import QtHandle
 
 
 class PySide6RendererTests(unittest.TestCase):

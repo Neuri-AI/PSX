@@ -8,7 +8,6 @@ from qyro import ApplicationContext
 
 from psx import psx
 from psx.integrations.qyro import PSXComponent
-from psx.integrations.qyro import PSXComponent
 from psx.integrations.pydux import use_dispatch, use_selector
 
 from pydux import configure_store, create_slice

@@ -4,16 +4,29 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from platform import node
 from threading import RLock
 
 from psx.core.events import EventSlot
-from psx.core.vnode import VNode, NodeKind, validate_button_props, validate_checkbox_props, validate_text_props
 from psx.renderers.adapters import AdapterSubscription, DelegatingAdapter, RendererAdapterRegistry, adapter_key, handle_adapter_key
-from psx.renderers.text import updated_text_props
+from psx.renderers.components.text import updated_text_props
 
+from psx.core.vnode import (
+    VNode,
+    NodeKind,
+    validate_button_props,
+    validate_checkbox_props,
+    validate_input_props,
+    validate_text_props,
+)
+from psx.renderers.components.input import updated_input_props
+from psx.renderers.components.text import updated_text_props
+from psx.renderers.components.textarea import updated_textarea_props, validate_textarea_props
 
 # eq=False: handles compare by identity, so list.remove/in use the fast C
 # identity path instead of a recursive field-by-field dataclass comparison.
+
+
 @dataclass(slots=True, eq=False)
 class HeadlessHandle:
     type: object
@@ -50,18 +63,32 @@ class HeadlessRenderer:
                 validate_button_props(node.props)
             elif node.type == "Checkbox":
                 validate_checkbox_props(node.props)
+            elif node.type == "Input":
+                validate_input_props(node.props)
+            elif node.type == "TextArea":
+                validate_textarea_props(node.props)
         handle = HeadlessHandle(node.type, dict(node.props))
         self.operations.append(("create", handle))
         return handle
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
-        adapter = self.adapters.get(handle_adapter_key(handle)) or self._default_adapter
+        adapter = self.adapters.get(
+            handle_adapter_key(handle)) or self._default_adapter
         adapter.update(self, handle, changed, removed)
 
-    def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
+    def _adapter_update(
+        self,
+        handle: object,
+        changed: Mapping[str, object],
+        removed: frozenset[str],
+    ) -> None:
         target = _handle(handle)
         if target.type == "Text":
             updated_text_props(target.props, changed, removed)
+        elif target.type == "Input":
+            updated_input_props(target.props, changed, removed)
+        elif target.type == "TextArea":
+            updated_textarea_props(target.props, changed, removed)
         target.props.update(changed)
         for name in removed:
             target.props.pop(name, None)
@@ -87,7 +114,8 @@ class HeadlessRenderer:
         self.operations.append(("remove", container, item))
 
     def bind_event(self, handle: object, event: str, slot: EventSlot) -> object:
-        adapter = self.adapters.get(handle_adapter_key(handle)) or self._default_adapter
+        adapter = self.adapters.get(
+            handle_adapter_key(handle)) or self._default_adapter
         return AdapterSubscription(adapter, adapter.bind_event(self, handle, event, slot))
 
     def _adapter_bind_event(self, handle: object, event: str, slot: EventSlot) -> object:
@@ -110,7 +138,8 @@ class HeadlessRenderer:
         self.operations.append(("unbind_event", target, event))
 
     def destroy(self, handle: object) -> None:
-        adapter = self.adapters.get(handle_adapter_key(handle)) or self._default_adapter
+        adapter = self.adapters.get(
+            handle_adapter_key(handle)) or self._default_adapter
         adapter.destroy(self, handle)
 
     def _adapter_destroy(self, handle: object) -> None:

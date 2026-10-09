@@ -5,7 +5,7 @@ import importlib
 from collections.abc import Mapping
 
 from psx.core.errors import RendererCapabilityError
-from psx.core.vnode import BUTTON_DEFAULTS, BUTTON_PROPS, validate_button_props
+from psx.core.contracts import BUTTON_DEFAULTS, BUTTON_PROPS, validate_button_props
 
 
 def button_props(props: Mapping[str, object]) -> dict[str, object]:

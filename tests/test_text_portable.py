@@ -38,10 +38,10 @@ def test_values_are_plain_text(value):
 
 
 def test_markup_uses_the_same_contract_and_defaults():
-    node = psx('<Text font_size={size} bold color="#336699" align="right">Hello</Text>', scope={"size": 18.5})
+    node = psx('<Text value="Hello" font_size={size} bold color="#336699" align="right" />', scope={"size": 18.5})
     assert node.props == Text("Hello", font_size=18.5, bold=True, color="#336699", align="right").props
     with pytest.raises(RendererCapabilityError):
-        psx('<Text wrap>Hello</Text>')
+        psx('<Text value="Hello" wrap />')
 
 
 def test_reactive_updates_and_removal_keep_identity_and_destroy_once():
@@ -61,4 +61,4 @@ def test_reactive_updates_and_removal_keep_identity_and_destroy_once():
 def test_color_defaults_to_theme_in_python_and_markup():
     assert Text("theme").props["color"] is None
     assert Text("theme", color=None).props["color"] is None
-    assert psx("<Text>theme</Text>").props["color"] is None
+    assert psx('<Text value="theme" />').props["color"] is None
