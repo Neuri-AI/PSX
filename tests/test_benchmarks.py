@@ -18,6 +18,7 @@ def test_core_benchmark_suite_covers_reconciliation_paths_and_compares_results()
         "noop_update_combined",
         "noop_update_reconcile_only",
         "keyed_reorder",
+        "keyed_reorder_reconcile_only",
         "event_callback_replacement",
         "event_mount_unmount_cleanup",
         "batched_state_scheduler",

@@ -121,7 +121,9 @@ class TkinterRenderer:
             apply_tk_checkbox(_as_checkbox(target), props, _as_checkbox(target)._psx_variable)
             target.props = props
             return
-        unsupported = set(removed) | (set(changed) - {"label", "enabled", "spacing", "padding"})
+        layout = target.node_type in {"Column", "Row", "Fragment"}
+        allowed = {"spacing", "padding"} if layout else {"label", "enabled"}
+        unsupported = (set(changed) | set(removed)) - allowed
         if unsupported:
             raise RendererCapabilityError(
                 f"Unsupported Tkinter props for {target.node_type!r}: {', '.join(sorted(unsupported))}"
