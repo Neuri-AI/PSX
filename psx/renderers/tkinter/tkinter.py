@@ -17,7 +17,7 @@ Call :func:`register_primitive` once (module import time is fine); every
         events={"on_change": ("command", emit_call)},
     )
 
-Container tags (Row/Column-like) are registered with :func:`register_layout`.
+Container tags are registered with :func:`register_layout`.
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ from psx.renderers.adapters import (
     RendererAdapterRegistry,
     adapter_key,
     handle_adapter_key,
+    run_child_hook,
 )
 from psx.renderers.components.text import apply_tk_text, updated_text_props
 from psx.renderers.components.button import apply_tk_button, updated_button_props
@@ -187,7 +188,6 @@ def _apply_checkbox(widget: tk.Misc, props: Mapping[str, object]) -> None:
     apply_tk_checkbox(widget, props, widget._psx_variable)
 
 
-register_layout("Column", horizontal=False)
 register_layout("Row", horizontal=True)
 
 register_primitive(
@@ -242,6 +242,8 @@ class TkinterRenderer:
         # "Input" stays reserved (unsupported in Tk) so custom adapters still need replace=True.
         for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Input", "Native")):
             self.adapters.register(component, self._default_adapter)
+        from .column import TkColumnAdapter
+        self.adapters.register("Column", TkColumnAdapter())
         self._schedule_drain()
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
@@ -307,12 +309,30 @@ class TkinterRenderer:
     # -- tree operations --------------------------------------------------
 
     def insert(self, parent: object, child: object, index: int) -> None:
+        adapter = self._adapter_for(handle_adapter_key(parent))
+        if run_child_hook(adapter, "insert", self, parent, child, index):
+            return
+        self._default_insert(parent, child, index)
+
+    def _default_insert(self, parent: object, child: object, index: int) -> None:
         self._place(_as_handle(parent), _as_handle(child), index, require_existing=False)
 
     def move(self, parent: object, child: object, index: int) -> None:
+        adapter = self._adapter_for(handle_adapter_key(parent))
+        if run_child_hook(adapter, "move", self, parent, child, index):
+            return
+        self._default_move(parent, child, index)
+
+    def _default_move(self, parent: object, child: object, index: int) -> None:
         self._place(_as_handle(parent), _as_handle(child), index, require_existing=True)
 
     def remove(self, parent: object, child: object) -> None:
+        adapter = self._adapter_for(handle_adapter_key(parent))
+        if run_child_hook(adapter, "remove", self, parent, child):
+            return
+        self._default_remove(parent, child)
+
+    def _default_remove(self, parent: object, child: object) -> None:
         container, item = _as_handle(parent), _as_handle(child)
         if item in container.children:
             container.children.remove(item)

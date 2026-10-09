@@ -12,7 +12,20 @@ from psx.core.vnode import NodeKind, VNode
 
 
 class ComponentAdapter(Protocol):
-    """Native lifecycle operations for one PSX component in one renderer."""
+    """Native lifecycle operations for one PSX component in one renderer.
+
+    Optional child-lifecycle hooks (must be discovered via ``getattr``, never
+    called directly on the adapter object)::
+
+        insert(self, renderer, parent, child, index) -> bool
+        move(self, renderer, parent, child, index) -> bool
+        remove(self, renderer, parent, child) -> bool
+
+    Returning True means the adapter handled the operation and the renderer
+    must not run its default. Returning False (or not implementing the hook)
+    lets the renderer handle it. Existing and third-party adapters are free to
+    omit these; renderers must probe with ``getattr``.
+    """
 
     def create(self, renderer: object, node: VNode, parent: object | None) -> object: ...
     def update(self, renderer: object, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None: ...
@@ -66,6 +79,14 @@ class DelegatingAdapter:
     def destroy(self, renderer: object, handle: object) -> None:
         renderer._adapter_destroy(handle)  # type: ignore[attr-defined]
 
+    def insert(self, renderer: object, parent: object, child: object, index: int) -> bool:
+        return False
+
+    def move(self, renderer: object, parent: object, child: object, index: int) -> bool:
+        return False
+
+    def remove(self, renderer: object, parent: object, child: object) -> bool:
+        return False
 
 def adapter_key(node: VNode) -> str:
     return "Native" if node.kind is NodeKind.NATIVE else str(node.type)
@@ -80,3 +101,10 @@ def handle_adapter_key(handle: object) -> str:
 class AdapterSubscription:
     adapter: ComponentAdapter
     subscription: object
+
+def run_child_hook(adapter: object, name: str, renderer: object, *args: object) -> bool:
+    """Invoke an optional child-lifecycle hook. Returns False if absent."""
+    hook = getattr(adapter, name, None)
+    if hook is None:
+        return False
+    return bool(hook(renderer, *args))

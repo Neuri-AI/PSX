@@ -9,17 +9,21 @@ from threading import RLock
 
 from psx.core.events import EventSlot
 from psx.renderers.adapters import AdapterSubscription, DelegatingAdapter, RendererAdapterRegistry, adapter_key, handle_adapter_key
-from psx.renderers.components.text import updated_text_props
-
-from psx.core.vnode import (
-    VNode,
-    NodeKind,
-    validate_button_props,
-    validate_checkbox_props,
-    validate_input_props,
-    validate_text_props,
+from psx.renderers.components.text import updated_text_props, validate_text_props
+from psx.renderers.components.button import updated_button_props, validate_button_props
+from psx.renderers.components.checkbox import updated_checkbox_props, validate_checkbox_props
+from psx.renderers.components.button import validate_button_props, updated_button_props
+from psx.renderers.components.checkbox import validate_checkbox_props, updated_checkbox_props
+from psx.renderers.adapters import (
+    AdapterSubscription,
+    DelegatingAdapter,
+    RendererAdapterRegistry,
+    adapter_key,
+    handle_adapter_key,
+    run_child_hook,
 )
-from psx.renderers.components.input import updated_input_props
+from psx.core.vnode import VNode, NodeKind
+from psx.renderers.components.input import updated_input_props, validate_input_props
 from psx.renderers.components.text import updated_text_props
 from psx.renderers.components.textarea import updated_textarea_props, validate_textarea_props
 
@@ -95,6 +99,12 @@ class HeadlessRenderer:
         self.operations.append(("update", target, dict(changed), removed))
 
     def insert(self, parent: object, child: object, index: int) -> None:
+        adapter = self.adapters.get(handle_adapter_key(parent)) or self._default_adapter
+        if run_child_hook(adapter, "insert", self, parent, child, index):
+            return
+        self._default_insert(parent, child, index)
+
+    def _default_insert(self, parent: object, child: object, index: int) -> None:
         container, item = _handle(parent), _handle(child)
         if item in container.children:
             container.children.remove(item)
@@ -102,17 +112,28 @@ class HeadlessRenderer:
         self.operations.append(("insert", container, item, index))
 
     def move(self, parent: object, child: object, index: int) -> None:
+        adapter = self.adapters.get(handle_adapter_key(parent)) or self._default_adapter
+        if run_child_hook(adapter, "move", self, parent, child, index):
+            return
+        self._default_move(parent, child, index)
+
+    def _default_move(self, parent: object, child: object, index: int) -> None:
         container, item = _handle(parent), _handle(child)
         container.children.remove(item)
         container.children.insert(index, item)
         self.operations.append(("move", container, item, index))
 
     def remove(self, parent: object, child: object) -> None:
+        adapter = self.adapters.get(handle_adapter_key(parent)) or self._default_adapter
+        if run_child_hook(adapter, "remove", self, parent, child):
+            return
+        self._default_remove(parent, child)
+
+    def _default_remove(self, parent: object, child: object) -> None:
         container, item = _handle(parent), _handle(child)
         if item in container.children:
             container.children.remove(item)
         self.operations.append(("remove", container, item))
-
     def bind_event(self, handle: object, event: str, slot: EventSlot) -> object:
         adapter = self.adapters.get(
             handle_adapter_key(handle)) or self._default_adapter

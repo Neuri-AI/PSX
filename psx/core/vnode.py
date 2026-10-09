@@ -14,29 +14,33 @@ from psx.core.contracts import (
     # Text
     TEXT_PROPS,
     TEXT_DEFAULTS,
+    TEXT_CONTRACT,
     validate_text_props,
+
     # Button
     BUTTON_PROPS,
     BUTTON_DEFAULTS,
+    BUTTON_CONTRACT,
     validate_button_props,
+
     # Checkbox
     CHECKBOX_PROPS,
     CHECKBOX_DEFAULTS,
+    CHECKBOX_CONTRACT,
     validate_checkbox_props,
+
     # Input
     INPUT_PROPS,
     INPUT_DEFAULTS,
+    INPUT_CONTRACT,
     validate_input_props,
+
     # TextArea
+    TEXTAREA_CONTRACT,
     TEXTAREA_PROPS,
     TEXTAREA_DEFAULTS,
     validate_textarea_props,
-    # Contratos (clases)
-    TEXT_CONTRACT,
-    BUTTON_CONTRACT,
-    CHECKBOX_CONTRACT,
-    INPUT_CONTRACT,
-    TEXTAREA_CONTRACT,
+    COLUMN_CONTRACT,
 )
 
 if TYPE_CHECKING:
@@ -165,10 +169,6 @@ def _layout(name: str, children: tuple[object, ...], spacing: int, key: Key | No
     return create_element(name, *children, key=key, spacing=spacing, **props)
 
 
-def Column(*children: object, spacing: int = 0, key: Key | None = None, **props: object) -> VNode:
-    return _layout("Column", children, spacing, key, props)
-
-
 def Row(*children: object, spacing: int = 0, key: Key | None = None, **props: object) -> VNode:
     return _layout("Row", children, spacing, key, props)
 
@@ -241,9 +241,11 @@ def Input(
 def Checkbox(*, checked: bool = False, enabled: bool = True, on_change: Callable[[bool], None] | None = None,
              key: str | int | None = None, ref: object | None = None, **props: object) -> VNode:
     """Portable boolean checkbox with a boolean ``on_change`` callback."""
-    options = dict(checked=checked, enabled=enabled, on_change=on_change, **props)
+    options = dict(checked=checked, enabled=enabled,
+                   on_change=on_change, **props)
     CHECKBOX_CONTRACT.validate_builder(options)
     return create_element("Checkbox", key=key, ref=ref, **options)
+
 
 def TextArea(
     value: str = "",
@@ -268,3 +270,21 @@ def TextArea(
     )
     TEXTAREA_CONTRACT.validate_builder(options)
     return create_element("TextArea", key=key, ref=ref, **options)
+
+
+def Column(
+    *children: object,
+    spacing: int = 0,
+    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
+    align: str = "stretch",
+    expand: bool | tuple[bool, ...] = False,
+    enabled: bool = True,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Vertical portable container with optional per-child expansion."""
+    options = dict(spacing=spacing, padding=padding, align=align,
+                   expand=expand, enabled=enabled, **props)
+    COLUMN_CONTRACT.validate_builder(options)
+    return create_element("Column", *children, key=key, ref=ref, **options)

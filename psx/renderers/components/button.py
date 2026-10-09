@@ -1,7 +1,6 @@
 """Direct application of the closed portable Button contract."""
 from __future__ import annotations
 
-import importlib
 from collections.abc import Mapping
 
 from psx.core.errors import RendererCapabilityError
@@ -28,8 +27,10 @@ def updated_button_props(
 
 def apply_qt_button(widget: object, props: Mapping[str, object], binding: str) -> None:
     p = button_props(props)
-    gui = importlib.import_module(f"{binding}.QtGui")
-    font = gui.QFont()
+    # Start from the widget's resolved platform/QSS font.  Constructing a
+    # fresh QFont discards the native family, weight and style inherited from
+    # the host application and can make QPushButton look visually flat.
+    font = widget.font()
     font.setPixelSize(max(1, round(p["font_size"])))
     widget.setFont(font)
     widget.setText(str(p["label"]))

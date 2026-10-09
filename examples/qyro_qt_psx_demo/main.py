@@ -26,12 +26,7 @@ class QyroQtPsxDemo(QMainWindow, PSXComponent, ApplicationContext):
 
         return psx("""
             <Column padding={32} spacing={10}>
-                <Text>Qyro + PSX + Qt (hot reloading ;))</Text>
-                <Text>App Title: {self.window_title}</Text>
-                <Text>Platform: {self.platform.value}</Text>
-                <Text>Frozen: {self.is_frozen}</Text>
-                <Text>Count: {count}</Text>
-                <Button on_click={increment}>Increment</Button>
+  
                 <Button on_click={decrement}>Decrement</Button>
             </Column>
         """)

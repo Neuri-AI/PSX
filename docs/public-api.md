@@ -13,7 +13,7 @@ from psx import (
 
 ## UI and markup
 
-`Column`, `Row`, `Text`, `Button`, `Input`, and `Checkbox` are portable builders. `Checkbox` accepts `checked=False`, `enabled=True`, and `on_change: Callable[[bool], None] | None`. `key` controls reconciliation identity and `ref` is populated after commit.
+`Column`, `Row`, `Text`, `Button`, `Input`, and `Checkbox` are portable builders. `Column` accepts `spacing`, `padding`, `align`, positional `expand`, and `enabled`. `Checkbox` accepts `checked=False`, `enabled=True`, and `on_change: Callable[[bool], None] | None`. `key` controls reconciliation identity and `ref` is populated after commit.
 
 `psx(source, scope=..., registry=...)` resolves familiar built-ins automatically. Markup keeps attributes, expressions, children, keys, refs, event handlers, static transform support, and legacy `primitives=` support.
 

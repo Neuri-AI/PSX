@@ -16,7 +16,7 @@ Call :func:`register_primitive` once (module import time is fine); every
         on_destroy=None,                         # optional hook before teardown
     )
 
-Container tags (Row/Column-like) are registered with :func:`register_layout`.
+Container tags are registered with :func:`register_layout`.
 """
 
 from __future__ import annotations
@@ -43,6 +43,7 @@ from psx.renderers.adapters import (
     RendererAdapterRegistry,
     adapter_key,
     handle_adapter_key,
+    run_child_hook,
 )
 from psx.renderers.components.text import apply_kivy_text, updated_text_props, size_kivy_text
 from psx.renderers.components.button import apply_kivy_button, updated_button_props
@@ -208,7 +209,6 @@ def _text_destroyed(widget: Widget) -> None:
     widget.unbind(size=size_kivy_text)
 
 
-register_layout("Column", horizontal=False)
 register_layout("Row", horizontal=True)
 
 register_primitive(
@@ -259,6 +259,8 @@ class KivyRenderer:
         # "Input" stays reserved (unsupported in Kivy) so custom adapters still need replace=True.
         for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Input", "Native")):
             self.adapters.register(component, self._default_adapter)
+        from .column import KivyColumnAdapter
+        self.adapters.register("Column", KivyColumnAdapter())
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
@@ -331,6 +333,12 @@ class KivyRenderer:
     # -- tree operations --------------------------------------------------
 
     def insert(self, parent: object, child: object, index: int) -> None:
+        adapter = self._adapter_for(handle_adapter_key(parent))
+        if run_child_hook(adapter, "insert", self, parent, child, index):
+            return
+        self._default_insert(parent, child, index)
+
+    def _default_insert(self, parent: object, child: object, index: int) -> None:
         container, item = _handle(parent), _handle(child)
         if item in container.children:
             container.children.remove(item)
@@ -338,12 +346,24 @@ class KivyRenderer:
         self._sync_children(container)
 
     def move(self, parent: object, child: object, index: int) -> None:
+        adapter = self._adapter_for(handle_adapter_key(parent))
+        if run_child_hook(adapter, "move", self, parent, child, index):
+            return
+        self._default_move(parent, child, index)
+
+    def _default_move(self, parent: object, child: object, index: int) -> None:
         container, item = _handle(parent), _handle(child)
         container.children.remove(item)
         container.children.insert(index, item)
         self._sync_children(container)
 
     def remove(self, parent: object, child: object) -> None:
+        adapter = self._adapter_for(handle_adapter_key(parent))
+        if run_child_hook(adapter, "remove", self, parent, child):
+            return
+        self._default_remove(parent, child)
+
+    def _default_remove(self, parent: object, child: object) -> None:
         container, item = _handle(parent), _handle(child)
         if item in container.children:
             container.children.remove(item)

@@ -86,6 +86,16 @@ TEXTAREA_DEFAULTS = MappingProxyType({
     "read_only": False,
     "on_change": None,
 })
+COLUMN_PROPS = frozenset({"spacing", "padding", "align", "expand", "enabled"})
+COLUMN_DEFAULTS = MappingProxyType({
+    "spacing": 0,
+    "padding": 0,
+    "align": "stretch",
+    "expand": False,
+    "enabled": True,
+})
+
+_VALID_ALIGN = frozenset({"start", "center", "end", "stretch"})
 
 def validate_textarea_props(props: Mapping[str, object]) -> None:
     unknown = set(props) - TEXTAREA_PROPS - {"ref", "key"}
@@ -238,6 +248,64 @@ def validate_checkbox_props(props: Mapping[str, object]) -> None:
             "Checkbox.on_change must be callable or None.")
 
 
+def _validate_padding(value: object, name: str) -> None:
+    if isinstance(value, bool):
+        raise RendererCapabilityError(f"{name} must not be a bool.")
+    if isinstance(value, int):
+        if value < 0:
+            raise RendererCapabilityError(f"{name} must be >= 0.")
+        return
+    if isinstance(value, (tuple, list)):
+        if len(value) not in (2, 4):
+            raise RendererCapabilityError(
+                f"{name} must be int, (h, v), or (l, t, r, b)."
+            )
+        for item in value:
+            if isinstance(item, bool) or not isinstance(item, int) or item < 0:
+                raise RendererCapabilityError(
+                    f"{name} tuple elements must be ints >= 0."
+                )
+        return
+    raise RendererCapabilityError(f"{name} must be int or tuple of ints.")
+
+
+def validate_column_props(props: Mapping[str, object]) -> None:
+    unknown = set(props) - COLUMN_PROPS
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported Column props: {', '.join(sorted(unknown))}"
+        )
+
+    spacing = props.get("spacing", COLUMN_DEFAULTS["spacing"])
+    if isinstance(spacing, bool) or not isinstance(spacing, int) or spacing < 0:
+        raise RendererCapabilityError("Column.spacing must be a non-negative int.")
+
+    _validate_padding(props.get("padding", COLUMN_DEFAULTS["padding"]), "Column.padding")
+
+    align = props.get("align", COLUMN_DEFAULTS["align"])
+    if align not in _VALID_ALIGN:
+        raise RendererCapabilityError(
+            f"Column.align must be one of {sorted(_VALID_ALIGN)}."
+        )
+
+    expand = props.get("expand", COLUMN_DEFAULTS["expand"])
+    if isinstance(expand, bool):
+        pass
+    elif isinstance(expand, (tuple, list)):
+        if not all(isinstance(x, bool) for x in expand):
+            raise RendererCapabilityError(
+                "Column.expand tuple must contain only bools."
+            )
+    else:
+        raise RendererCapabilityError(
+            "Column.expand must be bool or tuple of bool."
+        )
+
+    enabled = props.get("enabled", COLUMN_DEFAULTS["enabled"])
+    if not isinstance(enabled, bool):
+        raise RendererCapabilityError("Column.enabled must be a bool.")
+
+
 TEXT_CONTRACT = ComponentContract("Text", TEXT_PROPS, TEXT_DEFAULTS, frozenset(
 ), "text-only", validate_text_props, content_property="value")
 BUTTON_CONTRACT = ComponentContract("Button", BUTTON_PROPS, BUTTON_DEFAULTS, frozenset(
@@ -262,6 +330,14 @@ INPUT_CONTRACT = ComponentContract(
     INPUT_PROPS,
     INPUT_DEFAULTS,
     frozenset({"on_change", "on_submit"}),
-    "none",               # no children
+    "none",
     validate_input_props,
+)
+COLUMN_CONTRACT = ComponentContract(
+    "Column",
+    COLUMN_PROPS,
+    COLUMN_DEFAULTS,
+    frozenset(),
+    "multiple",
+    validate_column_props,
 )

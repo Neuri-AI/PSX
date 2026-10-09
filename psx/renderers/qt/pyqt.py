@@ -14,7 +14,7 @@ Call :func:`register_primitive` once (module import time is fine); every
         events={"on_change": ("valueChanged", emit_value)},
     )
 
-Layout containers (Row/Column-like) are registered with :func:`register_layout`.
+Layout containers are registered with :func:`register_layout`.
 """
 
 from __future__ import annotations
@@ -39,6 +39,7 @@ from psx.renderers.adapters import (
     RendererAdapterRegistry,
     adapter_key,
     handle_adapter_key,
+    run_child_hook,
 )
 from psx.renderers.components.button import apply_qt_button, updated_button_props
 from psx.renderers.components.checkbox import apply_qt_checkbox, updated_checkbox_props
@@ -176,7 +177,6 @@ def register_layout(name: str, *, vertical: bool, replace: bool = False) -> None
 
 # -- built-in tags ----------------------------------------------------------
 
-register_layout("Column", vertical=True)
 register_layout("Row", vertical=False)
 
 register_primitive(
@@ -263,6 +263,8 @@ class QtRenderer:
         self._default_adapter = DelegatingAdapter()
         for component in (*_LAYOUTS, "Fragment", *_PRIMITIVES, "Native"):
             self.adapters.register(component, self._default_adapter)
+        from .column import make_qt_column_adapter
+        self.adapters.register("Column", make_qt_column_adapter(self))
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
@@ -326,15 +328,33 @@ class QtRenderer:
     # -- tree operations --------------------------------------------------
 
     def insert(self, parent: object, child: object, index: int) -> None:
+        adapter = self._adapter_for(handle_adapter_key(parent))
+        if run_child_hook(adapter, "insert", self, parent, child, index):
+            return
+        self._default_insert(parent, child, index)
+
+    def _default_insert(self, parent: object, child: object, index: int) -> None:
         _layout(_handle(parent)).insertWidget(index, _handle(child).widget)
 
     def move(self, parent: object, child: object, index: int) -> None:
+        adapter = self._adapter_for(handle_adapter_key(parent))
+        if run_child_hook(adapter, "move", self, parent, child, index):
+            return
+        self._default_move(parent, child, index)
+
+    def _default_move(self, parent: object, child: object, index: int) -> None:
         layout = _layout(_handle(parent))
         widget = _handle(child).widget
         layout.removeWidget(widget)
         layout.insertWidget(index, widget)
 
     def remove(self, parent: object, child: object) -> None:
+        adapter = self._adapter_for(handle_adapter_key(parent))
+        if run_child_hook(adapter, "remove", self, parent, child):
+            return
+        self._default_remove(parent, child)
+
+    def _default_remove(self, parent: object, child: object) -> None:
         item = _handle(child)
         _layout(_handle(parent)).removeWidget(item.widget)
         _release(item)
