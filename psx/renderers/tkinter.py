@@ -15,7 +15,11 @@ from tkinter import ttk
 from psx.core.errors import RendererCapabilityError
 from psx.core.events import EventSlot
 from psx.core.native import NativeOwnership, NativeWidget
-from psx.core.vnode import NodeKind, VNode
+from psx.core.vnode import NodeKind, VNode, validate_button_props, validate_checkbox_props, validate_text_props
+from psx.renderers.text import apply_tk_text, updated_text_props
+from psx.renderers.button import apply_tk_button, updated_button_props
+from psx.renderers.checkbox import apply_tk_checkbox, updated_checkbox_props
+from psx.renderers.adapters import AdapterSubscription, DelegatingAdapter, RendererAdapterRegistry, adapter_key, handle_adapter_key
 
 
 @dataclass(slots=True)
@@ -29,7 +33,7 @@ class TkHandle:
 
 @dataclass(slots=True)
 class TkEventSubscription:
-    widget: ttk.Button
+    widget: tk.Misc
     event: str
     callback: Callable[[], object | None]
 
@@ -49,9 +53,20 @@ class TkinterRenderer:
         self._poll_interval_ms = poll_interval_ms
         self._closed = False
         self._after_id: str | None = None
+        self.adapters = RendererAdapterRegistry()
+        self._default_adapter = DelegatingAdapter()
+        for component in ("Column", "Row", "Fragment", "Text", "Button", "Input", "Checkbox", "Native"):
+            self.adapters.register(component, self._default_adapter)
         self._schedule_drain()
 
+    def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
+        self.adapters.register(component, adapter, replace=replace)
+
     def create(self, node: VNode, parent: object | None) -> TkHandle:
+        adapter = self.adapters.get(adapter_key(node)) or self._default_adapter
+        return adapter.create(self, node, parent)  # type: ignore[return-value]
+
+    def _adapter_create(self, node: VNode, parent: object | None) -> TkHandle:
         _validate_props(node)
         master = _as_handle(parent).widget if parent is not None else self.root
         if node.kind is NodeKind.NATIVE:
@@ -62,14 +77,26 @@ class TkinterRenderer:
         if node.kind is not NodeKind.HOST:
             raise RendererCapabilityError(f"Tkinter cannot create node kind {node.kind.value!r}.")
         if node.type == "Text":
-            return TkHandle(node.type, ttk.Label(master, text=str(node.props["value"])), dict(node.props))
+            widget = ttk.Label(master)
+            apply_tk_text(widget, node.props)
+            return TkHandle(node.type, widget, dict(node.props))
         if node.type == "Button":
-            widget = ttk.Button(master, text=str(node.props["label"]))
-            widget.state(("!disabled",) if node.props.get("enabled", True) else ("disabled",))
+            widget = ttk.Button(master)
+            apply_tk_button(widget, node.props)
+            return TkHandle(node.type, widget, dict(node.props))
+        if node.type == "Checkbox":
+            variable = tk.BooleanVar(master=master)
+            widget = ttk.Checkbutton(master, variable=variable)
+            widget._psx_variable = variable
+            apply_tk_checkbox(widget, node.props, variable)
             return TkHandle(node.type, widget, dict(node.props))
         raise RendererCapabilityError(f"Tkinter does not support host primitive {node.type!r}.")
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
+        adapter = self.adapters.get(handle_adapter_key(handle)) or self._default_adapter
+        adapter.update(self, handle, changed, removed)
+
+    def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _as_handle(handle)
         if target.native is not None:
             if (changed or removed) and target.native.update is None:
@@ -79,13 +106,26 @@ class TkinterRenderer:
             if target.native.update is not None:
                 target.native.update(target.widget, changed, removed)
             return
-        unsupported = set(removed) | (set(changed) - {"value", "label", "enabled", "spacing", "padding"})
+        if target.node_type == "Text":
+            props = updated_text_props(target.props, changed, removed)
+            apply_tk_text(target.widget, props)
+            target.props = props
+            return
+        if target.node_type == "Button":
+            props = updated_button_props(target.props, changed, removed)
+            apply_tk_button(_as_button(target), props)
+            target.props = props
+            return
+        if target.node_type == "Checkbox":
+            props = updated_checkbox_props(target.props, changed, removed)
+            apply_tk_checkbox(_as_checkbox(target), props, _as_checkbox(target)._psx_variable)
+            target.props = props
+            return
+        unsupported = set(removed) | (set(changed) - {"label", "enabled", "spacing", "padding"})
         if unsupported:
             raise RendererCapabilityError(
                 f"Unsupported Tkinter props for {target.node_type!r}: {', '.join(sorted(unsupported))}"
             )
-        if "value" in changed:
-            _as_label(target).configure(text=str(changed["value"]))
         if "label" in changed:
             _as_button(target).configure(text=str(changed["label"]))
         if "enabled" in changed:
@@ -118,6 +158,10 @@ class TkinterRenderer:
         item.widget.pack_forget()
 
     def bind_event(self, handle: object, event: str, slot: EventSlot) -> object:
+        adapter = self.adapters.get(handle_adapter_key(handle)) or self._default_adapter
+        return AdapterSubscription(adapter, adapter.bind_event(self, handle, event, slot))
+
+    def _adapter_bind_event(self, handle: object, event: str, slot: EventSlot) -> object:
         handle = _as_handle(handle)
         if handle.native is not None:
             if handle.native.bind_event is None:
@@ -128,6 +172,12 @@ class TkinterRenderer:
             if not callable(disposer):
                 raise TypeError("NativeWidget.bind_event must return a callable disposer.")
             return TkNativeEventSubscription(disposer)
+        if handle.node_type == "Checkbox" and event == "on_change":
+            target = _as_checkbox(handle)
+            def changed() -> object | None:
+                return slot.invoke(bool(target._psx_variable.get()))
+            target.configure(command=changed)
+            return TkEventSubscription(target, event, changed)
         target = _as_button(handle)
         if event != "on_click":
             raise RendererCapabilityError(f"{event} is not supported by Button in Tkinter.")
@@ -139,6 +189,12 @@ class TkinterRenderer:
         return TkEventSubscription(target, event, callback)
 
     def unbind_event(self, subscription: object) -> None:
+        if isinstance(subscription, AdapterSubscription):
+            subscription.adapter.unbind_event(self, subscription.subscription)
+            return
+        self._adapter_unbind_event(subscription)
+
+    def _adapter_unbind_event(self, subscription: object) -> None:
         if isinstance(subscription, TkNativeEventSubscription):
             try:
                 subscription.dispose()
@@ -150,6 +206,10 @@ class TkinterRenderer:
             target.widget.configure(command="")
 
     def destroy(self, handle: object) -> None:
+        adapter = self.adapters.get(handle_adapter_key(handle)) or self._default_adapter
+        adapter.destroy(self, handle)
+
+    def _adapter_destroy(self, handle: object) -> None:
         target = _as_handle(handle)
         if target.native is not None and target.native.ownership is NativeOwnership.BORROWED:
             return
@@ -260,15 +320,15 @@ def _as_frame(handle: TkHandle) -> ttk.Frame:
     return handle.widget
 
 
-def _as_label(handle: TkHandle) -> ttk.Label:
-    if not isinstance(handle.widget, ttk.Label):
-        raise RendererCapabilityError("value is only supported by Text in Tkinter.")
-    return handle.widget
-
-
 def _as_button(handle: TkHandle) -> ttk.Button:
     if not isinstance(handle.widget, ttk.Button):
         raise RendererCapabilityError("Button operation received a non-Button handle.")
+    return handle.widget
+
+
+def _as_checkbox(handle: TkHandle) -> ttk.Checkbutton:
+    if not isinstance(handle.widget, ttk.Checkbutton):
+        raise RendererCapabilityError("Checkbox operation received a non-Checkbox handle.")
     return handle.widget
 
 
@@ -281,14 +341,19 @@ def _as_subscription(value: object) -> TkEventSubscription:
 def _validate_props(node: VNode) -> None:
     if node.kind is NodeKind.NATIVE:
         return
+    if node.kind is NodeKind.HOST and node.type == "Text":
+        validate_text_props(node.props)
+        return
+    if node.kind is NodeKind.HOST and node.type == "Button":
+        validate_button_props(node.props)
+        return
+    if node.kind is NodeKind.HOST and node.type == "Checkbox":
+        validate_checkbox_props(node.props)
+        return
     if node.kind is NodeKind.FRAGMENT:
         allowed = {"spacing"}
     elif node.type in {"Column", "Row"}:
         allowed = {"spacing", "padding"}
-    elif node.type == "Text":
-        allowed = {"value"}
-    elif node.type == "Button":
-        allowed = {"label", "enabled", "on_click"}
     else:
         return
     unsupported = set(node.props) - allowed

@@ -14,10 +14,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
 
-from .ast import Document, Element, Fragment, Node, Reference, ReferencePart, TextNode
+from psx.core.registry import builtin_component_registry
+
+from .ast import Document, Fragment, Node, Reference, ReferencePart, TextNode
 from .parser import parse
 
-_BUILTIN_TAGS = frozenset({"Column", "Row", "Text", "Button", "Fragment"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,7 +205,7 @@ def _collect_node_identifiers(node: Node, names: set[str]) -> None:
         for child in node.children:
             _collect_node_identifiers(child, names)
         return
-    if node.name not in _BUILTIN_TAGS:
+    if not builtin_component_registry().contains(node.name):
         names.add(node.name)
     for attribute in node.attributes:
         if isinstance(attribute.value, Reference):

@@ -1,7 +1,7 @@
 # M12 — PSX Playground & Visual Layout Inspector
 
 **Status:** implemented development vertical slice. The playground is the
-standalone React project in [`../../playground`](../../playground), not a
+standalone React project in [`../..`](../..), not a
 module or command in the `psx` Python package.
 
 The application provides a Monaco editor, editable markup, built-in examples,

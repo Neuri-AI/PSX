@@ -6,15 +6,26 @@ import unittest
 
 sys.path.insert(0, "src")
 
-from psx import Button, Column, Row, Text, component, use_state
+from psx import Button, Checkbox, Column, Row, Text, component, use_state
 from psx.core.reconcile import Reconciler
 from psx.integrations.qyro import mount_psx
 from psx.renderers.tkinter import TkinterRenderer
 
 
 class TkinterRendererTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        import tkinter as tk
+        # Reuse one Tcl/Tk interpreter, as an embedded Qyro app does. Repeated
+        # interpreter creation can fail intermittently in Windows Conda builds.
+        cls.root = tk.Tk()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.root.destroy()
+
     def setUp(self) -> None:
-        self.renderer = TkinterRenderer()
+        self.renderer = TkinterRenderer(root=self.root)
         self.renderer.root.withdraw()
         self.addCleanup(self.renderer.close)
         self.reconciler = Reconciler(self.renderer)
@@ -78,6 +89,42 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertEqual(self.renderer.root.pack_slaves(), [])
         self.assertTrue(self.renderer.root.winfo_exists())
 
+    def test_text_portable_update_and_clean_destruction(self) -> None:
+        from tkinter import ttk
+        from tkinter.font import Font
+        label = self.reconciler.render(Text("old", font_size=24, bold=True, italic=True,
+                                             color="#336699", align="right", enabled=False)).handle.widget
+        self.assertIsInstance(label, ttk.Label)
+        font = Font(root=label, font=label.cget("font"))
+        self.assertEqual(int(label.tk.splitlist(label.cget("font"))[1]), -24)
+        self.assertEqual(font.actual("weight"), "bold")
+        self.assertEqual(font.actual("slant"), "italic")
+        self.assertEqual(str(label.cget("foreground")), "#336699")
+        self.assertEqual(str(label.cget("anchor")), "e")
+        self.assertTrue(label.instate(("disabled",)))
+        self.reconciler.render(Text("new", font_size=12, color="#112233", align="center"))
+        self.assertIs(self.reconciler.root.handle.widget, label)
+        self.assertEqual(label.cget("text"), "new")
+        font = Font(root=label, font=label.cget("font"))
+        self.assertEqual(int(label.tk.splitlist(label.cget("font"))[1]), -12)
+        self.assertEqual(font.actual("weight"), "normal")
+        self.assertEqual(font.actual("slant"), "roman")
+        self.assertEqual(str(label.cget("foreground")), "#112233")
+        self.assertEqual(str(label.cget("anchor")), "center")
+        self.assertTrue(label.instate(("!disabled",)))
+        self.reconciler.render(Text("theme"))
+        self.assertEqual(str(label.cget("foreground")), "")
+        self.reconciler.unmount()
+        self.assertFalse(label.winfo_exists())
 
-if __name__ == "__main__":
-    unittest.main()
+    def test_checkbox_updates_reuses_widget_and_unbinds(self) -> None:
+        calls: list[bool] = []
+        widget = self.reconciler.render(Checkbox(on_change=calls.append)).handle.widget
+        widget.invoke()
+        self.assertEqual(calls, [True])
+        self.reconciler.render(Checkbox(checked=True, enabled=False, on_change=calls.append))
+        self.assertIs(self.reconciler.root.handle.widget, widget)
+        self.assertTrue(widget._psx_variable.get())
+        self.assertTrue(widget.instate(("disabled",)))
+        self.reconciler.unmount()
+        self.assertFalse(widget.winfo_exists())

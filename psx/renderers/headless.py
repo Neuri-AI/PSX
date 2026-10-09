@@ -7,7 +7,9 @@ from dataclasses import dataclass, field
 from threading import RLock
 
 from psx.core.events import EventSlot
-from psx.core.vnode import VNode
+from psx.core.vnode import VNode, NodeKind, validate_button_props, validate_checkbox_props, validate_text_props
+from psx.renderers.adapters import AdapterSubscription, DelegatingAdapter, RendererAdapterRegistry, adapter_key, handle_adapter_key
+from psx.renderers.text import updated_text_props
 
 
 # eq=False: handles compare by identity, so list.remove/in use the fast C
@@ -28,14 +30,38 @@ class HeadlessRenderer:
         self.operations: list[tuple[object, ...]] = []
         self._pending: list[Callable[[], None]] = []
         self._lock = RLock()
+        self.adapters = RendererAdapterRegistry()
+        self._default_adapter = DelegatingAdapter()
+        for component in ("Column", "Row", "Fragment", "Text", "Button", "Input", "Checkbox", "Native"):
+            self.adapters.register(component, self._default_adapter)
+
+    def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
+        self.adapters.register(component, adapter, replace=replace)
 
     def create(self, node: VNode, parent: object | None) -> HeadlessHandle:
+        adapter = self.adapters.get(adapter_key(node)) or self._default_adapter
+        return adapter.create(self, node, parent)  # type: ignore[return-value]
+
+    def _adapter_create(self, node: VNode, parent: object | None) -> HeadlessHandle:
+        if node.kind is NodeKind.HOST:
+            if node.type == "Text":
+                validate_text_props(node.props)
+            elif node.type == "Button":
+                validate_button_props(node.props)
+            elif node.type == "Checkbox":
+                validate_checkbox_props(node.props)
         handle = HeadlessHandle(node.type, dict(node.props))
         self.operations.append(("create", handle))
         return handle
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
+        adapter = self.adapters.get(handle_adapter_key(handle)) or self._default_adapter
+        adapter.update(self, handle, changed, removed)
+
+    def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _handle(handle)
+        if target.type == "Text":
+            updated_text_props(target.props, changed, removed)
         target.props.update(changed)
         for name in removed:
             target.props.pop(name, None)
@@ -61,6 +87,10 @@ class HeadlessRenderer:
         self.operations.append(("remove", container, item))
 
     def bind_event(self, handle: object, event: str, slot: EventSlot) -> object:
+        adapter = self.adapters.get(handle_adapter_key(handle)) or self._default_adapter
+        return AdapterSubscription(adapter, adapter.bind_event(self, handle, event, slot))
+
+    def _adapter_bind_event(self, handle: object, event: str, slot: EventSlot) -> object:
         target = _handle(handle)
         target.events[event] = slot
         subscription = (target, event, slot)
@@ -68,12 +98,22 @@ class HeadlessRenderer:
         return subscription
 
     def unbind_event(self, subscription: object) -> None:
+        if isinstance(subscription, AdapterSubscription):
+            subscription.adapter.unbind_event(self, subscription.subscription)
+            return
+        self._adapter_unbind_event(subscription)
+
+    def _adapter_unbind_event(self, subscription: object) -> None:
         target, event, slot = subscription  # type: ignore[misc]
         if target.events.get(event) is slot:
             target.events.pop(event)
         self.operations.append(("unbind_event", target, event))
 
     def destroy(self, handle: object) -> None:
+        adapter = self.adapters.get(handle_adapter_key(handle)) or self._default_adapter
+        adapter.destroy(self, handle)
+
+    def _adapter_destroy(self, handle: object) -> None:
         target = _handle(handle)
         target.destroyed = True
         self.operations.append(("destroy", target))

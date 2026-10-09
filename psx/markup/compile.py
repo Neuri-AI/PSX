@@ -4,42 +4,51 @@ from __future__ import annotations
 
 import re
 from collections import OrderedDict
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Hashable, Mapping
 from dataclasses import dataclass
 from typing import TypeAlias
 
 from psx.core.component import ComponentType
 from psx.core.errors import MarkupSyntaxError
-from psx.core.hooks import Ref
-from psx.core.native import Native
-from psx.core.vnode import Button, Column, Fragment as VFragment, Row, Text, VNode, create_element
+from psx.core.registry import ComponentDefinition, ComponentRegistry, builtin_component_registry
+from psx.core.vnode import Fragment as VFragment, Text, VNode
 
-from .ast import AttributeValue, Document, Element, Fragment, Node, Reference, ReferencePart, TextNode, TextPart
+from .ast import AttributeValue, Document, Element, Fragment, Node, Reference, TextNode, TextPart
 from .parser import parse
 
 Primitive: TypeAlias = Callable[..., VNode] | ComponentType
 _GRAMMAR_VERSION = "m4a-1"
 _CACHE_LIMIT = 128
-_CACHE: "OrderedDict[tuple[str, str, str, int], CompiledTemplate]" = OrderedDict()
-_PRIMITIVES: Mapping[str, Primitive] = {
-    "Column": Column,
-    "Row": Row,
-    "Text": Text,
-    "Button": Button,
-    "Fragment": VFragment,
-    "Native": Native,
-}
+_CACHE: "OrderedDict[tuple[str, str, str, Hashable], CompiledTemplate]" = OrderedDict()
+
+
+@dataclass(frozen=True, slots=True)
+class _Resolver:
+    definitions: Mapping[str, ComponentDefinition]
+    cache_key: Hashable
+
+    def resolve(self, name: str) -> ComponentDefinition | None:
+        return self.definitions.get(name)
+
+    @property
+    def primitives(self) -> Mapping[str, Primitive]:
+        return {name: definition.constructor for name, definition in self.definitions.items()}
 
 
 @dataclass(frozen=True, slots=True)
 class CompiledTemplate:
     document: Document
     filename: str
-    primitives: Mapping[str, Primitive]
+    resolver: _Resolver
+
+    @property
+    def primitives(self) -> Mapping[str, Primitive]:
+        """Compatibility view of constructors available to this template."""
+        return self.resolver.primitives
 
     def render(self, scope: Mapping[str, object] | None = None) -> VNode:
         values = {} if scope is None else scope
-        children = _nodes(self.document.children, values, self.primitives, self.filename, lexical=False)
+        children = _nodes(self.document.children, values, self.resolver, self.filename, lexical=False)
         if len(children) == 1:
             return children[0]
         return VFragment(*children)
@@ -52,22 +61,31 @@ class CompiledTemplate:
         attribute/mapping path; callables obtained along a path are returned,
         never invoked.
         """
-        children = _nodes(self.document.children, scope, self.primitives, self.filename, lexical=True)
+        children = _nodes(self.document.children, scope, self.resolver, self.filename, lexical=True)
         if len(children) == 1:
             return children[0]
         return VFragment(*children)
 
 
 def compile_template(
-    source: str, *, filename: str = "<psx>", primitives: Mapping[str, Primitive] | None = None
+    source: str,
+    *,
+    filename: str = "<psx>",
+    primitives: Mapping[str, Primitive] | None = None,
+    registry: ComponentRegistry | None = None,
 ) -> CompiledTemplate:
-    registry = _PRIMITIVES if primitives is None else primitives
-    key = (source, filename, _GRAMMAR_VERSION, id(registry))
+    """Compile markup using legacy primitives or an isolated component registry.
+
+    ``registry`` is additive. Passing neither retains the default built-ins;
+    passing ``primitives`` retains the legacy replacement-mapping behavior.
+    """
+    resolver = _resolver(primitives=primitives, registry=registry)
+    key = (source, filename, _GRAMMAR_VERSION, resolver.cache_key)
     cached = _CACHE.get(key)
     if cached is not None:
         _CACHE.move_to_end(key)
         return cached
-    compiled = CompiledTemplate(parse(source, filename=filename), filename, registry)
+    compiled = CompiledTemplate(parse(source, filename=filename), filename, resolver)
     _CACHE[key] = compiled
     if len(_CACHE) > _CACHE_LIMIT:
         _CACHE.popitem(last=False)
@@ -80,19 +98,48 @@ def psx(
     scope: Mapping[str, object] | None = None,
     filename: str = "<psx>",
     primitives: Mapping[str, Primitive] | None = None,
+    registry: ComponentRegistry | None = None,
 ) -> VNode:
     """Compile and render an explicit-scope PSX template into ordinary VNodes."""
-    return compile_template(source, filename=filename, primitives=primitives).render(scope)
+    return compile_template(source, filename=filename, primitives=primitives, registry=registry).render(scope)
 
 
 def clear_template_cache() -> None:
     _CACHE.clear()
 
 
+def _resolver(
+    *, primitives: Mapping[str, Primitive] | None, registry: ComponentRegistry | None
+) -> _Resolver:
+    if primitives is not None and registry is not None:
+        raise TypeError("Pass either primitives or registry, not both.")
+    if registry is not None:
+        return _Resolver(registry.snapshot(), ("registry", id(registry), registry.version))
+    builtins = builtin_component_registry()
+    if primitives is None:
+        # Fresh default registries have the same built-in contents. Their
+        # cache identity is deliberately stable while caller-owned registries
+        # are always isolated by object identity and version.
+        return _Resolver(builtins.snapshot(), ("default-builtins", builtins.version))
+    builtin_definitions = builtins.snapshot()
+    definitions = {
+        name: ComponentDefinition(
+            name,
+            constructor,
+            contract=builtin_definitions[name].contract if name in builtin_definitions else None,
+            markup_integer_properties=(
+                builtin_definitions[name].markup_integer_properties if name in builtin_definitions else frozenset()
+            ),
+        )
+        for name, constructor in primitives.items()
+    }
+    return _Resolver(definitions, ("primitives", id(primitives)))
+
+
 def _nodes(
     nodes: tuple[Node, ...],
     scope: Mapping[str, object],
-    primitives: Mapping[str, Primitive],
+    resolver: _Resolver,
     filename: str,
     *,
     lexical: bool,
@@ -104,16 +151,16 @@ def _nodes(
             if value:
                 result.append(Text(value))
         elif isinstance(node, Fragment):
-            result.append(VFragment(*_nodes(node.children, scope, primitives, filename, lexical=lexical)))
+            result.append(VFragment(*_nodes(node.children, scope, resolver, filename, lexical=lexical)))
         else:
-            result.append(_element(node, scope, primitives, filename, lexical=lexical))
+            result.append(_element(node, scope, resolver, filename, lexical=lexical))
     return result
 
 
 def _element(
     element: Element,
     scope: Mapping[str, object],
-    primitives: Mapping[str, Primitive],
+    resolver: _Resolver,
     filename: str,
     *,
     lexical: bool,
@@ -122,40 +169,29 @@ def _element(
         attribute.name: _resolve_value(attribute.value, scope, filename, lexical=lexical)
         for attribute in element.attributes
     }
-    constructor = primitives.get(element.name)
-    if constructor is None:
+    definition = resolver.resolve(element.name)
+    if definition is None:
         candidate = scope.get(element.name)
         if lexical and candidate is not None:
             candidate = _resolve_lexical_root(candidate, element.name, filename, element.span)
         if not isinstance(candidate, ComponentType):
             _error(f"Unknown PSX tag <{element.name}>", filename, element.span)
-        constructor = candidate
+        definition = ComponentDefinition(element.name, candidate)
+    constructor = definition.constructor
     key = props.pop("key", None)
-    if element.name == "Text":
-        value = props.pop("value", None)
+    contract = definition.contract
+    if contract is not None and contract.content_property is not None:
+        property_name = contract.content_property
+        value = props.pop(property_name, None)
         content = _inline_children(element.children, scope, filename, lexical=lexical)
         if value is not None and content:
-            _error("Text cannot receive both value and child text", filename, element.span)
+            _error(f"{definition.name} cannot receive both {property_name} and child text", filename, element.span)
         if value is None:
             value = content
-        return Text(_text_value(value, filename, element.span), key=key, **props)
-    if element.name == "Button":
-        label = props.pop("label", None)
-        content = _inline_children(element.children, scope, filename, lexical=lexical)
-        if label is not None and content:
-            _error("Button cannot receive both label and child text", filename, element.span)
-        if label is None:
-            label = content
-        return Button(_text_value(label, filename, element.span), key=key, **props)
-    children = _nodes(element.children, scope, primitives, filename, lexical=lexical)
-    props = _coerce_host_props(element.name, props, filename, element.span)
-    if constructor is Column or constructor is Row or constructor is VFragment:
-        return constructor(*children, key=key, **props)
-    if isinstance(constructor, ComponentType):
-        return constructor(*children, key=key, **props)
-    if callable(constructor):
-        return constructor(*children, key=key, **props)
-    return create_element(constructor, *children, key=key, **props)
+        return constructor(_text_value(value, filename, element.span), key=key, **props)
+    children = _nodes(element.children, scope, resolver, filename, lexical=lexical)
+    props = _coerce_props(definition, props, filename, element.span)
+    return constructor(*children, key=key, **props)
 
 
 def _resolve_value(
@@ -235,15 +271,16 @@ def _text_value(value: object, filename: str, span: object) -> str | int | float
     return value
 
 
-def _coerce_host_props(name: str, props: dict[str, object], filename: str, span: object) -> dict[str, object]:
-    if name in {"Column", "Row"}:
-        for prop in ("spacing", "padding"):
-            if not isinstance(props.get(prop), str):
-                continue
-            try:
-                props[prop] = int(props[prop])
-            except ValueError:
-                _error(f"{prop} must be an integer or an integer-valued reference", filename, span)
+def _coerce_props(
+    definition: ComponentDefinition, props: dict[str, object], filename: str, span: object
+) -> dict[str, object]:
+    for prop in definition.markup_integer_properties:
+        if not isinstance(props.get(prop), str):
+            continue
+        try:
+            props[prop] = int(props[prop])
+        except ValueError:
+            _error(f"{prop} must be an integer or an integer-valued reference", filename, span)
     return props
 
 

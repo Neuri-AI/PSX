@@ -11,6 +11,9 @@ escape hatch when a backend-specific control is the right tool.
 > documented in [docs/public-api.md](docs/public-api.md) and
 > [docs/compatibility.md](docs/compatibility.md).
 
+`Text` uses the same closed portable contract in every renderer.
+See [Text properties](docs/components/text.md).
+
 ## Why PSX?
 
 - Write components with familiar state, effects, refs, and event callbacks.
@@ -176,7 +179,7 @@ works with Tkinter and Kivy widgets, but a native widget is specific to its
 backend—it is not silently emulated elsewhere.
 
 For reusable third-party adapters, ownership rules, custom properties, and
-native signal cleanup, see [native interoperability](docs/m10-native-interoperability.md).
+native signal cleanup, see the [native widget tutorial](docs/tutorial-adding-native-widgets.md).
 
 ## Renderer selection
 

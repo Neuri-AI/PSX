@@ -1,0 +1,7 @@
+[project]
+name = "psx-badge-plugin-example"
+version = "0.1.0"
+dependencies = ["psx"]
+
+[project.entry-points."psx.plugins"]
+badge = "psx_badge_plugin:BadgePlugin"

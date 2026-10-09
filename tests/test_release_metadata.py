@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 
@@ -10,7 +11,6 @@ def test_alpha_package_metadata_and_entry_points_are_declared() -> None:
         'name = "psx"',
         'version = "1.0.0a1"',
         'readme = "README.md"',
-        'requires-python = ">=3.10"',
         "[project.optional-dependencies]",
         "qt = ",
         "pyqt6 = ",
@@ -21,6 +21,8 @@ def test_alpha_package_metadata_and_entry_points_are_declared() -> None:
         'psx-dev = "psx.devtools.__main__:main"',
     ):
         assert declaration in metadata
+    # The minimum Python version remains 3.10; an optional upper bound is valid.
+    assert re.search(r'requires-python\s*=\s*">=3\.10(?:,\s*<\d+\.\d+)?"', metadata)
     assert (root / "README.md").is_file()
     assert (root / "LICENSE").is_file()
     assert (root / "CHANGELOG.md").is_file()

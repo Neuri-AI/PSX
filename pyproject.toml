@@ -8,14 +8,14 @@ authors = [
 ]
 license = "MIT"
 keywords = ["ui", "declarative", "reactive", "qt", "kivy", "tkinter"]
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 dependencies = [
 ]
 
 [project.optional-dependencies]
-qt = ["PySide6>=6.8; python_version < '3.16'"]
-pyqt6 = ["PyQt6>=6.8; python_version < '3.16'"]
-pyqt5 = ["PyQt5>=5.15; python_version < '3.13'"]
+qt = ["PySide6>=6.8; python_version < '3.14'"]
+pyqt6 = ["PyQt6>=6.8; python_version < '3.14'"]
+pyqt5 = ["PyQt5>=5.15; python_version < '3.14'"]
 kivy = ["Kivy>=2.3"]
 pydux = ["pydux>=0.1"]
 qyro = ["qyro-engine>=1.0.0a1,<2.0.0"]

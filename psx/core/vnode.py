@@ -8,8 +8,26 @@ from enum import Enum
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Callable, TypeAlias
 
-from .errors import InvalidChildError
+from .errors import InvalidChildError, RendererCapabilityError
 from .native import NativeWidget
+from .contracts import (
+    BUTTON_CONTRACT,
+    BUTTON_DEFAULTS,
+    BUTTON_PROPS,
+    INPUT_CONTRACT,
+    INPUT_DEFAULTS,
+    INPUT_PROPS,
+    TEXT_CONTRACT,
+    TEXT_DEFAULTS,
+    TEXT_PROPS,
+    validate_button_props,
+    validate_input_props,
+    validate_text_props,
+    CHECKBOX_CONTRACT,
+    CHECKBOX_DEFAULTS,
+    CHECKBOX_PROPS,
+    validate_checkbox_props,
+)
 
 if TYPE_CHECKING:
     from .component import ComponentType
@@ -64,7 +82,8 @@ def _normalize_one(value: object, output: list[VNode]) -> None:
             _normalize_one(child, output)
         return
     if value is True:
-        raise InvalidChildError("True is not a valid PSX child; use a conditional expression instead.")
+        raise InvalidChildError(
+            "True is not a valid PSX child; use a conditional expression instead.")
     raise InvalidChildError(f"Unsupported PSX child: {type(value).__name__}")
 
 
@@ -86,6 +105,8 @@ def create_element(
     """Create a VNode; all public builders delegate to this constructor."""
     from .component import ComponentType
 
+    if node_type == "Text":
+        validate_text_props(props)
     if key is not None and not isinstance(key, (str, int)):
         raise TypeError("PSX keys must be str, int, or None.")
     if ref is not None:
@@ -100,9 +121,11 @@ def create_element(
     elif isinstance(node_type, NativeWidget):
         kind = NodeKind.NATIVE
         if children:
-            raise InvalidChildError("Native widgets cannot have PSX children; compose them in a layout instead.")
+            raise InvalidChildError(
+                "Native widgets cannot have PSX children; compose them in a layout instead.")
     else:
-        raise TypeError("PSX element type must be a host name, Fragment, NativeWidget, or @component value.")
+        raise TypeError(
+            "PSX element type must be a host name, Fragment, NativeWidget, or @component value.")
     return VNode(kind, node_type, key, _freeze_props(props), normalize_children(children))
 
 
@@ -140,26 +163,80 @@ def Row(*children: object, spacing: int = 0, key: Key | None = None, **props: ob
     return _layout("Row", children, spacing, key, props)
 
 
-def Text(value: str | int | float, *, key: Key | None = None, **props: object) -> VNode:
-    if isinstance(value, bool):
-        raise TypeError("Text value must be str, int, or float, not bool.")
-    if not isinstance(value, (str, int, float)):
-        raise TypeError("Text value must be str, int, or float.")
-    return create_element("Text", key=key, value=str(value), **props)
+def Text(
+    value: str | int | float, *, font_size: int | float = 16,
+    bold: bool = False, italic: bool = False, color: str | None = None,
+    align: str = "left", enabled: bool = True, key: Key | None = None,
+    ref: object | None = None, **props: object,
+) -> VNode:
+    """Portable plain text with a closed, backend-independent contract."""
+    options = dict(value=value, font_size=font_size, bold=bold, italic=italic,
+                   color=color, align=align, enabled=enabled, **props)
+    TEXT_CONTRACT.validate_builder(options)
+    if key is not None and (isinstance(key, bool) or not isinstance(key, (str, int))):
+        raise RendererCapabilityError("Text.key must be str, int, or None.")
+    options["value"] = str(value)
+    return create_element("Text", key=key, ref=ref, **options)
 
 
 def Button(
     label: str | int | float,
     *,
+    font_size: int | float = 14,
     on_click: Callable[[], None] | None = None,
     enabled: bool = True,
     key: Key | None = None,
+    ref: object | None = None,
     **props: object,
 ) -> VNode:
-    if isinstance(label, bool):
-        raise TypeError("Button label must be str, int, or float, not bool.")
-    if not isinstance(enabled, bool):
-        raise TypeError("enabled must be a bool.")
+    """Portable push button with a closed, backend-independent contract."""
+    options = dict(label=label, font_size=font_size,
+                   on_click=on_click, enabled=enabled, **props)
+    BUTTON_CONTRACT.validate_builder(options)
+    if key is not None and (isinstance(key, bool) or not isinstance(key, (str, int))):
+        raise RendererCapabilityError("Button.key must be str, int, or None.")
+    options["label"] = str(label)
+    return create_element("Button", key=key, ref=ref, **options)
+
+
+def Input(
+    *,
+    value: str = "",
+    placeholder: str = "",
+    font_size: int | float = 14,
+    enabled: bool = True,
+    read_only: bool = False,
+    password: bool = False,
+    on_change: Callable[[str], None] | None = None,
+    on_submit: Callable[[], None] | None = None,
+    key: str | int | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Portable single-line text input component."""
+    options = dict(value=value, placeholder=placeholder, font_size=font_size, enabled=enabled,
+                   read_only=read_only, password=password, on_change=on_change,
+                   on_submit=on_submit, **props)
+    INPUT_CONTRACT.validate_builder(options)
+
     return create_element(
-        "Button", key=key, label=str(label), on_click=on_click, enabled=enabled, **props
+        "Input",
+        key=key,
+        ref=ref,
+        value=value,
+        placeholder=placeholder,
+        font_size=font_size,
+        enabled=enabled,
+        read_only=read_only,
+        password=password,
+        on_change=on_change,
+        on_submit=on_submit,
     )
+
+
+def Checkbox(*, checked: bool = False, enabled: bool = True, on_change: Callable[[bool], None] | None = None,
+             key: str | int | None = None, ref: object | None = None, **props: object) -> VNode:
+    """Portable boolean checkbox with a boolean ``on_change`` callback."""
+    options = dict(checked=checked, enabled=enabled, on_change=on_change, **props)
+    CHECKBOX_CONTRACT.validate_builder(options)
+    return create_element("Checkbox", key=key, ref=ref, **options)

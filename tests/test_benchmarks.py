@@ -24,6 +24,7 @@ def test_core_benchmark_suite_covers_reconciliation_paths_and_compares_results()
         "markup_render",
         "markup_compile",
         "m4b_transform",
+        "component_registry_resolution",
     }
     assert all(
         item["mean_ms"] >= 0

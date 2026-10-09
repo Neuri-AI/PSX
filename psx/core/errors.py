@@ -13,6 +13,14 @@ class DuplicateKeyError(PSXError, ValueError):
     """Raised when sibling VNodes reuse a key."""
 
 
+class DuplicateComponentError(PSXError, ValueError):
+    """Raised when a component registry name is registered more than once."""
+
+
+class UnknownComponentError(PSXError, LookupError):
+    """Raised when a component registry cannot resolve a requested name."""
+
+
 class RendererCapabilityError(PSXError):
     """Raised when a renderer cannot honour a requested operation."""
 

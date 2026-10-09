@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Closed portable `Text` contract shared by all renderers: value, font size,
+  bold, italic, HEX color, alignment, and enabled state.
+- Added portable `Checkbox`, component/adapter registries, an additive plugin
+  API with opt-in entry-point discovery, and optional WebView native extension.
+- Documented extension tutorials and the REF-M9 stabilization baseline.
+
 ## 1.0.0a1 — Alpha release candidate
 
 - Declarative VNode core, keyed reconciliation, hooks, effects, refs, and a

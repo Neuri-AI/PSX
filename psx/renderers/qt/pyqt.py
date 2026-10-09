@@ -5,12 +5,16 @@ from __future__ import annotations
 import importlib
 import sys
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from psx.core.errors import RendererCapabilityError
 from psx.core.events import EventSlot
 from psx.core.native import NativeOwnership, NativeWidget
-from psx.core.vnode import NodeKind, VNode
+from psx.core.vnode import NodeKind, VNode, validate_text_props, validate_button_props, validate_checkbox_props
+from psx.renderers.button import apply_qt_button, updated_button_props
+from psx.renderers.text import apply_qt_text, updated_text_props
+from psx.renderers.checkbox import apply_qt_checkbox, updated_checkbox_props
+from psx.renderers.adapters import AdapterSubscription, DelegatingAdapter, RendererAdapterRegistry, adapter_key, handle_adapter_key
 
 
 @dataclass(slots=True)
@@ -19,6 +23,7 @@ class QtHandle:
     widget: object
     layout: object | None = None
     native: NativeWidget | None = None
+    props: dict[str, object] = field(default_factory=dict)
     original_parent: object | None = None
 
 
@@ -36,12 +41,14 @@ class NativeEventSubscription:
 class _PyQtRenderer:
     def __init__(self, binding: str, argv: list[str] | None = None) -> None:
         self._binding = binding.lower()
+        self._binding_package = binding
         core = importlib.import_module(f"{binding}.QtCore")
         widgets = importlib.import_module(f"{binding}.QtWidgets")
         self._qt = core.Qt
         self._widget = widgets.QWidget
         self._label = widgets.QLabel
         self._button = widgets.QPushButton
+        self._checkbox = widgets.QCheckBox
         self._vbox = widgets.QVBoxLayout
         self._hbox = widgets.QHBoxLayout
         application = widgets.QApplication
@@ -62,8 +69,19 @@ class _PyQtRenderer:
                 callback()
 
         self._dispatcher = Dispatcher()
+        self.adapters = RendererAdapterRegistry()
+        self._default_adapter = DelegatingAdapter()
+        for component in ("Column", "Row", "Fragment", "Text", "Button", "Input", "Checkbox", "Native"):
+            self.adapters.register(component, self._default_adapter)
+
+    def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
+        self.adapters.register(component, adapter, replace=replace)
 
     def create(self, node: VNode, parent: object | None) -> QtHandle:
+        adapter = self.adapters.get(adapter_key(node)) or self._default_adapter
+        return adapter.create(self, node, parent)  # type: ignore[return-value]
+
+    def _adapter_create(self, node: VNode, parent: object | None) -> QtHandle:
         _validate_props(node)
         if node.kind is NodeKind.NATIVE:
             native_parent = _handle(parent).widget if parent is not None else None
@@ -75,14 +93,24 @@ class _PyQtRenderer:
         if node.kind is not NodeKind.HOST:
             raise RendererCapabilityError(f"PyQt cannot create node kind {node.kind.value!r}.")
         if node.type == "Text":
-            return QtHandle(node.type, self._label(str(node.props["value"])))
+            widget = self._label()
+            apply_qt_text(widget, node.props, self._binding_package)
+            return QtHandle(node.type, widget, props=dict(node.props))
         if node.type == "Button":
-            button = self._button(str(node.props["label"]))
-            button.setEnabled(bool(node.props.get("enabled", True)))
-            return QtHandle(node.type, button)
+            button = self._button()
+            apply_qt_button(button, node.props, self._binding_package)
+            return QtHandle(node.type, button, props=dict(node.props))
+        if node.type == "Checkbox":
+            widget = self._checkbox()
+            apply_qt_checkbox(widget, node.props)
+            return QtHandle(node.type, widget, props=dict(node.props))
         raise RendererCapabilityError(f"PyQt does not support host primitive {node.type!r}.")
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
+        adapter = self.adapters.get(handle_adapter_key(handle)) or self._default_adapter
+        adapter.update(self, handle, changed, removed)
+
+    def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _handle(handle)
         if target.native is not None:
             if (changed or removed) and target.native.update is None:
@@ -92,7 +120,22 @@ class _PyQtRenderer:
             if target.native.update is not None:
                 target.native.update(target.widget, changed, removed)
             return
-        unsupported = set(removed) | (set(changed) - {"value", "label", "enabled", "spacing", "padding"})
+        if target.node_type == "Text":
+            props = updated_text_props(target.props, changed, removed)
+            apply_qt_text(target.widget, props, self._binding_package)
+            target.props = props
+            return
+        if target.node_type == "Button":
+            props = updated_button_props(target.props, changed, removed)
+            apply_qt_button(target.widget, props, self._binding_package)
+            target.props = props
+            return
+        if target.node_type == "Checkbox":
+            props = updated_checkbox_props(target.props, changed, removed)
+            apply_qt_checkbox(target.widget, props)
+            target.props = props
+            return
+        unsupported = set(removed) | (set(changed) - {"label", "enabled", "spacing", "padding"})
         if unsupported:
             raise RendererCapabilityError(f"Unsupported PyQt props: {', '.join(sorted(unsupported))}")
         if "spacing" in changed or "padding" in changed:
@@ -102,8 +145,6 @@ class _PyQtRenderer:
             if "padding" in changed:
                 padding = int(changed["padding"])
                 layout.setContentsMargins(padding, padding, padding, padding)
-        if "value" in changed:
-            target.widget.setText(str(changed["value"]))
         if "label" in changed:
             target.widget.setText(str(changed["label"]))
         if "enabled" in changed:
@@ -125,6 +166,10 @@ class _PyQtRenderer:
         item.setParent(handle.original_parent if handle.native is not None and handle.native.ownership is NativeOwnership.BORROWED else None)
 
     def bind_event(self, handle: object, event: str, slot: EventSlot) -> object:
+        adapter = self.adapters.get(handle_adapter_key(handle)) or self._default_adapter
+        return AdapterSubscription(adapter, adapter.bind_event(self, handle, event, slot))
+
+    def _adapter_bind_event(self, handle: object, event: str, slot: EventSlot) -> object:
         target = _handle(handle)
         if target.native is not None:
             if target.native.bind_event is None:
@@ -136,6 +181,11 @@ class _PyQtRenderer:
                 raise TypeError("NativeWidget.bind_event must return a callable disposer.")
             return NativeEventSubscription(disposer)
         if event != "on_click" or not isinstance(target.widget, self._button):
+            if event == "on_change" and isinstance(target.widget, self._checkbox):
+                def changed(value: bool) -> object | None:
+                    return slot.invoke(bool(value))
+                target.widget.toggled.connect(changed)
+                return QtEventSubscription(target.widget.toggled, changed)
             raise RendererCapabilityError(f"{event} is not supported by {target.node_type!r} in PyQt.")
         def callback(_checked: bool = False) -> object | None:
             return slot.invoke()
@@ -143,6 +193,12 @@ class _PyQtRenderer:
         return QtEventSubscription(target.widget.clicked, callback)
 
     def unbind_event(self, subscription: object) -> None:
+        if isinstance(subscription, AdapterSubscription):
+            subscription.adapter.unbind_event(self, subscription.subscription)
+            return
+        self._adapter_unbind_event(subscription)
+
+    def _adapter_unbind_event(self, subscription: object) -> None:
         if isinstance(subscription, NativeEventSubscription):
             try:
                 subscription.dispose()
@@ -156,6 +212,10 @@ class _PyQtRenderer:
             pass
 
     def destroy(self, handle: object) -> None:
+        adapter = self.adapters.get(handle_adapter_key(handle)) or self._default_adapter
+        adapter.destroy(self, handle)
+
+    def _adapter_destroy(self, handle: object) -> None:
         target = _handle(handle)
         widget = target.widget
         if target.native is not None and target.native.ownership is NativeOwnership.BORROWED:
@@ -241,7 +301,16 @@ def _subscription(value: object) -> QtEventSubscription:
 def _validate_props(node: VNode) -> None:
     if node.kind is NodeKind.NATIVE:
         return
-    allowed = {"spacing", "padding"} if node.kind is NodeKind.FRAGMENT or node.type in {"Column", "Row"} else ({"value"} if node.type == "Text" else ({"label", "enabled", "on_click"} if node.type == "Button" else set()))
+    if node.kind is NodeKind.HOST and node.type == "Text":
+        validate_text_props(node.props)
+        return
+    if node.kind is NodeKind.HOST and node.type == "Button":
+        validate_button_props(node.props)
+        return
+    if node.kind is NodeKind.HOST and node.type == "Checkbox":
+        validate_checkbox_props(node.props)
+        return
+    allowed = {"spacing", "padding"} if node.kind is NodeKind.FRAGMENT or node.type in {"Column", "Row"} else set()
     unsupported = set(node.props) - allowed
     if unsupported:
         raise RendererCapabilityError(f"Unsupported PyQt props for {node.type!r}: {', '.join(sorted(unsupported))}")

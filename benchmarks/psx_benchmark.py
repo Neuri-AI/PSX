@@ -22,13 +22,29 @@ from time import perf_counter
 import tracemalloc
 from typing import Any
 
-from psx import Button, Column, Row, Text, component, psx, use_state
+from psx import Button, Column, Row, Text, builtin_component_registry, component, psx, use_state
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
 
 
 Result = dict[str, Any]
 
+class _OpsOnlyRenderer(HeadlessRenderer):
+    """Registra move/insert/remove sin mutar listas de hijos.
+
+    Aísla el coste del reconciliador del coste de list.remove/insert del
+    HeadlessRenderer. El reconciliador no lee `handle.children`, así que la
+    secuencia de operaciones emitida es la misma.
+    """
+
+    def move(self, parent: object, child: object, index: int) -> None:
+        self.operations.append(("move", parent, child, index))
+
+    def insert(self, parent: object, child: object, index: int) -> None:
+        self.operations.append(("insert", parent, child, index))
+
+    def remove(self, parent: object, child: object) -> None:
+        self.operations.append(("remove", parent, child))
 
 def _tree(size: int, value: int = 0, *, single_update: bool = False):
     return Column(
@@ -150,8 +166,10 @@ def _reconcile_prebuilt(
     return action, lambda: len(renderer.operations)
 
 
-def _keyed_reorder(size: int) -> tuple[Callable[[], None], Callable[[], int]]:
-    renderer = HeadlessRenderer()
+def _keyed_reorder(
+    size: int, renderer_factory: Callable[[], HeadlessRenderer] = HeadlessRenderer
+) -> tuple[Callable[[], None], Callable[[], int]]:
+    renderer = renderer_factory()
     reconciler = Reconciler(renderer)
     values = list(range(size))
     reconciler.render(Row(*(Text(str(index), key=index) for index in values)))
@@ -259,6 +277,18 @@ def _m4b_transform() -> tuple[Callable[[], None], Callable[[], int]]:
     return action, lambda: 1
 
 
+def _component_resolution() -> tuple[Callable[[], None], Callable[[], int]]:
+    """Measure isolated registry lookups without a compiler/cache side effect."""
+    registry = builtin_component_registry()
+    names = ("Column", "Row", "Text", "Button", "Input", "Checkbox", "Fragment", "Native")
+
+    def action() -> None:
+        for name in names:
+            registry.resolve(name)
+
+    return action, lambda: len(names)
+
+
 def run_suite(*, size: int = 200, iterations: int = 100, repeats: int = 5) -> dict[str, object]:
     """Return JSON-safe measurements for major PSX reconciliation paths."""
     scenarios = (
@@ -273,12 +303,14 @@ def run_suite(*, size: int = 200, iterations: int = 100, repeats: int = 5) -> di
         ("noop_update_combined", lambda: _update_tree(size, noop=True)),
         ("noop_update_reconcile_only", lambda: _reconcile_prebuilt(size, noop=True, iterations=iterations)),
         ("keyed_reorder", lambda: _keyed_reorder(size)),
+        ("keyed_reorder_reconcile_only", lambda: _keyed_reorder(size, _OpsOnlyRenderer)),
         ("event_callback_replacement", _event_replacement),
         ("event_mount_unmount_cleanup", _event_mount_unmount),
         ("batched_state_scheduler", _batched_state),
         ("markup_render", lambda: _markup_render(size)),
         ("markup_compile", lambda: _markup_compile(size)),
         ("m4b_transform", _m4b_transform),
+        ("component_registry_resolution", _component_resolution),
     )
     return {
         "schema": 1,

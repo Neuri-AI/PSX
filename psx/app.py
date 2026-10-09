@@ -1,4 +1,4 @@
-"""Small standalone application facade for the M1 renderer contract."""
+"""Small standalone application facade for the portable renderer contract."""
 
 from __future__ import annotations
 

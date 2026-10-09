@@ -12,7 +12,7 @@ sys.path.insert(0, "src")
 from PySide6.QtWidgets import QLabel, QPushButton, QWidget
 from pydux import Action, Store
 
-from psx import App, Button, Column, Native, NativeWidget, Ref, Text, component, native_widget, psx, use_state
+from psx import App, Button, Checkbox, Column, Input, Native, NativeWidget, Ref, Text, create_element, component, native_widget, psx, use_state
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.integrations.pydux import StoreProvider, use_selector
@@ -81,7 +81,66 @@ class PySide6RendererTests(unittest.TestCase):
 
     def test_unknown_portable_prop_fails_instead_of_being_ignored(self) -> None:
         with self.assertRaises(RendererCapabilityError):
-            self.reconciler.render(Text("Hello", font_size=14))
+            self.reconciler.render(Text("Hello", nonexistent_property=14))
+
+    def test_input_adapter_updates_without_recreating_and_replaces_callbacks(self) -> None:
+        calls: list[tuple[str, str]] = []
+        root = self.reconciler.render(Input(value="one", placeholder="Type", on_change=lambda value: calls.append(("old", value))))
+        handle = root.handle
+        self.assertEqual(handle.widget.text(), "one")
+        handle.widget.setText("typed")
+        self.reconciler.render(Input(value="two", placeholder="Next", on_change=lambda value: calls.append(("new", value))))
+        self.assertIs(self.reconciler.root.handle, handle)
+        self.assertEqual(handle.widget.text(), "two")
+        handle.widget.setText("final")
+        self.assertEqual(calls, [("old", "typed"), ("new", "final")])
+
+    def test_text_portable_update_removal_and_destruction(self) -> None:
+        from PySide6.QtCore import Qt, QCoreApplication, QEvent
+        from shiboken6 import isValid
+        root = self.reconciler.render(Text("<b>plain</b>", font_size=24, bold=True,
+                                           italic=True, color="#336699", align="right", enabled=False))
+        label = root.handle.widget
+        self.assertIsInstance(label, QLabel)
+        self.assertEqual(label.textFormat(), Qt.TextFormat.PlainText)
+        self.assertEqual(label.font().pixelSize(), 24)
+        self.assertTrue(label.font().bold())
+        self.assertTrue(label.font().italic())
+        self.assertFalse(label.isEnabled())
+        self.assertEqual(label.styleSheet(), "color: #336699;")
+        self.assertTrue(label.alignment() & Qt.AlignmentFlag.AlignRight)
+        self.reconciler.render(Text("new", font_size=12, color="#112233", align="center"))
+        self.assertIs(self.reconciler.root.handle.widget, label)
+        self.assertEqual(label.text(), "new")
+        self.assertEqual(label.font().pixelSize(), 12)
+        self.assertFalse(label.font().bold())
+        self.assertFalse(label.font().italic())
+        self.assertTrue(label.isEnabled())
+        self.assertEqual(label.styleSheet(), "color: #112233;")
+        self.assertTrue(label.alignment() & Qt.AlignmentFlag.AlignHCenter)
+        self.reconciler.render(create_element("Text", value="bare"))
+        self.assertEqual(label.font().pixelSize(), 16)
+        self.assertEqual(label.styleSheet(), "")
+        self.reconciler.unmount()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        self.assertFalse(isValid(label))
+
+    def test_text_inherits_theme_and_returns_to_it_after_color_override(self) -> None:
+        root = self.reconciler.render(Column(Text("theme")))
+        shell = root.handle.widget
+        label = root.children[0].handle.widget
+        shell.setStyleSheet("QLabel { color: #eeeeee; }")
+        label.ensurePolished()
+        self.assertEqual(label.styleSheet(), "")
+        self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#eeeeee")
+        self.reconciler.render(Column(Text("explicit", color="#336699")))
+        self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#336699")
+        self.reconciler.render(Column(Text("theme again")))
+        self.assertIs(self.reconciler.root.children[0].handle.widget, label)
+        self.assertEqual(label.styleSheet(), "")
+        self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#eeeeee")
+        shell.setStyleSheet("QLabel { color: #222222; }")
+        self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#222222")
 
     def test_worker_state_update_is_committed_on_the_qt_event_loop(self) -> None:
         captured: dict[str, object] = {}
@@ -212,6 +271,17 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertIsInstance(handle, QtHandle)
         self.assertEqual(parents, [self.reconciler.root.handle.widget])
         self.assertIs(handle.widget.parentWidget(), self.reconciler.root.handle.widget)
+
+    def test_checkbox_reuses_widget_and_keeps_one_callback_connection(self) -> None:
+        calls: list[tuple[str, bool]] = []
+        first = self.reconciler.render(Checkbox(on_change=lambda value: calls.append(("old", value))))
+        widget = first.handle.widget
+        widget.click()
+        self.reconciler.render(Checkbox(checked=True, on_change=lambda value: calls.append(("new", value))))
+        self.assertIs(self.reconciler.root.handle.widget, widget)
+        self.assertTrue(widget.isChecked())
+        widget.click()
+        self.assertEqual(calls, [("old", True), ("new", False)])
 
     def test_native_facade_updates_qt_properties_without_recreating_widget(self) -> None:
         first = self.reconciler.render(Native(QLabel, props={"text": "one"}, key="label"))

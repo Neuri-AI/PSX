@@ -15,21 +15,43 @@ from .core.errors import (
 from .core.hooks import Ref, use_effect, use_ref, use_state
 from .markup import psx
 from .core.native import Native, NativeOwnership, NativeWidget
-from .core.vnode import Button, Column, Fragment, Row, Text, VNode, create_element, native_widget
+from .core.registry import ComponentDefinition, ComponentRegistry, builtin_component_registry
+from .plugins import (
+    PLUGIN_ENTRY_POINT_GROUP,
+    Plugin,
+    PluginAPI,
+    RendererCapabilities,
+    load_plugins,
+    register_adapter,
+    register_component,
+    renderer_capabilities,
+)
+from .renderers import ComponentAdapter, RendererAdapterRegistry
+from .core.vnode import Button, Checkbox, Column, Fragment, Input, Row, Text, VNode, create_element, native_widget
 
 __all__ = [
     "App",
     "Button",
     "Column",
+    "Checkbox",
+    "ComponentDefinition",
+    "ComponentAdapter",
+    "ComponentRegistry",
     "DuplicateKeyError",
     "Fragment",
     "HookOrderError",
+    "Input",
     "InvalidChildError",
     "MarkupSyntaxError",
     "Native",
     "NativeOwnership",
     "NativeWidget",
     "PSXError",
+    "PLUGIN_ENTRY_POINT_GROUP",
+    "Plugin",
+    "PluginAPI",
+    "RendererCapabilities",
+    "RendererAdapterRegistry",
     "RendererCapabilityError",
     "RendererConfigurationError",
     "Row",
@@ -38,9 +60,14 @@ __all__ = [
     "ThreadViolationError",
     "VNode",
     "component",
+    "builtin_component_registry",
     "create_element",
     "native_widget",
     "psx",
+    "load_plugins",
+    "register_adapter",
+    "register_component",
+    "renderer_capabilities",
     "use_effect",
     "use_ref",
     "use_state",

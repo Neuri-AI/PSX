@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from psx import App, component
 from psx.core.errors import PSXError, RendererCapabilityError
