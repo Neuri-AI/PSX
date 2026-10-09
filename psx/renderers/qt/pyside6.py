@@ -154,7 +154,7 @@ class PySide6Renderer:
             raise RendererCapabilityError(
                 f"Unsupported PySide6 props for {target.node_type!r}: {', '.join(sorted(unsupported))}"
             )
-        if "spacing" in changed:
+        if "spacing" in changed or "spacing" in removed:
             if target.layout is None:
                 raise RendererCapabilityError(
                     "spacing is only supported by Row and Column.")

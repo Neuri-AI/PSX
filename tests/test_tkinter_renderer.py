@@ -64,6 +64,20 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertIs(second.children[1].handle.widget, a_widget)
         self.assertEqual(second.handle.widget.pack_slaves(), [b_widget, a_widget])
 
+    def test_removing_optional_layout_props_resets_defaults(self) -> None:
+        first = self.reconciler.render(
+            Column(Row(Text("Ready"), padding=8, spacing=4), padding=24, spacing=12)
+        )
+        column_widget = first.handle.widget
+        row_widget = first.children[0].handle.widget
+
+        second = self.reconciler.render(Column(Row(Text("Ready"))))
+
+        self.assertIs(second.handle.widget, column_widget)
+        self.assertIs(second.children[0].handle.widget, row_widget)
+        self.assertEqual(tuple(column_widget.cget("padding")), (0,))
+        self.assertEqual(tuple(row_widget.cget("padding")), (0,))
+
     def test_worker_state_update_waits_for_tk_ui_drain(self) -> None:
         holder: dict[str, object] = {}
 
