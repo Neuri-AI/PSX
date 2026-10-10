@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite CSS min/max box-sizing normalization added in Python/Rust; scoped CI passed** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization plus standalone cross-axis AUTO/signed margin kernels; cross-margin CI pending** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -785,3 +785,38 @@ numeric sub-slice, not full CSS box sizing conformance.
 passed Rust plus Python 3.10–3.13. PSX run `38061313909` passed
 Python 3.10–3.13, PySide6 offscreen, and distribution build. The
 subsequent documentation-only commit correctly skipped expensive CI.
+
+## 18. F2.2.2 — Resolved cross-axis signed and AUTO margins
+
+A matching pure Python/Rust cross-axis margin positioning kernel was added:
+
+~~~text
+psx/sfle/cross_margins.py          position_cross_margins(...)
+rust/sfle-core/src/cross_margins.rs
+tests/sfle/test_cross_margins.py   Positive space, overflow, signed, reverse
+~~~
+
+Both kernels operate on **previously resolved border-box cross size** and a
+**previously established flex-line cross size**. Positive free space is
+shared between the present AUTO margins (one or both). For nonpositive
+space, the cross-start AUTO margin becomes zero; an opposite AUTO margin
+may absorb the remaining negative space. Fixed signed margins are
+preserved. The returned position is physical relative to its flex line;
+reverse cross-axis positioning uses the opposite physical edge.
+
+~~~mermaid
+flowchart TD
+    A["Known flex line cross size + border-box cross size"] --> B["Fixed signed / AUTO cross margins"]
+    B --> C{"Free cross space positive?"}
+    C -->|Yes| D["Distribute to AUTO cross margins"]
+    C -->|No| E["Cross-start AUTO = 0; end AUTO absorbs remainder"]
+    D --> F["Physical border position on cross axis"]
+    E --> F
+~~~
+
+**Important:** this is a standalone kernel and not yet connected to
+`margin_flex_pipeline`. It does not determine line cross sizes, perform
+stretch/baseline alignment, implement `align-content`, or handle native
+measurements. Those integration points remain for F2.2.3 and F2.2.4.
+The optional early Playwright/Chromium headless GitHub Actions checkpoint
+remains scheduled after F2.2.3.
