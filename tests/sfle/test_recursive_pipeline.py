@@ -88,7 +88,7 @@ def test_native_lifecycle_commits_converged_intrinsic_geometry():
     assert output.geometry.boxes[1].content.height == 12
 
 
-def test_unsupported_cyclic_percentage_fails_closed():
+def test_indefinite_root_reference_fails_closed():
     import pytest
     from psx.sfle.errors import SFLEError
 
@@ -108,7 +108,7 @@ def test_unsupported_cyclic_percentage_fails_closed():
             request.node_id, IntrinsicSizes(20, 60, 8, 24, 60, 24),
             request.constraints, request.revision,
         )
-    with pytest.raises(SFLEError, match="Unresolved percentage"):
+    with pytest.raises(SFLEError, match="No sizing rule for deferred CSS node"):
         compute_recursive_pipeline(
             snapshot, tree,
             child_sizing=(("leaf", ChildSizing(
