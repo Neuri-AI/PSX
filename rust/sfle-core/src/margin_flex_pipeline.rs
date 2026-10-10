@@ -5,13 +5,14 @@
 use crate::edge_pipeline::{BoxEdges, Edges};
 use crate::cross_margins::position_cross_margins;
 use crate::cross_alignment::{CrossAlign, resolve_cross_alignment};
+use crate::align_content::{AlignContent, distribute_cross_lines};
 use crate::line_layout::{
-    place_resolved_lines, Direction, Rect, ResolvedItem, Wrap, WritingDirection,
+    Direction, Rect, Wrap, WritingDirection,
 };
 use crate::main_margins::{position_main_margins_justified, MarginItem};
 use crate::main_alignment::JustifyContent;
 use crate::{resolve_flexible_lengths, FlexBasis, FlexMathError};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MarginFlexItem {
@@ -104,6 +105,26 @@ pub fn compute_margin_flex_layout(
     main_gap: f64,
     cross_gap: f64,
 ) -> Result<MarginFlexLayout, FlexMathError> {
+    compute_margin_flex_layout_content(
+        items, width, height, direction, writing, wrap, main_gap,
+        cross_gap, justify, align_items, AlignContent::FlexStart,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compute_margin_flex_layout_content(
+    items: &[MarginFlexItem],
+    width: f64,
+    height: f64,
+    direction: Direction,
+    writing: WritingDirection,
+    wrap: Wrap,
+    main_gap: f64,
+    cross_gap: f64,
+    justify: JustifyContent,
+    align_items: CrossAlign,
+    align_content: AlignContent,
+) -> Result<MarginFlexLayout, FlexMathError> {
     compute_margin_flex_layout_justified(
         items, width, height, direction, writing, wrap, main_gap, cross_gap,
         JustifyContent::FlexStart,
@@ -188,22 +209,14 @@ pub fn compute_margin_flex_layout_aligned(
                 + item.cross_end.unwrap_or(0.0)
         }).fold(0.0, f64::max)
     }).collect();
-    let cross_lines: Vec<Vec<ResolvedItem>> = lines.iter().enumerate().map(|(line_index, line)|
-        line.iter().map(|index| {
-            let item = &items[*index];
-            ResolvedItem {
-                id: item.id.clone(), main_size: 0.0,
-                cross_size: line_cross_sizes[line_index], order: item.order,
-            }
-        }).collect()
-    ).collect();
-    let cross_placement = place_resolved_lines(
-        &cross_lines, width, height, direction, writing, wrap, 0.0, cross_gap,
-    )?;
-    let cross_by_id: HashMap<&str, Rect> = cross_placement.items.iter()
-        .map(|item| (item.id.as_str(), item.rect)).collect();
     let mut cross_forward = if horizontal { true } else { writing == WritingDirection::Ltr };
     if wrap == Wrap::WrapReverse { cross_forward = !cross_forward; }
+    let distributed = distribute_cross_lines(
+        align_content, cross_extent, &line_cross_sizes,
+        cross_gap, cross_forward, wrap == Wrap::NoWrap,
+    )?;
+    let line_cross_sizes = distributed.sizes;
+    let line_starts = distributed.starts;
     let mut boxes = Vec::new();
 
     for (line_index, line) in lines.iter().enumerate() {
@@ -223,13 +236,12 @@ pub fn compute_margin_flex_layout_aligned(
         )?;
         for (i, position) in line.iter().zip(positions.iter()) {
             let item = &items[*i];
-            let cross = cross_by_id[item.id.as_str()];
             let cross_size = item.cross_border(horizontal);
             let cross_margin = position_cross_margins(
                 cross_size, line_cross_sizes[line_index],
                 item.cross_start, item.cross_end, cross_forward,
             )?;
-            let cross_origin = if horizontal { cross.y } else { cross.x };
+            let cross_origin = line_starts[line_index];
             let cross_offset = if item.cross_start.is_none() || item.cross_end.is_none() {
                 cross_margin.border_start
             } else {
