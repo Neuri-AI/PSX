@@ -72,7 +72,12 @@ def resolve_measurement_dependencies(
         )
         if not native_port.is_ui_thread():
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "UI thread changed during resolution.")
-        native_results = tuple(native_port.measure(request) for request in round_.requests)
+        native_results_list = []
+        for request in round_.requests:
+            if not native_port.is_ui_thread():
+                raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Native measurement left UI thread.")
+            native_results_list.append(native_port.measure(request))
+        native_results = tuple(native_results_list)
         # Acceptance must occur before the pure CSS size recomputation, and
         # no partial results are exposed on invalid revisions/generations.
         from .measurement_round import accept_round
