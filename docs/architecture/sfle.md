@@ -2,7 +2,9 @@
 
 > **Status:** architecture specification / proposed design. **Not implemented.**
 > **F1 decision record:** [Approved decisions and proposed contracts](sfle-f1-contracts.md).
-> D-F1.1–D-F1.5 are approved; D-F1.6–D-F1.12 and F1-RUST remain open.
+> D-F1.1–D-F1.7 are approved at architecture level; D-F1.8–D-F1.12
+> and F1-RUST remain open.
+> **Normative F1.6/F1.7 contract:** [CSS box model and percentages](sfle-f1-box-model.md).
 > Approved D-F1.1 uses `Flex` plus flex properties on existing children, **not** a required `FlexItem` wrapper.
 > This document is a design and documentation baseline, not an assertion that
 > the current PSX runtime already supports these behaviors.
@@ -29,6 +31,12 @@ Model specifications. An actual browser (initially Chromium) is the practical
 reference implementation for comparison fixtures.
 
 Reference: https://www.w3.org/TR/css-flexbox-1/
+
+The earlier exploratory references to a `FlexItem` wrapper or unprefixed
+child sizing names are superseded by the ratified design: **flex item props
+live directly on existing components**, and child CSS sizing uses the
+`layout_width` / `layout_height` namespace. Function components require
+one effective rendered root in the initial release.
 
 ### 1.1 Goals
 
@@ -503,8 +511,15 @@ sections of this file and later split):
   components; no mandatory `FlexItem` wrapper. The common prop-validation
   integration remains D-F1.6.
 - **Approved D-F1.2:** canonical `snake_case` properties.
+- **Approved D-F1.6:** centralized closed layout metadata validation,
+  accepted but inert outside an effective direct Flex context; single-root
+  functional components only initially.
+- **Approved D-F1.7:** typed CSS-like lengths, namespaced child layout
+  dimensions, box-model semantics and deferred property-specific percentages.
+  See [canonical contract](sfle-f1-box-model.md).
 - Initial CSS support subset and detailed defaults.
-- Percentage, intrinsic-size, auto-minimum-size and overflow policy.
+- Percentage, CSS box-model and automatic-minimum semantics are specified in
+  [D-F1.7](sfle-f1-box-model.md); concrete feature gates remain D-F1.9.
 - **Approved D-F1.4:** renderer-native measurement occurs on the UI thread;
   pure SFLE calculation uses immutable inputs.
 - **Approved D-F1.5:** strict browser geometry comparison with
