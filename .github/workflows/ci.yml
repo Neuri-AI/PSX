@@ -33,7 +33,7 @@ jobs:
                   owner: context.repo.owner, repo: context.repo.repo,
                   base: before, head: after, per_page: 100,
                 });
-                files = (result.data.files || []).map(file => file.filename);
+                files = result.data.files || [];
                 // GitHub Compare's changed-file list is capped at 300.
                 if (result.data.total_commits > 250 || files.length >= 300) {
                   core.warning('Diff exceeds safe inspection bounds: run CI.');
@@ -48,15 +48,16 @@ jobs:
                 owner: context.repo.owner, repo: context.repo.repo,
                 pull_number, per_page: 100,
               });
-              files = changes.map(file => file.filename);
+              files = changes;
             }
             if (!files) {
               // Push events are already filtered with paths-ignore below.
               core.setOutput('code', 'true');
               return;
             }
-            const code = files.some(path => !isDoc(path));
-            core.info(`Changed paths: ${files.join(', ') || '(none)'}`);
+            const code = files.some(file => !isDoc(file.filename) ||
+              (file.previous_filename && !isDoc(file.previous_filename)));
+            core.info(`Changed paths: ${files.map(file => file.filename).join(', ') || '(none)'}`);
             core.setOutput('code', String(code));
 
   core:
