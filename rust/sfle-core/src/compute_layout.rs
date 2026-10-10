@@ -167,6 +167,7 @@ fn horizontal(dir:Direction)->bool{
     matches!(dir,Direction::Row|Direction::RowReverse)
 }
 struct Context<'a>{
+    provisional:bool,
     input:&'a LayoutInput,
     styles:Vec<Style>,
     children:Vec<Vec<usize>>,
@@ -210,7 +211,7 @@ impl Context<'_>{
             if width.is_none(){width=Some(self.preferred(index,true)?);}
             if height.is_none(){
                 if let Some(m)=self.measurements.get(id.as_str()){
-                    if m.constraints.width.definite &&
+                    if !self.provisional && m.constraints.width.definite &&
                         (m.constraints.width.value.unwrap()-width.unwrap()).abs()>0.01{
                         return Err(measurement("Missing post-flex width-specific intrinsic measurement.",&id));
                     }
@@ -291,7 +292,7 @@ impl Context<'_>{
 fn converted(r:crate::line_layout::Rect)->Rect{
     Rect{x:r.x,y:r.y,width:r.width,height:r.height}
 }
-pub fn compute_normalized(input:&LayoutInput)->Result<LayoutResult,ComputeError>{
+pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutResult,ComputeError>{
     if input.nodes.is_empty(){
         return Ok(LayoutResult {schema_version:1,generation:input.generation,
             boxes:vec![],diagnostics:vec![],measurement_error:None,
@@ -323,7 +324,7 @@ pub fn compute_normalized(input:&LayoutInput)->Result<LayoutResult,ComputeError>
         }
     }
     let mut context=Context {
-        input,styles,children,
+        input,styles,children,provisional,
         measurements:input.measurements.iter().map(|m|(m.node_id.as_str(),m)).collect(),
         used:vec![None;input.nodes.len()],
     };
