@@ -25,12 +25,12 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
 | **F2.2.2** | **Percentage cycles, box sizing and sizing-edge contracts** | **Scoped resolved-input implementation complete; context-dependent cases explicitly deferred to F2.2.4** |
-| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: measured horizontal first-baseline groups integrated in Python/Rust; SFLE and PSX CI passed** |
+| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **Scoped resolved-input acceptance: implemented in Python/Rust; first six Chromium border-box fixtures passed; native/orthogonal baseline constraints deferred to F2.2.4** |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
 | F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
 
-**Remaining subblocks:** four (F2.2.3–F2.2.6). Scoped F2.2.2 closure is not a full CSS conformance claim. Other pending stages:
+**Remaining subblocks:** three (F2.2.4–F2.2.6). Scoped F2.2.2/F2.2.3 acceptance does not imply full CSS conformance. Other pending stages:
 F2.3 Chromium conformance and F2.4 migration planning.
 
 ## 1. F2.0 — Technical card
@@ -1040,3 +1040,12 @@ The item contract adds `baseline_from_cross_start` (Python) / `baseline_from_cro
 The first real-browser comparison lives at `tests/browser/test_sfle_chromium.py` and is executed by `.github/workflows/sfle-chromium.yml`. GitHub Actions installs Playwright and the **headless Chromium binary in the CI runner**, not on the developer workstation. Fixtures compare four border-box fields (`x`, `y`, `width`, `height`) with 0.05 CSS-pixel tolerance, using root-relative rectangles and explicitly defined CSS sizes. The initial, deliberately narrow corpus covers centered rows, row RTL `space-between`, wrapped `align-content: space-between`, wrapped line stretch with centered children, auto cross-axis item stretch, and RTL column center.
 
 The comparison suite is not added to `tests/sfle`: ordinary SFLE Python/Rust contract validation does not require Chromium or Playwright. The browser job can be dispatched manually and also runs on changes to the engine, fixture suite or its workflow. The fixtures test **border-box positioning only** for fully resolved pixel inputs; they deliberately exclude native text baseline acquisition, indefinite percentages, intricate CSS intrinsic sizing, replaced elements, and recursive layout. This is an early scoped browser parity gate, not a claim that F2.3 browser conformance is complete.
+
+
+### F2.2.3 scoped acceptance decision (first Chromium evidence)
+
+GitHub Actions **SFLE Chromium geometry checkpoint** run [38067599261](https://github.com/Neuri-AI/PSX/actions/runs/38067599261) completed successfully on workflow commit `88d6f556`: **6/6 fixtures passed** under Playwright headless Chromium 153 (headless shell build 1243). The comparison tests assert `x`, `y`, `width`, and `height` of every item border-box within `0.05` CSS px of Chromium. General PSX alpha validation [38067599264](https://github.com/Neuri-AI/PSX/actions/runs/38067599264) passed Python 3.10–3.13, PySide6 offscreen and distribution build. Existing Rust and Python resolved-input tests remain passing from prior F2.2.3 commits. The six new browser fixtures directly exercise the **Python** solver; they do **not** independently exercise the Rust solver or its bindings.
+
+F2.2.3 is **accepted only as a restricted resolved-input horizontal-writing alignment implementation**. The accepted scope covers justify-content; basic align-items/align-self; align-content for multi-line flex; explicit auto cross-size stretch; and first-baseline alignment only when upstream already supplies measured baseline offsets for horizontal Flex. Unresolved percentages and recursive sizing, native baseline acquisition, orthogonal/column baseline groups, synthesized/replaced-element baselines, and shared numerical Rust/Python browser parity are explicitly *not accepted* by this milestone; they belong to F2.2.4/F2.2.6 and broader browser conformance F2.3. The public capability manifest, native renderer migrations, and runtime backend selection remain closed.
+
+**Next subblock: F2.2.4 — Recursive Layout & Measurement.** Before turning on any public Flex API, establish measured-size snapshots, constraint propagation, generation/invalidation rules, and native toolkit measurement boundaries; follow with Rust-primary/Python fallback integration F2.2.5 and expanded shared parity corpus F2.2.6.
