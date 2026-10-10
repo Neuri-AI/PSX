@@ -25,7 +25,7 @@ def test_measured_baselines_share_cross_line():
 
 def test_group_increases_wrapped_line_cross_size():
     a,b=item("a",20,15),item("b",30,10)
-    c=replace(item("c",10,8),flex=FlexBasis(60,60,shrink=0))
+    c=replace(item("c",10,8),flex=FlexBasis(80,80,shrink=0))
     result=compute_margin_flex_layout((a,b,c), 100,100,wrap=FlexWrap.WRAP)
     assert result.lines == (("a","b"),("c",))
     assert result.boxes[2].border.y==35
