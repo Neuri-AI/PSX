@@ -7,6 +7,7 @@
 
 pub mod cross_margins;
 pub mod cross_alignment;
+pub mod align_content;
 pub mod edge_pipeline;
 pub mod intrinsic;
 pub mod main_margins;
