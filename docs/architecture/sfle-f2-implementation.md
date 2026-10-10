@@ -1236,3 +1236,18 @@ children, special aspect-ratio transfers and cross-context sizing still
 require a complete CSS sizing phase. The new stage must not be advertised
 as universal recursive Flexbox layout. Continue F2.2.4 at **5/8** accepted
 until these remaining normative rules are implemented and verified.
+
+
+## F2.2.4.7 — Deterministic Headless measurement port (increment)
+
+The renderer-neutral `HeadlessMeasurementSource` supplies explicit immutable
+`IntrinsicSizes` snapshots keyed by unique node identifiers. It adapts them
+to the existing synchronous `NativeMeasurementPort` and
+`fulfill_native_round` handshake, retaining the exact requested constraints,
+revision and generation validation. Missing measurements fail closed; no CSS
+intrinsic sizes are guessed from available-size hints.
+
+Regression tests in `tests/sfle/test_headless_measurement.py` cover complete
+rounds, stale generations, missing/duplicate snapshots and retained cache
+entries. **This is a partial F2.2.4.7 deliverable**, not acceptance of Qt,
+Kivy or Tkinter UI-thread native measurement, and it does not close F2.2.4.
