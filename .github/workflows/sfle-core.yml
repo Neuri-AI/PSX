@@ -1,0 +1,56 @@
+name: SFLE core checks
+
+on:
+  pull_request:
+    paths:
+      - "psx/sfle/**"
+      - "rust/sfle-core/**"
+      - "tests/sfle/**"
+      - ".github/workflows/sfle-core.yml"
+  push:
+    branches:
+      - "feat/sfle-f2-core"
+    paths:
+      - "psx/sfle/**"
+      - "rust/sfle-core/**"
+      - "tests/sfle/**"
+      - ".github/workflows/sfle-core.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  python-contracts:
+    name: Python SFLE / ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install test dependencies
+        run: python -m pip install -e . pytest
+      - name: Compile SFLE Python
+        run: python -m compileall -q psx/sfle
+      - name: SFLE focused tests
+        run: python -m pytest -q tests/sfle
+
+  rust-core:
+    name: Rust SFLE core
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust/sfle-core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check Rust formatting
+        run: cargo fmt --check
+      - name: Rust unit tests
+        run: cargo test --all-targets
