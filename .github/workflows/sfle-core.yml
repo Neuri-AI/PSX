@@ -10,7 +10,7 @@ on:
       - "pyproject.toml"
   push:
     branches:
-      - "feat/sfle-f2-core"
+      - main
     paths:
       - "psx/sfle/**"
       - "rust/sfle-core/**"
