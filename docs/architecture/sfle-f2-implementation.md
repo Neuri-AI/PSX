@@ -1097,3 +1097,10 @@ Files: `psx/sfle/remeasurement.py`, `rust/sfle-core/src/remeasurement.rs`, `test
 **Scope:** This is an invalidation *delta* between known snapshots; it does not execute measurements, compute ancestor automatic sizes, solve CSS percentage dependency cycles, inspect actual native widgets, or determine convergence. The F2.2.4.5 subblock remains **in development** until those follow-on behaviors are implemented and verified. Next: make a coordinator consume deltas and remeasure width-sensitive intrinsic nodes with stable generation guards, then handle cyclic layout dependencies according to explicitly supported CSS rules.
 
 **Progress tracking:** F2.2.4 has eight internal subblocks. F2.2.4.1–F2.2.4.4 accepted in their restricted scope (4/8, 50% by count); F2.2.4.5 in progress; F2.2.4.6–F2.2.4.8 pending. Do not count F2.2.4.5 as complete from invalidation alone.
+
+
+## F2.2.4.5 — Measurement round handshake (second restricted increment)
+
+Python `psx/sfle/measurement_round.py` and Rust `rust/sfle-core/src/measurement_round.rs` now translate a previously computed `RemeasurementDelta` plus **explicit** per-node constraints and revisions into a leaf-first, generation-tagged round of measurement requests. Unaffected measurements may be retained only if both constraints and revisions match. The acceptance boundary checks that all and only requested results arrive, rejects stale generation and mismatched revisions, and verifies the entire set before exposing the result. Python regressions reside in `tests/sfle/test_measurement_round.py`, with mirrored Rust tests.
+
+This is a **pure handshake protocol**. No toolkit callbacks, automatic loop, convergence detector, width-sensitive native text measurement, CSS cycle solver, or final Flex geometry are implemented here. F2.2.4.5 therefore **remains in progress**. Next increment must implement semantic dependency phases and a bounded layout/remeasurement coordinator, using explicitly supported CSS cycle rules and erroring on unsupported cycles. F2.2.4 progress stays **4 of 8 accepted**; F2.2.4.5 is not yet accepted.
