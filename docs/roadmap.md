@@ -55,16 +55,20 @@ deterministic headless tests.
 ## Pending — portable Flexbox/Grid layout system (proposal)
 
 **Architecture document:** [SFLE — Shared Flex Layout Engine](architecture/sfle.md).
-**F1 contracts:** [Approved decisions and open technical contracts](architecture/sfle-f1-contracts.md).
+**F1 decisions:** [Approved architecture and component contracts](architecture/sfle-f1-contracts.md).
+**Formal F1 closure:** [Final architecture, LTR/RTL, Rust fallback and SFLE migration](architecture/sfle-f1-final-architecture.md).
+**Status:** all F1 decisions approved. **F2 is not authorized or started**; an
+explicit user go-ahead is required before implementation.
 **Ratified F1.6/F1.7 contract:** [CSS box model and percentage resolution](architecture/sfle-f1-box-model.md).
 Approved: closed shared metadata validation with single-root components,
 metadata inert outside Flex, layout_width/layout_height namespace, and tagged
 immutable lengths. The CSS box model and property-specific percentage rules
 are specified, while D-F1.8–D-F1.12 and F1-RUST remain pending.
 
-D-F1.1–D-F1.7 approved at architecture level: `Flex` with direct child layout props,
+D-F1.1–D-F1.12 and F1-RUST approved at architecture level: `Flex` with direct child layout props,
 `snake_case`, progressive browser conformance, UI-thread native measurement,
-and strict geometry comparison. D-F1.8–D-F1.12 and Rust policy remain open.
+strict geometry comparison, LTR + RTL, full SFLE replacement of layout math,
+selective caching, and Rust-primary/Python-fallback computation.
 
 SFLE is the proposed backend-neutral CSS Flexbox geometry engine. The design
 prioritizes browser-like visual layout results across Qt, Kivy, Tkinter, and
@@ -72,8 +76,8 @@ Headless, with renderer-specific intrinsic measurement and geometry application.
 The specification covers the algorithm, Mermaid diagrams, lifecycle, adapters,
 conformance strategy and outstanding decisions; SFLE remains unimplemented.
 
-**Status:** F1 architecture partially approved; remaining public API details,
-acceptance thresholds and implementation are not yet approved. Reference:
+**Status:** F1 architecture fully approved; formal close-out pending explicit
+user acceptance. F2 implementation is not yet authorized. Reference:
 [Flexbox Grid](http://flexboxgrid.com/) (a responsive 12-column layout system
 built on CSS Flexbox). PSX should reproduce the *layout semantics* in native
 desktop renderers rather than embed CSS or assume a browser engine.
@@ -94,13 +98,14 @@ desktop renderers rather than embed CSS or assume a browser engine.
 - **Responsive behavior:** define desktop-appropriate breakpoints, initial
   layout and resize transitions; avoid unnecessary widget recreation or loss
   of component state during reflow.
-- **Renderer support:** Qt, Kivy, Tkinter and Headless should implement the
-  same semantics through adapters or a shared backend-neutral layout model.
-- **Architecture:** extend/reuse existing `Row`/`Column` and D11 layout
-  contracts where compatible. Determine whether new `Flex`, `Grid` and
-  `GridItem` components are warranted after an API design review. Reuse
-  the same geometry rules in the PSX Playground Visual Layout Inspector and
-  future Visual UI Builder.
+- **Renderer support:** Qt, Kivy, Tkinter and Headless share the SFLE computation
+  authority, with native measurement and geometry adapters.
+- **Approved layout migration:** replace existing Row/Column layout algorithms
+  and Scroll content layout computation with SFLE; preserve component APIs
+  where feasible and retain native scrolling mechanics. Flex-only item props
+  remain inert outside an explicit Flex formatting context. Rust is the primary
+  computation engine with a parity-matched Python fallback. Reuse the same
+  geometry data for the PSX Playground Visual Layout Inspector and UI Builder.
 
 ### Aspirational markup (not currently supported)
 
@@ -117,8 +122,8 @@ desktop renderers rather than embed CSS or assume a browser engine.
 </Flex>
 ```
 
-The snippet illustrates layout intent only; component names, accepted props,
-nesting rules and responsive syntax are **not yet decided**. Future design
+The snippet illustrates layout intent only; Grid component names and responsive syntax remain **not yet decided**;
+Flex and direct-child layout property architecture is approved. Future design
 cards should settle those choices before any implementation. Do not add
 automated tests as part of the current component DX-first rollout.
 
