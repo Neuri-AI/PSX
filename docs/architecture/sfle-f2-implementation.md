@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins connected to line formation, flex sizing and border placement in both languages; CI passed** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite CSS min/max box-sizing normalization added in Python/Rust, CI pending** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -740,3 +740,43 @@ and distribution build for code commit `de512501`.
 Early headless Chromium
 fixtures remain scheduled just after F2.2.3, using GitHub Actions
 rather than requiring a developer's local machine.
+
+## 17. F2.2.2 — Definite CSS min/max with box-sizing
+
+The pure Python and Rust normalization now accepts already-definite CSS
+`flex-basis`, `min-width`/`min-height` and
+`max-width`/`max-height`, along with an already-resolved sum of
+padding and border widths on the main axis:
+
+~~~text
+psx/sfle/percentage_box_sizing.py          normalize_flex_box_basis(...)
+rust/sfle-core/src/percentage_box_sizing.rs normalize_flex_box_basis(...)
+tests/sfle/test_percentage_box_sizing.py   normalized bounds and integration
+~~~
+
+All sizes are converted into the **content-box units** expected by the
+existing `FlexBasis` math kernel. For `border-box`, fixed padding and
+border contribute a floor, so computed content sizes never become negative.
+CSS minimum constraints win if a specified definite maximum is smaller.
+For `content-box`, the numeric basis and constraints are retained.
+
+The resulting `FlexBasis` is accepted directly by the already-implemented
+signed/auto-margin Flex pipeline, tested with a nonzero padding/border
+contribution. The same operation and edge cases are implemented in Rust.
+
+~~~mermaid
+flowchart TD
+    A["Definite flex basis and min/max + padding/border"] --> B{"box-sizing"}
+    B -->|"content-box"| C["Keep content sizes"]
+    B -->|"border-box"| D["Subtract fixed edges, floor at zero"]
+    C --> E["CSS minimum wins conflicting maximum"]
+    D --> E
+    E --> F["Validated content-box FlexBasis"]
+    F --> G["Existing resolved Flex and main-margin pipeline"]
+~~~
+
+**Scope gates remain:** percentage-dependent or intrinsic min/max bounds,
+automatic min-content detection, cross-axis automatic margins and
+constraint resolution that depends on available content width still
+require their respective sizing/measurement stages. This is a definite
+numeric sub-slice, not full CSS box sizing conformance.
