@@ -15,6 +15,7 @@ def _badge_widget_class(binding: str):
     qt = core.Qt
     alignment = getattr(getattr(qt, "AlignmentFlag", qt), "AlignCenter")
     no_pen = getattr(getattr(qt, "PenStyle", qt), "NoPen")
+    no_brush = getattr(getattr(qt, "BrushStyle", qt), "NoBrush")
     antialiasing = getattr(
         getattr(gui.QPainter, "RenderHint", gui.QPainter), "Antialiasing"
     )
@@ -65,7 +66,7 @@ def _badge_widget_class(binding: str):
             radius = min(radius, rect.width() / 2)
 
             if props["appearance"] == "outline":
-                painter.setBrush(no_pen)
+                painter.setBrush(no_brush)
                 painter.setPen(gui.QPen(gui.QColor(stroke), 1))
             else:
                 painter.setPen(no_pen)
