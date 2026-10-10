@@ -5,6 +5,7 @@
 use crate::edge_pipeline::{BoxEdges, Edges};
 use crate::cross_margins::position_cross_margins;
 use crate::cross_alignment::{CrossAlign, resolve_cross_alignment};
+use crate::cross_stretch::resolve_cross_stretch;
 use crate::align_content::{AlignContent, distribute_cross_lines};
 use crate::line_layout::{
     Direction, Rect, Wrap, WritingDirection,
@@ -26,6 +27,9 @@ pub struct MarginFlexItem {
     pub cross_start: Option<f64>,
     pub cross_end: Option<f64>,
     pub align_self: CrossAlign,
+    pub cross_size_auto: bool,
+    pub min_cross_content_size: f64,
+    pub max_cross_content_size: Option<f64>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -63,6 +67,8 @@ impl MarginFlexItem {
             || self.main_end.is_some_and(|v| !v.is_finite())
             || self.cross_start.is_some_and(|v| !v.is_finite())
             || self.cross_end.is_some_and(|v| !v.is_finite())
+            || !self.min_cross_content_size.is_finite() || self.min_cross_content_size < 0.0
+            || self.max_cross_content_size.is_some_and(|v| !v.is_finite() || v < 0.0)
         {
             return Err(FlexMathError::InvalidInput("invalid margin flex item"));
         }
@@ -236,7 +242,29 @@ pub fn compute_margin_flex_layout_content(
         )?;
         for (i, position) in line.iter().zip(positions.iter()) {
             let item = &items[*i];
-            let cross_size = item.cross_border(horizontal);
+            let chosen_align = if item.align_self == CrossAlign::Auto {
+                align_items
+            } else {
+                item.align_self
+            };
+            let mut cross_size = item.cross_border(horizontal);
+            if chosen_align == CrossAlign::Stretch && item.cross_size_auto
+                && item.cross_start.is_some() && item.cross_end.is_some()
+            {
+                let e = item.edges;
+                let pb = if horizontal {
+                    e.border.top + e.border.bottom + e.padding.top + e.padding.bottom
+                } else {
+                    e.border.left + e.border.right + e.padding.left + e.padding.right
+                };
+                let stretched = resolve_cross_stretch(
+                    line_cross_sizes[line_index], pb,
+                    item.cross_start.expect("checked fixed margin"),
+                    item.cross_end.expect("checked fixed margin"),
+                    item.min_cross_content_size, item.max_cross_content_size,
+                )?;
+                cross_size = stretched.border_size;
+            }
             let cross_margin = position_cross_margins(
                 cross_size, line_cross_sizes[line_index],
                 item.cross_start, item.cross_end, cross_forward,
@@ -244,6 +272,11 @@ pub fn compute_margin_flex_layout_content(
             let cross_origin = line_starts[line_index];
             let cross_offset = if item.cross_start.is_none() || item.cross_end.is_none() {
                 cross_margin.border_start
+            } else if chosen_align == CrossAlign::Stretch {
+                let start = item.cross_start.expect("checked fixed margin");
+                if cross_forward { start } else {
+                    line_cross_sizes[line_index] - start - cross_size
+                }
             } else {
                 resolve_cross_alignment(
                     align_items, item.align_self, cross_size,
@@ -307,6 +340,8 @@ mod tests {
             main_start: start, main_end: end, order: 0,
             cross_start: Some(0.0), cross_end: Some(0.0),
             align_self: CrossAlign::Auto,
+            cross_size_auto: false, min_cross_content_size: 0.0,
+            max_cross_content_size: None,
         }
     }
 
