@@ -118,7 +118,7 @@ def _axis_value(length: Length, reference: float | None, *,
             return None
     raise SFLECapabilityError(
         DiagnosticCode.UNSUPPORTED_FEATURE,
-        f"CSS {axis} value requires an unsupported intrinsic/percentage context.",
+        f"Unlisted indefinite inline percentage dependency cycle (CSS {axis} reference).",
         node_id,
     )
 
@@ -208,6 +208,27 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 child_id,
             )
 
+    # Fail-closed: cyclic descendant percentages after an indefinite
+    # column's percentage flex-basis are NOT the supported leaf-only C01 rule.
+    for node in request.nodes:
+        style = styles[node.node_id]
+        if (style.direction not in (FlexDirection.COLUMN, FlexDirection.COLUMN_REVERSE)
+            or style.height.kind != LengthKind.AUTO):
+            continue
+        for child_id in children[node.node_id]:
+            if styles[child_id].flex_basis.kind != LengthKind.PERCENT:
+                continue
+            pending = list(children[child_id])
+            while pending:
+                descendant = pending.pop()
+                if styles[descendant].height.kind == LengthKind.PERCENT:
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Unlisted column intrinsic percentage basis descendant cycle.",
+                        child_id,
+                    )
+                pending.extend(children[descendant])
+
     def preferred(node_id: str, horizontal: bool) -> float:
         style = styles[node_id]
         length = style.width if horizontal else style.height
@@ -294,7 +315,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                     basis_axis.value if basis_axis.kind == LengthKind.PX else 0.0
                 )
             else:
-                raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unresolved automatic minimum.", child_id)
+                raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unlisted percentage minimum size dependency cycle.", child_id)
             assert minimum is not None
             bases.append(FlexBasis(desired, max(desired,minimum),
                                     grow=child_style.grow,shrink=child_style.shrink,
