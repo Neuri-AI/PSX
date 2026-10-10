@@ -2,6 +2,8 @@ name: PSX alpha validation
 
 on:
   push:
+    branches:
+      - main
     paths-ignore:
       - "docs/**"
       - "README.md"
