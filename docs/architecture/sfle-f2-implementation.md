@@ -380,3 +380,28 @@ CSS box-model-aware algorithm. Those remain separate acceptance gates.
 The next useful block should prioritize evaluating the CI outcomes and
 then expanding edge-aware line fitting (including padding, border and
 signed margins) without violating CSS auto-minimum and box-sizing rules.
+
+## CI optimization: documentation-only changes
+
+GitHub Actions now distinguishes **the latest PR synchronization delta**
+from the full historical PR diff. This is important because a code-bearing
+PR remains code-bearing in GitHub's ordinary `paths` filters even if the
+latest commit only changes `docs/`.
+
+- `.github/workflows/ci.yml`: push events ignore `docs/**`. On PR
+  synchronization, a lightweight file-change job inspects the `before`/
+  `after` commit range and skips the Python matrix, Qt offscreen suite
+  and distribution build if only `docs/` changed.
+- `.github/workflows/sfle-core.yml`: push triggers include SFLE Python,
+  Rust, tests, its workflow and `pyproject.toml`. The lightweight PR
+  change detector skips the Python/Rust suite when the latest synchronized
+  changes do not affect these paths.
+- A documentation-only PR update may still create a **small detector job**:
+  GitHub's PR path filter examines the aggregate PR diff, not just the
+  most recent commit. The expensive test jobs are skipped.
+- PR opening or reopening still checks the overall diff; mixed code/docs
+  updates always run relevant checks. Renamed files consider both previous
+  and current paths. Large or unclassifiable diffs run checks rather than
+  accidentally skipping them.
+
+Workflow behavior is separate from SFLE layout conformance certification.
