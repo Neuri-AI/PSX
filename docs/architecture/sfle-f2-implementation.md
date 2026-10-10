@@ -26,7 +26,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
 | **F2.2.2** | **Percentage cycles, box sizing and sizing-edge contracts** | **Scoped resolved-input implementation complete; context-dependent cases explicitly deferred to F2.2.4** |
 | **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **Scoped resolved-input acceptance: implemented in Python/Rust; first six Chromium border-box fixtures passed; native/orthogonal baseline constraints deferred to F2.2.4** |
-| **F2.2.4** | **Recursive layout and constrained native measurement protocol** | **In progress: measurement planning + explicit CSS child-constraint resolution in Python/Rust; focused Rust/Python CI passed** |
+| **F2.2.4** | **Recursive layout and constrained native measurement protocol** | **In progress: 5/8 internal subblocks scoped-accepted; F2.2.4.5 dependency/remeasurement protocol closed; geometry/native adapters/integration pending** |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
 | F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
 
@@ -1128,3 +1128,52 @@ The native measurement boundary now exposes `NativeMeasurementPort` and `fulfill
 `tests/browser/test_sfle_chromium.py` now includes an additional nested, zero-edge Flex reference fixture that checks absolute positions and border-box dimensions for root, sibling, nested parent and leaf. It is the first Chromium nested-tree check but does not validate cyclic, auto or intrinsically sized Flex geometry.
 
 **Closure remains blocked:** F2.2.4.5 must incorporate CSS-valid intrinsic/automatic size dependencies; F2.2.4.6 must support real edges, automatic and intrinsic sizing integrated with Flex distribution; F2.2.4.7 requires framework-specific UI-thread adapters and lifecycle integration; F2.2.4.8 requires broader Chromium regression and equivalent Python/Rust geometry evidence. Maintain F2.2.4 at **4/8 closed** until those acceptance gates are met.
+
+
+## F2.2.4.5 — Scoped acceptance: dependency and remeasurement coordinator
+
+**Status: ACCEPTED in the restricted alpha dependency-protocol scope (2026-10-10).**
+This supersedes the *in-progress* entries above for F2.2.4.5, but does not
+retroactively extend what earlier helpers support. The eight-way F2.2.4
+tracker now records **5/8 accepted (62.5%)**, with F2.2.4.6–F2.2.4.8
+remaining. F2.2 overall remains **4/7 accepted** until all of F2.2.4 closes.
+
+### Acceptance evidence
+
+- Deterministic descendant-first dependency invalidation and revision-aware
+  reuse of immutable measurement snapshots: `remeasurement`,
+  `measurement_plan`, `measurement_round` in Python and Rust.
+- Bounded convergence, generation-safe atomic round acceptance, and
+  rejection of repeated indefinite constraints, oscillation, and pass-limit
+  exhaustion: `convergence`, `measurement_coordinator` in Python and Rust.
+- **Actual multi-pass loop** in
+  `psx/sfle/dependency_cycle.py` and `rust/sfle-core/src/dependency_cycle.rs`.
+  Every round consumes accepted intrinsic measurements before asking a supplied
+  pure CSS-sizing callback to recompute. The Python UI adapter callback must
+  execute on the renderer UI thread; Rust core receives measured immutable
+  snapshots via caller-provided callbacks.
+- Regression tests cover a two-pass intrinsic dependency, a three-pass
+  width-sensitive preferred-height remeasurement, invalid revisions and stale
+  generations, zero-work reuse, and unsupported nonconvergence.
+- **Intrinsic auto leaf-size suggestions** are collected with strict
+  cache-constraint and revision matching (Python/Rust
+  `intrinsic_dependencies`); they are *not* assigned as final CSS used sizes.
+  CSS `flex-basis`, stretch, intrinsic min/max, parent auto sizes and flex
+  distribution determine the final used geometry in the later layout phase.
+- Last code commit `fd86afc680b53f957d0ed6403885090351d6bcc4`
+  passed all five GitHub Actions runs for SFLE Core (Rust + Python 3.10–3.13),
+  PSX Alpha Validation and Chromium checkpoint. Chromium is a regression gate
+  here, **not** a browser comparison for all auto/dependency cases.
+
+### Explicitly outside F2.2.4.5 closure
+
+This acceptance closes the **dependency scheduling and remeasurement
+protocol**, not the full CSS recursive layout engine. The pure CSS recompute
+callback remains supplied by a caller, because automatic *Flex container*
+size calculation, cyclic percentage semantics and final flex item sizes
+require the still-pending F2.2.4.6 recursive sizing/geometry stage.
+Unimplemented CSS input combinations raise explicit unsupported diagnostics;
+they are not silently treated as resolved or made definite by intrinsic
+preferred sizes. F2.2.4.7 must still integrate actual Qt/Kivy/Tkinter
+UI-thread adapters; F2.2.4.8 must expand parity and integration coverage.
+**Do not enable public Flex or begin F2.2.5 on this subblock's acceptance alone.**
