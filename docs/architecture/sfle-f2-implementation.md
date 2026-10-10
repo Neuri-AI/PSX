@@ -1292,3 +1292,29 @@ and CSS auto/intrinsic sizing remain separate dependencies. The tested
 callback-based lifecycle is a bridge, not a completed Qt/Kivy/Tkinter renderer
 migration. Rust/Python parity and expanded Chromium compliance are still
 required before accepting F2.2.4.8.
+
+
+## F2.2.4.6–8 — Measured leaf sizing and native geometry adapters
+
+`intrinsic_tree.py` connects accepted immutable leaf intrinsic metrics to
+`IntrinsicFlexInput`, preserves flex grow/shrink and automatic main-axis
+minimum constraints, then runs the existing recursive Flex kernel to compute
+final used geometry. Leaf automatic cross-size suggestions come from the
+measured preferred cross dimension and still undergo Flex stretch/alignment.
+Non-leaf intrinsic requests, missing measurements and conflicting inputs fail
+closed. This is a supported leaf-only subset; automatic *container* sizing,
+cyclic percentages and aspect-ratio transfers are not yet solved.
+
+`native_geometry.py` maps absolute top-left SFLE border rectangles to
+parent-relative Qt `setGeometry`, Tk `place`, and Kivy `pos`/`size`;
+Kivy inverts the vertical origin relative to the native parent's border
+rectangle. Call it from `NativeLayoutLifecycle` on the UI thread after the
+current generation has been confirmed. The root host/window is not resized.
+This bridge does not yet guarantee that native parenting or Scroll clipping
+and viewport boundaries match the SFLE tree: the renderer owns those.
+
+Focused regressions are in `test_intrinsic_tree.py` and
+`test_native_geometry.py`; the browser checkpoint now includes a measured
+auto flex leaf whose final grow-distributed border rectangle is compared to
+Chromium. Full Rust/Python parity, auto-sized ancestors and real framework
+lifecycle integration remain required for F2.2.4 completion.
