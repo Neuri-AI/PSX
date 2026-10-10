@@ -21,6 +21,7 @@ def compute_with_width_measurements(
     compute: Callable[[LayoutInput], LayoutResult],
     measure_fn: Callable[[str, float], IntrinsicSizes],
     *,
+    compute_provisional: Callable[[LayoutInput], LayoutResult],
     initial_widths: dict[str, float],
     max_rounds: int = 8,
 ) -> LayoutResult:
@@ -35,7 +36,7 @@ def compute_with_width_measurements(
         raise TypeError("Expected LayoutInput.")
     if max_rounds < 1:
         raise ValueError("max_rounds must be positive.")
-    if not callable(compute) or not callable(measure_fn):
+    if not callable(compute) or not callable(compute_provisional) or not callable(measure_fn):
         raise TypeError("Expected compute and UI-thread measure callbacks.")
     nodes = {n.node_id for n in snapshot.nodes}
     if not initial_widths or not set(initial_widths).issubset(nodes):
@@ -76,7 +77,7 @@ def compute_with_width_measurements(
                 iteration,
             )
         request = replace(snapshot, measurements=tuple(measurements.values()))
-        result = compute(request)
+        result = compute_provisional(request) if iteration == 0 else compute(request)
         if result.generation != snapshot.generation:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                             "Engine returned a stale generation.")
