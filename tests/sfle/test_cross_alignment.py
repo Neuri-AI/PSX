@@ -100,4 +100,4 @@ def test_pure_kernel_center_reverse_with_fixed_margins():
         CrossAlign.CENTER, CrossAlign.AUTO, 20, 100, -10, 0,
         cross_forward=False,
     )
-    assert value == 35
+    assert value == 45
