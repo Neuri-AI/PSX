@@ -50,6 +50,7 @@ from psx.renderers.components.slider import apply_qt_slider, updated_slider_prop
 from psx.renderers.components.spacer import apply_qt_spacer, updated_spacer_props
 from psx.renderers.components.progressbar import apply_qt_progressbar, updated_progressbar_props
 from psx.renderers.components.radio import radio_props, updated_radio_props
+from psx.renderers.components.select import apply_qt_select, updated_select_props
 from psx.core.contracts import (
     validate_textarea_props,
     validate_input_props,
@@ -60,6 +61,7 @@ from psx.core.contracts import (
     validate_spacer_props,
     validate_progressbar_props,
     validate_radio_props,
+    validate_select_props,
 )
 
 _LAYOUT_PROPS = frozenset({"spacing", "padding"})
@@ -124,6 +126,13 @@ def emit_input_value(widget, slot):
 
 def emit_textarea_value(widget, slot):
     return lambda: slot.invoke(widget.toPlainText())
+
+def emit_qt_select(widget, slot):
+    def changed(index):
+        if index > 0:
+            slot.invoke(widget.itemData(index))
+    return changed
+
 
 def emit_slider_value(widget, slot):
     props = widget._psx_props
@@ -259,7 +268,13 @@ register_primitive(
     updated_props=updated_radio_props,
     takes_binding=False,
 )
-
+register_primitive(
+    "Select", qt_class="QComboBox",
+    validate=validate_select_props,
+    apply=apply_qt_select,
+    updated_props=updated_select_props,
+    events={"on_change": ("currentIndexChanged", emit_qt_select)},
+)
 
 # -- renderer ---------------------------------------------------------------
 

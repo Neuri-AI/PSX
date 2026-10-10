@@ -27,6 +27,7 @@ from .validators import (
     validate_progressbar_props,
     validate_radio_props,
     validate_radiogroup_props,
+    validate_select_props,
 )
 Validator = Callable[[Mapping[str, object]], None]
 
@@ -175,4 +176,8 @@ RADIOGROUP_CONTRACT = ComponentContract(
     frozenset({"on_change"}),
     "multiple",
     validate_radiogroup_props,
+)
+SELECT_CONTRACT = ComponentContract(
+    "Select", SELECT_PROPS, SELECT_DEFAULTS,
+    frozenset({"on_change"}), "none", validate_select_props,
 )

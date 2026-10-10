@@ -100,3 +100,10 @@ RADIOGROUP_DEFAULTS = MappingProxyType({
     "padding": 0,
     "enabled": True,
 })
+SELECT_DEFAULTS = MappingProxyType({
+    "options": (),
+    "value": None,
+    "placeholder": "",
+    "enabled": True,
+    "on_change": None,
+})
