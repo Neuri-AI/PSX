@@ -136,3 +136,44 @@ def test_invalid_length_type_and_negative_used_size_rejected():
         resolve_child_constraints(
             size(100, 100), ChildSizing(Length.px(-2), Length.px(10)),
         )
+
+
+def test_used_boxes_supply_css_content_instead_of_border_dimensions():
+    from psx.sfle.constraint_propagation import plan_used_box_measurements
+    from psx.sfle.model import BoxRect, Rect
+
+    def box(width: float, height: float) -> BoxRect:
+        content = Rect(4, 6, width, height)
+        border = Rect(0, 0, width + 8, height + 12)
+        return BoxRect(content, border, border, border)
+
+    plan = plan_used_box_measurements(
+        tree(),
+        used_boxes=(("root", box(200, 80)), ("child", box(100, 20))),
+        child_sizing=(
+            ("child", ChildSizing(Length.percent(0.5), Length.percent(0.25))),
+            ("leaf", ChildSizing(Length.percent(0.5), Length.px(10))),
+        ),
+    )
+    assert [request.node_id for request in plan.requests] == ["leaf", "child", "root"]
+    assert plan.requests[0].constraints == size(50, 10)
+    assert plan.requests[1].constraints == size(100, 20)
+
+
+def test_missing_duplicate_and_wrong_type_used_boxes_fail_closed():
+    from psx.sfle.constraint_propagation import plan_used_box_measurements
+    from psx.sfle.model import BoxRect, Rect
+
+    rect = Rect(0, 0, 200, 80)
+    used = BoxRect(rect, rect, rect, rect)
+    styles = (
+        ("child", ChildSizing(Length.percent(0.5), Length.px(20))),
+        ("leaf", ChildSizing(Length.px(10), Length.px(10))),
+    )
+    for boxes in ((), (("root", used), ("root", used)), (("missing", used),)):
+        with pytest.raises(SFLEError):
+            plan_used_box_measurements(tree(), used_boxes=boxes, child_sizing=styles)
+    with pytest.raises(TypeError):
+        plan_used_box_measurements(
+            tree(), used_boxes=(("root", size(200, 80)),), child_sizing=styles,
+        )
