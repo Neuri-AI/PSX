@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: cyclic percentage-gap phase and definite box sizing (Python + Rust); scoped CI passed** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: cyclic percentage gaps, definite box sizing and standalone signed/auto main margins (Python + Rust); CI pending for margins** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -643,3 +643,47 @@ coordinates.
 The larger conformance suite and 0.01 logical-px numerical acceptance
 threshold remain owned by F2.3. This checkpoint is a plan, **not an
 implemented workflow yet**.
+
+## 15. F2.2.2 — Signed and automatic main-axis margins
+
+A separate pure **post-flex** margin distribution kernel now exists:
+
+~~~text
+psx/sfle/main_margins.py             Python signed/auto main margins
+rust/sfle-core/src/main_margins.rs   Rust counterpart
+tests/sfle/test_main_margins.py      LTR/RTL, reverse and overflow fixtures
+~~~
+
+This kernel receives previously-resolved **border-box** main sizes and
+logical main-start/main-end margin values. Explicit margins may be signed;
+an `auto` margin is represented by a distinct `None`, never by numeric
+zero. After flex sizing, any **positive** remaining main-axis space is
+distributed equally to all auto main margins. Under negative free space,
+auto main margins resolve to zero. Logical axes map to physical positions
+for LTR/RTL row and row-reverse, and column/column-reverse.
+
+The result positions border boxes directly, avoiding the incorrect
+assumption that a signed-margin box must always be representable as a
+nonnegative-width `Rect`.
+
+~~~mermaid
+flowchart TD
+    A["Flex-sized border boxes + signed / AUTO logical margins"] --> B["Remaining main free space"]
+    B --> C{"Positive and AUTO margins?"}
+    C -->|"Yes"| D["Share equally across auto edges"]
+    C -->|"No"| E["Auto edges resolve to zero"]
+    D --> F["Physical border positions with LTR/RTL/reverse"]
+    E --> F
+~~~
+
+**Important scope boundary:** This is a standalone pure post-sizing kernel
+and is **not yet connected** to `edge_pipeline.py`. That pipeline still
+rejects negative margins. Before this subblock is complete, its line
+formation must also use signed fixed margins and zero auto margins,
+flex sizing must incorporate the resulting outer contributions, and
+cross-axis auto margins need their own CSS semantics. Other outstanding
+requirements include min/max box-sizing constraints and percentage cycles.
+No complete CSS Flexbox feature is advertised by the engine.
+
+The agreed optional Chromium/Playwright fixture CI checkpoint remains
+scheduled after F2.2.3; it will not require a local browser.
