@@ -13,39 +13,12 @@ from psx.renderers.components.scroll import (
 
 
 class _PSXScrollView(ScrollView):
-    """Pass unconsumed mouse-wheel input to the enclosing ScrollView."""
+    """Native Kivy scroll input and boundary handling.
 
-    def on_scroll_start(self, touch, check_children=True):
-        props = getattr(self, "_psx_props", None)
-        if props is not None:
-            if not props["enabled"]:
-                return False
-            horizontal, vertical = scroll_axes(props["direction"])
-            button = getattr(touch, "button", "")
-            # A nested viewport must not consume a wheel event it cannot use.
-            # Returning False allows Kivy's enclosing ScrollView to receive it.
-            if button == "scrollup" and (
-                not vertical or self.scroll_y >= 1.0 or
-                self._psx_content.height <= self.height
-            ):
-                return False
-            if button == "scrolldown" and (
-                not vertical or self.scroll_y <= 0.0 or
-                self._psx_content.height <= self.height
-            ):
-                return False
-            if button == "scrollleft" and (
-                not horizontal or self.scroll_x <= 0.0 or
-                self._psx_content.width <= self.width
-            ):
-                return False
-            if button == "scrollright" and (
-                not horizontal or self.scroll_x >= 1.0 or
-                self._psx_content.width <= self.width
-            ):
-                return False
-        return super().on_scroll_start(touch, check_children=check_children)
-
+    Avoid overriding on_scroll_start: Kivy uses scrollup/scrolldown in its
+    effect-coordinate convention, and pre-filtering based on scroll_y can
+    block wheel/trackpad events even when content can move.
+    """
 
 
 class KivyScrollAdapter:
