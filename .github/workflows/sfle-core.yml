@@ -7,6 +7,7 @@ on:
       - "rust/sfle-core/**"
       - "tests/sfle/**"
       - ".github/workflows/sfle-core.yml"
+      - "pyproject.toml"
   push:
     branches:
       - "feat/sfle-f2-core"
@@ -18,9 +19,65 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
+  changes:
+    name: Detect SFLE changes
+    runs-on: ubuntu-latest
+    outputs:
+      sfle: ${{ steps.filter.outputs.sfle }}
+    steps:
+      - name: Inspect current PR update
+        id: filter
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const affectsSFLE = path =>
+              path.startsWith('psx/sfle/') ||
+              path.startsWith('rust/sfle-core/') ||
+              path.startsWith('tests/sfle/') ||
+              path === 'pyproject.toml' ||
+              path === '.github/workflows/sfle-core.yml';
+            let files;
+            if (context.eventName === 'pull_request' &&
+                context.payload.action === 'synchronize') {
+              const before = context.payload.before;
+              const after = context.payload.after;
+              if (before && after) {
+                const response = await github.rest.repos.compareCommits({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  base: before, head: after, per_page: 100,
+                });
+                files = response.data.files || [];
+                if (response.data.total_commits > 250 || files.length >= 300) {
+                  core.warning('Diff too large to classify safely; run SFLE tests.');
+                  core.setOutput('sfle', 'true');
+                  return;
+                }
+              }
+            }
+            if (!files && context.eventName === 'pull_request') {
+              files = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner, repo: context.repo.repo,
+                pull_number: context.issue.number, per_page: 100,
+              });
+            }
+            if (!files) {
+              // A push passed the event-level paths filter.
+              core.setOutput('sfle', 'true');
+              return;
+            }
+            const changed = files.some(
+              file => affectsSFLE(file.filename) ||
+                      (file.previous_filename && affectsSFLE(file.previous_filename))
+            );
+            core.info(`Relevant SFLE changes: ${changed}`);
+            core.setOutput('sfle', String(changed));
+
   python-contracts:
+    needs: changes
+    if: needs.changes.outputs.sfle == 'true'
     name: Python SFLE / ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
@@ -40,6 +97,8 @@ jobs:
         run: python -m pytest -q tests/sfle
 
   rust-core:
+    needs: changes
+    if: needs.changes.outputs.sfle == 'true'
     name: Rust SFLE core
     runs-on: ubuntu-latest
     defaults:
