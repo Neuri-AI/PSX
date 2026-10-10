@@ -26,7 +26,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
 | **F2.2.2** | **Percentage cycles, box sizing and sizing-edge contracts** | **Scoped resolved-input implementation complete; context-dependent cases explicitly deferred to F2.2.4** |
 | **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **Scoped resolved-input acceptance: implemented in Python/Rust; first six Chromium border-box fixtures passed; native/orthogonal baseline constraints deferred to F2.2.4** |
-| **F2.2.4** | **Recursive layout and constrained native measurement protocol** | **In progress: descendant-first measurement worklist, cache invalidation and generation guards; focused CI passed** |
+| **F2.2.4** | **Recursive layout and constrained native measurement protocol** | **In progress: measurement planning + explicit CSS child-constraint resolution in Python/Rust; new CI pending** |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
 | F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
 
@@ -1061,3 +1061,12 @@ Verified SFLE focused workflow `38068204776`: Rust and Python 3.10–3.13 passed
 
 
 **Cache correctness follow-up:** the first planner revision could reuse a parent measurement while a descendant was scheduled for remeasurement. That was unsafe because a changed child's intrinsic size may invalidate every ancestor. The Python and Rust planners now propagate dirty status from descendants to parents during reverse-preorder traversal; focused regression tests explicitly prohibit stale ancestor reuse. This is conservative invalidation, pending finer dependency tracking in subsequent F2.2.4 increments. Follow-up code commit `ff25d4a0` passed SFLE run `38068376248` (Rust, Python 3.10–3.13), PSX alpha run `38068376245` (Python 3.10–3.13, PySide6 offscreen and build), and Chromium checkpoint `38068376249` (existing six fixtures).
+
+
+## F2.2.4 — Explicit CSS child constraints for recursive measurement
+
+The new `psx/sfle/constraint_propagation.py` and `rust/sfle-core/src/constraint_propagation.rs` provide a typed boundary from an **established parent content-box size** plus the child's explicitly specified `width` and `height` CSS Length values to the constraints used for child measurement. The width percent reference is the parent content-box inline width; height percent refers to the parent content-box block height (horizontal writing mode). Definite pixels and percentages become definite child axes; `auto`, intrinsic keywords and percentages with indefinite containing dimensions stay **indefinite**, with no fabricated used numeric value.
+
+`plan_styled_measurements` connects these per-child derived constraints with the F2.2.4 descendant-first `plan_measurements` worklist, including existing revision and generation controls. Every non-root node needs an explicit style declaration and a separately established parent content-box constraint snapshot. This is deliberate: a parent's *available constraint* may differ from its used content box because of padding, borders, margins, intrinsic sizing or Flex algorithms; it is not a safe substitute. Tree branches missing established parent content boxes fail with an explicit unsupported-measurement diagnostic, rather than silently inheriting widths. Python `tests/sfle/test_constraint_propagation.py` and Rust module tests cover definite percentages, indefinite height, auto/intrinsic deferral, nested parent content references and missing-parent guards.
+
+**Important boundary:** this increment resolves specified child width/height against known parent content boxes. It is **not** a general recursive Flex geometry solver; the parent's content box must currently be supplied by the upstream sizing pass, and automatic flex sizes, cyclic dependencies, native text measurement and iterative convergence remain pending. Until those contracts are implemented, do not enable the public Flex capability or claim that arbitrary CSS child constraints can be resolved. GitHub Actions Rust/Python/Chromium results are recorded on code commits after validation.
