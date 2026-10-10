@@ -91,7 +91,7 @@ jobs:
       - name: Compile SFLE Python
         run: python -m compileall -q psx/sfle
       - name: SFLE focused tests
-        run: python -m pytest -q tests/sfle
+        run: python -m pytest -q -rs tests/sfle
 
   rust-core:
     name: Rust SFLE core
