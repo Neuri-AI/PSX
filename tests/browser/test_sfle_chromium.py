@@ -280,3 +280,39 @@ def test_nested_justify_and_padding_match_chromium(chromium_page):
             assert getattr(b.border, axis) == pytest.approx(
                 actual[b.node_id][axis], abs=0.05,
             ), f"nested alignment {b.node_id}.{axis}"
+
+
+def test_measured_auto_flex_leaf_matches_chromium(chromium_page):
+    """A leaf's intrinsic basis is flex-distributed, not mistaken for its used width."""
+    from psx.sfle.intrinsic_tree import IntrinsicLeafStyle, compute_measured_leaf_tree
+    from psx.sfle.lengths import Length, LengthKind
+    from psx.sfle.margin_tree import MarginTreeNode
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox
+
+    chromium_page.set_content(
+        '<!doctype html><html><body style="margin:0">'
+        '<div id="root" style="display:flex;width:150px;height:80px;align-items:flex-start">'
+        '<div id="leaf" style="display:block;flex:1 1 auto;box-sizing:content-box">'
+        '<div style="width:60px;height:22px"></div></div></div></body></html>'
+    )
+    browser = chromium_page.evaluate("""() => {
+      const r = document.getElementById('leaf').getBoundingClientRect();
+      return { x:r.x, y:r.y, width:r.width, height:r.height };
+    }""")
+    nodes = (
+        MarginTreeNode("root", None, 150, 80),
+        MarginTreeNode("leaf", "root", 0, 0,
+            MarginFlexItem("leaf", FlexBasis(0, 0, grow=1, shrink=1), 0)),
+    )
+    measured = MeasuredBox(
+        "leaf", IntrinsicSizes(60, 60, 22, 22, 60, 22),
+        LayoutConstraints(AvailableSize(150, True), AvailableSize(80, True)), 1,
+    )
+    result = compute_measured_leaf_tree(
+        nodes, measurements=(measured,),
+        leaves=(IntrinsicLeafStyle("leaf", Length(LengthKind.AUTO)),),
+        generation=8,
+    )
+    leaf = result.boxes[1].border
+    for axis in ("x", "y", "width", "height"):
+        assert getattr(leaf, axis) == pytest.approx(browser[axis], abs=0.05)
