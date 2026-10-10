@@ -24,13 +24,13 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization and main/cross margins integrated; definite/indefinite percentage flex-basis fallback added; scoped Rust/Python and PSX CI passed; typed percentage constraint bridge with Rust/Python CI passed** |
-| F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
+| **F2.2.2** | **Percentage cycles, box sizing and sizing-edge contracts** | **Scoped resolved-input implementation complete; context-dependent cases explicitly deferred to F2.2.4** |
+| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: Python/Rust justify-content kernel; CI pending** |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
 | F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
 
-**Remaining subblocks:** five (F2.2.2–F2.2.6). Other pending stages:
+**Remaining subblocks:** four (F2.2.3–F2.2.6). Scoped F2.2.2 closure is not a full CSS conformance claim. Other pending stages:
 F2.3 Chromium conformance and F2.4 migration planning.
 
 ## 1. F2.0 — Technical card
@@ -969,3 +969,9 @@ headless fixtures remain scheduled after F2.2.3.
 Rust and Python 3.10–3.13; general PSX validation run `38063729542`
 passed Python 3.10–3.13, PySide6 offscreen and distribution build. This
 validates only the deliberately restricted resolved-input contract.
+
+## F2.2.2 scoped closure and F2.2.3 start
+
+F2.2.2 pure resolved-input sizing and signed/auto margin contracts are accepted as implemented, with passing prior Python/Rust CI. This does NOT include complete CSS layout. Percentage min/max with indefinite containing blocks, cyclic percentages, width-sensitive intrinsic remeasurement, replaced elements and aspect-ratio transfers require recursive measurement in F2.2.4. Full Chromium geometry conformance belongs to F2.3, and numerical backend parity to F2.2.6. Unsupported inputs must continue to fail explicitly. Engine capability manifest stays closed.
+
+First F2.2.3 increment: `psx/sfle/main_alignment.py`, `rust/sfle-core/src/main_alignment.rs` and `tests/sfle/test_main_alignment.py` implement pure resolved `justify-content` leading and between spacing for flex-start, flex-end, center, space-between, space-around and space-evenly. Supports signed resolved outer contributions and overflow fallbacks. Integration with the line pipeline, alignment of cross axes, baseline, stretch, and align-content are still pending. Chromium Headless with Playwright in GitHub Actions remains planned immediately after F2.2.3.
