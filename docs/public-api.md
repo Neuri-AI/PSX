@@ -1,5 +1,12 @@
 # Public API
 
+> **Alpha API status:** The imports below document the **currently
+> implemented API**. Under the approved [SFLE F1 D-F1.10 architecture](architecture/sfle-f1-final-architecture.md),
+> `Row` and `Column` are scheduled for **complete removal** (no aliases,
+> wrappers, or legacy compatibility layers) and `Flex` will be the sole
+> public Flexbox layout component. `Scroll` remains independent. This
+> change is **not yet implemented**; F2 requires explicit authorization.
+
 ```python
 from psx import (
     App, Button, Checkbox, Column, ComponentAdapter, ComponentDefinition,
