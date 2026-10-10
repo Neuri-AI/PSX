@@ -16,7 +16,7 @@ Kivy, Tkinter and Headless.
 | `checked` | `bool` | `False` |
 | `enabled` | `bool` | `True` |
 | `label` | `str` | `""` |
-| `size` | `"small" \| "medium" \| "large"` | `"medium"` |
+| `size` | `"small" \| "medium" \| "large"` |
 | `on_change` | `Callable[[bool], None] \| None` | `None` |
 | `key`, `ref` | runtime identity/reference | `None` |
 
