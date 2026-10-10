@@ -334,7 +334,14 @@
           }
         }
       ],
-      "measurements": [],
+      "measurements": [
+        {
+          "node": "child",
+          "at_width": 100,
+          "height": 60,
+          "preferred_width": 100
+        }
+      ],
       "expected": {
         "oscillation": "SFLE_UNSUPPORTED_MEASUREMENT",
         "max_iterations": 8,
