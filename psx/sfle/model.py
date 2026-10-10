@@ -147,8 +147,8 @@ class MeasuredBox:
     revision: int
 
     def __post_init__(self) -> None:
-        if not self.node_id:
-            raise ValueError("MeasuredBox.node_id must not be empty.")
+        if not isinstance(self.node_id, str) or not self.node_id:
+            raise ValueError("MeasuredBox.node_id must be a nonempty string.")
         if type(self.revision) is not int or self.revision < 0:
             raise ValueError("MeasuredBox.revision must be a nonnegative integer.")
         if not isinstance(self.constraints, LayoutConstraints):
@@ -167,12 +167,14 @@ class LayoutNode:
     style: tuple[tuple[str, Length | str | float | int], ...]
 
     def __post_init__(self) -> None:
-        if not self.node_id:
-            raise ValueError("LayoutNode.node_id must not be empty.")
+        if not isinstance(self.node_id, str) or not self.node_id:
+            raise ValueError("LayoutNode.node_id must be a nonempty string.")
+        if self.parent_id is not None and (not isinstance(self.parent_id, str) or not self.parent_id):
+            raise ValueError("LayoutNode.parent_id must be a nonempty string or None.")
         if self.parent_id == self.node_id:
             raise ValueError("A layout node cannot be its own parent.")
-        if not self.component:
-            raise ValueError("LayoutNode.component must not be empty.")
+        if not isinstance(self.component, str) or not self.component:
+            raise ValueError("LayoutNode.component must be a nonempty string.")
         if not isinstance(self.style, tuple):
             raise TypeError("LayoutNode.style must be an immutable tuple.")
         if any(not isinstance(entry, tuple) or len(entry) != 2 for entry in self.style):
@@ -211,11 +213,11 @@ class LayoutInput:
             raise TypeError("Layout input constraints must be LayoutConstraints.")
         if not isinstance(self.direction, WritingDirection):
             raise TypeError("LayoutInput.direction must be a WritingDirection.")
-        ids = [node.node_id for node in self.nodes]
         if not all(isinstance(node, LayoutNode) for node in self.nodes):
             raise TypeError("Layout input nodes must all be LayoutNode.")
         if not all(isinstance(item, MeasuredBox) for item in self.measurements):
             raise TypeError("Layout input measurements must all be MeasuredBox.")
+        ids = [node.node_id for node in self.nodes]
         if len(ids) != len(set(ids)):
             raise ValueError("Layout tree node IDs must be unique.")
         existing = set(ids)
