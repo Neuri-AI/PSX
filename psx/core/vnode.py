@@ -598,13 +598,6 @@ def SpinBox(
     ref: object | None = None,
     **props: object,
 ) -> VNode:
-    """A noninteractive, intrinsically sized semantic status label."""
-    options = dict(
-        label=label, variant=variant, appearance=appearance,
-        size=size, shape=shape, enabled=enabled, **props,
-    )
-    BADGE_CONTRACT.validate_builder(options)
-    return create_element("Badge", key=key, ref=ref, **options)
     """Controlled portable numeric input with increment/decrement buttons."""
     config = dict(
         value=value, min=min, max=max, step=step, decimals=decimals,
@@ -633,5 +626,3 @@ def Badge(
     )
     BADGE_CONTRACT.validate_builder(options)
     return create_element("Badge", key=key, ref=ref, **options)
-
-
