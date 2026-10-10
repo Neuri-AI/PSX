@@ -1272,3 +1272,23 @@ ports do **not** claim exact CSS min/max-content measurements for text,
 scheduler integration or completed framework-native lifecycle. The feature
 manifest remains disabled and F2.2.4.7 remains open until those requirements
 are integrated and validated with real framework widgets.
+
+
+## F2.2.4.7/8 — Generation-safe native layout commit boundary
+
+`psx/sfle/native_lifecycle.py` introduces `NativeLayoutLifecycle` and
+`layout_and_commit`. The host renderer supplies a current-generation getter,
+a UI-thread native measurement port and a geometry-application callback.
+The bridge compares immutable layout/geometry tree identities, measures from
+actual resolved parent content boxes, checks generation both before measuring
+and immediately before geometry application, and rejects committing deferred
+CSS axes. It never schedules native calls onto a worker thread or assumes
+that missing auto dimensions equal intrinsic preferred sizes.
+
+`tests/sfle/test_native_lifecycle.py` covers complete commits, stale
+in-flight generations, wrong UI-thread context and incomplete sizing.
+**This does not close F2.2.4.6–F2.2.4.8.** Production renderer scheduling
+and CSS auto/intrinsic sizing remain separate dependencies. The tested
+callback-based lifecycle is a bridge, not a completed Qt/Kivy/Tkinter renderer
+migration. Rust/Python parity and expanded Chromium compliance are still
+required before accepting F2.2.4.8.
