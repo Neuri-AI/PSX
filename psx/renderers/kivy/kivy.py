@@ -314,6 +314,7 @@ class KivyRenderer:
         from .image import KivyImageAdapter
         from .switch import KivySwitchAdapter
         from .link import KivyLinkAdapter
+        from .badge import KivyBadgeAdapter
         from .box import KivyBoxAdapter
         from .progressbar import KivyProgressBarAdapter
         from .radio import KivyRadioAdapter, KivyRadioGroupAdapter
@@ -324,6 +325,7 @@ class KivyRenderer:
         self.adapters.register("Image", KivyImageAdapter())
         self.adapters.register("Switch", KivySwitchAdapter())
         self.adapters.register("Link", KivyLinkAdapter())
+        self.adapters.register("Badge", KivyBadgeAdapter())
         self.adapters.register("Box", KivyBoxAdapter())
         self.adapters.register("ProgressBar", KivyProgressBarAdapter())
         self.adapters.register("Radio", KivyRadioAdapter())
