@@ -568,7 +568,7 @@
       "measurements": [
         {
           "node": "child",
-          "at_width": 120,
+          "at_width": 100,
           "height": 30,
           "preferred_width": 100
         }
