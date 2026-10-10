@@ -453,3 +453,61 @@ is **not** an authorization to use negative margins in line fitting.
 The pure Rust and Python edge-aware source was added along with Python and
 Rust fixtures; numeric parity and Chromium conformity must still be
 separately verified. Do not enable engine capability claims prematurely.
+
+## 12. F2.2 — Property-aware CSS sizing (definiteness first)
+
+The current slice adds a *property-aware* length resolver in both languages:
+
+~~~text
+psx/sfle/sizing.py              Python sizing properties and used/unresolved tags
+rust/sfle-core/src/sizing.rs     Rust counterpart and tests
+tests/sfle/test_sizing.py       Python percentage/definiteness/keyword tests
+~~~
+
+The resolver preserves `AUTO`, intrinsic keywords, `NONE`, and indefinite
+percentages as distinct tagged results. It produces a numeric used size only
+when the reference dimension is **definite**, including definite zero.
+The three reference dimensions are provided explicitly, never inferred
+from an untyped parent numeric width.
+
+| Property group | Percent reference | Status |
+| --- | --- | --- |
+| Physical margin/padding (all four sides) | Containing block inline size | Definite references supported |
+| `flex_basis` | Definite flex container main size | Definite references supported |
+| Width/height and min/max | Corresponding containing block axis | Definite references supported |
+| `gap` percentages | Depends on cyclic/intrinsic layout stage | Rejected explicitly |
+| Border percentages | Not a supported CSS border-width value | Rejected explicitly |
+
+A negative margin percentage is preserved as a signed used value;
+negative padding, gap and sizing values are rejected. **This is a
+resolution contract, not a complete flex item sizing algorithm.**
+`min-content`, `max-content`, `fit-content` and `auto` stay unresolved:
+the next computation layer must consult native intrinsic measurements,
+CSS auto min-size and the specific property's formatting context instead
+of fabricating numeric values. Indefinite percent `flex_basis` similarly
+remains deferred; the complete Flexbox algorithm must apply the appropriate
+content-based fallback in its correct sizing phase.
+
+~~~mermaid
+flowchart TD
+    A["Tagged Length + property"] --> B["Select CSS reference axis"]
+    B --> C{"Reference definite?"}
+    C -->|Yes| D["Finite used logical px"]
+    C -->|No| E["Tagged unresolved percent"]
+    A --> F["AUTO / intrinsic / NONE"]
+    F --> G["Deferred to measurement or sizing stage"]
+    A --> H["Unsupported cyclic gap / invalid property value"]
+    H --> I["Explicit diagnostic"]
+~~~
+
+Both Rust and Python expose this resolver as a **pure intermediate
+operation**, not a complete `LayoutEngine`; the engine capability manifest
+remains empty until its full supported path is conformant and verified.
+The solver is **not yet connected** to edge-aware line sizing or native
+measurement, and no runtime/native adapter/public component is modified.
+
+### Validation gate
+
+The Python and Rust test suites must pass in GitHub Actions after
+this slice; Chromium geometry and cross-language fixture parity are
+separate, still-pending requirements.
