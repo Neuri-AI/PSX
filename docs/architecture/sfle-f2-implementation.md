@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| F2.2.2 | Percentage cycles, box-sizing and deferred sizing edge cases | Partial: property-aware definite percentage resolver |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: explicit cyclic percentage-gap phase and definite content/border box conversion (Python + Rust), CI pending** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -579,3 +579,62 @@ never measures a GUI widget, accesses fonts or silently invents sizes.
 **Acceptance:** commit implementations and focused Python/Rust tests;
 inspect GitHub Actions for Python 3.10–3.13 and Rust. Browser conformance
 and parity fixture comparisons remain pending until F2.2.6/F2.3.
+
+## 14. F2.2.2 — Cyclic percentage gap and definite box sizing
+
+This is an incremental delivery of F2.2.2, **not completion of all CSS
+percentage-cycle and box-sizing semantics**.
+
+~~~text
+psx/sfle/percentage_box_sizing.py         Python pure sizing boundaries
+rust/sfle-core/src/percentage_box_sizing.rs
+                                         Rust counterpart
+tests/sfle/test_percentage_box_sizing.py  CSS-definiteness boundary fixtures
+~~~
+
+A percentage gap is resolved against the definite corresponding container
+axis when available. When the reference is indefinite, CSS cyclic gap
+contributes zero to **intrinsic size calculations only**. Its final
+used-layout value remains unresolved: the engine raises an explicit
+capability error until a suitable used size exists. No indefinite hint
+is treated as a definite reference.
+
+For a definite specified dimension with already-resolved padding/border:
+
+- `content-box`: content = specified; border-box = specified + edges.
+- `border-box`: content = max(0, specified - edges); border-box =
+  content + edges. The fixed edges set the border-box floor.
+
+Both languages reject invalid negative values and preserve definite zero.
+
+~~~mermaid
+flowchart TD
+    A["Tagged percentage gap"] --> B{"Axis definite?"}
+    B -->|Yes| C["Used numeric gap"]
+    B -->|No| D{"Intrinsic contribution phase?"}
+    D -->|Yes| E["Zero intrinsic contribution only"]
+    D -->|No| F["Explicit unsupported until used-size resolution"]
+    G["Definite width/height + resolved padding/border"] --> H["CSS box-sizing"]
+    H --> I["Content-box / border-box used sizes"]
+~~~
+
+**Still required before marking F2.2.2 complete:** integrate resolved sizing
+with flex items and main/cross dimensions, add CSS min/max box-sizing
+adjustments, cover dependent percent cycles beyond gap, and implement
+negative/automatic flex margins without conflating them with layout
+auto-minimum sizing. Browser-backed reference cases remain a separate
+acceptance gate.
+
+### Chromium headless CI checkpoint (agreed)
+
+A **small, opt-in Playwright/Chromium fixture suite should be introduced
+after F2.2.3**, rather than deferring all browser comparisons to F2.3.
+It should run on supported GitHub Actions Linux runners, compare shared
+input structures with Python/Rust and Chromium's element rectangles, and
+produce useful diffs. It must not run for docs-only changes and must not
+silently assume subpixel browser rounding equals SFLE's double-precision
+coordinates.
+
+The larger conformance suite and 0.01 logical-px numerical acceptance
+threshold remain owned by F2.3. This checkpoint is a plan, **not an
+implemented workflow yet**.
