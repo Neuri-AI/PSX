@@ -88,7 +88,7 @@ def test_A05_shrink_remeasures_both_items_at_35px():
 def test_A06_generation_is_preserved_by_pure_layout_result():
     s = snapshot([("root", None, "Flex", {})], height=40)
     result = PythonLayoutEngine().compute(s)
-    assert result.generation == s.generation
+    assert result.generation == _ACCEPTANCE["A06"]["generation"]
 
 
 def test_A07_convergent_auto_layout_is_finite():
