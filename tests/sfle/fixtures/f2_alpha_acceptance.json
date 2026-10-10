@@ -72,7 +72,18 @@
         "python",
         "rust",
         "chromium"
-      ]
+      ],
+      "live_text": {
+        "tokens": 18,
+        "text": "x x x x x x x x x x x x x x x x x x",
+        "font_css": "10px/20px monospace",
+        "initial_width_px": 120,
+        "final_width_px": 80,
+        "initial_height_px": 40,
+        "final_height_px": 60,
+        "line_height_px": 20,
+        "expected_measurements_per_leaf": 2
+      }
     },
     {
       "id": "A02",
@@ -212,7 +223,18 @@
         "python",
         "rust",
         "chromium"
-      ]
+      ],
+      "live_text": {
+        "tokens": 18,
+        "text": "x x x x x x x x x x x x x x x x x x",
+        "font_css": "10px/20px monospace",
+        "initial_width_px": 100,
+        "final_width_px": 150,
+        "initial_height_px": 60,
+        "final_height_px": 40,
+        "line_height_px": 20,
+        "expected_measurements_per_leaf": 2
+      }
     },
     {
       "id": "A05",
@@ -279,7 +301,18 @@
         "python",
         "rust",
         "chromium"
-      ]
+      ],
+      "live_text": {
+        "tokens": 6,
+        "text": "x x x x x x",
+        "font_css": "10px/20px monospace",
+        "initial_width_px": 50,
+        "final_width_px": 35,
+        "initial_height_px": 40,
+        "final_height_px": 60,
+        "line_height_px": 20,
+        "expected_measurements_per_leaf": 2
+      }
     },
     {
       "id": "A06",
