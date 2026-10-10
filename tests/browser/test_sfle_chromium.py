@@ -188,3 +188,44 @@ def test_nested_resolved_flex_boxes_match_chromium(chromium_page):
             assert getattr(box.border, axis) == pytest.approx(
                 actual[node_id][axis], abs=0.05,
             ), f"nested {node_id}.{axis}: SFLE vs Chromium"
+
+
+def test_nested_padding_border_content_origins_match_chromium(chromium_page):
+    """F2.2.4.6 nested content-box placement with actual padding/borders."""
+    from psx.sfle.box_geometry import UsedBoxEdges, UsedEdges
+    from psx.sfle.edge_tree import EdgeTreeNode, compute_edge_tree
+    def flex(n):
+        return FlexBasis(n, n, grow=0, shrink=0, min_size=0)
+    root_edges=UsedBoxEdges(padding=UsedEdges(top=3,left=5),
+                            border=UsedEdges(top=2,left=1))
+    parent_edges=UsedBoxEdges(padding=UsedEdges(top=4,left=6),
+                              border=UsedEdges(top=1,left=2))
+    nodes=(
+        EdgeTreeNode("root",None,200,80,edges=root_edges),
+        EdgeTreeNode("parent","root",50,30,flex=flex(50),edges=parent_edges),
+        EdgeTreeNode("leaf","parent",10,10,flex=flex(10)),
+    )
+    chromium_page.set_content(
+        '<!doctype html><html><body style="margin:0">'
+        '<div id="root" style="display:flex;width:200px;height:80px;'
+        'padding:3px 0 0 5px;border-style:solid;border-width:2px 0 0 1px;'
+        'box-sizing:content-box;align-items:flex-start">'
+        '<div id="parent" style="display:flex;flex:0 0 50px;width:50px;height:30px;'
+        'padding:4px 0 0 6px;border-style:solid;border-width:1px 0 0 2px;'
+        'box-sizing:content-box;align-items:flex-start;min-width:0">'
+        '<div id="leaf" style="flex:0 0 10px;width:10px;height:10px;'
+        'min-width:0"></div></div></div></body></html>'
+    )
+    actual=chromium_page.evaluate("""() => {
+      const result={};
+      for(const id of ['root','parent','leaf']){
+        const r=document.getElementById(id).getBoundingClientRect();
+        result[id]={x:r.x,y:r.y,width:r.width,height:r.height};
+      }
+      return result;
+    }""")
+    for id,box in compute_edge_tree(nodes,generation=8).boxes:
+        for axis in ('x','y','width','height'):
+            assert getattr(box.border,axis)==pytest.approx(actual[id][axis],abs=0.05), (
+                f'nested edges {id}.{axis}: SFLE vs Chromium'
+            )
