@@ -6,7 +6,7 @@ from psx.sfle.engine import PythonLayoutEngine
 def test_A08_load_time_import_error_selects_python(monkeypatch):
     original=importlib.import_module
     def blocked(name,*args,**kwargs):
-        if name=="psx._sfle_native":
+        if name=="_sfle_native":
             raise ImportError("Native wheel absent on this platform")
         return original(name,*args,**kwargs)
     monkeypatch.setattr(importlib,"import_module",blocked)
