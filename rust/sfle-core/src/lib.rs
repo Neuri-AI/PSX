@@ -5,6 +5,7 @@
 //! percentage/intrinsic resolution, native geometry or Python bindings yet.
 //! The Python counterpart lives at psx/sfle/flex_math.py.
 
+pub mod compute;
 pub mod cross_margins;
 pub mod cross_alignment;
 pub mod cross_stretch;
