@@ -4,6 +4,10 @@ These intentionally exercise the complete LayoutEngine.compute boundary,
 rather than declaring narrow helper behavior to be accepted CSS semantics.
 """
 import pytest
+import json
+from pathlib import Path
+
+_ACCEPTANCE = {case['id']: case['expected'] for case in json.loads((Path(__file__).parent / 'fixtures' / 'f2_alpha_acceptance.json').read_text())['cases']}
 
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.errors import DiagnosticCode, SFLEError
