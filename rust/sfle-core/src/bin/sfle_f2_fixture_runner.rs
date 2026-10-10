@@ -1,7 +1,7 @@
 //! SFLE v1 normalized snapshot runner for cross-language differential CI.
 //! This is a pure batch diagnostic binary, not a public PSX API or PyO3 wheel.
 use std::io::{self,Read};
-use sfle_core::compute::{compute,LayoutInput};
+use sfle_core::compute::{compute,compute_provisional,LayoutInput};
 use serde_json::json;
 
 fn main() {
@@ -17,7 +17,9 @@ fn main() {
             return;
         }
     };
-    match compute(&snapshot){
+    let provisional=std::env::args().skip(1).any(|arg|arg=="--provisional");
+    let outcome=if provisional{compute_provisional(&snapshot)}else{compute(&snapshot)};
+    match outcome{
         Ok(result)=>println!("{}",json!({"ok":true,"result":result})),
         Err(error)=>println!("{}",json!({"ok":false,"error":{
             "code":error.code,"message":error.message,"node_id":error.node_id,
