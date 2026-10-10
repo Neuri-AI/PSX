@@ -35,6 +35,8 @@ from .contracts import (
     SWITCH_DEFAULTS,
     LINK_PROPS,
     LINK_DEFAULTS,
+    BADGE_PROPS,
+    BADGE_DEFAULTS,
 )
 
 _VALID_ALIGN = frozenset({"start", "center", "end", "stretch"})
@@ -593,3 +595,27 @@ def validate_link_props(props: Mapping[str, object]) -> None:
     for name in ("underline", "enabled"):
         if not isinstance(props.get(name, LINK_DEFAULTS[name]), bool):
             raise RendererCapabilityError(f"Link.{name} must be a bool.")
+
+
+def validate_badge_props(props: Mapping[str, object]) -> None:
+    """Validate the closed portable Badge presentation contract."""
+    unknown = set(props) - BADGE_PROPS - {"key", "ref"}
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported Badge props: {', '.join(sorted(unknown))}"
+        )
+    if not isinstance(props.get("label", BADGE_DEFAULTS["label"]), str):
+        raise RendererCapabilityError("Badge.label must be a str.")
+    choices = {
+        "variant": ("neutral", "success", "warning", "danger", "info"),
+        "appearance": ("filled", "outline"),
+        "size": ("small", "medium", "large"),
+        "shape": ("rounded", "pill"),
+    }
+    for name, allowed in choices.items():
+        if props.get(name, BADGE_DEFAULTS[name]) not in allowed:
+            raise RendererCapabilityError(
+                f"Badge.{name} must be one of: {', '.join(allowed)}."
+            )
+    if not isinstance(props.get("enabled", BADGE_DEFAULTS["enabled"]), bool):
+        raise RendererCapabilityError("Badge.enabled must be a bool.")
