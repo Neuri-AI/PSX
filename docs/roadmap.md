@@ -56,9 +56,15 @@ deterministic headless tests.
 
 **Architecture document:** [SFLE — Shared Flex Layout Engine](architecture/sfle.md).
 **F1 contracts:** [Approved decisions and open technical contracts](architecture/sfle-f1-contracts.md).
-D-F1.1–D-F1.5 approved: `Flex` with direct child layout props,
+**Ratified F1.6/F1.7 contract:** [CSS box model and percentage resolution](architecture/sfle-f1-box-model.md).
+Approved: closed shared metadata validation with single-root components,
+metadata inert outside Flex, layout_width/layout_height namespace, and tagged
+immutable lengths. The CSS box model and property-specific percentage rules
+are specified, while D-F1.8–D-F1.12 and F1-RUST remain pending.
+
+D-F1.1–D-F1.7 approved at architecture level: `Flex` with direct child layout props,
 `snake_case`, progressive browser conformance, UI-thread native measurement,
-and strict geometry comparison. D-F1.6–D-F1.12 and Rust policy remain open.
+and strict geometry comparison. D-F1.8–D-F1.12 and Rust policy remain open.
 
 SFLE is the proposed backend-neutral CSS Flexbox geometry engine. The design
 prioritizes browser-like visual layout results across Qt, Kivy, Tkinter, and
