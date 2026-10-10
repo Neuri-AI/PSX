@@ -621,6 +621,8 @@ def validate_badge_props(props: Mapping[str, object]) -> None:
             )
     if not isinstance(props.get("enabled", BADGE_DEFAULTS["enabled"]), bool):
         raise RendererCapabilityError("Badge.enabled must be a bool.")
+
+
 def validate_spinbox_props(props: Mapping[str, object]) -> None:
     """Validate numeric configuration independently of any UI backend."""
     from decimal import Decimal
