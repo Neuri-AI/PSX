@@ -116,3 +116,12 @@ SWITCH_DEFAULTS = MappingProxyType({
     "color": "#16A34A",
     "on_change": None,
 })
+
+LINK_DEFAULTS = MappingProxyType({
+    "href": None,
+    "label": "",
+    "on_click": None,
+    "color": None,
+    "underline": True,
+    "enabled": True,
+})
