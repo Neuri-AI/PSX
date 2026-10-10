@@ -348,6 +348,15 @@ class TkinterRenderer:
                         return consumed
                 current = getattr(current, "master", None)
             return None
+        current = widget
+        in_scroll = False
+        while current is not None:
+            if hasattr(current, "_psx_canvas"):
+                in_scroll = True
+                break
+            current = getattr(current, "master", None)
+        if not in_scroll:
+            return
         widget.bind("<MouseWheel>", on_wheel, add="+")
         widget.bind("<Shift-MouseWheel>", on_wheel, add="+")
         widget.bind("<Button-4>", on_wheel, add="+")
