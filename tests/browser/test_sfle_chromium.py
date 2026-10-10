@@ -229,3 +229,54 @@ def test_nested_padding_border_content_origins_match_chromium(chromium_page):
             assert getattr(box.border,axis)==pytest.approx(actual[id][axis],abs=0.05), (
                 f'nested edges {id}.{axis}: SFLE vs Chromium'
             )
+
+
+def test_nested_justify_and_padding_match_chromium(chromium_page):
+    """Browser parity for nested resolved CSS alignment and content-box offsets."""
+    from psx.sfle.box_geometry import UsedBoxEdges, UsedEdges
+    from psx.sfle.margin_tree import MarginTreeNode, compute_margin_tree
+
+    root = MarginTreeNode(
+        "root", None, 200, 80,
+        edges=UsedBoxEdges(padding=UsedEdges(left=5)),
+        justify=JustifyContent.CENTER,
+        align_items=CrossAlign.FLEX_START,
+    )
+    parent_item = MarginFlexItem(
+        "parent", FlexBasis(100, 100, grow=0, shrink=0, min_size=0),
+        40, edges=UsedBoxEdges(padding=UsedEdges(left=6)),
+    )
+    leaf_item = MarginFlexItem(
+        "leaf", FlexBasis(20, 20, grow=0, shrink=0, min_size=0), 20,
+    )
+    nodes = (
+        root,
+        MarginTreeNode("parent", "root", 100, 40, item=parent_item,
+                       justify=JustifyContent.FLEX_END),
+        MarginTreeNode("leaf", "parent", 20, 20, item=leaf_item),
+    )
+    chromium_page.set_content(
+        '<!doctype html><html><body style="margin:0">'
+        '<div id="root" style="display:flex;width:200px;height:80px;'
+        'padding-left:5px;box-sizing:content-box;justify-content:center;'
+        'align-items:flex-start">'
+        '<div id="parent" style="display:flex;flex:0 0 100px;width:100px;'
+        'height:40px;padding-left:6px;box-sizing:content-box;'
+        'justify-content:flex-end;align-items:flex-start;min-width:0">'
+        '<div id="leaf" style="flex:0 0 20px;width:20px;height:20px;'
+        'min-width:0"></div></div></div></body></html>'
+    )
+    actual = chromium_page.evaluate("""() => {
+      const result = {};
+      for (const id of ['root', 'parent', 'leaf']) {
+        const r = document.getElementById(id).getBoundingClientRect();
+        result[id] = {x:r.x, y:r.y, width:r.width, height:r.height};
+      }
+      return result;
+    }""")
+    result = compute_margin_tree(nodes, generation=8)
+    for b in result.boxes:
+        for axis in ("x", "y", "width", "height"):
+            assert getattr(b.border, axis) == pytest.approx(
+                actual[b.node_id][axis], abs=0.05,
+            ), f"nested alignment {b.node_id}.{axis}"
