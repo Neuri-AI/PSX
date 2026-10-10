@@ -4,7 +4,7 @@
 use crate::align_content::AlignContent;
 use crate::compute::{ComputeError, LayoutBox, LayoutInput, LayoutResult, Rect};
 use crate::cross_alignment::CrossAlign;
-use crate::edge_pipeline::BoxEdges;
+use crate::edge_pipeline::{BoxEdges,Edges};
 use crate::line_layout::{Direction, Wrap, WritingDirection};
 use crate::main_alignment::JustifyContent;
 use crate::margin_flex_pipeline::MarginFlexItem;
@@ -29,6 +29,10 @@ struct Style {
     align: CrossAlign,
     row_gap:Length,
     column_gap:Length,
+    padding_top:Length,
+    padding_right:Length,
+    padding_bottom:Length,
+    padding_left:Length,
 }
 
 fn failure(code: &'static str, message: impl Into<String>, id: Option<&str>) -> ComputeError {
@@ -83,7 +87,9 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         if !matches!(key.as_str(),"direction"|"width"|"height"|"layout_width"|"layout_height"|
             "flex_basis"|"flex_grow"|"flex_shrink"|"min_width"|"min_height"|
             "layout_min_width"|"layout_min_height"|"align_items"|
-            "row_gap"|"column_gap"){
+            "row_gap"|"column_gap"|
+            "layout_padding_top"|"layout_padding_right"|
+            "layout_padding_bottom"|"layout_padding_left"){
             return Err(unsupported(format!("Unimplemented CSS style property: {key}."),&input.node_id));
         }
     }
@@ -104,6 +110,10 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         direction,align,
         row_gap:if map.contains_key("row_gap"){length(map.get("row_gap"),&input.node_id)?}else{Length::Px(0.0)},
         column_gap:if map.contains_key("column_gap"){length(map.get("column_gap"),&input.node_id)?}else{Length::Px(0.0)},
+        padding_top:if map.contains_key("layout_padding_top"){length(map.get("layout_padding_top"),&input.node_id)?}else{Length::Px(0.0)},
+        padding_right:if map.contains_key("layout_padding_right"){length(map.get("layout_padding_right"),&input.node_id)?}else{Length::Px(0.0)},
+        padding_bottom:if map.contains_key("layout_padding_bottom"){length(map.get("layout_padding_bottom"),&input.node_id)?}else{Length::Px(0.0)},
+        padding_left:if map.contains_key("layout_padding_left"){length(map.get("layout_padding_left"),&input.node_id)?}else{Length::Px(0.0)},
         width:length(value(map,&["layout_width","width"]),&input.node_id)?,
         height:length(value(map,&["layout_height","height"]),&input.node_id)?,
         basis:length(map.get("flex_basis"),&input.node_id)?,
@@ -121,6 +131,21 @@ fn resolved(v:Length, reference:Option<f64>, vertical:bool, id:&str)->Result<Opt
         Length::Percent(_) if vertical=>Ok(None), // CSS auto-block-size cyclic context
         Length::Percent(_)=>Err(unsupported("Indefinite inline percentage dependency.",id)),
     }
+}
+fn padding(style:Style,inline_reference:f64,id:&str)->Result<Edges,ComputeError>{
+    fn edge(value:Length,base:f64,id:&str)->Result<f64,ComputeError>{
+        match value{
+            Length::Px(n)=>Ok(n),
+            Length::Percent(p)=>Ok(p*base),
+            Length::Auto=>Err(failure("SFLE_INVALID_LENGTH","Padding requires a valid numeric CSS length.",Some(id))),
+        }
+    }
+    Ok(Edges{
+        top:edge(style.padding_top,inline_reference,id)?,
+        right:edge(style.padding_right,inline_reference,id)?,
+        bottom:edge(style.padding_bottom,inline_reference,id)?,
+        left:edge(style.padding_left,inline_reference,id)?,
+    })
 }
 fn intrinsic_gap(length:Length,id:&str)->Result<f64,ComputeError>{
     match length{
@@ -232,19 +257,27 @@ impl Context<'_>{
             });
         }
         let gap=main_gap(style,width.unwrap(),height.unwrap_or(0.0),&id)?;
-        let targets=resolve_flexible_lengths(&bases,main,gap)
+        let edges=child_indices.iter().map(|&child|
+            padding(self.styles[child],width.unwrap(),&self.input.nodes[child].node_id)
+        ).collect::<Result<Vec<_>,ComputeError>>()?;
+        let fixed_edges:f64=edges.iter().map(|e|if row{e.left+e.right}else{e.top+e.bottom}).sum();
+        let targets=resolve_flexible_lengths(&bases,(main-fixed_edges).max(0.0),gap)
             .map_err(|e|failure("SFLE_LAYOUT_CONSTRAINT_ERROR",format!("Flex allocation failed: {e:?}"),Some(&id)))?;
         let mut cross_sizes=Vec::new();
-        for (&child,&target) in child_indices.iter().zip(targets.iter()){
+        for ((&child,&target),padding_box) in child_indices.iter().zip(targets.iter()).zip(edges.iter()){
             let child_id=self.input.nodes[child].node_id.clone();
             let child_style=self.styles[child];
             let (cw,ch)=if row{
                 let mut cross=resolved(child_style.height,height,true,&child_id)?;
-                if cross.is_none()&&height.is_some()&&style.align==CrossAlign::Stretch{cross=height;}
+                if cross.is_none()&&height.is_some()&&style.align==CrossAlign::Stretch{
+                    cross=Some((height.unwrap()-padding_box.top-padding_box.bottom).max(0.0));
+                }
                 self.layout(child,Some(target),cross,width,height)?
             }else{
                 let mut cross=resolved(child_style.width,width,false,&child_id)?;
-                if cross.is_none()&&style.align==CrossAlign::Stretch{cross=width;}
+                if cross.is_none()&&style.align==CrossAlign::Stretch{
+                    cross=Some((width.unwrap()-padding_box.left-padding_box.right).max(0.0));
+                }
                 self.layout(child,cross,Some(target),width,height)?
             };
             cross_sizes.push(if row{ch}else{cw});
@@ -315,12 +348,14 @@ pub fn compute_normalized(input:&LayoutInput)->Result<LayoutResult,ComputeError>
             let parent=indices[node.parent_id.as_deref().unwrap()];
             let h=horizontal(context.styles[parent].direction);
             let (main,cross)=if h{(width,height)}else{(height,width)};
+            let parent_width=context.used[parent].unwrap().0;
+            let resolved_padding=padding(st,parent_width,&node.node_id)?;
             item=Some(MarginFlexItem {
                 id:node.node_id.clone(),
                 flex:FlexBasis {basis:main,hypothetical:main,grow:0.0,shrink:0.0,
                     min_size:0.0,max_size:None},
                 cross_content_size:cross,
-                edges:BoxEdges::default(),
+                edges:BoxEdges{padding:resolved_padding,..BoxEdges::default()},
                 main_start:Some(0.0),main_end:Some(0.0),
                 cross_start:Some(0.0),cross_end:Some(0.0),
                 order:0,align_self:CrossAlign::Auto,cross_size_auto:false,
