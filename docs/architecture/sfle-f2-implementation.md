@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization and main/cross AUTO/signed margins integrated in restricted Flex pipeline; CI pending** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization and main/cross AUTO/signed margins integrated in restricted Flex pipeline; focused Rust/Python CI passed** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -859,3 +859,14 @@ cyclic/intrinsic percentage support. This restricted resolved-layout
 pipeline does **not** enable engine capabilities. The early Chromium
 Playwright fixture CI checkpoint remains planned immediately after F2.2.3,
 without requiring a local browser.
+
+
+### F2.2.2 integrated cross-margin CI checkpoint
+
+The first Python SFLE matrix found an output-contract bug: the correct
+cross-axis border positions were calculated but `MarginFlexBox` silently
+used its default zeros for the *recorded* used cross margins. The immutable
+output constructor now explicitly preserves `used_cross_start_margin` and
+`used_cross_end_margin`. Subsequent SFLE run `38062858653` on code
+commit `3029f250` passed Rust and Python 3.10–3.13. General PSX alpha
+validation run `38062858640` is checked separately.
