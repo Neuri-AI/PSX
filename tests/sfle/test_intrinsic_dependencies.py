@@ -44,8 +44,13 @@ def test_percent_cycle_not_misclassified_auto():
 
 def test_auto_container_rejected():
     snapshot,used=fixture()
+    # An already definite root does not need an intrinsic AUTO resolution.
+    # To test unsupported container sizing, its width must actually be indefinite.
+    root_auto = UsedSizeTree(used.generation, (
+        ("root",size(None,100)),("leaf",size(None,None)),
+    ),("root","leaf"))
     with pytest.raises(SFLECapabilityError):
-        collect_leaf_intrinsic_suggestions(snapshot,used,declarations=(
+        collect_leaf_intrinsic_suggestions(snapshot,root_auto,declarations=(
             LeafAutoSizing("root",ResolutionKind.AUTO,ResolutionKind.USED),
         ))
 
