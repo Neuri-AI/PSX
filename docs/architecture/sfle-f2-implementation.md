@@ -137,3 +137,13 @@ Previous `sfle-core.yml` PR-level `paths`: `psx/sfle/**`, `rust/sfle-core/**`, `
 Fix: both workflows now use an **unconditional `pull_request` trigger**, and their testing jobs no longer depend on `changes` outputs or `if` gates. The existing change detector is left informational. A PR update now forces the complete Rust/Python SFLE matrix and the PSX alpha suite, even on documentation-only synchronize events. Push filtering on `main` is unchanged. `sfle-core.yml` uses `pytest -q -rs tests/sfle` to report why any Python tests were skipped.
 
 This changes the execution policy, not test conformance. Full Rust/Python execution is a necessary but insufficient F2 acceptance condition.
+
+### New named RED test run and skip reason
+
+At `f66694ce6bfceaa7685aaf0aebd33d5818b81a05`, [SFLE Core run 38079084933](https://github.com/Neuri-AI/PSX/actions/runs/38079084933) executed the whole configured matrix (not skipped). Python 3.12 returned **10 failed, 306 passed, 1 skipped**; Rust unit suite succeeded. Failures arose at the end-to-end `PythonLayoutEngine.compute` placeholder; **a failing contract is not an implemented or accepted feature**. Python `-rs` reported: `SKIPPED [1] tests/sfle/test_qt_native_lifecycle.py:4: could not import 'PySide6.QtWidgets': No module named 'PySide6'`. The Qt adapter test requires its own environment, exercised separately by the PSX Alpha Qt job.
+
+New `tests/sfle/test_f2_acceptance_contract_red.py` supplies RED compute-interface gates for **A02, A03, A04, A05, A06, A07, A09 (both directions), A10 and C99**. All geometry assertions are contracts to implement, not passing features. The A06/A07 tests in this file verify only eventual compute behavior and **do not replace** lifecycle or oscillation-specific acceptance, which still require expanded cases.
+
+A01 has an initial orthogonal nowrap auto-column change in `psx/sfle/auto_cross_tree.py` and `rust/sfle-core/src/auto_cross_tree.rs`, accompanied by `acceptance_a01_orthogonal_auto_column_and_parent_height` in Rust and the Python A01 RED fixture. This is a **restricted sizing kernel**, not end-to-end A01 closure: height-for-width text acquisition, final remeasurement and shared differential trees are still missing. The change does not authorize capability advertisement.
+
+**Unfinished obligations before implementation closure:** equivalent executable **Rust A02–A07 and C99 fixtures**, shared Rust/Python wire input schema, PyO3/maturin and runtime selection, actual cross-engine differential runner, complete A01 browser/measurement fixture. Do not misreport the presence of Python RED tests as equivalent coverage of Rust.
