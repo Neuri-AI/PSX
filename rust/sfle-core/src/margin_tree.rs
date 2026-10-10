@@ -9,6 +9,7 @@ use crate::main_alignment::JustifyContent;
 use crate::margin_flex_pipeline::{
     compute_margin_flex_layout_content, MarginFlexBox, MarginFlexItem,
 };
+use crate::intrinsic::{IntrinsicFlexInput, build_intrinsic_flex_basis};
 use crate::FlexMathError;
 use std::collections::HashMap;
 
@@ -27,6 +28,7 @@ pub struct MarginTreeNode {
     pub justify: JustifyContent,
     pub align_items: CrossAlign,
     pub align_content: AlignContent,
+    pub intrinsic_basis: Option<IntrinsicFlexInput>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -107,9 +109,14 @@ pub fn compute_margin_tree(
         let origin=geometry[parent.id.as_str()].content;
         let child_indices=&children[parent.id.as_str()];
         if child_indices.is_empty(){continue;}
-        let items:Vec<MarginFlexItem>=child_indices.iter().map(|&index|
-            nodes[index].item.as_ref().expect("validated").clone()
-        ).collect();
+        let items: Vec<MarginFlexItem> = child_indices.iter().map(|&index| {
+            let child = &nodes[index];
+            let mut item = child.item.as_ref().expect("validated").clone();
+            if let Some(intrinsic) = child.intrinsic_basis {
+                item.flex = build_intrinsic_flex_basis(intrinsic)?;
+            }
+            Ok(item)
+        }).collect::<Result<Vec<_>, FlexMathError>>()?;
         let positioned=compute_margin_flex_layout_content(
             &items,origin.width,origin.height,
             parent.direction,writing,parent.wrap,parent.main_gap,parent.cross_gap,
@@ -148,7 +155,8 @@ mod tests {
             width,height,item,edges:BoxEdges::default(),
             direction:Direction::Row,wrap:Wrap::NoWrap,
             main_gap:0.0,cross_gap:0.0,justify:JustifyContent::FlexStart,
-            align_items:CrossAlign::FlexStart,align_content:AlignContent::FlexStart}
+            align_items:CrossAlign::FlexStart,align_content:AlignContent::FlexStart,
+            intrinsic_basis:None}
     }
     #[test]
     fn nested_justify_offsets_from_parent_content_origin(){
