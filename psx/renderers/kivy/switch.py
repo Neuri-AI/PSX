@@ -58,6 +58,9 @@ class _SwitchTrack(ButtonBehavior, Widget):
             )
 
 
+KIVY_SWITCH_SCALE = 2
+
+
 class KivySwitchAdapter:
     def create(self, renderer, node, parent):
         from psx.renderers.kivy.kivy import KivyHandle
@@ -82,7 +85,8 @@ class KivySwitchAdapter:
 
     @staticmethod
     def _apply(root, props, *, initial=False):
-        width, height = SWITCH_SIZES[props["size"]]
+        base_width, base_height = SWITCH_SIZES[props["size"]]
+        width, height = base_width * KIVY_SWITCH_SCALE, base_height * KIVY_SWITCH_SCALE
         track = root._psx_control
         track.size = (width, height)
         track.active_color = props["color"]
