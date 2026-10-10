@@ -77,16 +77,20 @@ def plan_measurements(
     # schedule, including sibling order without a recursive Python call stack.
     requests: list[MeasurementRequest] = []
     reusable: list[MeasuredBox] = []
+    dirty_ancestors: set[str] = set()
     for node in reversed(snapshot.nodes):
         constraint = known[node.node_id]
         revision = versions.get(node.node_id, 0)
         previous = measured.get(node.node_id)
-        if previous is not None and previous.constraints == constraint and previous.revision == revision:
+        if (node.node_id not in dirty_ancestors and previous is not None
+                and previous.constraints == constraint and previous.revision == revision):
             reusable.append(previous)
         else:
             requests.append(MeasurementRequest(
                 node.node_id, constraint, snapshot.generation, revision
             ))
+            if node.parent_id is not None:
+                dirty_ancestors.add(node.parent_id)
     return MeasurementPlan(snapshot.generation, tuple(requests), tuple(reusable))
 
 
