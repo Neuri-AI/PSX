@@ -14,6 +14,7 @@ from .cross_margins import position_cross_margins
 from .flex_math import FlexBasis, _number, resolve_flexible_lengths
 from .line_layout import FlexDirection, FlexWrap, ResolvedItem, place_resolved_lines
 from .main_margins import MarginItem, UsedMargin, position_main_margins
+from .main_alignment import JustifyContent
 from .model import Rect, WritingDirection
 
 
@@ -74,6 +75,7 @@ def compute_margin_flex_layout(
     wrap: FlexWrap = FlexWrap.NOWRAP,
     main_gap: float = 0.0,
     cross_gap: float = 0.0,
+    justify: JustifyContent = JustifyContent.FLEX_START,
 ) -> MarginFlexLayout:
     """Form lines with signed outer hypothetical sizes, flex each, place borders.
 
@@ -90,6 +92,8 @@ def compute_margin_flex_layout(
         raise TypeError("direction/writing must be enums.")
     if not isinstance(wrap, FlexWrap):
         raise TypeError("wrap must be FlexWrap.")
+    if not isinstance(justify, JustifyContent):
+        raise TypeError("justify must be JustifyContent.")
     w, h, mg, cg = (_number(v, k) for v, k in (
         (width, "width"), (height, "height"), (main_gap, "main_gap"), (cross_gap, "cross_gap")
     ))
@@ -173,7 +177,8 @@ def compute_margin_flex_layout(
             for item, content_size in zip(line, targets)
         )
         positioned = position_main_margins(
-            borders, main_extent, main_gap=mg, direction=direction, writing=writing
+            borders, main_extent, main_gap=mg, direction=direction, writing=writing,
+            justify=justify,
         )
         for item, pos in zip(line, positioned):
             cross = cross_by_id[item.node_id].rect
