@@ -2,7 +2,7 @@
 
 The output intentionally contains border/padding/content rectangles, not a
 fabricated margin Rect: CSS negative margins can yield negative outer sizes.
-Only zero cross-axis margins and start-aligned cross sizes are supported.
+Cross-axis margins are resolved against established flex-line sizes; alignment is deferred.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .box_geometry import UsedBoxEdges, UsedEdges
+from .cross_margins import position_cross_margins
 from .flex_math import FlexBasis, _number, resolve_flexible_lengths
 from .line_layout import FlexDirection, FlexWrap, ResolvedItem, place_resolved_lines
 from .main_margins import MarginItem, UsedMargin, position_main_margins
@@ -25,14 +26,18 @@ class MarginFlexItem:
     main_start: UsedMargin = UsedMargin()
     main_end: UsedMargin = UsedMargin()
     order: int = 0
+    cross_start: UsedMargin = UsedMargin()
+    cross_end: UsedMargin = UsedMargin()
 
     def __post_init__(self) -> None:
         if not isinstance(self.node_id, str) or not self.node_id:
             raise ValueError("node_id must be nonempty.")
         if not isinstance(self.flex, FlexBasis) or not isinstance(self.edges, UsedBoxEdges):
             raise TypeError("flex and edges must be normalized.")
-        if not isinstance(self.main_start, UsedMargin) or not isinstance(self.main_end, UsedMargin):
-            raise TypeError("main margins must be UsedMargin.")
+        if any(not isinstance(margin, UsedMargin) for margin in (
+            self.main_start, self.main_end, self.cross_start, self.cross_end
+        )):
+            raise TypeError("margins must be UsedMargin.")
         if self.edges.margin != UsedEdges():
             raise ValueError("Set all physical margins to zero; use main_start/main_end.")
         if type(self.order) is not int:
@@ -52,6 +57,8 @@ class MarginFlexBox:
     used_main_start_margin: float
     used_main_end_margin: float
     line_index: int
+    used_cross_start_margin: float = 0.0
+    used_cross_end_margin: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +79,8 @@ def compute_margin_flex_layout(
 
     CSS §9.3 counts AUTO margins as zero for line fitting. CSS §9.7 reserves
     signed fixed outer contributions, then CSS §8.1 shares positive remaining
-    free space across auto margins. The cross axis is start-aligned only.
+    free space across auto margins. Cross auto margins use resolved line sizes;
+    alignment/stretch and baseline are not handled.
     """
     if not isinstance(items, tuple) or any(not isinstance(i, MarginFlexItem) for i in items):
         raise TypeError("items must be tuple[MarginFlexItem, ...].")
@@ -120,17 +128,32 @@ def compute_margin_flex_layout(
     if current:
         lines.append(current)
 
-    # Reuse the resolved geometry's cross-line placement. Its synthetic
-    # zero-width items do not drive main placement: margins do that explicitly.
+    # CSS nowrap has the container's inner cross size as its line size.
+    # Wrapped lines use the largest hypothetical outer cross size of their
+    # members. AUTO margins count as zero when establishing line size.
+    cross_extent = h if horizontal else w
+    line_cross_sizes = tuple(
+        cross_extent if wrap == FlexWrap.NOWRAP else max(
+            (0.0, *(
+                cross_border(item) + (item.cross_start.value or 0.0)
+                + (item.cross_end.value or 0.0)
+                for item in line
+            ))
+        )
+        for line in lines
+    )
     cross_lines = tuple(tuple(
-        ResolvedItem(item.node_id, 0.0, cross_border(item), item.order)
+        ResolvedItem(item.node_id, 0.0, line_cross_sizes[index], item.order)
         for item in line
-    ) for line in lines)
+    ) for index, line in enumerate(lines))
     cross_placement = place_resolved_lines(
         cross_lines, w, h, direction=direction, writing=writing, wrap=wrap,
         main_gap=0.0, cross_gap=cg,
     )
     cross_by_id = {p.node_id: p for p in cross_placement.items}
+    cross_forward = (True if horizontal else writing == WritingDirection.LTR)
+    if wrap == FlexWrap.WRAP_REVERSE:
+        cross_forward = not cross_forward
 
     output: list[MarginFlexBox] = []
     for line_index, line in enumerate(lines):
@@ -154,10 +177,18 @@ def compute_margin_flex_layout(
         )
         for item, pos in zip(line, positioned):
             cross = cross_by_id[item.node_id].rect
+            cross_size = cross_border(item)
+            cross_pos = position_cross_margins(
+                cross_size, line_cross_sizes[line_index],
+                start=item.cross_start, end=item.cross_end,
+                cross_forward=cross_forward,
+            )
+            cross_origin = cross.y if horizontal else cross.x
+            border_cross_start = cross_origin + cross_pos.border_start
             border = (
-                Rect(pos.border_start, cross.y, pos.border_main_size, cross.height)
+                Rect(pos.border_start, border_cross_start, pos.border_main_size, cross_size)
                 if horizontal else
-                Rect(cross.x, pos.border_start, cross.width, pos.border_main_size)
+                Rect(border_cross_start, pos.border_start, cross_size, pos.border_main_size)
             )
             e = item.edges
             padding = Rect(
