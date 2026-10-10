@@ -129,7 +129,7 @@ fn resolved(v:Length, reference:Option<f64>, vertical:bool, id:&str)->Result<Opt
         Length::Px(n)=>Ok(Some(n)),
         Length::Percent(p) if reference.is_some()=>Ok(Some(p*reference.unwrap())),
         Length::Percent(_) if vertical=>Ok(None), // CSS auto-block-size cyclic context
-        Length::Percent(_)=>Err(unsupported("Indefinite inline percentage dependency.",id)),
+        Length::Percent(_)=>Err(unsupported("Unlisted indefinite inline percentage dependency cycle.",id)),
     }
 }
 fn padding(style:Style,inline_reference:f64,id:&str)->Result<Edges,ComputeError>{
@@ -249,7 +249,7 @@ impl Context<'_>{
                 Length::Auto=>self.measurements.get(child_id.as_str())
                     .map(|m|if row{m.intrinsic.min_content_width}else{m.intrinsic.min_content_height})
                     .unwrap_or(match axis{Length::Px(n)=>n,_=>0.0}),
-                Length::Percent(_)=>return Err(unsupported("Unresolved percentage automatic minimum.",child_id)),
+                Length::Percent(_)=>return Err(unsupported("Unlisted percentage minimum size dependency cycle.",child_id)),
             };
             bases.push(FlexBasis {
                 basis:desired, hypothetical:desired.max(minimum),
@@ -321,6 +321,27 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
             &&matches!(g.width,Length::Percent(_))&&matches!(g.height,Length::Percent(_)){
             return Err(unsupported("Unlisted multi-node percentage dependency cycle across auto ancestors.",
                 &input.nodes[child].node_id));
+        }
+    }
+    // Fail closed for nested indefinite column intrinsic-percent
+    // dependencies. C01 permits a percentage basis with a measured leaf,
+    // but not a percent-height descendant cycle.
+    for index in 0..input.nodes.len(){
+        let style=styles[index];
+        if !matches!(style.direction,Direction::Column|Direction::ColumnReverse)
+            || !matches!(style.height,Length::Auto){continue;}
+        for &child in &children[index]{
+            if !matches!(styles[child].basis,Length::Percent(_)){continue;}
+            let mut pending=children[child].clone();
+            while let Some(descendant)=pending.pop(){
+                if matches!(styles[descendant].height,Length::Percent(_)){
+                    return Err(unsupported(
+                        "Unlisted column intrinsic percentage basis descendant cycle.",
+                        &input.nodes[child].node_id,
+                    ));
+                }
+                pending.extend(children[descendant].iter().copied());
+            }
         }
     }
     let mut context=Context {
