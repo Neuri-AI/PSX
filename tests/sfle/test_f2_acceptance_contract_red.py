@@ -79,8 +79,10 @@ def test_A05_shrink_remeasures_both_items_at_35px():
         ("b", "root", "Text", {"flex_basis": Length.px(50), "flex_shrink": 1, "layout_min_width": Length.px(0)}),
     ], width=70)
     result = PythonLayoutEngine().compute(s)
-    assert boxes(result)["a"].content.width == pytest.approx(35, abs=0.01)
-    assert boxes(result)["b"].content.width == pytest.approx(35, abs=0.01)
+    for name in ("a", "b"):
+        assert boxes(result)[name].content.width == pytest.approx(_ACCEPTANCE["A05"][f"{name}.width"], abs=0.01)
+        assert boxes(result)[name].content.height == pytest.approx(_ACCEPTANCE["A05"][f"{name}.height"], abs=0.01)
+    assert boxes(result)["root"].content.height == pytest.approx(_ACCEPTANCE["A05"]["root.height"], abs=0.01)
 
 
 def test_A06_generation_is_preserved_by_pure_layout_result():
