@@ -31,8 +31,16 @@
 | D-F1.7.C | CSS-compatible content/padding/border/margin model and box-sizing | No layout shortcuts that materially change browser geometry |
 | D-F1.7.D | Per-property percentage references and definite-size tracking; defer cyclic resolution | Unknown and auto are not the number zero |
 
-The exact **numeric tolerance** and **Rust implementation language** remain
-D-F1.11 and F1-RUST, not decided by this contract.
+D-F1.11 and F1-RUST were subsequently approved in the
+[final F1 architecture](sfle-f1-final-architecture.md): initial tolerances
+of 0.01 logical px pure and 1.0 px native (calibrable), and Rust-primary
+computation with a feature-equivalent Python fallback.
+
+**Cross-decision clarification:** D-F1.10 removes `Row` and `Column` from
+PSX's target public API without compatibility aliases or wrappers. `Flex`
+becomes the only public Flexbox distribution component. `Scroll` remains an
+independent viewport/scrolling primitive; a nested explicit `Flex` provides
+Flexbox distribution when needed. The box-model semantics here are unchanged.
 
 ## 2. Contextual shared layout properties (D-F1.6)
 
@@ -93,7 +101,9 @@ its container props govern its internal formatting context.
 - `component_props` and `item_style` are immutable logical snapshots.
   Original VNode props remain available for diffing, debug tooling and rerender.
 - Outside Flex, shared metadata is validated and **stored but not used**;
-  native widget geometry follows the existing parent (Row/Column/Scroll).
+  no Flex geometry is applied. An independent `Scroll` parent retains native
+  viewport/scroll semantics; `Row` and `Column` are removed from the target
+  public API under corrected D-F1.10.
 - Only direct effective Flex children are items. Nested Flex begins another
   formatting context, not inheritance of item constraints into all descendants.
 - Source order, `key`, focus order, accessibility order and hook order are
@@ -398,7 +408,9 @@ coverage and cyclic percentage support.
 The next decisions are:
 - **D-F1.8:** direction/writing mode/RTL scope.
 - **D-F1.9:** explicit supported-feature matrix and diagnostics policy.
-- **D-F1.10:** Row, Column, Scroll compatibility and mixed nesting.
+- **D-F1.10 (corrected):** delete Row and Column public components entirely;
+  use Flex for all row/column/reverse distribution, retain independent Scroll
+  viewport/scrolling behavior with SFLE-compatible content geometry.
 - **D-F1.11:** geometry comparison fixtures and numeric tolerances.
 - **D-F1.12:** immutable measurement snapshots, caching, scheduling.
 - **F1-RUST:** computation backend priority, packaging and fallback.
