@@ -3,8 +3,11 @@
 > **Status:** F2 authorized on 2026-10-10. F2.0 blueprint and F2.1 typed
 > contracts, strict tree validation, diagnostics, capability manifests and
 > JSON-safe versioned exchange are committed on the feature branch.
-> **No CSS Flexbox calculation, public Flex component, Rust extension, renderer
-> migration, or browser conformance claim is made yet.**
+> **F2.2 has started:** a CSS §9.7 single-line, resolved-size flex distribution
+> kernel now exists in both Python and Rust source form. It is **not** wired
+> to the engine protocol. No full Flexbox implementation, compiled Rust/PyO3
+> extension, public Flex component, renderer migration or Chromium conformance
+> claim exists yet.
 >
 > Binding architecture: [F1 final architecture](sfle-f1-final-architecture.md),
 > [F1 component contracts](sfle-f1-contracts.md),
@@ -50,7 +53,7 @@ migration. No registration is changed in this initial F2.1 skeleton.
 | --- | --- | --- |
 | F2.0 | Architecture blueprint, module boundaries and delivery order | Explicit engine/core/native ownership and supported target surface |
 | F2.1 | Immutable lengths, strict ancestry, measurement/output models, stable diagnostics, capability manifest, v1 JSON-safe wire schema | Implemented in feature branch; execution/CI validation not yet performed |
-| F2.2 | CSS Flexbox computation: Rust primary + parity-matched Python fallback | Matching output on supported flex fixtures; explicit feature gating |
+| F2.2 | CSS Flexbox computation: Rust primary + parity-matched Python fallback | **In progress:** Python + Rust single-line resolved-size flexible-length math; engine integration and parity verification pending |
 | F2.3 | Browser reference geometry + LTR/RTL conformance | Same line structure; geometry within 0.01 logical px pure with equivalent measurements |
 | F2.4 | Inventory/plan migration of Row/Column/Scroll boundaries | No planned aliases; Scroll independent, native adapters retained |
 
@@ -79,6 +82,7 @@ psx/sfle/
     capabilities.py Closed feature manifest and wire schema version
     errors.py       Stable coded errors and unsupported capabilities
     wire.py         Strict, JSON-safe input/output schema conversion
+    flex_math.py    CSS §9.7 single-line resolved-size sizing kernel (not an engine)
 ~~~
 
 `PythonLayoutEngine.compute()` intentionally raises
@@ -194,3 +198,60 @@ and no Rust extension is loaded.
 `psx` public exports, native renderers, currently available Row/Column
 and Scroll implementations remain untouched. No automated tests have been
 added or run in this DX-first slice.
+
+## 8. F2.2 — First pure computation slice: flexible main sizes
+
+Two companion implementations have been added:
+
+~~~text
+psx/sfle/flex_math.py       Python CSS §9.7 resolved-size distribution
+rust/sfle-core/Cargo.toml   Independent pure Rust crate declaration
+rust/sfle-core/src/lib.rs   Rust CSS §9.7 counterpart (no PyO3 binding yet)
+~~~
+
+The algorithms accept an **already formed single flex line** with definite
+container main size and already resolved content-box flex bases, hypothetical
+main sizes, growth/shrink factors, numeric min/max constraints and numeric
+inter-item gap. They implement the freezing loop, scaled shrink factors
+(`flex_shrink * flex_basis`) and min/max violation handling. Their output
+is a tuple/vector of resolved main content sizes, **not** a CSS box-layout
+tree or native geometry.
+
+~~~mermaid
+flowchart TD
+    A["CSS-normalized single line + definite main size"] --> B["Resolved bases / min-max / grow-shrink"]
+    B --> P["Python flexible-length kernel"]
+    B --> R["Rust flexible-length kernel"]
+    P --> C["Content-box main-size vector"]
+    R --> C
+    C --> D["Next: line placement, box edges, cross-axis and LayoutResult"]
+~~~
+
+**Explicitly unsupported by this slice:** deriving intrinsic or percentage
+flex basis, automatic minimum-size rules, padding/border/margin contribution,
+auto margins, multiple lines, wrapping, alignment, box positioning,
+replaced-element sizing and cyclic layout measurement. It must not be used
+to claim CSS Flexbox layout support yet.
+
+**Engine capability manifest remains empty** and
+`PythonLayoutEngine.compute()` continues to reject every computation
+request until all required features for an enabled path are conformant.
+The native Rust crate currently has no PyO3/maturin entry point, binary
+wheel or runtime loader. No automated tests were added or run and no
+browser geometry comparison has been performed. Rust/Python numeric
+parity remains a **required next verification**, not a completed fact.
+
+### Immediate follow-on acceptance gates
+
+1. Resolve and document how the main-size calculation receives the CSS
+   content-box, border/padding, margins, automatic minimum and definite
+   containing size from the normalized input.
+2. Compare the Rust and Python numeric kernels using a shared set of
+   hand-grounded CSS cases (including fractional factors and freeze cycles),
+   then browser-reference fixtures before enabling any capability.
+3. Extend line formation and physical box positioning with RTL and
+   reverse-direction coordinate mapping; do not silently approximate
+   unsupported cases.
+4. Add a versioned Rust/PyO3 batch interface and deterministic load-time
+   fallback only when the Python engine can compute the same advertised
+   feature set.
