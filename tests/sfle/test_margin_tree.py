@@ -47,3 +47,28 @@ def test_empty_nodes_and_root_padding_are_preserved():
         edges=UsedBoxEdges(padding=UsedEdges(left=4, top=3)))
     box, = compute_margin_tree((root,), generation=8).boxes
     assert (box.content.x, box.content.y) == (4, 3)
+
+
+def test_nested_auto_and_signed_main_margins_remain_distinct_from_box_size():
+    from psx.sfle.main_margins import UsedMargin
+    root = MarginTreeNode("root", None, 200, 80)
+    leading = MarginFlexItem(
+        "leading", FlexBasis(20, 20, grow=0, shrink=0, min_size=0), 20,
+        main_start=UsedMargin(-5),
+    )
+    parent_item = MarginFlexItem(
+        "parent", FlexBasis(50, 50, grow=0, shrink=0, min_size=0), 40,
+        main_start=UsedMargin(None),
+    )
+    leaf = item("leaf", 10)
+    nodes = (
+        root,
+        MarginTreeNode("leading", "root", 20, 20, leading),
+        MarginTreeNode("parent", "root", 50, 40, parent_item),
+        MarginTreeNode("leaf", "parent", 10, 20, leaf),
+    )
+    boxes = {box.node_id: box for box in compute_margin_tree(nodes, generation=8).boxes}
+    assert boxes["leading"].border.x == -5
+    assert boxes["parent"].border.x == 150
+    assert boxes["parent"].used_main_start_margin == 135
+    assert boxes["leaf"].border.x == 150
