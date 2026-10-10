@@ -6,6 +6,7 @@ use crate::edge_pipeline::{BoxEdges, Edges};
 use crate::cross_margins::position_cross_margins;
 use crate::cross_alignment::{CrossAlign, resolve_cross_alignment};
 use crate::cross_stretch::resolve_cross_stretch;
+use crate::baseline::{BaselineItem, BaselineGroup, measure_baseline_group, position_baseline_item};
 use crate::align_content::{AlignContent, distribute_cross_lines};
 use crate::line_layout::{
     Direction, Rect, Wrap, WritingDirection,
@@ -30,6 +31,7 @@ pub struct MarginFlexItem {
     pub cross_size_auto: bool,
     pub min_cross_content_size: f64,
     pub max_cross_content_size: Option<f64>,
+    pub baseline_from_cross_start: Option<f64>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -69,6 +71,7 @@ impl MarginFlexItem {
             || self.cross_end.is_some_and(|v| !v.is_finite())
             || !self.min_cross_content_size.is_finite() || self.min_cross_content_size < 0.0
             || self.max_cross_content_size.is_some_and(|v| !v.is_finite() || v < 0.0)
+            || self.baseline_from_cross_start.is_some_and(|v| !v.is_finite() || v < 0.0 || v > self.cross_content_size)
         {
             return Err(FlexMathError::InvalidInput("invalid margin flex item"));
         }
@@ -206,14 +209,43 @@ pub fn compute_margin_flex_layout_content(
     }
     if !current.is_empty() { lines.push(current); }
 
+    let mut baseline_groups: Vec<Option<BaselineGroup>> = Vec::new();
+    for line in &lines {
+        let mut measured: Vec<BaselineItem> = Vec::new();
+        for idx in line {
+            let item = &items[*idx];
+            let chosen = if item.align_self == CrossAlign::Auto { align_items }
+                         else { item.align_self };
+            if chosen != CrossAlign::Baseline || item.cross_start.is_none()
+                || item.cross_end.is_none() { continue; }
+            if !horizontal {
+                return Err(FlexMathError::InvalidInput(
+                    "column baseline requires orthogonal baseline measurements",
+                ));
+            }
+            let baseline = item.baseline_from_cross_start.ok_or(
+                FlexMathError::InvalidInput("missing measured baseline"),
+            )?;
+            let e = item.edges;
+            measured.push(BaselineItem {
+                border_cross_size: item.cross_border(horizontal),
+                start_margin: item.cross_start.expect("checked fixed margin"),
+                end_margin: item.cross_end.expect("checked fixed margin"),
+                baseline: e.border.top + e.padding.top + baseline,
+            });
+        }
+        baseline_groups.push(if measured.is_empty() { None }
+            else { Some(measure_baseline_group(&measured)?) });
+    }
     let cross_extent = if horizontal { height } else { width };
-    let line_cross_sizes: Vec<f64> = lines.iter().map(|line| {
+    let line_cross_sizes: Vec<f64> = lines.iter().enumerate().map(|(index,line)| {
         if wrap == Wrap::NoWrap { return cross_extent; }
-        line.iter().map(|i| {
+        let outer = line.iter().map(|i| {
             let item = &items[*i];
             item.cross_border(horizontal) + item.cross_start.unwrap_or(0.0)
                 + item.cross_end.unwrap_or(0.0)
-        }).fold(0.0, f64::max)
+        }).fold(0.0, f64::max);
+        outer.max(baseline_groups[index].map_or(0.0, |group| group.extent()))
     }).collect();
     let mut cross_forward = if horizontal { true } else { writing == WritingDirection::Ltr };
     if wrap == Wrap::WrapReverse { cross_forward = !cross_forward; }
@@ -272,6 +304,22 @@ pub fn compute_margin_flex_layout_content(
             let cross_origin = line_starts[line_index];
             let cross_offset = if item.cross_start.is_none() || item.cross_end.is_none() {
                 cross_margin.border_start
+            } else if chosen_align == CrossAlign::Baseline {
+                let group = baseline_groups[line_index].ok_or(
+                    FlexMathError::InvalidInput("missing measured baseline group"),
+                )?;
+                let e = item.edges;
+                let metric = BaselineItem {
+                    border_cross_size: cross_size,
+                    start_margin: item.cross_start.expect("checked fixed margin"),
+                    end_margin: item.cross_end.expect("checked fixed margin"),
+                    baseline: e.border.top + e.padding.top
+                        + item.baseline_from_cross_start.ok_or(
+                            FlexMathError::InvalidInput("missing measured baseline"),
+                        )?,
+                };
+                position_baseline_item(metric, group, line_cross_sizes[line_index],
+                                       cross_forward)?
             } else if chosen_align == CrossAlign::Stretch {
                 let start = item.cross_start.expect("checked fixed margin");
                 if cross_forward { start } else {
@@ -341,7 +389,7 @@ mod tests {
             cross_start: Some(0.0), cross_end: Some(0.0),
             align_self: CrossAlign::Auto,
             cross_size_auto: false, min_cross_content_size: 0.0,
-            max_cross_content_size: None,
+            max_cross_content_size: None, baseline_from_cross_start: None,
         }
     }
 
