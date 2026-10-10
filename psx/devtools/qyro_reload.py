@@ -36,9 +36,18 @@ class ModuleReloadPolicy:
 class QyroComponentReloader:
     """Watch one Qyro-authored component source file in a development process.
 
-    The existing native host and PSX root are retained. A successful source
-    update replaces only the class render method, then enters the normal PSX
-    scheduler/reconciler path. Invalid source leaves the last good UI mounted.
+    The watcher thread only performs pure-Python work: reading the source,
+    building the project dependency graph, importing candidate modules and
+    replacing the class's ``render`` attribute. All widget operations are
+    dispatched to the renderer's UI thread, because Qt, Tk and Kivy require
+    widgets to be created, destroyed and reparented on the thread that owns
+    the event loop.
+
+    When the updated render method changes the component's hook structure
+    (for example, it adds or removes a ``use_state`` call), the reconciler
+    refuses the in-place update with ``HookOrderError``. In that case the
+    reloader tears down and re-mounts the PSX subtree while keeping the host
+    widget alive. Local component state is discarded; the host is preserved.
     """
 
     def __init__(self, host: object, *, report: Callable[[str], None] | None = None) -> None:
@@ -70,6 +79,8 @@ class QyroComponentReloader:
             self._watcher.stop()
             self._watcher = None
 
+    # -- watcher thread: pure Python only ---------------------------------
+
     def _on_changes(self, paths: tuple[Path, ...]) -> None:
         paths = tuple(path for path in paths if self._is_watched(path))
         if not paths:
@@ -96,14 +107,53 @@ class QyroComponentReloader:
             root_component = getattr(self.host, "_psx_root_component", None)
             if mounted is None or root_component is None:
                 raise RuntimeError("PSX root is not mounted.")
-            instance = _find_component(mounted.app.reconciler.root, root_component)
-            if instance is None:
-                raise RuntimeError("Mounted Qyro PSX component boundary was not found.")
-            mounted.app.reconciler.scheduler.mark_dirty(instance)
-            self.report("HOT_UPDATE: render method replaced")
+            # Widget operations must run on the renderer's UI thread. The
+            # watcher thread only replaces the render attribute and hands the
+            # reconcile to the scheduler, which is thread-safe on all backends.
+            renderer = mounted.app.renderer
+            renderer.schedule_ui(lambda: self._apply_update(mounted, root_component))
         except Exception as exc:
             # Keep the last successful tree alive; the next save retries.
             self.report(f"FAILED: {exc}")
+
+    # -- UI thread: everything that touches native widgets ----------------
+
+    def _apply_update(self, mounted: object, root_component: object) -> None:
+        """Run the pending hot update on the renderer's UI thread.
+
+        Called via ``renderer.schedule_ui`` from the watcher thread, so this
+        method is guaranteed to be on the same thread that owns the QApplication
+        (or Tk root, or Kivy event loop).
+        """
+        try:
+            instance = _find_component(mounted.app.reconciler.root, root_component)
+            if instance is None:
+                self.report("FAILED: PSX root boundary not found")
+                return
+            if mounted.app.reconciler.try_reevaluate(instance):
+                self.report("HOT_UPDATE: render method replaced")
+            else:
+                self._remount(mounted)
+                self.report(
+                    "HOT_UPDATE: render method replaced "
+                    "(hook structure changed, remounted)"
+                )
+        except Exception as exc:
+            self.report(f"FAILED: {exc}")
+
+    def _remount(self, mounted: object) -> None:
+        """Rebuild the PSX subtree while keeping the host and its widget alive.
+
+        Must run on the renderer's UI thread. Used when an in-place hot update
+        would violate the hook contract (for example, the render method gained
+        or lost a ``use_state`` call between saves). Local component state is
+        discarded; the host widget, the central widget slot, and any Qyro
+        container are preserved.
+        """
+        mounted.unmount()
+        self.host._psx_mount = None
+        self.host._component_lifecycle_mounted = False
+        self.host._mount_component_lifecycle()
 
     def _is_watched(self, path: Path) -> bool:
         if path == self.source:
@@ -144,8 +194,6 @@ def _load_updated_class(source: Path, previous: type[object], modules: frozenset
         if spec is None or spec.loader is None:
             raise RuntimeError("Cannot load updated PSX source.")
         module = importlib.util.module_from_spec(spec)
-        # Preserve the original module's long-lived globals (notably existing
-        # Pydux stores) and execute only the updated class/factory declarations.
         module.__dict__.update(
             {
                 name: value
@@ -177,10 +225,6 @@ def _render_class_source(source: str, class_name: str, modules: frozenset[str]) 
         if isinstance(statement, ast.ClassDef) and statement.name == class_name:
             selected.append(statement)
         elif isinstance(statement, ast.ImportFrom):
-            # An added import must be rebound in the candidate namespace. This
-            # imports a newly referenced dependency once; it never reloads a
-            # third-party module, whose source remains outside the project
-            # dependency graph and therefore follows the restart policy.
             selected.append(statement)
         elif isinstance(statement, ast.Import):
             selected.append(statement)
@@ -197,13 +241,6 @@ def _render_class_source(source: str, class_name: str, modules: frozenset[str]) 
 
 
 def _stop_candidate_inspectors(module: object) -> None:
-    """Avoid retaining a Pydux inspector created while loading a candidate.
-
-    The currently mounted component continues using its existing store. The
-    candidate module is loaded solely to obtain its updated render method.
-    Arbitrary import-time side effects remain an incompatibility that should
-    use a process restart rather than be treated as a universal hot update.
-    """
     for value in vars(module).values():
         inspector = getattr(value, "inspector", None)
         stop = getattr(inspector, "stop", None)
@@ -239,12 +276,6 @@ def _reload_policy(host: object) -> ModuleReloadPolicy:
 def _project_modules(
     source: Path, root: Path, policy: ModuleReloadPolicy
 ) -> tuple[frozenset[str], dict[str, Path]]:
-    """Build a local import graph without treating third-party imports as safe.
-
-    Any ``.py`` module reachable from the entry under the project root is a
-    project-owned reload candidate. This includes newly created modules and
-    nested packages; settings can add modules not reachable by static imports.
-    """
     discovered: dict[str, Path] = {}
     pending = list(_imports_in(source)) + _expand_includes(root, policy.include)
     while pending:

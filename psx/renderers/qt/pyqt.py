@@ -293,9 +293,13 @@ class QtRenderer:
         from .column import make_qt_column_adapter
         from .row import make_qt_row_adapter
         from .divider import make_qt_divider_adapter
+        from .image import QtImageAdapter
+        from .box import make_qt_box_adapter
         self.adapters.register("Divider", make_qt_divider_adapter(self))
         self.adapters.register("Column", make_qt_column_adapter(self))
         self.adapters.register("Row", make_qt_row_adapter(self))
+        self.adapters.register("Image", QtImageAdapter())
+        self.adapters.register("Box", make_qt_box_adapter(self))
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)

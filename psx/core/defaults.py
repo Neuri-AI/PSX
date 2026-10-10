@@ -69,3 +69,11 @@ DIVIDER_DEFAULTS = MappingProxyType({
     "thickness": 1,
     "color": None,
 })
+
+IMAGE_DEFAULTS = MappingProxyType({
+    "fit": "contain",
+    "width": None,
+    "height": None,
+    "alt": "",
+    "enabled": True,
+})

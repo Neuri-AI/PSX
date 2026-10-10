@@ -25,8 +25,31 @@ class Reconciler:
         self.renderer = renderer
         self.root: MountedInstance | None = None
         self._is_rendering = False
-        self._pending_refs: list[tuple[MountedInstance, Ref[object] | None]] = []
+        self._pending_refs: list[tuple[MountedInstance,
+                                       Ref[object] | None]] = []
         self.scheduler = Scheduler(renderer.schedule_ui, self._flush_dirty)
+
+    def try_reevaluate(self, instance: MountedInstance) -> bool:
+        """Re-evaluate a component boundary synchronously.
+
+        Returns ``True`` on success, ``False`` when the component's hook
+        structure changed between renders (``HookOrderError``). The caller is
+        expected to rebuild the subtree on ``False`` rather than retry; hooks
+        cannot be reindexed in place.
+        """
+        from .errors import HookOrderError
+
+        if instance.disposed or instance.node.kind is not NodeKind.COMPONENT:
+            return True
+        try:
+            rendered = self._evaluate_component(instance)
+            previous = instance.children[0]
+            instance.children = [self._reconcile(previous, rendered, instance)]
+            return True
+        except HookOrderError:
+            # The component's structure changed. Leave the current subtree in
+            # place; the caller will unmount and remount it.
+            return False
 
     def render(self, node: VNode) -> MountedInstance:
         """Mount or update the single root description."""
@@ -60,12 +83,14 @@ class Reconciler:
                 return instance
 
             instance.handle = self.renderer.create(
-                _without_runtime_props(node), parent.native_handle() if parent and parent.handle else None
+                _without_runtime_props(node), parent.native_handle(
+                ) if parent and parent.handle else None
             )
             self._queue_ref(instance, node.props.get("ref"))
             self._sync_events(instance, {}, node.props)
             _validate_keys(node.children)
-            instance.children = [self._mount(child, instance) for child in node.children]
+            instance.children = [self._mount(
+                child, instance) for child in node.children]
             self._place_children(instance, [], instance.children)
             return instance
         except Exception:
@@ -95,7 +120,8 @@ class Reconciler:
         if changed or removed:
             self.renderer.update(old.handle, changed, removed)
         previous_children = old.children
-        next_children = self._reconcile_children(old, previous_children, node.children)
+        next_children = self._reconcile_children(
+            old, previous_children, node.children)
         old.children = next_children
         self._place_children(old, previous_children, next_children)
         return old
@@ -105,7 +131,8 @@ class Reconciler:
     ) -> list[MountedInstance]:
         _validate_keys(new_nodes)
         _validate_keys(tuple(child.node for child in old_children))
-        keyed = {child.node.key: child for child in old_children if child.node.key is not None}
+        keyed = {
+            child.node.key: child for child in old_children if child.node.key is not None}
         unkeyed = [child for child in old_children if child.node.key is None]
         used: set[int] = set()
         unkeyed_index = 0
@@ -115,7 +142,8 @@ class Reconciler:
             if node.key is not None:
                 candidate = keyed.get(node.key)
             else:
-                candidate = unkeyed[unkeyed_index] if unkeyed_index < len(unkeyed) else None
+                candidate = unkeyed[unkeyed_index] if unkeyed_index < len(
+                    unkeyed) else None
                 unkeyed_index += 1
             if candidate is not None:
                 used.add(id(candidate))
@@ -135,7 +163,8 @@ class Reconciler:
     ) -> None:
         if parent.handle is None:
             return
-        current = [child for child in previous if not child.disposed and child.attached]
+        current = [
+            child for child in previous if not child.disposed and child.attached]
         # Walking ``desired`` left to right, ``current[:index]`` always equals
         # ``desired[:index]`` and the rest is the not-yet-placed old children in
         # their original relative order. So instead of simulating the list
@@ -149,6 +178,13 @@ class Reconciler:
             while cursor < len(current) and id(current[cursor]) not in pending:
                 cursor += 1
             if cursor < len(current) and current[cursor] is child:
+                # The MountedInstance is stable, but its effective native
+                # handle may have changed underneath it (a component whose
+                # only child switched type, for example Row -> Column). The
+                # parent layout still references the old widget, so we must
+                # detach it and insert the new one.
+                if child._placed_handle is not handle:
+                    self._replace_handle(parent, child, handle, index)
                 pending.discard(id(child))
                 cursor += 1
                 continue
@@ -158,6 +194,56 @@ class Reconciler:
             else:
                 self.renderer.insert(parent.handle, handle, index)
                 child.attached = True
+            child._placed_handle = handle
+
+    def _replace_handle(
+        self,
+        parent: MountedInstance,
+        child: MountedInstance,
+        new_handle: object,
+        index: int,
+    ) -> None:
+        """Re-insert a child whose underlying native handle changed.
+
+        The reconciler destroys the previous subtree before mounting the new
+        one, so ``old_handle`` may already be detached from the parent or
+        scheduled for deletion. We detach it defensively and insert the new
+        widget at the same index; the renderer's ``insert`` is responsible
+        for placing it correctly.
+        """
+        old_handle = child._placed_handle
+        if old_handle is not None and old_handle is not new_handle:
+            try:
+                self.renderer.remove(parent.handle, old_handle)
+            except Exception:
+                # The previous widget may already be gone; that is fine.
+                pass
+        self.renderer.insert(parent.handle, new_handle, index)
+        child._placed_handle = new_handle
+        child.attached = True
+
+    def _refresh_ancestor_layout(self, ancestor: MountedInstance) -> None:
+        """Re-place any ancestor child whose effective native handle changed."""
+        if ancestor.handle is None:
+            return
+        for index, child in enumerate(ancestor.children):
+            if child.disposed:
+                continue
+            try:
+                handle = child.native_handle()
+            except RuntimeError:
+                continue
+            if child._placed_handle is not handle:
+                self._replace_handle(ancestor, child, handle, index)
+
+    def _effective_ancestor(self, instance: MountedInstance) -> MountedInstance | None:
+        """Nearest ancestor with a native handle, or ``None`` for a root component."""
+        parent = instance.parent
+        while parent is not None:
+            if parent.handle is not None:
+                return parent
+            parent = parent.parent
+        return None
 
     def _sync_events(
         self,
@@ -182,7 +268,8 @@ class Reconciler:
                 continue
             if previous is None:
                 slot = EventSlot(cast(object, callback))
-                subscription = self.renderer.bind_event(instance.handle, name, slot)
+                subscription = self.renderer.bind_event(
+                    instance.handle, name, slot)
                 instance.event_slots[name] = (slot, subscription)
             else:
                 previous[0].update(cast(object, callback))
@@ -191,9 +278,12 @@ class Reconciler:
         if instance.disposed:
             return
         instance.disposed = True
-        native_handle = instance.native_handle() if detach and instance.handle is None else instance.handle
-        if detach and native_handle is not None and instance.parent is not None and instance.parent.handle is not None:
-            self.renderer.remove(instance.parent.handle, native_handle)
+        native_handle = instance.native_handle(
+        ) if detach and instance.handle is None else instance.handle
+        if detach and native_handle is not None:
+            parent_handle = self._effective_parent_handle(instance)
+            if parent_handle is not None:
+                self.renderer.remove(parent_handle, native_handle)
         # Slots become inert before any native removal can result in stale callbacks.
         for slot, subscription in tuple(instance.event_slots.values()):
             slot.dispose()
@@ -207,6 +297,14 @@ class Reconciler:
         if instance.handle is not None:
             self.renderer.destroy(instance.handle)
 
+    def _effective_parent_handle(self, instance: MountedInstance) -> object | None:
+        parent = instance.parent
+        while parent is not None:
+            if parent.handle is not None:
+                return parent.handle
+            parent = parent.parent
+        return None
+
     def _evaluate_component(self, instance: MountedInstance) -> VNode:
         component = instance.node.type
         props = dict(instance.node.props)
@@ -218,21 +316,40 @@ class Reconciler:
             raise
         end_render(token)
         if not isinstance(result, VNode):
-            raise TypeError(f"Component {component.name} must return a VNode.")  # type: ignore[union-attr]
+            # type: ignore[union-attr]
+            raise TypeError(f"Component {component.name} must return a VNode.")
         return result
 
     def _flush_dirty(self, dirty: tuple[MountedInstance, ...]) -> None:
         """Called by the renderer's UI loop after coalescing state updates."""
         if self._is_rendering:
-            raise RuntimeError("Scheduler attempted to flush during rendering.")
+            raise RuntimeError(
+                "Scheduler attempted to flush during rendering.")
         self._is_rendering = True
         try:
             for instance in dirty:
                 if instance.disposed or instance.node.kind is not NodeKind.COMPONENT:
                     continue
+                # Capture the effective native handle before the update so we
+                # can detect when the component's own widget identity changed
+                # underneath it (a component whose only child switched type,
+                # for example Row -> Column).
+                try:
+                    old_handle = instance.native_handle()
+                except RuntimeError:
+                    old_handle = None
                 rendered = self._evaluate_component(instance)
                 previous = instance.children[0]
-                instance.children = [self._reconcile(previous, rendered, instance)]
+                instance.children = [self._reconcile(
+                    previous, rendered, instance)]
+                try:
+                    new_handle = instance.native_handle()
+                except RuntimeError:
+                    new_handle = None
+                if new_handle is not old_handle:
+                    ancestor = self._effective_ancestor(instance)
+                    if ancestor is not None:
+                        self._refresh_ancestor_layout(ancestor)
         finally:
             self._is_rendering = False
         self._commit_refs()
@@ -253,7 +370,8 @@ class Reconciler:
                 handle = instance.native_handle()
                 # Native refs deliberately expose the framework widget rather
                 # than PSX's private renderer handle.
-                ref.current = getattr(handle, "widget", handle) if instance.node.kind is NodeKind.NATIVE else handle
+                ref.current = getattr(
+                    handle, "widget", handle) if instance.node.kind is NodeKind.NATIVE else handle
 
 
 def _compatible(old: VNode, new: VNode) -> bool:
@@ -285,12 +403,14 @@ def _validate_keys(nodes: tuple[VNode, ...]) -> None:
     for node in nodes:
         if node.key is not None:
             if node.key in seen:
-                raise DuplicateKeyError(f"Duplicate key among siblings: {node.key!r}")
+                raise DuplicateKeyError(
+                    f"Duplicate key among siblings: {node.key!r}")
             seen.add(node.key)
 
 
 def _without_runtime_props(node: VNode) -> VNode:
     if not any(name in node.props for name in _RUNTIME_PROPS):
         return node
-    props = {name: value for name, value in node.props.items() if name not in _RUNTIME_PROPS}
+    props = {name: value for name, value in node.props.items()
+             if name not in _RUNTIME_PROPS}
     return VNode(node.kind, node.type, node.key, props, node.children)

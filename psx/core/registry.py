@@ -16,6 +16,7 @@ from .contracts import (
     CHECKBOX_CONTRACT,
     COLUMN_CONTRACT,
     DIVIDER_CONTRACT,
+    IMAGE_CONTRACT,
     INPUT_CONTRACT,
     ROW_CONTRACT,
     SLIDER_CONTRACT,
@@ -123,6 +124,8 @@ def builtin_component_registry() -> ComponentRegistry:
         Spacer,
         Text,
         TextArea,
+        Image,
+        Box,
     )
 
     registry = ComponentRegistry()
@@ -141,6 +144,8 @@ def builtin_component_registry() -> ComponentRegistry:
     registry.register("Spacer", Spacer, contract=SPACER_CONTRACT)
     registry.register("Divider", Divider, contract=DIVIDER_CONTRACT)
     registry.register("Fragment", Fragment)
+    registry.register("Image", Image, contract=IMAGE_CONTRACT)
+    registry.register("Box", Box)
     registry.register("Native", Native)
 
     return registry

@@ -24,6 +24,7 @@ from psx.renderers.components.spacer import updated_spacer_props, validate_space
 from psx.renderers.components.text import updated_text_props, validate_text_props
 from psx.renderers.components.textarea import updated_textarea_props, validate_textarea_props
 from psx.renderers.components.divider import updated_divider_props, validate_divider_props
+from psx.renderers.components.image import updated_image_props, validate_image_props
 
 
 # eq=False: handles compare by identity, so list.remove/in use the fast C
@@ -51,7 +52,7 @@ class HeadlessRenderer:
         for component in (
             "Column", "Row", "Fragment",
             "Text", "Button", "Input", "TextArea", "Checkbox", "Slider",
-            "Spacer", "Divider", "Native",
+            "Spacer", "Divider", "Image", "Native", "Box",
         ):
             self.adapters.register(component, self._default_adapter)
 
@@ -80,6 +81,8 @@ class HeadlessRenderer:
                 validate_spacer_props(node.props)
             elif node.type == "Divider":
                 validate_divider_props(node.props)
+            elif node.type == "Image":
+                validate_image_props(node.props)
         handle = HeadlessHandle(node.type, dict(node.props))
         self.operations.append(("create", handle))
         return handle
@@ -112,6 +115,8 @@ class HeadlessRenderer:
             updated_spacer_props(target.props, changed, removed)
         elif target.type == "Divider":
             updated_divider_props(target.props, changed, removed)
+        elif target.type == "Image":
+            updated_image_props(target.props, changed, removed)
         target.props.update(changed)
         for name in removed:
             target.props.pop(name, None)

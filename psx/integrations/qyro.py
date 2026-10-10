@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from psx import App, component
 from psx.core.errors import PSXError, RendererCapabilityError
 from psx.core.hooks import provide_context, use_context
-from psx.core.vnode import VNode
+from psx.core.vnode import Box, VNode
 
 try:  # Optional integration: importing PSX core never requires Qyro.
     from qyro.ui.component import Component as _QyroComponent
@@ -28,7 +28,8 @@ def QyroProvider(
 ) -> VNode:
     """Provide existing Qyro runtime objects without constructing a new engine."""
     if context is None and container is None:
-        raise TypeError("QyroProvider requires an existing ApplicationContext or EngineContainer.")
+        raise TypeError(
+            "QyroProvider requires an existing ApplicationContext or EngineContainer.")
     if container is None:
         container = getattr(context, "container", None)
     _validate_container(container)
@@ -51,14 +52,16 @@ def use_qyro_context() -> object:
     try:
         return use_context(_QYRO_CONTEXT)
     except LookupError as exc:
-        raise PSXError("use_qyro_context() requires an ancestor QyroProvider(context=...).") from exc
+        raise PSXError(
+            "use_qyro_context() requires an ancestor QyroProvider(context=...).") from exc
 
 
 def use_container() -> object:
     try:
         container = use_context(_QYRO_CONTAINER)
     except LookupError as exc:
-        raise PSXError("use_container() requires an ancestor QyroProvider.") from exc
+        raise PSXError(
+            "use_container() requires an ancestor QyroProvider.") from exc
     _validate_container(container)
     return container
 
@@ -187,11 +190,13 @@ class PSXComponent(_QyroComponent):
         self.component_will_mount()
         # Render through one stable PSX function component so class-style Qyro
         # views can use PSX hooks while retaining their familiar ``render`` API.
+
         @component
         def QyroPSXRoot() -> VNode:
             node = self.render()
             if not isinstance(node, VNode):
-                raise TypeError("PSXComponent.render() must return a PSX VNode.")
+                raise TypeError(
+                    "PSXComponent.render() must return a PSX VNode.")
             return node
 
         self._psx_root_component = QyroPSXRoot
@@ -214,7 +219,8 @@ class PSXComponent(_QyroComponent):
     def build(self) -> object:
         """Return the PSX-created Kivy root when used before ``kivy.app.App`` in MRO."""
         if not _is_kivy_app(self):
-            raise RuntimeError("PSXComponent.build() is only provided for Kivy App hosts.")
+            raise RuntimeError(
+                "PSXComponent.build() is only provided for Kivy App hosts.")
         self._psx_building_kivy = True
         try:
             self._mount_component_lifecycle()
@@ -303,17 +309,20 @@ def mount_psx(
         from psx.renderers.tkinter import TkinterRenderer
 
         renderer = TkinterRenderer(root=host)
+
+    inner = Box(child)
     node = (
-        QyroProvider(child, context=context, container=container)
+        QyroProvider(inner, context=context, container=container)
         if context is not None or container is not None
-        else child
+        else inner
     )
     app = App(node, renderer=renderer, providers=providers)
     handle = app.mount()
     widget = getattr(handle, "widget", None)
     if widget is None:
         app.unmount()
-        raise RendererCapabilityError("mount_psx() currently requires a renderer handle with a native widget.")
+        raise RendererCapabilityError(
+            "mount_psx() currently requires a renderer handle with a native widget.")
     set_central = getattr(host, "setCentralWidget", None)
     if callable(set_central):
         set_central(widget)
@@ -331,7 +340,8 @@ def mount_psx(
     if _is_kivy_app(host):
         return PSXMount(host, app, widget)
     app.unmount()
-    raise RendererCapabilityError("Host must provide setCentralWidget() or a layout with addWidget().")
+    raise RendererCapabilityError(
+        "Host must provide setCentralWidget() or a layout with addWidget().")
 
 
 def _renderer_from_context(context: object) -> str | None:
@@ -347,15 +357,18 @@ def _renderer_from_context(context: object) -> str | None:
     if not callable(execute):
         return None
     settings = execute().raw_settings
-    binding = settings.get("binding") or settings.get("framework") if isinstance(settings, dict) else None
+    binding = settings.get("binding") or settings.get(
+        "framework") if isinstance(settings, dict) else None
     return binding if isinstance(binding, str) and binding.strip() else None
 
 
 def _validate_container(container: object | None) -> None:
     required = ("load_settings_use_case", "resolve_resource_use_case")
-    missing = [name for name in required if getattr(container, name, None) is None]
+    missing = [name for name in required if getattr(
+        container, name, None) is None]
     if missing:
-        raise TypeError(f"Expected a Qyro EngineContainer; missing {', '.join(missing)}.")
+        raise TypeError(
+            f"Expected a Qyro EngineContainer; missing {', '.join(missing)}.")
 
 
 def _is_kivy_app(value: object) -> bool:

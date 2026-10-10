@@ -290,9 +290,13 @@ class KivyRenderer:
         from .column import KivyColumnAdapter
         from .row import KivyRowAdapter
         from .divider import KivyDividerAdapter
+        from .image import KivyImageAdapter
+        from .box import KivyBoxAdapter
         self.adapters.register("Divider", KivyDividerAdapter())
         self.adapters.register("Column", KivyColumnAdapter())
         self.adapters.register("Row", KivyRowAdapter())
+        self.adapters.register("Image", KivyImageAdapter())
+        self.adapters.register("Box", KivyBoxAdapter())
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)

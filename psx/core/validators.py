@@ -21,13 +21,49 @@ from .contracts import (
     COLUMN_DEFAULTS,
     SLIDER_PROPS,
     SLIDER_DEFAULTS,
+    IMAGE_PROPS,
+    IMAGE_DEFAULTS,
 )
 
 _VALID_ALIGN = frozenset({"start", "center", "end", "stretch"})
 _VALID_ORIENTATIONS = frozenset({"horizontal", "vertical"})
 _VALID_DIVIDER_ORIENTATIONS = frozenset({"horizontal", "vertical"})
+_VALID_IMAGE_FITS = frozenset({"contain", "cover", "fill", "none"})
 _HEX_COLOR_RE = re.compile(r"#[0-9a-fA-F]{6}")
 
+def validate_image_props(props: Mapping[str, object]) -> None:
+    unknown = set(props) - IMAGE_PROPS - {"ref", "key"}
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported Image props: {', '.join(sorted(unknown))}"
+        )
+
+    source = props.get("source")
+    if not isinstance(source, str) or not source:
+        raise RendererCapabilityError("Image.source must be a non-empty str.")
+
+    fit = props.get("fit", IMAGE_DEFAULTS["fit"])
+    if fit not in _VALID_IMAGE_FITS:
+        raise RendererCapabilityError(
+            f"Image.fit must be one of {sorted(_VALID_IMAGE_FITS)}."
+        )
+
+    for name in ("width", "height"):
+        value = props.get(name)
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise RendererCapabilityError(
+                f"Image.{name} must be a positive int or None."
+            )
+
+    alt = props.get("alt", IMAGE_DEFAULTS["alt"])
+    if not isinstance(alt, str):
+        raise RendererCapabilityError("Image.alt must be a str.")
+
+    enabled = props.get("enabled", IMAGE_DEFAULTS["enabled"])
+    if not isinstance(enabled, bool):
+        raise RendererCapabilityError("Image.enabled must be a bool.")
 
 def validate_divider_props(props: Mapping[str, object]) -> None:
     unknown = set(props) - {"orientation", "thickness", "color", "ref", "key"}

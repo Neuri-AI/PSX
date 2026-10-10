@@ -42,6 +42,7 @@ from .core.vnode import (
     Slider,
     Spacer,
     Divider,
+    Image,
 )
 
 __all__ = [
@@ -58,6 +59,7 @@ __all__ = [
     "Native",
     "Input",
     "Divider",
+    "Image",
 
     "App",
     "ComponentDefinition",

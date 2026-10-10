@@ -269,9 +269,13 @@ class TkinterRenderer:
         from .column import TkColumnAdapter
         from .row import TkRowAdapter
         from .divider import TkDividerAdapter
+        from .image import TkImageAdapter
+        from .box import TkBoxAdapter
         self.adapters.register("Column", TkColumnAdapter())
         self.adapters.register("Row", TkRowAdapter())
         self.adapters.register("Divider", TkDividerAdapter())
+        self.adapters.register("Image", TkImageAdapter())
+        self.adapters.register("Box", TkBoxAdapter())
         self._schedule_drain()
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:

@@ -59,6 +59,11 @@ from psx.core.contracts import (
     DIVIDER_PROPS,
     DIVIDER_DEFAULTS,
     DIVIDER_CONTRACT,
+
+    # Image
+    IMAGE_PROPS,
+    IMAGE_DEFAULTS,
+    IMAGE_CONTRACT,
 )
 
 from .validators import (
@@ -380,3 +385,42 @@ def Divider(
     options = dict(orientation=orientation, thickness=thickness, color=color, **props)
     DIVIDER_CONTRACT.validate_builder(options)
     return create_element("Divider", *children, key=key, ref=ref, **options)
+
+def Image(
+    source: str,
+    *,
+    fit: str = "contain",
+    width: int | None = None,
+    height: int | None = None,
+    alt: str = "",
+    enabled: bool = True,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Portable image loaded from a local file path.
+
+    ``source`` is resolved through the application's resource helper, so
+    ``get_resource("images", "logo.png")`` is the idiomatic call site.
+    The widget takes the image's natural size unless ``width`` or ``height``
+    overrides are provided; when only one axis is given, the other is
+    computed to preserve the source aspect ratio. ``fit`` decides how the
+    image is drawn inside the widget when both axes are set explicitly.
+    """
+    options = dict(
+        source=source, fit=fit, width=width, height=height,
+        alt=alt, enabled=enabled, **props,
+    )
+    IMAGE_CONTRACT.validate_builder(options)
+    return create_element("Image", key=key, ref=ref, **options)
+
+
+def Box(*children: object, key: Key | None = None, ref: object | None = None) -> VNode:
+    """Internal passthrough container used by the Qyro integration.
+
+    It exists so the host's top-level widget can stay a stable native type
+    even when the user's render root changes between renders (for example,
+    ``Row`` becoming ``Column``). Not part of the public portable API; no
+    props, no events, no portability guarantees.
+    """
+    return create_element("Box", *children, key=key, ref=ref)

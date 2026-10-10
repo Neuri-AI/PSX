@@ -23,6 +23,7 @@ from .validators import (
     validate_textarea_props,
     validate_spacer_props,
     validate_divider_props,
+    validate_image_props,
 )
 Validator = Callable[[Mapping[str, object]], None]
 
@@ -136,4 +137,13 @@ DIVIDER_CONTRACT = ComponentContract(
     frozenset(),
     "none-or-single",
     validate_divider_props,
+)
+
+IMAGE_CONTRACT = ComponentContract(
+    "Image",
+    IMAGE_PROPS,
+    IMAGE_DEFAULTS,
+    frozenset(),
+    "none",
+    validate_image_props,
 )

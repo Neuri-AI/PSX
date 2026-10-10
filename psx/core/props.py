@@ -70,3 +70,12 @@ DIVIDER_PROPS = frozenset({
     "thickness",
     "color"
 })
+
+IMAGE_PROPS = frozenset({
+    "source",
+    "fit",
+    "width",
+    "height",
+    "alt",
+    "enabled"
+})
