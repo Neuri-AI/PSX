@@ -19,8 +19,17 @@ def _rect(data: dict[str, float]) -> Rect:
     return Rect(data["x"], data["y"], data["width"], data["height"])
 
 
-def rust_compute(rust_binary, snapshot) -> LayoutResult:
-    data = _rust_compute(rust_binary, snapshot)
+def rust_compute(rust_binary, snapshot, *, provisional=False) -> LayoutResult:
+    if provisional:
+        import json
+        import subprocess
+        from test_sfle_f2_differential import _snapshot_wire
+        run = subprocess.run([str(rust_binary), '--provisional'],
+            input=json.dumps(_snapshot_wire(snapshot)), text=True,
+            capture_output=True, check=True, timeout=30)
+        data=json.loads(run.stdout)
+    else:
+        data = _rust_compute(rust_binary, snapshot)
     assert data["ok"], f"Rust compute error: {data.get('error')}"
     result = data["result"]
     return LayoutResult(
@@ -57,7 +66,12 @@ def run_measured_case(case_id: str, backend: str, rust_binary, *,
             initial_widths[node_id], height,
         )
 
+    provisional_compute = (
+        PythonLayoutEngine().compute_provisional if backend == "python"
+        else lambda request: rust_compute(rust_binary, request, provisional=True)
+    )
     result = compute_with_width_measurements(
         snapshot, compute, measure_fn, initial_widths=initial_widths,
+        compute_provisional=provisional_compute,
     )
     return dict(result.boxes), calls
