@@ -250,6 +250,9 @@ class LayoutResult:
     generation: int
     boxes: tuple[tuple[str, BoxRect], ...]
     diagnostics: tuple[str, ...] = ()
+    measurement_error: float | None = None
+    engine_error: float | None = None
+    geometry_commit_error: float | None = None
 
     def __post_init__(self) -> None:
         if type(self.schema_version) is not int or self.schema_version != 1:
@@ -265,6 +268,11 @@ class LayoutResult:
             raise TypeError("LayoutResult.boxes must contain (node_id, BoxRect) pairs.")
         if any(not isinstance(message, str) or not message for message in self.diagnostics):
             raise TypeError("LayoutResult.diagnostics must contain nonempty strings.")
+        for name in ("measurement_error", "engine_error", "geometry_commit_error"):
+            value = getattr(self, name)
+            _finite(value, name)
+            if value is not None and value < 0:
+                raise ValueError(f"{name} must be nonnegative.")
         ids = [node_id for node_id, _ in self.boxes]
         if len(ids) != len(set(ids)):
             raise ValueError("Layout results must have unique node IDs.")
