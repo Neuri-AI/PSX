@@ -13,6 +13,17 @@ CASES = json.loads(
 )["cases"]
 
 
+@pytest.fixture(scope="module")
+def chromium_page():
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            yield browser.new_page(viewport={"width": 800, "height": 600}, device_scale_factor=1)
+        finally:
+            browser.close()
+
+
 def test_a01_chromium_final_auto_parent_height(chromium_page):
     case = next(case for case in CASES if case["id"] == "A01")
     chromium_page.set_content("""
