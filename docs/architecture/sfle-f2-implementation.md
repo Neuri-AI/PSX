@@ -366,11 +366,16 @@ conformant full Flexbox engine.
 
 ### Validation follow-up
 
-Python tests and Rust unit tests have been added for the integrated math,
-main-axis RTL, line wrapping, numeric flex allocation and used box
-rectangle conversions. GitHub Actions is configured to run them, but
-**passing CI and numerical/browser parity are not asserted here** until
-the actual check results are verified.
+Python tests and Rust unit tests cover the restricted integrated
+math, RTL, line wrapping, numeric flex allocation and used-box rectangle
+conversions. The GitHub Actions run for commit
+`090b2829ef096d08c987baaece95957c1f8d0a7c` **completed successfully**:
+Rust core checks and Python 3.10, 3.11, 3.12, 3.13 all passed. The general
+PSX alpha validation workflow on that commit also passed.
+
+**What CI does not prove:** Rust/Python fixture-by-fixture numeric parity,
+browser conformance within 0.01 logical CSS px, PyO3 packaging, or a complete
+CSS box-model-aware algorithm. Those remain separate acceptance gates.
 
 The next useful block should prioritize evaluating the CI outcomes and
 then expanding edge-aware line fitting (including padding, border and
