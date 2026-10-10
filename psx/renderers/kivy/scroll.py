@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from kivy.clock import Clock
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 
@@ -39,6 +38,7 @@ class KivyScrollAdapter:
         view.add_widget(content)
         view._psx_content = content
         self._apply(view, props)
+        self._connect(view)
         return KivyHandle("Scroll", view, props)
 
     @staticmethod
