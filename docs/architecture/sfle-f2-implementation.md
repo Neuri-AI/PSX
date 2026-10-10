@@ -1086,3 +1086,14 @@ An incremental typed adapter is now implemented in Python and Rust, without open
 **Strict scope:** The input boxes must be from a valid, current-generation upstream geometry pass; this helper does not itself verify their generation or calculate Flex used sizes. Parent automatic sizing, intrinsic width-sensitive remeasurement, dependency-cycle resolution, geometry iteration, native UI-thread measurement, and final nested `LayoutResult` remain pending F2.2.4 work. Avoid describing this adapter as a complete recursive layout algorithm. Preserve the closed capability gate and draft PR until those requirements are met.
 
 **Next milestone:** establish the per-node used-size computation/dependency state machine in the pure Python/Rust engine, with explicit handling of indefinite axes and remeasurement rather than assuming every parent used content box exists ahead of time.
+
+
+## F2.2.4.5 — Dependency Resolution & Remeasurement (first restricted increment)
+
+New pure, matching Python/Rust `remeasurement` modules compare validated previous/current used-size tree snapshots, preserving generation and identity checks. When a node's resolved content dimensions change, its dependent descendants and its ancestors are included in a deterministic reverse-preorder measurement worklist. The result also retains all partially indefinite nodes as a separate `deferred` collection; indefinite axes are **not** coerced to zero or treated as resolved geometry.
+
+Files: `psx/sfle/remeasurement.py`, `rust/sfle-core/src/remeasurement.rs`, `tests/sfle/test_remeasurement.py`. These include changed-child, unchanged-tree, unresolved-axis, and invalid-generation/order regressions.
+
+**Scope:** This is an invalidation *delta* between known snapshots; it does not execute measurements, compute ancestor automatic sizes, solve CSS percentage dependency cycles, inspect actual native widgets, or determine convergence. The F2.2.4.5 subblock remains **in development** until those follow-on behaviors are implemented and verified. Next: make a coordinator consume deltas and remeasure width-sensitive intrinsic nodes with stable generation guards, then handle cyclic layout dependencies according to explicitly supported CSS rules.
+
+**Progress tracking:** F2.2.4 has eight internal subblocks. F2.2.4.1–F2.2.4.4 accepted in their restricted scope (4/8, 50% by count); F2.2.4.5 in progress; F2.2.4.6–F2.2.4.8 pending. Do not count F2.2.4.5 as complete from invalidation alone.
