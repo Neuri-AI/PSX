@@ -30,7 +30,7 @@ from psx.renderers.components.select import updated_select_props
 from psx.core.contracts import validate_select_props, validate_switch_props
 from psx.renderers.components.switch import updated_switch_props
 from psx.renderers.components.link import updated_link_props
-from psx.core.contracts import validate_link_props, validate_badge_props
+from psx.core.contracts import validate_badge_props
 from psx.renderers.components.badge import updated_badge_props
 from psx.core.contracts import validate_link_props, validate_spinbox_props
 from psx.renderers.components.spinbox import updated_spinbox_props
@@ -67,8 +67,7 @@ class HeadlessRenderer:
             "Column", "Row", "Fragment",
             "Text", "Button", "Input", "TextArea", "Checkbox", "Slider",
             "Spacer", "Divider", "Image", "ProgressBar",
-            "Radio", "RadioGroup", "Select", "Switch", "Link", "Badge", "Box", "Native",
-            "Radio", "RadioGroup", "Select", "Switch", "Link", "SpinBox", "Box", "Native",
+            "Radio", "RadioGroup", "Select", "Switch", "Link", "Badge", "SpinBox", "Box", "Native",
         ):
             self.adapters.register(component, self._default_adapter)
 
