@@ -25,7 +25,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
 | **F2.2.2** | **Percentage cycles, box sizing and sizing-edge contracts** | **Scoped resolved-input implementation complete; context-dependent cases explicitly deferred to F2.2.4** |
-| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: justify-content, align-items/align-self, align-content and explicit auto cross stretch in Python/Rust; SFLE CI passed** |
+| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: baseline groups use supplied measurements in horizontal Flex, Python/Rust; CI pending** |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
 | F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
@@ -1021,3 +1021,12 @@ Stretch is selected only by inherited `align-items: stretch` or per-item `align-
 
 
 **Stretch CI checkpoint:** code commit `dd2aabf5` passed SFLE workflow `38066884574` (Rust and Python 3.10–3.13). Initial tests expecting every `stretch` mode to fail were updated to the now-supported contract: definite item cross dimensions remain unchanged while explicitly automatic dimensions stretch within min/max and fixed-edge constraints. PSX alpha workflow `38066884571` passed Python 3.10–3.13, PySide6 offscreen and distribution build. Chromium and baseline conformance remain open.
+
+
+## F2.2.3 — Measured first-baseline group contract
+
+New `psx/sfle/baseline.py` and `rust/sfle-core/src/baseline.rs` implement *first-baseline* alignment from **explicitly supplied** baseline positions relative to an item's logical cross-start content edge. The resolved horizontal Flex pipelines aggregate each line's baseline group's maximal ascent and descent (including signed fixed margins), increase wrapped line cross size when required, and position baseline-aligned items so their measured baseline coordinates coincide. Existing `align-items: baseline` and per-item `align-self: baseline` select this path only when a valid premeasured offset is supplied. Missing/out-of-range metrics raise explicit errors. Cross-axis AUTO margins bypass baseline alignment and retain their established precedence.
+
+The item contract adds `baseline_from_cross_start` (Python) / `baseline_from_cross_start: Option<f64>` (Rust). It must be a measured content-box offset from the logical cross start, not a computed font ascent guess. The pipeline adds padding and border start offsets before grouping. Measurement remains upstream and will be introduced with F2.2.4 renderer adapters.
+
+**Known scope restrictions:** column/orthogonal baselines require a dedicated writing-mode and baseline measurement contract and fail explicitly. Baseline synthesis, font fallback, replaced-element baselines and multi-baseline alignment variants are not implemented. Do not treat this slice as complete CSS Flexbox baseline conformance. First baseline is handled only for resolved horizontal flow, fixed margins and provided metrics. CI must pass before claiming F2.2.3 acceptance; Chromium reference testing remains the next agreed checkpoint after F2.2.3.
