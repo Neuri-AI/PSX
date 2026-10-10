@@ -866,6 +866,132 @@
         "rust",
         "chromium"
       ]
+    },
+    {
+      "id": "N01",
+      "name": "indefinite-inline-percent",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": null,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "auto"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "50%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "diagnostic": "SFLE_UNSUPPORTED_FEATURE",
+        "node": "child",
+        "cycle_kind": "indefinite inline percentage dependency cycle"
+      },
+      "verification": [
+        "python",
+        "rust"
+      ]
+    },
+    {
+      "id": "N02",
+      "name": "indefinite-percentage-minimum",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": null,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "auto"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "10px",
+            "min_width": "50%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "diagnostic": "SFLE_UNSUPPORTED_FEATURE",
+        "node": "child",
+        "cycle_kind": "percentage minimum size dependency cycle"
+      },
+      "verification": [
+        "python",
+        "rust"
+      ]
+    },
+    {
+      "id": "N03",
+      "name": "nested-column-basis-percent-cycle",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": null,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "column",
+            "height": "auto"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Flex",
+          "style": {
+            "direction": "column",
+            "flex_basis": "50%",
+            "height": "auto"
+          }
+        },
+        {
+          "node_id": "grand",
+          "parent_id": "child",
+          "component": "Box",
+          "style": {
+            "width": "20px",
+            "height": "50%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "diagnostic": "SFLE_UNSUPPORTED_FEATURE",
+        "node": "child",
+        "cycle_kind": "column intrinsic percentage basis descendant cycle"
+      },
+      "verification": [
+        "python",
+        "rust"
+      ]
     }
   ]
 }
