@@ -107,6 +107,6 @@ mod tests {
         let value = resolve_main_alignment(
             JustifyContent::FlexEnd, 100.0, &[20.0, -10.0], 10.0
         ).unwrap();
-        assert_eq!(value.leading_space, 90.0);
+        assert_eq!(value.leading_space, 80.0);
     }
 }
