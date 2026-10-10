@@ -70,16 +70,20 @@ class _ScrollFrame(ttk.Frame):
         if self._psx_after is not None:
             self.after_cancel(self._psx_after)
         if self._psx_props["scrollbar"] == "auto":
-            self._psx_after = self.after(750, self._refresh)
+            self._psx_after = self.after(750, self._hide_thumbs)
         else:
             self._psx_after = None
+
+    def _hide_thumbs(self):
+        self._psx_after = None
+        if not self._psx_disposed:
+            self._psx_canvas.delete("_psx_scroll_thumb")
 
     def _refresh(self, *_args):
         if self._psx_disposed:
             return
         canvas = self._psx_canvas
         frame = self._psx_content
-        canvas.update_idletasks()
         req_width, req_height = frame.winfo_reqwidth(), frame.winfo_reqheight()
         vp_width, vp_height = canvas.winfo_width(), canvas.winfo_height()
         enabled_x, enabled_y = scroll_axes(self._psx_props["direction"])
