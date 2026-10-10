@@ -303,8 +303,8 @@
         "chromium"
       ],
       "live_text": {
-        "tokens": 6,
-        "text": "x x x x x x",
+        "tokens": 5,
+        "text": "x x x x x",
         "font_css": "10px/20px monospace",
         "initial_width_px": 50,
         "final_width_px": 35,
