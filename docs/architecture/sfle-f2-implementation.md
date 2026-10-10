@@ -1251,3 +1251,24 @@ Regression tests in `tests/sfle/test_headless_measurement.py` cover complete
 rounds, stale generations, missing/duplicate snapshots and retained cache
 entries. **This is a partial F2.2.4.7 deliverable**, not acceptance of Qt,
 Kivy or Tkinter UI-thread native measurement, and it does not close F2.2.4.
+
+
+## F2.2.4.7 — Toolkit-native measurement source increment
+
+Three additional isolated measurement sources implement the same synchronous
+`NativeMeasurementPort` interface:
+
+- `QtMeasurementSource` accepts the binding's `QtCore`, checks each widget's
+  `thread()` against `QThread.currentThread()`, reads `sizeHint()` and
+  `minimumSizeHint()`, and honors `heightForWidth()` when advertised.
+- `TkMeasurementSource` checks the constructing thread and reads
+  `winfo_reqwidth()` / `winfo_reqheight()`.
+- `KivyMeasurementSource` checks its constructing thread and reads explicit
+  `texture_size` or `minimum_size`; generic widget allocations fail closed.
+
+Portable test doubles exercise all three adapters, stale/foreign UI threads,
+width-sensitive Qt measurement and unavailable Kivy intrinsic metrics. These
+ports do **not** claim exact CSS min/max-content measurements for text,
+scheduler integration or completed framework-native lifecycle. The feature
+manifest remains disabled and F2.2.4.7 remains open until those requirements
+are integrated and validated with real framework widgets.
