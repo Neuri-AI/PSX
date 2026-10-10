@@ -103,7 +103,11 @@ native backend during manual DX rather than assuming exact equivalence.
 - **Kivy:** `ScrollView` containing a managed `BoxLayout`; minimum content
   dimensions follow children and viewport. Kivy's native wheel handling is
   supplemented by a bounded fallback for SDL2 mouse/trackpad scroll-button
-  touches, with 48 logical pixels per wheel increment. Native indicators are drawn
+  touches, with 48 logical pixels per wheel increment. On macOS, the
+  Scroll adapter currently inverts SDL2 scroll-button direction to align with
+  observed natural-scrolling trackpad behavior. Nested views normalize each
+  touch only once, before native Kivy dispatch. This needs confirmation with
+  both natural-scrolling and conventional mouse setups. Native indicators are drawn
   over the viewport. Cross-axis hints and parent stretch constraints can
   affect sizing, so validate on all relevant layout configurations.
 - **Tkinter:** `Canvas` plus frame in `create_window`; PSX creates children
@@ -127,7 +131,8 @@ No automated tests are added or run for this component phase.
 - [ ] Check explicit width/height and parent-constrained viewports
 - [ ] Check nested Scroll wheel/trackpad input and limit handoff
 - [ ] On macOS, verify two-finger trackpad scrolling in Kivy separately from a
-  physical mouse wheel; backend/SDL2 versions may expose different events
+  physical mouse wheel, including natural scrolling enabled/disabled;
+  backend/SDL2 versions may expose different events
 - [ ] Verify Tkinter creates normal Text/Column children within Scroll without
   foreign-handle TypeError
 - [ ] Confirm content and widget identity survive keyed add/remove/reorder
