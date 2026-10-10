@@ -1073,3 +1073,16 @@ The new `psx/sfle/constraint_propagation.py` and `rust/sfle-core/src/constraint_
 
 
 **Constraint propagation CI verification:** code commit `78071f81` passed focused SFLE workflow `38068993188` (Rust and Python 3.10–3.13). The initial commit failed Rust compilation because a borrowed map value was dereferenced twice; the map lookup was corrected to a single dereference and the complete SFLE matrix reran successfully. General PSX validation `38068993177` passed Python 3.10–3.13, PySide6 offscreen and build; Chromium checkpoint `38068993175` passed the existing six border-box reference fixtures.
+
+
+## F2.2.4 — Used content-box to nested measurement bridge
+
+An incremental typed adapter is now implemented in Python and Rust, without opening the public Flex capability:
+
+- Python `plan_used_box_measurements(snapshot, used_boxes, child_sizing, revisions)` takes established `BoxRect` values and derives definite parent content dimensions from `box.content.width/height`. It then delegates to the existing `plan_styled_measurements` and descendant-first planner.
+- Rust `plan_used_box_measurements` takes `UsedContentSize` snapshots (the content dimensions already extracted by the geometry owner), rejects nonfinite or negative inputs, and delegates to the equivalent existing planner.
+- Matching Python/Rust regression cases check a three-level Flex/Flex/Text tree, explicit border-vs-content sizing, unknown/duplicate input, missing parent evidence, and nonfinite dimensions.
+
+**Strict scope:** The input boxes must be from a valid, current-generation upstream geometry pass; this helper does not itself verify their generation or calculate Flex used sizes. Parent automatic sizing, intrinsic width-sensitive remeasurement, dependency-cycle resolution, geometry iteration, native UI-thread measurement, and final nested `LayoutResult` remain pending F2.2.4 work. Avoid describing this adapter as a complete recursive layout algorithm. Preserve the closed capability gate and draft PR until those requirements are met.
+
+**Next milestone:** establish the per-node used-size computation/dependency state machine in the pure Python/Rust engine, with explicit handling of indefinite axes and remeasurement rather than assuming every parent used content box exists ahead of time.
