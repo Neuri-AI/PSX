@@ -93,10 +93,12 @@ def _rust_compute(binary,snapshot):
 def _rects(result):
     if isinstance(result,dict):
         return {box["node_id"]:box for box in result["boxes"]}
+    def rect(value):
+        return {axis:getattr(value,axis) for axis in ("x","y","width","height")}
     return {
-        node_id:{"node_id":node_id,"content":vars(box.content),
-                 "border":vars(box.border),"padding":vars(box.padding),
-                 "margin":vars(box.margin)}
+        node_id:{"node_id":node_id,"content":rect(box.content),
+                 "border":rect(box.border),"padding":rect(box.padding),
+                 "margin":rect(box.margin)}
         for node_id,box in result.boxes
     }
 
