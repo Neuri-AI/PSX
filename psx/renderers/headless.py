@@ -30,10 +30,12 @@ from psx.renderers.components.select import updated_select_props
 from psx.core.contracts import validate_select_props, validate_switch_props
 from psx.renderers.components.switch import updated_switch_props
 from psx.renderers.components.link import updated_link_props
+from psx.core.contracts import validate_link_props, validate_spinbox_props
 from psx.core.contracts import validate_badge_props
 from psx.renderers.components.badge import updated_badge_props
-from psx.core.contracts import validate_link_props, validate_spinbox_props
 from psx.renderers.components.spinbox import updated_spinbox_props
+from psx.renderers.components.scroll import updated_scroll_props
+from psx.core.contracts import validate_scroll_props
 from psx.renderers.components.radio import (
     updated_radio_props,
     updated_radiogroup_props,
@@ -67,7 +69,7 @@ class HeadlessRenderer:
             "Column", "Row", "Fragment",
             "Text", "Button", "Input", "TextArea", "Checkbox", "Slider",
             "Spacer", "Divider", "Image", "ProgressBar",
-            "Radio", "RadioGroup", "Select", "Switch", "Link", "Badge", "SpinBox", "Box", "Native",
+            "Radio", "RadioGroup", "Select", "Switch", "Link", "Badge", "SpinBox", "Scroll", "Box", "Native",
         ):
             self.adapters.register(component, self._default_adapter)
 
@@ -114,6 +116,8 @@ class HeadlessRenderer:
                 validate_badge_props(node.props)
             elif node.type == "SpinBox":
                 validate_spinbox_props(node.props)
+            elif node.type == "Scroll":
+                validate_scroll_props(node.props)
         handle = HeadlessHandle(node.type, dict(node.props))
         self.operations.append(("create", handle))
         return handle
@@ -164,6 +168,8 @@ class HeadlessRenderer:
             updated_badge_props(target.props, changed, removed)
         elif target.type == "SpinBox":
             updated_spinbox_props(target.props, changed, removed)
+        elif target.type == "Scroll":
+            updated_scroll_props(target.props, changed, removed)
         target.props.update(changed)
         for name in removed:
             target.props.pop(name, None)

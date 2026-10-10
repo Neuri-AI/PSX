@@ -316,6 +316,7 @@ class KivyRenderer:
         from .link import KivyLinkAdapter
         from .badge import KivyBadgeAdapter
         from .spinbox import KivySpinBoxAdapter
+        from .scroll import KivyScrollAdapter
         from .box import KivyBoxAdapter
         from .progressbar import KivyProgressBarAdapter
         from .radio import KivyRadioAdapter, KivyRadioGroupAdapter
@@ -328,6 +329,7 @@ class KivyRenderer:
         self.adapters.register("Link", KivyLinkAdapter())
         self.adapters.register("Badge", KivyBadgeAdapter())
         self.adapters.register("SpinBox", KivySpinBoxAdapter())
+        self.adapters.register("Scroll", KivyScrollAdapter())
         self.adapters.register("Box", KivyBoxAdapter())
         self.adapters.register("ProgressBar", KivyProgressBarAdapter())
         self.adapters.register("Radio", KivyRadioAdapter())

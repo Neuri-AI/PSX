@@ -32,6 +32,7 @@ from .validators import (
     validate_link_props,
     validate_badge_props,
     validate_spinbox_props,
+    validate_scroll_props,
 )
 Validator = Callable[[Mapping[str, object]], None]
 
@@ -206,4 +207,9 @@ BADGE_CONTRACT = ComponentContract(
 SPINBOX_CONTRACT = ComponentContract(
     "SpinBox", SPINBOX_PROPS, SPINBOX_DEFAULTS,
     frozenset({"on_change"}), "none", validate_spinbox_props,
+)
+
+SCROLL_CONTRACT = ComponentContract(
+    "Scroll", SCROLL_PROPS, SCROLL_DEFAULTS,
+    frozenset(), "multiple", validate_scroll_props,
 )

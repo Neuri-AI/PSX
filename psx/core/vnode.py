@@ -86,6 +86,7 @@ from psx.core.contracts import (
     LINK_CONTRACT,
     BADGE_CONTRACT,
     SPINBOX_CONTRACT,
+    SCROLL_CONTRACT,
 )
 
 from .validators import (
@@ -605,6 +606,30 @@ def SpinBox(
     )
     SPINBOX_CONTRACT.validate_builder(config)
     return create_element("SpinBox", key=key, ref=ref, **config)
+
+
+def Scroll(
+    *children: object,
+    direction: str = "vertical",
+    content_direction: str = "vertical",
+    scrollbar: str = "auto",
+    width: int | float | None = None,
+    height: int | float | None = None,
+    spacing: int = 0,
+    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
+    enabled: bool = True,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Portable clipped viewport with managed multi-child content."""
+    config = dict(
+        direction=direction, content_direction=content_direction,
+        scrollbar=scrollbar, width=width, height=height,
+        spacing=spacing, padding=padding, enabled=enabled, **props,
+    )
+    SCROLL_CONTRACT.validate_builder(config)
+    return create_element("Scroll", *children, key=key, ref=ref, **config)
 
 
 def Badge(

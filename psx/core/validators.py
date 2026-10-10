@@ -39,6 +39,8 @@ from .contracts import (
     BADGE_DEFAULTS,
     SPINBOX_PROPS,
     SPINBOX_DEFAULTS,
+    SCROLL_PROPS,
+    SCROLL_DEFAULTS,
 )
 
 _VALID_ALIGN = frozenset({"start", "center", "end", "stretch"})
@@ -670,3 +672,44 @@ def validate_spinbox_props(props: Mapping[str, object]) -> None:
     callback = props.get("on_change", SPINBOX_DEFAULTS["on_change"])
     if callback is not None and not callable(callback):
         raise RendererCapabilityError("SpinBox.on_change must be callable or None.")
+
+
+def validate_scroll_props(props: Mapping[str, object]) -> None:
+    """Validate portable scroll viewport, content flow and visibility options."""
+    unknown = set(props) - SCROLL_PROPS - {"key", "ref"}
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported Scroll props: {', '.join(sorted(unknown))}"
+        )
+    variants = {
+        "direction": ("vertical", "horizontal", "both"),
+        "content_direction": ("vertical", "horizontal"),
+        "scrollbar": ("auto", "always", "hidden"),
+    }
+    for name, allowed in variants.items():
+        if props.get(name, SCROLL_DEFAULTS[name]) not in allowed:
+            raise RendererCapabilityError(
+                f"Scroll.{name} must be one of {', '.join(allowed)}."
+            )
+    for name in ("width", "height"):
+        value = props.get(name, SCROLL_DEFAULTS[name])
+        if value is not None and (
+            isinstance(value, bool) or not isinstance(value, (int, float))
+            or not math.isfinite(value) or value <= 0
+        ):
+            raise RendererCapabilityError(
+                f"Scroll.{name} must be None or a positive finite number."
+            )
+    spacing = props.get("spacing", SCROLL_DEFAULTS["spacing"])
+    if isinstance(spacing, bool) or not isinstance(spacing, int) or spacing < 0:
+        raise RendererCapabilityError("Scroll.spacing must be a non-negative integer.")
+    padding = props.get("padding", SCROLL_DEFAULTS["padding"])
+    values = (padding,) if isinstance(padding, int) else padding
+    if not isinstance(values, (tuple, list)) or len(values) not in (1, 2, 4) or any(
+        isinstance(v, bool) or not isinstance(v, int) or v < 0 for v in values
+    ):
+        raise RendererCapabilityError(
+            "Scroll.padding must be a non-negative int or a 2-/4-int tuple."
+        )
+    if not isinstance(props.get("enabled", SCROLL_DEFAULTS["enabled"]), bool):
+        raise RendererCapabilityError("Scroll.enabled must be a bool.")
