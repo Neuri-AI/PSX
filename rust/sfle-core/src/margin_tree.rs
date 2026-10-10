@@ -64,6 +64,11 @@ pub fn compute_margin_tree(
                 return Err(FlexMathError::InvalidInput("root cannot be item"));
             }
         } else {
+            if node.edges != BoxEdges::default() {
+                return Err(FlexMathError::InvalidInput(
+                    "child edges must be supplied by MarginFlexItem",
+                ));
+            }
             let parent=node.parent.as_deref().ok_or(
                 FlexMathError::InvalidInput("missing parent")
             )?;
