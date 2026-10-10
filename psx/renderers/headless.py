@@ -30,7 +30,8 @@ from psx.renderers.components.select import updated_select_props
 from psx.core.contracts import validate_select_props, validate_switch_props
 from psx.renderers.components.switch import updated_switch_props
 from psx.renderers.components.link import updated_link_props
-from psx.core.contracts import validate_link_props
+from psx.core.contracts import validate_link_props, validate_spinbox_props
+from psx.renderers.components.spinbox import updated_spinbox_props
 from psx.renderers.components.radio import (
     updated_radio_props,
     updated_radiogroup_props,
@@ -107,6 +108,8 @@ class HeadlessRenderer:
                 validate_switch_props(node.props)
             elif node.type == "Link":
                 validate_link_props(node.props)
+            elif node.type == "SpinBox":
+                validate_spinbox_props(node.props)
         handle = HeadlessHandle(node.type, dict(node.props))
         self.operations.append(("create", handle))
         return handle
@@ -153,6 +156,8 @@ class HeadlessRenderer:
             updated_switch_props(target.props, changed, removed)
         elif target.type == "Link":
             updated_link_props(target.props, changed, removed)
+        elif target.type == "SpinBox":
+            updated_spinbox_props(target.props, changed, removed)
         target.props.update(changed)
         for name in removed:
             target.props.pop(name, None)
