@@ -2,7 +2,7 @@
 
 The output intentionally contains border/padding/content rectangles, not a
 fabricated margin Rect: CSS negative margins can yield negative outer sizes.
-Cross-axis margins are resolved against established flex-line sizes; alignment is deferred.
+Cross-axis auto margins override resolved non-stretch item alignment.
 """
 
 from __future__ import annotations
@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from .box_geometry import UsedBoxEdges, UsedEdges
 from .cross_margins import position_cross_margins
+from .cross_alignment import CrossAlign, resolve_cross_alignment
 from .flex_math import FlexBasis, _number, resolve_flexible_lengths
 from .line_layout import FlexDirection, FlexWrap, ResolvedItem, place_resolved_lines
 from .main_margins import MarginItem, UsedMargin, position_main_margins
@@ -29,6 +30,7 @@ class MarginFlexItem:
     order: int = 0
     cross_start: UsedMargin = UsedMargin()
     cross_end: UsedMargin = UsedMargin()
+    align_self: CrossAlign = CrossAlign.AUTO
 
     def __post_init__(self) -> None:
         if not isinstance(self.node_id, str) or not self.node_id:
@@ -39,6 +41,8 @@ class MarginFlexItem:
             self.main_start, self.main_end, self.cross_start, self.cross_end
         )):
             raise TypeError("margins must be UsedMargin.")
+        if not isinstance(self.align_self, CrossAlign):
+            raise TypeError("align_self must be CrossAlign.")
         if self.edges.margin != UsedEdges():
             raise ValueError("Set all physical margins to zero; use main_start/main_end.")
         if type(self.order) is not int:
@@ -76,6 +80,7 @@ def compute_margin_flex_layout(
     main_gap: float = 0.0,
     cross_gap: float = 0.0,
     justify: JustifyContent = JustifyContent.FLEX_START,
+    align_items: CrossAlign = CrossAlign.FLEX_START,
 ) -> MarginFlexLayout:
     """Form lines with signed outer hypothetical sizes, flex each, place borders.
 
@@ -94,6 +99,8 @@ def compute_margin_flex_layout(
         raise TypeError("wrap must be FlexWrap.")
     if not isinstance(justify, JustifyContent):
         raise TypeError("justify must be JustifyContent.")
+    if not isinstance(align_items, CrossAlign) or align_items == CrossAlign.AUTO:
+        raise TypeError("align_items must be a non-auto CrossAlign.")
     w, h, mg, cg = (_number(v, k) for v, k in (
         (width, "width"), (height, "height"), (main_gap, "main_gap"), (cross_gap, "cross_gap")
     ))
@@ -189,7 +196,17 @@ def compute_margin_flex_layout(
                 cross_forward=cross_forward,
             )
             cross_origin = cross.y if horizontal else cross.x
-            border_cross_start = cross_origin + cross_pos.border_start
+            # Auto cross margins have precedence over align-items/align-self.
+            if item.cross_start.value is None or item.cross_end.value is None:
+                cross_offset = cross_pos.border_start
+            else:
+                cross_offset = resolve_cross_alignment(
+                    align_items, item.align_self, cross_size,
+                    line_cross_sizes[line_index],
+                    item.cross_start.value, item.cross_end.value,
+                    cross_forward=cross_forward,
+                )
+            border_cross_start = cross_origin + cross_offset
             border = (
                 Rect(pos.border_start, border_cross_start, pos.border_main_size, cross_size)
                 if horizontal else
