@@ -607,7 +607,7 @@
           "parent_id": "root",
           "component": "Box",
           "style": {
-            "padding_top": "10%"
+            "layout_padding_top": "10%"
           }
         }
       ],
