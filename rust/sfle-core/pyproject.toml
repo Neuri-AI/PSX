@@ -1,0 +1,15 @@
+[build-system]
+requires = ["maturin>=1.8,<2"]
+build-backend = "maturin"
+
+[project]
+name = "psx-sfle-native"
+version = "0.1.0"
+description = "Optional Rust PyO3 implementation for the PSX SFLE layout engine"
+requires-python = ">=3.10"
+dependencies = ["psx>=1.0.0a1"]
+
+[tool.maturin]
+features = ["python"]
+bindings = "pyo3"
+module-name = "psx._sfle_native"
