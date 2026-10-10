@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from kivy.core.text.markup import MarkupLabel
 from kivy.uix.button import Button
 
 from psx.core.errors import RendererCapabilityError
