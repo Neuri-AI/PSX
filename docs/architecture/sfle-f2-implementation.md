@@ -4,7 +4,8 @@
 > contracts, strict tree validation, diagnostics, capability manifests and
 > JSON-safe versioned exchange are committed on the feature branch.
 > **F2.2 has started:** a CSS §9.7 single-line, resolved-size flex distribution
-> kernel now exists in both Python and Rust source form. It is **not** wired
+> kernel and a resolved-line formation/placement kernel now exist in both
+> Python and Rust source form. Neither is **yet** wired
 > to the engine protocol. No full Flexbox implementation, compiled Rust/PyO3
 > extension, public Flex component, renderer migration or Chromium conformance
 > claim exists yet.
@@ -53,7 +54,7 @@ migration. No registration is changed in this initial F2.1 skeleton.
 | --- | --- | --- |
 | F2.0 | Architecture blueprint, module boundaries and delivery order | Explicit engine/core/native ownership and supported target surface |
 | F2.1 | Immutable lengths, strict ancestry, measurement/output models, stable diagnostics, capability manifest, v1 JSON-safe wire schema | Implemented in feature branch; execution/CI validation not yet performed |
-| F2.2 | CSS Flexbox computation: Rust primary + parity-matched Python fallback | **In progress:** Python + Rust single-line resolved-size flexible-length math; engine integration and parity verification pending |
+| F2.2 | CSS Flexbox computation: Rust primary + parity-matched Python fallback | **In progress:** flexible-length math + order-aware resolved-line formation and physical LTR/RTL placement implemented in Python/Rust; parity and conformance unverified |
 | F2.3 | Browser reference geometry + LTR/RTL conformance | Same line structure; geometry within 0.01 logical px pure with equivalent measurements |
 | F2.4 | Inventory/plan migration of Row/Column/Scroll boundaries | No planned aliases; Scroll independent, native adapters retained |
 
@@ -83,6 +84,7 @@ psx/sfle/
     errors.py       Stable coded errors and unsupported capabilities
     wire.py         Strict, JSON-safe input/output schema conversion
     flex_math.py    CSS §9.7 single-line resolved-size sizing kernel (not an engine)
+    line_layout.py  Order-aware line breaking and physical LTR/RTL placement
 ~~~
 
 `PythonLayoutEngine.compute()` intentionally raises
@@ -255,3 +257,62 @@ parity remains a **required next verification**, not a completed fact.
 4. Add a versioned Rust/PyO3 batch interface and deterministic load-time
    fallback only when the Python engine can compute the same advertised
    feature set.
+
+## 9. F2.2 — Resolved line formation and LTR/RTL placement
+
+A second isolated pure-math slice has been added without claiming full
+Flexbox support:
+
+~~~text
+psx/sfle/line_layout.py           Python resolved item / line placement
+rust/sfle-core/src/line_layout.rs Rust equivalent data and algorithms
+tests/sfle/test_line_layout.py    Declarative Python behavioral examples
+~~~
+
+Both kernels accept already-resolved, nonnegative *outer* item main/cross
+sizes, a definite container size, numeric main/cross gaps, source order,
+CSS `order`, and explicit horizontal writing direction (`ltr` or `rtl`).
+They form flex lines by the order-modified sequence **before** shrink
+distribution, and then translate main/cross directions into physical x/y.
+
+~~~mermaid
+flowchart TD
+    A["Resolved hypothetical outer item sizes"] --> B["Stable order-modified item sequence"]
+    B --> C["Greedy flex-line formation"]
+    C --> D["Main sizes after flex distribution (separate kernel)"]
+    D --> E["Physical coordinate mapping"]
+    E --> F["LTR / RTL; row / column; reverse; wrap-reverse"]
+    F --> G["Resolved outer rectangles + line IDs"]
+~~~
+
+**Important isolation:** The current API invokes placement directly on
+resolved items; integration with the §9.7 length-resolution kernel is
+**not implemented**. Existing fixture examples use already-resolved used
+sizes. `nowrap` cannot accept multiple manually passed lines; an item
+larger than its container may overflow without being silently resized.
+
+**Covered contracts in source:** row, row-reverse, column, column-reverse;
+LTR/RTL axis origins; `wrap` and `wrap-reverse` cross stacking; stable
+`order` ties; gap between line items and between lines; deterministic
+node IDs; invalid input rejection.
+
+**Not yet supported:** aligning or stretching items, `align_content`,
+auto margins, negative margins, padding/border/content-box conversion,
+intrinsic/percentage sizes, min/max when forming lines, flex-line packing
+after resolution, baseline metrics, nested layout traversal and scroll
+content constraints. The line cross size is currently the maximum of
+already-resolved item cross sizes; this is a narrow input contract, **not**
+a substitute for the complete CSS multi-line cross-size algorithm.
+
+### Verification status
+
+Python tests and Rust unit tests were committed for axis direction and
+line membership, but **neither suite has been executed against the GitHub
+branch in this task**. Numeric parity versus Chromium is pending; the
+0.01 logical-px acceptance threshold has **not** been certified.
+There is no native PyO3 binding or wheel and `LayoutEngine.compute()`
+continues to fail explicitly. The capability manifest must remain empty.
+
+Next: execute both language test suites in CI, correct any discovered
+cross-language divergence, connect sized lines to positioned boxes with
+CSS box-model contributions, then expand the feature-gated semantic set.
