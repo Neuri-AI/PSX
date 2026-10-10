@@ -1,15 +1,14 @@
-"""F2.2.4.5 explicit intrinsic leaf-size dependency resolution.
+"""F2.2.4.5 intrinsic leaf-size *suggestions* for dependency resolution.
 
-Only non-replaced measured leaves with no children may resolve an AUTO
-content dimension from their recorded preferred intrinsic size. This is a
-restricted layout phase, not a CSS flex item final-size computation. An
-indefinite percentage is NOT interchangeable with AUTO.
+The preferred intrinsic size is NOT a flex item's final used CSS size.
+Flex basis, min/max, available space and CSS auto sizing are resolved by the
+layout algorithm later. No unsupported cyclic percentage is coerced to AUTO.
 """
 from __future__ import annotations
 from dataclasses import dataclass
 
 from .errors import DiagnosticCode, SFLECapabilityError, SFLEError
-from .model import AvailableSize, LayoutConstraints, LayoutInput
+from .model import LayoutInput
 from .sizing import ResolutionKind
 from .used_size_tree import UsedSizeTree
 
@@ -21,18 +20,25 @@ class LeafAutoSizing:
     height_kind: ResolutionKind
 
 
-def resolve_measured_auto_leaves(
+@dataclass(frozen=True, slots=True)
+class IntrinsicLeafSuggestion:
+    """Preferred intrinsic contributions; not authoritative CSS used dimensions."""
+    node_id: str
+    preferred_width: float | None
+    preferred_height: float | None
+
+
+def collect_leaf_intrinsic_suggestions(
     snapshot: LayoutInput,
     used: UsedSizeTree,
     *,
     declarations: tuple[LeafAutoSizing, ...],
     revisions: tuple[tuple[str, int], ...] = (),
-) -> UsedSizeTree:
-    """Resolve AUTO on measured leaves; fail closed on non-leaves/cycles.
+) -> tuple[IntrinsicLeafSuggestion, ...]:
+    """Read current-revision native intrinsic contributions for AUTO leaves.
 
-    Measurements are trusted only when captured under the same constraints
-    and current revisions supplied in LayoutInput. CSS automatic container
-    sizing, cross-axis stretch and flex distribution remain later phases.
+    Fails closed on AUTO containers and indefinite percentages rather than
+    applying a preferred intrinsic size as if CSS Flex had allocated it.
     """
     if not isinstance(snapshot, LayoutInput) or not isinstance(used, UsedSizeTree):
         raise TypeError("Expected LayoutInput and UsedSizeTree.")
@@ -59,35 +65,29 @@ def resolve_measured_auto_leaves(
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Invalid measurement revision.")
         expected_revisions[node_id] = revision
     measured = {m.node_id: m for m in snapshot.measurements}
-    updated = []
+    suggestions = []
     for node_id, constraints in used.content:
         declaration = by_id.get(node_id)
         if declaration is None:
-            updated.append((node_id, constraints))
             continue
-        if node_id in parent_ids and (
-            declaration.width_kind == ResolutionKind.AUTO or declaration.height_kind == ResolutionKind.AUTO
-        ):
-            raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Auto sizing of containers requires CSS child contributions.", node_id)
+        need_width = declaration.width_kind == ResolutionKind.AUTO and not constraints.width.definite
+        need_height = declaration.height_kind == ResolutionKind.AUTO and not constraints.height.definite
+        if (need_width or need_height) and node_id in parent_ids:
+            raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Auto container size requires CSS child contributions.", node_id)
+        if ((declaration.width_kind == ResolutionKind.UNRESOLVED_PERCENT and not constraints.width.definite)
+                or (declaration.height_kind == ResolutionKind.UNRESOLVED_PERCENT and not constraints.height.definite)):
+            raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Indefinite percentage requires CSS cyclic sizing phase.", node_id)
         measurement = measured.get(node_id)
-        needs_intrinsic = ((declaration.width_kind == ResolutionKind.AUTO and not constraints.width.definite)
-                           or (declaration.height_kind == ResolutionKind.AUTO and not constraints.height.definite))
-        if needs_intrinsic and measurement is not None and (
+        if (need_width or need_height) and measurement is None:
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Missing intrinsic measurement.", node_id)
+        if (need_width or need_height) and (
             measurement.constraints != constraints or measurement.revision != expected_revisions.get(node_id, 0)
         ):
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale intrinsic measurement constraints or revision.", node_id)
-        def axis(value: AvailableSize, kind: ResolutionKind, preferred: float) -> AvailableSize:
-            if kind == ResolutionKind.AUTO and not value.definite:
-                if measurement is None:
-                    raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Missing intrinsic measurement.", node_id)
-                return AvailableSize(preferred, True)
-            if kind == ResolutionKind.UNRESOLVED_PERCENT and not value.definite:
-                raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Indefinite percentage requires CSS cyclic sizing phase.", node_id)
-            return value
-        updated.append((node_id, LayoutConstraints(
-            axis(constraints.width, declaration.width_kind, measurement.intrinsic.preferred_width if measurement else 0),
-            axis(constraints.height, declaration.height_kind, measurement.intrinsic.preferred_height if measurement else 0),
-        )))
-    return UsedSizeTree(used.generation, tuple(updated), tuple(
-        id for id, c in updated if not c.width.definite or not c.height.definite
-    ))
+        if need_width or need_height:
+            suggestions.append(IntrinsicLeafSuggestion(
+                node_id,
+                measurement.intrinsic.preferred_width if need_width else None,
+                measurement.intrinsic.preferred_height if need_height else None,
+            ))
+    return tuple(suggestions)
