@@ -1,3 +1,4 @@
+pub mod resolved_pipeline;
 pub mod line_layout;
 
 //! Pure, renderer-independent CSS Flexbox main-size distribution kernel.
