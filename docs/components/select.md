@@ -14,7 +14,7 @@ Tkinter and Headless. It has `child_policy="none"`.
 
 Strings are shorthand for identical labels and values. Object options preserve
 their typed values. Labels and values must be unique; boolean values are invalid.
-A nonempty placeholder must not equal an option label. Invalid options or unknown
+The placeholder must not equal an option label. Invalid options or unknown
 props raise `RendererCapabilityError`.
 
 `value=None` shows the placeholder. If options change and the selected value
