@@ -105,26 +105,6 @@ pub fn compute_margin_flex_layout(
     main_gap: f64,
     cross_gap: f64,
 ) -> Result<MarginFlexLayout, FlexMathError> {
-    compute_margin_flex_layout_content(
-        items, width, height, direction, writing, wrap, main_gap,
-        cross_gap, justify, align_items, AlignContent::FlexStart,
-    )
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn compute_margin_flex_layout_content(
-    items: &[MarginFlexItem],
-    width: f64,
-    height: f64,
-    direction: Direction,
-    writing: WritingDirection,
-    wrap: Wrap,
-    main_gap: f64,
-    cross_gap: f64,
-    justify: JustifyContent,
-    align_items: CrossAlign,
-    align_content: AlignContent,
-) -> Result<MarginFlexLayout, FlexMathError> {
     compute_margin_flex_layout_justified(
         items, width, height, direction, writing, wrap, main_gap, cross_gap,
         JustifyContent::FlexStart,
@@ -161,6 +141,26 @@ pub fn compute_margin_flex_layout_aligned(
     cross_gap: f64,
     justify: JustifyContent,
     align_items: CrossAlign,
+) -> Result<MarginFlexLayout, FlexMathError> {
+    compute_margin_flex_layout_content(
+        items, width, height, direction, writing, wrap, main_gap,
+        cross_gap, justify, align_items, AlignContent::FlexStart,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compute_margin_flex_layout_content(
+    items: &[MarginFlexItem],
+    width: f64,
+    height: f64,
+    direction: Direction,
+    writing: WritingDirection,
+    wrap: Wrap,
+    main_gap: f64,
+    cross_gap: f64,
+    justify: JustifyContent,
+    align_items: CrossAlign,
+    align_content: AlignContent,
 ) -> Result<MarginFlexLayout, FlexMathError> {
     if align_items == CrossAlign::Auto {
         return Err(FlexMathError::InvalidInput("align-items cannot be auto"));
