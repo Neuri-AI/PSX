@@ -509,4 +509,45 @@ mod tests {
         ).is_err());
     }
 
+    #[test]
+    fn align_content_between_repositions_wrapped_lines() {
+        let out = compute_margin_flex_layout_content(
+            &[item("a", 60.0, Some(0.0), Some(0.0)),
+              item("b", 60.0, Some(0.0), Some(0.0))],
+            100.0, 100.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::Wrap, 0.0, 10.0,
+            JustifyContent::FlexStart, CrossAlign::FlexStart, AlignContent::SpaceBetween,
+        ).unwrap();
+        assert_eq!(out.lines.len(), 2);
+        assert_eq!(out.boxes[0].border.y, 0.0);
+        assert_eq!(out.boxes[1].border.y, 90.0);
+    }
+
+    #[test]
+    fn align_content_stretch_enlarges_lines_not_fixed_items() {
+        let out = compute_margin_flex_layout_content(
+            &[item("a", 60.0, Some(0.0), Some(0.0)),
+              item("b", 60.0, Some(0.0), Some(0.0))],
+            100.0, 100.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::Wrap, 0.0, 10.0,
+            JustifyContent::FlexStart, CrossAlign::Center, AlignContent::Stretch,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.y, 17.5);
+        assert_eq!(out.boxes[1].border.y, 72.5);
+        assert_eq!(out.boxes[0].border.height, 10.0);
+    }
+
+    #[test]
+    fn align_content_reverse_stacks_from_bottom() {
+        let out = compute_margin_flex_layout_content(
+            &[item("a", 60.0, Some(0.0), Some(0.0)),
+              item("b", 60.0, Some(0.0), Some(0.0))],
+            100.0, 100.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::WrapReverse, 0.0, 10.0,
+            JustifyContent::FlexStart, CrossAlign::FlexStart, AlignContent::SpaceBetween,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.y, 90.0);
+        assert_eq!(out.boxes[1].border.y, 0.0);
+    }
+
 }
