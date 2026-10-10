@@ -1,12 +1,12 @@
-pub mod resolved_pipeline;
-pub mod line_layout;
-
 //! Pure, renderer-independent CSS Flexbox main-size distribution kernel.
 //!
 //! This implements the resolved single-line flexible-length freezing step
 //! (CSS Flexbox §9.7). It does **not** provide a complete Flexbox renderer,
 //! percentage/intrinsic resolution, native geometry or Python bindings yet.
 //! The Python counterpart lives at psx/sfle/flex_math.py.
+
+pub mod line_layout;
+pub mod resolved_pipeline;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FlexBasis {
