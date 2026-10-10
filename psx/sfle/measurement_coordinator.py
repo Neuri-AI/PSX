@@ -28,8 +28,8 @@ def complete_measurement_pass(
     """Accept all measurements before considering the next CSS sizing pass.
 
     A stable used-size tree may be declared converged only when there are
-    no deferred axes AND all accepted measurement constraints match the
-    current tree's per-node used sizes where those axes are definite.
+    no deferred axes. A future CSS geometry pass is responsible for proving
+    that used-size snapshots correspond to the accepted intrinsic metrics.
     """
     if current_generation != state.generation or round_.generation != state.generation:
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Cross-generation measurement pass.")
