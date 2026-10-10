@@ -57,10 +57,15 @@ deterministic headless tests.
 These are future compiler/runtime capabilities, **not supported today**.
 Design and prioritize them separately from portable UI components such as Badge.
 
-- **Conditional rendering:** permit declarative branches within PSX markup
-  (e.g. a safe equivalent of `condition ? A : B`, `if/else`, or
-  `condition and A`). Define behavior for false/empty results, stable
-  component identities and reconciliation before choosing syntax.
+- **Conditional rendering — React/JSX-style syntax confirmed:** support
+  `{condition && <Element />}` and `{condition ? <A /> : <B />}`,
+  including nested ternaries and component expressions inside interpolation.
+  Do **not** introduce `{#if}`/`{:else}` markup directives. A future compiler
+  transformation should parse JSX-like syntax into safe Python-compatible
+  expressions; this is not JavaScript runtime execution. Decide and document
+  details of `===` comparisons, falsy scalar rendering (especially zero),
+  short-circuit semantics, type constraints, precedence, and preservation of
+  VDOM identity and hook ordering before implementation.
 - **Inline lambda expressions:** explore supporting lambdas in attribute
   expressions and event handlers, subject to lexical scope resolution,
   callable safety and documented restrictions. Do not assume arbitrary
