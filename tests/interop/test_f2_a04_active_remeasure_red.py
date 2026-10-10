@@ -10,6 +10,6 @@ def test_A04_active_post_flex_remeasurement(backend, rust_binary):
         "A04", backend, rust_binary,
         characters_px=210, initial_widths={"text":100},
     )
-    assert calls == [["text",100],["text",150]], "Each text leaf must be measured at initial and final allocated widths"
+    assert [list(item) for item in calls] == [["text",100],["text",150]], "Each text leaf must be measured at initial and final allocated widths"
     assert boxes["root"].content.height == pytest.approx(40, abs=0.01)
     assert boxes["text"].content.height == pytest.approx(40, abs=0.01)
