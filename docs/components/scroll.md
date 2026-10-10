@@ -114,7 +114,10 @@ native backend during manual DX rather than assuming exact equivalence.
 - **Tkinter:** `Canvas` plus frame in `create_window`; PSX creates children
   with that inner frame as their real Tk master, passing a typed TkHandle
   wrapper into renderer creation (never a proxy namespace). Visual thumb indicators are
-  drawn inside Canvas. Per-widget wheel callbacks inspect enclosing Scroll
+  drawn inside Canvas. Aqua/macOS wheel and trackpad deltas are normalized
+  separately from Windows-style 120-unit wheel notches, with pixel movement
+  and remainder-aware nested handoff. The adapter only reapplies scrollregion
+  when the measured content/viewport extent changes. Per-widget wheel callbacks inspect enclosing Scroll
   frames without `bind_all` or global bindings.
 - **Headless:** contract validation, child ordering and lifecycle records.
 
@@ -137,6 +140,9 @@ No automated tests are added or run for this component phase.
   backend/SDL2 versions may expose different events
 - [ ] Verify Tkinter creates normal Text/Column children within Scroll without
   foreign-handle TypeError
+- [ ] On macOS Tkinter, compare two-finger scroll travel to native applications;
+  confirm no near-zero delta slowdown or scroll position jump at boundaries
+- [ ] Check Windows physical wheel sensitivity and nested overflow handoff
 - [ ] Confirm content and widget identity survive keyed add/remove/reorder
 - [ ] Confirm offsets survive normal rerenders and clamp on content shrink
 - [ ] Change direction, padding, spacing, dimensions and enabled state live
