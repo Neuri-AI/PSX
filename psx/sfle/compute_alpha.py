@@ -171,7 +171,7 @@ def _padding(style: _Style, inline_reference: float, node_id: str) -> UsedEdges:
     )
 
 
-def compute_snapshot(request: LayoutInput) -> LayoutResult:
+def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> LayoutResult:
     """Compute accepted nowrap content-box snapshots or fail explicitly.
 
     Final height-for-width measurements must already be part of the immutable
@@ -247,7 +247,7 @@ def compute_snapshot(request: LayoutInput) -> LayoutResult:
             if height is None:
                 if metrics is not None:
                     measured_width = metrics.constraints.width
-                    if measured_width.definite and abs(measured_width.value - width) > 0.01:
+                    if not provisional and measured_width.definite and abs(measured_width.value - width) > 0.01:
                         raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                             "Missing post-flex width-specific intrinsic measurement.", node_id)
                 height = preferred(node_id, False)
