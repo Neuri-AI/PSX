@@ -68,10 +68,16 @@ def test_real_text_browser_width_remeasurement_matches_sfle(case_id, backend, br
             const element=document.getElementById(id);
             const previous=element.style.width;
             const previousFlex=element.style.flex;
+            const previousAlign=element.style.alignSelf;
+            const previousHeight=element.style.height;
+            element.style.alignSelf='flex-start';
+            element.style.height='auto';
             element.style.flex='none';
             element.style.width=width+'px';
             const height=element.getBoundingClientRect().height;
             element.style.flex=previousFlex;
+            element.style.alignSelf=previousAlign;
+            element.style.height=previousHeight;
             element.style.width=previous;
             return height;
         }""",{"id":node_id,"width":width})
