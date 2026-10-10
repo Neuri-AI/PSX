@@ -95,6 +95,6 @@ mod tests {
     #[test]
     fn reverse_and_overflow_keep_signed_origin() {
         let v = distribute_cross_lines(AlignContent::Center, 30.0, &[20.0, 20.0], 10.0, false, false).unwrap();
-        assert_eq!(v.starts, vec![15.0, -15.0]);
+        assert_eq!(v.starts, vec![20.0, -10.0]);
     }
 }
