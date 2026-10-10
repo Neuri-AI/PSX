@@ -46,6 +46,7 @@ from .core.vnode import (
     ProgressBar,
     Radio,
     RadioGroup,
+    Select,
 )
 from .integrations.qyro import PSXComponent
 
@@ -67,6 +68,7 @@ __all__ = [
     "ProgressBar",
     "Radio",
     "RadioGroup",
+    "Select",
 
     "App",
     "ComponentDefinition",
