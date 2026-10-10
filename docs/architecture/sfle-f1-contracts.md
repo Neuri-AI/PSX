@@ -82,7 +82,7 @@ child when its effective parent establishes a Flex formatting context:
 | `align_self` | `"auto"` | Overrides container `align_items` |
 | `order` | `0` | Integer; visual layout ordering only |
 | `margin` | `0` | Box margins including `auto` where supported |
-| `width`, `height`, `min_*`, `max_*` | CSS-like defaults | Item preferred and constrained dimensions |
+| `layout_width`, `layout_height`, `layout_min_*`, `layout_max_*` | CSS-like defaults | Namespaced item preferred and constrained dimensions; existing native sizing props are preserved |
 
 There is **no required FlexItem widget**, no inserted wrapper VNode, and no
 new event contract for these properties. Flex item metadata must be retained
@@ -117,7 +117,7 @@ validation. Do not silently accept misspelled properties.
       justify_content="space-between" align_items="center"
       width="100%">
     <Text flex_grow={1} flex_basis={200}>Left</Text>
-    <Column flex_grow={2} flex_basis={300} min_width={0}>
+    <Column flex_grow={2} flex_basis={300} layout_min_width={0}>
         <Text>Right</Text>
         <Button>Continue</Button>
     </Column>
