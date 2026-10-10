@@ -12,8 +12,9 @@ from dataclasses import dataclass
 from .box_geometry import UsedBoxEdges, UsedEdges
 from .cross_margins import position_cross_margins
 from .cross_alignment import CrossAlign, resolve_cross_alignment
+from .align_content import AlignContent, distribute_cross_lines
 from .flex_math import FlexBasis, _number, resolve_flexible_lengths
-from .line_layout import FlexDirection, FlexWrap, ResolvedItem, place_resolved_lines
+from .line_layout import FlexDirection, FlexWrap
 from .main_margins import MarginItem, UsedMargin, position_main_margins
 from .main_alignment import JustifyContent
 from .model import Rect, WritingDirection
@@ -81,6 +82,7 @@ def compute_margin_flex_layout(
     cross_gap: float = 0.0,
     justify: JustifyContent = JustifyContent.FLEX_START,
     align_items: CrossAlign = CrossAlign.FLEX_START,
+    align_content: AlignContent = AlignContent.FLEX_START,
 ) -> MarginFlexLayout:
     """Form lines with signed outer hypothetical sizes, flex each, place borders.
 
@@ -101,6 +103,8 @@ def compute_margin_flex_layout(
         raise TypeError("justify must be JustifyContent.")
     if not isinstance(align_items, CrossAlign) or align_items == CrossAlign.AUTO:
         raise TypeError("align_items must be a non-auto CrossAlign.")
+    if not isinstance(align_content, AlignContent):
+        raise TypeError("align_content must be AlignContent.")
     w, h, mg, cg = (_number(v, k) for v, k in (
         (width, "width"), (height, "height"), (main_gap, "main_gap"), (cross_gap, "cross_gap")
     ))
@@ -153,18 +157,15 @@ def compute_margin_flex_layout(
         )
         for line in lines
     )
-    cross_lines = tuple(tuple(
-        ResolvedItem(item.node_id, 0.0, line_cross_sizes[index], item.order)
-        for item in line
-    ) for index, line in enumerate(lines))
-    cross_placement = place_resolved_lines(
-        cross_lines, w, h, direction=direction, writing=writing, wrap=wrap,
-        main_gap=0.0, cross_gap=cg,
-    )
-    cross_by_id = {p.node_id: p for p in cross_placement.items}
     cross_forward = (True if horizontal else writing == WritingDirection.LTR)
     if wrap == FlexWrap.WRAP_REVERSE:
         cross_forward = not cross_forward
+    distribution = distribute_cross_lines(
+        align_content, cross_extent, line_cross_sizes, gap=cg,
+        forward=cross_forward, nowrap=wrap == FlexWrap.NOWRAP,
+    )
+    line_cross_sizes = distribution.sizes
+    line_starts = distribution.starts
 
     output: list[MarginFlexBox] = []
     for line_index, line in enumerate(lines):
@@ -188,14 +189,13 @@ def compute_margin_flex_layout(
             justify=justify,
         )
         for item, pos in zip(line, positioned):
-            cross = cross_by_id[item.node_id].rect
             cross_size = cross_border(item)
             cross_pos = position_cross_margins(
                 cross_size, line_cross_sizes[line_index],
                 start=item.cross_start, end=item.cross_end,
                 cross_forward=cross_forward,
             )
-            cross_origin = cross.y if horizontal else cross.x
+            cross_origin = line_starts[line_index]
             # Auto cross margins have precedence over align-items/align-self.
             if item.cross_start.value is None or item.cross_end.value is None:
                 cross_offset = cross_pos.border_start
