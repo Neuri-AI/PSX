@@ -7,6 +7,7 @@
 
 pub mod edge_pipeline;
 pub mod intrinsic;
+pub mod percentage_box_sizing;
 pub mod line_layout;
 pub mod resolved_pipeline;
 pub mod sizing;
