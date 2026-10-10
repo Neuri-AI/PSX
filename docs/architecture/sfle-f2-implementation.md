@@ -70,7 +70,7 @@ Before implementing A01–A10, confirm that the proposed F2 alpha slice includes
 4. Run `pytest tests/sfle`, `cargo test --all-targets`, shared Rust/Python differential fixtures, `pytest tests/browser/test_sfle_chromium.py` and missing-Rust import/loader fixtures. Identify CI job coverage for each case.
 5. Report only case status: PASS, FAIL or NO TEST. A subblock closes only when every in-scope case assigned to it passes. Keep Row/Column/Scroll and the public capability manifest unchanged.
 
-**Current acceptance summary:** No A01–A10 case is certified PASS at this audit point. Existing unit tests give partial evidence for individual cases, not the complete acceptance contract. No test run or branch write is asserted by this baseline audit except the present documentation update.
+**Current acceptance summary:** No A01–A10 case is certified PASS at this audit point. Existing unit tests give partial evidence for individual cases, not the complete acceptance contract. The baseline 2ad3df17 Python/Rust matrix did not execute in the checked workflow; the RED tests on descendant 6698dd6b are separately documented below.
 
 ## 2026-10-10 scope confirmation — accepted A01–A10
 
@@ -115,3 +115,17 @@ Commit `6698dd6bae37d35f59ae85d82c8d53b02b7d1ba8` introduces `tests/sfle/test_f2
 - `test_A08_python_compute_is_a_real_fallback_not_a_placeholder`: demands a real computation; the inspected `PythonLayoutEngine.compute` unconditionally raises `UnsupportedLayoutFeature`.
 
 These are deliberate RED gates, not accepted features. Rust/Python differential A01–A07 and browser fixtures remain **NO TEST** until implemented; do not mark any phase done.
+
+### Executed RED results (not baseline-suite success)
+
+GitHub Actions SFLE Core run [38078742516](https://github.com/Neuri-AI/PSX/actions/runs/38078742516) at commit `6698dd6bae37d35f59ae85d82c8d53b02b7d1ba8` **completed**:
+- Python 3.10, 3.11, 3.12, 3.13: **2 failed, 304 passed, 1 skipped** on every Python matrix job.
+- `tests/sfle/test_f2_acceptance_red.py::test_A01_orthogonal_auto_parent_height_from_descendant` — **FAIL**, `SFLECapabilityError` at `psx/sfle/auto_cross_tree.py:74` (orthogonal axis rejection).
+- `tests/sfle/test_f2_acceptance_red.py::test_A08_python_compute_is_a_real_fallback_not_a_placeholder` — **FAIL**, `UnsupportedLayoutFeature` at `psx/sfle/engine.py:42` (no `compute()` implementation).
+- Rust SFLE core job: **PASS**, but did not execute either acceptance test or Python/Rust differential geometry.
+- [Chromium run 38078742518](https://github.com/Neuri-AI/PSX/actions/runs/38078742518): **PASS** on existing browser fixtures only, no A01/A08 browser parity.
+- PSX alpha validation run 38078742519: **PASS** on its existing jobs, not acceptance evidence for A01/A08.
+
+**Acceptance status after RED:** A01 FAIL (named test executed), A08 FAIL (named test executed); A02, A03, A05 and integrated A06/A07 remain NO TEST for complete target behavior; A04, A09/A10 have pre-existing scoped tests but NO full acceptance tests. No acceptance gate closed. Baseline 2ad3df17 still lacks an executed Python/Rust suite on that exact SHA in the inspected Actions runs; execution on descendant 6698dd6b establishes the observed baseline blockers without falsely asserting exact-SHA execution.
+
+**Engineering stop condition:** Fixing A01 by merely deleting the orthogonal rejection would be incorrect: it needs a real main-axis intrinsic contribution phase and a final used-size pass with cross-axis remeasurement, in both languages. Do not turn a red fixture green by hardcoding its expected dimensions or by skipping Rust.
