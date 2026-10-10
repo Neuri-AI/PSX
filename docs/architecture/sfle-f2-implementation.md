@@ -26,7 +26,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
 | **F2.2.2** | **Percentage cycles, box sizing and sizing-edge contracts** | **Scoped resolved-input implementation complete; context-dependent cases explicitly deferred to F2.2.4** |
 | **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **Scoped resolved-input acceptance: implemented in Python/Rust; first six Chromium border-box fixtures passed; native/orthogonal baseline constraints deferred to F2.2.4** |
-| F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
+| **F2.2.4** | **Recursive layout and constrained native measurement protocol** | **In progress: descendant-first measurement worklist, cache invalidation and generation guards; focused CI passed** |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
 | F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
 
@@ -1049,3 +1049,12 @@ GitHub Actions **SFLE Chromium geometry checkpoint** run [38067599261](https://g
 F2.2.3 is **accepted only as a restricted resolved-input horizontal-writing alignment implementation**. The accepted scope covers justify-content; basic align-items/align-self; align-content for multi-line flex; explicit auto cross-size stretch; and first-baseline alignment only when upstream already supplies measured baseline offsets for horizontal Flex. Unresolved percentages and recursive sizing, native baseline acquisition, orthogonal/column baseline groups, synthesized/replaced-element baselines, and shared numerical Rust/Python browser parity are explicitly *not accepted* by this milestone; they belong to F2.2.4/F2.2.6 and broader browser conformance F2.3. The public capability manifest, native renderer migrations, and runtime backend selection remain closed.
 
 **Next subblock: F2.2.4 — Recursive Layout & Measurement.** Before turning on any public Flex API, establish measured-size snapshots, constraint propagation, generation/invalidation rules, and native toolkit measurement boundaries; follow with Rust-primary/Python fallback integration F2.2.5 and expanded shared parity corpus F2.2.6.
+
+
+## F2.2.4 — Recursive measurement planner: first accepted increment
+
+The renderer-independent modules `psx/sfle/measurement_plan.py` and `rust/sfle-core/src/measurement_plan.rs` plan a deterministic child-before-parent measurement worklist from an explicitly constrained layout tree. Python uses the existing validated `LayoutInput`, `LayoutConstraints` and `MeasuredBox` contracts; Rust independently validates a preorder node snapshot and definite/indefinite axis constraints. Exact cached-measurement reuse requires identical node ID, constraints and revision; generation-tagged measurement acceptance rejects stale results. Python regression cases in `tests/sfle/test_measurement_plan.py` cover traversal, reuse, cache invalidation, missing constraints and stale generations.
+
+**Boundary:** This is dependency planning, **not** a complete recursive layout algorithm. It cannot guess a child's used width from the parent; child constraints must already be resolved by a future CSS sizing stage. UI-thread toolkit measurements, intrinsic width-dependent remeasurement, percentage cycle solving, ancestor size convergence and final nested geometry are not yet connected. The public Flex capability remains disabled.
+
+Verified SFLE focused workflow `38068204776`: Rust and Python 3.10–3.13 passed. Headless Chromium checkpoint `38068204672` also passed the existing six geometry fixtures. General PSX validation is tracked separately. The next F2.2.4 increment must introduce explicit constraint propagation and safe remeasurement without inferring CSS values.
