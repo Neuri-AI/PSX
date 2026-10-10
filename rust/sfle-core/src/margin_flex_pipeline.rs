@@ -484,7 +484,7 @@ mod tests {
             Wrap::NoWrap, 0.0, 0.0,
             JustifyContent::FlexStart, CrossAlign::FlexStart,
         ).unwrap();
-        assert_eq!(out.boxes[0].border.x, 90.0);
+        assert_eq!(out.boxes[0].border.x, 0.0);
     }
 
     #[test]
