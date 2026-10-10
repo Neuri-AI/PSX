@@ -333,6 +333,7 @@ class QtRenderer:
         from .image import QtImageAdapter
         from .switch import QtSwitchAdapter
         from .link import QtLinkAdapter
+        from .badge import QtBadgeAdapter
         from .box import make_qt_box_adapter
         from .radiogroup import make_qt_radiogroup_adapter
         self.adapters.register("Divider", make_qt_divider_adapter(self))
@@ -341,6 +342,7 @@ class QtRenderer:
         self.adapters.register("Image", QtImageAdapter())
         self.adapters.register("Switch", QtSwitchAdapter())
         self.adapters.register("Link", QtLinkAdapter())
+        self.adapters.register("Badge", QtBadgeAdapter())
         self.adapters.register("Box", make_qt_box_adapter(self))
         self.adapters.register("RadioGroup", make_qt_radiogroup_adapter(self))
 
