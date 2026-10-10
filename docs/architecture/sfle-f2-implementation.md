@@ -1,7 +1,8 @@
 # SFLE F2 — Implementation plan and progress
 
-> **Status:** F2 authorized on 2026-10-10. F2.0 implementation blueprint and an
-> F2.1 typed contracts, strict tree validation, diagnostic codes, capability\n> manifests and JSON-safe versioned exchange have been added to the feature branch.
+> **Status:** F2 authorized on 2026-10-10. F2.0 blueprint and F2.1 typed
+> contracts, strict tree validation, diagnostics, capability manifests and
+> JSON-safe versioned exchange are committed on the feature branch.
 > **No CSS Flexbox calculation, public Flex component, Rust extension, renderer
 > migration, or browser conformance claim is made yet.**
 >
