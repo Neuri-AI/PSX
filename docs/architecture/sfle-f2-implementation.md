@@ -1364,3 +1364,76 @@ scheduler wiring, and Rust parity of the *integrated* pipeline remain
 separate outstanding acceptance obligations. In particular, the Python
 orchestration still uses Python pure kernels; it is not the Rust-primary
 extension planned in F2.2.5.
+
+
+## F2.2.4 — Follow-up integration and CI validation (2026-10-10)
+
+This section supersedes the preceding incremental notes where subsequent work
+extended the integrated pipeline. It does not supersede the formal scoped
+acceptance table: **F2.2.4 remains in progress at 5/8 accepted subblocks**.
+
+### F2.2.4.6 — Recursive geometry and sizing
+
+- The Python `recursive_pipeline.py` now performs bounded, iterative
+  intrinsic leaf preparation, Flex geometry recomputation and subsequent
+  measurement against allocated content-box sizes. Changed intrinsic metrics
+  trigger another geometry pass; repeated metrics converge, oscillations or
+  iteration exhaustion fail explicitly.
+- Restricted automatic cross-axis containers are resolved bottom-up by
+  `auto_cross_tree.py`; the corresponding Rust restricted kernel is in
+  `rust/sfle-core/src/auto_cross_tree.rs`.
+- Unresolved CSS percentage dependencies and unspecified deferred sizing
+  contexts must not be promoted to definite final geometry.
+- Tests include `test_recursive_pipeline.py`, `test_auto_cross_tree.py`,
+  plus Rust auto-cross unit tests.
+
+**Still open:** generic automatic main-axis sizing, wrapping automatic
+containers, cross-axis intrinsic transfers, aspect-ratio sizing, supported
+cyclic percentage resolution and integrated Python/Rust algorithm parity.
+
+### F2.2.4.7 — Native measurement and renderer lifecycle
+
+- `NativeLayoutLifecycle` now dispatches the integrated recursive pipeline
+  when intrinsic leaves or restricted automatic cross sizing are requested.
+  Generation checks surround measurement and native geometry commits.
+- `test_recursive_pipeline.py` exercises end-to-end auto cross-container
+  geometry through the lifecycle boundary.
+- `tests/sfle/test_qt_native_lifecycle.py` uses real PySide6 widgets in
+  offscreen mode to validate Qt intrinsic measurement and geometry application.
+  This test runs as part of the `PySide6 offscreen` alpha CI job.
+- Existing native source and geometry adapters remain available for Qt,
+  Tkinter, Kivy and Headless.
+
+**Still open:** complete integration with production Qt, Tkinter and Kivy
+renderer scheduling, invalidation, native parenting and lifecycle cleanup,
+with real-widget cross-framework acceptance rather than doubles alone.
+
+### F2.2.4.8 — Integration and stabilization
+
+- Regression coverage now includes second-pass width-sensitive measurement,
+  convergence, stale generation rejection, deferred-axis guards, native
+  commits and actual Qt offscreen measurements.
+- The alpha, SFLE Core and Chromium PR workflows passed for code commit
+  `fb13c5dda0251e5b9d1c53b59c569bcd1779c5a9`. This is a scoped
+  CI validation, **not** proof of generic CSS Flexbox conformance.
+- CI workflow changes limit push validation to `main` and retain relevant
+  pull-request checks, reducing duplicate branch push/PR runs.
+
+**Still open:** a differential Rust/Python integrated geometry corpus,
+expanded Chromium fixtures for the remaining supported CSS combinations,
+actual toolkit lifecycle regression coverage and documented acceptance
+evidence for the entire declared F2.2.4 scope. F2.2.5's Rust-primary
+binding/selection and F2.2.6's complete numerical parity corpus remain
+separate later milestones.
+
+### Acceptance snapshot
+
+| Subblock | Status | Outstanding acceptance |
+| --- | --- | --- |
+| F2.2.4.1–F2.2.4.5 | Accepted (scoped) | No change |
+| F2.2.4.6 | In progress | General recursive auto/intrinsic sizing |
+| F2.2.4.7 | In progress | Full renderer lifecycle integration |
+| F2.2.4.8 | In progress | Integrated parity and stabilization |
+
+The formal count remains **5/8 (62.5%)**. Do not claim closure solely
+because existing CI checks are green.
