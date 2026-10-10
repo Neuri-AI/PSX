@@ -26,7 +26,7 @@
 | D-F1.7 | Typed CSS-like sizes and box model | Namespaced item `layout_width`/`layout_height`; deferred percentages; `calc()` deferred |
 | D-F1.8 | Horizontal LTR **and RTL** from F2 | Direction-aware row and row-reverse behavior |
 | D-F1.9 | Progressive compatibility with **explicit errors** | No silent fallback for unsupported CSS semantics |
-| D-F1.10 | **Full replacement** of portable layout computation with SFLE | Retire parallel Row/Column/Scroll content-layout algorithms |
+| D-F1.10 | **Remove `Row` and `Column` public APIs; `Flex` is the only public Flexbox layout container** | Remove aliases/wrappers and redundant algorithms; SFLE owns Flexbox geometry; `Scroll` remains independent |
 | D-F1.11 | **0.01** logical px pure / **1.0** logical px native, calibrable | Per-backend reporting and structural exactness |
 | D-F1.12 | UI-thread measurement, selective caching, immutable snapshots | Batched invalidation and lifecycle-safe commits |
 | F1-RUST | **Rust primary, Python fallback** | Same normative semantics, versioned compute contract, packaging policy |
@@ -37,33 +37,34 @@ and completed.
 
 ## 2. Consistency review and clarified invariants
 
-### 2.1 D-F1.6 versus D-F1.10
+### 2.1 D-F1.6 versus D-F1.10 — single public Flexbox primitive
 
-"Metadata is inert outside Flex" remains true even when `Row` and
-`Column` use SFLE **internally**. **Engine ownership** and **public Flex
-formatting-context semantics** are separate concepts:
+**Superseding correction:** PSX is in alpha. `Row` and `Column` are
+**removed from the target public API**, without aliases, wrappers, exposed
+adapters, or compatibility layers. `Flex` alone expresses row/column and
+reverse-direction distribution.
 
-- `Flex` applies its explicit CSS-like container/item contract.
-- `Row` and `Column` retain their public `spacing`, `padding`, `align`,
-  `expand` and default behavior where compatibility is possible, but their
-  backend-specific layout math is replaced with translation into SFLE inputs.
-- A `Text(flex_grow=1)` directly under `Row` has valid but inert Flex-only
-  metadata unless/until Row explicitly opts into Flex semantics as a separate
-  future public API decision. Legacy `Row.expand` may be translated into
-  engine grow behavior **internally** without making `flex_grow` active.
-- `Scroll` retains native viewport, clipping, input, wheel/trackpad and
-  offset semantics. Its **content sizing/arrangement** uses SFLE through a
-  scroll-content layout context; that does not make Scroll itself a public
-  `Flex` parent with automatically active `flex_grow` on children.
-- Existing component-owned `width`/`height` keep their meaning; child
-  SFLE sizing uses `layout_width`/`layout_height` and related names.
-- Explicitly identify semantic behavior that cannot be reproduced during
-  migration, version it as a breaking change where required, and document
-  it instead of silently changing a widget's meaning.
+- `Flex(direction="row")` replaces `Row`;
+  `Flex(direction="column")` replaces `Column`. Reverse variants use Flex.
+- `flex_grow`, `flex_shrink`, `flex_basis`, `align_self`, `order`,
+  and `layout_*` are active only on effective direct Flex children. Outside
+  Flex they remain validated, stored, and inert (D-F1.6).
+- `Scroll` remains an **independent public component**, controlling native
+  viewport, clipping, offsets, input, wheel/trackpad and events. SFLE computes
+  relevant content geometry, without making Scroll an implicit Flex container.
+  Use an explicit nested `Flex` for content requiring Flexbox distribution;
+  resolve Scroll's existing multi-child policy during authorized migration.
+- Native UI measurement and geometry-application adapters remain intact.
+  Removing Row/Column does not remove Qt/Kivy/Tkinter widget/event machinery.
+- Preserve PSX keys, refs, hooks, reconciliation identity and stable callback
+  slots on relayout; the public migration intentionally changes source tags.
+- During authorized F2/F3 migration, remove public registrations, imports,
+  builders, docs, examples and boilerplates referencing Row/Column. Retire
+  their redundant layout algorithms after Flex covers required functionality.
+  No old-name compatibility API is permitted in the final implementation.
 
-**No legacy layout algorithm remains the final geometry authority.** Native
-platform APIs still place and render widgets based on SFLE output. The
-migration can be staged internally, but the accepted endpoint is one engine.
+**Single authority:** SFLE owns portable Flexbox geometry. Native Scroll
+machinery handles scrolling, not a competing layout calculation.
 
 ### 2.2 D-F1.8 versus D-F1.3
 
@@ -253,36 +254,39 @@ off-thread when safe, but the final application returns to the UI thread.
 ## 5. Complete portable layout replacement (D-F1.10)
 
 ~~~mermaid
-flowchart LR
-    A["Flex API"] --> T["Container-to-SFLE style translation"]
-    B["Legacy Row API"] --> T
-    C["Legacy Column API"] --> T
-    D["Scroll content layout"] --> T
-    T --> E["Single SFLE calculation authority"]
-    E --> Q["Qt geometry adapter"]
-    E --> K["Kivy geometry adapter"]
-    E --> W["Tkinter geometry adapter"]
-    E --> H["Headless geometry output"]
-    D --> S["Native viewport/clip/input/offset (retained)"]
+flowchart TD
+    A["Public Flex: row / column / reverse"] --> B["SFLE normalization + calculation"]
+    S["Public Scroll: viewport / clipping / events / offsets"] --> C["Content bounds / explicit nested Flex"]
+    C --> B
+    B --> D["Single SFLE geometry result"]
+    D --> Q["Qt native geometry adapter"]
+    D --> K["Kivy native geometry adapter"]
+    D --> T["Tkinter native geometry adapter"]
+    D --> H["Headless output"]
+    S --> N["Native scrolling behavior retained"]
+    X["Existing Row / Column"] -. "remove on authorized migration" .-> Y["No public aliases or compatibility layers"]
 ~~~
 
-**Migration design (staged delivery permitted; final replacement mandatory):**
-
-| Component | Public contract after migration | Internal geometry |
+| Component | Final public contract | Geometry responsibility |
 | --- | --- | --- |
-| `Flex` | CSS-like Flexbox container, direct flex item metadata active | SFLE |
-| `Row` | Existing Row builder/markup semantics as compatible | Translate legacy props, then SFLE |
-| `Column` | Existing Column builder/markup semantics as compatible | Translate legacy props, then SFLE |
-| `Scroll` | Existing scroll axes, viewport, clipping, input and offset API | SFLE handles content arrangement; native scroll mechanics retained |
-| `Headless` | Deterministic layout metadata and debug geometry | Same SFLE computation outputs |
+| `Flex` | **Only** public Flexbox distribution component, including row/column/reverse | SFLE |
+| `Row` | **Removed**; no alias, wrapper or legacy export | No independent algorithm survives |
+| `Column` | **Removed**; no alias, wrapper or legacy export | No independent algorithm survives |
+| `Scroll` | Retained independent viewport, clipping, offsets, wheel/input and events | Interoperates with SFLE for content geometry; explicit descendant Flex for Flexbox distribution |
+| `Headless` | Deterministic inspectable geometry | Same SFLE computation output |
 
-Every current native Row/Column/Scroll layout routine must be inventoried
-before removal. Removal means **no duplicate layout arithmetic**, not
-deletion of native widget adapters or necessary platform-event plumbing.
-A compatibility translation must preserve old working semantics where
-possible, and any unavoidable behavior change requires explicit migration
-notes. Independent per-backend layout math must not survive as a hidden
-parallel fallback.
+The alpha migration explicitly **accepts source-breaking changes**. Replace
+Row/Column references in public exports, builder and markup registrations,
+examples, boilerplates, tutorials, contracts and renderer integration **during
+authorized implementation, not during this documentation-only request**.
+Delete redundant layout algorithms after equivalent Flex capabilities are
+validated. This does not authorize removing native adapters or Scroll behavior.
+
+**Scroll boundary:** Scroll must not silently become Flex. Existing Scroll
+multi-child arrangement must be inventoried; when flex-style distribution
+is required, use an explicit child Flex. Reject unsupported content
+combinations with clear migration diagnostics rather than preserving a
+second independent layout engine.
 
 ## 6. F2 readiness gates (not permission to implement)
 
@@ -306,11 +310,13 @@ row/column and reverse direction for the first shipped feature slice;
 subsequently extend wrap, intrinsic measurements and min/max behavior
 through explicit capability gates.
 
-**F2.4 — migration planning:** inventory legacy Row/Column/Scroll geometry,
-preserve public API where feasible, document expected deltas. Actual Qt/Kivy/
-Tkinter integration and retirement of native layout algorithms remains
-primarily F3, but F2 must define enough adapter contracts to prevent
-architectural divergence.
+**F2.4 — migration planning:** inventory existing Row/Column/Scroll usage,
+public exports, builders/markup registrations, layout algorithms, examples,
+tutorials and boilerplates. Plan Row/Column removal **without compatibility
+aliases or wrappers**. Scroll keeps native viewport/input/offset semantics
+and interoperates with SFLE through content bounds and explicit nested Flex.
+Actual migration and retirement of native layout algorithms remains mainly
+F3, but F2 must define adapter contracts to prevent divergence.
 
 **Exit criteria for F2:** a renderer-neutral, deterministic engine contract;
 Rust primary with load-time Python fallback; matched capabilities and geometry;
@@ -324,7 +330,8 @@ design must enforce SFLE as the sole portable layout authority.
 | Gate | Status |
 | --- | --- |
 | All architectural decisions approved | **Complete** |
-| No contradictory Row/Column/Scroll engine-ownership policy | **Complete** — SFLE only |
+| No redundant Row/Column public APIs in target design | **Complete (design)** — Flex only |
+| Scroll independent native behavior retained | **Complete (design)** |
 | D-F1.6 / D-F1.7 box model retained and compatible | **Complete** — namespace + contextual metadata |
 | LTR + RTL requirement documented | **Complete** |
 | Unsupported-feature errors documented | **Complete** |
