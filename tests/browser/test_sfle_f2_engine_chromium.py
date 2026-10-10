@@ -60,6 +60,6 @@ def test_A01_python_engine_final_rectangles_match_chromium(chromium_page):
     for node_id,box in sfle.boxes:
         for axis in ("x","y","width","height"):
             assert getattr(box.border,axis)==pytest.approx(
-                actual[node_id][axis],abs=payload["tolerance_px"]),
-                f"A01 {node_id}.{axis} SFLE vs Chromium"
+                actual[node_id][axis],abs=payload["tolerance_px"]
+            ), f"A01 {node_id}.{axis} SFLE vs Chromium"
     assert dict(sfle.boxes)["root"].content.height==pytest.approx(case["expected"]["root.height"],abs=0.01)
