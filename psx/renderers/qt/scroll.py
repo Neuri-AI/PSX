@@ -140,6 +140,7 @@ class QtScrollAdapter:
         layout_type = renderer._hbox if props["content_direction"] == "horizontal" else renderer._vbox
         layout = layout_type(content)
         area.setWidget(content)
+        area._psx_binding = binding
         area._psx_content = content
         area._psx_layout = layout
         self._apply(area, props)
@@ -147,16 +148,16 @@ class QtScrollAdapter:
 
     @staticmethod
     def _apply(area, props):
-        from psx.renderers.qt.pyqt import _release
-
         layout = area._psx_layout
-        orientation = "horizontal" if props["content_direction"] == "horizontal" else "vertical"
-        is_h = layout.inherits("QHBoxLayout")
-        if is_h != (orientation == "horizontal"):
-            # Replace the internal layout without replacing or recreating
-            # any existing child widgets.
-            widgets = importlib.import_module(f"{area.__class__.__module__.split('.')[0]}.QtWidgets") if False else None
-            # Orientation changes are handled by the adapter at update time.
+        direction_type = getattr(importlib.import_module(
+            f"{area._psx_binding}.QtWidgets"
+        ).QBoxLayout, "Direction", importlib.import_module(
+            f"{area._psx_binding}.QtWidgets"
+        ).QBoxLayout)
+        layout.setDirection(
+            direction_type.LeftToRight if props["content_direction"] == "horizontal"
+            else direction_type.TopToBottom
+        )
         left, top, right, bottom = scroll_padding(props)
         layout.setContentsMargins(left, top, right, bottom)
         layout.setSpacing(props["spacing"])
@@ -167,21 +168,6 @@ class QtScrollAdapter:
     def update(self, renderer, handle, changed, removed):
         props = updated_scroll_props(handle.props, changed, removed)
         area = handle.widget
-        if props["content_direction"] != handle.props["content_direction"]:
-            old = area._psx_layout
-            children = [old.itemAt(i).widget() for i in range(old.count())]
-            for child in children:
-                old.removeWidget(child)
-            import sip
-            # Avoid modifying the child identities; transfer layout ownership.
-            old.setParent(None)
-            layout_type = renderer._hbox if props["content_direction"] == "horizontal" else renderer._vbox
-            fresh = layout_type()
-            area._psx_content.setLayout(fresh)
-            for child in children:
-                fresh.addWidget(child)
-            area._psx_layout = fresh
-            handle.layout = fresh
         self._apply(area, props)
         handle.props = props
 
