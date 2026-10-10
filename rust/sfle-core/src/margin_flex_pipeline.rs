@@ -4,6 +4,7 @@
 
 use crate::edge_pipeline::{BoxEdges, Edges};
 use crate::cross_margins::position_cross_margins;
+use crate::cross_alignment::{CrossAlign, resolve_cross_alignment};
 use crate::line_layout::{
     place_resolved_lines, Direction, Rect, ResolvedItem, Wrap, WritingDirection,
 };
@@ -23,6 +24,7 @@ pub struct MarginFlexItem {
     pub order: i32,
     pub cross_start: Option<f64>,
     pub cross_end: Option<f64>,
+    pub align_self: CrossAlign,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -120,6 +122,28 @@ pub fn compute_margin_flex_layout_justified(
     cross_gap: f64,
     justify: JustifyContent,
 ) -> Result<MarginFlexLayout, FlexMathError> {
+    compute_margin_flex_layout_aligned(
+        items, width, height, direction, writing, wrap, main_gap,
+        cross_gap, justify, CrossAlign::FlexStart,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compute_margin_flex_layout_aligned(
+    items: &[MarginFlexItem],
+    width: f64,
+    height: f64,
+    direction: Direction,
+    writing: WritingDirection,
+    wrap: Wrap,
+    main_gap: f64,
+    cross_gap: f64,
+    justify: JustifyContent,
+    align_items: CrossAlign,
+) -> Result<MarginFlexLayout, FlexMathError> {
+    if align_items == CrossAlign::Auto {
+        return Err(FlexMathError::InvalidInput("align-items cannot be auto"));
+    }
     if ![width, height, main_gap, cross_gap]
         .iter().all(|v| v.is_finite() && *v >= 0.0)
     {
@@ -206,7 +230,17 @@ pub fn compute_margin_flex_layout_justified(
                 item.cross_start, item.cross_end, cross_forward,
             )?;
             let cross_origin = if horizontal { cross.y } else { cross.x };
-            let cross_start = cross_origin + cross_margin.border_start;
+            let cross_offset = if item.cross_start.is_none() || item.cross_end.is_none() {
+                cross_margin.border_start
+            } else {
+                resolve_cross_alignment(
+                    align_items, item.align_self, cross_size,
+                    line_cross_sizes[line_index],
+                    item.cross_start.expect("checked fixed margin"),
+                    item.cross_end.expect("checked fixed margin"), cross_forward,
+                )?
+            };
+            let cross_start = cross_origin + cross_offset;
             let border = if horizontal {
                 Rect {
                     x: position.border_start, y: cross_start,
@@ -260,6 +294,7 @@ mod tests {
             cross_content_size: 10.0, edges: BoxEdges::default(),
             main_start: start, main_end: end, order: 0,
             cross_start: Some(0.0), cross_end: Some(0.0),
+            align_self: CrossAlign::Auto,
         }
     }
 
