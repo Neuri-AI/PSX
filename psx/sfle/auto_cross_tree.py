@@ -60,7 +60,20 @@ def compute_auto_cross_tree(
             cross_edges = (edge.padding.vertical + edge.border.vertical if horizontal
                            else edge.padding.horizontal + edge.border.horizontal)
             contributions.append(item.cross_content_size + cross_edges + item.cross_start.value + item.cross_end.value)
-        used = max(0.0, *contributions)
+        if horizontal:
+            used = max(0.0, *contributions)
+        else:
+            # For a vertical Flex main axis, an auto block height depends on
+            # the sum of the children's hypothetical outer MAIN contributions.
+            # Cross widths must never be substituted for their heights.
+            used = sum(
+                by_id[child.node_id].item.flex.hypothetical
+                + by_id[child.node_id].item.edges.padding.vertical
+                + by_id[child.node_id].item.edges.border.vertical
+                + by_id[child.node_id].item.main_start.value
+                + by_id[child.node_id].item.main_end.value
+                for child in parents[node.node_id]
+            ) + node.main_gap * max(0, len(parents[node.node_id]) - 1)
         if node.parent_id is None:
             by_id[node.node_id] = replace(node, height=used) if horizontal else replace(node, width=used)
         else:
@@ -70,8 +83,8 @@ def compute_auto_cross_tree(
             parent = by_id[node.parent_id]
             parent_horizontal = parent.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
             # Only propagate cross-size when parent and child cross axes match.
-            if parent_horizontal != horizontal:
-                raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Orthogonal auto cross contribution requires distinct main-axis sizing.")
+            if parent_horizontal != horizontal and not (parent_horizontal and not horizontal):
+                raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unsupported reverse orthogonal auto dependency.")
             updated_item = replace(item, cross_content_size=used, cross_size_auto=False)
             by_id[node.node_id] = replace(node, height=used, item=updated_item) if horizontal else replace(node, width=used, item=updated_item)
     return compute_margin_tree(tuple(by_id[node.node_id] for node in nodes), generation=generation, writing=writing)
