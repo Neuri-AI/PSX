@@ -8,6 +8,11 @@
 > Architecture: [SFLE](sfle.md). Reference semantics:
 > [CSS Flexible Box Layout Level 1](https://www.w3.org/TR/css-flexbox-1/).
 
+**Detailed proposals:** [D-F1.6 shared props + D-F1.7 typed lengths](sfle-f1-props-lengths.md).
+The approved direction is recorded here; component-boundary behavior, width/height
+collisions, length grammar, and percentage/box-model details remain subject to
+explicit approval before these contracts are frozen.
+
 ## 1. Approved decision record
 
 | ID | Accepted decision | Consequence |
