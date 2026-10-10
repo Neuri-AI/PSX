@@ -25,7 +25,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
 | **F2.2.2** | **Percentage cycles, box sizing and sizing-edge contracts** | **Scoped resolved-input implementation complete; context-dependent cases explicitly deferred to F2.2.4** |
-| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: baseline groups use supplied measurements in horizontal Flex, Python/Rust; CI pending** |
+| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: measured horizontal first-baseline groups integrated in Python/Rust; SFLE and PSX CI passed** |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
 | F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
@@ -1030,3 +1030,6 @@ New `psx/sfle/baseline.py` and `rust/sfle-core/src/baseline.rs` implement *first
 The item contract adds `baseline_from_cross_start` (Python) / `baseline_from_cross_start: Option<f64>` (Rust). It must be a measured content-box offset from the logical cross start, not a computed font ascent guess. The pipeline adds padding and border start offsets before grouping. Measurement remains upstream and will be introduced with F2.2.4 renderer adapters.
 
 **Known scope restrictions:** column/orthogonal baselines require a dedicated writing-mode and baseline measurement contract and fail explicitly. Baseline synthesis, font fallback, replaced-element baselines and multi-baseline alignment variants are not implemented. Do not treat this slice as complete CSS Flexbox baseline conformance. First baseline is handled only for resolved horizontal flow, fixed margins and provided metrics. CI must pass before claiming F2.2.3 acceptance; Chromium reference testing remains the next agreed checkpoint after F2.2.3.
+
+
+**Measured baseline CI checkpoint:** code commit `34b57ae5` passed SFLE run `38067349752` on Rust and Python 3.10–3.13, and PSX alpha run `38067349761` on Python 3.10–3.13, PySide6 offscreen, and distribution build. This only verifies restricted horizontal measured-first-baseline grouping, not native font measurement or Chromium conformance.
