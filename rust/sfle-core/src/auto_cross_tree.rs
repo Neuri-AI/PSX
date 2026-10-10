@@ -79,3 +79,60 @@ pub fn compute_auto_cross_tree(
     }
     compute_margin_tree(&adapted, writing)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::align_content::AlignContent;
+    use crate::cross_alignment::CrossAlign;
+    use crate::edge_pipeline::BoxEdges;
+    use crate::main_alignment::JustifyContent;
+    use crate::margin_flex_pipeline::MarginFlexItem;
+    use crate::FlexBasis;
+
+    fn node(id: &str, parent: Option<&str>, cross: f64) -> MarginTreeNode {
+        MarginTreeNode {
+            id: id.into(), parent: parent.map(str::to_string),
+            width: 20.0, height: cross, item: parent.map(|_| MarginFlexItem {
+                id: id.into(), flex: FlexBasis {
+                    basis: 20.0, hypothetical: 20.0, grow: 0.0,
+                    shrink: 0.0, min_size: 0.0, max_size: None,
+                }, cross_content_size: cross, edges: BoxEdges::default(),
+                main_start: Some(0.0), main_end: Some(0.0),
+                cross_start: Some(0.0), cross_end: Some(0.0),
+                order: 0, align_self: CrossAlign::Auto,
+                cross_size_auto: false, min_cross_content_size: 0.0,
+                max_cross_content_size: None, baseline_from_cross_start: None,
+            }),
+            edges: BoxEdges::default(), direction: Direction::Row,
+            wrap: Wrap::NoWrap, main_gap: 0.0, cross_gap: 0.0,
+            justify: JustifyContent::FlexStart,
+            align_items: CrossAlign::FlexStart,
+            align_content: AlignContent::FlexStart, intrinsic_basis: None,
+        }
+    }
+
+    #[test]
+    fn nested_auto_cross_uses_largest_definite_child() {
+        let nodes = vec![
+            node("root", None, 80.0),
+            node("container", Some("root"), 0.0),
+            node("a", Some("container"), 15.0),
+            node("b", Some("container"), 30.0),
+        ];
+        let result = compute_auto_cross_tree(
+            &nodes, &["container".into()], WritingDirection::Ltr,
+        ).unwrap();
+        assert_eq!(result.boxes[1].content.height, 30.0);
+    }
+
+    #[test]
+    fn wrapping_auto_cross_is_rejected() {
+        let mut root = node("root", None, 0.0);
+        root.wrap = Wrap::Wrap;
+        let nodes = vec![root, node("leaf", Some("root"), 10.0)];
+        assert!(compute_auto_cross_tree(
+            &nodes, &["root".into()], WritingDirection::Ltr,
+        ).is_err());
+    }
+}
