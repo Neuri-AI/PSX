@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 
@@ -47,10 +49,40 @@ class _PSXScrollView(ScrollView):
         return super().on_scroll_start(touch, check_children=check_children)
 
     def on_touch_down(self, touch):
-        # SDL2 on macOS commonly exposes two-finger trackpad scrolling as
-        # scroll-button touches. Delegate to the standard Kivy ScrollView
-        # first (including nested children); if it did not consume the event,
-        # apply a bounded wheel movement to our own viewport.
+        # Kivy's SDL2 scroll-button direction can be opposite to macOS
+        # natural-scrolling gestures. Normalize once for the complete nested
+        # ScrollView dispatch, including Kivy's own handler, rather than
+        # applying a second inverse movement after native scrolling.
+        #
+        # The marker matters: an outer ScrollView dispatches the same touch to
+        # nested scroll views. Inverting in every level would cancel the fix.
+        button = getattr(touch, "button", "")
+        opposite = {
+            "scrollup": "scrolldown",
+            "scrolldown": "scrollup",
+            "scrollleft": "scrollright",
+            "scrollright": "scrollleft",
+        }
+        ud = getattr(touch, "ud", None)
+        normalize = (
+            sys.platform == "darwin"
+            and button in opposite
+            and isinstance(ud, dict)
+            and "_psx_natural_scroll_normalized" not in ud
+        )
+        if normalize:
+            ud["_psx_natural_scroll_normalized"] = True
+            touch.button = opposite[button]
+        try:
+            return self._handle_touch_down(touch)
+        finally:
+            if normalize:
+                touch.button = button
+                ud.pop("_psx_natural_scroll_normalized", None)
+
+    def _handle_touch_down(self, touch):
+        # Native ScrollView handles mouse/trackpad input and nested widgets
+        # first. The fallback only runs if that event was not consumed.
         handled = super().on_touch_down(touch)
         if handled:
             return True
