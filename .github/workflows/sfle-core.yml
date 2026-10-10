@@ -103,4 +103,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Rust unit tests
-        run: cargo test --all-targets
+        run: cargo test --all-targets --no-fail-fast
