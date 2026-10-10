@@ -91,7 +91,7 @@ pub fn plan_styled_measurements(
         let parent_size = content.get(parent.as_str()).ok_or(
             FlexMathError::InvalidInput("missing established parent content size"),
         )?;
-        let used = resolve_child_constraints(**parent_size, **style)?;
+        let used = resolve_child_constraints(*parent_size, *style)?;
         resolved.push((node.id.clone(), used.constraints));
     }
     plan_measurements(
