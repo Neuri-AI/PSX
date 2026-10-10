@@ -122,10 +122,18 @@ class TkBadgeAdapter:
             fill=background or surface,
             outline=stroke if props["appearance"] == "outline" else "",
         )
-        canvas.create_text(
+        text_item = canvas.create_text(
             width / 2, height / 2,
             text=props["label"], fill=foreground, font=font, anchor="center",
         )
+        # Tk's font metrics and Canvas anchor geometry differ slightly from
+        # Qt on macOS. Align the actual rendered text bounding box rather
+        # than relying on its nominal baseline/anchor alone.
+        if props["label"]:
+            bounds = canvas.bbox(text_item)
+            if bounds is not None:
+                actual_center_y = (bounds[1] + bounds[3]) / 2
+                canvas.move(text_item, 0, round(height / 2 - actual_center_y))
 
     def update(self, renderer, handle, changed, removed):
         props = updated_badge_props(handle.props, changed, removed)
