@@ -91,7 +91,7 @@ def test_axes_are_preserved_after_size_resolution(direction, writing, expected):
 
 
 def test_order_controls_lines_and_placement_without_mutating_input():
-    items = (node("a", 60, order=1), node("b", 50, order=0), node("c", 40, order=1))
+    items = (node("a", 50, order=1), node("b", 50, order=0), node("c", 40, order=1))
     result = compute_resolved_flex(items, 100, 30, wrap=FlexWrap.WRAP, main_gap=10)
     assert result.lines == (("b",), ("a", "c"))
     assert tuple(item.node_id for item in items) == ("a", "b", "c")
