@@ -38,6 +38,7 @@ def compute_recursive_pipeline(
     auto_cross: tuple[AutoCrossSize, ...] = (),
     revisions: tuple[tuple[str, int], ...] = (),
     current_generation: int,
+    max_iterations: int = 8,
 ) -> RecursiveMeasurementResult:
     """Run measurement, intrinsic Flex distribution and final remeasurement.
 
@@ -50,30 +51,44 @@ def compute_recursive_pipeline(
         snapshot, nodes, child_sizing=child_sizing, revisions=revisions,
         port=native_port, current_generation=current_generation,
     )
-    prepared = prepare_measured_leaf_nodes(
-        nodes, measurements=first.measurements, leaves=intrinsic_leaves,
-        generation=current_generation, writing=snapshot.direction,
-    )
-    if auto_cross:
-        sized = compute_auto_cross_tree(
-            prepared, auto_cross=auto_cross,
+    if type(max_iterations) is not int or max_iterations < 1:
+        raise ValueError("max_iterations must be a positive integer.")
+    current = first
+    seen: set[tuple[tuple[str, object], ...]] = set()
+    for _ in range(max_iterations):
+        prepared = prepare_measured_leaf_nodes(
+            nodes, measurements=current.measurements, leaves=intrinsic_leaves,
             generation=current_generation, writing=snapshot.direction,
         )
-    else:
-        sized = compute_margin_tree(
-            prepared, generation=current_generation, writing=snapshot.direction,
+        if auto_cross:
+            sized = compute_auto_cross_tree(
+                prepared, auto_cross=auto_cross,
+                generation=current_generation, writing=snapshot.direction,
+            )
+        else:
+            sized = compute_margin_tree(
+                prepared, generation=current_generation, writing=snapshot.direction,
+            )
+        provisional = RecursiveMeasurementResult(sized, current.measurements, ())
+        next_round = measure_resolved_margin_tree(
+            replace(snapshot, measurements=current.measurements),
+            prepared, child_sizing=_used_sizing(provisional, nodes),
+            revisions=revisions, port=native_port,
+            current_generation=current_generation,
         )
-    provisional = RecursiveMeasurementResult(sized, first.measurements, ())
-    # Re-measure against the *allocated* boxes after flex distribution.
-    # An existing revision/constraint match is reused by the worklist.
-    second = measure_resolved_margin_tree(
-        replace(snapshot, measurements=first.measurements),
-        prepared,
-        child_sizing=_used_sizing(provisional, nodes),
-        revisions=revisions,
-        port=native_port, current_generation=current_generation,
+        previous_metrics = {m.node_id: m.intrinsic for m in current.measurements}
+        new_metrics = {m.node_id: m.intrinsic for m in next_round.measurements}
+        if previous_metrics == new_metrics:
+            return RecursiveMeasurementResult(sized, next_round.measurements, next_round.deferred)
+        signature = tuple(sorted(new_metrics.items()))
+        if signature in seen:
+            raise SFLEError(
+                DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                "Intrinsic measurements oscillated between sizing passes.",
+            )
+        seen.add(signature)
+        current = next_round
+    raise SFLEError(
+        DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+        "Recursive intrinsic measurement did not converge.",
     )
-    # The initial pass might include deferred axes, but the second pass has
-    # definite final Flex allocations. The native port can still explicitly
-    # reject unsupported width-sensitive measurement.
-    return RecursiveMeasurementResult(sized, second.measurements, second.deferred)
