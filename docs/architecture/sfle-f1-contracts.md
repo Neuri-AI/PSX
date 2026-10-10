@@ -1,13 +1,13 @@
 # SFLE F1 — Portable Flexbox contracts and decision record
 
-> **Status:** F1 design specification. No runtime implementation.
-> **Approved:** D-F1.1–D-F1.7 at architectural-contract level (2026-10-10).
-> **Open:** D-F1.8–D-F1.12 and F1-RUST. Remaining defaults/implementation
-> capability gates require approval as noted in the canonical contract.
+> **Status:** F1 architectural decisions fully approved (2026-10-10).
+> **Final decision record:** [F1 final architecture and closure gates](sfle-f1-final-architecture.md).
+> **F2 is not authorized**; no runtime implementation has started.
 >
 > Architecture: [SFLE](sfle.md). Reference semantics:
 > [CSS Flexible Box Layout Level 1](https://www.w3.org/TR/css-flexbox-1/).
 
+**Final all-F1 decisions:** [Architecture and formal closure](sfle-f1-final-architecture.md).
 **Ratified canonical contract:** [D-F1.6/D-F1.7 — box model and percentages](sfle-f1-box-model.md).
 **Earlier design discussion:** [Shared props and typed lengths](sfle-f1-props-lengths.md).
 The canonical contract governs function-component roots, the namespaced
@@ -256,29 +256,35 @@ flowchart TD
 - Benchmark end-to-end resize, cold mount, warm relayout, nested wrapping,
   and intrinsic measurement costs before locking an implementation language.
 
-## 6. Remaining decisions requiring sign-off
+## 6. Final F1 approvals — no remaining architectural votes
 
-| ID | Topic | Recommended resolution | Why not yet frozen |
-| --- | --- | --- | --- |
-| D-F1.6 | **Approved** — closed resolver; direct Flex context only | Single-root functional components; validated/inert outside Flex | Canonical contract: [box model and props](sfle-f1-box-model.md) |
-| D-F1.7 | **Approved** — namespaced dimensions + typed CSS lengths | Property-specific percentage resolution and CSS box model | Canonical contract: [box model and percentages](sfle-f1-box-model.md) |
-| D-F1.8 | Direction and writing modes | v1 horizontal writing mode, LTR; separate CSS writing-direction scope from row/column direction; document expansion plan | Flexbox start/end behavior depends on writing mode |
-| D-F1.9 | Unsupported CSS features | Closed feature-gated validation: reject unsupported combinations or emit explicit diagnostics, never silently approximate | Progressive fidelity requirement |
-| D-F1.10 | Existing `Row`/`Column`/`Scroll` interoperability | Keep current semantics unchanged; only a new Flex formatting context invokes SFLE; child layout metadata is independent | Prevent breaks to stable existing components |
-| D-F1.11 | Numeric tolerances | Start with 0.01 logical px compute and 1.0 logical px native as **candidate**, then calibrate on fixtures | Reference font, DPI and rounding may shift the practical threshold |
-| D-F1.12 | Measurement/cache and nested boundaries | Sync UI-thread measurement, immutable snapshots, invalidation by style/content/constraint/font/theme/DPI revisions | Need concrete request/response fields and lifecycle semantics |
-| F1-RUST | Rust priority and packaging | Define pure ABI now; use Rust if profile justifies it, or adopt it as primary if packaging/fallback support is approved | Performance alone cannot guarantee deployment portability |
+All thirteen architecture choices (D-F1.1–D-F1.12 and F1-RUST) have been
+approved. This section supersedes the earlier provisional options.
+
+| ID | Approved resolution |
+| --- | --- |
+| D-F1.8 | Horizontal LTR and RTL from F2; vertical writing modes deferred |
+| D-F1.9 | Progressive CSS fidelity with explicit unsupported-feature errors |
+| D-F1.10 | SFLE fully replaces portable layout algorithms for Flex, Row, Column and Scroll content; legacy public contracts preserved where feasible |
+| D-F1.11 | 0.01 logical px pure / 1.0 logical px native, calibrable; structural geometry must match |
+| D-F1.12 | UI-thread native measurement, selective cache, immutable snapshots and coalesced scheduler |
+| F1-RUST | Rust primary with Python fallback, equal semantics and portable loading policy |
+
+**Source of truth:** [F1 final architecture](sfle-f1-final-architecture.md).
+In particular, the `Row`/`Column` reuse of SFLE is internal and does
+**not** activate `flex_*` props for their children: D-F1.6 remains intact.
+Rust and Python must not expose divergent CSS layout behavior.
 
 ## 7. Completion criteria for F1 (no runtime coding)
 
-- D-F1.6 and D-F1.7 ratified; approve D-F1.8–D-F1.12 and F1-RUST.
+- All F1 architectural choices approved; formal close-out and explicit F2 authorization remain.
 - Freeze container/item property names and defaults against CSS reference.
 - Freeze parent-aware validation and `Row`/`Column`/`Scroll` interoperability.
 - Freeze definite/indefinite measurement protocol, geometry and lifecycle.
 - Agree a browser fixture matrix and geometry comparison thresholds.
 - Document implementation boundaries, packaging consequences and deviations.
 - Update [SFLE architecture](sfle.md) with finalized outcomes.
-- Start F2 only after explicit architecture approval.
+- Start F2 **only after the user explicitly authorizes its start**, regardless of architecture approval.
 
 **This file is a contract proposal. It does not implement Flex, add
 automated tests, change component behavior or certify CSS support.**
