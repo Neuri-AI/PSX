@@ -102,4 +102,19 @@ def compute_measured_leaf_tree(
                 max_main_size=style.max_main_size,
             ),
         ))
-    return compute_margin_tree(tuple(adapted), generation=generation, writing=writing)
+    return tuple(adapted)
+
+
+def compute_measured_leaf_tree(
+    nodes: tuple[MarginTreeNode, ...], *,
+    measurements: tuple[MeasuredBox, ...],
+    leaves: tuple[IntrinsicLeafStyle, ...],
+    generation: int,
+    writing: WritingDirection = WritingDirection.LTR,
+) -> MarginTreeLayout:
+    """Compute final used geometry after preparing measured intrinsic leaves."""
+    prepared = prepare_measured_leaf_nodes(
+        nodes, measurements=measurements, leaves=leaves,
+        generation=generation, writing=writing,
+    )
+    return compute_margin_tree(prepared, generation=generation, writing=writing)
