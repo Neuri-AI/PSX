@@ -11,6 +11,6 @@ def test_A08_native_extension_selected_on_load(monkeypatch):
         compute_json=lambda payload:'{}',
         compute_provisional_json=lambda payload:'{}',
     )
-    monkeypatch.setitem(sys.modules,"psx._sfle_native",fake)
+    monkeypatch.setitem(sys.modules,"_sfle_native",fake)
     selected=load_layout_engine()
     assert selected.backend_name=="rust", "Rust must be primary when importable and schema-valid"
