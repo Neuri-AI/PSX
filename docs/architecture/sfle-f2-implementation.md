@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization plus standalone cross-axis AUTO/signed margin kernels; cross-margin CI pending** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization plus standalone cross-axis AUTO/signed margin kernels; cross-margin scoped CI passed** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -820,3 +820,7 @@ stretch/baseline alignment, implement `align-content`, or handle native
 measurements. Those integration points remain for F2.2.3 and F2.2.4.
 The optional early Playwright/Chromium headless GitHub Actions checkpoint
 remains scheduled after F2.2.3.
+
+**CI:** for code commit `416a769c`, SFLE workflow `38062168357`
+passed Rust and Python 3.10–3.13. The general PSX workflow
+`38062168348` is tracked separately.
