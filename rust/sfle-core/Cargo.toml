@@ -10,3 +10,6 @@ name = "sfle_core"
 path = "src/lib.rs"
 
 [dependencies]
+
+[dev-dependencies]
+serde_json = "1"
