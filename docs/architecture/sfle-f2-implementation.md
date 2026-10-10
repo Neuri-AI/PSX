@@ -23,15 +23,15 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | Subblock | Deliverable | Progress |
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
-| **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; focused CI pending verification** |
+| **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
 | F2.2.2 | Percentage cycles, box-sizing and deferred sizing edge cases | Partial: property-aware definite percentage resolver |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
 | F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
 
-**Remaining subblocks:** six, including F2.2.1 until its acceptance checks
-pass. Other pending stages: F2.3 Chromium conformance and F2.4 migration plan.
+**Remaining subblocks:** five (F2.2.2–F2.2.6). Other pending stages:
+F2.3 Chromium conformance and F2.4 migration planning.
 
 ## 1. F2.0 — Technical card
 
@@ -526,9 +526,12 @@ measurement, and no runtime/native adapter/public component is modified.
 
 ### Validation gate
 
-The Python and Rust test suites must pass in GitHub Actions after
-this slice; Chromium geometry and cross-language fixture parity are
-separate, still-pending requirements.
+The initial CI execution caught a pytest collection issue because `request`
+is reserved as a fixture name. The fixture was renamed and the subsequent
+SFLE Actions run **38059494023** for commit `398bd59` passed all five
+computational jobs: Rust core and Python 3.10, 3.11, 3.12 and 3.13.
+Full browser geometry, replaced-element/aspect-ratio behavior, text
+remeasurement and cross-language numerical fixture parity remain **pending**.
 
 ## 13. F2.2.1 — Intrinsic sizing and automatic minimums
 
