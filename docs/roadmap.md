@@ -55,14 +55,19 @@ deterministic headless tests.
 ## Pending — portable Flexbox/Grid layout system (proposal)
 
 **Architecture document:** [SFLE — Shared Flex Layout Engine](architecture/sfle.md).
+**F1 contracts:** [Approved decisions and open technical contracts](architecture/sfle-f1-contracts.md).
+D-F1.1–D-F1.5 approved: `Flex` with direct child layout props,
+`snake_case`, progressive browser conformance, UI-thread native measurement,
+and strict geometry comparison. D-F1.6–D-F1.12 and Rust policy remain open.
+
 SFLE is the proposed backend-neutral CSS Flexbox geometry engine. The design
 prioritizes browser-like visual layout results across Qt, Kivy, Tkinter, and
 Headless, with renderer-specific intrinsic measurement and geometry application.
 The specification covers the algorithm, Mermaid diagrams, lifecycle, adapters,
 conformance strategy and outstanding decisions; SFLE remains unimplemented.
 
-**Status:** roadmap addition only; API, milestone, acceptance criteria and
-implementation have not been approved. Reference:
+**Status:** F1 architecture partially approved; remaining public API details,
+acceptance thresholds and implementation are not yet approved. Reference:
 [Flexbox Grid](http://flexboxgrid.com/) (a responsive 12-column layout system
 built on CSS Flexbox). PSX should reproduce the *layout semantics* in native
 desktop renderers rather than embed CSS or assume a browser engine.
