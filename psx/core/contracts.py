@@ -201,6 +201,8 @@ BADGE_CONTRACT = ComponentContract(
     "Badge", BADGE_PROPS, BADGE_DEFAULTS,
     frozenset(), "text-only", validate_badge_props,
     content_property="label",
+)
+
 SPINBOX_CONTRACT = ComponentContract(
     "SpinBox", SPINBOX_PROPS, SPINBOX_DEFAULTS,
     frozenset({"on_change"}), "none", validate_spinbox_props,
