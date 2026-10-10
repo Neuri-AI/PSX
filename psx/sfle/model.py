@@ -11,7 +11,7 @@ import math
 from dataclasses import dataclass
 from enum import Enum
 
-from .lengths import Length, LengthKind
+from .lengths import Length
 
 
 def _finite(value: float | None, name: str) -> None:
@@ -158,7 +158,11 @@ class LayoutNode:
         names = [name for name, _ in self.style]
         if len(names) != len(set(names)):
             raise ValueError("A layout style cannot contain duplicate property names.")
-        for _, value in self.style:
+        for name, value in self.style:
+            if not isinstance(name, str) or not name:
+                raise ValueError("LayoutNode style names must be nonempty strings.")
+            if isinstance(value, bool) or not isinstance(value, (Length, str, int, float)):
+                raise TypeError("LayoutNode style values must be normalized scalar or Length.")
             if isinstance(value, (int, float)):
                 _finite(value, "LayoutNode.style numeric value")
 
@@ -175,19 +179,34 @@ class LayoutInput:
     measurements: tuple[MeasuredBox, ...]
 
     def __post_init__(self) -> None:
-        if self.schema_version != 1:
+        if type(self.schema_version) is not int or self.schema_version != 1:
             raise ValueError("Unsupported SFLE input schema version.")
-        if self.generation < 0:
-            raise ValueError("Layout generation must be nonnegative.")
+        if type(self.generation) is not int or self.generation < 0:
+            raise ValueError("Layout generation must be a nonnegative integer.")
+        if not isinstance(self.nodes, tuple) or not isinstance(self.measurements, tuple):
+            raise TypeError("Layout input collections must be immutable tuples.")
+        if not isinstance(self.constraints, LayoutConstraints):
+            raise TypeError("Layout input constraints must be LayoutConstraints.")
         if not isinstance(self.direction, WritingDirection):
             raise TypeError("LayoutInput.direction must be a WritingDirection.")
         ids = [node.node_id for node in self.nodes]
         if len(ids) != len(set(ids)):
             raise ValueError("Layout tree node IDs must be unique.")
         existing = set(ids)
+        if self.nodes:
+            roots = [node.node_id for node in self.nodes if node.parent_id is None]
+            if len(roots) != 1:
+                raise ValueError("A layout tree must have exactly one root.")
+        visited: set[str] = set()
         for node in self.nodes:
             if node.parent_id is not None and node.parent_id not in existing:
                 raise ValueError(f"Missing parent for node {node.node_id!r}.")
+            if node.parent_id is not None and node.parent_id not in visited:
+                raise ValueError(
+                    f"Layout tree requires pre-order nodes, with parents before children: "
+                    f"{node.node_id!r}."
+                )
+            visited.add(node.node_id)
         measured = [m.node_id for m in self.measurements]
         if len(measured) != len(set(measured)):
             raise ValueError("Layout measurements must have unique node IDs.")
@@ -205,10 +224,12 @@ class LayoutResult:
     diagnostics: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if self.schema_version != 1:
+        if type(self.schema_version) is not int or self.schema_version != 1:
             raise ValueError("Unsupported SFLE result schema version.")
-        if self.generation < 0:
-            raise ValueError("Layout result generation must be nonnegative.")
+        if type(self.generation) is not int or self.generation < 0:
+            raise ValueError("Layout result generation must be a nonnegative integer.")
+        if not isinstance(self.boxes, tuple) or not isinstance(self.diagnostics, tuple):
+            raise TypeError("Layout result collections must be immutable tuples.")
         ids = [node_id for node_id, _ in self.boxes]
         if len(ids) != len(set(ids)):
             raise ValueError("Layout results must have unique node IDs.")
