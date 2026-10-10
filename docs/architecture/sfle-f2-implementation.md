@@ -25,7 +25,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
 | **F2.2.2** | **Percentage cycles, box sizing and sizing-edge contracts** | **Scoped resolved-input implementation complete; context-dependent cases explicitly deferred to F2.2.4** |
-| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: justify-content, align-items/align-self, and align-content multiline distribution integrated in Python/Rust; CI pending** |
+| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: justify-content, align-items/align-self, and align-content multiline distribution integrated in Python/Rust; SFLE and PSX CI passed** |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
 | F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
@@ -1006,3 +1006,6 @@ Both resolved-input implementations now have a pure `align-content` line-distrib
 **Important:** line-level `align-content: stretch` grows the flex **line** cross size only, not the item border box. `align-items: stretch` and `align-self: stretch` still require separate CSS automatic cross-size/min-max constraints and remain capability gated, as does baseline measurement. Full browser conformance awaits the previously agreed post-F2.2.3 Playwright/Chromium headless CI checkpoint and later F2.3.
 
 New Python tests: `tests/sfle/test_align_content.py`; Rust module and integrated layout unit tests are included. The F2.2.3 subblock remains open for item stretching and baseline.
+
+
+**Align-content CI checkpoint:** initial code set failed Rust compilation because the new wrapper was inserted at the incorrect level of the retained API wrapper hierarchy. This was corrected in code commit `d7cef816`, preserving the old entry points. On that commit, SFLE run `38066310555` passed Rust plus Python 3.10–3.13, and PSX alpha run `38066310554` passed Python 3.10–3.13, PySide6 offscreen and the distribution build. This confirms the new scoped tests, not browser parity.
