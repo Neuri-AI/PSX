@@ -4,6 +4,10 @@
 > **Canonical frozen architectural contracts:** [F1.6/F1.7 box model and percentages](sfle-f1-box-model.md).
 > This document retains earlier alternatives for traceability; where it differs,
 > the ratified contract takes precedence.
+> **D-F1.10 supersession:** Row and Column are removed from the target public
+> API entirely, without aliases or compatibility. Any legacy Row/Column
+> suggestions below are historical only and must not be implemented. See
+> [final F1 architecture](sfle-f1-final-architecture.md).
 > **No runtime implementation or public API change in this document.**
 >
 > Parent design record: [SFLE F1 contracts](sfle-f1-contracts.md).
@@ -268,7 +272,7 @@ Current PSX component contracts include strict type requirements for certain
 `width`/`height` props and dedicated layout-related props such as
 `Column.align`, `Row.expand`, `Scroll.spacing`, and `Scroll.padding`.
 
-**Proposed safe compatibility policy:**
+**Historical design proposal (superseded by D-F1.10 for Row/Column):**
 
 1. Keep existing component-owned props semantically unchanged outside SFLE.
 2. Introduce shared `flex_*`, `align_self`, and `order` as metadata with
@@ -279,8 +283,9 @@ Current PSX component contracts include strict type requirements for certain
 4. Use the parent's measured *outer box* for layout and the child's native
    preferred dimensions as its intrinsic content. Do not silently equate
    `Scroll.height` viewport semantics with arbitrary Flex item sizing.
-5. Nested `Row`/`Column` preserve their own internal placement logic
-   until explicitly migrated to SFLE.
+5. **Superseded:** the earlier proposal to preserve Row/Column native
+   placement is withdrawn. D-F1.10 requires eliminating these components
+   from the public API and removing their redundant layout algorithms.
 
 ## 4. Rust and conformance implications
 
