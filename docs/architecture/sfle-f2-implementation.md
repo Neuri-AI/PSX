@@ -25,7 +25,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
 | **F2.2.2** | **Percentage cycles, box sizing and sizing-edge contracts** | **Scoped resolved-input implementation complete; context-dependent cases explicitly deferred to F2.2.4** |
-| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: justify-content, align-items/align-self, and align-content multiline distribution integrated in Python/Rust; SFLE and PSX CI passed** |
+| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: justify-content, align-items/align-self, align-content and explicit auto cross stretch in Python/Rust; CI pending** |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
 | F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
@@ -1009,3 +1009,12 @@ New Python tests: `tests/sfle/test_align_content.py`; Rust module and integrated
 
 
 **Align-content CI checkpoint:** initial code set failed Rust compilation because the new wrapper was inserted at the incorrect level of the retained API wrapper hierarchy. This was corrected in code commit `d7cef816`, preserving the old entry points. On that commit, SFLE run `38066310555` passed Rust plus Python 3.10–3.13, and PSX alpha run `38066310554` passed Python 3.10–3.13, PySide6 offscreen and the distribution build. This confirms the new scoped tests, not browser parity.
+
+
+## F2.2.3 — Explicit auto cross-axis item stretch
+
+The pure `psx/sfle/cross_stretch.py` and `rust/sfle-core/src/cross_stretch.rs` implementations now calculate used content and border cross sizes from an established line cross size, definite padding/border, signed fixed cross margins, and explicitly supplied definite min/max content bounds. A conflicting minimum overrides maximum; fixed border/padding cannot shrink to negative sizes. Both resolved Flex pipelines consume the helper, with per-item `cross_size_auto`, `min_cross_content_size`, and `max_cross_content_size` contracts. These preserve the old default semantics (`cross_size_auto=false`) for callers not yet passing size definiteness.
+
+Stretch is selected only by inherited `align-items: stretch` or per-item `align-self: stretch` **and** an explicitly automatic cross size with both cross margins fixed. Auto cross margins suppress stretching and take their existing margin-positioning precedence. For definite item cross sizes, stretch behaves as start alignment without modifying content. The sizing result is reflected in border, padding and content rectangles, also for RTL column layout and lines expanded by `align-content: stretch`.
+
+**Limitations:** the automatic cross-size flag and min/max values must already be correctly normalized from CSS; native measurement, aspect-ratio transfer, width-sensitive intrinsic remeasurement and baseline groups remain deferred. Passing the scoped tests does not imply Chromium conformance or public engine integration. No public Flex capability is unlocked.
