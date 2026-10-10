@@ -149,3 +149,42 @@ def test_resolved_border_rectangles_match_chromium(case: Case, chromium_page):
             assert getattr(box.border, field) == pytest.approx(
                 browser_box[field], abs=0.05,
             ), f"{case.name}: {box.node_id}.{field}: SFLE vs Chromium"
+
+
+def test_nested_resolved_flex_boxes_match_chromium(chromium_page):
+    """First true nested reference geometry check, limited to zero-edge boxes."""
+    from psx.sfle.resolved_tree import ResolvedTreeNode, compute_resolved_tree
+
+    def basis(value: float) -> FlexBasis:
+        return FlexBasis(value, value, grow=0, shrink=0, min_size=0)
+
+    nodes = (
+        ResolvedTreeNode("root", None, 200, 80, main_gap=10),
+        ResolvedTreeNode("a", "root", 40, 20, basis(40)),
+        ResolvedTreeNode("b", "root", 100, 40, basis(100)),
+        ResolvedTreeNode("c", "b", 30, 10, basis(30)),
+    )
+    chromium_page.set_content(
+        '<!doctype html><html><body style="margin:0">'
+        '<div id="root" style="display:flex;width:200px;height:80px;'
+        'gap:10px;align-items:flex-start">'
+        '<div id="a" style="flex:0 0 40px;width:40px;height:20px;min-width:0"></div>'
+        '<div id="b" style="display:flex;flex:0 0 100px;width:100px;height:40px;'
+        'align-items:flex-start;min-width:0">'
+        '<div id="c" style="flex:0 0 30px;width:30px;height:10px;min-width:0"></div>'
+        '</div></div></body></html>'
+    )
+    actual = chromium_page.evaluate("""() => {
+      const result = {};
+      for (const id of ['root', 'a', 'b', 'c']) {
+        const rect = document.getElementById(id).getBoundingClientRect();
+        result[id] = {x:rect.x,y:rect.y,width:rect.width,height:rect.height};
+      }
+      return result;
+    }""")
+    expected = compute_resolved_tree(nodes, generation=8)
+    for node_id, box in expected.boxes:
+        for axis in ("x", "y", "width", "height"):
+            assert getattr(box.border, axis) == pytest.approx(
+                actual[node_id][axis], abs=0.05,
+            ), f"nested {node_id}.{axis}: SFLE vs Chromium"
