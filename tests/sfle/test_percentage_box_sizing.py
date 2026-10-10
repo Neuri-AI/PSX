@@ -8,7 +8,7 @@ from psx.sfle.errors import DiagnosticCode, SFLECapabilityError
 from psx.sfle.lengths import Length, LengthKind
 from psx.sfle.model import AvailableSize
 from psx.sfle.percentage_box_sizing import (
-    BoxSizing, GapPhase, normalize_box_size, resolve_percentage_gap,
+    BoxSizing, GapPhase, normalize_box_size, normalize_flex_box_basis, resolve_percentage_gap,
 )
 
 
@@ -76,3 +76,63 @@ def test_negative_gap_and_invalid_keyword_rejected():
         )
     with pytest.raises(ValueError):
         normalize_box_size(5, -2, BoxSizing.BORDER_BOX)
+
+
+def test_border_box_flex_constraints_normalized_to_content_units():
+    result = normalize_flex_box_basis(
+        100, 30, BoxSizing.BORDER_BOX, min_size=80, max_size=90, grow=1
+    )
+    assert result.basis == 70
+    assert result.min_size == 50
+    assert result.max_size == 60
+    assert result.hypothetical == 60
+
+
+def test_content_box_flex_constraints_keep_specified_sizes():
+    result = normalize_flex_box_basis(
+        100, 30, BoxSizing.CONTENT_BOX, min_size=80, max_size=90
+    )
+    assert (result.basis, result.min_size, result.max_size, result.hypothetical) == (
+        100, 80, 90, 90
+    )
+
+
+def test_minimum_wins_when_maximum_is_smaller():
+    result = normalize_flex_box_basis(
+        100, 30, BoxSizing.BORDER_BOX, min_size=90, max_size=50
+    )
+    assert (result.min_size, result.max_size, result.hypothetical) == (60, 60, 60)
+
+
+def test_border_box_fixed_edges_never_produce_negative_content():
+    result = normalize_flex_box_basis(
+        10, 20, BoxSizing.BORDER_BOX, min_size=0, max_size=10
+    )
+    assert (result.basis, result.min_size, result.max_size) == (0, 0, 0)
+
+
+def test_box_sizing_rejects_bad_constraints():
+    with pytest.raises(ValueError):
+        normalize_flex_box_basis(-1, 10, BoxSizing.BORDER_BOX)
+    with pytest.raises(ValueError):
+        normalize_flex_box_basis(10, 2, BoxSizing.BORDER_BOX, max_size=-1)
+
+
+def test_normalized_flex_basis_feeds_signed_margin_pipeline():
+    from psx.sfle.box_geometry import UsedBoxEdges, UsedEdges
+    from psx.sfle.main_margins import UsedMargin
+    from psx.sfle.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
+
+    flex = normalize_flex_box_basis(
+        100, 30, BoxSizing.BORDER_BOX, min_size=80, max_size=90
+    )
+    result = compute_margin_flex_layout(
+        (MarginFlexItem(
+            node_id="a", flex=flex, cross_content_size=10,
+            edges=UsedBoxEdges(padding=UsedEdges(left=15, right=15)),
+            main_start=UsedMargin(0), main_end=UsedMargin(0),
+        ),),
+        width=200, height=40,
+    )
+    assert result.boxes[0].content.width == 60
+    assert result.boxes[0].border.width == 90
