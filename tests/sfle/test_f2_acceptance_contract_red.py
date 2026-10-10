@@ -38,7 +38,7 @@ def snapshot(spec, *, width=120, height=None, direction=WritingDirection.LTR):
 
 
 def boxes(result):
-    return {b.node_id: b for b in result.boxes}
+    return dict(result.boxes)
 
 
 def test_A02_auto_parent_and_auto_flex_basis_use_intrinsic_content():
