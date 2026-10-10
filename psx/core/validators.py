@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import re
+from urllib.parse import urlsplit
 from collections.abc import Mapping
 from .errors import RendererCapabilityError
 from .contracts import (
@@ -32,6 +33,8 @@ from .contracts import (
     SELECT_DEFAULTS,
     SWITCH_PROPS,
     SWITCH_DEFAULTS,
+    LINK_PROPS,
+    LINK_DEFAULTS,
 )
 
 _VALID_ALIGN = frozenset({"start", "center", "end", "stretch"})
@@ -549,3 +552,44 @@ def validate_switch_props(props: Mapping[str, object]) -> None:
     callback = props.get("on_change", SWITCH_DEFAULTS["on_change"])
     if callback is not None and not callable(callback):
         raise RendererCapabilityError("Switch.on_change must be callable or None.")
+
+
+def validate_link_props(props: Mapping[str, object]) -> None:
+    """Require exactly one navigation mechanism at a time."""
+    unknown = set(props) - LINK_PROPS - {"ref", "key"}
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported Link props: {', '.join(sorted(unknown))}"
+        )
+
+    label = props.get("label", LINK_DEFAULTS["label"])
+    if not isinstance(label, str):
+        raise RendererCapabilityError("Link.label must be a str.")
+
+    href = props.get("href", LINK_DEFAULTS["href"])
+    callback = props.get("on_click", LINK_DEFAULTS["on_click"])
+    if href is not None:
+        if not isinstance(href, str) or not href.strip():
+            raise RendererCapabilityError("Link.href must be a nonempty URL string or None.")
+        try:
+            parsed = urlsplit(href)
+            valid = parsed.scheme.lower() in ("http", "https") and bool(parsed.hostname)
+        except ValueError:
+            valid = False
+        if not valid:
+            raise RendererCapabilityError(
+                "Link.href must be an absolute http:// or https:// URL."
+            )
+    if callback is not None and not callable(callback):
+        raise RendererCapabilityError("Link.on_click must be callable or None.")
+    if href is not None and callback is not None:
+        raise RendererCapabilityError("Link.href and Link.on_click are mutually exclusive.")
+
+    color = props.get("color", LINK_DEFAULTS["color"])
+    if color is not None and (
+        not isinstance(color, str) or _HEX_COLOR_RE.fullmatch(color) is None
+    ):
+        raise RendererCapabilityError("Link.color must be a #RRGGBB string or None.")
+    for name in ("underline", "enabled"):
+        if not isinstance(props.get(name, LINK_DEFAULTS[name]), bool):
+            raise RendererCapabilityError(f"Link.{name} must be a bool.")
