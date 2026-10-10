@@ -58,6 +58,44 @@ pub fn normalize_box_size(
     })
 }
 
+
+#[allow(clippy::too_many_arguments)]
+pub fn normalize_flex_box_basis(
+    basis: f64,
+    padding_border: f64,
+    sizing: BoxSizing,
+    min_size: f64,
+    max_size: Option<f64>,
+    grow: f64,
+    shrink: f64,
+) -> Result<crate::FlexBasis, FlexMathError> {
+    let used_basis = normalize_box_size(basis, padding_border, sizing)?.content;
+    let used_minimum = normalize_box_size(min_size, padding_border, sizing)?.content;
+    let mut used_maximum = match max_size {
+        Some(value) => Some(normalize_box_size(value, padding_border, sizing)?.content),
+        None => None,
+    };
+    if let Some(maximum) = used_maximum {
+        if maximum < used_minimum {
+            used_maximum = Some(used_minimum);
+        }
+    }
+    let hypothetical = used_maximum.map_or(
+        used_basis.max(used_minimum),
+        |maximum| used_basis.max(used_minimum).min(maximum),
+    );
+    let result = crate::FlexBasis {
+        basis: used_basis,
+        hypothetical,
+        grow,
+        shrink,
+        min_size: used_minimum,
+        max_size: used_maximum,
+    };
+    result.validate()?;
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -88,4 +126,34 @@ mod tests {
         assert_eq!(normalize_box_size(10.0, 20.0, BoxSizing::ContentBox).unwrap(),
             UsedBoxSize { content: 10.0, border_box: 30.0, padding_border: 20.0 });
     }
+    #[test]
+    fn border_box_flex_min_max_are_converted_to_content_units() {
+        let basis = normalize_flex_box_basis(
+            100.0, 30.0, BoxSizing::BorderBox, 80.0, Some(90.0), 1.0, 1.0,
+        ).unwrap();
+        assert_eq!(basis.basis, 70.0);
+        assert_eq!(basis.min_size, 50.0);
+        assert_eq!(basis.max_size, Some(60.0));
+        assert_eq!(basis.hypothetical, 60.0);
+    }
+
+    #[test]
+    fn css_min_wins_when_definite_max_is_smaller() {
+        let basis = normalize_flex_box_basis(
+            100.0, 30.0, BoxSizing::BorderBox, 90.0, Some(50.0), 0.0, 1.0,
+        ).unwrap();
+        assert_eq!(basis.min_size, 60.0);
+        assert_eq!(basis.max_size, Some(60.0));
+        assert_eq!(basis.hypothetical, 60.0);
+    }
+
+    #[test]
+    fn border_box_fixed_edges_are_an_implicit_floor() {
+        let basis = normalize_flex_box_basis(
+            10.0, 20.0, BoxSizing::BorderBox, 0.0, Some(10.0), 0.0, 1.0,
+        ).unwrap();
+        assert_eq!(basis.basis, 0.0);
+        assert_eq!(basis.max_size, Some(0.0));
+    }
+
 }
