@@ -3,7 +3,6 @@
 from psx.core.contracts import ROW_DEFAULTS, validate_row_props
 from psx.core.errors import RendererCapabilityError
 from psx.renderers.components.row import child_align, child_expand, normalize_padding, updated_row_props
-from qyro_cli import container
 
 
 class QtRowAdapter:
