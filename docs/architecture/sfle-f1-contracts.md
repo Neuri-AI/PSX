@@ -1,17 +1,18 @@
 # SFLE F1 — Portable Flexbox contracts and decision record
 
 > **Status:** F1 design specification. No runtime implementation.
-> **Approved:** D-F1.1–D-F1.5 (2026-10-10).
-> **Open:** D-F1.6–D-F1.12 and F1-RUST. Proposed defaults below are not
-> approved until the open decisions are resolved.
+> **Approved:** D-F1.1–D-F1.7 at architectural-contract level (2026-10-10).
+> **Open:** D-F1.8–D-F1.12 and F1-RUST. Remaining defaults/implementation
+> capability gates require approval as noted in the canonical contract.
 >
 > Architecture: [SFLE](sfle.md). Reference semantics:
 > [CSS Flexible Box Layout Level 1](https://www.w3.org/TR/css-flexbox-1/).
 
-**Detailed proposals:** [D-F1.6 shared props + D-F1.7 typed lengths](sfle-f1-props-lengths.md).
-The approved direction is recorded here; component-boundary behavior, width/height
-collisions, length grammar, and percentage/box-model details remain subject to
-explicit approval before these contracts are frozen.
+**Ratified canonical contract:** [D-F1.6/D-F1.7 — box model and percentages](sfle-f1-box-model.md).
+**Earlier design discussion:** [Shared props and typed lengths](sfle-f1-props-lengths.md).
+The canonical contract governs function-component roots, the namespaced
+layout_width/layout_height sizing API, typed CSS-like lengths, box sizing,
+margin/padding/border edges and deferred percentage resolution.
 
 ## 1. Approved decision record
 
@@ -22,12 +23,14 @@ explicit approval before these contracts are frozen.
 | D-F1.3 | Incremental implementation with progressive CSS conformance | Every unsupported normative feature is reported, not silently simulated |
 | D-F1.4 | Native measurement on renderer UI thread; pure layout calculation | SFLE cannot call a GUI widget from the pure computation phase |
 | D-F1.5 | Strict geometry comparison plus backend-specific tolerances | Browser reference rectangles and line formation are authoritative geometry targets |
+| D-F1.6 | Shared closed resolver and context-dependent item metadata | Single-root function components; validated metadata inert outside Flex |
+| D-F1.7 | Namespaced dimensions and typed CSS box model | layout_width/layout_height; immutable lengths and property-specific percentages |
 
 **Primary invariant:** Given equivalent measured intrinsic sizes, definite
 constraints and styles, SFLE must calculate the same flex geometry regardless
 of the renderer. Pixel-identical native widget appearance is not a requirement.
 
-## 2. Public component contract — `Flex` (proposed frozen surface)
+## 2. Public component contract — `Flex` (target API, implementation pending)
 
 - **Node:** portable layout host, `NodeKind.HOST`.
 - **Children:** `multiple`; supports zero or more ordinary PSX VNodes,
@@ -86,6 +89,11 @@ new event contract for these properties. Flex item metadata must be retained
 when an item is a function-component boundary: the final mounted host/layout
 root's measurement should represent that component without changing the
 component's hook boundaries or generating new keys.
+
+**Ratified D-F1.7:** on existing components, use namespaced `layout_width`,
+`layout_height`, `layout_min_*`, `layout_max_*` rather than reusing native
+`width`/`height`. See [canonical contract](sfle-f1-box-model.md). The public
+`Flex` container retains its own container sizing props.
 
 **Critical compatibility constraint:** existing validators use closed
 `*_PROPS` sets (for example `Text`, `Button`, `Column`, `Scroll`).
@@ -252,8 +260,8 @@ flowchart TD
 
 | ID | Topic | Recommended resolution | Why not yet frozen |
 | --- | --- | --- | --- |
-| D-F1.6 | Parent-independent child metadata validation | Accept recognized flex metadata on portable children; apply only under a Flex parent, preserve in other contexts | Requires exact contract integration strategy and handling function components |
-| D-F1.7 | Lengths and box model | CSS-like `auto`, lengths in logical px, percentage only for definite containers; specify `box_sizing`, margins/borders and sizing keywords | Needed for browser-fidelity sizing and compatibility with existing `width`/`height` |
+| D-F1.6 | **Approved** — closed resolver; direct Flex context only | Single-root functional components; validated/inert outside Flex | Canonical contract: [box model and props](sfle-f1-box-model.md) |
+| D-F1.7 | **Approved** — namespaced dimensions + typed CSS lengths | Property-specific percentage resolution and CSS box model | Canonical contract: [box model and percentages](sfle-f1-box-model.md) |
 | D-F1.8 | Direction and writing modes | v1 horizontal writing mode, LTR; separate CSS writing-direction scope from row/column direction; document expansion plan | Flexbox start/end behavior depends on writing mode |
 | D-F1.9 | Unsupported CSS features | Closed feature-gated validation: reject unsupported combinations or emit explicit diagnostics, never silently approximate | Progressive fidelity requirement |
 | D-F1.10 | Existing `Row`/`Column`/`Scroll` interoperability | Keep current semantics unchanged; only a new Flex formatting context invokes SFLE; child layout metadata is independent | Prevent breaks to stable existing components |
@@ -263,7 +271,7 @@ flowchart TD
 
 ## 7. Completion criteria for F1 (no runtime coding)
 
-- Approve D-F1.6–D-F1.12 and F1-RUST.
+- D-F1.6 and D-F1.7 ratified; approve D-F1.8–D-F1.12 and F1-RUST.
 - Freeze container/item property names and defaults against CSS reference.
 - Freeze parent-aware validation and `Row`/`Column`/`Scroll` interoperability.
 - Freeze definite/indefinite measurement protocol, geometry and lifecycle.
