@@ -20,12 +20,19 @@ class KivyLinkAdapter:
         widget = Button(
             size_hint=(None, None), background_normal="",
             background_down="", background_color=(0, 0, 0, 0),
-            markup=True, halign="left",
+            markup=True, halign="left", valign="middle",
         )
         widget._psx_link_props = props
+        # Column defaults to horizontal stretch. Kivy Button normally centers
+        # its texture, so anchor text within its *allocated* width instead.
+        widget.bind(size=self._sync_text_area)
         widget.bind(on_release=lambda *_: activate_link(widget._psx_link_props))
         self._apply(widget, props)
         return KivyHandle("Link", widget, props)
+
+    @staticmethod
+    def _sync_text_area(widget, *_args):
+        widget.text_size = (widget.width, widget.height)
 
     @staticmethod
     def _apply(widget, props):
@@ -36,8 +43,11 @@ class KivyLinkAdapter:
         text = _escape_markup(props["label"])
         widget.text = f"[u]{text}[/u]" if props["underline"] else text
         widget.disabled = not props["enabled"]
+        # Measure natural text before setting the allotted text rectangle.
+        widget.text_size = (None, None)
         widget.texture_update()
         widget.size = (max(1, widget.texture_size[0] + 4), max(24, widget.texture_size[1] + 4))
+        widget.text_size = (widget.width, widget.height)
 
     def update(self, renderer, handle, changed, removed):
         props = updated_link_props(handle.props, changed, removed)
