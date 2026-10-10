@@ -126,15 +126,22 @@ pub fn plan_measurements(
     }
     let mut requests = Vec::new();
     let mut reusable = Vec::new();
+    let mut dirty_ancestors: HashSet<String> = HashSet::new();
     for node in nodes.iter().rev() {
         let requested = *constraints.get(&node.id).expect("complete constraints");
         let revision = *versions.get(node.id.as_str()).unwrap_or(&0);
         match old.get(node.id.as_str()) {
-            Some(cached) if cached.constraints == requested && cached.revision == revision =>
+            Some(cached) if !dirty_ancestors.contains(&node.id)
+                && cached.constraints == requested && cached.revision == revision =>
                 reusable.push((*cached).clone()),
-            _ => requests.push(MeasurementRequest {
-                node_id: node.id.clone(), constraints: requested, generation, revision,
-            }),
+            _ => {
+                requests.push(MeasurementRequest {
+                    node_id: node.id.clone(), constraints: requested, generation, revision,
+                });
+                if let Some(parent) = &node.parent {
+                    dirty_ancestors.insert(parent.clone());
+                }
+            }
         }
     }
     Ok(MeasurementPlan { generation, requests, reusable })
