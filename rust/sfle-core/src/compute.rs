@@ -100,5 +100,11 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
             return Err(invalid("Expected a single parent-first tree."));
         }
     }
-    crate::compute_layout::compute_normalized(input)
+    crate::compute_layout::compute_normalized(input,false)
 }
+
+/// Noncommittable provisional geometry for width-dependent text measurement.
+pub fn compute_provisional(input:&LayoutInput)->Result<LayoutResult,ComputeError>{
+    crate::compute_layout::compute_normalized(input,true)
+}
+
