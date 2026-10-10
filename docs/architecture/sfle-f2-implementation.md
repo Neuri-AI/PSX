@@ -1337,3 +1337,30 @@ auto sizing, cyclic percentages, aspect-ratio transfers, more elaborate
 alignment effects, real native widget measurements and integrated
 Rust/Python differential parity still gate the closure of F2.2.4.6–8.
 The scoped tracker therefore remains at 5/8 pending those acceptance tests.
+
+
+## F2.2.4 — Integrated recursive measurement convergence increment
+
+`psx/sfle/recursive_pipeline.py` now composes the established measurement
+planner, the measured intrinsic leaf input preparation, the flat Flex
+distribution inside recursive `margin_tree`, the restricted bottom-up auto
+cross-size solver, and a repeat measurement pass using the *allocated*
+content-box dimensions. The geometry is recomputed after changed intrinsic
+metrics, with a bounded iteration limit and oscillation rejection. The native
+lifecycle entry point can invoke this integrated computation for intrinsic
+leaves and auto-cross contexts, and continues to reject stale generations
+or incomplete final sizing before native commit.
+
+`tests/sfle/test_recursive_pipeline.py` tests width-sensitive intrinsic
+remeasurement and that lifecycle commits only the geometry computed from
+the accepted final intrinsic metrics. No CSS auto values are silently
+coerced to zero in the public length resolver; the restricted content
+measurement input is explicitly staged.
+
+**Scope gate:** this does not claim the generic CSS algorithm is complete.
+Parent main-axis auto intrinsic sizing, wrapping auto containers,
+orthogonal cyclic percentage handling, aspect transfers, full toolkit
+scheduler wiring, and Rust parity of the *integrated* pipeline remain
+separate outstanding acceptance obligations. In particular, the Python
+orchestration still uses Python pure kernels; it is not the Rust-primary
+extension planned in F2.2.5.
