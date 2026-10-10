@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization plus standalone cross-axis AUTO/signed margin kernels; cross-margin scoped CI passed** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization and main/cross AUTO/signed margins integrated in restricted Flex pipeline; CI pending** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -824,3 +824,38 @@ remains scheduled after F2.2.3.
 **CI:** for code commit `416a769c`, SFLE workflow `38062168357`
 passed Rust and Python 3.10–3.13. The general PSX workflow
 `38062168348` is tracked separately.
+
+## 19. F2.2.2 — Cross margins integrated into resolved Flex layout
+
+Both the Python and Rust `margin_flex_pipeline` now accept separate,
+explicit `cross_start` and `cross_end` margin values. The existing
+`main_start`/`main_end` contract is preserved. All four margin values
+are typed and signed, with `None` denoting AUTO.
+
+The line-cross calculation uses the definite inner container cross size
+for a single `nowrap` line. Wrapped lines take the largest nonnegative
+outer cross contribution of their line items, counting AUTO margins as
+zero and retaining fixed signed margins. The existing cross-line
+placement supplies line origins; the shared cross-margin kernel places
+each border rectangle *within* its line. Outputs now record both used
+main and used cross margin values. Matching implementations exist in
+Python and Rust with focused tests for nowrap centering, overflow,
+signed wrapped-line margins, wrap-reverse and column RTL.
+
+~~~mermaid
+flowchart TD
+    A["Ordered flex lines + resolved item cross sizes"] --> B{"nowrap?"}
+    B -->|Yes| C["Line cross size = definite container cross size"]
+    B -->|No| D["Line cross size = max fixed outer contribution"]
+    C --> E["Resolve AUTO and signed cross margins"]
+    D --> E
+    E --> F["Combine physical line origin with cross border offset"]
+    F --> G["Border / padding / content rectangles"]
+~~~
+
+**Outstanding:** CSS align-items/align-self/align-content, stretch,
+baseline, size remeasurement under width constraints, and general
+cyclic/intrinsic percentage support. This restricted resolved-layout
+pipeline does **not** enable engine capabilities. The early Chromium
+Playwright fixture CI checkpoint remains planned immediately after F2.2.3,
+without requiring a local browser.
