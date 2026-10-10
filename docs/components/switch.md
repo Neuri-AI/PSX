@@ -16,13 +16,15 @@ Kivy, Tkinter and Headless.
 | `checked` | `bool` | `False` |
 | `enabled` | `bool` | `True` |
 | `label` | `str` | `""` |
-| `size` | `"small" \| "medium" \| "large"` |
+| `size` | `"small" \| "medium" \| "large"` | `"medium"` |
 | `color` | `#RRGGBB` | `"#16A34A"` |
 | `on_change` | `Callable[[bool], None] \| None` | `None` |
 | `key`, `ref` | runtime identity/reference | `None` |
 
-Physical track dimensions are `68×40`, `88×52` and `112×64` logical pixels for
-small, medium and large. Labels appear on the **right** of the track and are part of
+Qt and Tkinter use track dimensions of `34×20`, `44×26` and `56×32` logical
+pixels for small, medium and large. Kivy currently scales those track
+dimensions by 2× (`68×40`, `88×52`, `112×64`) to suit its layout and touch
+interaction. Labels appear on the **right** of the track and are part of
 the native widget, not PSX child VNodes.
 
 ## Developer experience
