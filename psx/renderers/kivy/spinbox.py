@@ -12,6 +12,23 @@ from psx.renderers.components.spinbox import (
 )
 
 
+class _SpinBoxInput(TextInput):
+    """TextInput handling arrows and wheel only while keyboard-focused."""
+
+    def keyboard_on_key_down(self, window, keycode, text, modifiers):
+        if self.focus and keycode[1] in ("up", "down"):
+            self._psx_step(1 if keycode[1] == "up" else -1)
+            return True
+        return super().keyboard_on_key_down(window, keycode, text, modifiers)
+
+    def on_touch_down(self, touch):
+        if self.focus and self.collide_point(*touch.pos):
+            if touch.button in ("scrollup", "scrolldown"):
+                self._psx_step(1 if touch.button == "scrollup" else -1)
+                return True
+        return super().on_touch_down(touch)
+
+
 class KivySpinBoxAdapter:
     def create(self, renderer, node, parent):
         from psx.renderers.kivy.kivy import KivyHandle
@@ -19,7 +36,7 @@ class KivySpinBoxAdapter:
         props = spinbox_props(node.props)
         frame = BoxLayout(orientation="horizontal", spacing=0, size_hint=(None, None))
         minus = Button(text="−", size_hint=(None, None), width=48, height=48)
-        entry = TextInput(
+        entry = _SpinBoxInput(
             multiline=False, halign="center", size_hint=(None, None),
             width=120, height=48, write_tab=False,
         )
@@ -39,7 +56,7 @@ class KivySpinBoxAdapter:
         entry.bind(text=lambda *_: self._mark_dirty(frame))
         entry.bind(on_text_validate=lambda *_: self._commit(frame))
         entry.bind(focus=lambda _input, focused: self._on_focus(frame, focused))
-        entry.bind(on_touch_down=lambda _, touch: False)
+        entry._psx_step = lambda direction: self._increment(frame, direction)
         self._apply(frame, props, sync_text=True)
         return KivyHandle("SpinBox", frame, props)
 
@@ -75,9 +92,11 @@ class KivySpinBoxAdapter:
     def _increment(self, frame, direction):
         if not frame._psx_props["enabled"]:
             return
-        self._commit(frame)
         props = frame._psx_props
-        value = stepped(normalized(props["value"], props), direction, props)
+        entry = frame._psx_parts[1]
+        base = committed(entry.text, props) if frame._psx_dirty else normalized(props["value"], props)
+        frame._psx_dirty = False
+        value = stepped(base, direction, props)
         self._emit(frame, value)
 
     @staticmethod
