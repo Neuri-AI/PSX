@@ -1177,3 +1177,31 @@ they are not silently treated as resolved or made definite by intrinsic
 preferred sizes. F2.2.4.7 must still integrate actual Qt/Kivy/Tkinter
 UI-thread adapters; F2.2.4.8 must expand parity and integration coverage.
 **Do not enable public Flex or begin F2.2.5 on this subblock's acceptance alone.**
+
+
+## F2.2.4.6 — Edge-aware nested resolved Flex geometry increment
+
+Python `psx/sfle/edge_tree.py` and Rust `rust/sfle-core/src/edge_tree.rs`
+now run the corresponding existing edge-aware Flex kernel once for each
+preorder container, translating child border/padding/content geometry by the
+**parent content-box origin**, not the parent's border origin. Parent Flex
+grow/shrink allocation becomes the definite inner containing box used by
+its descendants. Input zero-margin, resolved-content widths/heights,
+resolved FlexBasis, positive padding/borders, nested RTL/direction/wrap
+and fixed gaps are supported in this restricted integrated path.
+
+Tests: `tests/sfle/test_edge_tree.py`, Rust `edge_tree.rs` module tests,
+and the new nested real Chromium fixture
+`test_nested_padding_border_content_origins_match_chromium` in
+`tests/browser/test_sfle_chromium.py`. Commit `c79eb49a` passed all five
+PR/push validation runs (SFLE core, PSX alpha, browser checkpoint).
+The full browser test suite now includes eight cases.
+
+**F2.2.4.6 is still in progress, not accepted complete.** The current
+edge-tree path explicitly rejects nonzero margins and requires resolved
+sizing; it does not support full intrinsic/automatic sizing, percentage
+dependency cycles, automatic cross sizes, baselines, or all
+align-content/align-items/justify-content semantics across nested contexts.
+Those are architectural acceptance requirements, and passing the restricted
+fixtures is not a full CSS Flexbox conformity claim. Progress remains
+F2.2.4 **5/8 completed (62.5%)**.
