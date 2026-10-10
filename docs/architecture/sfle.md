@@ -7,6 +7,9 @@
 > **Canonical F1 closure record:** [Final architecture and implementation gate](sfle-f1-final-architecture.md).
 > **Normative F1.6/F1.7 contract:** [CSS box model and percentages](sfle-f1-box-model.md).
 > Approved D-F1.1 uses `Flex` plus flex properties on existing children, **not** a required `FlexItem` wrapper.
+> **Corrected D-F1.10:** remove `Row` and `Column` entirely from the target
+> public API (no alias, wrapper, or backwards-compatibility layer). `Flex`
+> is the only public Flexbox distribution primitive. `Scroll` remains separate.
 > This document is a design and documentation baseline, not an assertion that
 > the current PSX runtime already supports these behaviors.
 
@@ -33,11 +36,13 @@ reference implementation for comparison fixtures.
 
 Reference: https://www.w3.org/TR/css-flexbox-1/
 
-The earlier exploratory references to a `FlexItem` wrapper or unprefixed
-child sizing names are superseded by the ratified design: **flex item props
-live directly on existing components**, and child CSS sizing uses the
-`layout_width` / `layout_height` namespace. Function components require
-one effective rendered root in the initial release.
+Earlier exploratory references to a `FlexItem` wrapper or unprefixed child
+sizing names are superseded: **flex item props live directly on supported
+existing components**, and child CSS sizing uses the `layout_width` /
+`layout_height` namespace. Function components require one effective root
+initially. Existing `Row`/`Column` runtime components are slated for complete
+public-API removal during F2/F3; they must not be retained as aliases or
+translated into SFLE for compatibility.
 
 ### 1.1 Goals
 
@@ -529,10 +534,13 @@ sections of this file and later split):
   backend-specific tolerances; numeric thresholds remain D-F1.11.
 - **Approved D-F1.8:** horizontal LTR and RTL from F2; vertical writing
   modes remain deferred.
-- **Approved D-F1.10:** SFLE replaces all portable layout math. Row/Column
-  keep their public API, while Scroll retains native viewport/input/offset;
-  none keeps an independent layout algorithm. Flex-only metadata remains
-  inactive outside actual Flex formatting contexts.
+- **Approved D-F1.10 (corrected):** `Row`/`Column` are fully removed from
+  the public API during authorized implementation, with no aliases, wrappers
+  or compatibility translation. `Flex` is the sole public Flexbox layout
+  component for row/column and reverse variants. SFLE is the sole layout
+  calculation authority. `Scroll` keeps a separate native viewport, clipping,
+  wheel/input/events and offset contract; content interoperates with SFLE
+  through an explicit layout boundary without implicit Flex semantics.
 - **Approved D-F1.11:** 0.01 logical px pure, 1.0 px native, calibrable;
   structural line/order identity must match.
 - **Approved D-F1.12:** UI-thread measurement and selective immutable-cache
