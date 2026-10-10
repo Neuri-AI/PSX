@@ -113,5 +113,6 @@ SWITCH_DEFAULTS = MappingProxyType({
     "enabled": True,
     "label": "",
     "size": "medium",
+    "color": "#16A34A",
     "on_change": None,
 })

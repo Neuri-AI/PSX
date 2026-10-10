@@ -546,6 +546,7 @@ def Switch(
     enabled: bool = True,
     label: str = "",
     size: str = "medium",
+    color: str = "#16A34A",
     on_change: Callable[[bool], None] | None = None,
     key: Key | None = None,
     ref: object | None = None,
@@ -554,7 +555,7 @@ def Switch(
     """Controlled, animated and labeled portable toggle switch."""
     options = dict(
         checked=checked, enabled=enabled,
-        label=label, size=size, on_change=on_change, **props,
+        label=label, size=size, color=color, on_change=on_change, **props,
     )
     SWITCH_CONTRACT.validate_builder(options)
     return create_element("Switch", key=key, ref=ref, **options)

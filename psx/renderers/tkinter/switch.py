@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from psx.core.errors import RendererCapabilityError
-from psx.renderers.components.switch import SWITCH_SIZES, switch_props, updated_switch_props
+from psx.renderers.components.switch import SWITCH_SIZES, hex_rgb, switch_props, updated_switch_props
 
 
 def _blend(start: tuple[int, int, int], end: tuple[int, int, int], progress: float) -> str:
@@ -128,7 +128,8 @@ class TkSwitchAdapter:
         t = frame._psx_progress
         enabled = frame._psx_props["enabled"]
         start = (156, 163, 175) if enabled else (187, 187, 187)
-        end = (22, 163, 74) if enabled else (145, 183, 161)
+        active = hex_rgb(frame._psx_props["color"])
+        end = active if enabled else tuple(round(0.55 * channel + 0.45 * 255) for channel in active)
         track = _blend(start, end, t)
         canvas.delete("all")
         radius = height / 2

@@ -21,7 +21,7 @@ Kivy, Tkinter and Headless.
 | `key`, `ref` | runtime identity/reference | `None` |
 
 Physical track dimensions are `34×20`, `44×26` and `56×32` logical pixels for
-small, medium and large. Labels sit adjacent to the track and are part of
+small, medium and large. Labels appear on the **right** of the track and are part of
 the native widget, not PSX child VNodes.
 
 ## Developer experience
@@ -36,7 +36,8 @@ def render():
         <Column spacing={12}>
             <Switch
                 label="Enable notifications"
-                size="medium"
+                size="small"
+                color="#8B5CF6"
                 checked={notifications}
                 on_change={set_notifications}
             />
@@ -70,6 +71,8 @@ and cancelled/stopped at destruction.
 - Mount checked/unchecked with and without label.
 - Change `size` through small, medium and large.
 - Toggle with mouse and keyboard; verify exactly one boolean callback.
+- In Kivy, verify `size="small"` remains clickable and completely visible.
+- Update `color` and confirm the active track changes in Qt, Kivy and Tkinter.
 - Update controlled state in code; verify no callback and stable native identity.
 - Replace the event callback during reconciliation.
 - Disable and re-enable; confirm no user toggles while disabled.

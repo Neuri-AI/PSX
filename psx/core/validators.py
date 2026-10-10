@@ -543,6 +543,9 @@ def validate_switch_props(props: Mapping[str, object]) -> None:
         raise RendererCapabilityError(
             "Switch.size must be 'small', 'medium', or 'large'."
         )
+    color = props.get("color", SWITCH_DEFAULTS["color"])
+    if not isinstance(color, str) or _HEX_COLOR_RE.fullmatch(color) is None:
+        raise RendererCapabilityError("Switch.color must be a #RRGGBB string.")
     callback = props.get("on_change", SWITCH_DEFAULTS["on_change"])
     if callback is not None and not callable(callback):
         raise RendererCapabilityError("Switch.on_change must be callable or None.")

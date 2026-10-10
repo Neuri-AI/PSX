@@ -92,4 +92,4 @@ RADIOGROUP_PROPS = frozenset({
 })
 SELECT_PROPS = frozenset({"options", "value", "placeholder", "enabled", "on_change"})
 
-SWITCH_PROPS = frozenset({"checked", "enabled", "label", "size", "on_change"})
+SWITCH_PROPS = frozenset({"checked", "enabled", "label", "size", "color", "on_change"})
