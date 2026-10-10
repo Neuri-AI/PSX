@@ -110,6 +110,7 @@ jobs:
           python -c "from pydux import Action, Store; print('Neuri PyDux API available')"
       - name: Require Qt SFLE lifecycle tests (no skip allowed)
         run: |
+          set -o pipefail
           QT_QPA_PLATFORM=offscreen python -m pytest -q -ra tests/test_pyside6_renderer.py tests/sfle/test_qt_native_lifecycle.py
           QT_QPA_PLATFORM=offscreen python -m pytest -q -rA --override-ini 'addopts=' tests/sfle/test_qt_native_lifecycle.py | tee /tmp/sfle-qt-output.txt
           if grep -Eq '[0-9]+ skipped|SKIPPED' /tmp/sfle-qt-output.txt; then
