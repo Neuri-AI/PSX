@@ -72,6 +72,9 @@ pub struct LayoutResult {
     pub generation: u64,
     pub boxes: Vec<LayoutBox>,
     pub diagnostics: Vec<String>,
+    pub measurement_error: Option<f64>,
+    pub engine_error: Option<f64>,
+    pub geometry_commit_error: Option<f64>,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct ComputeError {
