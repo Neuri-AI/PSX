@@ -687,4 +687,54 @@ mod tests {
         assert_eq!(out.boxes[0].border.width, 100.0);
     }
 
+    #[test]
+    fn measured_baselines_align_two_different_cross_sizes() {
+        let mut a = item("a", 20.0, Some(0.0), Some(0.0));
+        a.cross_content_size = 20.0;
+        a.baseline_from_cross_start = Some(15.0);
+        a.align_self = CrossAlign::Baseline;
+        let mut b = item("b", 20.0, Some(0.0), Some(0.0));
+        b.cross_content_size = 30.0;
+        b.baseline_from_cross_start = Some(10.0);
+        b.align_self = CrossAlign::Baseline;
+        let out = compute_margin_flex_layout_aligned(
+            &[a, b], 100.0, 100.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::NoWrap, 0.0, 0.0,
+            JustifyContent::FlexStart, CrossAlign::FlexStart,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.y, 0.0);
+        assert_eq!(out.boxes[1].border.y, 5.0);
+    }
+
+    #[test]
+    fn wrapped_baseline_group_changes_line_cross_extent() {
+        let mut a = item("a", 20.0, Some(0.0), Some(0.0));
+        a.cross_content_size = 20.0;
+        a.baseline_from_cross_start = Some(15.0);
+        a.align_self = CrossAlign::Baseline;
+        let mut b = item("b", 20.0, Some(0.0), Some(0.0));
+        b.cross_content_size = 30.0;
+        b.baseline_from_cross_start = Some(10.0);
+        b.align_self = CrossAlign::Baseline;
+        let c = item("c", 80.0, Some(0.0), Some(0.0));
+        let out = compute_margin_flex_layout_content(
+            &[a,b,c], 100.0, 100.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::Wrap, 0.0, 0.0,
+            JustifyContent::FlexStart, CrossAlign::FlexStart,
+            AlignContent::FlexStart,
+        ).unwrap();
+        assert_eq!(out.lines.len(), 2);
+        assert_eq!(out.boxes[2].border.y, 35.0);
+    }
+
+    #[test]
+    fn missing_baseline_is_not_inferred_from_widget_height() {
+        let mut a = item("a", 20.0, Some(0.0), Some(0.0));
+        a.align_self = CrossAlign::Baseline;
+        assert!(compute_margin_flex_layout(
+            &[a],100.0,100.0,Direction::Row,WritingDirection::Ltr,
+            Wrap::NoWrap,0.0,0.0,
+        ).is_err());
+    }
+
 }
