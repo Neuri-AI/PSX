@@ -29,6 +29,7 @@ from .contracts import (
     SELECT_CONTRACT,
     SWITCH_CONTRACT,
     LINK_CONTRACT,
+    BADGE_CONTRACT,
     ComponentContract,
 )
 from .errors import DuplicateComponentError, UnknownComponentError
@@ -138,6 +139,7 @@ def builtin_component_registry() -> ComponentRegistry:
         Select,
         Switch,
         Link,
+        Badge,
     )
 
     registry = ComponentRegistry()
@@ -163,6 +165,7 @@ def builtin_component_registry() -> ComponentRegistry:
     registry.register("Select", Select, contract=SELECT_CONTRACT)
     registry.register("Switch", Switch, contract=SWITCH_CONTRACT)
     registry.register("Link", Link, contract=LINK_CONTRACT)
+    registry.register("Badge", Badge, contract=BADGE_CONTRACT)
     registry.register("Box", Box)
     registry.register("Native", Native)
 
