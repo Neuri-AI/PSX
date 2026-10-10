@@ -33,6 +33,7 @@ from kivy.uix.textinput import TextInput
 from kivy.uix.label import Label
 from kivy.uix.widget import Widget
 from kivy.uix.slider import Slider as KivySlider
+from kivy.uix.spinner import Spinner
 
 from psx.core.errors import RendererCapabilityError
 from psx.core.events import EventSlot
@@ -53,6 +54,7 @@ from psx.renderers.components.input import apply_kivy_input, updated_input_props
 from psx.renderers.components.textarea import apply_kivy_textarea, updated_textarea_props
 from psx.renderers.components.slider import apply_kivy_slider, updated_slider_props
 from psx.renderers.components.spacer import apply_kivy_spacer, updated_spacer_props
+from psx.renderers.components.select import apply_kivy_select, updated_select_props
 from psx.core.contracts import (
     validate_textarea_props,
     validate_input_props,
@@ -60,7 +62,8 @@ from psx.core.contracts import (
     validate_checkbox_props,
     validate_text_props,
     validate_slider_props,
-    validate_spacer_props
+    validate_spacer_props,
+    validate_select_props,
 )
 from psx.renderers.kivy.divider import KivyDividerAdapter
 
@@ -143,6 +146,17 @@ def emit_kivy_textarea(widget, slot):
             return
         slot.invoke(value)
     return _on_text
+
+
+def emit_kivy_select(widget, slot):
+    def changed(_widget, label):
+        if getattr(widget, "_psx_updating", False):
+            return
+        for item_label, value in widget._psx_items:
+            if item_label == label:
+                slot.invoke(value)
+                return
+    return changed
 
 
 def emit_kivy_slider(widget, slot):
@@ -268,6 +282,13 @@ register_primitive(
     apply=apply_kivy_slider,
     updated_props=updated_slider_props,
     events={"on_change": ("value", emit_kivy_slider)},
+)
+register_primitive(
+    "Select", factory=Spinner,
+    validate=validate_select_props,
+    apply=apply_kivy_select,
+    updated_props=updated_select_props,
+    events={"on_change": ("text", emit_kivy_select)},
 )
 register_primitive(
     "Spacer", factory=Widget,
