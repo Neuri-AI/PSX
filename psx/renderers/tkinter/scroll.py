@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import tkinter as tk
 from tkinter import ttk
 
@@ -25,6 +26,8 @@ class _ScrollFrame(ttk.Frame):
         self._psx_thumb_y = None
         self._psx_after = None
         self._psx_disposed = False
+        self._psx_scroll_remainder = {"x": 0.0, "y": 0.0}
+        self._psx_scroll_region = None
 
     def _bounds(self):
         canvas = self._psx_canvas
@@ -44,37 +47,61 @@ class _ScrollFrame(ttk.Frame):
         if not permitted:
             return None
 
-        if getattr(event, "num", None) in (4, 5):
-            delta = -40 if event.num == 4 else 40
+        if hasattr(event, "_psx_scroll_remainder"):
+            # Nested Scroll: keep the already-normalized pixel delta so each
+            # enclosing viewport consumes only what the child left over.
+            delta = event._psx_scroll_remainder
+        elif getattr(event, "num", None) in (4, 5):
+            delta = -48.0 if event.num == 4 else 48.0
         else:
             raw = getattr(event, "delta", 0)
-            delta = -40 * (raw / 120) if raw else 0
-        delta = getattr(event, "_psx_scroll_remainder", delta)
+            if not raw:
+                return None
+            # Tk/Aqua reports small trackpad deltas, unlike Win32 where 120
+            # represents a standard wheel notch. Do not divide macOS values
+            # by 120 or scrolling becomes almost imperceptible.
+            delta = -float(raw) * (8.0 if sys.platform == "darwin" else 48.0 / 120.0)
         if not delta:
             return None
+
+        axis = "x" if is_horizontal else "y"
         limit_x, limit_y = self._bounds()
         limit = limit_x if is_horizontal else limit_y
+        if limit <= 0:
+            return None
+
         offset = canvas.canvasx(0) if is_horizontal else canvas.canvasy(0)
-        new_position, remainder = consume_scroll(offset, limit, delta)
-        event._psx_scroll_remainder = remainder
-        if new_position != offset:
-            if is_horizontal and limit_x:
-                canvas.xview_moveto(new_position / max(1, self._psx_content.winfo_reqwidth()))
-            elif limit_y:
-                canvas.yview_moveto(new_position / max(1, self._psx_content.winfo_reqheight()))
-            self._show_thumbs()
-            return "break" if not remainder else None
-        # Return an unconsumed delta for the nearest containing Scroll.
-        return None
+        # Canvas scroll positions are effectively pixel-quantized; preserve
+        # fractional movements across small trackpad events.
+        requested = delta + self._psx_scroll_remainder[axis]
+        new_position, remainder = consume_scroll(offset, limit, requested)
+        if new_position == offset:
+            return None
+        quantized_position = round(new_position)
+        moved = quantized_position - offset
+        if abs(moved) < 1 and new_position not in (0, limit):
+            self._psx_scroll_remainder[axis] = requested
+            return "break"
+        self._psx_scroll_remainder[axis] = 0.0
+        total = self._psx_content.winfo_reqwidth() if is_horizontal else self._psx_content.winfo_reqheight()
+        if is_horizontal:
+            canvas.xview_moveto(quantized_position / max(1, total))
+        else:
+            canvas.yview_moveto(quantized_position / max(1, total))
+        event._psx_scroll_remainder = remainder + (new_position - quantized_position)
+        self._show_thumbs()
+        # When the viewport reaches an edge, pass any unconsumed travel to
+        # the next enclosing Scroll, preserving inner-first chaining.
+        return "break" if abs(event._psx_scroll_remainder) < 0.5 else None
 
     def _show_thumbs(self):
-        self._refresh()
         if self._psx_after is not None:
             self.after_cancel(self._psx_after)
         if self._psx_props["scrollbar"] == "auto":
             self._psx_after = self.after(750, self._hide_thumbs)
         else:
             self._psx_after = None
+        self._refresh()
 
     def _hide_thumbs(self):
         self._psx_after = None
@@ -95,7 +122,10 @@ class _ScrollFrame(ttk.Frame):
             canvas.itemconfigure(self._psx_window, width=target_width)
         if float(canvas.itemcget(self._psx_window, "height") or 0) != float(target_height):
             canvas.itemconfigure(self._psx_window, height=target_height)
-        canvas.configure(scrollregion=(0, 0, max(req_width, vp_width), max(req_height, vp_height)))
+        region = (0, 0, max(req_width, vp_width), max(req_height, vp_height))
+        if region != self._psx_scroll_region:
+            canvas.configure(scrollregion=region)
+            self._psx_scroll_region = region
         canvas.delete("_psx_scroll_thumb")
         if self._psx_props["scrollbar"] == "hidden":
             return
