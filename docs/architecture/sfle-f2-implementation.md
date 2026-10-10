@@ -1205,3 +1205,34 @@ align-content/align-items/justify-content semantics across nested contexts.
 Those are architectural acceptance requirements, and passing the restricted
 fixtures is not a full CSS Flexbox conformity claim. Progress remains
 F2.2.4 **5/8 completed (62.5%)**.
+
+
+## F2.2.4.6 — Nested main/cross margins, alignment and intrinsic-basis integration
+
+The next **resolved-input** recursive geometry stage is
+`psx/sfle/margin_tree.py` / `rust/sfle-core/src/margin_tree.rs`.
+Each parent independently runs the established, edge-aware
+`margin_flex_pipeline` using the actual, allocated **parent content box**.
+It carries the resulting child border, padding and content rectangles forward
+in preorder and preserves used main/cross margins as signed values rather
+than constructing an invalid nonnegative margin rectangle. This integrates
+supported signed and AUTO margins, `justify-content`, `align-items`,
+`align-self`, `align-content`, wrapping and measured baselines for
+the constrained horizontal-writing Flex cases already implemented in the
+flat kernel. An optional typed `IntrinsicFlexInput` on children now
+computes their content-based flex-basis and automatic main-axis minimum
+through the pre-existing intrinsic solver, in both Python and Rust. This
+does **not** treat intrinsic preferred sizes as final used widths.
+
+Regression tests: `tests/sfle/test_margin_tree.py` (nested center/end,
+RTL, root padding, signed/auto margins, intrinsic basis, unsupported percentage)
+and corresponding Rust module tests; a new browser fixture
+`test_nested_justify_and_padding_match_chromium` in
+`tests/browser/test_sfle_chromium.py`.
+
+**F2.2.4.6 NOT YET ACCEPTED:** CSS automatic container sizes, cyclic
+percentages, final used sizes for indefinite cross-axis auto/intrinsic
+children, special aspect-ratio transfers and cross-context sizing still
+require a complete CSS sizing phase. The new stage must not be advertised
+as universal recursive Flexbox layout. Continue F2.2.4 at **5/8** accepted
+until these remaining normative rules are implemented and verified.
