@@ -2,8 +2,9 @@
 
 > **Status:** architecture specification / proposed design. **Not implemented.**
 > **F1 decision record:** [Approved decisions and proposed contracts](sfle-f1-contracts.md).
-> D-F1.1–D-F1.7 are approved at architecture level; D-F1.8–D-F1.12
-> and F1-RUST remain open.
+> All D-F1.1–D-F1.12 and F1-RUST decisions are approved at architecture
+> level. **F2 has not been authorized or started.**
+> **Canonical F1 closure record:** [Final architecture and implementation gate](sfle-f1-final-architecture.md).
 > **Normative F1.6/F1.7 contract:** [CSS box model and percentages](sfle-f1-box-model.md).
 > Approved D-F1.1 uses `Flex` plus flex properties on existing children, **not** a required `FlexItem` wrapper.
 > This document is a design and documentation baseline, not an assertion that
@@ -430,13 +431,14 @@ measurement class and high-DPI scale. Prefer exact logical geometry in Headless
 when intrinsic inputs match, and explicit tolerances for native widget
 measurements. A screenshot match alone is not evidence of algorithm fidelity.
 
-## 10. Optional Rust acceleration — architectural consideration (F1)
+## 10. Rust primary with Python fallback — approved F1 architecture
 
-**Status: proposal for evaluation, not an approved implementation decision.**
-SFLE may use a native **Rust computation core** for CPU-intensive layout
-operations while keeping PSX orchestration and backend-native measurements in
-Python. The motivation is predictable latency for deep or large layout trees,
-not an assumption that every layout calculation requires native code.
+**Status: F1-RUST approved.** Rust is the primary pure computation engine,
+with a feature-equivalent Python fallback for environments without a compatible
+extension. Python retains reconciliation, scheduling and UI-thread measurement.
+The [final F1 architecture](sfle-f1-final-architecture.md) defines the
+normative loading, parity, packaging and failure policy. The former evaluation
+options below are superseded wherever inconsistent with this decision.
 
 ~~~mermaid
 flowchart TD
@@ -484,10 +486,10 @@ Profile realistic layouts rather than relying only on arithmetic microbenchmarks
 Record both Chromium geometry conformance and execution performance; a faster
 algorithm that disagrees with CSS is not acceptable.
 
-**Decision F1-RUST:** choose (a) portable Python reference first with
-measured Rust acceleration, (b) Rust as the primary core with a defined
-packaging/fallback policy, or (c) postpone native optimization until profiling
-demonstrates the bottleneck. Do not begin Rust implementation before approval.
+**Approved F1-RUST:** Rust-primary computation using PyO3/maturin with a
+full-semantic Python fallback. Backend selection occurs before layout execution;
+unsupported capabilities and runtime failures must not trigger silent geometry
+fallbacks. No implementation begins without explicit F2 authorization.
 
 ## 11. Documentation and implementation deliverables
 
@@ -505,7 +507,7 @@ sections of this file and later split):
 | Inspector geometry protocol | computed boxes, lines, gutters, diagnostics |
 | Performance notes | invalidation, complexity, benchmarks, memory behavior |
 
-## 12. Decisions requiring explicit approval
+## 12. Approved decisions and remaining implementation gate
 
 - **Approved D-F1.1:** `Flex` with item properties directly on existing
   components; no mandatory `FlexItem` wrapper. The common prop-validation
@@ -517,21 +519,31 @@ sections of this file and later split):
 - **Approved D-F1.7:** typed CSS-like lengths, namespaced child layout
   dimensions, box-model semantics and deferred property-specific percentages.
   See [canonical contract](sfle-f1-box-model.md).
-- Initial CSS support subset and detailed defaults.
+- **Approved D-F1.3/D-F1.9:** incremental CSS support, with explicit errors
+  for unsupported semantics; the feature manifest gates runtime claims.
 - Percentage, CSS box-model and automatic-minimum semantics are specified in
   [D-F1.7](sfle-f1-box-model.md); concrete feature gates remain D-F1.9.
 - **Approved D-F1.4:** renderer-native measurement occurs on the UI thread;
   pure SFLE calculation uses immutable inputs.
 - **Approved D-F1.5:** strict browser geometry comparison with
   backend-specific tolerances; numeric thresholds remain D-F1.11.
-- Boundaries between SFLE, responsive Flexbox Grid and future CSS Grid.
-- **F1-RUST:** Rust/PyO3 native computation policy, packaging strategy,
-  fallback/reference behavior and profiling-based performance thresholds.
+- **Approved D-F1.8:** horizontal LTR and RTL from F2; vertical writing
+  modes remain deferred.
+- **Approved D-F1.10:** SFLE replaces all portable layout math. Row/Column
+  keep their public API, while Scroll retains native viewport/input/offset;
+  none keeps an independent layout algorithm. Flex-only metadata remains
+  inactive outside actual Flex formatting contexts.
+- **Approved D-F1.11:** 0.01 logical px pure, 1.0 px native, calibrable;
+  structural line/order identity must match.
+- **Approved D-F1.12:** UI-thread measurement and selective immutable-cache
+  scheduling with stale-generation protection.
+- **Approved F1-RUST:** Rust primary, Python fallback with matching semantic
+  capability and output contracts, packaged without mandatory Rust toolchain.
 
 **Implementation milestone sequence:**
 
-F1. Finalize approved semantic direction and sign off remaining contracts
-and tolerances in [the F1 contract document](sfle-f1-contracts.md).
+F1. All architectural decisions ratified in [the final architecture record](sfle-f1-final-architecture.md). Formal close-out is ready;
+**F2 requires separate explicit user authorization**.
 
 F2. Implement backend-neutral SFLE with browser-reference geometry fixtures.
 
