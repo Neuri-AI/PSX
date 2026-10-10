@@ -13,6 +13,8 @@ from .box_geometry import UsedBoxEdges, UsedEdges
 from .cross_margins import position_cross_margins
 from .cross_alignment import CrossAlign, resolve_cross_alignment
 from .cross_stretch import resolve_cross_stretch
+from .baseline import BaselineItem, measure_baseline_group, position_baseline_item
+from .errors import DiagnosticCode, SFLECapabilityError
 from .align_content import AlignContent, distribute_cross_lines
 from .flex_math import FlexBasis, _number, resolve_flexible_lengths
 from .line_layout import FlexDirection, FlexWrap
@@ -36,6 +38,7 @@ class MarginFlexItem:
     cross_size_auto: bool = False
     min_cross_content_size: float = 0.0
     max_cross_content_size: float | None = None
+    baseline_from_cross_start: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.node_id, str) or not self.node_id:
@@ -55,6 +58,10 @@ class MarginFlexItem:
                    _number(self.max_cross_content_size, "max_cross_content_size"))
         if minimum < 0 or (maximum is not None and maximum < 0):
             raise ValueError("Cross size constraints must be nonnegative.")
+        if self.baseline_from_cross_start is not None:
+            baseline = _number(self.baseline_from_cross_start, "baseline_from_cross_start")
+            if not 0 <= baseline <= _number(self.cross_content_size, 'cross_content_size'):
+                raise ValueError("Measured baseline must lie within cross content size.")
         if self.edges.margin != UsedEdges():
             raise ValueError("Set all physical margins to zero; use main_start/main_end.")
         if type(self.order) is not int:
@@ -154,19 +161,49 @@ def compute_margin_flex_layout(
     if current:
         lines.append(current)
 
+    # Baseline metrics are supplied by a measurement port, never fabricated.
+    # This restricted slice only supports the horizontal first-baseline group.
+    baseline_groups = []
+    for line in lines:
+        selected = [item for item in line
+                    if (align_items if item.align_self == CrossAlign.AUTO
+                        else item.align_self) == CrossAlign.BASELINE
+                    and item.cross_start.value is not None
+                    and item.cross_end.value is not None]
+        if selected and not horizontal:
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Column baseline needs orthogonal baseline measurement.",
+            )
+        metrics = []
+        for item in selected:
+            if item.baseline_from_cross_start is None:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Baseline requires a measured cross-content baseline offset.",
+                )
+            edges = item.edges
+            offset = (edges.border.top + edges.padding.top +
+                      item.baseline_from_cross_start)
+            metrics.append(BaselineItem(
+                cross_border(item),
+                item.cross_start.value, item.cross_end.value, offset,
+            ))
+        baseline_groups.append(measure_baseline_group(tuple(metrics)) if metrics else None)
+
     # CSS nowrap has the container's inner cross size as its line size.
     # Wrapped lines use the largest hypothetical outer cross size of their
     # members. AUTO margins count as zero when establishing line size.
     cross_extent = h if horizontal else w
     line_cross_sizes = tuple(
         cross_extent if wrap == FlexWrap.NOWRAP else max(
-            (0.0, *(
-                cross_border(item) + (item.cross_start.value or 0.0)
-                + (item.cross_end.value or 0.0)
-                for item in line
-            ))
+            0.0,
+            *(cross_border(item) + (item.cross_start.value or 0.0)
+              + (item.cross_end.value or 0.0) for item in line),
+            *( (baseline_groups[index].extent,)
+               if baseline_groups[index] is not None else () ),
         )
-        for line in lines
+        for index, line in enumerate(lines)
     )
     cross_forward = (True if horizontal else writing == WritingDirection.LTR)
     if wrap == FlexWrap.WRAP_REVERSE:
@@ -227,6 +264,21 @@ def compute_margin_flex_layout(
             # Auto cross margins have precedence over align-items/align-self.
             if item.cross_start.value is None or item.cross_end.value is None:
                 cross_offset = cross_pos.border_start
+            elif chosen_align == CrossAlign.BASELINE:
+                group = baseline_groups[line_index]
+                if group is None:
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE, "Missing baseline group.",
+                    )
+                edges = item.edges
+                metric = BaselineItem(
+                    cross_size, item.cross_start.value, item.cross_end.value,
+                    edges.border.top + edges.padding.top + item.baseline_from_cross_start,
+                )
+                cross_offset = position_baseline_item(
+                    metric, group, line_cross_sizes[line_index],
+                    cross_forward=cross_forward,
+                )
             elif chosen_align == CrossAlign.STRETCH:
                 # A definite cross size, or an auto size just stretched above,
                 # takes the cross-start position (not a second sizing pass).
