@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import sys
-
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.scrollview import ScrollView
 
@@ -48,83 +46,6 @@ class _PSXScrollView(ScrollView):
                 return False
         return super().on_scroll_start(touch, check_children=check_children)
 
-    def on_touch_down(self, touch):
-        # Kivy's SDL2 scroll-button direction can be opposite to macOS
-        # natural-scrolling gestures. Normalize once for the complete nested
-        # ScrollView dispatch, including Kivy's own handler, rather than
-        # applying a second inverse movement after native scrolling.
-        #
-        # The marker matters: an outer ScrollView dispatches the same touch to
-        # nested scroll views. Inverting in every level would cancel the fix.
-        button = getattr(touch, "button", "")
-        opposite = {
-            "scrollup": "scrolldown",
-            "scrolldown": "scrollup",
-            "scrollleft": "scrollright",
-            "scrollright": "scrollleft",
-        }
-        ud = getattr(touch, "ud", None)
-        normalize = (
-            sys.platform == "darwin"
-            and button in opposite
-            and isinstance(ud, dict)
-            and "_psx_natural_scroll_normalized" not in ud
-        )
-        if normalize:
-            ud["_psx_natural_scroll_normalized"] = True
-            touch.button = opposite[button]
-        try:
-            return self._handle_touch_down(touch)
-        finally:
-            if normalize:
-                touch.button = button
-                ud.pop("_psx_natural_scroll_normalized", None)
-
-    def _handle_touch_down(self, touch):
-        # Native ScrollView handles mouse/trackpad input and nested widgets
-        # first. The fallback only runs if that event was not consumed.
-        handled = super().on_touch_down(touch)
-        if handled:
-            return True
-        props = getattr(self, "_psx_props", None)
-        button = getattr(touch, "button", "")
-        if (
-            props is None or not props["enabled"] or
-            button not in ("scrollup", "scrolldown", "scrollleft", "scrollright") or
-            not self.collide_point(*touch.pos)
-        ):
-            return handled
-        horizontal, vertical = scroll_axes(props["direction"])
-        is_horizontal = button in ("scrollleft", "scrollright")
-        allowed = horizontal if is_horizontal else vertical
-        if not allowed:
-            return handled
-        content = self._psx_content
-        extent = (
-            content.width - self.width if is_horizontal
-            else content.height - self.height
-        )
-        if extent <= 0:
-            return handled
-        # Normalized Kivy scroll_x grows right, scroll_y grows up.
-        delta = self.scroll_wheel_distance / extent
-        if button == "scrollup":
-            new_value = min(1.0, self.scroll_y + delta)
-            moved = new_value != self.scroll_y
-            self.scroll_y = new_value
-        elif button == "scrolldown":
-            new_value = max(0.0, self.scroll_y - delta)
-            moved = new_value != self.scroll_y
-            self.scroll_y = new_value
-        elif button == "scrollright":
-            new_value = min(1.0, self.scroll_x + delta)
-            moved = new_value != self.scroll_x
-            self.scroll_x = new_value
-        else:
-            new_value = max(0.0, self.scroll_x - delta)
-            moved = new_value != self.scroll_x
-            self.scroll_x = new_value
-        return True if moved else handled
 
 
 class KivyScrollAdapter:
@@ -135,7 +56,7 @@ class KivyScrollAdapter:
         view = _PSXScrollView(
             do_scroll_x=True, do_scroll_y=True, size_hint=(1, 1),
             bar_width=6, scroll_type=["bars", "content"],
-            scroll_wheel_distance=48, smooth_scroll_end=10,
+            scroll_wheel_distance=48,
         )
         content = BoxLayout(
             orientation=props["content_direction"],
