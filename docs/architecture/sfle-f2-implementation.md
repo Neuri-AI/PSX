@@ -1,7 +1,7 @@
 # SFLE F2 — Implementation plan and progress
 
 > **Status:** F2 authorized on 2026-10-10. F2.0 implementation blueprint and an
-> initial F2.1 data-contract skeleton have been added to the feature branch.
+> F2.1 typed contracts, strict tree validation, diagnostic codes, capability\n> manifests and JSON-safe versioned exchange have been added to the feature branch.
 > **No CSS Flexbox calculation, public Flex component, Rust extension, renderer
 > migration, or browser conformance claim is made yet.**
 >
@@ -48,16 +48,23 @@ migration. No registration is changed in this initial F2.1 skeleton.
 | Stage | Content | Completion condition |
 | --- | --- | --- |
 | F2.0 | Architecture blueprint, module boundaries and delivery order | Explicit engine/core/native ownership and supported target surface |
-| F2.1 | Immutable lengths, constraints, layout tree, measurement and result contracts | Validated imports and versioned pure input/output schema; no GUI imports |
+| F2.1 | Immutable lengths, strict ancestry, measurement/output models, stable diagnostics, capability manifest, v1 JSON-safe wire schema | Implemented in feature branch; execution/CI validation not yet performed |
 | F2.2 | CSS Flexbox computation: Rust primary + parity-matched Python fallback | Matching output on supported flex fixtures; explicit feature gating |
 | F2.3 | Browser reference geometry + LTR/RTL conformance | Same line structure; geometry within 0.01 logical px pure with equivalent measurements |
 | F2.4 | Inventory/plan migration of Row/Column/Scroll boundaries | No planned aliases; Scroll independent, native adapters retained |
 
-**Not yet complete:** F2.1 should still settle stable serialized wire
-representation (Rust enum/tag mappings, node ordering, capability schema,
-error types), measure constraints and layout-tree ancestry checks before the
-computation core relies on them. F2.2 must not begin under assumptions that
-these unresolved contract details are already implemented.
+**F2.1 contract decisions now encoded:** JSON-safe wire version 1,
+typed PX/PERCENT/keyword lengths, pre-order tree with one root, strict parent
+references and unique identities, typed input and output, immutable tuples,
+stable error codes and a closed versioned feature manifest. Every current
+engine feature is deliberately **disabled**, and the Python computation
+placeholder throws an explicit unsupported-feature error.
+
+**Still pending before declaring F2.1 production-verified:** execute import,
+serialization round-trip and edge-case checks, agree Rust binding transport
+details (JSON is the debug/reference interchange, not a performance ABI), and
+review the intrinsic measurement protocol for text wrapping under changing
+width constraints. This is not a completed CSS math engine.
 
 ## 3. Current added modules (F2.1 initial skeleton)
 
@@ -68,6 +75,9 @@ psx/sfle/
     model.py        AvailableSize, constraints, boxes, measured nodes,
                     layout tree snapshot, output model
     engine.py       LayoutEngine Protocol and explicit unimplemented fallback
+    capabilities.py Closed feature manifest and wire schema version
+    errors.py       Stable coded errors and unsupported capabilities
+    wire.py         Strict, JSON-safe input/output schema conversion
 ~~~
 
 `PythonLayoutEngine.compute()` intentionally raises
@@ -79,7 +89,7 @@ implementation**. The Rust primary extension is not yet present.
 flowchart TD
     V["PSX VDOM (unchanged)"] --> C["Future SFLE coordinator"]
     C --> M["Future UI-thread intrinsic measurement"]
-    M --> I["Immutable LayoutInput v1 (F2.1 skeleton)"]
+    M --> I["Validated LayoutInput v1 + typed wire schema"]
     I --> E["LayoutEngine protocol"]
     E --> R["Rust primary (planned F2.2)"]
     E --> P["Python fallback (planned F2.2)"]
@@ -141,3 +151,45 @@ The planned developer-facing form is:
 This markup is **not runnable today**; it is shown only to maintain the
 F1-approved target during F2 design and implementation. No PSX compiler or
 component registration changes accompany this blueprint.
+
+## 7. F2.1 — Contract refinement and serialization rules
+
+~~~mermaid
+flowchart TD
+    A["VNode-facing style normalization (future)"] --> B["Typed Length + LayoutNode"]
+    B --> C["LayoutInput validation: one root, parent-first, IDs unique"]
+    C --> D["v1 wire encoding + schema/capability check"]
+    D --> E["Pure LayoutEngine boundary"]
+    E --> R["Rust implementation (next block)"]
+    E --> P["Python fallback implementation (next block)"]
+    R --> F["LayoutResult boxes + diagnostics"]
+    P --> F
+~~~
+
+**Stable initial wire envelope:** `schema_version=1`,
+`generation`, `writing_direction` (`ltr`|`rtl`),
+`constraints`, `nodes`, and `measurements`. Styles are ordered pairs
+of typed values; lengths serialize to `{"kind":"percent","value":0.5}` or
+`{"kind":"auto","value":null}`. Percentages remain unresolved until layout.
+Output includes matching schema/generation, ordered ID/box records and
+diagnostic messages.
+
+The wire decoder rejects unknown/missing fields, malformed numeric values,
+non-finite values, duplicate JSON properties and structurally invalid
+trees. It does not silently normalize unrecognized layout props or
+unsupported CSS combinations; those belong to later shared style/capability
+validation gates.
+
+**Ancestry contract:** one effective root for non-empty snapshots,
+parent-before-child node ordering, unique IDs and measurements referencing
+existing nodes only. Ordered sibling identity is preserved in the input.
+
+**Engine capability contract:** a versioned manifest declares the exact
+CSS features available. Its initial contents are the empty feature set:
+the current Python placeholder is not advertised as a functioning fallback,
+and no Rust extension is loaded.
+
+**Release note:** this block changes only internal `psx.sfle` modules.
+`psx` public exports, native renderers, currently available Row/Column
+and Scroll implementations remain untouched. No automated tests have been
+added or run in this DX-first slice.
