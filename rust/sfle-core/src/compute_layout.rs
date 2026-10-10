@@ -27,6 +27,8 @@ struct Style {
     min_width: Length,
     min_height: Length,
     align: CrossAlign,
+    row_gap:Length,
+    column_gap:Length,
 }
 
 fn failure(code: &'static str, message: impl Into<String>, id: Option<&str>) -> ComputeError {
@@ -80,7 +82,8 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
     for key in map.keys(){
         if !matches!(key.as_str(),"direction"|"width"|"height"|"layout_width"|"layout_height"|
             "flex_basis"|"flex_grow"|"flex_shrink"|"min_width"|"min_height"|
-            "layout_min_width"|"layout_min_height"|"align_items"){
+            "layout_min_width"|"layout_min_height"|"align_items"|
+            "row_gap"|"column_gap"){
             return Err(unsupported(format!("Unimplemented CSS style property: {key}."),&input.node_id));
         }
     }
@@ -99,6 +102,8 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
     };
     Ok(Style{
         direction,align,
+        row_gap:if map.contains_key("row_gap"){length(map.get("row_gap"),&input.node_id)?}else{Length::Px(0.0)},
+        column_gap:if map.contains_key("column_gap"){length(map.get("column_gap"),&input.node_id)?}else{Length::Px(0.0)},
         width:length(value(map,&["layout_width","width"]),&input.node_id)?,
         height:length(value(map,&["layout_height","height"]),&input.node_id)?,
         basis:length(map.get("flex_basis"),&input.node_id)?,
@@ -116,6 +121,22 @@ fn resolved(v:Length, reference:Option<f64>, vertical:bool, id:&str)->Result<Opt
         Length::Percent(_) if vertical=>Ok(None), // CSS auto-block-size cyclic context
         Length::Percent(_)=>Err(unsupported("Indefinite inline percentage dependency.",id)),
     }
+}
+fn intrinsic_gap(length:Length,id:&str)->Result<f64,ComputeError>{
+    match length{
+        Length::Px(n)=>Ok(n),
+        Length::Percent(_)=>Ok(0.0), // intrinsic contribution only
+        Length::Auto=>Err(failure("SFLE_INVALID_LENGTH","Invalid gap keyword.",Some(id))),
+    }
+}
+fn used_gap(length:Length,reference:f64,id:&str)->Result<f64,ComputeError>{
+    intrinsic_gap(length,id)?;
+    match length{Length::Px(n)=>Ok(n),Length::Percent(p)=>Ok(p*reference),
+        Length::Auto=>Err(failure("SFLE_INVALID_LENGTH","Invalid gap.",Some(id))),}
+}
+fn main_gap(style:Style,width:f64,height:f64,id:&str)->Result<f64,ComputeError>{
+    if horizontal(style.direction){used_gap(style.column_gap,width,id)}
+    else{used_gap(style.row_gap,height,id)}
 }
 fn horizontal(dir:Direction)->bool{
     matches!(dir,Direction::Row|Direction::RowReverse)
@@ -146,11 +167,12 @@ impl Context<'_>{
         }
         let mut sizes=Vec::with_capacity(self.children[index].len());
         for &child in &self.children[index] {sizes.push(self.preferred(child,h)?);}
-        Ok(if horizontal(style.direction)==h {
-            sizes.iter().sum()
+        if horizontal(style.direction)==h {
+            let intrinsic = intrinsic_gap(if horizontal(style.direction){style.column_gap}else{style.row_gap},&node.node_id)?;
+            Ok(sizes.iter().sum::<f64>()+intrinsic*sizes.len().saturating_sub(1) as f64)
         } else {
-            sizes.into_iter().fold(0.0_f64,f64::max)
-        })
+            Ok(sizes.into_iter().fold(0.0_f64,f64::max))
+        }
     }
     fn layout(&mut self,index:usize,forced_w:Option<f64>,forced_h:Option<f64>,
         pw:Option<f64>,ph:Option<f64>) ->Result<(f64,f64),ComputeError>{
@@ -199,7 +221,8 @@ impl Context<'_>{
             let minimum=match if row{child_style.min_width}else{child_style.min_height}{
                 Length::Px(n)=>n,
                 Length::Auto=>self.measurements.get(child_id.as_str())
-                    .map(|m|if row{m.intrinsic.min_content_width}else{m.intrinsic.min_content_height}).unwrap_or(0.0),
+                    .map(|m|if row{m.intrinsic.min_content_width}else{m.intrinsic.min_content_height})
+                    .unwrap_or(match axis{Length::Px(n)=>n,_=>0.0}),
                 Length::Percent(_)=>return Err(unsupported("Unresolved percentage automatic minimum.",child_id)),
             };
             bases.push(FlexBasis {
@@ -208,7 +231,8 @@ impl Context<'_>{
                 min_size:minimum,max_size:None,
             });
         }
-        let targets=resolve_flexible_lengths(&bases,main,0.0)
+        let gap=main_gap(style,width.unwrap(),height.unwrap_or(0.0),&id)?;
+        let targets=resolve_flexible_lengths(&bases,main,gap)
             .map_err(|e|failure("SFLE_LAYOUT_CONSTRAINT_ERROR",format!("Flex allocation failed: {e:?}"),Some(&id)))?;
         let mut cross_sizes=Vec::new();
         for (&child,&target) in child_indices.iter().zip(targets.iter()){
@@ -308,7 +332,8 @@ pub fn compute_normalized(input:&LayoutInput)->Result<LayoutResult,ComputeError>
             id:node.node_id.clone(),parent:node.parent_id.clone(),
             width,height,item,edges:BoxEdges::default(),
             direction:st.direction,wrap:Wrap::NoWrap,
-            main_gap:0.0,cross_gap:0.0,justify:JustifyContent::FlexStart,
+            main_gap:main_gap(st,width,height,&node.node_id)?,cross_gap:0.0,
+            justify:JustifyContent::FlexStart,
             align_items:CrossAlign::FlexStart,
             align_content:AlignContent::FlexStart,intrinsic_basis:None,
         });
