@@ -50,12 +50,24 @@ def test_measurement_requests_follow_descendant_first_order():
 
 def test_cache_hit_requires_matching_constraints_and_revision():
     child = measured("child", dimensions(60, 60), revision=3)
+    leaf = measured("leaf", dimensions(30, 10), revision=0)
     plan = plan_measurements(
-        tree(cached=(child,)), child_constraints=constraints(),
+        tree(cached=(child, leaf)), child_constraints=constraints(),
         revisions=(("child", 3),),
     )
-    assert [request.node_id for request in plan.requests] == ["leaf", "root"]
-    assert plan.reusable == (child,)
+    assert [request.node_id for request in plan.requests] == ["root"]
+    assert plan.reusable == (leaf, child)
+
+
+def test_dirty_leaf_invalidates_cached_ancestors():
+    root = measured("root", dimensions(100, 100), revision=0)
+    child = measured("child", dimensions(60, 60), revision=3)
+    plan = plan_measurements(
+        tree(cached=(root, child)), child_constraints=constraints(),
+        revisions=(("child", 3),),
+    )
+    assert [request.node_id for request in plan.requests] == ["leaf", "child", "root"]
+    assert plan.reusable == ()
 
 
 def test_constraint_changes_invalidate_only_matching_node_snapshot():
