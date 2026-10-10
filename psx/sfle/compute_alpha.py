@@ -31,12 +31,15 @@ class _Style:
     min_width: Length
     min_height: Length
     align_items: CrossAlign
+    row_gap: Length
+    column_gap: Length
 
 
 _ALLOWED = frozenset({
     "direction", "width", "height", "layout_width", "layout_height",
     "flex_basis", "flex_grow", "flex_shrink", "min_width", "min_height",
     "layout_min_width", "layout_min_height", "align_items",
+    "row_gap", "column_gap",
 })
 
 
@@ -81,6 +84,8 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
             min_width=_length(values, "layout_min_width", "min_width"),
             min_height=_length(values, "layout_min_height", "min_height"),
             align_items=alignment,
+            row_gap=parse_length(values.get('row_gap', 0)),
+            column_gap=parse_length(values.get('column_gap', 0)),
         )
     return result
 
@@ -106,6 +111,36 @@ def _axis_value(length: Length, reference: float | None, *,
         f"CSS {axis} value requires an unsupported intrinsic/percentage context.",
         node_id,
     )
+
+
+def _intrinsic_gap(length: Length, node_id: str) -> float:
+    if length.kind == LengthKind.PX:
+        assert length.value is not None
+        if length.value < 0:
+            raise SFLEError(DiagnosticCode.INVALID_LENGTH, "Negative gap.", node_id)
+        return length.value
+    if length.kind == LengthKind.PERCENT:
+        assert length.value is not None
+        if length.value < 0:
+            raise SFLEError(DiagnosticCode.INVALID_LENGTH, "Negative gap percentage.", node_id)
+        # CSS cyclic gap contributes zero during intrinsic contribution only.
+        return 0.0
+    raise SFLECapabilityError(DiagnosticCode.INVALID_LENGTH, "Invalid gap keyword.", node_id)
+
+
+def _used_gap(length: Length, reference: float, node_id: str) -> float:
+    _intrinsic_gap(length, node_id)
+    if length.kind == LengthKind.PERCENT:
+        assert length.value is not None
+        return length.value * reference
+    assert length.value is not None
+    return length.value
+
+
+def _main_gap(style: _Style, width: float, height: float, node_id: str) -> float:
+    horizontal = style.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+    return _used_gap(style.column_gap if horizontal else style.row_gap,
+                     width if horizontal else height, node_id)
 
 
 def compute_snapshot(request: LayoutInput) -> LayoutResult:
@@ -161,7 +196,10 @@ def compute_snapshot(request: LayoutInput) -> LayoutResult:
             return 0.0
         is_row = style.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
         contributions = [preferred(child, horizontal) for child in children[node_id]]
-        return sum(contributions) if is_row == horizontal else max(contributions, default=0.0)
+        if is_row == horizontal:
+            gap_length = style.column_gap if is_row else style.row_gap
+            return sum(contributions) + _intrinsic_gap(gap_length, node_id) * max(0,len(contributions)-1)
+        return max(contributions, default=0.0)
 
     used: dict[str, tuple[float, float]] = {}
 
@@ -224,14 +262,17 @@ def compute_snapshot(request: LayoutInput) -> LayoutResult:
                 minimum = min_length.value
             elif min_length.kind == LengthKind.AUTO:
                 metric = measures.get(child_id)
-                minimum = (metric.intrinsic.min_content_width if horizontal else metric.intrinsic.min_content_height) if metric is not None else 0.0
+                minimum = (metric.intrinsic.min_content_width if horizontal else metric.intrinsic.min_content_height) if metric is not None else (
+                    basis_axis.value if basis_axis.kind == LengthKind.PX else 0.0
+                )
             else:
                 raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unresolved automatic minimum.", child_id)
             assert minimum is not None
             bases.append(FlexBasis(desired, max(desired,minimum),
                                     grow=child_style.grow,shrink=child_style.shrink,
                                     min_size=minimum))
-        targets = resolve_flexible_lengths(tuple(bases), main_size)
+        main_gap = _main_gap(style,width,height if height is not None else 0.0,node_id)
+        targets = resolve_flexible_lengths(tuple(bases), main_size, main_gap)
         cross_sizes = []
         for child_id, target in zip(children[node_id], targets):
             child_style = styles[child_id]
@@ -272,7 +313,8 @@ def compute_snapshot(request: LayoutInput) -> LayoutResult:
         width,height = used[node_id]
         if parent_id is None:
             resolved.append(MarginTreeNode(node_id,None,width,height,
-                direction=styles[node_id].direction,align_items=CrossAlign.FLEX_START))
+                direction=styles[node_id].direction,align_items=CrossAlign.FLEX_START,
+                main_gap=_main_gap(styles[node_id],width,height,node_id)))
             continue
         horizontal = styles[parent_id].direction in (FlexDirection.ROW,FlexDirection.ROW_REVERSE)
         main = width if horizontal else height
@@ -282,7 +324,8 @@ def compute_snapshot(request: LayoutInput) -> LayoutResult:
             cross, cross_size_auto=False,
         )
         resolved.append(MarginTreeNode(node_id,parent_id,width,height,item=item,
-            direction=styles[node_id].direction,align_items=CrossAlign.FLEX_START))
+            direction=styles[node_id].direction,align_items=CrossAlign.FLEX_START,
+            main_gap=_main_gap(styles[node_id],width,height,node_id)))
     result = compute_margin_tree(tuple(resolved),generation=request.generation,writing=request.direction)
     boxes = tuple((box.node_id,BoxRect(box.content,box.padding,box.border,box.border))
                   for box in result.boxes)
