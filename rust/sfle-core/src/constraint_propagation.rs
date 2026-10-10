@@ -158,3 +158,106 @@ mod tests {
         ).is_err());
     }
 }
+
+
+/// Dimensions from an already-established CSS used *content box*.
+/// The owner of the geometry pass must guarantee current-generation evidence.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct UsedContentSize {
+    pub width: f64,
+    pub height: f64,
+}
+
+/// Bridge established used content dimensions into the existing worklist.
+/// Does not infer the used size from the containing available constraint.
+pub fn plan_used_box_measurements(
+    generation: u64,
+    nodes: &[Node],
+    root_constraints: Constraints,
+    used_content: &[(String, UsedContentSize)],
+    child_sizing: &[(String, ChildSizing)],
+    measurements: &[MeasuredRevision],
+    revisions: &[(String, u64)],
+) -> Result<MeasurementPlan, FlexMathError> {
+    let mut content = Vec::with_capacity(used_content.len());
+    for (id, size) in used_content {
+        if !size.width.is_finite() || !size.height.is_finite()
+            || size.width < 0.0 || size.height < 0.0
+        {
+            return Err(FlexMathError::InvalidInput("invalid used content size"));
+        }
+        content.push((
+            id.clone(),
+            Constraints {
+                width: crate::measurement_plan::AxisConstraint {
+                    value: Some(size.width),
+                    definite: true,
+                },
+                height: crate::measurement_plan::AxisConstraint {
+                    value: Some(size.height),
+                    definite: true,
+                },
+            },
+        ));
+    }
+    plan_styled_measurements(
+        generation, nodes, root_constraints, &content, child_sizing,
+        measurements, revisions,
+    )
+}
+
+#[cfg(test)]
+mod used_content_tests {
+    use super::*;
+    use crate::measurement_plan::AxisConstraint;
+
+    #[test]
+    fn nested_percentage_references_use_established_content_sizes() {
+        let nodes = [
+            Node { id: "root".into(), parent: None },
+            Node { id: "child".into(), parent: Some("root".into()) },
+            Node { id: "leaf".into(), parent: Some("child".into()) },
+        ];
+        let definite = |value| AxisConstraint { value: Some(value), definite: true };
+        let plan = plan_used_box_measurements(
+            9, &nodes,
+            Constraints { width: definite(300.0), height: definite(200.0) },
+            &[
+                ("root".into(), UsedContentSize { width: 200.0, height: 80.0 }),
+                ("child".into(), UsedContentSize { width: 100.0, height: 20.0 }),
+            ],
+            &[
+                ("child".into(), ChildSizing {
+                    width: Length::Percent(0.5), height: Length::Percent(0.25),
+                }),
+                ("leaf".into(), ChildSizing {
+                    width: Length::Percent(0.5), height: Length::Px(10.0),
+                }),
+            ], &[], &[],
+        ).unwrap();
+        assert_eq!(plan.requests[0].node_id, "leaf");
+        assert_eq!(plan.requests[0].constraints.width, definite(50.0));
+        assert_eq!(plan.requests[1].constraints.height, definite(20.0));
+    }
+
+    #[test]
+    fn rejects_missing_or_nonfinite_used_content() {
+        let nodes = [
+            Node { id: "root".into(), parent: None },
+            Node { id: "child".into(), parent: Some("root".into()) },
+        ];
+        let definite = |value| AxisConstraint { value: Some(value), definite: true };
+        let root = Constraints { width: definite(200.0), height: definite(80.0) };
+        let styles = [("child".into(), ChildSizing {
+            width: Length::Percent(0.5), height: Length::Auto,
+        })];
+        assert!(plan_used_box_measurements(
+            9, &nodes, root, &[], &styles, &[], &[],
+        ).is_err());
+        assert!(plan_used_box_measurements(
+            9, &nodes, root,
+            &[("root".into(), UsedContentSize { width: f64::NAN, height: 80.0 })],
+            &styles, &[], &[],
+        ).is_err());
+    }
+}
