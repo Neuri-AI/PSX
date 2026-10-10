@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: cyclic percentage gaps, definite box sizing and standalone signed/auto main margins (Python + Rust); CI pending for margins** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: cyclic percentage gaps, definite box sizing and standalone signed/auto main margins (Python + Rust); scoped CI passed** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -684,6 +684,11 @@ flex sizing must incorporate the resulting outer contributions, and
 cross-axis auto margins need their own CSS semantics. Other outstanding
 requirements include min/max box-sizing constraints and percentage cycles.
 No complete CSS Flexbox feature is advertised by the engine.
+
+**CI checkpoint:** GitHub Actions SFLE run `38060561716` passed Python
+3.10–3.13 and Rust on the margin-kernel change set. This confirms the
+committed unit tests, not browser geometric conformity or the missing
+integration with line breaking.
 
 The agreed optional Chromium/Playwright fixture CI checkpoint remains
 scheduled after F2.2.3; it will not require a local browser.
