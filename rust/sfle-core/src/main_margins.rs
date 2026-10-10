@@ -3,6 +3,7 @@
 //! representable nonnegative widths. Cross-axis margins remain unsupported.
 
 use crate::line_layout::{Direction, WritingDirection};
+use crate::main_alignment::{resolve_main_alignment, JustifyContent};
 use crate::FlexMathError;
 use std::collections::HashSet;
 
@@ -30,6 +31,20 @@ pub fn position_main_margins(
     direction: Direction,
     writing: WritingDirection,
 ) -> Result<Vec<MarginPosition>, FlexMathError> {
+    position_main_margins_justified(
+        items, container_main_size, main_gap, direction, writing,
+        JustifyContent::FlexStart,
+    )
+}
+
+pub fn position_main_margins_justified(
+    items: &[MarginItem],
+    container_main_size: f64,
+    main_gap: f64,
+    direction: Direction,
+    writing: WritingDirection,
+    justify: JustifyContent,
+) -> Result<Vec<MarginPosition>, FlexMathError> {
     if !container_main_size.is_finite() || container_main_size < 0.0
         || !main_gap.is_finite() || main_gap < 0.0
     {
@@ -53,11 +68,24 @@ pub fn position_main_margins(
         (container_main_size - fixed).max(0.0) / auto_count as f64
     };
 
+    let used_outer: Vec<f64> = items.iter().map(|item| {
+        item.border_main_size + item.start.unwrap_or(share)
+            + item.end.unwrap_or(share)
+    }).collect();
+    let effective_justify = if auto_count > 0 && container_main_size > fixed {
+        JustifyContent::FlexStart
+    } else {
+        justify
+    };
+    let alignment = resolve_main_alignment(
+        effective_justify, container_main_size, &used_outer, main_gap,
+    )?;
     let horizontal = matches!(direction, Direction::Row | Direction::RowReverse);
     let reversed = matches!(direction, Direction::RowReverse | Direction::ColumnReverse);
     let forward = if horizontal { (writing == WritingDirection::Ltr) != reversed }
                   else { !reversed };
-    let mut cursor = if forward { 0.0 } else { container_main_size };
+    let mut cursor = if forward { alignment.leading_space }
+        else { container_main_size - alignment.leading_space };
     let mut positions = Vec::with_capacity(items.len());
     for item in items {
         let start = item.start.unwrap_or(share);
@@ -65,7 +93,7 @@ pub fn position_main_margins(
         let border_start;
         if forward {
             border_start = cursor + start;
-            cursor += start + item.border_main_size + end + main_gap;
+            cursor += start + item.border_main_size + end + alignment.between_space;
         } else {
             border_start = cursor - start - item.border_main_size;
             cursor -= start + item.border_main_size + end + main_gap;
