@@ -60,12 +60,27 @@ pub fn compute_auto_cross_tree(
             used = used.max(item.cross_content_size + cross_edges
                 + item.cross_start.expect("checked") + item.cross_end.expect("checked"));
         }
+        if !is_horizontal {
+            used = 0.0;
+            for &child_index in &children[node.id.as_str()] {
+                let item = adapted[child_index].item.as_ref().ok_or(
+                    FlexMathError::InvalidInput("auto column requires flex child"),
+                )?;
+                used += item.flex.hypothetical + item.edges.padding.top
+                    + item.edges.padding.bottom + item.edges.border.top
+                    + item.edges.border.bottom
+                    + item.main_start.ok_or(FlexMathError::InvalidInput("auto main margin unsupported"))?
+                    + item.main_end.ok_or(FlexMathError::InvalidInput("auto main margin unsupported"))?;
+            }
+            used += node.main_gap * children[node.id.as_str()].len().saturating_sub(1) as f64;
+        }
         let parent_id = node.parent.clone();
         if let Some(parent) = parent_id {
             let parent_index = *indices.get(parent.as_str()).ok_or(
                 FlexMathError::InvalidInput("missing auto cross parent"),
             )?;
-            if horizontal(adapted[parent_index].direction) != is_horizontal {
+            if horizontal(adapted[parent_index].direction) != is_horizontal
+                && !(horizontal(adapted[parent_index].direction) && !is_horizontal) {
                 return Err(FlexMathError::InvalidInput("orthogonal auto cross contribution unsupported"));
             }
             let item = adapted[index].item.as_mut().ok_or(
