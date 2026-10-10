@@ -87,11 +87,14 @@ expect `{condition ? ... : ...}` to work in current PSX markup.
 - **Shared tokens/validation:** `psx/renderers/components/badge.py`
   together with the core component contract and validator.
 - **Qt:** self-sizing `QLabel` with QSS background, border and radius.
-- **Kivy:** intrinsically sized `Label` with a rounded canvas background
-  and outline stroke, rebuilt on resize or prop changes.
-- **Tkinter:** `Canvas` with smooth rounded polygon and measured text. Tk
-  has no native transparent Canvas background; outline uses its parent
-  surface color when available.
+- **Kivy:** `Label` with a rounded canvas background and outline stroke.
+  When a parent assigns a stretched layout slot, the badge skin stays at its
+  intrinsic dimensions and is centered inside that slot; Kivy-specific font
+  scaling keeps the text legible without changing shared semantic tokens.
+- **Tkinter:** `Canvas` with corner arcs, straight sides and measured text.
+  Tk has no native transparent Canvas background; the adapter matches the
+  window surface behind the rounded corners, including for outlined badges.
+  True alpha compositing and antialiased edges remain Tk limitations.
 - **Headless:** validates props and records updates without rendering.
 
 On mount, the adapter validates/defaults props and creates one native widget.
@@ -110,6 +113,10 @@ subscriptions, `EventSlot`, timers or animations are required.
 - Verify disabled palettes and no interactions/event subscriptions.
 - Verify markup child-text and Python builder forms.
 - Confirm unmount cleanup without leaked Kivy canvas instructions or Tk widgets.
+- Compare Kivy with Qt inside a `Row` that stretches children vertically;
+  verify badge skins stay compact and do not become tall rectangles or ovals.
+- Verify Tkinter rounded corners on dark backgrounds without white rectangular
+  patches outside the shape.
 - Check outline surface appearance on Qt, Kivy and Tkinter separately.
 
 No automated tests are added or executed during this component phase.
