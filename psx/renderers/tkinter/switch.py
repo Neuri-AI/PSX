@@ -21,7 +21,10 @@ class TkSwitchAdapter:
         props = switch_props(node.props)
         master = parent.widget if parent is not None else renderer.root
         frame = ttk.Frame(master)
-        canvas = tk.Canvas(frame, highlightthickness=0, bd=0, takefocus=True)
+        canvas = tk.Canvas(
+            frame, highlightthickness=0, bd=0, takefocus=True,
+            relief="flat", background=frame.winfo_toplevel().cget("background"),
+        )
         canvas.pack(side="left")
         label = ttk.Label(frame)
         label.pack(side="left", padx=(10, 0))
@@ -82,7 +85,9 @@ class TkSwitchAdapter:
     def _apply(self, frame, props):
         canvas = frame._psx_canvas
         width, height = SWITCH_SIZES[props["size"]]
-        canvas.configure(width=width, height=height,
+        # Reserve a margin so Tk does not clip the rounded track at its edges.
+        inset = 3
+        canvas.configure(width=width + 2 * inset, height=height + 2 * inset,
                          cursor="hand2" if props["enabled"] else "arrow")
         frame._psx_label.configure(text=props["label"])
         frame._psx_label.pack_forget()
@@ -125,6 +130,7 @@ class TkSwitchAdapter:
     def _draw(self, frame):
         canvas = frame._psx_canvas
         width, height = SWITCH_SIZES[frame._psx_props["size"]]
+        inset = 3
         t = frame._psx_progress
         enabled = frame._psx_props["enabled"]
         start = (156, 163, 175) if enabled else (187, 187, 187)
@@ -134,11 +140,11 @@ class TkSwitchAdapter:
         canvas.delete("all")
         radius = height / 2
         # A rounded pill using two circles and a rectangular center.
-        canvas.create_oval(0, 0, height, height, fill=track, outline=track)
-        canvas.create_oval(width-height, 0, width, height, fill=track, outline=track)
-        canvas.create_rectangle(radius, 0, width-radius, height, fill=track, outline=track)
+        canvas.create_oval(inset, inset, inset + height, inset + height, fill=track, outline=track)
+        canvas.create_oval(inset + width - height, inset, inset + width, inset + height, fill=track, outline=track)
+        canvas.create_rectangle(inset + radius, inset, inset + width - radius, inset + height, fill=track, outline=track)
         diameter = height - 6
         x = 3 + (width - height) * t
-        canvas.create_oval(x, 3, x + diameter, 3 + diameter, fill="white", outline="white")
+        canvas.create_oval(inset + x, inset + 3, inset + x + diameter, inset + 3 + diameter, fill="white", outline="white")
         if canvas.focus_get() is canvas:
-            canvas.create_rectangle(1, 1, width-1, height-1, outline="#2563EB", width=1)
+            canvas.create_rectangle(inset - 1, inset - 1, inset + width + 1, inset + height + 1, outline="#2563EB", width=1)
