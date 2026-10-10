@@ -87,8 +87,12 @@ class _ScrollFrame(ttk.Frame):
         req_width, req_height = frame.winfo_reqwidth(), frame.winfo_reqheight()
         vp_width, vp_height = canvas.winfo_width(), canvas.winfo_height()
         enabled_x, enabled_y = scroll_axes(self._psx_props["direction"])
-        canvas.itemconfigure(self._psx_window, width=max(req_width, vp_width) if not enabled_x else req_width,
-                             height=max(req_height, vp_height) if not enabled_y else req_height)
+        target_width = max(req_width, vp_width) if not enabled_x else req_width
+        target_height = max(req_height, vp_height) if not enabled_y else req_height
+        if canvas.itemcget(self._psx_window, "width") != str(target_width):
+            canvas.itemconfigure(self._psx_window, width=target_width)
+        if canvas.itemcget(self._psx_window, "height") != str(target_height):
+            canvas.itemconfigure(self._psx_window, height=target_height)
         canvas.configure(scrollregion=(0, 0, max(req_width, vp_width), max(req_height, vp_height)))
         canvas.delete("_psx_scroll_thumb")
         if self._psx_props["scrollbar"] == "hidden":
