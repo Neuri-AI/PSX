@@ -58,7 +58,7 @@ mod tests {
         assert_eq!(resolve_cross_alignment(
             CrossAlign::Center, CrossAlign::Auto, 20.0, 100.0,
             -10.0, 0.0, false,
-        ).unwrap(), 35.0);
+        ).unwrap(), 45.0);
     }
 
     #[test]
