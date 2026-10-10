@@ -1,8 +1,9 @@
 # SFLE F1.6 / F1.7 — Contextual layout metadata and typed CSS-like lengths
 
-> **Status:** detailed design proposal. D-F1.1–D-F1.5 approved.
-> The user endorsed the *direction* of D-F1.6 and D-F1.7 but the precise
-> schema, exceptions, and edge-case rules below require sign-off.
+> **Status:** historical F1.6/F1.7 design exploration. Decisions now ratified.
+> **Canonical frozen architectural contracts:** [F1.6/F1.7 box model and percentages](sfle-f1-box-model.md).
+> This document retains earlier alternatives for traceability; where it differs,
+> the ratified contract takes precedence.
 > **No runtime implementation or public API change in this document.**
 >
 > Parent design record: [SFLE F1 contracts](sfle-f1-contracts.md).
@@ -294,7 +295,7 @@ gaps, min/max conflicts, wrapping, DPI rounding and nested constraints.
 The pure math engine must never assume native widget sizes are exact browser
 font metrics.
 
-## 5. Subdecisions to ratify before freezing D-F1.6 and D-F1.7
+## 5. Decision history (ratified in canonical contract)
 
 1. **D-F1.6.A — Component boundaries:** approve logical flex item boxes for
    single-root components; decide whether multiple-root components are
@@ -313,5 +314,9 @@ font metrics.
 7. **D-F1.7.D — Percentage and definiteness:** property-specific reference
    rules; retain unresolved values until CSS permits resolution.
 
-These details are proposals pending explicit user sign-off.
+These subdecisions are ratified in [the canonical contract](sfle-f1-box-model.md):
+only single-root functional boundaries, validated/inert metadata outside Flex,
+centralized prop splitting, namespaced layout dimensions, tagged lengths,
+CSS box-model semantics and deferred property-specific percentage resolution.
+This historical proposal is superseded where it conflicts with the ratified record.
 No SFLE executable code or tests have been added.
