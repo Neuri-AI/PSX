@@ -338,7 +338,8 @@
       "expected": {
         "oscillation": "SFLE_UNSUPPORTED_MEASUREMENT",
         "max_iterations": 8,
-        "commits_after_cycle": 0
+        "commits_after_cycle": 0,
+        "root.height": 60
       },
       "verification": [
         "python",
