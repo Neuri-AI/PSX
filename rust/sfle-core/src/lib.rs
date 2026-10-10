@@ -6,6 +6,7 @@
 //! The Python counterpart lives at psx/sfle/flex_math.py.
 
 pub mod cross_margins;
+pub mod cross_alignment;
 pub mod edge_pipeline;
 pub mod intrinsic;
 pub mod main_margins;
