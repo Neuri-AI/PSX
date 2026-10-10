@@ -12,7 +12,7 @@ from psx.renderers.components.badge import (
 
 # Kivy font units render smaller than Qt point-sized labels on desktop.
 # Scale only this renderer; keep shared size tokens unchanged.
-KIVY_BADGE_SCALE = 1.6
+KIVY_BADGE_SCALE = 2.0
 
 
 class _BadgeLabel(Label):
@@ -20,7 +20,13 @@ class _BadgeLabel(Label):
         super().__init__(**kwargs)
         self._psx_badge_props = None
         self._psx_natural_size = (1.0, 1.0)
-        self.bind(pos=self._redraw, size=self._redraw)
+        self.bind(pos=self._redraw, size=self._on_size)
+
+    def _on_size(self, *_args):
+        # The layout may resize the Label after mount; center text within
+        # the final slot while keeping the painted skin at its natural size.
+        self.text_size = self.size
+        self._redraw()
 
     def _redraw(self, *_args):
         props = self._psx_badge_props
