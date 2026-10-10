@@ -8,6 +8,7 @@
 pub mod edge_pipeline;
 pub mod intrinsic;
 pub mod main_margins;
+pub mod margin_flex_pipeline;
 pub mod percentage_box_sizing;
 pub mod line_layout;
 pub mod resolved_pipeline;
