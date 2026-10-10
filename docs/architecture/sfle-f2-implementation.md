@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite CSS min/max box-sizing normalization added in Python/Rust, CI pending** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite CSS min/max box-sizing normalization added in Python/Rust; scoped CI passed** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -780,3 +780,8 @@ automatic min-content detection, cross-axis automatic margins and
 constraint resolution that depends on available content width still
 require their respective sizing/measurement stages. This is a definite
 numeric sub-slice, not full CSS box sizing conformance.
+
+**Verified CI:** on code commit `d3d1773c`, SFLE run `38061313934`
+passed Rust plus Python 3.10–3.13. PSX run `38061313909` passed
+Python 3.10–3.13, PySide6 offscreen, and distribution build. The
+subsequent documentation-only commit correctly skipped expensive CI.
