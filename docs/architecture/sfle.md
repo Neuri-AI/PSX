@@ -1,6 +1,9 @@
 # SFLE — Shared Flex Layout Engine
 
 > **Status:** architecture specification / proposed design. **Not implemented.**
+> **F1 decision record:** [Approved decisions and proposed contracts](sfle-f1-contracts.md).
+> D-F1.1–D-F1.5 are approved; D-F1.6–D-F1.12 and F1-RUST remain open.
+> Approved D-F1.1 uses `Flex` plus flex properties on existing children, **not** a required `FlexItem` wrapper.
 > This document is a design and documentation baseline, not an assertion that
 > the current PSX runtime already supports these behaviors.
 
@@ -496,21 +499,24 @@ sections of this file and later split):
 
 ## 12. Decisions requiring explicit approval
 
-- Public component design: Flex/FlexItem vs enriched Row/Column, and where
-  child flex properties live.
-- Naming convention: CSS-like hyphenated markup attributes or Python-friendly
-  snake_case props, including aliases.
+- **Approved D-F1.1:** `Flex` with item properties directly on existing
+  components; no mandatory `FlexItem` wrapper. The common prop-validation
+  integration remains D-F1.6.
+- **Approved D-F1.2:** canonical `snake_case` properties.
 - Initial CSS support subset and detailed defaults.
 - Percentage, intrinsic-size, auto-minimum-size and overflow policy.
-- Whether measurement can be asynchronous or must remain UI-thread-bound.
-- Initial browser fixture baseline and approved logical-pixel tolerances.
+- **Approved D-F1.4:** renderer-native measurement occurs on the UI thread;
+  pure SFLE calculation uses immutable inputs.
+- **Approved D-F1.5:** strict browser geometry comparison with
+  backend-specific tolerances; numeric thresholds remain D-F1.11.
 - Boundaries between SFLE, responsive Flexbox Grid and future CSS Grid.
 - **F1-RUST:** Rust/PyO3 native computation policy, packaging strategy,
   fallback/reference behavior and profiling-based performance thresholds.
 
 **Implementation milestone sequence:**
 
-F1. Approve semantics, public API, measurement protocol, and fidelity criteria.
+F1. Finalize approved semantic direction and sign off remaining contracts
+and tolerances in [the F1 contract document](sfle-f1-contracts.md).
 
 F2. Implement backend-neutral SFLE with browser-reference geometry fixtures.
 
