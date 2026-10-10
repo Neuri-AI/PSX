@@ -22,6 +22,7 @@ pub mod resolved_tree;
 pub mod intrinsic_dependencies;
 pub mod dependency_cycle;
 pub mod edge_tree;
+pub mod margin_tree;
 pub mod edge_pipeline;
 pub mod intrinsic;
 pub mod main_margins;
