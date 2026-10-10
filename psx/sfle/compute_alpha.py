@@ -195,6 +195,13 @@ def compute_snapshot(request: LayoutInput) -> LayoutResult:
             height = preferred(node_id, False)
         main_size = width if horizontal else height
         assert main_size is not None
+        # Intrinsically auto-sized main axes are NOT percentage-definite simply
+        # because the intrinsic phase produced a finite provisional number.
+        main_reference = main_size
+        if horizontal and style.width.kind == LengthKind.AUTO and forced_width is None:
+            main_reference = None
+        if not horizontal and style.height.kind == LengthKind.AUTO and forced_height is None:
+            main_reference = None
 
         bases = []
         for child_id in children[node_id]:
@@ -202,13 +209,13 @@ def compute_snapshot(request: LayoutInput) -> LayoutResult:
             basis = child_style.flex_basis
             basis_axis = child_style.width if horizontal else child_style.height
             if basis.kind == LengthKind.AUTO:
-                desired = _axis_value(basis_axis, main_size, axis="width" if horizontal else "height", node_id=child_id)
+                desired = _axis_value(basis_axis, main_reference, axis="width" if horizontal else "height", node_id=child_id)
                 if desired is None:
                     desired = preferred(child_id, horizontal)
             elif basis.kind == LengthKind.PX:
                 desired = basis.value
             elif basis.kind == LengthKind.PERCENT:
-                desired = basis.value * main_size if main_size is not None else preferred(child_id, horizontal)
+                desired = basis.value * main_reference if main_reference is not None else preferred(child_id, horizontal)
             else:
                 raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unsupported flex basis keyword.", child_id)
             assert desired is not None
