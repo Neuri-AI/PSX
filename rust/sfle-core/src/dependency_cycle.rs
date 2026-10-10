@@ -128,4 +128,40 @@ mod tests {
         );
         assert!(result.is_err());
     }
+    #[test]
+    fn width_dependent_height_requires_third_pass() {
+        let initial = UsedSizeTree {
+            generation: 8, content: vec![
+                ("root".into(), Constraints { width: known(200.0), height: known(100.0) }),
+                ("leaf".into(), Constraints { width: unknown(), height: unknown() }),
+            ], deferred: vec!["leaf".into()],
+        };
+        let result = resolve_measurement_dependencies(
+            8, &nodes(), initial, &[], &[], 6,
+            |req| Ok(MeasuredRevision {
+                node_id: req.node_id.clone(),
+                constraints: req.constraints,
+                revision: req.revision,
+            }),
+            |measurements, previous| {
+                let leaf = measurements.iter().find(|m| m.node_id == "leaf").expect("measured leaf");
+                let (width, height) = if previous.content[1].1.width.definite {
+                    (known(60.0), if leaf.constraints.width.definite { known(40.0) } else { unknown() })
+                } else {
+                    (known(60.0), unknown())
+                };
+                Ok(UsedSizeTree {
+                    generation: 8,
+                    content: vec![
+                        previous.content[0].clone(),
+                        ("leaf".into(), Constraints { width, height }),
+                    ],
+                    deferred: if height.definite { vec![] } else { vec!["leaf".into()] },
+                })
+            },
+        ).unwrap();
+        assert_eq!(result.iterations, 3);
+        assert_eq!(result.used_sizes.content[1].1.height, known(40.0));
+    }
+
 }
