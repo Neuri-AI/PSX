@@ -69,7 +69,7 @@ def case_snapshot(case_id: str):
             0,
         ))
     return LayoutInput(
-        1, 17, WritingDirection.LTR,
+        1, 17, WritingDirection(case["writing_direction"]),
         LayoutConstraints(axis(viewport["width"]), axis(viewport["height"])),
         nodes, tuple(measurements),
     )
@@ -122,24 +122,29 @@ def test_A07_convergent_auto_layout_is_finite():
     assert boxes(result)["root"].content.height == pytest.approx(_ACCEPTANCE["A07"]["root.height"], abs=0.01)
 
 
-@pytest.mark.parametrize("direction", [WritingDirection.LTR, WritingDirection.RTL])
+@pytest.mark.parametrize("direction", ["ltr", "rtl"])
 def test_A09_directional_positioning_preserves_identity(direction):
-    s = snapshot([
-        ("root", None, "Flex", {"direction": "row", "layout_width": Length.px(120)}),
-        ("a", "root", "Text", {"flex_basis": Length.px(20)}),
-        ("b", "root", "Text", {"flex_basis": Length.px(30)}),
-    ], height=60, direction=direction)
+    s = case_snapshot("A09-" + direction.upper())
     result = PythonLayoutEngine().compute(s)
-    assert tuple(b.node_id for b in result.boxes) == ("root", "a", "b")
-    a, b = boxes(result)["a"], boxes(result)["b"]
-    assert (a.border.x < b.border.x) == (direction is WritingDirection.LTR)
+    assert tuple(node_id for node_id, _ in result.boxes) == ("root", "a", "b")
+    expected = _ACCEPTANCE["A09-" + direction.upper()]
+    for node_id in ("a", "b"):
+        assert boxes(result)[node_id].border.x == pytest.approx(
+            expected[f"{node_id}.x"], abs=0.01
+        )
+        assert boxes(result)[node_id].border.width == pytest.approx(
+            expected[f"{node_id}.width"], abs=0.01
+        )
 
 
 def test_A10_layout_output_contains_separate_error_channels():
-    s = snapshot([("root", None, "Flex", {})], height=20)
+    s = case_snapshot("A10")
     result = PythonLayoutEngine().compute(s)
+    assert boxes(result)["root"].content.width == pytest.approx(_ACCEPTANCE["A10"]["root.width"], abs=0.01)
     for channel in ("measurement_error", "engine_error", "geometry_commit_error"):
         assert hasattr(result, channel), f"missing normative report field {channel}"
+        assert getattr(result, channel) is _ACCEPTANCE["A10"][channel]
+
 
 
 def test_C99_unlisted_two_node_percent_cycle_fails_closed():
