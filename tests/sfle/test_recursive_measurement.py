@@ -4,7 +4,7 @@ import pytest
 from psx.sfle.constraint_propagation import ChildSizing
 from psx.sfle.errors import SFLEError
 from psx.sfle.headless_measurement import HeadlessMeasurementSource
-from psx.sfle.lengths import Length
+from psx.sfle.lengths import Length, LengthKind
 from psx.sfle.margin_tree import MarginTreeNode
 from psx.sfle.margin_flex_pipeline import MarginFlexItem
 from psx.sfle.flex_math import FlexBasis
@@ -79,7 +79,7 @@ def test_recursive_measurement_rejects_mismatched_parents():
 def test_recursive_measurement_keeps_auto_axes_deferred():
     result = measure_resolved_margin_tree(
         snapshot(), NODES,
-        child_sizing=(("child", ChildSizing(Length.auto(), Length.px(20))),),
+        child_sizing=(("child", ChildSizing(Length(LengthKind.AUTO), Length.px(20))),),
         port=SOURCE.port(), current_generation=5,
     )
     assert result.deferred == ("child",)
