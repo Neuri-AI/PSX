@@ -1033,3 +1033,10 @@ The item contract adds `baseline_from_cross_start` (Python) / `baseline_from_cro
 
 
 **Measured baseline CI checkpoint:** code commit `34b57ae5` passed SFLE run `38067349752` on Rust and Python 3.10–3.13, and PSX alpha run `38067349761` on Python 3.10–3.13, PySide6 offscreen, and distribution build. This only verifies restricted horizontal measured-first-baseline grouping, not native font measurement or Chromium conformance.
+
+
+## Initial headless Chromium geometry checkpoint (post-F2.2.3 scoped work)
+
+The first real-browser comparison lives at `tests/browser/test_sfle_chromium.py` and is executed by `.github/workflows/sfle-chromium.yml`. GitHub Actions installs Playwright and the **headless Chromium binary in the CI runner**, not on the developer workstation. Fixtures compare four border-box fields (`x`, `y`, `width`, `height`) with 0.05 CSS-pixel tolerance, using root-relative rectangles and explicitly defined CSS sizes. The initial, deliberately narrow corpus covers centered rows, row RTL `space-between`, wrapped `align-content: space-between`, wrapped line stretch with centered children, auto cross-axis item stretch, and RTL column center.
+
+The comparison suite is not added to `tests/sfle`: ordinary SFLE Python/Rust contract validation does not require Chromium or Playwright. The browser job can be dispatched manually and also runs on changes to the engine, fixture suite or its workflow. The fixtures test **border-box positioning only** for fully resolved pixel inputs; they deliberately exclude native text baseline acquisition, indefinite percentages, intricate CSS intrinsic sizing, replaced elements, and recursive layout. This is an early scoped browser parity gate, not a claim that F2.3 browser conformance is complete.
