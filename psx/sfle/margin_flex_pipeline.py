@@ -202,6 +202,7 @@ def compute_margin_flex_layout(
             output.append(MarginFlexBox(
                 item.node_id, content, padding, border,
                 pos.used_start_margin, pos.used_end_margin, line_index,
+                cross_pos.used_start_margin, cross_pos.used_end_margin,
             ))
     return MarginFlexLayout(tuple(tuple(item.node_id for item in line) for line in lines),
                             tuple(output))
