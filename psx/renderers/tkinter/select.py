@@ -40,11 +40,11 @@ class TkSelectAdapter:
             if widget._psx_updating:
                 return
             index = widget.current()
-            if index <= 0:
+            if index < 0:
                 return
             items = widget._psx_items
-            if index - 1 < len(items):
-                slot.invoke(items[index - 1][1])
+            if index < len(items):
+                slot.invoke(items[index][1])
 
         binding_id = widget.bind("<<ComboboxSelected>>", callback, add="+")
         return widget, binding_id
@@ -65,14 +65,17 @@ class TkSelectAdapter:
         try:
             widget._psx_items = items
             widget.configure(
-                values=(props["placeholder"], *(label for label, _ in items)),
+                values=tuple(label for label, _ in items),
                 state="readonly" if props["enabled"] else "disabled",
             )
-            selected = 0
-            for index, (_label, value) in enumerate(items, start=1):
+            selected = -1
+            for index, (_label, value) in enumerate(items):
                 if type(value) is type(props["value"]) and value == props["value"]:
                     selected = index
                     break
-            widget.current(selected)
+            if selected >= 0:
+                widget.current(selected)
+            else:
+                widget.set(str(props["placeholder"]))
         finally:
             widget._psx_updating = False
