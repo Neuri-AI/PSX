@@ -47,6 +47,7 @@ from .core.vnode import (
     Radio,
     RadioGroup,
     Select,
+    Switch,
 )
 from .integrations.qyro import PSXComponent
 
@@ -69,6 +70,7 @@ __all__ = [
     "Radio",
     "RadioGroup",
     "Select",
+    "Switch",
 
     "App",
     "ComponentDefinition",
