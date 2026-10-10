@@ -325,7 +325,33 @@ class TkinterRenderer:
     # -- create -----------------------------------------------------------
 
     def create(self, node: VNode, parent: object | None) -> TkHandle:
-        return self._adapter_for(adapter_key(node)).create(self, node, parent)  # type: ignore[return-value]
+        # Scroll owns an inner content frame. New Tk widgets must be constructed
+        # with that frame as their real native master; pack(in_=...) alone
+        # cannot reparent a widget into a descendant of its original master.
+        native_parent = parent
+        if parent is not None and getattr(parent, "node_type", None) == "Scroll":
+            from types import SimpleNamespace
+            native_parent = SimpleNamespace(widget=parent.widget._psx_content)
+        handle = self._adapter_for(adapter_key(node)).create(self, node, native_parent)
+        self._bind_scroll_wheel(handle.widget)
+        return handle
+
+    @staticmethod
+    def _bind_scroll_wheel(widget: tk.Misc) -> None:
+        # Each mounted widget registers only on itself; no global bind_all().
+        def on_wheel(event):
+            current = widget
+            while current is not None:
+                if hasattr(current, "_psx_canvas"):
+                    consumed = current._wheel(event)
+                    if consumed == "break":
+                        return consumed
+                current = getattr(current, "master", None)
+            return None
+        widget.bind("<MouseWheel>", on_wheel, add="+")
+        widget.bind("<Shift-MouseWheel>", on_wheel, add="+")
+        widget.bind("<Button-4>", on_wheel, add="+")
+        widget.bind("<Button-5>", on_wheel, add="+")
 
     def _adapter_create(self, node: VNode, parent: object | None) -> TkHandle:
         _validate_props(node)
