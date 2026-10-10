@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .flex_math import _number
+from .main_alignment import JustifyContent, resolve_main_alignment
 from .line_layout import FlexDirection
 from .model import WritingDirection
 
@@ -64,6 +65,7 @@ def position_main_margins(
     main_gap: float = 0.0,
     direction: FlexDirection = FlexDirection.ROW,
     writing: WritingDirection = WritingDirection.LTR,
+    justify: JustifyContent = JustifyContent.FLEX_START,
 ) -> tuple[MarginPosition, ...]:
     """Apply §8.1 auto margin distribution after main flex-size resolution.
 
@@ -76,6 +78,8 @@ def position_main_margins(
         raise TypeError("items must be a tuple of MarginItem.")
     if not isinstance(direction, FlexDirection) or not isinstance(writing, WritingDirection):
         raise TypeError("Invalid direction or writing enum.")
+    if not isinstance(justify, JustifyContent):
+        raise TypeError("justify must be JustifyContent.")
     if len({i.node_id for i in items}) != len(items):
         raise ValueError("Item IDs must be unique.")
     extent = _number(container_main_size, "container_main_size")
@@ -92,17 +96,30 @@ def position_main_margins(
         for item in items
     )
     share = max(0.0, extent - fixed) / auto_count if auto_count else 0.0
+    used_outers = tuple(
+        item.border_main_size
+        + (share if item.start.value is None else item.start.value)
+        + (share if item.end.value is None else item.end.value)
+        for item in items
+    )
+    # Auto margins consume positive free space before justify-content.
+    effective_justify = (
+        JustifyContent.FLEX_START if auto_count and extent > fixed else justify
+    )
+    alignment = resolve_main_alignment(
+        effective_justify, extent, used_outers, gap=gap
+    )
     horizontal = direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
     reversed_axis = direction in (FlexDirection.ROW_REVERSE, FlexDirection.COLUMN_REVERSE)
     forward = ((writing == WritingDirection.LTR) != reversed_axis) if horizontal else not reversed_axis
-    cursor = 0.0 if forward else extent
+    cursor = alignment.leading_space if forward else extent - alignment.leading_space
     out: list[MarginPosition] = []
     for item in items:
         start_margin = share if item.start.value is None else item.start.value
         end_margin = share if item.end.value is None else item.end.value
         if forward:
             border_start = cursor + start_margin
-            cursor += start_margin + item.border_main_size + end_margin + gap
+            cursor += start_margin + item.border_main_size + end_margin + alignment.between_space
         else:
             border_start = cursor - start_margin - item.border_main_size
             cursor -= start_margin + item.border_main_size + end_margin + gap
