@@ -2,7 +2,11 @@
 from __future__ import annotations
 
 import math
+import sys
+from pathlib import Path
 from dataclasses import replace
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'sfle'))
 
 from psx.sfle.model import BoxRect, IntrinsicSizes, LayoutResult, Rect
 from psx.sfle.engine import PythonLayoutEngine
