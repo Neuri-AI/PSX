@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization and main/cross margins integrated; definite/indefinite percentage flex-basis fallback added; CI pending** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization and main/cross margins integrated; definite/indefinite percentage flex-basis fallback added; scoped Rust/Python and PSX CI passed** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -908,3 +908,10 @@ with item style normalization and recursive measurement, dependent
 min/max percentage sizing with indefinite containing blocks, and
 other cyclic percentage cases. No generic SFLE engine capability or
 browser-level conformity claim is unlocked by this increment.
+
+
+**CI for percentage flex-basis fallback:** code commit `5a960a9c`,
+SFLE workflow `38063346629`: Rust and Python 3.10–3.13 passed;
+PSX alpha validation workflow `38063346625`: Python 3.10–3.13,
+PySide6 offscreen and distribution build passed. These results apply
+to the restricted implementation, not CSS Chromium geometry conformance.
