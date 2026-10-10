@@ -13,6 +13,7 @@ from .flex_math import FlexBasis, resolve_flexible_lengths
 from .lengths import Length, LengthKind, parse_length
 from .line_layout import FlexDirection, FlexWrap
 from .margin_flex_pipeline import MarginFlexItem
+from .box_geometry import UsedBoxEdges, UsedEdges
 from .margin_tree import MarginTreeNode, compute_margin_tree
 from .model import (
     AvailableSize, BoxRect, LayoutInput, LayoutResult, MeasuredBox, Rect,
@@ -33,6 +34,10 @@ class _Style:
     align_items: CrossAlign
     row_gap: Length
     column_gap: Length
+    padding_top: Length
+    padding_right: Length
+    padding_bottom: Length
+    padding_left: Length
 
 
 _ALLOWED = frozenset({
@@ -40,6 +45,7 @@ _ALLOWED = frozenset({
     "flex_basis", "flex_grow", "flex_shrink", "min_width", "min_height",
     "layout_min_width", "layout_min_height", "align_items",
     "row_gap", "column_gap",
+    "layout_padding_top", "layout_padding_right", "layout_padding_bottom", "layout_padding_left",
 })
 
 
@@ -86,6 +92,10 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
             align_items=alignment,
             row_gap=parse_length(values.get('row_gap', 0)),
             column_gap=parse_length(values.get('column_gap', 0)),
+            padding_top=parse_length(values.get('layout_padding_top', 0)),
+            padding_right=parse_length(values.get('layout_padding_right', 0)),
+            padding_bottom=parse_length(values.get('layout_padding_bottom', 0)),
+            padding_left=parse_length(values.get('layout_padding_left', 0)),
         )
     return result
 
@@ -141,6 +151,24 @@ def _main_gap(style: _Style, width: float, height: float, node_id: str) -> float
     horizontal = style.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
     return _used_gap(style.column_gap if horizontal else style.row_gap,
                      width if horizontal else height, node_id)
+
+
+def _padding(style: _Style, inline_reference: float, node_id: str) -> UsedEdges:
+    def edge(length: Length) -> float:
+        if length.kind == LengthKind.PX:
+            value = length.value
+        elif length.kind == LengthKind.PERCENT:
+            value = length.value * inline_reference
+        else:
+            raise SFLECapabilityError(DiagnosticCode.INVALID_LENGTH,
+                                      "Padding requires a valid CSS numeric length.", node_id)
+        if value is None or value < 0:
+            raise SFLEError(DiagnosticCode.INVALID_LENGTH, "Negative or unknown padding.", node_id)
+        return value
+    return UsedEdges(
+        top=edge(style.padding_top), right=edge(style.padding_right),
+        bottom=edge(style.padding_bottom), left=edge(style.padding_left),
+    )
 
 
 def compute_snapshot(request: LayoutInput) -> LayoutResult:
@@ -272,20 +300,27 @@ def compute_snapshot(request: LayoutInput) -> LayoutResult:
                                     grow=child_style.grow,shrink=child_style.shrink,
                                     min_size=minimum))
         main_gap = _main_gap(style,width,height if height is not None else 0.0,node_id)
-        targets = resolve_flexible_lengths(tuple(bases), main_size, main_gap)
+        edges = {child: _padding(styles[child], width, child) for child in children[node_id]}
+        fixed_main_edges = sum(
+            edge.horizontal if horizontal else edge.vertical
+            for edge in edges.values()
+        )
+        targets = resolve_flexible_lengths(
+            tuple(bases), max(0.0, main_size - fixed_main_edges), main_gap
+        )
         cross_sizes = []
         for child_id, target in zip(children[node_id], targets):
             child_style = styles[child_id]
             if horizontal:
                 cross = _axis_value(child_style.height,height,axis="height",node_id=child_id)
                 if cross is None and height is not None and style.align_items == CrossAlign.STRETCH:
-                    cross = height
+                    cross = max(0.0, height - edges[child_id].vertical)
                 child_width, child_height = layout(child_id,target,cross,width,height)
                 cross_sizes.append(child_height)
             else:
                 cross = _axis_value(child_style.width,width,axis="width",node_id=child_id)
                 if cross is None and style.align_items == CrossAlign.STRETCH:
-                    cross = width
+                    cross = max(0.0, width - edges[child_id].horizontal)
                 child_width, child_height = layout(child_id,cross,target,width,height)
                 cross_sizes.append(child_width)
         if height is None:
@@ -319,9 +354,10 @@ def compute_snapshot(request: LayoutInput) -> LayoutResult:
         horizontal = styles[parent_id].direction in (FlexDirection.ROW,FlexDirection.ROW_REVERSE)
         main = width if horizontal else height
         cross = height if horizontal else width
+        item_edges = _padding(styles[node_id], used[parent_id][0], node_id)
         item = MarginFlexItem(
             node_id, FlexBasis(main,main,grow=0,shrink=0,min_size=0),
-            cross, cross_size_auto=False,
+            cross, edges=UsedBoxEdges(padding=item_edges), cross_size_auto=False,
         )
         resolved.append(MarginTreeNode(node_id,parent_id,width,height,item=item,
             direction=styles[node_id].direction,align_items=CrossAlign.FLEX_START,
