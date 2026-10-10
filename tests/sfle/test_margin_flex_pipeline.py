@@ -99,3 +99,52 @@ def test_column_reverse_autos_use_main_vertical_axis():
         direction=FlexDirection.COLUMN_REVERSE,
     )
     assert result.boxes[0].border.y == 40
+
+
+def test_integrated_cross_auto_margins_center_within_nowrap_line():
+    sample = replace(
+        item("a", 20), cross_start=UsedMargin(None), cross_end=UsedMargin(None),
+    )
+    result = compute_margin_flex_layout((sample,), 100, 100)
+    box = result.boxes[0]
+    assert box.border.y == 45
+    assert box.used_cross_start_margin == 45
+    assert box.used_cross_end_margin == 45
+    assert box.border.height == 10
+
+
+def test_integrated_cross_auto_overflow_uses_negative_end_margin():
+    sample = replace(
+        item("a", 20), cross_content_size=80,
+        cross_start=UsedMargin(None), cross_end=UsedMargin(None),
+    )
+    result = compute_margin_flex_layout((sample,), 100, 50)
+    box = result.boxes[0]
+    assert box.border.y == 0
+    assert (box.used_cross_start_margin, box.used_cross_end_margin) == (0, -30)
+
+
+def test_cross_fixed_signed_margins_affect_wrapped_line_cross_size():
+    a = replace(item("a", 60), cross_start=UsedMargin(5), cross_end=UsedMargin(10))
+    b = replace(item("b", 60), cross_start=UsedMargin(-3), cross_end=UsedMargin(0))
+    result = compute_margin_flex_layout((a, b), 90, 100, wrap=FlexWrap.WRAP)
+    assert result.lines == (("a",), ("b",))
+    assert result.boxes[0].border.y == 5
+    assert result.boxes[1].border.y == 22
+
+
+def test_wrap_reverse_cross_margin_uses_reversed_axis():
+    sample = replace(item("a", 20), cross_start=UsedMargin(3))
+    result = compute_margin_flex_layout((sample,), 100, 100, wrap=FlexWrap.WRAP_REVERSE)
+    assert result.boxes[0].border.y == 87
+
+
+def test_column_rtl_cross_axis_auto_margin_centers_horizontally():
+    sample = replace(
+        item("a", 20), cross_start=UsedMargin(None), cross_end=UsedMargin(None),
+    )
+    result = compute_margin_flex_layout(
+        (sample,), 100, 50,
+        direction=FlexDirection.COLUMN, writing=WritingDirection.RTL,
+    )
+    assert result.boxes[0].border.x == 45
