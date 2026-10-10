@@ -72,6 +72,6 @@ def compute_auto_cross_tree(
             # Only propagate cross-size when parent and child cross axes match.
             if parent_horizontal != horizontal:
                 raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Orthogonal auto cross contribution requires distinct main-axis sizing.")
-            updated_item = replace(item, cross_content_size=used)
+            updated_item = replace(item, cross_content_size=used, cross_size_auto=False)
             by_id[node.node_id] = replace(node, height=used, item=updated_item) if horizontal else replace(node, width=used, item=updated_item)
     return compute_margin_tree(tuple(by_id[node.node_id] for node in nodes), generation=generation, writing=writing)
