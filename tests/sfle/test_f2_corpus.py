@@ -21,12 +21,12 @@ def test_f2_corpus_has_valid_unique_preorder_tree(case):
         assert node["parent_id"] is None or node["parent_id"] in ids
         ids.add(node["node_id"])
     assert all(name in case for name in ("expected", "measurements", "viewport", "verification"))
-    assert set(case["verification"]) == {"python", "rust", "chromium"}
+    assert set(case["verification"]) == ({"python","rust"} if case["id"].startswith("N") else {"python", "rust", "chromium"})
 
 
 def test_f2_corpus_complete_case_inventory():
     assert {case["id"] for case in corpus()} == {
         *(f"A{i:02d}" for i in range(1, 8)),
         *(f"C{i:02d}" for i in range(1, 7)),
-        "C99", "A08", "A09-LTR", "A09-RTL", "A10",
+        "C99", "A08", "A09-LTR", "A09-RTL", "A10", "N01", "N02", "N03",
     }
