@@ -11,6 +11,7 @@ pub mod cross_stretch;
 pub mod align_content;
 pub mod baseline;
 pub mod measurement_plan;
+pub mod constraint_propagation;
 pub mod edge_pipeline;
 pub mod intrinsic;
 pub mod main_margins;
