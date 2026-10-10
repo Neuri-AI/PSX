@@ -17,10 +17,11 @@ Kivy, Tkinter and Headless.
 | `enabled` | `bool` | `True` |
 | `label` | `str` | `""` |
 | `size` | `"small" \| "medium" \| "large"` |
+| `color` | `#RRGGBB` | `"#16A34A"` |
 | `on_change` | `Callable[[bool], None] \| None` | `None` |
 | `key`, `ref` | runtime identity/reference | `None` |
 
-Physical track dimensions are `34×20`, `44×26` and `56×32` logical pixels for
+Physical track dimensions are `68×40`, `88×52` and `112×64` logical pixels for
 small, medium and large. Labels appear on the **right** of the track and are part of
 the native widget, not PSX child VNodes.
 
@@ -53,12 +54,12 @@ No explicit `scope` is necessary: the markup resolves local state and callbacks.
 | Renderer | Mechanism | Implementation |
 | --- | --- | --- |
 | Qt | custom adapter | `QAbstractButton` subclass with `QPainter` and owned `QPropertyAnimation` |
-| Kivy | custom adapter | native `kivy.uix.switch.Switch` plus adjacent `Label`, native animation |
+| Kivy | custom adapter | custom-painted `ButtonBehavior` track plus adjacent `Label`, Kivy `Animation` |
 | Tkinter | custom adapter | `ttk.Frame` holding `Canvas` and `ttk.Label`, `after` animation |
 | Headless | generic adapter | validated props and stable EventSlot |
 
 Adapters are required because Qt needs custom-painted animation; Kivy needs a
-labeled compound widget without exposing children to PSX; and Tkinter requires
+labeled custom-painted compound widget without exposing children to PSX; and Tkinter requires
 drawing, timer ownership and keyboard bindings.
 
 Programmatic `checked` updates change the visual state but **never** emit
