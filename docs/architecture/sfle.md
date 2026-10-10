@@ -419,7 +419,66 @@ measurement class and high-DPI scale. Prefer exact logical geometry in Headless
 when intrinsic inputs match, and explicit tolerances for native widget
 measurements. A screenshot match alone is not evidence of algorithm fidelity.
 
-## 10. Documentation and implementation deliverables
+## 10. Optional Rust acceleration — architectural consideration (F1)
+
+**Status: proposal for evaluation, not an approved implementation decision.**
+SFLE may use a native **Rust computation core** for CPU-intensive layout
+operations while keeping PSX orchestration and backend-native measurements in
+Python. The motivation is predictable latency for deep or large layout trees,
+not an assumption that every layout calculation requires native code.
+
+~~~mermaid
+flowchart TD
+    A["PSX VDOM / Python reconciler"] --> B["Python SFLE coordinator"]
+    B --> C["Backend-native intrinsic measurement"]
+    C --> D["Stable layout input / constraints"]
+    D --> E["Backend-neutral layout engine interface"]
+    E --> R["Candidate Rust core (PyO3 / maturin)"]
+    E --> P["Reference Python core or independent conformance oracle"]
+    R --> F["Geometry result / diagnostics"]
+    P --> F
+    F --> B
+    B --> G["Qt / Kivy / Tkinter geometry application"]
+~~~
+
+### Boundaries
+
+- **Python:** reconciler, invalidation, batching, cache ownership, native
+  measurement orchestration, scheduling, lifecycle, and renderer integration.
+- **Rust candidate:** flex line construction, iterative grow/shrink
+  distribution, min/max constraint resolution, alignment and final box geometry.
+- **Stable boundary:** pass numeric/tree data in batches rather than crossing
+  Python/Rust for every item or arithmetic operation.
+- **UI thread:** keep toolkit-specific calls on their required UI thread.
+  Pure Rust computation may release the GIL where safe, but such computation
+  must not call GUI widgets or race with reconciliation state.
+- **Packaging:** evaluate wheels for supported Python/platform/architecture
+  targets, native extension distribution, and compatibility with Qyro builds.
+  Do not assume an extension compiles everywhere without a packaging matrix.
+- **Determinism:** establish one normative mathematical behavior and compare
+  backends with browser conformance fixtures. An optional Python reference
+  should not become a permanently divergent second layout specification.
+- **Precision:** agree on floating-point representation, rounding,
+  NaN/infinity rejection and stable geometry serialization at the boundary.
+- **Safety:** Rust improves memory-safety properties but cannot remove GUI
+  thread affinity requirements or guarantee higher performance by itself.
+
+### Acceptance benchmarks
+
+Before selecting Rust as a required dependency, benchmark cold and warm
+layouts, window resize bursts, deeply nested flex trees, wrapping,
+intrinsic-size invalidation and reconciliation updates. Measure end-to-end
+latency, per-frame UI stalls, memory use and Python/native boundary overhead.
+Profile realistic layouts rather than relying only on arithmetic microbenchmarks.
+Record both Chromium geometry conformance and execution performance; a faster
+algorithm that disagrees with CSS is not acceptable.
+
+**Decision F1-RUST:** choose (a) portable Python reference first with
+measured Rust acceleration, (b) Rust as the primary core with a defined
+packaging/fallback policy, or (c) postpone native optimization until profiling
+demonstrates the bottleneck. Do not begin Rust implementation before approval.
+
+## 11. Documentation and implementation deliverables
 
 Before coding, approve and maintain these documents (they may initially be
 sections of this file and later split):
@@ -435,7 +494,7 @@ sections of this file and later split):
 | Inspector geometry protocol | computed boxes, lines, gutters, diagnostics |
 | Performance notes | invalidation, complexity, benchmarks, memory behavior |
 
-## 11. Decisions requiring explicit approval
+## 12. Decisions requiring explicit approval
 
 - Public component design: Flex/FlexItem vs enriched Row/Column, and where
   child flex properties live.
@@ -446,6 +505,8 @@ sections of this file and later split):
 - Whether measurement can be asynchronous or must remain UI-thread-bound.
 - Initial browser fixture baseline and approved logical-pixel tolerances.
 - Boundaries between SFLE, responsive Flexbox Grid and future CSS Grid.
+- **F1-RUST:** Rust/PyO3 native computation policy, packaging strategy,
+  fallback/reference behavior and profiling-based performance thresholds.
 
 **Implementation milestone sequence:**
 
