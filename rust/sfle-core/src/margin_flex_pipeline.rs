@@ -351,4 +351,56 @@ mod tests {
         assert_eq!(out.boxes[0].border.y, 87.0);
     }
 
+    #[test]
+    fn justify_space_between_changes_real_border_positions() {
+        let out = compute_margin_flex_layout_justified(
+            &[item("a", 20.0, Some(0.0), Some(0.0)),
+              item("b", 20.0, Some(0.0), Some(0.0))],
+            100.0, 40.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::NoWrap, 10.0, 0.0, JustifyContent::SpaceBetween,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.x, 0.0);
+        assert_eq!(out.boxes[1].border.x, 80.0);
+    }
+
+    #[test]
+    fn rtl_and_reverse_justify_preserve_logical_start() {
+        for (direction, writing) in [
+            (Direction::Row, WritingDirection::Rtl),
+            (Direction::RowReverse, WritingDirection::Ltr),
+        ] {
+            let out = compute_margin_flex_layout_justified(
+                &[item("a", 20.0, Some(0.0), Some(0.0)),
+                  item("b", 20.0, Some(0.0), Some(0.0))],
+                100.0, 40.0, direction, writing, Wrap::NoWrap,
+                10.0, 0.0, JustifyContent::SpaceBetween,
+            ).unwrap();
+            assert_eq!(out.boxes[0].border.x, 80.0);
+            assert_eq!(out.boxes[1].border.x, 0.0);
+        }
+    }
+
+    #[test]
+    fn positive_auto_margin_precedes_justify_end() {
+        let out = compute_margin_flex_layout_justified(
+            &[item("a", 20.0, Some(0.0), None),
+              item("b", 20.0, Some(0.0), Some(0.0))],
+            100.0, 40.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::NoWrap, 0.0, 0.0, JustifyContent::FlexEnd,
+        ).unwrap();
+        assert_eq!(out.boxes[0].used_main_end_margin, 60.0);
+        assert_eq!(out.boxes[0].border.x, 0.0);
+        assert_eq!(out.boxes[1].border.x, 80.0);
+    }
+
+    #[test]
+    fn column_main_axis_justify_centers_y() {
+        let out = compute_margin_flex_layout_justified(
+            &[item("a", 20.0, Some(0.0), Some(0.0))],
+            40.0, 100.0, Direction::Column, WritingDirection::Ltr,
+            Wrap::NoWrap, 0.0, 0.0, JustifyContent::Center,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.y, 40.0);
+    }
+
 }
