@@ -57,7 +57,8 @@ def test_A03_indefinite_percentage_reference_preserved_then_css_resolved():
         ("inner", "root", "Flex", {"layout_height": Length.percent(0.5)}),
     ], height=None)
     result = PythonLayoutEngine().compute(s)
-    assert boxes(result)["root"].content.height >= 0
+    assert boxes(result)["root"].content.height == pytest.approx(_ACCEPTANCE["A03"]["root.height"], abs=0.01)
+    assert boxes(result)["inner"].content.height == pytest.approx(_ACCEPTANCE["A03"]["inner.height"], abs=0.01)
 
 
 def test_A04_grow_remeasures_final_text_width_and_parent_height():
