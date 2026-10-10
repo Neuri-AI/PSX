@@ -73,9 +73,10 @@ class TkSpinBoxAdapter:
     def _increment(self, frame, direction):
         if not frame._psx_props["enabled"]:
             return
-        self._commit(frame)
         props = frame._psx_props
-        value = stepped(normalized(props["value"], props), direction, props)
+        base = committed(frame._psx_var.get(), props) if frame._psx_dirty else normalized(props["value"], props)
+        frame._psx_dirty = False
+        value = stepped(base, direction, props)
         self._emit(frame, value)
 
     def _key_step(self, frame, direction):
