@@ -101,13 +101,10 @@ native backend during manual DX rather than assuming exact equivalence.
   so enclosing views may handle them. Reorientation updates box layout in
   place without replacing child widgets.
 - **Kivy:** `ScrollView` containing a managed `BoxLayout`; minimum content
-  dimensions follow children and viewport. Kivy's native wheel handling is
-  supplemented by a bounded fallback for SDL2 mouse/trackpad scroll-button
-  touches, with 48 logical pixels per wheel increment. On macOS, the
-  Scroll adapter currently inverts SDL2 scroll-button direction to align with
-  observed natural-scrolling trackpad behavior. Nested views normalize each
-  touch only once, before native Kivy dispatch. This needs confirmation with
-  both natural-scrolling and conventional mouse setups. Native indicators are drawn
+  dimensions follow children and viewport. Wheel and trackpad input are
+  handled by Kivy's own ScrollView to avoid competing scroll offset updates;
+  the previous macOS-specific direction inversion and manual fallback were
+  removed after reports of rebound/flicker. Native indicators are drawn
   over the viewport. Cross-axis hints and parent stretch constraints can
   affect sizing, so validate on all relevant layout configurations.
 - **Tkinter:** `Canvas` plus frame in `create_window`; PSX creates children
