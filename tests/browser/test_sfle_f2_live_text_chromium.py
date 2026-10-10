@@ -18,6 +18,7 @@ from width_measurement_helpers import rust_compute
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.model import IntrinsicSizes
 from psx.sfle.remeasure_session import compute_with_width_measurements
+from psx.sfle.calibration import attach_calibration_errors
 from dataclasses import replace
 
 DATA = json.loads((ROOT / "tests/sfle/fixtures/f2_alpha_acceptance.json").read_text())
@@ -117,3 +118,22 @@ def test_real_text_browser_width_remeasurement_matches_sfle(case_id, backend, br
             assert measured==pytest.approx(expected,abs=DATA["tolerance_px"]),(
                 f"{case_id} {backend} {node_id}.{axis}: sfle={measured}, chromium={expected}"
             )
+
+    independent_measurements = [
+        (
+            live["initial_height_px"] if recorded_width == live["initial_width_px"]
+            else live["final_height_px"],
+            observed,
+        )
+        for (_, recorded_width), observed in zip(calls, heights)
+    ]
+    calibrated = attach_calibration_errors(
+        result,
+        measured_height_pairs=independent_measurements,
+        reference_border_rectangles=actual,
+    )
+    assert calibrated.measurement_error == pytest.approx(0, abs=DATA["tolerance_px"])
+    assert calibrated.engine_error == pytest.approx(0, abs=DATA["tolerance_px"])
+    assert calibrated.geometry_commit_error is None, (
+        "Do not misreport unobserved native commits as zero error"
+    )
