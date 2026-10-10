@@ -7,7 +7,7 @@ import pytest
 
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.lengths import Length
+from psx.sfle.lengths import Length, LengthKind
 from psx.sfle.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, MeasuredBox, WritingDirection,
@@ -39,8 +39,8 @@ def boxes(result):
 
 def test_A02_auto_parent_and_auto_flex_basis_use_intrinsic_content():
     s = snapshot([
-        ("root", None, "Flex", {"direction": "row", "layout_width": Length.auto()}),
-        ("child", "root", "Text", {"flex_basis": Length.auto(), "layout_width": Length.auto()}),
+        ("root", None, "Flex", {"direction": "row", "layout_width": Length(LengthKind.AUTO)}),
+        ("child", "root", "Text", {"flex_basis": Length(LengthKind.AUTO), "layout_width": Length(LengthKind.AUTO)}),
     ], width=None)
     result = PythonLayoutEngine().compute(s)
     assert boxes(result)["root"].content.width >= 100
@@ -48,7 +48,7 @@ def test_A02_auto_parent_and_auto_flex_basis_use_intrinsic_content():
 
 def test_A03_indefinite_percentage_reference_preserved_then_css_resolved():
     s = snapshot([
-        ("root", None, "Flex", {"direction": "column", "layout_height": Length.auto()}),
+        ("root", None, "Flex", {"direction": "column", "layout_height": Length(LengthKind.AUTO)}),
         ("inner", "root", "Flex", {"layout_height": Length.percent(0.5)}),
     ], height=None)
     result = PythonLayoutEngine().compute(s)
@@ -57,8 +57,8 @@ def test_A03_indefinite_percentage_reference_preserved_then_css_resolved():
 
 def test_A04_grow_remeasures_final_text_width_and_parent_height():
     s = snapshot([
-        ("root", None, "Flex", {"direction": "row", "layout_width": Length.px(150), "layout_height": Length.auto()}),
-        ("text", "root", "Text", {"flex_grow": 1, "flex_basis": Length.auto(), "layout_height": Length.auto()}),
+        ("root", None, "Flex", {"direction": "row", "layout_width": Length.px(150), "layout_height": Length(LengthKind.AUTO)}),
+        ("text", "root", "Text", {"flex_grow": 1, "flex_basis": Length(LengthKind.AUTO), "layout_height": Length(LengthKind.AUTO)}),
     ], width=150)
     result = PythonLayoutEngine().compute(s)
     assert boxes(result)["text"].content.width == pytest.approx(150, abs=0.01)
@@ -67,7 +67,7 @@ def test_A04_grow_remeasures_final_text_width_and_parent_height():
 
 def test_A05_shrink_remeasures_both_items_at_35px():
     s = snapshot([
-        ("root", None, "Flex", {"direction": "row", "layout_width": Length.px(70), "layout_height": Length.auto()}),
+        ("root", None, "Flex", {"direction": "row", "layout_width": Length.px(70), "layout_height": Length(LengthKind.AUTO)}),
         ("a", "root", "Text", {"flex_basis": Length.px(50), "flex_shrink": 1, "layout_min_width": Length.px(0)}),
         ("b", "root", "Text", {"flex_basis": Length.px(50), "flex_shrink": 1, "layout_min_width": Length.px(0)}),
     ], width=70)
@@ -84,8 +84,8 @@ def test_A06_generation_is_preserved_by_pure_layout_result():
 
 def test_A07_convergent_auto_layout_is_finite():
     s = snapshot([
-        ("root", None, "Flex", {"layout_height": Length.auto()}),
-        ("child", "root", "Text", {"layout_height": Length.auto()}),
+        ("root", None, "Flex", {"layout_height": Length(LengthKind.AUTO)}),
+        ("child", "root", "Text", {"layout_height": Length(LengthKind.AUTO)}),
     ], height=None)
     result = PythonLayoutEngine().compute(s)
     assert boxes(result)["root"].content.height >= 0
@@ -113,7 +113,7 @@ def test_A10_layout_output_contains_separate_error_channels():
 
 def test_C99_unlisted_two_node_percent_cycle_fails_closed():
     s = snapshot([
-        ("root", None, "Flex", {"layout_width": Length.auto(), "layout_height": Length.auto()}),
+        ("root", None, "Flex", {"layout_width": Length(LengthKind.AUTO), "layout_height": Length(LengthKind.AUTO)}),
         ("a", "root", "Flex", {"layout_width": Length.percent(0.5), "layout_height": Length.percent(0.5)}),
         ("b", "a", "Flex", {"layout_width": Length.percent(0.5), "layout_height": Length.percent(0.5)}),
     ], width=None, height=None)
