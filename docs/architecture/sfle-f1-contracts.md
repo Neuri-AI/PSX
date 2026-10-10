@@ -18,7 +18,7 @@ margin/padding/border edges and deferred percentage resolution.
 
 | ID | Accepted decision | Consequence |
 | --- | --- | --- |
-| D-F1.1 | A `Flex` container and flex item properties directly on existing PSX components | Do not require `FlexItem`; preserve actual child VNodes and identity |
+| D-F1.1 | `Flex` plus item props on existing *non-layout* components | No required `FlexItem`; Row/Column are removed under corrected D-F1.10; preserve VNode identity |
 | D-F1.2 | Public property names in `snake_case` | Python and PSX markup share one canonical spelling |
 | D-F1.3 | Incremental implementation with progressive CSS conformance | Every unsupported normative feature is reported, not silently simulated |
 | D-F1.4 | Native measurement on renderer UI thread; pure layout calculation | SFLE cannot call a GUI widget from the pure computation phase |
@@ -29,6 +29,13 @@ margin/padding/border edges and deferred percentage resolution.
 **Primary invariant:** Given equivalent measured intrinsic sizes, definite
 constraints and styles, SFLE must calculate the same flex geometry regardless
 of the renderer. Pixel-identical native widget appearance is not a requirement.
+
+**Corrected D-F1.10:** `Row` and `Column` are removed from the final
+public PSX API with no aliases, wrappers, or compatibility layer. All
+public Flexbox distribution uses `Flex(direction="row" | "column" |
+"row-reverse" | "column-reverse")`. `Scroll` remains a distinct
+viewport/scrolling primitive, never an implicit Flex container.
+Existing runtime code remains untouched until F2 is explicitly authorized.
 
 ## 2. Public component contract — `Flex` (target API, implementation pending)
 
@@ -44,7 +51,8 @@ of the renderer. Pixel-identical native widget appearance is not a requirement.
   for its *direct layout children*. Descendants within nested containers are
   governed by their own parent layout system.
 - **Disabled:** no new `enabled` behavior specified; should follow established
-  container conventions only if explicitly adopted in D-F1.10.
+  independently of deleted Row/Column APIs; any enabled behavior requires a
+  dedicated Flex contract decision, not compatibility with removed components.
 
 ### 2.1 Container properties and proposed defaults
 
@@ -96,7 +104,7 @@ component's hook boundaries or generating new keys.
 `Flex` container retains its own container sizing props.
 
 **Critical compatibility constraint:** existing validators use closed
-`*_PROPS` sets (for example `Text`, `Button`, `Column`, `Scroll`).
+`*_PROPS` sets (for example `Text`, `Button`, `Scroll`).
 The new layout style namespace must be validated in a common layer and separated
 from widget-specific props before delegation. It must not be forwarded to
 native factories, swallowed by `**props` without validation, or accidentally
@@ -117,10 +125,11 @@ validation. Do not silently accept misspelled properties.
       justify_content="space-between" align_items="center"
       width="100%">
     <Text flex_grow={1} flex_basis={200}>Left</Text>
-    <Column flex_grow={2} flex_basis={300} layout_min_width={0}>
+    <Flex direction="column" flex_grow={2} flex_basis={300}
+          layout_min_width={0}>
         <Text>Right</Text>
         <Button>Continue</Button>
-    </Column>
+    </Flex>
 </Flex>
 ~~~
 
@@ -265,21 +274,24 @@ approved. This section supersedes the earlier provisional options.
 | --- | --- |
 | D-F1.8 | Horizontal LTR and RTL from F2; vertical writing modes deferred |
 | D-F1.9 | Progressive CSS fidelity with explicit unsupported-feature errors |
-| D-F1.10 | SFLE fully replaces portable layout algorithms for Flex, Row, Column and Scroll content; legacy public contracts preserved where feasible |
+| D-F1.10 | **Remove Row and Column from the public API entirely**, without aliases/wrappers; Flex is the only public Flexbox layout component. SFLE owns Flexbox geometry; Scroll remains an independent scrolling component |
 | D-F1.11 | 0.01 logical px pure / 1.0 logical px native, calibrable; structural geometry must match |
 | D-F1.12 | UI-thread native measurement, selective cache, immutable snapshots and coalesced scheduler |
 | F1-RUST | Rust primary with Python fallback, equal semantics and portable loading policy |
 
 **Source of truth:** [F1 final architecture](sfle-f1-final-architecture.md).
-In particular, the `Row`/`Column` reuse of SFLE is internal and does
-**not** activate `flex_*` props for their children: D-F1.6 remains intact.
+There is **no public or internal compatibility delegation** from Row/Column:
+those components and redundant algorithms are to be removed during authorized
+implementation. Flex item props activate only under explicit Flex; Scroll
+remains independent and does not activate them implicitly (D-F1.6).
 Rust and Python must not expose divergent CSS layout behavior.
 
 ## 7. Completion criteria for F1 (no runtime coding)
 
 - All F1 architectural choices approved; formal close-out and explicit F2 authorization remain.
 - Freeze container/item property names and defaults against CSS reference.
-- Freeze parent-aware validation and `Row`/`Column`/`Scroll` interoperability.
+- Freeze parent-aware validation and explicit Flex/independent Scroll
+  interoperability; Row/Column are deleted in the target public API.
 - Freeze definite/indefinite measurement protocol, geometry and lifecycle.
 - Agree a browser fixture matrix and geometry comparison thresholds.
 - Document implementation boundaries, packaging consequences and deviations.
