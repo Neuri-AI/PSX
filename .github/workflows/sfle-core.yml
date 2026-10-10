@@ -16,6 +16,7 @@ on:
       - "rust/sfle-core/**"
       - "tests/sfle/**"
       - ".github/workflows/sfle-core.yml"
+      - "pyproject.toml"
 
 permissions:
   contents: read
