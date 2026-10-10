@@ -1318,3 +1318,22 @@ Focused regressions are in `test_intrinsic_tree.py` and
 auto flex leaf whose final grow-distributed border rectangle is compared to
 Chromium. Full Rust/Python parity, auto-sized ancestors and real framework
 lifecycle integration remain required for F2.2.4 completion.
+
+
+## F2.2.4.6 — Restricted bottom-up automatic cross-size containers
+
+Python `auto_cross_tree.py` and Rust `auto_cross_tree.rs` add a deliberately
+bounded bottom-up auto cross-axis sizing pass for nonempty, non-wrapping Flex
+containers with **definite** child outer cross contributions. Resolved child
+container sizes feed back into the parent Flex item before the existing
+top-down margin-tree geometry pass. Nested same-axis automatic heights and
+widths are supported in this subset; auto container sizes are not guessed
+from their original zero placeholder. Invalid/duplicate nodes, unknown
+ancestors, cyclic/orthogonal contexts and unsupported wrapping fail closed.
+
+Both kernels have focused regression coverage. This is NOT complete CSS
+automatic container sizing: wrapping line contributions, intrinsic main-axis
+auto sizing, cyclic percentages, aspect-ratio transfers, more elaborate
+alignment effects, real native widget measurements and integrated
+Rust/Python differential parity still gate the closure of F2.2.4.6–8.
+The scoped tracker therefore remains at 5/8 pending those acceptance tests.
