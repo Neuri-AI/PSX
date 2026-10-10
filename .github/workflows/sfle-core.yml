@@ -115,3 +115,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Rust unit tests
         run: cargo test --all-targets --no-fail-fast
+
+  differential:
+    name: SFLE Rust/Python alpha corpus differential
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install PSX Python contract tests
+        run: python -m pip install -e . pytest
+      - name: Verify alpha corpus against both pure compute backends
+        run: python -m pytest -q tests/interop/test_sfle_f2_differential.py
