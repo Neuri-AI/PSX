@@ -72,7 +72,7 @@ class QtSpinBoxAdapter:
                     if delta:
                         adapter._increment(frame, 1 if delta > 0 else -1)
                         return True
-            return False
+                return False
 
         filter_object = Filter(frame)
         frame._psx_event_filter = filter_object
