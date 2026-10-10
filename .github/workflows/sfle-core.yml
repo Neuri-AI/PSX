@@ -130,3 +130,24 @@ jobs:
         run: python -m pip install -e . pytest
       - name: Verify alpha corpus against both pure compute backends
         run: python -m pytest -q tests/interop/test_sfle_f2_differential.py tests/interop/test_f2_a01_active_remeasure_red.py tests/interop/test_f2_a04_active_remeasure_red.py tests/interop/test_f2_a05_active_remeasure_red.py
+
+  native-wheel:
+    name: SFLE PyO3 native wheel ABI and parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install SFLE source and maturin
+        run: python -m pip install -e . pytest 'maturin>=1.8,<2'
+      - name: Build Rust PyO3 wheel
+        run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out /tmp/sfle-native-wheels
+      - name: Install native wheel without reinstalling PSX
+        run: python -m pip install --no-deps /tmp/sfle-native-wheels/*.whl
+      - name: Verify extension loads and computes normalized snapshots
+        run: |
+          python -c "import psx._sfle_native as n; assert n.schema_version() == 1"
+          python -m pytest -q tests/interop/test_sfle_f2_native_wheel.py
