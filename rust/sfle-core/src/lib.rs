@@ -18,6 +18,7 @@ pub mod remeasurement;
 pub mod measurement_round;
 pub mod convergence;
 pub mod measurement_coordinator;
+pub mod resolved_tree;
 pub mod edge_pipeline;
 pub mod intrinsic;
 pub mod main_margins;
