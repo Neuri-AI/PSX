@@ -52,6 +52,58 @@ syntax-error recovery, frozen/production disable, snapshot validation and
 diagnostics tests. Native GUI smoke tests complement, but do not replace,
 deterministic headless tests.
 
+## Pending — portable Flexbox/Grid layout system (proposal)
+
+**Status:** roadmap addition only; API, milestone, acceptance criteria and
+implementation have not been approved. Reference:
+[Flexbox Grid](http://flexboxgrid.com/) (a responsive 12-column layout system
+built on CSS Flexbox). PSX should reproduce the *layout semantics* in native
+desktop renderers rather than embed CSS or assume a browser engine.
+
+### Scope to design
+
+- **Flex-style layout:** row/column flow, `gap`, `wrap`, `grow`, `shrink`,
+  `basis`, `align_items`, `align_self`, `justify_content`, and ordering.
+- **Responsive 12-column grid (Flexbox Grid-inspired):** spans, offsets,
+  automatic/equal-width columns, nesting, distribution and alignment; column
+  sizes may depend on breakpoint rules for the **container/window width**.
+- **Optional CSS Grid-like track layouts:** consider a distinct `Grid` /
+  `GridItem` contract with explicit rows/columns, track sizing and spans.
+  Do not conflate Flexbox Grid's flex-based 12-column system with CSS Grid.
+- **Portable measurement and layout:** intrinsic/min/max sizing, percentage or
+  proportional widths, `gap`/gutters, padding, constraint propagation,
+  overflow behavior, high-DPI scaling and deterministic recalculation on resize.
+- **Responsive behavior:** define desktop-appropriate breakpoints, initial
+  layout and resize transitions; avoid unnecessary widget recreation or loss
+  of component state during reflow.
+- **Renderer support:** Qt, Kivy, Tkinter and Headless should implement the
+  same semantics through adapters or a shared backend-neutral layout model.
+- **Architecture:** extend/reuse existing `Row`/`Column` and D11 layout
+  contracts where compatible. Determine whether new `Flex`, `Grid` and
+  `GridItem` components are warranted after an API design review. Reuse
+  the same geometry rules in the PSX Playground Visual Layout Inspector and
+  future Visual UI Builder.
+
+### Aspirational markup (not currently supported)
+
+```xml
+<Flex direction="row" gap={12} wrap="wrap" justify_content="between">
+    <Grid columns={12} gap={12}>
+        <GridItem span={8}>
+            <Sidebar />
+        </GridItem>
+        <GridItem span={4}>
+            <Details />
+        </GridItem>
+    </Grid>
+</Flex>
+```
+
+The snippet illustrates layout intent only; component names, accepted props,
+nesting rules and responsive syntax are **not yet decided**. Future design
+cards should settle those choices before any implementation. Do not add
+automated tests as part of the current component DX-first rollout.
+
 ## Pending — expressive PSX markup (design not approved)
 
 These are future compiler/runtime capabilities, **not supported today**.
