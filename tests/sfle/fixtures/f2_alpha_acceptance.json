@@ -631,6 +631,168 @@
         "rust",
         "chromium"
       ]
+    },
+    {
+      "id": "A08",
+      "name": "python-fallback-definite-empty-root",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 120,
+        "height": 60
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "width": "120px",
+            "height": "60px"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "root.width": 120,
+        "root.height": 60
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "A09-LTR",
+      "name": "resolved-row-ltr",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 120,
+        "height": 60
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "120px",
+            "height": "60px"
+          }
+        },
+        {
+          "node_id": "a",
+          "parent_id": "root",
+          "component": "Text",
+          "style": {
+            "flex_basis": "20px"
+          }
+        },
+        {
+          "node_id": "b",
+          "parent_id": "root",
+          "component": "Text",
+          "style": {
+            "flex_basis": "30px"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "root.width": 120,
+        "a.x": 0,
+        "b.x": 20,
+        "a.width": 20,
+        "b.width": 30
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "A09-RTL",
+      "name": "resolved-row-rtl",
+      "writing_direction": "rtl",
+      "viewport": {
+        "width": 120,
+        "height": 60
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "120px",
+            "height": "60px"
+          }
+        },
+        {
+          "node_id": "a",
+          "parent_id": "root",
+          "component": "Text",
+          "style": {
+            "flex_basis": "20px"
+          }
+        },
+        {
+          "node_id": "b",
+          "parent_id": "root",
+          "component": "Text",
+          "style": {
+            "flex_basis": "30px"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "root.width": 120,
+        "a.x": 100,
+        "b.x": 70,
+        "a.width": 20,
+        "b.width": 30
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "A10",
+      "name": "separate-error-report-channels",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 120,
+        "height": 20
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "width": "120px",
+            "height": "20px"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "root.width": 120,
+        "measurement_error": null,
+        "engine_error": null,
+        "geometry_commit_error": null
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
     }
   ]
 }
