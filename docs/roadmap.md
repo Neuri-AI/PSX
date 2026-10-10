@@ -51,3 +51,28 @@ M8 requires watcher debounce, atomic save, ignored paths, child lifecycle,
 syntax-error recovery, frozen/production disable, snapshot validation and
 diagnostics tests. Native GUI smoke tests complement, but do not replace,
 deterministic headless tests.
+
+## Pending — expressive PSX markup (design not approved)
+
+These are future compiler/runtime capabilities, **not supported today**.
+Design and prioritize them separately from portable UI components such as Badge.
+
+- **Conditional rendering:** permit declarative branches within PSX markup
+  (e.g. a safe equivalent of `condition ? A : B`, `if/else`, or
+  `condition and A`). Define behavior for false/empty results, stable
+  component identities and reconciliation before choosing syntax.
+- **Inline lambda expressions:** explore supporting lambdas in attribute
+  expressions and event handlers, subject to lexical scope resolution,
+  callable safety and documented restrictions. Do not assume arbitrary
+  Python execution is permitted by the current expression evaluator.
+- **Declarative list rendering / JS-like `.map()`:** offer a natural syntax
+  for mapping collections to repeated VNodes, potentially via Python
+  comprehensions, `map(...)`, or a dedicated PSX directive. Python lists
+  do not have JavaScript's `Array.map()`, so literal `items.map(...)`
+  would require an explicit compiler transform or wrapper API.
+- **Acceptance requirements:** correctly capture local variables, preserve
+  stable `key` identity when reordering, reconcile add/remove/conditional
+  branches, and preserve hook ordering rules and expression security.
+
+All syntax, error handling, transform strategy and rollout order remain
+pending a dedicated design decision.
