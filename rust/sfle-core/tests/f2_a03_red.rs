@@ -7,6 +7,9 @@ fn acceptance_a03_normalized_rust_engine() {
     let result = compute(&snapshot).expect("A03: Rust compute must support this fixture");
     assert_eq!(result.generation, snapshot.generation);
     assert_eq!(result.boxes.len(), snapshot.nodes.len());
-    assert!(case["expected"]["diagnostic"].is_string());
-    assert!(result.boxes[0].content.height.is_finite());
+    for node in ["root","inner"] {
+        let actual=result.boxes.iter().find(|b|b.node_id==node).unwrap().content.height;
+        let expected=case["expected"][format!("{node}.height")].as_f64().unwrap();
+        assert!((actual-expected).abs()<=0.01,"{node}: {actual} vs {expected}");
+    }
 }
