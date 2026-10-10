@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins connected to line formation, flex sizing and border placement in both languages; CI pending** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins connected to line formation, flex sizing and border placement in both languages; CI passed** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -733,6 +733,10 @@ edge-geometry contract while tests and browser conformance are pending.
 
 **Remaining F2.2.2 work:** CSS min/max constraints with box-sizing,
 cross-axis margin semantics, percentage-dependent layout sizing, and
-geometry parity with browser reference snapshots. Early headless Chromium
+geometry parity with browser reference snapshots. **Verified CI:** run `38061081019` passed Python SFLE 3.10–3.13 and
+Rust; run `38061081024` passed general PSX Python, PySide6 offscreen
+and distribution build for code commit `de512501`.
+
+Early headless Chromium
 fixtures remain scheduled just after F2.2.3, using GitHub Actions
 rather than requiring a developer's local machine.
