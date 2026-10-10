@@ -41,3 +41,8 @@ class PythonLayoutEngine:
     def compute(self, request: LayoutInput) -> LayoutResult:
         from .compute_alpha import compute_snapshot
         return compute_snapshot(request)
+
+    def compute_provisional(self, request: LayoutInput) -> LayoutResult:
+        """Noncommittable geometry used solely to obtain post-flex widths."""
+        from .compute_alpha import compute_snapshot
+        return compute_snapshot(request, provisional=True)
