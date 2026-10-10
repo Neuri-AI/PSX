@@ -438,4 +438,63 @@ mod tests {
         assert_eq!(out.boxes[0].border.y, 40.0);
     }
 
+    #[test]
+    fn align_items_center_positions_cross_border() {
+        let out = compute_margin_flex_layout_aligned(
+            &[item("a", 20.0, Some(0.0), Some(0.0))],
+            100.0, 100.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::NoWrap, 0.0, 0.0,
+            JustifyContent::FlexStart, CrossAlign::Center,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.y, 45.0);
+    }
+
+    #[test]
+    fn align_self_end_overrides_container_start() {
+        let mut a = item("a", 20.0, Some(0.0), Some(0.0));
+        a.align_self = CrossAlign::FlexEnd;
+        let out = compute_margin_flex_layout_aligned(
+            &[a], 100.0, 100.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::NoWrap, 0.0, 0.0,
+            JustifyContent::FlexStart, CrossAlign::FlexStart,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.y, 90.0);
+    }
+
+    #[test]
+    fn auto_cross_margins_override_align_self_end() {
+        let mut a = item("a", 20.0, Some(0.0), Some(0.0));
+        a.cross_start = None;
+        a.cross_end = None;
+        a.align_self = CrossAlign::FlexEnd;
+        let out = compute_margin_flex_layout_aligned(
+            &[a], 100.0, 100.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::NoWrap, 0.0, 0.0,
+            JustifyContent::FlexStart, CrossAlign::FlexStart,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.y, 45.0);
+    }
+
+    #[test]
+    fn column_rtl_align_end_maps_to_physical_right() {
+        let mut a = item("a", 20.0, Some(0.0), Some(0.0));
+        a.align_self = CrossAlign::FlexEnd;
+        let out = compute_margin_flex_layout_aligned(
+            &[a], 100.0, 40.0, Direction::Column, WritingDirection::Rtl,
+            Wrap::NoWrap, 0.0, 0.0,
+            JustifyContent::FlexStart, CrossAlign::FlexStart,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.x, 90.0);
+    }
+
+    #[test]
+    fn stretch_is_not_silently_treated_as_start() {
+        assert!(compute_margin_flex_layout_aligned(
+            &[item("a", 20.0, Some(0.0), Some(0.0))],
+            100.0, 100.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::NoWrap, 0.0, 0.0,
+            JustifyContent::FlexStart, CrossAlign::Stretch,
+        ).is_err());
+    }
+
 }
