@@ -47,7 +47,8 @@ def test_A02_auto_parent_and_auto_flex_basis_use_intrinsic_content():
         ("child", "root", "Text", {"flex_basis": Length(LengthKind.AUTO), "layout_width": Length(LengthKind.AUTO)}),
     ], width=None)
     result = PythonLayoutEngine().compute(s)
-    assert boxes(result)["root"].content.width >= 100
+    assert boxes(result)["root"].content.width == pytest.approx(_ACCEPTANCE["A02"]["root.width"], abs=0.01)
+    assert boxes(result)["child"].content.width == pytest.approx(_ACCEPTANCE["A02"]["child.width"], abs=0.01)
 
 
 def test_A03_indefinite_percentage_reference_preserved_then_css_resolved():
