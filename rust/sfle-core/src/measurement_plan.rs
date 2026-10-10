@@ -182,14 +182,17 @@ mod tests {
         let cached = MeasuredRevision {
             node_id: "child".into(), constraints: pair(50.0, 40.0), revision: 1,
         };
+        let leaf = MeasuredRevision {
+            node_id: "leaf".into(), constraints: pair(20.0, 10.0), revision: 0,
+        };
         let plan = plan_measurements(
             8, &nodes(), pair(100.0, 100.0),
             &[("child".into(), pair(50.0, 40.0)), ("leaf".into(), pair(20.0, 10.0))],
-            &[cached.clone()], &[("child".into(), 1)],
+            &[cached.clone(), leaf.clone()], &[("child".into(), 1)],
         ).unwrap();
         assert_eq!(plan.requests.iter().map(|r| r.node_id.as_str()).collect::<Vec<_>>(),
-                   vec!["leaf", "root"]);
-        assert_eq!(plan.reusable, vec![cached]);
+                   vec!["root"]);
+        assert_eq!(plan.reusable, vec![leaf, cached]);
     }
     #[test]
     fn rejects_unresolved_children_and_stale_generation() {
@@ -205,4 +208,22 @@ mod tests {
         };
         assert!(accept_measurement(&request, &measured, 9).is_err());
     }
+    #[test]
+    fn dirty_leaf_forces_remeasurement_of_cached_parents() {
+        let root = MeasuredRevision {
+            node_id: "root".into(), constraints: pair(100.0, 100.0), revision: 0,
+        };
+        let child = MeasuredRevision {
+            node_id: "child".into(), constraints: pair(50.0, 40.0), revision: 1,
+        };
+        let plan = plan_measurements(
+            8, &nodes(), pair(100.0, 100.0),
+            &[("child".into(), pair(50.0, 40.0)), ("leaf".into(), pair(20.0, 10.0))],
+            &[root, child], &[("child".into(), 1)],
+        ).unwrap();
+        assert_eq!(plan.requests.iter().map(|r| r.node_id.as_str()).collect::<Vec<_>>(),
+                   vec!["leaf", "child", "root"]);
+        assert!(plan.reusable.is_empty());
+    }
+
 }
