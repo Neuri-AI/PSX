@@ -585,4 +585,56 @@ mod tests {
         assert_eq!(out.boxes[1].border.y, 0.0);
     }
 
+    #[test]
+    fn auto_cross_stretch_fills_line_and_obeys_maximum() {
+        let mut a = item("a", 20.0, Some(0.0), Some(0.0));
+        a.cross_size_auto = true;
+        a.max_cross_content_size = Some(30.0);
+        let out = compute_margin_flex_layout_aligned(
+            &[a], 100.0, 100.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::NoWrap, 0.0, 0.0,
+            JustifyContent::FlexStart, CrossAlign::Stretch,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.height, 30.0);
+    }
+
+    #[test]
+    fn fixed_cross_size_remains_unchanged_under_stretch() {
+        let out = compute_margin_flex_layout_aligned(
+            &[item("a", 20.0, Some(0.0), Some(0.0))],
+            100.0, 100.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::NoWrap, 0.0, 0.0,
+            JustifyContent::FlexStart, CrossAlign::Stretch,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.height, 10.0);
+    }
+
+    #[test]
+    fn auto_margin_prevents_cross_stretch() {
+        let mut a = item("a", 20.0, Some(0.0), Some(0.0));
+        a.cross_size_auto = true;
+        a.cross_start = None;
+        a.cross_end = None;
+        let out = compute_margin_flex_layout_aligned(
+            &[a], 100.0, 100.0, Direction::Row, WritingDirection::Ltr,
+            Wrap::NoWrap, 0.0, 0.0,
+            JustifyContent::FlexStart, CrossAlign::Stretch,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.height, 10.0);
+        assert_eq!(out.boxes[0].border.y, 45.0);
+    }
+
+    #[test]
+    fn column_rtl_auto_cross_stretch_fills_width() {
+        let mut a = item("a", 20.0, Some(0.0), Some(0.0));
+        a.cross_size_auto = true;
+        let out = compute_margin_flex_layout_aligned(
+            &[a], 100.0, 40.0, Direction::Column, WritingDirection::Rtl,
+            Wrap::NoWrap, 0.0, 0.0,
+            JustifyContent::FlexStart, CrossAlign::Stretch,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.x, 0.0);
+        assert_eq!(out.boxes[0].border.width, 100.0);
+    }
+
 }
