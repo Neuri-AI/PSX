@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization and main/cross margins integrated; definite/indefinite percentage flex-basis fallback added; scoped Rust/Python and PSX CI passed** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization and main/cross margins integrated; definite/indefinite percentage flex-basis fallback added; scoped Rust/Python and PSX CI passed; typed percentage constraint bridge awaiting CI** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -915,3 +915,51 @@ SFLE workflow `38063346629`: Rust and Python 3.10–3.13 passed;
 PSX alpha validation workflow `38063346625`: Python 3.10–3.13,
 PySide6 offscreen and distribution build passed. These results apply
 to the restricted implementation, not CSS Chromium geometry conformance.
+
+## 21. F2.2.2 — Typed property-aware percentage constraints bridge
+
+This increment connects the existing CSS percentage resolver, content-based
+fallback for indefinite `flex-basis` and definite `box-sizing` normalization:
+
+~~~text
+psx/sfle/percentage_constraints.py
+rust/sfle-core/src/percentage_constraints.rs
+tests/sfle/test_percentage_constraints.py
+~~~
+
+Inputs include separately typed references for the containing block inline
+size, corresponding main-axis containing block size, and flex container
+main size; no ambient parent width is inferred. Percent main-axis
+min/max use their containing block axis while `flex-basis` uses the flex
+container main axis. Definite zero is preserved. `max:none` yields an
+unbounded constraint, and the pure bridge delivers a validated content-box
+`FlexBasis` into the already implemented Flex math/geometry pipeline.
+
+When `flex-basis` percent has an indefinite main-axis reference, it can
+use an **explicit premeasured** intrinsic content snapshot rather than
+incorrectly assuming zero or treating available-size hints as definite.
+Indefinite percentage min/max bounds and an automatic minimum are
+explicitly deferred; they must be resolved in the contextual CSS
+sizing/measurement phase. No invented geometry is emitted.
+
+~~~mermaid
+flowchart TD
+    A["Typed length + property reference dimensions"] --> B["Resolve min/max with containing-block main axis"]
+    A --> C["Resolve flex-basis with container main axis"]
+    C --> D{"Definite?"}
+    D -->|"Yes"| E["Used numeric basis"]
+    D -->|"No"| F["Explicit measured content fallback or error"]
+    B --> G{"Both constraints resolved?"}
+    G -->|"No"| H["Explicit pending measurement diagnostic"]
+    G -->|"Yes"| I["Normalize content-box/border-box"]
+    E --> I
+    F --> I
+    I --> J["Validated FlexBasis"]
+~~~
+
+This remains a **restricted internal operation**, not full CSS percentage
+cycle conformance. In particular, percentage min/max fallbacks that depend
+on a CSS formatting context, intrinsic contribution cycles, native text
+remeasurement and replaced-element/aspect-ratio rules are still gated.
+No new public `Flex` feature or engine capability is enabled. Chromium
+headless fixtures remain scheduled after F2.2.3.
