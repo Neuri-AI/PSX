@@ -23,7 +23,7 @@ class _SpinBoxInput(TextInput):
 
     def on_touch_down(self, touch):
         if self.focus and self.collide_point(*touch.pos):
-            if touch.button in ("scrollup", "scrolldown"):
+            if getattr(touch, "button", None) in ("scrollup", "scrolldown"):
                 self._psx_step(1 if touch.button == "scrollup" else -1)
                 return True
         return super().on_touch_down(touch)
