@@ -97,7 +97,7 @@ def test_A07_convergent_auto_layout_is_finite():
         ("child", "root", "Text", {"layout_height": Length(LengthKind.AUTO)}),
     ], height=None)
     result = PythonLayoutEngine().compute(s)
-    assert boxes(result)["root"].content.height >= 0
+    assert boxes(result)["root"].content.height == pytest.approx(_ACCEPTANCE["A07"]["root.height"], abs=0.01)
 
 
 @pytest.mark.parametrize("direction", [WritingDirection.LTR, WritingDirection.RTL])
