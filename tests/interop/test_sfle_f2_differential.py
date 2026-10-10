@@ -108,13 +108,13 @@ def test_shared_normalized_input_rust_python_and_expected_geometry(case,rust_bin
     snapshot=case_snapshot(case["id"])
     py=_python_compute(snapshot)
     rs=_rust_compute(rust_binary,snapshot)
-    if case["id"]=="C99":
+    if case["expected"].get("diagnostic") == "SFLE_UNSUPPORTED_FEATURE":
         for side in (py,rs):
             assert side["ok"] is False
             assert side["error"]["code"]==case["expected"]["diagnostic"]
             assert side["error"]["node_id"]==case["expected"]["node"]
-            assert all(token in side["error"]["message"].lower()
-                       for token in ("multi-node","percentage","cycle"))
+            assert all(token.lower() in side["error"]["message"].lower()
+                       for token in case["expected"]["cycle_kind"].split())
         return
     assert py["ok"],f"{case['id']} Python failure: {py.get('error')}"
     assert rs["ok"],f"{case['id']} Rust failure: {rs.get('error')}"
