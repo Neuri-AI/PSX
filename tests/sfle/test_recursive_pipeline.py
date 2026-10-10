@@ -118,3 +118,47 @@ def test_indefinite_root_reference_fails_closed():
             intrinsic_leaves=(IntrinsicLeafStyle("leaf", Length(LengthKind.AUTO)),),
             current_generation=7,
         )
+
+
+def test_auto_cross_container_resolves_before_final_commit():
+    from psx.sfle.auto_cross_tree import AutoCrossSize
+    from psx.sfle.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
+    constraints = LayoutConstraints(AvailableSize(150, True), AvailableSize(80, True))
+    snapshot = LayoutInput(
+        1, 11, WritingDirection.LTR, constraints,
+        (
+            LayoutNode("root", None, "Flex", ()),
+            LayoutNode("container", "root", "Flex", ()),
+            LayoutNode("leaf", "container", "Text", ()),
+        ), (),
+    )
+    nodes = (
+        MarginTreeNode("root", None, 150, 80),
+        MarginTreeNode("container", "root", 20, 0,
+            MarginFlexItem("container", FlexBasis(20, 20, grow=0, shrink=0), 0)),
+        MarginTreeNode("leaf", "container", 20, 18,
+            MarginFlexItem("leaf", FlexBasis(20, 20, grow=0, shrink=0), 18)),
+    )
+    commits = []
+
+    def measure(request):
+        return MeasuredBox(
+            request.node_id,
+            IntrinsicSizes(10, 20, 10, 18, 20, 18),
+            request.constraints, request.revision,
+        )
+
+    lifecycle = NativeLayoutLifecycle(
+        lambda: 11, NativeMeasurementPort(lambda: True, measure), commits.append,
+    )
+    result = layout_and_commit(
+        snapshot, nodes, lifecycle,
+        child_sizing=(
+            ("container", ChildSizing(Length.px(20), Length(LengthKind.AUTO))),
+            ("leaf", ChildSizing(Length.px(20), Length.px(18))),
+        ),
+        auto_cross=(AutoCrossSize("container"),),
+    )
+    assert result.geometry.boxes[1].content.height == 18
+    assert result.deferred == ()
+    assert commits == [result]
