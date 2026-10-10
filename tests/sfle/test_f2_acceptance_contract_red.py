@@ -11,7 +11,7 @@ _ACCEPTANCE = {case['id']: case['expected'] for case in json.loads((Path(__file_
 
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.lengths import Length, LengthKind
+from psx.sfle.lengths import Length, LengthKind, parse_length
 from psx.sfle.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, MeasuredBox, WritingDirection,
@@ -37,35 +37,64 @@ def snapshot(spec, *, width=120, height=None, direction=WritingDirection.LTR):
     return LayoutInput(1, 17, direction, constraints, nodes, measurements)
 
 
+
+def case_snapshot(case_id: str):
+    """Build the same normalized immutable snapshot from the shared corpus."""
+    case = next(case for case in json.loads(
+        (Path(__file__).parent / "fixtures" / "f2_alpha_acceptance.json").read_text()
+    )["cases"] if case["id"] == case_id)
+    def normalize(value):
+        if isinstance(value, str) and (
+            value == "auto" or value.endswith("px") or value.endswith("%")
+        ):
+            return parse_length(value)
+        return value
+    nodes = tuple(LayoutNode(
+        n["node_id"], n["parent_id"], n["component"],
+        tuple((key, normalize(value)) for key, value in n["style"].items()),
+    ) for n in case["nodes"])
+    viewport = case["viewport"]
+    def axis(value):
+        return AvailableSize(value, value is not None)
+    measurements = []
+    for record in case["measurements"]:
+        preferred_width = record.get("preferred_width", record["at_width"])
+        intrinsic = IntrinsicSizes(
+            20, preferred_width, 20, record["height"],
+            preferred_width, record["height"],
+        )
+        measurements.append(MeasuredBox(
+            record["node"], intrinsic,
+            LayoutConstraints(axis(record["at_width"]), axis(record["height"])),
+            0,
+        ))
+    return LayoutInput(
+        1, 17, WritingDirection.LTR,
+        LayoutConstraints(axis(viewport["width"]), axis(viewport["height"])),
+        nodes, tuple(measurements),
+    )
+
+
 def boxes(result):
     return dict(result.boxes)
 
 
 def test_A02_auto_parent_and_auto_flex_basis_use_intrinsic_content():
-    s = snapshot([
-        ("root", None, "Flex", {"direction": "row", "layout_width": Length(LengthKind.AUTO)}),
-        ("child", "root", "Text", {"flex_basis": Length(LengthKind.AUTO), "layout_width": Length(LengthKind.AUTO)}),
-    ], width=None)
+    s = case_snapshot("A02")
     result = PythonLayoutEngine().compute(s)
     assert boxes(result)["root"].content.width == pytest.approx(_ACCEPTANCE["A02"]["root.width"], abs=0.01)
     assert boxes(result)["child"].content.width == pytest.approx(_ACCEPTANCE["A02"]["child.width"], abs=0.01)
 
 
 def test_A03_indefinite_percentage_reference_preserved_then_css_resolved():
-    s = snapshot([
-        ("root", None, "Flex", {"direction": "column", "layout_height": Length(LengthKind.AUTO)}),
-        ("inner", "root", "Flex", {"layout_height": Length.percent(0.5)}),
-    ], height=None)
+    s = case_snapshot("A03")
     result = PythonLayoutEngine().compute(s)
     assert boxes(result)["root"].content.height == pytest.approx(_ACCEPTANCE["A03"]["root.height"], abs=0.01)
     assert boxes(result)["inner"].content.height == pytest.approx(_ACCEPTANCE["A03"]["inner.height"], abs=0.01)
 
 
 def test_A04_grow_remeasures_final_text_width_and_parent_height():
-    s = snapshot([
-        ("root", None, "Flex", {"direction": "row", "layout_width": Length.px(150), "layout_height": Length(LengthKind.AUTO)}),
-        ("text", "root", "Text", {"flex_grow": 1, "flex_basis": Length(LengthKind.AUTO), "layout_height": Length(LengthKind.AUTO)}),
-    ], width=150)
+    s = case_snapshot("A04")
     result = PythonLayoutEngine().compute(s)
     assert boxes(result)["text"].content.width == pytest.approx(_ACCEPTANCE["A04"]["text.width"], abs=0.01)
     assert boxes(result)["text"].content.height == pytest.approx(_ACCEPTANCE["A04"]["text.height"], abs=0.01)
@@ -73,11 +102,7 @@ def test_A04_grow_remeasures_final_text_width_and_parent_height():
 
 
 def test_A05_shrink_remeasures_both_items_at_35px():
-    s = snapshot([
-        ("root", None, "Flex", {"direction": "row", "layout_width": Length.px(70), "layout_height": Length(LengthKind.AUTO)}),
-        ("a", "root", "Text", {"flex_basis": Length.px(50), "flex_shrink": 1, "layout_min_width": Length.px(0)}),
-        ("b", "root", "Text", {"flex_basis": Length.px(50), "flex_shrink": 1, "layout_min_width": Length.px(0)}),
-    ], width=70)
+    s = case_snapshot("A05")
     result = PythonLayoutEngine().compute(s)
     for name in ("a", "b"):
         assert boxes(result)[name].content.width == pytest.approx(_ACCEPTANCE["A05"][f"{name}.width"], abs=0.01)
@@ -86,16 +111,13 @@ def test_A05_shrink_remeasures_both_items_at_35px():
 
 
 def test_A06_generation_is_preserved_by_pure_layout_result():
-    s = snapshot([("root", None, "Flex", {})], height=40)
+    s = case_snapshot("A06")
     result = PythonLayoutEngine().compute(s)
     assert result.generation == _ACCEPTANCE["A06"]["generation"]
 
 
 def test_A07_convergent_auto_layout_is_finite():
-    s = snapshot([
-        ("root", None, "Flex", {"layout_height": Length(LengthKind.AUTO)}),
-        ("child", "root", "Text", {"layout_height": Length(LengthKind.AUTO)}),
-    ], height=None)
+    s = case_snapshot("A07")
     result = PythonLayoutEngine().compute(s)
     assert boxes(result)["root"].content.height == pytest.approx(_ACCEPTANCE["A07"]["root.height"], abs=0.01)
 
