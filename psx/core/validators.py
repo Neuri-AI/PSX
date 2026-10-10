@@ -28,6 +28,8 @@ from .contracts import (
     RADIO_DEFAULTS,
     RADIOGROUP_PROPS,
     RADIOGROUP_DEFAULTS,
+    SELECT_PROPS,
+    SELECT_DEFAULTS,
 )
 
 _VALID_ALIGN = frozenset({"start", "center", "end", "stretch"})
@@ -469,3 +471,55 @@ def validate_radiogroup_props(props: Mapping[str, object]) -> None:
     cb = props.get("on_change", RADIOGROUP_DEFAULTS["on_change"])
     if cb is not None and not callable(cb):
         raise RendererCapabilityError("RadioGroup.on_change must be callable or None.")
+
+def validate_select_props(props: Mapping[str, object]) -> None:
+    """Validate a controlled Select without coercing option values."""
+    unknown = set(props) - SELECT_PROPS - {"ref", "key"}
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported Select props: {', '.join(sorted(unknown))}"
+        )
+
+    options = props.get("options", SELECT_DEFAULTS["options"])
+    if not isinstance(options, (tuple, list)):
+        raise RendererCapabilityError("Select.options must be a list or tuple.")
+
+    values: set[str | int] = set()
+    labels: set[str] = set()
+    for option in options:
+        if isinstance(option, str):
+            label, value = option, option
+        elif isinstance(option, Mapping) and set(option) == {"label", "value"}:
+            label, value = option["label"], option["value"]
+        else:
+            raise RendererCapabilityError(
+                "Select options must be strings or mappings with label/value."
+            )
+        if not isinstance(label, str):
+            raise RendererCapabilityError("Select option labels must be strings.")
+        if isinstance(value, bool) or not isinstance(value, (str, int)):
+            raise RendererCapabilityError("Select option values must be str or int.")
+        if label in labels or value in values:
+            raise RendererCapabilityError("Select option labels and values must be unique.")
+        labels.add(label)
+        values.add(value)
+
+    selected = props.get("value", SELECT_DEFAULTS["value"])
+    if selected is not None and (
+        isinstance(selected, bool) or not isinstance(selected, (str, int))
+    ):
+        raise RendererCapabilityError("Select.value must be str, int, or None.")
+
+    placeholder = props.get("placeholder", SELECT_DEFAULTS["placeholder"])
+    if not isinstance(placeholder, str):
+        raise RendererCapabilityError("Select.placeholder must be a str.")
+    if placeholder in labels:
+        raise RendererCapabilityError("Select.placeholder must differ from option labels.")
+
+    enabled = props.get("enabled", SELECT_DEFAULTS["enabled"])
+    if not isinstance(enabled, bool):
+        raise RendererCapabilityError("Select.enabled must be a bool.")
+
+    callback = props.get("on_change", SELECT_DEFAULTS["on_change"])
+    if callback is not None and not callable(callback):
+        raise RendererCapabilityError("Select.on_change must be callable or None.")
