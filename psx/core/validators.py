@@ -30,6 +30,8 @@ from .contracts import (
     RADIOGROUP_DEFAULTS,
     SELECT_PROPS,
     SELECT_DEFAULTS,
+    SWITCH_PROPS,
+    SWITCH_DEFAULTS,
 )
 
 _VALID_ALIGN = frozenset({"start", "center", "end", "stretch"})
@@ -523,3 +525,27 @@ def validate_select_props(props: Mapping[str, object]) -> None:
     callback = props.get("on_change", SELECT_DEFAULTS["on_change"])
     if callback is not None and not callable(callback):
         raise RendererCapabilityError("Select.on_change must be callable or None.")
+
+
+def validate_switch_props(props: Mapping[str, object]) -> None:
+    """Validate portable controlled Switch props."""
+    unknown = set(props) - SWITCH_PROPS - {"key", "ref"}
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported Switch props: {', '.join(sorted(unknown))}"
+        )
+    for name in ("checked", "enabled"):
+        if not isinstance(props.get(name, SWITCH_DEFAULTS[name]), bool):
+            raise RendererCapabilityError(f"Switch.{name} must be a bool.")
+    if not isinstance(props.get("label", SWITCH_DEFAULTS["label"]), str):
+        raise RendererCapabilityError("Switch.label must be a str.")
+    if props.get("size", SWITCH_DEFAULTS["size"]) not in ("small", "medium", "large"):
+        raise RendererCapabilityError(
+            "Switch.size must be 'small', 'medium', or 'large'."
+        )
+    color = props.get("color", SWITCH_DEFAULTS["color"])
+    if not isinstance(color, str) or _HEX_COLOR_RE.fullmatch(color) is None:
+        raise RendererCapabilityError("Switch.color must be a #RRGGBB string.")
+    callback = props.get("on_change", SWITCH_DEFAULTS["on_change"])
+    if callback is not None and not callable(callback):
+        raise RendererCapabilityError("Switch.on_change must be callable or None.")

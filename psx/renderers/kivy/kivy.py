@@ -312,6 +312,7 @@ class KivyRenderer:
         from .row import KivyRowAdapter
         from .divider import KivyDividerAdapter
         from .image import KivyImageAdapter
+        from .switch import KivySwitchAdapter
         from .box import KivyBoxAdapter
         from .progressbar import KivyProgressBarAdapter
         from .radio import KivyRadioAdapter, KivyRadioGroupAdapter
@@ -320,6 +321,7 @@ class KivyRenderer:
         self.adapters.register("Column", KivyColumnAdapter())
         self.adapters.register("Row", KivyRowAdapter())
         self.adapters.register("Image", KivyImageAdapter())
+        self.adapters.register("Switch", KivySwitchAdapter())
         self.adapters.register("Box", KivyBoxAdapter())
         self.adapters.register("ProgressBar", KivyProgressBarAdapter())
         self.adapters.register("Radio", KivyRadioAdapter())

@@ -107,3 +107,12 @@ SELECT_DEFAULTS = MappingProxyType({
     "enabled": True,
     "on_change": None,
 })
+
+SWITCH_DEFAULTS = MappingProxyType({
+    "checked": False,
+    "enabled": True,
+    "label": "",
+    "size": "medium",
+    "color": "#16A34A",
+    "on_change": None,
+})

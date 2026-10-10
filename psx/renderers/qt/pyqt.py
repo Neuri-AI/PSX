@@ -331,12 +331,14 @@ class QtRenderer:
         from .row import make_qt_row_adapter
         from .divider import make_qt_divider_adapter
         from .image import QtImageAdapter
+        from .switch import QtSwitchAdapter
         from .box import make_qt_box_adapter
         from .radiogroup import make_qt_radiogroup_adapter
         self.adapters.register("Divider", make_qt_divider_adapter(self))
         self.adapters.register("Column", make_qt_column_adapter(self))
         self.adapters.register("Row", make_qt_row_adapter(self))
         self.adapters.register("Image", QtImageAdapter())
+        self.adapters.register("Switch", QtSwitchAdapter())
         self.adapters.register("Box", make_qt_box_adapter(self))
         self.adapters.register("RadioGroup", make_qt_radiogroup_adapter(self))
 

@@ -28,6 +28,7 @@ from .validators import (
     validate_radio_props,
     validate_radiogroup_props,
     validate_select_props,
+    validate_switch_props,
 )
 Validator = Callable[[Mapping[str, object]], None]
 
@@ -180,4 +181,9 @@ RADIOGROUP_CONTRACT = ComponentContract(
 SELECT_CONTRACT = ComponentContract(
     "Select", SELECT_PROPS, SELECT_DEFAULTS,
     frozenset({"on_change"}), "none", validate_select_props,
+)
+
+SWITCH_CONTRACT = ComponentContract(
+    "Switch", SWITCH_PROPS, SWITCH_DEFAULTS,
+    frozenset({"on_change"}), "none", validate_switch_props,
 )
