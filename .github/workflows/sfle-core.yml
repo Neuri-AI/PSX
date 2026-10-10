@@ -153,5 +153,5 @@ jobs:
       - name: Verify installed native module outside editable source checkout
         run: |
           cd /tmp
-          python -c "import psx._sfle_native as n; assert n.schema_version() == 1"
+          python -c "import _sfle_native as n; assert n.schema_version() == 1"
           python -m pytest -q "$GITHUB_WORKSPACE/tests/interop/test_sfle_f2_native_wheel.py"
