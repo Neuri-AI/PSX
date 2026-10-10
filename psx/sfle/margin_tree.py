@@ -6,13 +6,14 @@ used offsets: no fictitious nonnegative margin rectangle is created.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .align_content import AlignContent
 from .box_geometry import UsedBoxEdges, UsedEdges
 from .cross_alignment import CrossAlign
 from .errors import DiagnosticCode, SFLEError
 from .flex_math import _number
+from .intrinsic import IntrinsicFlexInput, build_intrinsic_flex_basis
 from .line_layout import FlexDirection, FlexWrap
 from .main_alignment import JustifyContent
 from .margin_flex_pipeline import MarginFlexBox, MarginFlexItem, compute_margin_flex_layout
@@ -34,6 +35,7 @@ class MarginTreeNode:
     justify: JustifyContent = JustifyContent.FLEX_START
     align_items: CrossAlign = CrossAlign.FLEX_START
     align_content: AlignContent = AlignContent.FLEX_START
+    intrinsic_basis: IntrinsicFlexInput | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +100,8 @@ def compute_margin_tree(
             raise TypeError("Invalid flex direction/wrap.")
         if not isinstance(node.justify, JustifyContent) or not isinstance(node.align_items, CrossAlign) or not isinstance(node.align_content, AlignContent):
             raise TypeError("Invalid flex alignment.")
+        if node.intrinsic_basis is not None and (index == 0 or not isinstance(node.intrinsic_basis, IntrinsicFlexInput)):
+            raise TypeError("Intrinsic basis requires a typed non-root IntrinsicFlexInput.")
         children[node.node_id] = []
         if index:
             children[node.parent_id].append(node)
@@ -114,7 +118,12 @@ def compute_margin_tree(
     }
     for parent in nodes:
         origin = geometry[parent.node_id].content
-        items = tuple(child.item for child in children[parent.node_id])
+        items = tuple(
+            child.item if child.intrinsic_basis is None else replace(
+                child.item, flex=build_intrinsic_flex_basis(child.intrinsic_basis)
+            )
+            for child in children[parent.node_id]
+        )
         if not items:
             continue
         positioned = compute_margin_flex_layout(
