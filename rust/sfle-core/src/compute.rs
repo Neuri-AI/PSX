@@ -100,9 +100,5 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
             return Err(invalid("Expected a single parent-first tree."));
         }
     }
-    Err(ComputeError {
-        code: "SFLE_UNSUPPORTED_FEATURE",
-        message: "Rust F2 normalized compute path is not yet integrated with the full CSS sizing pipeline.".into(),
-        node_id: None,
-    })
+    crate::compute_layout::compute_normalized(input)
 }
