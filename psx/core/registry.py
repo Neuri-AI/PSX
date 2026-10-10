@@ -14,14 +14,15 @@ from .component import ComponentType
 from .contracts import (
     BUTTON_CONTRACT,
     CHECKBOX_CONTRACT,
-    TEXT_CONTRACT,
-    ComponentContract,
-    TEXTAREA_CONTRACT,
-    INPUT_CONTRACT,
     COLUMN_CONTRACT,
+    DIVIDER_CONTRACT,
+    INPUT_CONTRACT,
     ROW_CONTRACT,
     SLIDER_CONTRACT,
     SPACER_CONTRACT,
+    TEXT_CONTRACT,
+    TEXTAREA_CONTRACT,
+    ComponentContract,
 )
 from .errors import DuplicateComponentError, UnknownComponentError
 from .vnode import VNode
@@ -114,13 +115,14 @@ def builtin_component_registry() -> ComponentRegistry:
         Button,
         Checkbox,
         Column,
+        Divider,
         Fragment,
         Input,
         Row,
-        Text,
-        TextArea,
         Slider,
         Spacer,
+        Text,
+        TextArea,
     )
 
     registry = ComponentRegistry()
@@ -135,10 +137,10 @@ def builtin_component_registry() -> ComponentRegistry:
     registry.register("Input", Input, contract=INPUT_CONTRACT)
     registry.register("Checkbox", Checkbox, contract=CHECKBOX_CONTRACT)
     registry.register("TextArea", TextArea, contract=TEXTAREA_CONTRACT)
-    registry.register("Fragment", Fragment)
-    registry.register("Native", Native)
     registry.register("Slider", Slider, contract=SLIDER_CONTRACT)
     registry.register("Spacer", Spacer, contract=SPACER_CONTRACT)
-
+    registry.register("Divider", Divider, contract=DIVIDER_CONTRACT)
+    registry.register("Fragment", Fragment)
+    registry.register("Native", Native)
 
     return registry

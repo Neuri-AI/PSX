@@ -54,6 +54,11 @@ from psx.core.contracts import (
     SPACER_PROPS,
     SPACER_DEFAULTS,
     SPACER_CONTRACT,
+
+    # Divider
+    DIVIDER_PROPS,
+    DIVIDER_DEFAULTS,
+    DIVIDER_CONTRACT,
 )
 
 from .validators import (
@@ -65,6 +70,8 @@ from .validators import (
     validate_checkbox_props,
     validate_input_props,
     validate_button_props,
+    validate_divider_props,
+    validate_spacer_props
 )
 
 if TYPE_CHECKING:
@@ -352,3 +359,24 @@ def Spacer(*, key: Key | None = None, ref: object | None = None, **props: object
     """
     SPACER_CONTRACT.validate_builder(props)
     return create_element("Spacer", key=key, ref=ref, **props)
+
+def Divider(
+    *children: object,
+    orientation: str = "horizontal",
+    thickness: int = 1,
+    color: str | None = None,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Portable separator with an optional single child.
+
+    With no children it renders a plain line. With one child, the child is
+    laid out centered on the line (``─── child ───``). ``color=None`` defers
+    to the renderer theme; ``thickness`` is the line width in pixels.
+    """
+    if len(children) > 1:
+        raise InvalidChildError("Divider accepts at most one child.")
+    options = dict(orientation=orientation, thickness=thickness, color=color, **props)
+    DIVIDER_CONTRACT.validate_builder(options)
+    return create_element("Divider", *children, key=key, ref=ref, **options)

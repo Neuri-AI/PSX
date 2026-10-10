@@ -55,7 +55,7 @@ from psx.core.contracts import (
     validate_checkbox_props,
     validate_text_props,
     validate_slider_props,
-    validate_spacer_props
+    validate_spacer_props,
 )
 
 _LAYOUT_PROPS = frozenset({"spacing", "padding"})
@@ -237,6 +237,8 @@ register_primitive(
     takes_binding=False,
 )
 
+
+
 # -- renderer ---------------------------------------------------------------
 
 def _make_dispatcher(core):
@@ -285,8 +287,13 @@ class QtRenderer:
         self._default_adapter = DelegatingAdapter()
         for component in (*_LAYOUTS, "Fragment", *_PRIMITIVES, "Native"):
             self.adapters.register(component, self._default_adapter)
+
+        # Register built-in adapters for common components. 
+
         from .column import make_qt_column_adapter
         from .row import make_qt_row_adapter
+        from .divider import make_qt_divider_adapter
+        self.adapters.register("Divider", make_qt_divider_adapter(self))
         self.adapters.register("Column", make_qt_column_adapter(self))
         self.adapters.register("Row", make_qt_row_adapter(self))
 

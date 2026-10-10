@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
 
 from psx import App, component
@@ -16,6 +17,10 @@ except ImportError:  # pragma: no cover - exercised by installations without Qyr
 
 _QYRO_CONTEXT = object()
 _QYRO_CONTAINER = object()
+
+# Qt binding prefixes recognized by the host detection helper, ordered from
+# newer to older. The prefix is used as the import module name as well.
+_QT_BINDING_PREFIXES = ("PySide6", "PyQt6", "PyQt5", "PySide2")
 
 
 def QyroProvider(
@@ -164,11 +169,18 @@ class PSXComponent(_QyroComponent):
                 self._psx_lifecycle_scheduled = True
                 after = getattr(self, "after", None)
                 if callable(after):
+                    # Tk host: defer through Tk's event loop.
                     after(0, self._mount_component_lifecycle)
                 else:
-                    from PySide6.QtCore import QTimer
-
-                    QTimer.singleShot(0, self._mount_component_lifecycle)
+                    # Qt host: defer through the binding the host itself
+                    # already loaded. Mixing PySide and PyQt in one process is
+                    # unsupported by Qt, so we must never hardcode one binding.
+                    core = _qt_module_for(self, "QtCore")
+                    if core is None:
+                        raise PSXError(
+                            "PSXComponent requires a Tk host with after() or a Qt host."
+                        )
+                    core.QTimer.singleShot(0, self._mount_component_lifecycle)
             return
         self._component_lifecycle_mounted = True
         self._allow_styled_background()
@@ -224,16 +236,13 @@ class PSXComponent(_QyroComponent):
             # Only Qt hosts expose ``destroyed``.  Do not import a Qt binding
             # while mounting a Tkinter application: macOS cannot safely mix
             # both UI runtimes in this process.
-            try:
-                from PySide6.QtWidgets import QApplication
-
-                application = QApplication.instance()
+            widgets = _qt_module_for(self, "QtWidgets")
+            if widgets is not None:
+                application = widgets.QApplication.instance()
                 about_to_quit = getattr(application, "aboutToQuit", None)
                 quit_connect = getattr(about_to_quit, "connect", None)
                 if callable(quit_connect):
                     quit_connect(self.unmount_psx)
-            except ImportError:
-                pass
         protocol = getattr(self, "protocol", None)
         destroy = getattr(self, "destroy", None)
         if callable(protocol) and callable(destroy):
@@ -356,6 +365,36 @@ def _is_kivy_app(value: object) -> bool:
 
 def _is_kivy_class(value: type[object]) -> bool:
     return any(base.__module__.startswith("kivy.app") for base in value.__mro__)
+
+
+def _qt_binding_for(host: object) -> str | None:
+    """Detect the Qt binding of a host by inspecting its MRO.
+
+    Returns one of ``"PySide6"``, ``"PyQt6"``, ``"PyQt5"``, ``"PySide2"``,
+    or ``None`` when the host is not a Qt class. Detection relies only on
+    ``__module__`` of each base, so no binding is imported until the caller
+    actually asks for a module.
+    """
+    for cls in type(host).__mro__:
+        module = getattr(cls, "__module__", "")
+        for prefix in _QT_BINDING_PREFIXES:
+            if module.startswith(prefix + "."):
+                return prefix
+    return None
+
+
+def _qt_module_for(host: object, submodule: str) -> object | None:
+    """Import ``<binding>.<submodule>`` for the host's Qt binding, if any.
+
+    Returns ``None`` when the host is not a Qt class, so Tk and Kivy hosts
+    silently skip Qt-only cleanup paths. The binding is detected from the
+    host's MRO, never assumed: a PyQt6 host imports ``PyQt6.QtCore`` even
+    when PySide6 is also installed in the environment.
+    """
+    binding = _qt_binding_for(host)
+    if binding is None:
+        return None
+    return importlib.import_module(f"{binding}.{submodule}")
 
 
 def _store_for_component(component_instance: object) -> object | None:

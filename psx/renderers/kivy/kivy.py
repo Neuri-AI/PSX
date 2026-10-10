@@ -62,6 +62,7 @@ from psx.core.contracts import (
     validate_slider_props,
     validate_spacer_props
 )
+from psx.renderers.kivy.divider import KivyDividerAdapter
 
 
 _LAYOUT_PROPS = frozenset({"spacing", "padding"})
@@ -288,6 +289,8 @@ class KivyRenderer:
             self.adapters.register(component, self._default_adapter)
         from .column import KivyColumnAdapter
         from .row import KivyRowAdapter
+        from .divider import KivyDividerAdapter
+        self.adapters.register("Divider", KivyDividerAdapter())
         self.adapters.register("Column", KivyColumnAdapter())
         self.adapters.register("Row", KivyRowAdapter())
 

@@ -25,6 +25,35 @@ from .contracts import (
 
 _VALID_ALIGN = frozenset({"start", "center", "end", "stretch"})
 _VALID_ORIENTATIONS = frozenset({"horizontal", "vertical"})
+_VALID_DIVIDER_ORIENTATIONS = frozenset({"horizontal", "vertical"})
+_HEX_COLOR_RE = re.compile(r"#[0-9a-fA-F]{6}")
+
+
+def validate_divider_props(props: Mapping[str, object]) -> None:
+    unknown = set(props) - {"orientation", "thickness", "color", "ref", "key"}
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported Divider props: {', '.join(sorted(unknown))}"
+        )
+
+    orientation = props.get("orientation", "horizontal")
+    if orientation not in _VALID_DIVIDER_ORIENTATIONS:
+        raise RendererCapabilityError(
+            f"Divider.orientation must be one of {sorted(_VALID_DIVIDER_ORIENTATIONS)}."
+        )
+
+    thickness = props.get("thickness", 1)
+    if isinstance(thickness, bool) or not isinstance(thickness, int) or thickness < 1:
+        raise RendererCapabilityError("Divider.thickness must be an int >= 1.")
+
+    color = props.get("color")
+    if color is not None and (
+        not isinstance(color, str) or _HEX_COLOR_RE.fullmatch(color) is None
+    ):
+        raise RendererCapabilityError(
+            "Divider.color must be None or use #RRGGBB format."
+        )
+
 
 def validate_spacer_props(props: Mapping[str, object]) -> None:
     unknown = set(props) - {"ref", "key"}
@@ -32,6 +61,7 @@ def validate_spacer_props(props: Mapping[str, object]) -> None:
         raise RendererCapabilityError(
             f"Unsupported Spacer props: {', '.join(sorted(unknown))}"
         )
+
 
 def validate_slider_props(props: Mapping[str, object]) -> None:
     unknown = set(props) - SLIDER_PROPS - {"ref", "key"}
@@ -70,7 +100,9 @@ def validate_slider_props(props: Mapping[str, object]) -> None:
 
     cb = props.get("on_change", SLIDER_DEFAULTS["on_change"])
     if cb is not None and not callable(cb):
-        raise RendererCapabilityError("Slider.on_change must be callable or None.")
+        raise RendererCapabilityError(
+            "Slider.on_change must be callable or None.")
+
 
 def validate_textarea_props(props: Mapping[str, object]) -> None:
     unknown = set(props) - TEXTAREA_PROPS - {"ref", "key"}
@@ -89,7 +121,8 @@ def validate_textarea_props(props: Mapping[str, object]) -> None:
 
     font_size = props.get("font_size", TEXTAREA_DEFAULTS["font_size"])
     if isinstance(font_size, bool) or not isinstance(font_size, (int, float)):
-        raise RendererCapabilityError("TextArea.font_size must be a positive finite number.")
+        raise RendererCapabilityError(
+            "TextArea.font_size must be a positive finite number.")
     if font_size <= 0:
         raise RendererCapabilityError("TextArea.font_size must be positive.")
 
@@ -100,7 +133,8 @@ def validate_textarea_props(props: Mapping[str, object]) -> None:
 
     cb = props.get("on_change", TEXTAREA_DEFAULTS["on_change"])
     if cb is not None and not callable(cb):
-        raise RendererCapabilityError("TextArea.on_change must be callable or None.")
+        raise RendererCapabilityError(
+            "TextArea.on_change must be callable or None.")
 
 
 def validate_text_props(props: Mapping[str, object]) -> None:
@@ -167,7 +201,8 @@ def validate_input_props(props: Mapping[str, object]) -> None:
 
     font_size = props.get("font_size", INPUT_DEFAULTS["font_size"])
     if isinstance(font_size, bool) or not isinstance(font_size, (int, float)):
-        raise RendererCapabilityError("Input.font_size must be a positive finite number.")
+        raise RendererCapabilityError(
+            "Input.font_size must be a positive finite number.")
     if font_size <= 0:
         raise RendererCapabilityError("Input.font_size must be positive.")
 
@@ -179,7 +214,8 @@ def validate_input_props(props: Mapping[str, object]) -> None:
     for name in ("on_change", "on_submit"):
         cb = props.get(name, INPUT_DEFAULTS[name])
         if cb is not None and not callable(cb):
-            raise RendererCapabilityError(f"Input.{name} must be callable or None.")
+            raise RendererCapabilityError(
+                f"Input.{name} must be callable or None.")
 
 
 def validate_input_builder(props: Mapping[str, object]) -> None:
@@ -253,9 +289,11 @@ def validate_column_props(props: Mapping[str, object]) -> None:
 
     spacing = props.get("spacing", COLUMN_DEFAULTS["spacing"])
     if isinstance(spacing, bool) or not isinstance(spacing, int) or spacing < 0:
-        raise RendererCapabilityError("Column.spacing must be a non-negative int.")
+        raise RendererCapabilityError(
+            "Column.spacing must be a non-negative int.")
 
-    _validate_padding(props.get("padding", COLUMN_DEFAULTS["padding"]), "Column.padding")
+    _validate_padding(
+        props.get("padding", COLUMN_DEFAULTS["padding"]), "Column.padding")
 
     align = props.get("align", COLUMN_DEFAULTS["align"])
     if align not in _VALID_ALIGN:
@@ -284,19 +322,25 @@ def validate_column_props(props: Mapping[str, object]) -> None:
 def validate_row_props(props: Mapping[str, object]) -> None:
     unknown = set(props) - ROW_PROPS
     if unknown:
-        raise RendererCapabilityError(f"Unsupported Row props: {', '.join(sorted(unknown))}")
+        raise RendererCapabilityError(
+            f"Unsupported Row props: {', '.join(sorted(unknown))}")
     spacing = props.get("spacing", ROW_DEFAULTS["spacing"])
     if isinstance(spacing, bool) or not isinstance(spacing, int) or spacing < 0:
-        raise RendererCapabilityError("Row.spacing must be a non-negative int.")
-    _validate_padding(props.get("padding", ROW_DEFAULTS["padding"]), "Row.padding")
+        raise RendererCapabilityError(
+            "Row.spacing must be a non-negative int.")
+    _validate_padding(
+        props.get("padding", ROW_DEFAULTS["padding"]), "Row.padding")
     align = props.get("align", ROW_DEFAULTS["align"])
     if align not in _VALID_ALIGN:
-        raise RendererCapabilityError(f"Row.align must be one of {sorted(_VALID_ALIGN)}.")
+        raise RendererCapabilityError(
+            f"Row.align must be one of {sorted(_VALID_ALIGN)}.")
     expand = props.get("expand", ROW_DEFAULTS["expand"])
     if not isinstance(expand, bool) and not (
-        isinstance(expand, (tuple, list)) and all(isinstance(item, bool) for item in expand)
+        isinstance(expand, (tuple, list)) and all(
+            isinstance(item, bool) for item in expand)
     ):
-        raise RendererCapabilityError("Row.expand must be bool or tuple of bool.")
+        raise RendererCapabilityError(
+            "Row.expand must be bool or tuple of bool.")
     enabled = props.get("enabled", ROW_DEFAULTS["enabled"])
     if not isinstance(enabled, bool):
         raise RendererCapabilityError("Row.enabled must be a bool.")

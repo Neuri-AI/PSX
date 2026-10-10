@@ -23,6 +23,7 @@ from psx.renderers.components.slider import updated_slider_props, validate_slide
 from psx.renderers.components.spacer import updated_spacer_props, validate_spacer_props
 from psx.renderers.components.text import updated_text_props, validate_text_props
 from psx.renderers.components.textarea import updated_textarea_props, validate_textarea_props
+from psx.renderers.components.divider import updated_divider_props, validate_divider_props
 
 
 # eq=False: handles compare by identity, so list.remove/in use the fast C
@@ -50,7 +51,7 @@ class HeadlessRenderer:
         for component in (
             "Column", "Row", "Fragment",
             "Text", "Button", "Input", "TextArea", "Checkbox", "Slider",
-            "Spacer", "Native",
+            "Spacer", "Divider", "Native",
         ):
             self.adapters.register(component, self._default_adapter)
 
@@ -77,6 +78,8 @@ class HeadlessRenderer:
                 validate_slider_props(node.props)
             elif node.type == "Spacer":
                 validate_spacer_props(node.props)
+            elif node.type == "Divider":
+                validate_divider_props(node.props)
         handle = HeadlessHandle(node.type, dict(node.props))
         self.operations.append(("create", handle))
         return handle
@@ -107,13 +110,16 @@ class HeadlessRenderer:
             updated_checkbox_props(target.props, changed, removed)
         elif target.type == "Spacer":
             updated_spacer_props(target.props, changed, removed)
+        elif target.type == "Divider":
+            updated_divider_props(target.props, changed, removed)
         target.props.update(changed)
         for name in removed:
             target.props.pop(name, None)
         self.operations.append(("update", target, dict(changed), removed))
 
     def insert(self, parent: object, child: object, index: int) -> None:
-        adapter = self.adapters.get(handle_adapter_key(parent)) or self._default_adapter
+        adapter = self.adapters.get(
+            handle_adapter_key(parent)) or self._default_adapter
         if run_child_hook(adapter, "insert", self, parent, child, index):
             return
         self._default_insert(parent, child, index)
@@ -126,7 +132,8 @@ class HeadlessRenderer:
         self.operations.append(("insert", container, item, index))
 
     def move(self, parent: object, child: object, index: int) -> None:
-        adapter = self.adapters.get(handle_adapter_key(parent)) or self._default_adapter
+        adapter = self.adapters.get(
+            handle_adapter_key(parent)) or self._default_adapter
         if run_child_hook(adapter, "move", self, parent, child, index):
             return
         self._default_move(parent, child, index)
@@ -138,7 +145,8 @@ class HeadlessRenderer:
         self.operations.append(("move", container, item, index))
 
     def remove(self, parent: object, child: object) -> None:
-        adapter = self.adapters.get(handle_adapter_key(parent)) or self._default_adapter
+        adapter = self.adapters.get(
+            handle_adapter_key(parent)) or self._default_adapter
         if run_child_hook(adapter, "remove", self, parent, child):
             return
         self._default_remove(parent, child)

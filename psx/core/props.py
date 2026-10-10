@@ -64,3 +64,9 @@ SLIDER_PROPS = frozenset({
 })
 
 SPACER_PROPS = frozenset()
+
+DIVIDER_PROPS = frozenset({
+    "orientation",
+    "thickness",
+    "color"
+})

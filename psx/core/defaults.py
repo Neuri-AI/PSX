@@ -63,3 +63,9 @@ SLIDER_DEFAULTS = MappingProxyType({
 })
 
 SPACER_DEFAULTS = MappingProxyType({})
+
+DIVIDER_DEFAULTS = MappingProxyType({
+    "orientation": "horizontal",
+    "thickness": 1,
+    "color": None,
+})

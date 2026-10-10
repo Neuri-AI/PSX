@@ -27,8 +27,22 @@ from .plugins import (
     renderer_capabilities,
 )
 from .renderers import ComponentAdapter, RendererAdapterRegistry
-from .core.vnode import (Button, Checkbox, Column, Fragment, Input,
-                         Row, Text, TextArea, VNode, create_element, native_widget, Slider, Spacer)
+from .core.vnode import (
+    Button,
+    Checkbox,
+    Column,
+    Fragment,
+    Input,
+    Row,
+    Text,
+    TextArea,
+    VNode,
+    create_element,
+    native_widget,
+    Slider,
+    Spacer,
+    Divider,
+)
 
 __all__ = [
     # Components
@@ -43,6 +57,7 @@ __all__ = [
     "Fragment",
     "Native",
     "Input",
+    "Divider",
 
     "App",
     "ComponentDefinition",

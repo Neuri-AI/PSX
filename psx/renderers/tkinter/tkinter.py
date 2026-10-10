@@ -268,8 +268,10 @@ class TkinterRenderer:
             self.adapters.register(component, self._default_adapter)
         from .column import TkColumnAdapter
         from .row import TkRowAdapter
+        from .divider import TkDividerAdapter
         self.adapters.register("Column", TkColumnAdapter())
         self.adapters.register("Row", TkRowAdapter())
+        self.adapters.register("Divider", TkDividerAdapter())
         self._schedule_drain()
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:

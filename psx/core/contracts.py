@@ -22,6 +22,7 @@ from .validators import (
     validate_text_props,
     validate_textarea_props,
     validate_spacer_props,
+    validate_divider_props,
 )
 Validator = Callable[[Mapping[str, object]], None]
 
@@ -126,4 +127,13 @@ SPACER_CONTRACT = ComponentContract(
     frozenset(),
     "none",
     validate_spacer_props,
+)
+
+DIVIDER_CONTRACT = ComponentContract(
+    "Divider",
+    DIVIDER_PROPS,
+    DIVIDER_DEFAULTS,
+    frozenset(),
+    "none-or-single",
+    validate_divider_props,
 )

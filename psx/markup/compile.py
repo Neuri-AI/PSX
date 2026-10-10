@@ -13,7 +13,17 @@ from psx.core.errors import MarkupSyntaxError
 from psx.core.registry import ComponentDefinition, ComponentRegistry, builtin_component_registry
 from psx.core.vnode import Fragment as VFragment, Text, VNode
 
-from .ast import AttributeValue, Document, Element, Fragment, Node, Reference, TextNode, TextPart
+from .ast import (
+    AttributeValue,
+    Document,
+    Element,
+    Fragment,
+    Node,
+    Reference,
+    ReferencePart,
+    TextNode,
+    TextPart,
+)
 from .parser import parse
 
 Primitive: TypeAlias = Callable[..., VNode] | ComponentType
@@ -180,6 +190,17 @@ def _element(
     constructor = definition.constructor
     key = props.pop("key", None)
     contract = definition.contract
+    if contract is not None and contract.child_policy == "none-or-single":
+        meaningful = _meaningful_children(element.children)
+        if len(meaningful) > 1:
+            _error(
+                f"{definition.name} accepts at most one child",
+                filename,
+                element.span,
+            )
+        children = _nodes(meaningful, scope, resolver, filename, lexical=lexical)
+        props = _coerce_props(definition, props, filename, element.span)
+        return constructor(*children, key=key, **props)
     if contract is not None and contract.content_property is not None:
         property_name = contract.content_property
         value = props.pop(property_name, None)
@@ -194,6 +215,31 @@ def _element(
     children = _nodes(element.children, scope, resolver, filename, lexical=lexical)
     props = _coerce_props(definition, props, filename, element.span)
     return constructor(*children, key=key, **props)
+
+
+def _meaningful_children(nodes: tuple[Node, ...]) -> tuple[Node, ...]:
+    """Filtra TextNode que no aportan contenido (whitespace estructural).
+
+    El markup multilínea genera TextNode con newlines e indentación alrededor
+    de los hijos reales. Para contratos con child policy estricta
+    (``none-or-single``), esos nodos no deben contar como hijos. Un TextNode
+    con al menos una ReferencePart sí cuenta, aunque su parte literal sea
+    solo whitespace.
+    """
+    result: list[Node] = []
+    for child in nodes:
+        if isinstance(child, TextNode):
+            has_reference = any(
+                isinstance(part, ReferencePart) for part in child.parts
+            )
+            if not has_reference:
+                literal = "".join(
+                    part.value for part in child.parts if isinstance(part, TextPart)
+                )
+                if not _normalize_text(literal):
+                    continue
+        result.append(child)
+    return tuple(result)
 
 
 def _resolve_value(
