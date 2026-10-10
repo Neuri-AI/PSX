@@ -1,0 +1,38 @@
+name: SFLE Chromium geometry checkpoint
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "psx/sfle/**"
+      - "tests/browser/test_sfle_chromium.py"
+      - ".github/workflows/sfle-chromium.yml"
+      - "pyproject.toml"
+  push:
+    branches:
+      - "feat/sfle-f2-core"
+    paths:
+      - "psx/sfle/**"
+      - "tests/browser/test_sfle_chromium.py"
+      - ".github/workflows/sfle-chromium.yml"
+      - "pyproject.toml"
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-reference:
+    name: Chromium SFLE border geometry
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PSX and Playwright
+        run: python -m pip install -e . pytest playwright
+      - name: Install headless Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Compare SFLE rectangles to browser geometry
+        run: python -m pytest -q tests/browser/test_sfle_chromium.py
