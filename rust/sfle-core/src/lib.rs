@@ -1,3 +1,5 @@
+pub mod line_layout;
+
 //! Pure, renderer-independent CSS Flexbox main-size distribution kernel.
 //!
 //! This implements the resolved single-line flexible-length freezing step
