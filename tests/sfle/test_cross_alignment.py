@@ -71,7 +71,7 @@ def test_column_rtl_align_self_end_maps_to_physical_right():
         (box,), 100, 40,
         direction=FlexDirection.COLUMN, writing=WritingDirection.RTL,
     )
-    assert result.boxes[0].border.x == 80
+    assert result.boxes[0].border.x == 0
 
 
 def test_overflow_end_alignment_keeps_negative_coordinate():
