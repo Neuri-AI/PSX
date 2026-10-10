@@ -405,3 +405,51 @@ latest commit only changes `docs/`.
   accidentally skipping them.
 
 Workflow behavior is separate from SFLE layout conformance certification.
+
+## 11. F2.2 — Resolved fixed edges in line sizing
+
+The next restricted, renderer-neutral slice includes resolved physical
+`margin`, `border` and `padding` in Flexbox line fitting and used-box
+geometry, with matching Python/Rust implementations:
+
+~~~text
+psx/sfle/edge_pipeline.py          Edge-aware content-size resolution
+rust/sfle-core/src/edge_pipeline.rs Rust counterpart, pure crate
+tests/sfle/test_edge_pipeline.py   Python fixtures: growth, wrapping, RTL
+~~~
+
+**Normative preconditions** for this interim slice: `FlexBasis` values
+represent pre-resolved *content-box* base/hypothetical/min/max lengths.
+All four physical edge contributions are numeric and **nonnegative**;
+auto/percentage values are **not** silently reduced to zero. The known
+automatic minimum-size condition must already be expressed as a numeric
+`min_size`. Intrinsic sizing and the generic `LayoutEngine.compute` remain
+unsupported and are explicitly gated.
+
+~~~mermaid
+flowchart TD
+    A["Resolved content sizes + fixed edges"] --> B["Hypothetical outer sizes"]
+    B --> C["Order-aware flex line formation"]
+    C --> D["Reserve fixed edges for each line"]
+    D --> E["CSS §9.7 content grow/shrink"]
+    E --> F["Recombine used outer item sizes"]
+    F --> G["Physical LTR/RTL rectangle placement"]
+    G --> H["Margin / border / padding / content boxes"]
+~~~
+
+For each line, usable content main space equals
+`max(0, container_main_size - sum(fixed_outer_edges))`, and the existing
+flex solver subsequently accounts for main-axis gaps. This lets fixed edges
+consume real space rather than being ignored as in the initial zero-edge
+pipeline. Overflow is preserved as a geometry result; it is not clipped
+or presented as compliant in unsupported conditions.
+
+**Deferred CSS semantics:** negative/automatic margins, CSS percentage
+reference bases, automatic min-content sizing, native intrinsic measurement,
+baseline and stretch alignment, multi-line cross-axis distribution, and
+layout-tree recursion. In particular, the current signed-margin converter
+is **not** an authorization to use negative margins in line fitting.
+
+The pure Rust and Python edge-aware source was added along with Python and
+Rust fixtures; numeric parity and Chromium conformity must still be
+separately verified. Do not enable engine capability claims prematurely.
