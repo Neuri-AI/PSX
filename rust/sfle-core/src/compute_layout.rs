@@ -240,8 +240,8 @@ pub fn compute_normalized(input:&LayoutInput)->Result<LayoutResult,ComputeError>
             boxes:vec![],diagnostics:vec![],measurement_error:None,
             engine_error:None,geometry_commit_error:None});
     }
-    let mut indices=HashMap::new();
-    let mut children=vec![Vec::new();input.nodes.len()];
+    let mut indices: HashMap<&str, usize> = HashMap::new();
+    let mut children: Vec<Vec<usize>> = vec![Vec::new();input.nodes.len()];
     let mut styles=Vec::with_capacity(input.nodes.len());
     for (index,node) in input.nodes.iter().enumerate(){
         styles.push(style(node)?);
