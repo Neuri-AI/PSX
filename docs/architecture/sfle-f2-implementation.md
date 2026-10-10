@@ -25,7 +25,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
 | **F2.2.2** | **Percentage cycles, box sizing and sizing-edge contracts** | **Scoped resolved-input implementation complete; context-dependent cases explicitly deferred to F2.2.4** |
-| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: justify-content connected to physical Flex box placement in Python/Rust; CI pending** |
+| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: justify-content connected to physical Flex box placement in Python/Rust; focused CI passed** |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
 | F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
@@ -982,3 +982,6 @@ First F2.2.3 increment: `psx/sfle/main_alignment.py`, `rust/sfle-core/src/main_a
 The pure spacing solver is now used by the main-axis margin placement kernel and the integrated resolved Flex layout pipeline, in both Python and Rust. The implementation handles `flex-start`, `flex-end`, `center`, `space-between`, `space-around` and `space-evenly` with the correct logical main direction for row/row-reverse/column/column-reverse and LTR/RTL. Fixed gaps and signed outer margin contributions remain explicit. Positive remaining free space is first assigned to main-axis AUTO margins, so `justify-content` does not redistribute it. Overflow alignments retain their specified fallbacks. Rust preserves the old `compute_margin_flex_layout` entry point as a flex-start wrapper and adds `compute_margin_flex_layout_justified`; Python accepts a backward-compatible optional `justify` keyword.
 
 The new regression test suite is `tests/sfle/test_justify_pipeline.py`, with Rust integration cases in `margin_flex_pipeline.rs`. The next slice remains cross-axis alignment and stretch/baseline. The small Chromium/Playwright CI checkpoint stays after F2.2.3, before formal F2.3 conformance.
+
+
+**Integrated justify-content CI:** code commit `02737d37`, SFLE run `38064998080`: Rust and Python 3.10–3.13 all passed. The general PSX validation run `38064997890` was in progress at documentation time; the result will be tracked separately. No Chromium geometry comparison or `align-content`/baseline/stretch support is implied.
