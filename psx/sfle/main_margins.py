@@ -122,7 +122,7 @@ def position_main_margins(
             cursor += start_margin + item.border_main_size + end_margin + alignment.between_space
         else:
             border_start = cursor - start_margin - item.border_main_size
-            cursor -= start_margin + item.border_main_size + end_margin + gap
+            cursor -= start_margin + item.border_main_size + end_margin + alignment.between_space
         out.append(MarginPosition(
             item.node_id, border_start, item.border_main_size,
             start_margin, end_margin,
