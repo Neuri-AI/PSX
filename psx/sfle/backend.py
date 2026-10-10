@@ -42,7 +42,7 @@ class RustLayoutEngine:
 def load_layout_engine() -> RustLayoutEngine | PythonLayoutEngine:
     """Select once before computation; runtime errors propagate unchanged."""
     try:
-        native = importlib.import_module("psx._sfle_native")
+        native = importlib.import_module("_sfle_native")
     except (ImportError, OSError):
         return PythonLayoutEngine()
     required = ("schema_version", "compute_json", "compute_provisional_json")
