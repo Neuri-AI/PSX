@@ -57,6 +57,9 @@ deterministic headless tests.
 **Architecture document:** [SFLE — Shared Flex Layout Engine](architecture/sfle.md).
 **F1 decisions:** [Approved architecture and component contracts](architecture/sfle-f1-contracts.md).
 **Formal F1 closure:** [Final architecture, LTR/RTL, Rust fallback and SFLE migration](architecture/sfle-f1-final-architecture.md).
+**D-F1.10 correction:** `Row`/`Column` will be removed, not preserved or
+translated; `Flex` becomes the single public Flexbox distribution component.
+This is an architectural decision only: no code removal or F2 start authorized.
 **Status:** all F1 decisions approved. **F2 is not authorized or started**; an
 explicit user go-ahead is required before implementation.
 **Ratified F1.6/F1.7 contract:** [CSS box model and percentage resolution](architecture/sfle-f1-box-model.md).
@@ -100,12 +103,16 @@ desktop renderers rather than embed CSS or assume a browser engine.
   of component state during reflow.
 - **Renderer support:** Qt, Kivy, Tkinter and Headless share the SFLE computation
   authority, with native measurement and geometry adapters.
-- **Approved layout migration:** replace existing Row/Column layout algorithms
-  and Scroll content layout computation with SFLE; preserve component APIs
-  where feasible and retain native scrolling mechanics. Flex-only item props
-  remain inert outside an explicit Flex formatting context. Rust is the primary
-  computation engine with a parity-matched Python fallback. Reuse the same
-  geometry data for the PSX Playground Visual Layout Inspector and UI Builder.
+- **Approved D-F1.10 correction:** during authorized migration, **delete**
+  `Row` and `Column` from public builders, markup/registries and exports
+  entirely; no aliases, wrappers or compatibility layers. `Flex` is the sole
+  public row/column/reverse Flexbox layout component. SFLE replaces redundant
+  layout algorithms. Retain `Scroll` as a separate native viewport/clipping/
+  scrolling/event/offset component, with SFLE-compatible content geometry but
+  **without** implicit Flex formatting. Flex item props remain inert outside
+  explicit Flex. Rust remains primary with a parity-matched Python fallback.
+  Migrate all examples, boilerplates, docs and architecture references
+  during implementation. Reuse SFLE geometry in Playground and UI Builder.
 
 ### Aspirational markup (not currently supported)
 
