@@ -334,6 +334,7 @@ class QtRenderer:
         from .switch import QtSwitchAdapter
         from .link import QtLinkAdapter
         from .spinbox import QtSpinBoxAdapter
+        from .scroll import QtScrollAdapter
         from .box import make_qt_box_adapter
         from .radiogroup import make_qt_radiogroup_adapter
         self.adapters.register("Divider", make_qt_divider_adapter(self))
@@ -343,6 +344,7 @@ class QtRenderer:
         self.adapters.register("Switch", QtSwitchAdapter())
         self.adapters.register("Link", QtLinkAdapter())
         self.adapters.register("SpinBox", QtSpinBoxAdapter())
+        self.adapters.register("Scroll", QtScrollAdapter())
         self.adapters.register("Box", make_qt_box_adapter(self))
         self.adapters.register("RadioGroup", make_qt_radiogroup_adapter(self))
 

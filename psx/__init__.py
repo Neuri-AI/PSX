@@ -50,6 +50,7 @@ from .core.vnode import (
     Switch,
     Link,
     SpinBox,
+    Scroll,
 )
 from .integrations.qyro import PSXComponent
 
@@ -75,6 +76,7 @@ __all__ = [
     "Switch",
     "Link",
     "SpinBox",
+    "Scroll",
 
     "App",
     "ComponentDefinition",

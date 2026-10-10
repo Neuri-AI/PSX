@@ -315,6 +315,7 @@ class KivyRenderer:
         from .switch import KivySwitchAdapter
         from .link import KivyLinkAdapter
         from .spinbox import KivySpinBoxAdapter
+        from .scroll import KivyScrollAdapter
         from .box import KivyBoxAdapter
         from .progressbar import KivyProgressBarAdapter
         from .radio import KivyRadioAdapter, KivyRadioGroupAdapter
@@ -326,6 +327,7 @@ class KivyRenderer:
         self.adapters.register("Switch", KivySwitchAdapter())
         self.adapters.register("Link", KivyLinkAdapter())
         self.adapters.register("SpinBox", KivySpinBoxAdapter())
+        self.adapters.register("Scroll", KivyScrollAdapter())
         self.adapters.register("Box", KivyBoxAdapter())
         self.adapters.register("ProgressBar", KivyProgressBarAdapter())
         self.adapters.register("Radio", KivyRadioAdapter())

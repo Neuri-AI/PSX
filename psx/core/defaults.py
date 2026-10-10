@@ -135,3 +135,9 @@ SPINBOX_DEFAULTS = MappingProxyType({
     "enabled": True,
     "on_change": None,
 })
+
+SCROLL_DEFAULTS = MappingProxyType({
+    "direction": "vertical", "content_direction": "vertical",
+    "scrollbar": "auto", "width": None, "height": None,
+    "spacing": 0, "padding": 0, "enabled": True,
+})
