@@ -49,12 +49,14 @@ class _ScrollFrame(ttk.Frame):
         else:
             raw = getattr(event, "delta", 0)
             delta = -40 * (raw / 120) if raw else 0
+        delta = getattr(event, "_psx_scroll_remainder", delta)
         if not delta:
             return None
         limit_x, limit_y = self._bounds()
         limit = limit_x if is_horizontal else limit_y
         offset = canvas.canvasx(0) if is_horizontal else canvas.canvasy(0)
         new_position, remainder = consume_scroll(offset, limit, delta)
+        event._psx_scroll_remainder = remainder
         if new_position != offset:
             if is_horizontal and limit_x:
                 canvas.xview_moveto(new_position / max(1, self._psx_content.winfo_reqwidth()))
@@ -89,9 +91,9 @@ class _ScrollFrame(ttk.Frame):
         enabled_x, enabled_y = scroll_axes(self._psx_props["direction"])
         target_width = max(req_width, vp_width) if not enabled_x else req_width
         target_height = max(req_height, vp_height) if not enabled_y else req_height
-        if canvas.itemcget(self._psx_window, "width") != str(target_width):
+        if float(canvas.itemcget(self._psx_window, "width") or 0) != float(target_width):
             canvas.itemconfigure(self._psx_window, width=target_width)
-        if canvas.itemcget(self._psx_window, "height") != str(target_height):
+        if float(canvas.itemcget(self._psx_window, "height") or 0) != float(target_height):
             canvas.itemconfigure(self._psx_window, height=target_height)
         canvas.configure(scrollregion=(0, 0, max(req_width, vp_width), max(req_height, vp_height)))
         canvas.delete("_psx_scroll_thumb")
@@ -146,6 +148,8 @@ class TkScrollAdapter:
         content.bind("<Configure>", outer._refresh, add="+")
         canvas.bind("<Configure>", outer._refresh, add="+")
         self._apply(outer, props)
+        renderer._bind_scroll_wheel(canvas)
+        renderer._bind_scroll_wheel(content)
         return TkHandle("Scroll", outer, props)
 
     @staticmethod
