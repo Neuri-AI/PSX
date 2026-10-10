@@ -7,7 +7,8 @@ use crate::cross_margins::position_cross_margins;
 use crate::line_layout::{
     place_resolved_lines, Direction, Rect, ResolvedItem, Wrap, WritingDirection,
 };
-use crate::main_margins::{position_main_margins, MarginItem};
+use crate::main_margins::{position_main_margins_justified, MarginItem};
+use crate::main_alignment::JustifyContent;
 use crate::{resolve_flexible_lengths, FlexBasis, FlexMathError};
 use std::collections::{HashMap, HashSet};
 
@@ -101,6 +102,24 @@ pub fn compute_margin_flex_layout(
     main_gap: f64,
     cross_gap: f64,
 ) -> Result<MarginFlexLayout, FlexMathError> {
+    compute_margin_flex_layout_justified(
+        items, width, height, direction, writing, wrap, main_gap, cross_gap,
+        JustifyContent::FlexStart,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn compute_margin_flex_layout_justified(
+    items: &[MarginFlexItem],
+    width: f64,
+    height: f64,
+    direction: Direction,
+    writing: WritingDirection,
+    wrap: Wrap,
+    main_gap: f64,
+    cross_gap: f64,
+    justify: JustifyContent,
+) -> Result<MarginFlexLayout, FlexMathError> {
     if ![width, height, main_gap, cross_gap]
         .iter().all(|v| v.is_finite() && *v >= 0.0)
     {
@@ -175,8 +194,8 @@ pub fn compute_margin_flex_layout(
                 start: item.main_start, end: item.main_end,
             }
         }).collect();
-        let positions = position_main_margins(
-            &border_items, main_extent, main_gap, direction, writing,
+        let positions = position_main_margins_justified(
+            &border_items, main_extent, main_gap, direction, writing, justify,
         )?;
         for (i, position) in line.iter().zip(positions.iter()) {
             let item = &items[*i];
