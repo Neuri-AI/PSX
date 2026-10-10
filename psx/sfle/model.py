@@ -57,6 +57,10 @@ class LayoutConstraints:
     width: AvailableSize
     height: AvailableSize
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.width, AvailableSize) or not isinstance(self.height, AvailableSize):
+            raise TypeError("LayoutConstraints axes must be AvailableSize.")
+
 
 @dataclass(frozen=True, slots=True)
 class BoxEdges:
@@ -66,6 +70,11 @@ class BoxEdges:
     right: Length
     bottom: Length
     left: Length
+
+    def __post_init__(self) -> None:
+        if not all(isinstance(edge, Length) for edge in
+                   (self.top, self.right, self.bottom, self.left)):
+            raise TypeError("BoxEdges must contain immutable Length values.")
 
     @classmethod
     def zero(cls) -> BoxEdges:
@@ -97,6 +106,11 @@ class BoxRect:
     padding: Rect
     border: Rect
     margin: Rect
+
+    def __post_init__(self) -> None:
+        if not all(isinstance(rect, Rect) for rect in
+                   (self.content, self.padding, self.border, self.margin)):
+            raise TypeError("BoxRect must contain Rect values.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,8 +149,12 @@ class MeasuredBox:
     def __post_init__(self) -> None:
         if not self.node_id:
             raise ValueError("MeasuredBox.node_id must not be empty.")
-        if self.revision < 0:
-            raise ValueError("MeasuredBox.revision must be nonnegative.")
+        if type(self.revision) is not int or self.revision < 0:
+            raise ValueError("MeasuredBox.revision must be a nonnegative integer.")
+        if not isinstance(self.constraints, LayoutConstraints):
+            raise TypeError("MeasuredBox.constraints must be LayoutConstraints.")
+        if not isinstance(self.intrinsic, IntrinsicSizes):
+            raise TypeError("MeasuredBox.intrinsic must be IntrinsicSizes.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +173,10 @@ class LayoutNode:
             raise ValueError("A layout node cannot be its own parent.")
         if not self.component:
             raise ValueError("LayoutNode.component must not be empty.")
+        if not isinstance(self.style, tuple):
+            raise TypeError("LayoutNode.style must be an immutable tuple.")
+        if any(not isinstance(entry, tuple) or len(entry) != 2 for entry in self.style):
+            raise TypeError("LayoutNode style entries must be immutable name/value pairs.")
         names = [name for name, _ in self.style]
         if len(names) != len(set(names)):
             raise ValueError("A layout style cannot contain duplicate property names.")
@@ -190,6 +212,10 @@ class LayoutInput:
         if not isinstance(self.direction, WritingDirection):
             raise TypeError("LayoutInput.direction must be a WritingDirection.")
         ids = [node.node_id for node in self.nodes]
+        if not all(isinstance(node, LayoutNode) for node in self.nodes):
+            raise TypeError("Layout input nodes must all be LayoutNode.")
+        if not all(isinstance(item, MeasuredBox) for item in self.measurements):
+            raise TypeError("Layout input measurements must all be MeasuredBox.")
         if len(ids) != len(set(ids)):
             raise ValueError("Layout tree node IDs must be unique.")
         existing = set(ids)
@@ -230,6 +256,13 @@ class LayoutResult:
             raise ValueError("Layout result generation must be a nonnegative integer.")
         if not isinstance(self.boxes, tuple) or not isinstance(self.diagnostics, tuple):
             raise TypeError("Layout result collections must be immutable tuples.")
+        if any(not isinstance(entry, tuple) or len(entry) != 2
+               or not isinstance(entry[0], str) or not entry[0]
+               or not isinstance(entry[1], BoxRect)
+               for entry in self.boxes):
+            raise TypeError("LayoutResult.boxes must contain (node_id, BoxRect) pairs.")
+        if any(not isinstance(message, str) or not message for message in self.diagnostics):
+            raise TypeError("LayoutResult.diagnostics must contain nonempty strings.")
         ids = [node_id for node_id, _ in self.boxes]
         if len(ids) != len(set(ids)):
             raise ValueError("Layout results must have unique node IDs.")
