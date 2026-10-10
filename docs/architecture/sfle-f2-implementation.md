@@ -1,161 +1,71 @@
-# SFLE F2 — verified implementation audit and acceptance register
+# SFLE F2 — consolidated implementation and acceptance register
 
-> Audit baseline: PR #11, branch `feat/sfle-f2-core`, commit `2ad3df176d8df3f48b87794b7e47aa092278991a`, 2026-10-10.
-> **State: scope approval required before implementation. No test execution or CSS conformance certification is claimed in this audit.**
-> This is the single current F2 status register. Earlier commit-count and 4/8 versus 5/8 progress claims are withdrawn; this register replaces the increment log.
+> **Single current status table** as of 2026-10-10. Verified code baseline: `0f85b6a4e7fa43253e336c23e72725d0e1fb8338` on `feat/sfle-f2-core`, PR #11.  
+> **F2 is NOT complete and the public SFLE capability manifest remains CLOSED.** Numerical success of a restricted fixture is not evidence that the whole CSS feature is supported. No historical 4/8 or 5/8 progress counts are accepted.
 
-## Normative precedence
+## 1. Normative authority and scope
 
-1. [F1 final architecture](sfle-f1-final-architecture.md), especially §§2–3 and §6 (F2.0–F2.4, F2 exit criteria).
-2. [Box model](sfle-f1-box-model.md).
-3. [Contracts](sfle-f1-contracts.md), excluding its superseded proposed F2.A–D phases.
-4. [Properties and lengths](sfle-f1-props-lengths.md).
-5. [SFLE architecture and algorithm](sfle.md), §§5, 9, 10.
-6. [CSS Flexbox Level 1](https://www.w3.org/TR/css-flexbox-1/) and equivalent Chromium reference fixtures.
+Precedence: [F1 final architecture](sfle-f1-final-architecture.md) (D-F1.1–D-F1.12, F1-RUST, F2.0–F2.4, F2 exit), [F1 box model](sfle-f1-box-model.md) (§§5.1–5.4), [F1 contracts](sfle-f1-contracts.md) (its F2.A–D labels are NOT authoritative), [F1 props/lengths](sfle-f1-props-lengths.md), [SFLE](sfle.md) (§§5, 9, 10), and [CSS Flexbox Level 1](https://www.w3.org/TR/css-flexbox-1/).
 
-This document reports evidence, not authority. Keep public Row/Column/Scroll and the public capability manifest unchanged during F2. F2.4 inventories migration; F3 performs removal. The approved F2 exit criteria include Rust-primary selection, equivalent Python fallback, differential geometry, headless/browser conformance and explicit unsupported errors; those requirements cannot be deferred merely by renaming them F2.2.5/F2.2.6/F2.3.
+Approved first-alpha acceptance IDs: A01–A10; CSS cyclic sizing allowlist C01–C06; negative cycle classification C99. Orthogonal automatic sizing is **in scope** (A01). Rust-primary PyO3/maturin with load-time Python fallback is **F2 exit work**, not an optional later enhancement. No feature is considered supported merely because one engine accepts it. A native Rust runtime failure must never be retried in Python during a transaction. Preserve AUTO/NONE/keyword tags and indefiniteness, prevent stale-generation commits, maintain exact box identities and line memberships, and keep `measurement_error`, `engine_error`, and `geometry_commit_error` separate. Never update Row/Column/Scroll or the public capability manifest during F2.
 
-## Audited implementation inventory (not an execution report)
+## 2. Acceptance table (one current table only)
 
-| Normative requirement | Python implementation | Rust implementation | Existing evidence/test | Verified state |
-| --- | --- | --- | --- | --- |
-| CSS §9.7 resolved flex grow/shrink | `flex_math.py`, resolved pipelines | `lib.rs`, resolved pipelines | `test_resolved_pipeline.py`, Rust unit tests | FAIL — no full acceptance test: resolved-input kernels only |
-| Definite nested geometry | `resolved_tree.py`, `margin_tree.py` | corresponding Rust modules | `test_resolved_tree.py`, `test_margin_tree.py` | FAIL — no full acceptance test: pre-resolved inputs |
-| Orthogonal nested auto sizing | `auto_cross_tree.py` explicitly rejects axis mismatch | `auto_cross_tree.rs` rejects mismatch | `test_auto_cross_tree.py` limited nowrap cases | FAIL: target case unsupported |
-| Width-dependent measurement after grow | `recursive_pipeline.py` | No equivalent integrated pipeline identified | `test_recursive_pipeline.py::test_intrinsic_leaf_growth_remeasures_at_allocated_width` | FAIL — no full acceptance test |
-| Width-dependent measurement after shrink | No accepted end-to-end test identified | No accepted end-to-end test identified | Acceptance test missing | NO TEST |
-| Deferred percent/intrinsic tags | `lengths.py`, `sizing.py` | `sizing.rs` | `test_sizing.py`, percent resolver tests | FAIL — no full acceptance test: not CSS tree solver |
-| Stale-generation commit rejection | `native_lifecycle.py` | Native scheduling not in pure Rust boundary | `test_native_lifecycle.py::test_stale_generation_blocks_commit_after_measurement` | FAIL — no full acceptance test: Python callback bridge |
-| Bounded convergence and oscillation | `convergence.py`, `recursive_pipeline.py` | `convergence.rs` | `test_convergence.py` | FAIL — no full acceptance test: guard, not CSS fixed-point proof |
-| Full versioned compute/fallback | `engine.py::PythonLayoutEngine.compute` always raises | `Cargo.toml` no PyO3/maturin dependency; `lib.rs` pure crate | No Rust loader/fallback test | FAIL |
-| Shared Python/Rust differential result fixtures | Separate source/tests | Separate source/tests | No shared integrated differential runner identified | FAIL |
-| Chromium 0.01 px + error decomposition | Resolved border-box browser comparisons at 0.05 px in current tests | No Rust browser pipeline | `tests/browser/test_sfle_chromium.py` | FAIL — no full acceptance test: insufficient tolerance/coverage |
-| Native measurements and geometry | `native_measurement.py`, toolkit ports, lifecycle bridge | Pure computation only | `test_native_lifecycle.py`, toolkit tests | FAIL — no full acceptance test: production renderer integration not established |
+Meaning of **test PASS**: the named test actually ran and passed in the referenced CI. **Acceptance FAIL**: one or more normative parts of that case still lack proof, even when a restricted test is green. **NO TEST** means the required integration/fixture does not exist. This register deliberately avoids progress-percentage metrics.
 
-### CI audit
+| ID | Required behavior and concrete expected numeric value | Python actual test | Rust actual test | Chromium / parity evidence | F2 acceptance |
+| --- | --- | --- | --- | --- | --- |
+| **A01** | `root(row 120px)` → `column(80px,height:auto)` → `Text(width:100%,height:auto)`, final parent / column / text height **60px** | **PASS** `test_a01_compute_red.py::test_A01_compute_full_orthogonal_text_parent_height_60px`; earlier restricted `test_f2_acceptance_red.py::test_A01_orthogonal_auto_parent_height_from_descendant` PASS | **PASS** `f2_a01_red.rs::acceptance_a01_full_tree_60px_parent_height` | **PASS** Python/Rust rectangle corpus 0.01px; **PASS** browser `test_sfle_f2_engine_chromium.py::test_A01_python_engine_final_rectangles_match_chromium` (0.01px). HTML reference uses three deterministic 20px block lines, **not a true width-triggered text-wrap remeasurement cycle** | **FAIL** full A01 until actual constrained multiline remeasurement and final parent height are exercised through the UI measurement coordinator |
+| **A02** | Auto main size with `flex-basis:auto`; canonical root and child width **100px** | **PASS** `test_f2_acceptance_contract_red.py::test_A02_auto_parent_and_auto_flex_basis_use_intrinsic_content` | **PASS** `f2_a02_red.rs` | **PASS** differential; **NO TEST** equivalent Chromium intrinsic-context fixture | **FAIL** final browser/intrinsic context gate |
+| **A03** | Indefinite percent block sizing with measured intrinsic used root and child height **30px** | **PASS** `test_f2_acceptance_contract_red.py::test_A03_indefinite_percentage_reference_preserved_then_css_resolved` | **PASS** `f2_a03_red.rs` | **PASS** differential; **NO TEST** Chromium cycle reference for this exact tree | **FAIL** browser semantics and broader cyclic constraints |
+| **A04** | Grow to text width **150px**, final measured text/root height **20px** | **PASS** `test_f2_acceptance_contract_red.py::test_A04_grow_remeasures_final_text_width_and_parent_height` | **PASS** `f2_a04_red.rs` | **PASS** differential on supplied final-width measurement; **NO TEST** triggering the required second UI measurement pass | **FAIL** full active remeasurement |
+| **A05** | Shrink two 50px bases to **35px each**, measured heights and parent **120px** | **PASS** `test_f2_acceptance_contract_red.py::test_A05_shrink_remeasures_both_items_at_35px` | **PASS** `f2_a05_red.rs` | **PASS** differential on supplied post-shrink measurements; **NO TEST** native width-sensitive second measurement pass | **FAIL** full active remeasurement |
+| **A06** | Obsolete generation produces **0 commits**; current generation **17** | **PASS** `test_A06_generation_is_preserved_by_pure_layout_result` and `test_A06_stale_generation_never_commits_native_geometry` | **PASS** `f2_a06_red.rs`; Rust pure compute cannot make UI commits | **PASS** differential for generation; Python lifecycle guard verifies zero stale commits | **FAIL** native production-renderer generation integration not certified |
+| **A07** | Bounded fixed point root height **60px**, max iterations **8**; `A→B→A` raises explicit error | **PASS** `test_A07_convergent_auto_layout_is_finite`, `test_A07_bounded_two_step_oscillation_rejected` | **PASS** `f2_a07_red.rs` including `acceptance_a07_bounded_oscillation_is_rejected` | **PASS** pure corpus/guards; **NO TEST** full CSS dependency fixed-point coordinator | **FAIL** integrated sizing/convergence |
+| **A08** | Versioned Rust-primary PyO3/maturin + deterministic pre-compute Python fallback, no retry mid-transaction | **PASS** limited `test_f2_acceptance_red.py::test_A08_python_compute_is_a_real_fallback_not_a_placeholder` | **PASS** native crate `compute(&LayoutInput)`; **NO TEST** PyO3 extension/wheel | **PASS** separate-process Rust/Python differential; **NO TEST** load-time selector, native-runtime abort policy or wheel import | **FAIL** mandatory PyO3/selection/packaging |
+| **A09** | Exact logical order, RTL/LTR row positions LTR **a.x=0,b.x=20**, RTL **a.x=100,b.x=70** | **PASS** `test_A09_directional_positioning_preserves_identity` (two variants) | **PASS** shared differential fixture execution | **PASS** LTR/RTL differential at 0.01px; existing Chromium cases are restricted and some assert 0.05px, not full 0.01px A09 matrix | **FAIL** full browser orientation/wrap matrix |
+| **A10** | Three independent error categories; do not invent accuracy when comparison absent | **PASS** `test_A10_layout_output_contains_separate_error_channels` asserts **None** for unavailable measurements | **PASS** result schema carries the three optional independent error fields | **NO TEST** actual `measurement_error`, `engine_error` and `geometry_commit_error` calculations across toolkit/Chromium boundaries | **FAIL** comparison reporting and native calibration |
+| **C01–C03** | Content-based percentage flex basis; auto basis; post-flex descendant **60px** at 50% of 120px | **PASS** `test_f2_cycle_corpus_runtime_red.py` | **PASS** `f2_cycle_corpus_runtime_red.rs` | **PASS** differential, numeric corpus | **FAIL** broader CSS cycle verification/Chromium fixtures |
+| **C04** | Intrinsic cyclic percentage column gap contributes **0px** in intrinsic phase; final 10% of 40px = **4px**, second item **x=24px** | **PASS** real compute numeric corpus test | **PASS** real compute numeric corpus test | **PASS** differential; intrinsic contribution value not asserted independently by integrated runtime test; browser fixture missing | **FAIL** complete phase-specific/browser acceptance |
+| **C05** | Percent height under auto ancestor remains context dependent, final measured root/child height **30px** | **PASS** real compute numeric corpus test | **PASS** real compute numeric corpus test | **PASS** differential, no equivalent Chromium cycle fixture | **FAIL** browser/contextual completeness |
+| **C06** | Child `layout_padding_top:10%` relative to containing inline width **400px**, used padding **40px** | **PASS** real compute numeric corpus test | **PASS** real compute numeric corpus test | **PASS** differential, no complete Chromium edges fixture | **FAIL** browser + complete edge interaction |
+| **C99** | Unsupported multi-node percentage dependency cycle raises `SFLE_UNSUPPORTED_FEATURE`, identifies node `a` and cycle class; A01 must never receive that generic rejection | **PASS** both `test_C99_unlisted_two_node_percent_cycle_fails_closed` and `test_C99_supported_A01_is_not_diagnosed_as_unsupported` | **PASS** both tests in `f2_c99_red.rs` | **PASS** matching diagnostic and node against same corpus input | **FAIL** universal detection of every unlisted cyclic combination is not yet covered |
 
-- `.github/workflows/sfle-core.yml`: `compileall psx/sfle`, `pytest tests/sfle` on Python 3.10–3.13 and `cargo test --all-targets`; **does not cross-call the Rust and Python engines on shared fixtures**.
-- `.github/workflows/sfle-chromium.yml`: `pytest tests/browser/test_sfle_chromium.py` with Playwright Chromium; current fixtures cover selected resolved geometry, not the acceptance trees below, and assert 0.05 px in inspected cases rather than normative 0.01.
-- CI passing means only the tests configured there passed. Historical run links and the PR description are not substitutes for acceptance evidence.
+**No alpha feature should be advertised on this evidence alone**: the error matrix, dynamic backend/wheel boundary and several full CSS/browser/measurement gates remain open.
 
-## Acceptance table — proposed F2 alpha scope (awaiting confirmation)
+## 3. Source of truth for acceptance fixtures
 
-A named case is **PASS** only after (a) a test first fails on the baseline, (b) it passes in Python, (c) equivalent Rust result or equivalent explicit error is proven using a common fixture, (d) Chromium reference is compared where CSS geometry applies and (e) the prescribed tolerance and exact line/ID/order invariants pass. An existing narrow test is not itself acceptance.
+Single source: `tests/sfle/fixtures/f2_alpha_acceptance.json` (schema 1, explicit IDs, normalized tree, measurement dimensions and expected numeric outcomes). Structure-only validation by `tests/sfle/test_f2_corpus.py` and `rust/sfle-core/tests/f2_acceptance_corpus.rs` is **ZERO functional acceptance coverage**. Real compute execution is provided separately by `tests/sfle/test_f2_acceptance_contract_red.py`, `tests/sfle/test_f2_cycle_corpus_runtime_red.py`, `rust/sfle-core/tests/f2_a01_red.rs`, `rust/sfle-core/tests/f2_a02_red.rs` through `f2_a07_red.rs`, and `rust/sfle-core/tests/f2_cycle_corpus_runtime_red.rs`.
 
-| ID | Concrete input/tree and expected observable result | Proposed phase | Scope | Current status / required evidence |
-| --- | --- | --- | --- | --- |
-| A01 | `Flex(row,width:120px)` containing a fixed `40px` sibling and `Flex(column, flex-grow:1, min-width:0, height:auto)` with a `Text(width:100%,height:auto)` leaf whose deterministic intrinsic metric at allocated 80px width is three 20px lines: text content height **60px**, nested column used height **60px**, and when root height is auto with no other taller child, root used content height **60px**. Assert final parent height, not merely leaf width. Chromium fixture must control font metrics/line breaks. | F2.2 implementation + F2.3 verification | IN | FAIL: orthogonal auto tree unsupported |
-| A02 | `Flex(row,width:auto)` with direct child `flex-basis:auto;width:auto` and measured min/max/preferred contributions; resolve the parent's content-based main size using CSS intrinsic rules, not zero or an invented definite width. Assert used parent/child widths against Chromium. | F2.2 + F2.3 | IN, semantics to approve | NO TEST |
-| A03 | `Flex(column,height:auto)` with descendant `height:50%`: preserve unresolved percentage until the CSS-specific containing-block rule applies; do not substitute 0 or auto universally. Assert Chromium-equivalent used height or identical explicit unsupported diagnosis for a genuinely out-of-scope combination. Include width percentage against definite inline-size ancestor as positive control. | F2.1/2.2 + F2.3 | IN, concrete cyclic behavior to approve | FAIL — no full acceptance test resolver; NO integrated fixture |
-| A04 | `Flex(row,width:150px)` with measured text item `flex-grow:1`: initial intrinsic width differs from final 150px; remeasure at allocated width and use resulting multiline height in parent auto cross-size. | F2.2 + F2.3 | IN | FAIL — no full acceptance test Python test, missing integrated parity/browser |
-| A05 | `Flex(row,width:70px)` with two `flex-shrink:1` measured text items of 50px basis each, `min-width:0`: each receives 35px before width-dependent remeasurement; parent auto height must reflect the measured post-shrink line count. | F2.2 + F2.3 | IN | NO TEST |
-| A06 | Generation G starts measurement, generation G+1 is published before commit: **zero rectangles** from G may be applied; stable node identities remain associated with G+1 only. | F2.2 coordinator / F2 exit | IN | FAIL — no full acceptance test lifecycle guard, add actual port/commit assertion |
-| A07 | Stable fully definite fixed point returns converged within explicit iteration bound; `A→B→A` oscillation raises explicit diagnostic and never commits. At bound N, no N+1 measurement pass and no partial native commit. | F2.2 coordinator / F2 exit | IN | FAIL — no full acceptance test guards, end-to-end missing |
-| A08 | Same immutable normalized input on Rust/Python yields same node IDs, lines, order, feature decisions, diagnostic codes and geometry within 0.01 CSS px. Missing/unloadable Rust selects Python **before** compute; Rust runtime failure aborts transaction without retry. PSX imports without extension. | F2.2 + F2 exit | IN | FAIL: no PyO3 compute/loader |
-| A09 | LTR/RTL row, row-reverse, column and column-reverse (with supported wrapping/alignment combinations): physical rectangles agree with Chromium at 0.01 px, structural identities exact. Unsupported combos error identically. | F2.2 + F2.3 | IN | FAIL — no full acceptance test resolved fixtures |
-| A10 | Separate `measurement_error`, `engine_error`, `geometry_commit_error`; headless reference error <=0.01 px, toolkit applied geometry <=1.0 px where available. | F2 exit, native integration completes F3 | IN for reporting/headless; native integration F3 | NO TEST |
-| A11 | Existing Row/Column/Scroll registrations/algorithms/uses inventoried, replacement and adapter plan prepared; no API modifications during F2. | F2.4 planning; implementation F3 | IN planning only | NO ACCEPTANCE INVENTORY |
-| A12 | Full renderer migration, removal of Row/Column and redundant algorithms; Scroll native viewport remains independent. | F3, per F1 final §6 F2.4 and §5 | OUT of F2 implementation | NO TEST |
-| A13 | Vertical writing modes and unsupported replaced-element/aspect-ratio semantics | Subsequent feature phase must be explicitly approved; not licensed as working in F2 alpha by D-F1.8 | OUT of first alpha slice | Explicit unsupported diagnostic required |
+The **differential runner** `tests/interop/test_sfle_f2_differential.py` compiles `rust/sfle-core/src/bin/sfle_f2_fixture_runner.rs`, serializes each identical versioned immutable snapshot, invokes Python and the actual Rust crate, and asserts identity/order and all four box rectangles (content/padding/border/margin) within 0.01px, plus case-specific numeric expectations and C99 diagnostic parity. It is a **process-level verification binary**, NOT PyO3 runtime selection. Browser `tests/browser/test_sfle_f2_engine_chromium.py` compares A01 geometry to Chromium; existing `tests/browser/test_sfle_chromium.py` checks other restricted resolved cases.
 
-### Hold point — phase/semantic scope decision
+### RED discipline
 
-Before implementing A01–A10, confirm that the proposed F2 alpha slice includes **automatic intrinsic main sizing** in A02 and **CSS-specific handling of indefinite/cyclic percentages** in A03 rather than a blanket rejection. The F1 final architecture requires complete F2 exit evidence but allows incremental capability gates; it does not authorize silently dropping these cases or relegating required F2 work to F3.
+RED tests remain ordinary failing tests until implementation fixes them—**never** use `xfail`, skipped tests or a conditional CI exclusion. Rust A02–A07 RED cases were introduced in separate commits before fixes and all failed on the Rust placeholder in run [38079805151](https://github.com/Neuri-AI/PSX/actions/runs/38079805151) with `cargo test --no-fail-fast`. The historical A01 Rust RED before the earliest orthogonal helper fix was not witnessed; its later full Rust compute RED was added before the Rust normalized compute implementation. Tests may now be green without retroactively claiming evidence that did not exist.
 
-## Required red-green and release protocol
+## 4. Verified GitHub Actions evidence
 
-1. Freeze this acceptance table after scope confirmation; fixture IDs do not change without explicit review.
-2. Create Python, Rust and browser fixtures for each supported case and record the exact failing baseline assertion (red) before modifying algorithms.
-3. Implement coherent cases across the normalized input → measurement → pure computation → generation-checked commit path; reject unsupported combinations identically.
-4. Run `pytest tests/sfle`, `cargo test --all-targets`, shared Rust/Python differential fixtures, `pytest tests/browser/test_sfle_chromium.py` and missing-Rust import/loader fixtures. Identify CI job coverage for each case.
-5. Report only case status: PASS, FAIL or NO TEST. A subblock closes only when every in-scope case assigned to it passes. Keep Row/Column/Scroll and the public capability manifest unchanged.
+On code commit `0f85b6a4e7fa43253e336c23e72725d0e1fb8338`:
 
-**Current acceptance summary:** No A01–A10 case is certified PASS at this audit point. Existing unit tests give partial evidence for individual cases, not the complete acceptance contract. The baseline 2ad3df17 Python/Rust matrix did not execute in the checked workflow; the RED tests on descendant 6698dd6b are separately documented below.
-
-## 2026-10-10 scope confirmation — accepted A01–A10
-
-User-approved mandatory conditions:
-- Orthogonal automatic flex sizing is **IN** (A01), not an allowable `UNSUPPORTED_FEATURE` escape for the named fixture.
-- A08 is **IN F2**: PyO3/maturin, Rust-primary load-time negotiation, Python fallback, versioned wire contract, equivalent error codes and a differential runner executing the **same A01–A07 input trees** through both engines.
-- The public manifest stays closed until the complete supported feature set passes both engines and Chromium as applicable.
-- Exclusions do not override the F2 exit gates of [F1 final architecture §6](sfle-f1-final-architecture.md).
-
-### Explicitly enumerated indefinite/cyclic percentage behaviors
-
-This is an *allowlist of required alpha implementations*, not a statement that the current code supports them. Reference: [box model §5.1–§5.4](sfle-f1-box-model.md), [Flexbox §7.2.3, §9.8–§9.9](https://www.w3.org/TR/css-flexbox-1/), and CSS Sizing cyclic contribution rules where referenced by Flexbox.
-
-| Cycle ID | Alpha behavior required | Test to establish (Python, Rust, Chromium when relevant) | Current acceptance |
-| --- | --- | --- | --- |
-| C01 | `flex-basis:N%` with indefinite flex container **main** size resolves to measured content-based used flex basis, not numeric zero; preserve original percent tag until correct stage | `test_A03_C01_indefinite_percent_flex_basis` | NO TEST (integrated) |
-| C02 | `flex-basis:auto` / `width:auto` for a flex container with intrinsic main contributions uses the §9.9 content-based sizing algorithm; do not infer definite size from viewport | `test_A02_C02_auto_intrinsic_main` | NO TEST (integrated) |
-| C03 | A post-flex definite flex item main size can establish a definite reference for percentage-sized descendants; re-resolve against **final allocated used size** and remeasure, rather than the pre-flex hint | `test_A03_C03_post_flex_definiteness` | NO TEST |
-| C04 | Cyclic percentage `row_gap` or `column_gap` contributes **zero only in the intrinsic contribution phase**; subsequently use the resolved gap if the resulting used reference becomes definite, otherwise explicit unsupported failure | `test_A03_C04_intrinsic_gap_vs_used_gap` | NO TEST (integrated); helper tests exist |
-| C05 | Percentage block-axis height under an auto-height containing ancestor remains tagged while indefinite; apply the context-specific CSS auto/intrinsic rule where defined and re-resolve if flex definiteness later arises | `test_A03_C05_auto_ancestor_percent_height` | NO TEST |
-| C06 | Percentage margin/padding on all physical sides uses the containing block's **inline size**; cyclic intrinsic contributions must follow CSS Sizing rules, never universal 0 or viewport substitution | `test_A03_C06_percentage_edges_intrinsic` | NO TEST |
-
-**Strict negative gate:** every cyclic dependency *not* in C01–C06—including multi-node mutually dependent percentage sizing and cycles involving percentage min/max whose CSS resolution is not covered by the allowlist—must raise the exact diagnostic `SFLE_UNSUPPORTED_FEATURE` on both engines, with matching node IDs and no geometry commit. Required paired test: `test_A03_C99_unlisted_percentage_cycle_rejected_by_both_engines`. This is an explicit alpha capability restriction, not a claim that the underlying CSS case is undefined.
-
-### Other first-alpha exclusions and destinations
-
-| Excluded case | Required behavior | Destination |
+| Job / workflow | Real execution | Result |
 | --- | --- | --- |
-| Replaced elements with intrinsic aspect-ratio transfer / `aspect-ratio` | Reason: automatic transferred size and min-content suggestions require CSS sizing/replaced-element constraints absent from the agreed first-alpha solver. Explicit `SFLE_UNSUPPORTED_FEATURE` in **both** compute backends before any geometry. | **Pending, unscheduled within F2**; F1 final §6 describes F2.2 as implementation of flex sizing and F2.3 as browser conformance, but does not allocate a dedicated aspect-ratio phase. A separate scope authorization is needed before claiming support. |
-| `flex-wrap` combined with **intrinsically auto-sized** flex containers | Reason: cyclic intrinsic container main/cross-size and line formation cannot be inferred from already-resolved line inputs. Both engines raise `SFLE_UNSUPPORTED_FEATURE`; definite wrap remains in scope. | **Pending within F2** under F1 final §6 F2.2 (sizing and line formation) and §6 F2.3 (explicitly: subsequently extend wrap and intrinsic measurements). This is a pending F2 capability, not F3 migration. |
-| Vertical writing modes | Both engines error `SFLE_UNSUPPORTED_FEATURE` | Post-alpha extension requiring separate architecture approval (F1 D-F1.8 limits F2 to horizontal writing modes) |
-| Public Row/Column removal and Scroll integration | Keep unchanged during F2 | **F3**, with inventory/adapter design in **F2.4** |
+| [SFLE Core 38081264259](https://github.com/Neuri-AI/PSX/actions/runs/38081264259) | Python 3.10, 3.11, 3.12, 3.13: `pytest tests/sfle`, including Qt offscreen | **PASS**; 3.12 recorded **346 passed, 0 skipped** |
+| Same SFLE Core | `cargo test --all-targets --no-fail-fast`: Rust unit and acceptance integration binaries | **PASS**; original unit suite 108 passed |
+| Same SFLE Core | Python/Rust corpus differential executable | **PASS**, **18 passed** (all corpus cases, including C99) |
+| [PSX Alpha 38081264251](https://github.com/Neuri-AI/PSX/actions/runs/38081264251) | Python core matrix, Qt offscreen, distribution build | **PASS**; Qt combined 19 passed; `test_qt_native_lifecycle.py::test_qt_offscreen_native_measure_and_commit` **1 passed** |
+| [Chromium 38081264249](https://github.com/Neuri-AI/PSX/actions/runs/38081264249) | Browser geometry suite, including A01 Python-engine border geometry | **PASS**, **11 passed** |
 
-### Actual CI observation pinned to baseline 2ad3df17
+Both `.github/workflows/sfle-core.yml` and `.github/workflows/ci.yml` trigger their full jobs on PR synchronizations rather than skipping due to a docs-only latest delta. SFLE Core now installs PySide6 system/wheel requirements and fails when any collected Python test is skipped; Qt offscreen also asserts no skipped lifecycle tests. Avoid counting skipped setup-action internals as skipped pytest tests.
 
-Checked workflow run **38078223822**: detector succeeded, **Rust SFLE core job skipped** and **Python SFLE matrix job skipped**. Workflow **38078223945** executed its Chromium browser comparison and succeeded; it does not cover A01–A10 end-to-end. Workflow **38078223968** succeeded at the change-detection stage but **Python core, PySide6 offscreen and distribution build were skipped**. These are actual job results, not inferred successes. Full Python and Rust suite **execution on 2ad3df17 remains NOT EXECUTED** in those runs; the environment in this session lacks a checkout and a Rust compiler and cannot clone externally. No PASS is assigned to unexecuted A01–A10 tests.
+## 5. Explicit deferred-feature register
 
-### RED implementation evidence
+| Feature | Why deferred | Required diagnostic on both engines | Normative placement |
+| --- | --- | --- | --- |
+| Replaced elements with `aspect-ratio` transfer | Intrinsic transferred size suggestion, replaced-element minima and cross-axis aspect sizing are not implemented in the restricted alpha | `SFLE_UNSUPPORTED_FEATURE` (not warning/approximation) | **Pending work within F2**, not assigned a named subphase by F1. F1 final §6 defines F2.2 normative sizing and F2.3 browser conformance; adding this feature needs explicit new F2 acceptance scope, not fictional “F2.2 extension phase” |
+| Intrinsically auto-sized containers with `flex-wrap` | Cyclic intrinsic main/cross sizing with line formation; fixed-size wrapped flex is separately supported by existing restricted kernels | `SFLE_UNSUPPORTED_FEATURE` | **Pending within F2.2 sizing/line formation**, then **F2.3 browser conformance**, per F1 final §6; this is not F3 migration |
+| Vertical writing modes | Approved D-F1.8 requires horizontal writing LTR/RTL only | `SFLE_UNSUPPORTED_FEATURE` | Out of first F2 alpha; later architectural authorization required |
+| Row/Column public removal, Scroll migration | F2 only defines inventory/adapter contracts, cannot break public PSX during pure engine phase | No F2 public mutation | F2.4 **planning**, F3 **actual removal/integration**, per F1 final §5–§6 |
 
-Commit `6698dd6bae37d35f59ae85d82c8d53b02b7d1ba8` introduces `tests/sfle/test_f2_acceptance_red.py` with:
-- `test_A01_orthogonal_auto_parent_height_from_descendant`: demands auto-height convergence across perpendicular axes; the inspected Python helper explicitly raises an unsupported feature.
-- `test_A08_python_compute_is_a_real_fallback_not_a_placeholder`: demands a real computation; the inspected `PythonLayoutEngine.compute` unconditionally raises `UnsupportedLayoutFeature`.
+## 6. Remaining mandatory F2 gates
 
-These are deliberate RED gates, not accepted features. Rust/Python differential A01–A07 and browser fixtures remain **NO TEST** until implemented; do not mark any phase done.
-
-### Executed RED results (not baseline-suite success)
-
-GitHub Actions SFLE Core run [38078742516](https://github.com/Neuri-AI/PSX/actions/runs/38078742516) at commit `6698dd6bae37d35f59ae85d82c8d53b02b7d1ba8` **completed**:
-- Python 3.10, 3.11, 3.12, 3.13: **2 failed, 304 passed, 1 skipped** on every Python matrix job.
-- `tests/sfle/test_f2_acceptance_red.py::test_A01_orthogonal_auto_parent_height_from_descendant` — **FAIL**, `SFLECapabilityError` at `psx/sfle/auto_cross_tree.py:74` (orthogonal axis rejection).
-- `tests/sfle/test_f2_acceptance_red.py::test_A08_python_compute_is_a_real_fallback_not_a_placeholder` — **FAIL**, `UnsupportedLayoutFeature` at `psx/sfle/engine.py:42` (no `compute()` implementation).
-- Rust SFLE core job: **PASS**, but did not execute either acceptance test or Python/Rust differential geometry.
-- [Chromium run 38078742518](https://github.com/Neuri-AI/PSX/actions/runs/38078742518): **PASS** on existing browser fixtures only, no A01/A08 browser parity.
-- PSX alpha validation run 38078742519: **PASS** on its existing jobs, not acceptance evidence for A01/A08.
-
-**Acceptance status after RED:** A01 FAIL (named test executed), A08 FAIL (named test executed); A02, A03, A05 and integrated A06/A07 remain NO TEST for complete target behavior; A04, A09/A10 have pre-existing scoped tests but NO full acceptance tests. No acceptance gate closed. Baseline 2ad3df17 still lacks an executed Python/Rust suite on that exact SHA in the inspected Actions runs; execution on descendant 6698dd6b establishes the observed baseline blockers without falsely asserting exact-SHA execution.
-
-**Engineering stop condition:** Fixing A01 by merely deleting the orthogonal rejection would be incorrect: it needs a real main-axis intrinsic contribution phase and a final used-size pass with cross-axis remeasurement, in both languages. Do not turn a red fixture green by hardcoding its expected dimensions or by skipping Rust.
-
-### CI path filters — inspected and corrected
-
-Previous `sfle-core.yml` PR-level `paths`: `psx/sfle/**`, `rust/sfle-core/**`, `tests/sfle/**`, `.github/workflows/sfle-core.yml`, `pyproject.toml`. Its separate `changes` job examined only the **most recent synchronize delta**, allowing Python/Rust to be skipped on doc-only updates in the still-open F2 PR. Previous `ci.yml` ignored `docs/**`, `README.md` and `**/*.md` on both PR/push; its independent synchronize-delta `changes` detector skipped Python core, PySide6 and distribution builds.
-
-Fix: both workflows now use an **unconditional `pull_request` trigger**, and their testing jobs no longer depend on `changes` outputs or `if` gates. The existing change detector is left informational. A PR update now forces the complete Rust/Python SFLE matrix and the PSX alpha suite, even on documentation-only synchronize events. Push filtering on `main` is unchanged. `sfle-core.yml` uses `pytest -q -rs tests/sfle` to report why any Python tests were skipped.
-
-This changes the execution policy, not test conformance. Full Rust/Python execution is a necessary but insufficient F2 acceptance condition.
-
-### New named RED test run and skip reason
-
-At `f66694ce6bfceaa7685aaf0aebd33d5818b81a05`, [SFLE Core run 38079084933](https://github.com/Neuri-AI/PSX/actions/runs/38079084933) executed the whole configured matrix (not skipped). Python 3.12 returned **10 failed, 306 passed, 1 skipped**; Rust unit suite succeeded. Failures arose at the end-to-end `PythonLayoutEngine.compute` placeholder; **a failing contract is not an implemented or accepted feature**. Python `-rs` reported: `SKIPPED [1] tests/sfle/test_qt_native_lifecycle.py:4: could not import 'PySide6.QtWidgets': No module named 'PySide6'`. The Qt adapter test requires its own environment, exercised separately by the PSX Alpha Qt job.
-
-New `tests/sfle/test_f2_acceptance_contract_red.py` supplies RED compute-interface gates for **A02, A03, A04, A05, A06, A07, A09 (both directions), A10 and C99**. All geometry assertions are contracts to implement, not passing features. The A06/A07 tests in this file verify only eventual compute behavior and **do not replace** lifecycle or oscillation-specific acceptance, which still require expanded cases.
-
-A01 has an initial orthogonal nowrap auto-column change in `psx/sfle/auto_cross_tree.py` and `rust/sfle-core/src/auto_cross_tree.rs`, accompanied by `acceptance_a01_orthogonal_auto_column_and_parent_height` in Rust and the Python A01 RED fixture. This is a **restricted sizing kernel**, not end-to-end A01 closure: height-for-width text acquisition, final remeasurement and shared differential trees are still missing. The change does not authorize capability advertisement.
-
-**Unfinished obligations before implementation closure:** equivalent executable **Rust A02–A07 and C99 fixtures**, shared Rust/Python wire input schema, PyO3/maturin and runtime selection, actual cross-engine differential runner, complete A01 browser/measurement fixture. Do not misreport the presence of Python RED tests as equivalent coverage of Rust.
-
-## 2026-10-10 — corpus / RED policy / next gates
-
-**RED policy decision:** named acceptance tests remain genuinely **RED** (normal pytest tests and Rust `#[test]`, **no `xfail`**, no skip, no CI exclusion). Failed mandatory acceptance tests cause failure in SFLE Core until their implementation lands. A test ID's expected diagnostic may pass only if the error arises for the **specific normalized unsupported cycle**, rather than the global `PythonLayoutEngine.compute()` placeholder; C99 currently does not satisfy this semantic gate.
-
-**Canonical fixture source:** `tests/sfle/fixtures/f2_alpha_acceptance.json`, schema 1. Defines A01–A07, C01–C06, C99 once, with stable nodes, style, expected measurements and outcomes. Python consumer: `tests/sfle/test_f2_corpus.py`; Rust consumer: `rust/sfle-core/tests/f2_acceptance_corpus.rs` (uses `serde_json` test dependency); Chromium consumer: `tests/browser/test_sfle_f2_corpus.py` for A01. **These are schema/reference consumers**, not the differential calculation runner. They do not prove full layout parity. The browser's A01 reference uses deterministic three 20px lines and checks parent, column and text height 60px, but a final SFLE-vs-browser rectangle comparison is still pending.
-
-**One-test-one-commit rule adopted prospectively:** for each new A02–A07 Python and Rust acceptance assertion, the RED test must be written in its own commit with a visible failed CI job **before** the fixing commit. A01's Rust RED was not demonstrated before its fix; that RED must be repeated or independently reconstructed on parent `2ad3df17` to satisfy the policy. Do not claim historical RED that was not executed.
-
-**Qt skip mitigation:** `.github/workflows/ci.yml` now runs `tests/sfle/test_qt_native_lifecycle.py` in the Qt-enabled offscreen job and fails the step if it is omitted. The SFLE Core Python matrix may still report the dependency-based skip; it is **not** a waiver because the separate Qt job must execute it.
-
-**Known RED shortcomings to repair before closing any case:** A06 pure generation equality does not test stale asynchronous commit; A07 finite auto geometry does not assert oscillator/max iteration behavior; A10 current assertion expects result error fields which may ultimately be better represented as structured per-transaction diagnostics; C99's broad error-code assertion gives false success on a global feature gate. The current fixture corpus also contains provisional CSS expected values and must be browser-normalized and cross-checked before certification. No claim of completed A01–A07 Rust coverage, PyO3 or differential runner.
+The most important missing work is **A08 PyO3/maturin** (versioned extension loading, load-time Rust-primary backend choice, genuine Python fallback when Rust is unavailable, test that runtime Rust failure never retries in Python, wheel/source/frozen packaging). This cannot be moved to F3 by renaming it. Other remaining F2 requirements: complete UI-thread height-for-width measurement/remeasurement integration for A01/A04/A05, CSS percentage cycle negative-classifier coverage beyond C99, exact Chromium reference expansion for A02–A09, backend-specific independent error reporting A10, and an F2.4 Row/Column/Scroll inventory and migration plan. Continue with fresh RED tests before each new behavior, keep the capability manifest closed, and do not claim F2 completion until its normative exit tests pass.
