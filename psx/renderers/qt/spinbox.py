@@ -112,9 +112,11 @@ class QtSpinBoxAdapter:
     def _increment(self, frame, direction):
         if not frame._psx_props["enabled"]:
             return
-        self._commit(frame)
         props = frame._psx_props
-        value = stepped(normalized(props["value"], props), direction, props)
+        editor = frame._psx_parts[1]
+        base = committed(editor.text(), props) if frame._psx_dirty else normalized(props["value"], props)
+        frame._psx_dirty = False
+        value = stepped(base, direction, props)
         self._emit(frame, value)
 
     def update(self, renderer, handle, changed, removed):
