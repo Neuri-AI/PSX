@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: cyclic percentage gaps, definite box sizing and standalone signed/auto main margins (Python + Rust); scoped CI passed** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins connected to line formation, flex sizing and border placement in both languages; CI pending** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -692,3 +692,47 @@ integration with line breaking.
 
 The agreed optional Chromium/Playwright fixture CI checkpoint remains
 scheduled after F2.2.3; it will not require a local browser.
+
+## 16. F2.2.2 — Integrated line fitting with signed/auto main margins
+
+This increment closes the disconnect between the standalone main-margin
+solver and the *resolved* Flex pipeline, without enabling a full CSS engine.
+
+~~~text
+psx/sfle/margin_flex_pipeline.py        Integrated Python restricted pipeline
+rust/sfle-core/src/margin_flex_pipeline.rs
+                                      Integrated Rust restricted pipeline
+tests/sfle/test_margin_flex_pipeline.py
+                                      Focused integration tests
+~~~
+
+The restricted pipeline orders items, forms lines from hypothetical
+**outer** main sizes (including signed fixed margins, with auto margins
+counted as zero), resolves flexible content sizes **per line**, then
+distributes positive remaining main-axis space among auto margin edges.
+Used border, padding and content rectangles are returned in physical
+LTR/RTL row/column coordinates. Its dedicated output explicitly records
+used main-start/end margins and *does not fabricate a positive-width
+margin rectangle*: a CSS margin box can have a negative mathematical
+extent when margins are signed.
+
+~~~mermaid
+flowchart TD
+    A["Content flex bases + padding/border + signed/AUTO main margins"] --> B["Order-modified outer hypothetical line fitting"]
+    B --> C["Per-line CSS flex size resolution"]
+    C --> D["Post-flex AUTO main margin distribution"]
+    D --> E["Border / padding / content geometry in LTR/RTL"]
+~~~
+
+**Scope:** main-axis margins only. All cross-axis margins are rejected;
+alignment, nested flex/recursive sizing, unresolved percentages and native
+measurement remain outside the supported path. This implementation is
+additive alongside `edge_pipeline`; no public renderer or engine
+capability is enabled. This avoids changing the pre-existing zero/signed
+edge-geometry contract while tests and browser conformance are pending.
+
+**Remaining F2.2.2 work:** CSS min/max constraints with box-sizing,
+cross-axis margin semantics, percentage-dependent layout sizing, and
+geometry parity with browser reference snapshots. Early headless Chromium
+fixtures remain scheduled just after F2.2.3, using GitHub Actions
+rather than requiring a developer's local machine.
