@@ -9,9 +9,9 @@ from psx.core.errors import RendererCapabilityError
 
 # Physical switch dimensions in logical pixels, shared by all backends.
 SWITCH_SIZES: dict[str, tuple[int, int]] = {
-    "small": (34, 20),
-    "medium": (44, 26),
-    "large": (56, 32),
+    "small": (68, 40),
+    "medium": (88, 52),
+    "large": (112, 64),
 }
 
 
