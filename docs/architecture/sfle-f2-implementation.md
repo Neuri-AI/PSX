@@ -5,8 +5,9 @@
 > JSON-safe versioned exchange are committed on the feature branch.
 > **F2.2 has started:** a CSS §9.7 single-line, resolved-size flex distribution
 > kernel and a resolved-line formation/placement kernel now exist in both
-> Python and Rust source form. Neither is **yet** wired
-> to the engine protocol. No full Flexbox implementation, compiled Rust/PyO3
+> Python and Rust source form. A restricted integrated resolved-size pipeline
+> now connects those kernels and a separate used-box geometry helper exists.
+> These paths are **not yet wired** to the engine protocol. No full Flexbox implementation, compiled Rust/PyO3
 > extension, public Flex component, renderer migration or Chromium conformance
 > claim exists yet.
 >
@@ -54,7 +55,7 @@ migration. No registration is changed in this initial F2.1 skeleton.
 | --- | --- | --- |
 | F2.0 | Architecture blueprint, module boundaries and delivery order | Explicit engine/core/native ownership and supported target surface |
 | F2.1 | Immutable lengths, strict ancestry, measurement/output models, stable diagnostics, capability manifest, v1 JSON-safe wire schema | Implemented in feature branch; execution/CI validation not yet performed |
-| F2.2 | CSS Flexbox computation: Rust primary + parity-matched Python fallback | **In progress:** flexible-length math + order-aware resolved-line formation and physical LTR/RTL placement implemented in Python/Rust; parity and conformance unverified |
+| F2.2 | CSS Flexbox computation: Rust primary + parity-matched Python fallback | **In progress:** integrated restricted line/size/placement kernels in Python/Rust plus resolved box geometry in Python; parity and browser conformance unverified |
 | F2.3 | Browser reference geometry + LTR/RTL conformance | Same line structure; geometry within 0.01 logical px pure with equivalent measurements |
 | F2.4 | Inventory/plan migration of Row/Column/Scroll boundaries | No planned aliases; Scroll independent, native adapters retained |
 
@@ -316,3 +317,61 @@ continues to fail explicitly. The capability manifest must remain empty.
 Next: execute both language test suites in CI, correct any discovered
 cross-language divergence, connect sized lines to positioned boxes with
 CSS box-model contributions, then expand the feature-gated semantic set.
+
+## 10. F2.2 — Integrated resolved geometry and CSS used boxes
+
+The earlier math kernels were independent. The following first integration
+now connects them under **strict resolved-input preconditions**:
+
+~~~text
+psx/sfle/resolved_pipeline.py      Python integrated line/size/placement
+rust/sfle-core/src/resolved_pipeline.rs
+                                   Rust counterpart for the same restricted path
+psx/sfle/box_geometry.py           Pure CSS used-box rect conversion
+tests/sfle/test_resolved_pipeline.py
+tests/sfle/test_box_geometry.py    Focused behavioral tests
+~~~
+
+The pipeline forms lines with the **hypothetical outer main sizes** in
+stable CSS `order`, resolves each line's flexible main sizes through the
+§9.7 kernel, then places resolved items in their LTR/RTL and reverse-axis
+coordinates. The pipeline deliberately requires **zero padding, border
+and margin** on its input items, so the mathematical flex base and used
+outer main size are interchangeable for this limited slice.
+
+The separate box geometry helper converts already-resolved, positioned
+physical margin rectangles into margin/border/padding/content rectangles,
+handling signed margins only when the resulting rectangles remain
+representable. This helper does **not** yet feed measurements/edges back into
+flex line fitting or minimum-size calculations. Conflating that conversion
+with full CSS box-sizing would be incorrect.
+
+~~~mermaid
+flowchart TD
+    A["Pre-normalized items: zero-edge boxes"] --> B["Order-aware hypothetical line formation"]
+    B --> C["Per-line CSS §9.7 grow/shrink + clamps"]
+    C --> D["LTR/RTL physical placement"]
+    D --> E["Resolved intermediate rectangles"]
+    F["Separate resolved margin/border/padding values"] --> G["Used-box geometry converter"]
+    E -. "future integration with edge-aware flex algorithm" .-> G
+    G --> H["Content / padding / border / margin rectangles"]
+~~~
+
+**Feature gate remains closed.** Until native/batched Rust binding,
+edge-aware sizing, intrinsic and percentage resolution, alignment,
+container cross-size distribution and browser-reference fixtures are
+implemented, `LayoutEngine.compute()` must still reject requests. The
+Python/Rust integrated kernels are internal and cannot be used to claim a
+conformant full Flexbox engine.
+
+### Validation follow-up
+
+Python tests and Rust unit tests have been added for the integrated math,
+main-axis RTL, line wrapping, numeric flex allocation and used box
+rectangle conversions. GitHub Actions is configured to run them, but
+**passing CI and numerical/browser parity are not asserted here** until
+the actual check results are verified.
+
+The next useful block should prioritize evaluating the CI outcomes and
+then expanding edge-aware line fitting (including padding, border and
+signed margins) without violating CSS auto-minimum and box-sizing rules.
