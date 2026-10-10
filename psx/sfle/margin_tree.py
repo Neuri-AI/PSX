@@ -83,6 +83,12 @@ def compute_margin_tree(
             raise SFLEError(DiagnosticCode.INVALID_TREE, "Missing parent or mismatched item.")
         if not isinstance(node.edges, UsedBoxEdges):
             raise TypeError("Expected UsedBoxEdges.")
+        if index and node.edges != UsedBoxEdges():
+            raise SFLEError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Child edges must be supplied through MarginFlexItem.edges.",
+                node.node_id,
+            )
         if node.edges.margin != UsedEdges():
             raise SFLEError(DiagnosticCode.UNSUPPORTED_FEATURE, "Container physical margins require item metadata.")
         for value in (node.width, node.height, node.main_gap, node.cross_gap):
