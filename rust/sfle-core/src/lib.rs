@@ -6,6 +6,7 @@
 //! The Python counterpart lives at psx/sfle/flex_math.py.
 
 pub mod edge_pipeline;
+pub mod intrinsic;
 pub mod line_layout;
 pub mod resolved_pipeline;
 pub mod sizing;
