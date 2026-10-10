@@ -96,7 +96,7 @@ pub fn position_main_margins_justified(
             cursor += start + item.border_main_size + end + alignment.between_space;
         } else {
             border_start = cursor - start - item.border_main_size;
-            cursor -= start + item.border_main_size + end + main_gap;
+            cursor -= start + item.border_main_size + end + alignment.between_space;
         }
         positions.push(MarginPosition {
             id: item.id.clone(), border_start,
