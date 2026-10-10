@@ -535,13 +535,15 @@ mod tests {
     }
 
     #[test]
-    fn stretch_is_not_silently_treated_as_start() {
-        assert!(compute_margin_flex_layout_aligned(
+    fn stretch_does_not_modify_definite_cross_size() {
+        let out = compute_margin_flex_layout_aligned(
             &[item("a", 20.0, Some(0.0), Some(0.0))],
             100.0, 100.0, Direction::Row, WritingDirection::Ltr,
             Wrap::NoWrap, 0.0, 0.0,
             JustifyContent::FlexStart, CrossAlign::Stretch,
-        ).is_err());
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.height, 10.0);
+        assert_eq!(out.boxes[0].border.y, 0.0);
     }
 
     #[test]
