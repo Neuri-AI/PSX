@@ -46,6 +46,54 @@ class _PSXScrollView(ScrollView):
                 return False
         return super().on_scroll_start(touch, check_children=check_children)
 
+    def on_touch_down(self, touch):
+        # SDL2 on macOS commonly exposes two-finger trackpad scrolling as
+        # scroll-button touches. Delegate to the standard Kivy ScrollView
+        # first (including nested children); if it did not consume the event,
+        # apply a bounded wheel movement to our own viewport.
+        handled = super().on_touch_down(touch)
+        if handled:
+            return True
+        props = getattr(self, "_psx_props", None)
+        button = getattr(touch, "button", "")
+        if (
+            props is None or not props["enabled"] or
+            button not in ("scrollup", "scrolldown", "scrollleft", "scrollright") or
+            not self.collide_point(*touch.pos)
+        ):
+            return handled
+        horizontal, vertical = scroll_axes(props["direction"])
+        is_horizontal = button in ("scrollleft", "scrollright")
+        allowed = horizontal if is_horizontal else vertical
+        if not allowed:
+            return handled
+        content = self._psx_content
+        extent = (
+            content.width - self.width if is_horizontal
+            else content.height - self.height
+        )
+        if extent <= 0:
+            return handled
+        # Normalized Kivy scroll_x grows right, scroll_y grows up.
+        delta = self.scroll_wheel_distance / extent
+        if button == "scrollup":
+            new_value = min(1.0, self.scroll_y + delta)
+            moved = new_value != self.scroll_y
+            self.scroll_y = new_value
+        elif button == "scrolldown":
+            new_value = max(0.0, self.scroll_y - delta)
+            moved = new_value != self.scroll_y
+            self.scroll_y = new_value
+        elif button == "scrollright":
+            new_value = min(1.0, self.scroll_x + delta)
+            moved = new_value != self.scroll_x
+            self.scroll_x = new_value
+        else:
+            new_value = max(0.0, self.scroll_x - delta)
+            moved = new_value != self.scroll_x
+            self.scroll_x = new_value
+        return True if moved else handled
+
 
 class KivyScrollAdapter:
     def create(self, renderer, node, parent):
@@ -55,6 +103,7 @@ class KivyScrollAdapter:
         view = _PSXScrollView(
             do_scroll_x=True, do_scroll_y=True, size_hint=(1, 1),
             bar_width=6, scroll_type=["bars", "content"],
+            scroll_wheel_distance=48, smooth_scroll_end=10,
         )
         content = BoxLayout(
             orientation=props["content_direction"],
