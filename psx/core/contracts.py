@@ -30,6 +30,7 @@ from .validators import (
     validate_select_props,
     validate_switch_props,
     validate_link_props,
+    validate_spinbox_props,
 )
 Validator = Callable[[Mapping[str, object]], None]
 
@@ -193,4 +194,9 @@ LINK_CONTRACT = ComponentContract(
     "Link", LINK_PROPS, LINK_DEFAULTS,
     frozenset({"on_click"}), "text-only",
     validate_link_props, content_property="label",
+)
+
+SPINBOX_CONTRACT = ComponentContract(
+    "SpinBox", SPINBOX_PROPS, SPINBOX_DEFAULTS,
+    frozenset({"on_change"}), "none", validate_spinbox_props,
 )

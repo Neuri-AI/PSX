@@ -95,3 +95,5 @@ SELECT_PROPS = frozenset({"options", "value", "placeholder", "enabled", "on_chan
 SWITCH_PROPS = frozenset({"checked", "enabled", "label", "size", "color", "on_change"})
 
 LINK_PROPS = frozenset({"href", "label", "on_click", "color", "underline", "enabled"})
+
+SPINBOX_PROPS = frozenset({"value", "min", "max", "step", "decimals", "enabled", "on_change"})

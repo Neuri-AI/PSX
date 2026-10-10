@@ -35,6 +35,8 @@ from .contracts import (
     SWITCH_DEFAULTS,
     LINK_PROPS,
     LINK_DEFAULTS,
+    SPINBOX_PROPS,
+    SPINBOX_DEFAULTS,
 )
 
 _VALID_ALIGN = frozenset({"start", "center", "end", "stretch"})
@@ -593,3 +595,52 @@ def validate_link_props(props: Mapping[str, object]) -> None:
     for name in ("underline", "enabled"):
         if not isinstance(props.get(name, LINK_DEFAULTS[name]), bool):
             raise RendererCapabilityError(f"Link.{name} must be a bool.")
+
+
+def validate_spinbox_props(props: Mapping[str, object]) -> None:
+    """Validate numeric configuration independently of any UI backend."""
+    from decimal import Decimal
+
+    unknown = set(props) - SPINBOX_PROPS - {"key", "ref"}
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported SpinBox props: {', '.join(sorted(unknown))}"
+        )
+
+    decimals = props.get("decimals", SPINBOX_DEFAULTS["decimals"])
+    if isinstance(decimals, bool) or not isinstance(decimals, int) or not 0 <= decimals <= 9:
+        raise RendererCapabilityError("SpinBox.decimals must be an int between 0 and 9.")
+
+    numbers: dict[str, Decimal] = {}
+    for name in ("value", "min", "max", "step"):
+        value = props.get(name, SPINBOX_DEFAULTS[name])
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise RendererCapabilityError(f"SpinBox.{name} must be a finite int or float.")
+        if not math.isfinite(value):
+            raise RendererCapabilityError(f"SpinBox.{name} must be finite.")
+        numbers[name] = Decimal(str(value))
+
+    if numbers["min"] > numbers["max"]:
+        raise RendererCapabilityError("SpinBox.min cannot exceed SpinBox.max.")
+    if numbers["step"] <= 0:
+        raise RendererCapabilityError("SpinBox.step must be positive.")
+
+    quantum = Decimal(1).scaleb(-decimals)
+    if numbers["step"] < quantum or numbers["step"] % quantum != 0:
+        raise RendererCapabilityError(
+            "SpinBox.step must be a multiple of the selected decimal precision."
+        )
+    # Clamping must always result in an exactly representable boundary.
+    for name in ("min", "max"):
+        if numbers[name] % quantum != 0:
+            raise RendererCapabilityError(
+                f"SpinBox.{name} must fit within decimals={decimals} precision."
+            )
+
+    enabled = props.get("enabled", SPINBOX_DEFAULTS["enabled"])
+    if not isinstance(enabled, bool):
+        raise RendererCapabilityError("SpinBox.enabled must be a bool.")
+
+    callback = props.get("on_change", SPINBOX_DEFAULTS["on_change"])
+    if callback is not None and not callable(callback):
+        raise RendererCapabilityError("SpinBox.on_change must be callable or None.")
