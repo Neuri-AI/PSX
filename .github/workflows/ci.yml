@@ -4,7 +4,13 @@ on:
   push:
     paths-ignore:
       - "docs/**"
+      - "README.md"
+      - "**/*.md"
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "**/*.md"
 
 permissions:
   contents: read
@@ -22,7 +28,8 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const isDoc = path => path.startsWith('docs/');
+            const isDoc = path => path.startsWith('docs/') ||
+              path === 'README.md' || path.endsWith('.md');
             let files;
             if (context.eventName === 'pull_request' &&
                 context.payload.action === 'synchronize') {
