@@ -39,7 +39,11 @@ jobs:
             libxkbcommon-x11-0 \
             libxcb-cursor0
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e '.[dev,qt,pydux]'
+      - run: python -m pip install -e '.[dev,qt]'
+      - name: Install Neuri PyDux (pinned source)
+        run: |
+          python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@56e6df858bc0e1ae598cd1cab0aa384c921cf253"
+          python -c "from pydux import Action, Store; print('Neuri PyDux API available')"
       - run: QT_QPA_PLATFORM=offscreen python -m pytest -q tests/test_pyside6_renderer.py
 
   package:
