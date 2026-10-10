@@ -75,7 +75,6 @@ GUI adapters. Headless only records the component and event slots.
 - Verify the mutually-exclusive rule during construction and prop updates.
 - Verify disabled links do not activate and updates never navigate.
 - Verify color, underline, label updates and stable native widget identity.
-- In Kivy, verify links align to the left within a default stretching `Column`, rather than centering in the window.
 - Verify pointer and keyboard activation where supported.
 - Verify replacing event callbacks and unmounting without stale handlers.
 
