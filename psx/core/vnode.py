@@ -83,6 +83,7 @@ from psx.core.contracts import (
     SELECT_DEFAULTS,
     SELECT_CONTRACT,
     SWITCH_CONTRACT,
+    LINK_CONTRACT,
 )
 
 from .validators import (
@@ -559,3 +560,24 @@ def Switch(
     )
     SWITCH_CONTRACT.validate_builder(options)
     return create_element("Switch", key=key, ref=ref, **options)
+
+
+def Link(
+    label: str = "",
+    *,
+    href: str | None = None,
+    on_click: Callable[[], None] | None = None,
+    color: str | None = None,
+    underline: bool = True,
+    enabled: bool = True,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Portable clickable text; external href or future-router callback."""
+    options = dict(
+        label=label, href=href, on_click=on_click,
+        color=color, underline=underline, enabled=enabled, **props,
+    )
+    LINK_CONTRACT.validate_builder(options)
+    return create_element("Link", key=key, ref=ref, **options)
