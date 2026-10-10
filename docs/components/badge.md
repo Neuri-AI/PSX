@@ -86,14 +86,18 @@ expect `{condition ? ... : ...}` to work in current PSX markup.
 
 - **Shared tokens/validation:** `psx/renderers/components/badge.py`
   together with the core component contract and validator.
-- **Qt:** self-sizing `QLabel` with QSS background, border and radius.
+- **Qt:** custom self-sizing `QWidget` painted with `QPainter`; fill,
+  outline, pill radius and centered text share the same live geometry.
+  Size changes do not reuse stale QLabel/QSS size hints.
 - **Kivy:** `Label` with a rounded canvas background and outline stroke.
   When a parent assigns a stretched layout slot, the badge skin stays at its
   intrinsic dimensions and is centered inside that slot; Kivy-specific font
-  scaling keeps the text legible without changing shared semantic tokens.
+  scaling is **2x only on Kivy** for font/padding/radius, without changing
+  shared tokens or Qt/Tkinter sizing.
 - **Tkinter:** `Canvas` with corner arcs, straight sides and measured text.
   Tk has no native transparent Canvas background; the adapter matches the
   window surface behind the rounded corners, including for outlined badges.
+  Text placement uses Canvas text bounds for more accurate vertical centering.
   True alpha compositing and antialiased edges remain Tk limitations.
 - **Headless:** validates props and records updates without rendering.
 
@@ -110,6 +114,8 @@ subscriptions, `EventSlot`, timers or animations are required.
 - Confirm labels render legibly inside `Row` and `Column` with explicit
   alignment; avoid assuming a child controls the parent layout.
 - Verify updates preserve native widget identity and refresh text/appearance.
+- In Qt, repeatedly change `size` from `large` to `small` and back without
+  text drifting horizontally; check `shape="pill"` in filled and outline modes.
 - Verify disabled palettes and no interactions/event subscriptions.
 - Verify markup child-text and Python builder forms.
 - Confirm unmount cleanup without leaked Kivy canvas instructions or Tk widgets.
