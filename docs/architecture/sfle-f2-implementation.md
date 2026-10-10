@@ -15,6 +15,24 @@
 > [F1 component contracts](sfle-f1-contracts.md),
 > [CSS box model and percentage rules](sfle-f1-box-model.md).
 
+## F2.2 progress — numbered implementation subblocks
+
+This is the tracked internal subdivision of **F2.2**, not a replacement for
+the official F2.0–F2.4 phase structure. Status is updated after each delivery.
+
+| Subblock | Deliverable | Progress |
+| --- | --- | --- |
+| F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
+| **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; focused CI pending verification** |
+| F2.2.2 | Percentage cycles, box-sizing and deferred sizing edge cases | Partial: property-aware definite percentage resolver |
+| F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
+| F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
+| F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
+| F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
+
+**Remaining subblocks:** six, including F2.2.1 until its acceptance checks
+pass. Other pending stages: F2.3 Chromium conformance and F2.4 migration plan.
+
 ## 1. F2.0 — Technical card
 
 | Field | Decision |
@@ -511,3 +529,50 @@ measurement, and no runtime/native adapter/public component is modified.
 The Python and Rust test suites must pass in GitHub Actions after
 this slice; Chromium geometry and cross-language fixture parity are
 separate, still-pending requirements.
+
+## 13. F2.2.1 — Intrinsic sizing and automatic minimums
+
+First pure immutable sizing slice:
+
+~~~text
+psx/sfle/intrinsic.py             Python intrinsic flex basis and main min
+rust/sfle-core/src/intrinsic.rs   Equivalent Rust calculation contracts
+tests/sfle/test_intrinsic.py      Keyword, caps and scroll-aware tests
+~~~
+
+Given native-measured `IntrinsicSizes`, the code resolves the supported
+`min-content`, `max-content` and `content` flex-basis keywords.
+`flex-basis:auto` uses an explicit definite preferred main-size suggestion
+when supplied, or falls back to a measured content-based max-content size.
+The non-scroll-container automatic main minimum uses the min-content
+suggestion limited by a definite specified size and maximum constraint.
+An actual scroll container instead has an automatic minimum of zero.
+Explicit min-size overrides the automatic rule.
+
+~~~mermaid
+flowchart TD
+    A["UI-thread intrinsic snapshot (external)"] --> B["Pure typed intrinsic inputs"]
+    B --> C["Resolve basis: auto/content/min/max-content"]
+    B --> D["Resolve automatic main minimum"]
+    D --> E{"Actual scroll container?"}
+    E -->|"Yes"| F["Auto min = 0"]
+    E -->|"No"| G["Min-content, capped by specified/max"]
+    C --> H["Validated FlexBasis for §9.7"]
+    F --> H
+    G --> H
+~~~
+
+The `scroll_container` flag is an **explicit classification provided by
+the future overflow/measurement stage**. `overflow:auto` alone does
+not imply that a scroll container is present. No native viewports, events,
+Scroll component behavior or rendering adapters are modified.
+
+**Feature gates:** replaced elements, transferred aspect ratio, indefinite
+percentage basis resolution, fit-content, text-height remeasurement when
+width changes, cycles and cross-axis intrinsic measurement are **not
+claimed as supported**; they require follow-on contract work. This module
+never measures a GUI widget, accesses fonts or silently invents sizes.
+
+**Acceptance:** commit implementations and focused Python/Rust tests;
+inspect GitHub Actions for Python 3.10–3.13 and Rust. Browser conformance
+and parity fixture comparisons remain pending until F2.2.6/F2.3.
