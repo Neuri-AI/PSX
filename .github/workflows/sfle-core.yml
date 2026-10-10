@@ -2,12 +2,6 @@ name: SFLE core checks
 
 on:
   pull_request:
-    paths:
-      - "psx/sfle/**"
-      - "rust/sfle-core/**"
-      - "tests/sfle/**"
-      - ".github/workflows/sfle-core.yml"
-      - "pyproject.toml"
   push:
     branches:
       - main
@@ -81,8 +75,6 @@ jobs:
             core.setOutput('sfle', String(changed));
 
   python-contracts:
-    needs: changes
-    if: needs.changes.outputs.sfle == 'true'
     name: Python SFLE / ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
@@ -102,8 +94,6 @@ jobs:
         run: python -m pytest -q tests/sfle
 
   rust-core:
-    needs: changes
-    if: needs.changes.outputs.sfle == 'true'
     name: Rust SFLE core
     runs-on: ubuntu-latest
     defaults:
