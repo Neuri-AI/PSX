@@ -13,6 +13,7 @@ from .auto_cross_tree import AutoCrossSize, compute_auto_cross_tree
 from .constraint_propagation import ChildSizing
 from .errors import DiagnosticCode, SFLEError
 from .intrinsic_tree import IntrinsicLeafStyle, prepare_measured_leaf_nodes
+from .lengths import LengthKind
 from .margin_tree import MarginTreeNode, compute_margin_tree
 from .model import LayoutInput, AvailableSize, LayoutConstraints
 from .native_measurement import NativeMeasurementPort
@@ -51,6 +52,24 @@ def compute_recursive_pipeline(
         snapshot, nodes, child_sizing=child_sizing, revisions=revisions,
         port=native_port, current_generation=current_generation,
     )
+    # A definite final box must not be fabricated from an unresolved CSS
+    # percentage or an unrelated auto dimension. Only explicit intrinsic
+    # leaf and restricted auto cross contexts may proceed through this solver.
+    permitted = {entry.node_id for entry in intrinsic_leaves}
+    permitted.update(entry.node_id for entry in auto_cross)
+    styles = dict(child_sizing)
+    for node_id in first.deferred:
+        style = styles.get(node_id)
+        if node_id not in permitted or style is None:
+            raise SFLEError(
+                DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                f"No sizing rule for deferred CSS node {node_id!r}.",
+            )
+        if style.width.kind == LengthKind.PERCENT or style.height.kind == LengthKind.PERCENT:
+            raise SFLEError(
+                DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                f"Unresolved percentage dependency for {node_id!r}.",
+            )
     if type(max_iterations) is not int or max_iterations < 1:
         raise ValueError("max_iterations must be a positive integer.")
     current = first
