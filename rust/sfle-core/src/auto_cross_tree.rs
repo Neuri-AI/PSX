@@ -142,6 +142,31 @@ mod tests {
     }
 
     #[test]
+    fn acceptance_a01_orthogonal_auto_column_and_parent_height() {
+        let mut root = node("root", None, 0.0);
+        root.width = 120.0;
+        root.height = 0.0;
+        let mut fixed = node("fixed", Some("root"), 10.0);
+        fixed.width = 40.0;
+        fixed.item.as_mut().unwrap().flex.basis = 40.0;
+        fixed.item.as_mut().unwrap().flex.hypothetical = 40.0;
+        let mut column = node("column", Some("root"), 0.0);
+        column.width = 80.0;
+        column.direction = Direction::Column;
+        column.item.as_mut().unwrap().flex.basis = 80.0;
+        column.item.as_mut().unwrap().flex.hypothetical = 80.0;
+        let mut text = node("text", Some("column"), 60.0);
+        text.width = 80.0;
+        text.item.as_mut().unwrap().flex.basis = 60.0;
+        text.item.as_mut().unwrap().flex.hypothetical = 60.0;
+        text.item.as_mut().unwrap().cross_content_size = 80.0;
+        let result = compute_auto_cross_tree(&[root,fixed,column,text],
+            &["column".into(),"root".into()],WritingDirection::Ltr).unwrap();
+        assert!((result.boxes[0].content.height-60.0).abs()<0.01);
+        assert!((result.boxes[2].content.height-60.0).abs()<0.01);
+    }
+
+    #[test]
     fn wrapping_auto_cross_is_rejected() {
         let mut root = node("root", None, 0.0);
         root.wrap = Wrap::Wrap;
