@@ -330,8 +330,11 @@ class TkinterRenderer:
         # cannot reparent a widget into a descendant of its original master.
         native_parent = parent
         if parent is not None and getattr(parent, "node_type", None) == "Scroll":
-            from types import SimpleNamespace
-            native_parent = SimpleNamespace(widget=parent.widget._psx_content)
+            # DelegatingAdapter._adapter_create expects an actual TkHandle.
+            # A SimpleNamespace breaks _as_handle() and nested layouts.
+            native_parent = TkHandle(
+                "ScrollContent", parent.widget._psx_content, {}
+            )
         handle = self._adapter_for(adapter_key(node)).create(self, node, native_parent)
         self._bind_scroll_wheel(handle.widget)
         return handle
