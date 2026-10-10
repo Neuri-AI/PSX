@@ -125,3 +125,12 @@ LINK_DEFAULTS = MappingProxyType({
     "underline": True,
     "enabled": True,
 })
+
+BADGE_DEFAULTS = MappingProxyType({
+    "label": "",
+    "variant": "neutral",
+    "appearance": "filled",
+    "size": "medium",
+    "shape": "rounded",
+    "enabled": True,
+})
