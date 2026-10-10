@@ -126,6 +126,11 @@ LINK_DEFAULTS = MappingProxyType({
     "enabled": True,
 })
 
+BADGE_DEFAULTS = MappingProxyType({
+    "label": "", "variant": "neutral", "appearance": "filled",
+    "size": "medium", "shape": "rounded", "enabled": True,
+})
+
 SPINBOX_DEFAULTS = MappingProxyType({
     "value": 0,
     "min": 0,

@@ -49,6 +49,7 @@ from .core.vnode import (
     Select,
     Switch,
     Link,
+    Badge,
     SpinBox,
     Scroll,
 )
@@ -75,6 +76,7 @@ __all__ = [
     "Select",
     "Switch",
     "Link",
+    "Badge",
     "SpinBox",
     "Scroll",
 

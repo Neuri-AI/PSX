@@ -314,6 +314,7 @@ class KivyRenderer:
         from .image import KivyImageAdapter
         from .switch import KivySwitchAdapter
         from .link import KivyLinkAdapter
+        from .badge import KivyBadgeAdapter
         from .spinbox import KivySpinBoxAdapter
         from .scroll import KivyScrollAdapter
         from .box import KivyBoxAdapter
@@ -326,6 +327,7 @@ class KivyRenderer:
         self.adapters.register("Image", KivyImageAdapter())
         self.adapters.register("Switch", KivySwitchAdapter())
         self.adapters.register("Link", KivyLinkAdapter())
+        self.adapters.register("Badge", KivyBadgeAdapter())
         self.adapters.register("SpinBox", KivySpinBoxAdapter())
         self.adapters.register("Scroll", KivyScrollAdapter())
         self.adapters.register("Box", KivyBoxAdapter())

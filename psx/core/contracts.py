@@ -30,6 +30,7 @@ from .validators import (
     validate_select_props,
     validate_switch_props,
     validate_link_props,
+    validate_badge_props,
     validate_spinbox_props,
     validate_scroll_props,
 )
@@ -195,6 +196,12 @@ LINK_CONTRACT = ComponentContract(
     "Link", LINK_PROPS, LINK_DEFAULTS,
     frozenset({"on_click"}), "text-only",
     validate_link_props, content_property="label",
+)
+
+BADGE_CONTRACT = ComponentContract(
+    "Badge", BADGE_PROPS, BADGE_DEFAULTS,
+    frozenset(), "text-only", validate_badge_props,
+    content_property="label",
 )
 
 SPINBOX_CONTRACT = ComponentContract(

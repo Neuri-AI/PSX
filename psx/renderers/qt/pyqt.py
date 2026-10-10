@@ -333,6 +333,7 @@ class QtRenderer:
         from .image import QtImageAdapter
         from .switch import QtSwitchAdapter
         from .link import QtLinkAdapter
+        from .badge import QtBadgeAdapter
         from .spinbox import QtSpinBoxAdapter
         from .scroll import QtScrollAdapter
         from .box import make_qt_box_adapter
@@ -343,6 +344,7 @@ class QtRenderer:
         self.adapters.register("Image", QtImageAdapter())
         self.adapters.register("Switch", QtSwitchAdapter())
         self.adapters.register("Link", QtLinkAdapter())
+        self.adapters.register("Badge", QtBadgeAdapter())
         self.adapters.register("SpinBox", QtSpinBoxAdapter())
         self.adapters.register("Scroll", QtScrollAdapter())
         self.adapters.register("Box", make_qt_box_adapter(self))

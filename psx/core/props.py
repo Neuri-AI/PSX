@@ -96,6 +96,8 @@ SWITCH_PROPS = frozenset({"checked", "enabled", "label", "size", "color", "on_ch
 
 LINK_PROPS = frozenset({"href", "label", "on_click", "color", "underline", "enabled"})
 
+BADGE_PROPS = frozenset({"label", "variant", "appearance", "size", "shape", "enabled"})
+
 SPINBOX_PROPS = frozenset({"value", "min", "max", "step", "decimals", "enabled", "on_change"})
 
 SCROLL_PROPS = frozenset({

@@ -31,6 +31,8 @@ from psx.core.contracts import validate_select_props, validate_switch_props
 from psx.renderers.components.switch import updated_switch_props
 from psx.renderers.components.link import updated_link_props
 from psx.core.contracts import validate_link_props, validate_spinbox_props
+from psx.core.contracts import validate_badge_props
+from psx.renderers.components.badge import updated_badge_props
 from psx.renderers.components.spinbox import updated_spinbox_props
 from psx.renderers.components.scroll import updated_scroll_props
 from psx.core.contracts import validate_scroll_props
@@ -67,7 +69,7 @@ class HeadlessRenderer:
             "Column", "Row", "Fragment",
             "Text", "Button", "Input", "TextArea", "Checkbox", "Slider",
             "Spacer", "Divider", "Image", "ProgressBar",
-            "Radio", "RadioGroup", "Select", "Switch", "Link", "SpinBox", "Scroll", "Box", "Native",
+            "Radio", "RadioGroup", "Select", "Switch", "Link", "Badge", "SpinBox", "Scroll", "Box", "Native",
         ):
             self.adapters.register(component, self._default_adapter)
 
@@ -110,6 +112,8 @@ class HeadlessRenderer:
                 validate_switch_props(node.props)
             elif node.type == "Link":
                 validate_link_props(node.props)
+            elif node.type == "Badge":
+                validate_badge_props(node.props)
             elif node.type == "SpinBox":
                 validate_spinbox_props(node.props)
             elif node.type == "Scroll":
@@ -160,6 +164,8 @@ class HeadlessRenderer:
             updated_switch_props(target.props, changed, removed)
         elif target.type == "Link":
             updated_link_props(target.props, changed, removed)
+        elif target.type == "Badge":
+            updated_badge_props(target.props, changed, removed)
         elif target.type == "SpinBox":
             updated_spinbox_props(target.props, changed, removed)
         elif target.type == "Scroll":

@@ -301,6 +301,7 @@ class TkinterRenderer:
         from .select import TkSelectAdapter
         from .switch import TkSwitchAdapter
         from .link import TkLinkAdapter
+        from .badge import TkBadgeAdapter
         from .spinbox import TkSpinBoxAdapter
         from .scroll import TkScrollAdapter
         self.adapters.register("Column", TkColumnAdapter())
@@ -312,6 +313,7 @@ class TkinterRenderer:
         self.adapters.register("Select", TkSelectAdapter())
         self.adapters.register("Switch", TkSwitchAdapter())
         self.adapters.register("Link", TkLinkAdapter())
+        self.adapters.register("Badge", TkBadgeAdapter())
         self.adapters.register("SpinBox", TkSpinBoxAdapter())
         self.adapters.register("Scroll", TkScrollAdapter())
         self._schedule_drain()

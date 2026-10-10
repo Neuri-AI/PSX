@@ -84,6 +84,7 @@ from psx.core.contracts import (
     SELECT_CONTRACT,
     SWITCH_CONTRACT,
     LINK_CONTRACT,
+    BADGE_CONTRACT,
     SPINBOX_CONTRACT,
     SCROLL_CONTRACT,
 )
@@ -629,3 +630,24 @@ def Scroll(
     )
     SCROLL_CONTRACT.validate_builder(config)
     return create_element("Scroll", *children, key=key, ref=ref, **config)
+
+
+def Badge(
+    label: str = "",
+    *,
+    variant: str = "neutral",
+    appearance: str = "filled",
+    size: str = "medium",
+    shape: str = "rounded",
+    enabled: bool = True,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """A noninteractive, intrinsically sized semantic status label."""
+    options = dict(
+        label=label, variant=variant, appearance=appearance,
+        size=size, shape=shape, enabled=enabled, **props,
+    )
+    BADGE_CONTRACT.validate_builder(options)
+    return create_element("Badge", key=key, ref=ref, **options)
