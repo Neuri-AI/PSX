@@ -133,4 +133,12 @@ BADGE_DEFAULTS = MappingProxyType({
     "size": "medium",
     "shape": "rounded",
     "enabled": True,
+SPINBOX_DEFAULTS = MappingProxyType({
+    "value": 0,
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "decimals": 0,
+    "enabled": True,
+    "on_change": None,
 })

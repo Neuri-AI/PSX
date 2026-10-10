@@ -31,6 +31,7 @@ from .validators import (
     validate_switch_props,
     validate_link_props,
     validate_badge_props,
+    validate_spinbox_props,
 )
 Validator = Callable[[Mapping[str, object]], None]
 
@@ -200,4 +201,7 @@ BADGE_CONTRACT = ComponentContract(
     "Badge", BADGE_PROPS, BADGE_DEFAULTS,
     frozenset(), "text-only", validate_badge_props,
     content_property="label",
+SPINBOX_CONTRACT = ComponentContract(
+    "SpinBox", SPINBOX_PROPS, SPINBOX_DEFAULTS,
+    frozenset({"on_change"}), "none", validate_spinbox_props,
 )
