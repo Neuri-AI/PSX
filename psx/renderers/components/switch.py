@@ -35,3 +35,8 @@ def updated_switch_props(
     merged = {name: value for name, value in current.items() if name not in removed}
     merged.update(changed)
     return switch_props(merged)
+
+
+def hex_rgb(color: str) -> tuple[int, int, int]:
+    """Decode a validated six-digit hexadecimal color."""
+    return tuple(int(color[index:index + 2], 16) for index in (1, 3, 5))
