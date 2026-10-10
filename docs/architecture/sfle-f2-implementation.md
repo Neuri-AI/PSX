@@ -99,8 +99,8 @@ This is an *allowlist of required alpha implementations*, not a statement that t
 
 | Excluded case | Required behavior | Destination |
 | --- | --- | --- |
-| Replaced elements with intrinsic aspect-ratio transfer / `aspect-ratio` | Both engines error `SFLE_UNSUPPORTED_FEATURE`, no approximation | Post-alpha **F2.2 feature slice**, then **F2.3 browser verification**; F3 does not own CSS math |
-| `flex-wrap` combined with **intrinsically auto-sized** flex containers | Both engines error `SFLE_UNSUPPORTED_FEATURE`; do not disable fixed-size wrap | Post-alpha **F2.2 sizing slice**, then **F2.3** |
+| Replaced elements with intrinsic aspect-ratio transfer / `aspect-ratio` | Reason: automatic transferred size and min-content suggestions require CSS sizing/replaced-element constraints absent from the agreed first-alpha solver. Explicit `SFLE_UNSUPPORTED_FEATURE` in **both** compute backends before any geometry. | **Pending, unscheduled within F2**; F1 final §6 describes F2.2 as implementation of flex sizing and F2.3 as browser conformance, but does not allocate a dedicated aspect-ratio phase. A separate scope authorization is needed before claiming support. |
+| `flex-wrap` combined with **intrinsically auto-sized** flex containers | Reason: cyclic intrinsic container main/cross-size and line formation cannot be inferred from already-resolved line inputs. Both engines raise `SFLE_UNSUPPORTED_FEATURE`; definite wrap remains in scope. | **Pending within F2** under F1 final §6 F2.2 (sizing and line formation) and §6 F2.3 (explicitly: subsequently extend wrap and intrinsic measurements). This is a pending F2 capability, not F3 migration. |
 | Vertical writing modes | Both engines error `SFLE_UNSUPPORTED_FEATURE` | Post-alpha extension requiring separate architecture approval (F1 D-F1.8 limits F2 to horizontal writing modes) |
 | Public Row/Column removal and Scroll integration | Keep unchanged during F2 | **F3**, with inventory/adapter design in **F2.4** |
 
@@ -129,3 +129,11 @@ GitHub Actions SFLE Core run [38078742516](https://github.com/Neuri-AI/PSX/actio
 **Acceptance status after RED:** A01 FAIL (named test executed), A08 FAIL (named test executed); A02, A03, A05 and integrated A06/A07 remain NO TEST for complete target behavior; A04, A09/A10 have pre-existing scoped tests but NO full acceptance tests. No acceptance gate closed. Baseline 2ad3df17 still lacks an executed Python/Rust suite on that exact SHA in the inspected Actions runs; execution on descendant 6698dd6b establishes the observed baseline blockers without falsely asserting exact-SHA execution.
 
 **Engineering stop condition:** Fixing A01 by merely deleting the orthogonal rejection would be incorrect: it needs a real main-axis intrinsic contribution phase and a final used-size pass with cross-axis remeasurement, in both languages. Do not turn a red fixture green by hardcoding its expected dimensions or by skipping Rust.
+
+### CI path filters — inspected and corrected
+
+Previous `sfle-core.yml` PR-level `paths`: `psx/sfle/**`, `rust/sfle-core/**`, `tests/sfle/**`, `.github/workflows/sfle-core.yml`, `pyproject.toml`. Its separate `changes` job examined only the **most recent synchronize delta**, allowing Python/Rust to be skipped on doc-only updates in the still-open F2 PR. Previous `ci.yml` ignored `docs/**`, `README.md` and `**/*.md` on both PR/push; its independent synchronize-delta `changes` detector skipped Python core, PySide6 and distribution builds.
+
+Fix: both workflows now use an **unconditional `pull_request` trigger**, and their testing jobs no longer depend on `changes` outputs or `if` gates. The existing change detector is left informational. A PR update now forces the complete Rust/Python SFLE matrix and the PSX alpha suite, even on documentation-only synchronize events. Push filtering on `main` is unchanged. `sfle-core.yml` uses `pytest -q -rs tests/sfle` to report why any Python tests were skipped.
+
+This changes the execution policy, not test conformance. Full Rust/Python execution is a necessary but insufficient F2 acceptance condition.
