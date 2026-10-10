@@ -278,4 +278,58 @@ mod tests {
         ).unwrap();
         assert_eq!(out.boxes[0].border.x, 90.0);
     }
+    #[test]
+    fn cross_auto_margins_center_in_nowrap_line() {
+        let mut a = item("a", 20.0, Some(0.0), Some(0.0));
+        a.cross_start = None;
+        a.cross_end = None;
+        let out = compute_margin_flex_layout(
+            &[a], 100.0, 100.0, Direction::Row,
+            WritingDirection::Ltr, Wrap::NoWrap, 0.0, 0.0,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.y, 45.0);
+        assert_eq!(out.boxes[0].used_cross_start_margin, 45.0);
+        assert_eq!(out.boxes[0].used_cross_end_margin, 45.0);
+    }
+
+    #[test]
+    fn cross_auto_overflow_preserves_negative_end_margin() {
+        let mut a = item("a", 20.0, Some(0.0), Some(0.0));
+        a.cross_content_size = 80.0;
+        a.cross_start = None;
+        a.cross_end = None;
+        let out = compute_margin_flex_layout(
+            &[a], 100.0, 50.0, Direction::Row,
+            WritingDirection::Ltr, Wrap::NoWrap, 0.0, 0.0,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.y, 0.0);
+        assert_eq!(out.boxes[0].used_cross_end_margin, -30.0);
+    }
+
+    #[test]
+    fn signed_cross_margins_affect_wrapped_line_cross_extent() {
+        let mut a = item("a", 60.0, Some(0.0), Some(0.0));
+        a.cross_start = Some(5.0);
+        a.cross_end = Some(10.0);
+        let mut b = item("b", 60.0, Some(0.0), Some(0.0));
+        b.cross_start = Some(-3.0);
+        let out = compute_margin_flex_layout(
+            &[a, b], 90.0, 100.0, Direction::Row,
+            WritingDirection::Ltr, Wrap::Wrap, 0.0, 0.0,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.y, 5.0);
+        assert_eq!(out.boxes[1].border.y, 22.0);
+    }
+
+    #[test]
+    fn wrap_reverse_uses_cross_end_side() {
+        let mut a = item("a", 20.0, Some(0.0), Some(0.0));
+        a.cross_start = Some(3.0);
+        let out = compute_margin_flex_layout(
+            &[a], 100.0, 100.0, Direction::Row,
+            WritingDirection::Ltr, Wrap::WrapReverse, 0.0, 0.0,
+        ).unwrap();
+        assert_eq!(out.boxes[0].border.y, 87.0);
+    }
+
 }
