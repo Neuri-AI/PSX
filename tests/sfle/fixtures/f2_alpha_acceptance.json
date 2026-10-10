@@ -1,0 +1,591 @@
+{
+  "schema_version": 1,
+  "contract": "F2-alpha-shared-acceptance",
+  "tolerance_px": 0.01,
+  "cases": [
+    {
+      "id": "A01",
+      "name": "row-orthogonal-auto-height",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 120,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "120px",
+            "height": "auto"
+          }
+        },
+        {
+          "node_id": "fixed",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "40px",
+            "height": "10px",
+            "flex_basis": "40px"
+          }
+        },
+        {
+          "node_id": "column",
+          "parent_id": "root",
+          "component": "Flex",
+          "style": {
+            "direction": "column",
+            "width": "80px",
+            "height": "auto",
+            "flex_basis": "80px"
+          }
+        },
+        {
+          "node_id": "text",
+          "parent_id": "column",
+          "component": "Text",
+          "style": {
+            "width": "100%",
+            "height": "auto",
+            "flex_basis": "auto"
+          }
+        }
+      ],
+      "measurements": [
+        {
+          "node": "text",
+          "at_width": 80,
+          "height": 60,
+          "lines": 3,
+          "line_height": 20
+        }
+      ],
+      "expected": {
+        "root.height": 60,
+        "column.height": 60,
+        "text.height": 60
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "A02",
+      "name": "intrinsic-auto-parent",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": null,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "auto"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Text",
+          "style": {
+            "width": "auto",
+            "flex_basis": "auto"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "root.width": 100
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "A03",
+      "name": "indefinite-percent",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 120,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "column",
+            "height": "auto"
+          }
+        },
+        {
+          "node_id": "inner",
+          "parent_id": "root",
+          "component": "Flex",
+          "style": {
+            "height": "50%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "diagnostic": "CSS_CONTEXT_REQUIRED"
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "A04",
+      "name": "grow-remeasure",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 150,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "150px",
+            "height": "auto"
+          }
+        },
+        {
+          "node_id": "text",
+          "parent_id": "root",
+          "component": "Text",
+          "style": {
+            "flex_grow": 1,
+            "flex_basis": "auto",
+            "height": "auto"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "text.width": 150
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "A05",
+      "name": "shrink-remeasure",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 70,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "70px",
+            "height": "auto"
+          }
+        },
+        {
+          "node_id": "a",
+          "parent_id": "root",
+          "component": "Text",
+          "style": {
+            "flex_basis": "50px",
+            "flex_shrink": 1,
+            "min_width": "0px"
+          }
+        },
+        {
+          "node_id": "b",
+          "parent_id": "root",
+          "component": "Text",
+          "style": {
+            "flex_basis": "50px",
+            "flex_shrink": 1,
+            "min_width": "0px"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "a.width": 35,
+        "b.width": 35
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "A06",
+      "name": "stale-generation",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 120,
+        "height": 60
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {}
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "commits_from_stale_generation": 0
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "A07",
+      "name": "convergence-oscillation",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 120,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "height": "auto"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Text",
+          "style": {
+            "height": "auto"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "oscillation": "SFLE_UNSUPPORTED_MEASUREMENT",
+        "max_iterations": 8
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "C01",
+      "name": "percent-basis-indefinite",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": null,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "column",
+            "height": "auto"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Text",
+          "style": {
+            "flex_basis": "50%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "basis_rule": "content"
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "C02",
+      "name": "intrinsic-auto-basis",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": null,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "width": "auto"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Text",
+          "style": {
+            "flex_basis": "auto"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "basis_rule": "content"
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "C03",
+      "name": "post-flex-percent-definite",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 120,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "width": "120px"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Flex",
+          "style": {
+            "flex_grow": 1
+          }
+        },
+        {
+          "node_id": "leaf",
+          "parent_id": "child",
+          "component": "Box",
+          "style": {
+            "width": "50%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "leaf.width": 60
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "C04",
+      "name": "cyclic-gap-intrinsic",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": null,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "width": "auto",
+            "column_gap": "10%"
+          }
+        },
+        {
+          "node_id": "a",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "20px"
+          }
+        },
+        {
+          "node_id": "b",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "20px"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "intrinsic_gap": 0
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "C05",
+      "name": "percent-height-auto-ancestor",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 120,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "height": "auto"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "height": "50%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "deferred": true
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "C06",
+      "name": "percent-padding-inline-reference",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 400,
+        "height": 100
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "width": "400px",
+            "height": "100px"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "padding_top": "10%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "child.padding_top": 40
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    },
+    {
+      "id": "C99",
+      "name": "unlisted-mutual-percent-cycle",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": null,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "width": "auto",
+            "height": "auto"
+          }
+        },
+        {
+          "node_id": "a",
+          "parent_id": "root",
+          "component": "Flex",
+          "style": {
+            "width": "50%",
+            "height": "50%"
+          }
+        },
+        {
+          "node_id": "b",
+          "parent_id": "a",
+          "component": "Flex",
+          "style": {
+            "width": "50%",
+            "height": "50%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "diagnostic": "SFLE_UNSUPPORTED_FEATURE",
+        "reason": "unsupported_cycle",
+        "node": "a"
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ]
+    }
+  ]
+}
