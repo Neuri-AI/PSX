@@ -1119,3 +1119,12 @@ A pure recursive geometry slice now reuses the established resolved Flex line an
 Commit `3e9dfcab` passed SFLE Core, PSX Alpha Validation, and Chromium workflows for the PR (plus the two push workflows). The Chromium suite is still only the six **existing** reference fixtures, not new nested browser parity evidence.
 
 **Not yet closure:** This is an already-resolved-input nested geometry kernel. It does not accept unresolved CSS lengths or native intrinsic measurements; nested percentages, auto cross sizes, stretch, full box edges, min/max, baseline and dependency cycles are not integrated. F2.2.4.5 remains open; F2.2.4.6 has a restricted initial implementation, not accepted complete. F2.2.4 currently remains 4/8 accepted (50%), with four subblocks including current pending. Do not begin F2.2.5 milestone prematurely.
+
+
+## F2.2.4.7/8 — Native UI-thread boundary and first nested Chromium geometry reference
+
+The native measurement boundary now exposes `NativeMeasurementPort` and `fulfill_native_round()` in `psx/sfle/native_measurement.py`. It requires an adapter-provided UI-thread assertion and a synchronous per-request measurement callback. Requests are generation-tagged; the port validates the completed batch through `accept_round` before exposing measurements. Tests in `tests/sfle/test_native_measurement.py` cover correct UI-thread access, no execution off the UI thread, stale generation, and revision mismatches. No Qt/Kivy/Tkinter implementation is connected yet, and the native port is not the full renderer adapter.
+
+`tests/browser/test_sfle_chromium.py` now includes an additional nested, zero-edge Flex reference fixture that checks absolute positions and border-box dimensions for root, sibling, nested parent and leaf. It is the first Chromium nested-tree check but does not validate cyclic, auto or intrinsically sized Flex geometry.
+
+**Closure remains blocked:** F2.2.4.5 must incorporate CSS-valid intrinsic/automatic size dependencies; F2.2.4.6 must support real edges, automatic and intrinsic sizing integrated with Flex distribution; F2.2.4.7 requires framework-specific UI-thread adapters and lifecycle integration; F2.2.4.8 requires broader Chromium regression and equivalent Python/Rust geometry evidence. Maintain F2.2.4 at **4/8 closed** until those acceptance gates are met.
