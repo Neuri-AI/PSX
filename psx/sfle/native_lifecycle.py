@@ -15,6 +15,9 @@ from .model import LayoutInput, MeasuredBox
 from .native_measurement import NativeMeasurementPort
 from .recursive_measurement import RecursiveMeasurementResult, measure_resolved_margin_tree
 from .constraint_propagation import ChildSizing
+from .auto_cross_tree import AutoCrossSize
+from .intrinsic_tree import IntrinsicLeafStyle
+from .recursive_pipeline import compute_recursive_pipeline
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +42,8 @@ def layout_and_commit(
     *,
     child_sizing: tuple[tuple[str, ChildSizing], ...],
     revisions: tuple[tuple[str, int], ...] = (),
+    intrinsic_leaves: tuple[IntrinsicLeafStyle, ...] = (),
+    auto_cross: tuple[AutoCrossSize, ...] = (),
 ) -> RecursiveMeasurementResult:
     """Compute, measure and atomically guard a renderer geometry commit.
 
@@ -53,10 +58,17 @@ def layout_and_commit(
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Layout generation became stale before measurement.")
     if not lifecycle.measurement.is_ui_thread():
         raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Layout lifecycle requires UI thread.")
-    result = measure_resolved_margin_tree(
-        snapshot, nodes, child_sizing=child_sizing, revisions=revisions,
-        port=lifecycle.measurement, current_generation=generation,
-    )
+    if intrinsic_leaves or auto_cross:
+        result = compute_recursive_pipeline(
+            snapshot, nodes, child_sizing=child_sizing, revisions=revisions,
+            native_port=lifecycle.measurement, current_generation=generation,
+            intrinsic_leaves=intrinsic_leaves, auto_cross=auto_cross,
+        )
+    else:
+        result = measure_resolved_margin_tree(
+            snapshot, nodes, child_sizing=child_sizing, revisions=revisions,
+            port=lifecycle.measurement, current_generation=generation,
+        )
     if lifecycle.generation() != generation:
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Layout generation became stale before commit.")
     if not lifecycle.measurement.is_ui_thread():
