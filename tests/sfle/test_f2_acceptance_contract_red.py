@@ -120,3 +120,29 @@ def test_C99_unlisted_two_node_percent_cycle_fails_closed():
     with pytest.raises(SFLEError) as exc:
         PythonLayoutEngine().compute(s)
     assert exc.value.code == DiagnosticCode.UNSUPPORTED_FEATURE
+    assert exc.value.node_id == "a"
+    assert "cycle" in str(exc.value).lower()
+    assert "percentage" in str(exc.value).lower()
+    assert "multi-node" in str(exc.value).lower()
+
+
+def test_C99_supported_A01_is_not_diagnosed_as_unsupported():
+    """An indiscriminate UNSUPPORTED_FEATURE placeholder must fail this gate."""
+    from pathlib import Path
+    import json
+    case = next(c for c in json.loads((Path(__file__).parent / "fixtures" / "f2_alpha_acceptance.json").read_text())["cases"] if c["id"] == "A01")
+    children = []
+    for node in case["nodes"]:
+        style = tuple((key, (Length(LengthKind.AUTO) if val == "auto" else Length.percent(float(val[:-1])/100) if isinstance(val,str) and val.endswith("%") else Length.px(float(val[:-2])) if isinstance(val,str) and val.endswith("px") else val)) for key,val in node["style"].items())
+        children.append(LayoutNode(node["node_id"], node["parent_id"], node["component"], style))
+    intrinsic = IntrinsicSizes(20,80,20,60,80,60)
+    request = LayoutInput(1,17,WritingDirection.LTR,
+        LayoutConstraints(AvailableSize(120,True), AvailableSize(None,False)),
+        tuple(children), tuple(MeasuredBox(n.node_id,intrinsic,
+        LayoutConstraints(AvailableSize(80,True),AvailableSize(60,True)),0) for n in children if n.node_id=="text"))
+    try:
+        result = PythonLayoutEngine().compute(request)
+    except SFLEError as exc:
+        assert exc.code != DiagnosticCode.UNSUPPORTED_FEATURE, "A01 is supported by the approved alpha scope"
+        raise
+    assert dict(result.boxes)["root"].content.height == pytest.approx(case["expected"]["root.height"], abs=0.01)
