@@ -15,7 +15,7 @@ def test_A08_rust_runtime_failure_never_calls_python(monkeypatch):
         schema_version=lambda:1,compute_json=native_compute,
         compute_provisional_json=native_compute,
     )
-    monkeypatch.setitem(sys.modules,"psx._sfle_native",fake)
+    monkeypatch.setitem(sys.modules,"_sfle_native",fake)
     def forbidden(self,request):
         calls.append("python")
         raise AssertionError("Unexpected fallback in the same transaction")
