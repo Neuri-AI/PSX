@@ -65,7 +65,7 @@ class HeadlessRenderer:
             "Column", "Row", "Fragment",
             "Text", "Button", "Input", "TextArea", "Checkbox", "Slider",
             "Spacer", "Divider", "Image", "ProgressBar",
-            "Radio", "RadioGroup", "Select", "Switch", "Link", "Box", "Native",
+            "Radio", "RadioGroup", "Select", "Switch", "Link", "SpinBox", "Box", "Native",
         ):
             self.adapters.register(component, self._default_adapter)
 
