@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization and main/cross AUTO/signed margins integrated in restricted Flex pipeline; focused Rust/Python CI passed** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: signed/auto main margins integrated; definite min/max normalization and main/cross margins integrated; definite/indefinite percentage flex-basis fallback added; CI pending** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -870,3 +870,41 @@ output constructor now explicitly preserves `used_cross_start_margin` and
 `used_cross_end_margin`. Subsequent SFLE run `38062858653` on code
 commit `3029f250` passed Rust and Python 3.10–3.13. General PSX alpha
 validation run `38062858640` is checked separately.
+
+## 20. F2.2.2 — Percentage flex-basis fallback based on definiteness
+
+This incremental slice distinguishes a **definite flex container main
+size** from an indefinite size carrying only an available-space hint.
+With a definite main size, a percentage flex-basis resolves to the
+specified fraction of that main size; **definite 0% remains zero**.
+When the main size is indefinite, the CSS used flex-basis becomes
+content-based: the new helper delegates to the already-implemented
+`flex-basis: content` path using premeasured `IntrinsicSizes`.
+
+~~~text
+psx/sfle/percentage_flex_basis.py
+rust/sfle-core/src/percentage_flex_basis.rs
+tests/sfle/test_percentage_flex_basis.py
+~~~
+
+~~~mermaid
+flowchart TD
+    A["Typed percentage flex-basis + AvailableSize"] --> B{"Container main size definite?"}
+    B -->|"Yes"| C["Fraction × definite main size"]
+    B -->|"No"| D["Premeasured content-based flex basis"]
+    D --> E{"Unsupported intrinsic case?"}
+    E -->|"Yes"| F["Explicit capability error"]
+    E -->|"No"| G["Measured content size"]
+~~~
+
+For this restricted calculation the intrinsic snapshots must come from
+an upstream measurement adapter and correspond to the appropriate main
+axis. The fallback is *not* equivalent to `flex-basis: auto` with an
+explicit preferred size. The helper rejects unsupported transferred
+aspect ratios in indefinite fallback cases.
+
+**Still pending for F2.2.2:** integrating tagged layout percentages
+with item style normalization and recursive measurement, dependent
+min/max percentage sizing with indefinite containing blocks, and
+other cyclic percentage cases. No generic SFLE engine capability or
+browser-level conformity claim is unlocked by this increment.
