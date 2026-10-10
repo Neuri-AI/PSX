@@ -16,7 +16,6 @@ from psx.renderers.components.column import (
     normalize_padding,
     updated_column_props,
 )
-from qyro import container
 
 
 class QtColumnAdapter:
