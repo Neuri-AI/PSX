@@ -104,7 +104,11 @@ native backend during manual DX rather than assuming exact equivalence.
   dimensions follow children and viewport. Wheel and trackpad input are
   handled by Kivy's own ScrollView to avoid competing scroll offset updates;
   the previous macOS-specific direction inversion and manual fallback were
-  removed after reports of rebound/flicker. Native indicators are drawn
+  removed after reports of rebound/flicker. The adapter also avoids
+  overriding `on_scroll_start`: Kivy's wheel-event direction and `scroll_y`
+  boundary convention must be handled by its native `ScrollView`. A prior
+  custom boundary check blocked two-finger scrolling unless the user dragged
+  with the trackpad pressed. Native indicators are drawn
   over the viewport. Cross-axis hints and parent stretch constraints can
   affect sizing, so validate on all relevant layout configurations.
 - **Tkinter:** `Canvas` plus frame in `create_window`; PSX creates children
@@ -127,7 +131,8 @@ No automated tests are added or run for this component phase.
 - [ ] Verify auto/always/hidden indicators overlay instead of resizing content
 - [ ] Check explicit width/height and parent-constrained viewports
 - [ ] Check nested Scroll wheel/trackpad input and limit handoff
-- [ ] On macOS, verify two-finger trackpad scrolling in Kivy separately from a
+- [ ] On macOS, verify two-finger trackpad scrolling **without clicking or
+  holding down the trackpad**, separately from a
   physical mouse wheel, including natural scrolling enabled/disabled;
   backend/SDL2 versions may expose different events
 - [ ] Verify Tkinter creates normal Text/Column children within Scroll without
