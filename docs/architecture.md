@@ -1,5 +1,14 @@
 # PSX architecture
 
+> **Current implementation vs planned SFLE architecture:** This document
+> describes the **currently implemented alpha runtime**, which still exposes
+> `Row` and `Column`. The approved [SFLE F1 architecture](architecture/sfle-f1-final-architecture.md)
+> supersedes those names for the **target API**: `Row` and `Column` will be
+> removed completely during an authorized implementation, without aliases or
+> compatibility wrappers. `Flex` will be the sole public Flexbox distribution
+> component. `Scroll` remains an independent scrolling/viewport component.
+> **No runtime migration has happened, and F2 has not been authorized.**
+
 PSX separates declarative descriptions from native GUI objects. Python builders and PSX markup create immutable `VNode` values. The reconciler owns identity, hooks, refs, event slots, and cleanup; renderers own native handles and UI-thread scheduling.
 
 ```mermaid
