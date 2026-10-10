@@ -54,6 +54,13 @@ deterministic headless tests.
 
 ## Pending — portable Flexbox/Grid layout system (proposal)
 
+**Architecture document:** [SFLE — Shared Flex Layout Engine](architecture/sfle.md).
+SFLE is the proposed backend-neutral CSS Flexbox geometry engine. The design
+prioritizes browser-like visual layout results across Qt, Kivy, Tkinter, and
+Headless, with renderer-specific intrinsic measurement and geometry application.
+The specification covers the algorithm, Mermaid diagrams, lifecycle, adapters,
+conformance strategy and outstanding decisions; SFLE remains unimplemented.
+
 **Status:** roadmap addition only; API, milestone, acceptance criteria and
 implementation have not been approved. Reference:
 [Flexbox Grid](http://flexboxgrid.com/) (a responsive 12-column layout system
