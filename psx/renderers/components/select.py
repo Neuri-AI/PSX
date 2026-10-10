@@ -47,21 +47,15 @@ def select_label(props: Mapping[str, object]) -> str:
     return str(props["placeholder"])
 
 
-def select_value_for_label(widget: object, label: str) -> str | int | None:
-    for item_label, value in widget._psx_items:
-        if item_label == label:
-            return value
-    return None
-
-
 def apply_qt_select(widget: object, props: Mapping[str, object], binding: str) -> None:
     p = select_props(props)
     items = select_items(p)
     was_blocked = widget.blockSignals(True)
     try:
-        # A selectable placeholder is intentionally ignored by emit_qt_select.
+        # The placeholder is shown but cannot be selected from the drop-down.
         widget.clear()
         widget.addItem(str(p["placeholder"]), None)
+        widget.model().item(0).setEnabled(False)
         selected_index = 0
         for index, (label, value) in enumerate(items, start=1):
             widget.addItem(label, value)
