@@ -9,6 +9,7 @@ pub mod cross_margins;
 pub mod edge_pipeline;
 pub mod intrinsic;
 pub mod main_margins;
+pub mod main_alignment;
 pub mod margin_flex_pipeline;
 pub mod percentage_box_sizing;
 pub mod percentage_flex_basis;
