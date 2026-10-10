@@ -122,6 +122,45 @@ def test_A07_convergent_auto_layout_is_finite():
     assert boxes(result)["root"].content.height == pytest.approx(_ACCEPTANCE["A07"]["root.height"], abs=0.01)
 
 
+
+def test_A06_stale_generation_never_commits_native_geometry():
+    from psx.sfle.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
+    from psx.sfle.native_measurement import NativeMeasurementPort
+    from psx.sfle.headless_measurement import HeadlessMeasurementSource
+    from test_recursive_measurement import NODES, SIZING, METRICS, snapshot as existing_snapshot
+    current_generation = [5]
+    commits = []
+
+    def measure(request):
+        current_generation[0] = 6
+        return HeadlessMeasurementSource(((request.node_id, METRICS),)).measure(request)
+
+    lifecycle = NativeLayoutLifecycle(
+        lambda: current_generation[0],
+        NativeMeasurementPort(lambda: True, measure),
+        commits.append,
+    )
+    with pytest.raises(SFLEError) as failure:
+        layout_and_commit(existing_snapshot(), NODES, lifecycle, child_sizing=SIZING)
+    assert failure.value.code == DiagnosticCode.INVALID_SNAPSHOT
+    assert len(commits) == _ACCEPTANCE["A06"]["commits_from_stale_generation"]
+
+
+def test_A07_bounded_two_step_oscillation_rejected():
+    from psx.sfle.convergence import begin_convergence, advance_convergence
+    from psx.sfle.used_size_tree import UsedSizeTree
+    def tree(width):
+        return UsedSizeTree(17, (("root", LayoutConstraints(
+            AvailableSize(width, True), AvailableSize(60, True))),), ())
+    maximum = _ACCEPTANCE["A07"]["max_iterations"]
+    state = begin_convergence(tree(100), max_iterations=maximum)
+    _, state = advance_convergence(state, tree(120))
+    with pytest.raises(SFLEError) as failure:
+        advance_convergence(state, tree(100))
+    assert failure.value.code.value == _ACCEPTANCE["A07"]["oscillation"]
+    assert state.iterations < maximum
+
+
 @pytest.mark.parametrize("direction", ["ltr", "rtl"])
 def test_A09_directional_positioning_preserves_identity(direction):
     s = case_snapshot("A09-" + direction.upper())
