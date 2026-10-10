@@ -115,3 +115,49 @@ def plan_styled_measurements(
         resolved = resolve_child_constraints(content[node.parent_id], styles[node.node_id])
         children.append((node.node_id, resolved.constraints))
     return plan_measurements(snapshot, child_constraints=tuple(children), revisions=revisions)
+
+
+def plan_used_box_measurements(
+    snapshot: LayoutInput,
+    *,
+    used_boxes: tuple[tuple[str, "BoxRect"], ...],
+    child_sizing: tuple[tuple[str, ChildSizing], ...],
+    revisions: tuple[tuple[str, int], ...] = (),
+) -> MeasurementPlan:
+    """Feed established CSS used content-box dimensions to the measurement plan.
+
+    The caller must establish *current-generation* used box geometry before
+    calling this function. Neither an available-size hint nor a border-box
+    dimension is interchangeable with its content-box dimension. This adapter
+    does not solve the parent/child sizing dependency cycle.
+    """
+    from .model import BoxRect
+
+    if not isinstance(snapshot, LayoutInput):
+        raise TypeError("snapshot must be LayoutInput.")
+    if not isinstance(used_boxes, tuple):
+        raise TypeError("used_boxes must be a tuple.")
+    node_ids = {node.node_id for node in snapshot.nodes}
+    seen: set[str] = set()
+    content: list[tuple[str, LayoutConstraints]] = []
+    for node_id, box in used_boxes:
+        if not isinstance(node_id, str) or node_id not in node_ids or node_id in seen:
+            raise SFLEError(
+                DiagnosticCode.INVALID_SNAPSHOT, "Unknown/duplicate used box."
+            )
+        if not isinstance(box, BoxRect):
+            raise TypeError("Used boxes must be BoxRect values.")
+        seen.add(node_id)
+        content.append((
+            node_id,
+            LayoutConstraints(
+                AvailableSize(box.content.width, True),
+                AvailableSize(box.content.height, True),
+            ),
+        ))
+    return plan_styled_measurements(
+        snapshot,
+        parent_content=tuple(content),
+        child_sizing=child_sizing,
+        revisions=revisions,
+    )
