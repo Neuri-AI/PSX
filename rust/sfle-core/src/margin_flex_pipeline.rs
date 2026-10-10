@@ -1,8 +1,9 @@
 //! Integrated Flex lines, resolved sizing and signed/auto logical main margins.
 //! Outputs border/padding/content boxes (not an invalid signed-margin Rect).
-//! Cross-axis margins and alignment remain explicitly unsupported.
+//! Cross margins now use established flex-line cross sizes; alignment deferred.
 
 use crate::edge_pipeline::{BoxEdges, Edges};
+use crate::cross_margins::position_cross_margins;
 use crate::line_layout::{
     place_resolved_lines, Direction, Rect, ResolvedItem, Wrap, WritingDirection,
 };
@@ -19,6 +20,8 @@ pub struct MarginFlexItem {
     pub main_start: Option<f64>,
     pub main_end: Option<f64>,
     pub order: i32,
+    pub cross_start: Option<f64>,
+    pub cross_end: Option<f64>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -30,6 +33,8 @@ pub struct MarginFlexBox {
     pub used_main_start_margin: f64,
     pub used_main_end_margin: f64,
     pub line_index: usize,
+    pub used_cross_start_margin: f64,
+    pub used_cross_end_margin: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -52,6 +57,8 @@ impl MarginFlexItem {
             || edges.margin != Edges::default()
             || self.main_start.is_some_and(|v| !v.is_finite())
             || self.main_end.is_some_and(|v| !v.is_finite())
+            || self.cross_start.is_some_and(|v| !v.is_finite())
+            || self.cross_end.is_some_and(|v| !v.is_finite())
         {
             return Err(FlexMathError::InvalidInput("invalid margin flex item"));
         }
@@ -129,12 +136,21 @@ pub fn compute_margin_flex_layout(
     }
     if !current.is_empty() { lines.push(current); }
 
-    let cross_lines: Vec<Vec<ResolvedItem>> = lines.iter().map(|line|
+    let cross_extent = if horizontal { height } else { width };
+    let line_cross_sizes: Vec<f64> = lines.iter().map(|line| {
+        if wrap == Wrap::NoWrap { return cross_extent; }
+        line.iter().map(|i| {
+            let item = &items[*i];
+            item.cross_border(horizontal) + item.cross_start.unwrap_or(0.0)
+                + item.cross_end.unwrap_or(0.0)
+        }).fold(0.0, f64::max)
+    }).collect();
+    let cross_lines: Vec<Vec<ResolvedItem>> = lines.iter().enumerate().map(|(line_index, line)|
         line.iter().map(|index| {
             let item = &items[*index];
             ResolvedItem {
                 id: item.id.clone(), main_size: 0.0,
-                cross_size: item.cross_border(horizontal), order: item.order,
+                cross_size: line_cross_sizes[line_index], order: item.order,
             }
         }).collect()
     ).collect();
@@ -143,6 +159,8 @@ pub fn compute_margin_flex_layout(
     )?;
     let cross_by_id: HashMap<&str, Rect> = cross_placement.items.iter()
         .map(|item| (item.id.as_str(), item.rect)).collect();
+    let mut cross_forward = if horizontal { true } else { writing == WritingDirection::Ltr };
+    if wrap == Wrap::WrapReverse { cross_forward = !cross_forward; }
     let mut boxes = Vec::new();
 
     for (line_index, line) in lines.iter().enumerate() {
@@ -163,15 +181,22 @@ pub fn compute_margin_flex_layout(
         for (i, position) in line.iter().zip(positions.iter()) {
             let item = &items[*i];
             let cross = cross_by_id[item.id.as_str()];
+            let cross_size = item.cross_border(horizontal);
+            let cross_margin = position_cross_margins(
+                cross_size, line_cross_sizes[line_index],
+                item.cross_start, item.cross_end, cross_forward,
+            )?;
+            let cross_origin = if horizontal { cross.y } else { cross.x };
+            let cross_start = cross_origin + cross_margin.border_start;
             let border = if horizontal {
                 Rect {
-                    x: position.border_start, y: cross.y,
-                    width: position.border_main_size, height: cross.height,
+                    x: position.border_start, y: cross_start,
+                    width: position.border_main_size, height: cross_size,
                 }
             } else {
                 Rect {
-                    x: cross.x, y: position.border_start,
-                    width: cross.width, height: position.border_main_size,
+                    x: cross_start, y: position.border_start,
+                    width: cross_size, height: position.border_main_size,
                 }
             };
             let e = item.edges;
@@ -189,6 +214,8 @@ pub fn compute_margin_flex_layout(
                 id: item.id.clone(), content, padding, border,
                 used_main_start_margin: position.used_start_margin,
                 used_main_end_margin: position.used_end_margin, line_index,
+                used_cross_start_margin: cross_margin.used_start_margin,
+                used_cross_end_margin: cross_margin.used_end_margin,
             });
         }
     }
@@ -213,6 +240,7 @@ mod tests {
             },
             cross_content_size: 10.0, edges: BoxEdges::default(),
             main_start: start, main_end: end, order: 0,
+            cross_start: Some(0.0), cross_end: Some(0.0),
         }
     }
 
