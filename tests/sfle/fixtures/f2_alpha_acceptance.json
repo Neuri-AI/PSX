@@ -381,9 +381,18 @@
           }
         }
       ],
-      "measurements": [],
+      "measurements": [
+        {
+          "node": "child",
+          "at_width": 100,
+          "height": 60,
+          "preferred_width": 100
+        }
+      ],
       "expected": {
-        "basis_rule": "content"
+        "basis_rule": "content",
+        "root.height": 60,
+        "child.height": 60
       },
       "verification": [
         "python",
@@ -417,9 +426,18 @@
           }
         }
       ],
-      "measurements": [],
+      "measurements": [
+        {
+          "node": "child",
+          "at_width": 100,
+          "height": 20,
+          "preferred_width": 100
+        }
+      ],
       "expected": {
-        "basis_rule": "content"
+        "basis_rule": "content",
+        "root.width": 100,
+        "child.width": 100
       },
       "verification": [
         "python",
@@ -463,7 +481,9 @@
       ],
       "measurements": [],
       "expected": {
-        "leaf.width": 60
+        "leaf.width": 60,
+        "root.width": 120,
+        "child.width": 120
       },
       "verification": [
         "python",
@@ -508,7 +528,10 @@
       ],
       "measurements": [],
       "expected": {
-        "intrinsic_gap": 0
+        "intrinsic_gap": 0,
+        "root.width": 40,
+        "b.x": 24,
+        "used_gap": 4
       },
       "verification": [
         "python",
@@ -542,9 +565,18 @@
           }
         }
       ],
-      "measurements": [],
+      "measurements": [
+        {
+          "node": "child",
+          "at_width": 120,
+          "height": 30,
+          "preferred_width": 100
+        }
+      ],
       "expected": {
-        "deferred": true
+        "deferred": true,
+        "root.height": 30,
+        "child.height": 30
       },
       "verification": [
         "python",
@@ -581,7 +613,8 @@
       ],
       "measurements": [],
       "expected": {
-        "child.padding_top": 40
+        "child.padding_top": 40,
+        "root.width": 400
       },
       "verification": [
         "python",
