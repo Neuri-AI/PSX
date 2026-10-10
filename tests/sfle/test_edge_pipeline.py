@@ -80,7 +80,8 @@ def test_negative_margins_explicitly_rejected_in_this_subset():
 
 def test_fixed_edges_larger_than_container_overflow_instead_of_disappearing():
     edges = UsedBoxEdges(padding=UsedEdges(left=15, right=15))
-    result = compute_edge_layout((item("a", 20, edges=edges),), 10, 30)
+    fixed = ResolvedEdgeItem("a", FlexBasis(20, 20, min_size=20), 10, edges)
+    result = compute_edge_layout((fixed,), 10, 30)
     box = result.boxes[0][1]
     assert box.margin.width == 50
     assert box.content.width == 20
