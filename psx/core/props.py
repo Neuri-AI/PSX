@@ -55,8 +55,8 @@ ROW_PROPS = frozenset({
 
 SLIDER_PROPS = frozenset({
     "value",
-    "min_value",
-    "max_value",
+    "min",
+    "max",
     "step",
     "orientation",
     "enabled",
@@ -78,4 +78,15 @@ IMAGE_PROPS = frozenset({
     "height",
     "alt",
     "enabled"
+})
+
+PROGRESSBAR_PROPS = frozenset({
+    "value", "min", "max",
+    "indeterminate", "orientation", "enabled",
+})
+
+RADIO_PROPS = frozenset({"value", "label", "enabled"})
+
+RADIOGROUP_PROPS = frozenset({
+    "value", "on_change", "orientation", "spacing", "padding", "enabled",
 })

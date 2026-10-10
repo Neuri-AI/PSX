@@ -64,6 +64,21 @@ from psx.core.contracts import (
     IMAGE_PROPS,
     IMAGE_DEFAULTS,
     IMAGE_CONTRACT,
+
+    # ProgressBar
+    PROGRESSBAR_PROPS,
+    PROGRESSBAR_DEFAULTS,
+    PROGRESSBAR_CONTRACT,
+
+    # Radio
+    RADIO_PROPS,
+    RADIO_DEFAULTS,
+    RADIO_CONTRACT,
+
+    # RadioGroup
+    RADIOGROUP_PROPS,
+    RADIOGROUP_DEFAULTS,
+    RADIOGROUP_CONTRACT
 )
 
 from .validators import (
@@ -76,7 +91,8 @@ from .validators import (
     validate_input_props,
     validate_button_props,
     validate_divider_props,
-    validate_spacer_props
+    validate_spacer_props,
+    validate_progressbar_props,
 )
 
 if TYPE_CHECKING:
@@ -338,8 +354,8 @@ def Column(
 def Slider(
     *,
     value: float = 0.0,
-    min_value: float = 0.0,
-    max_value: float = 100.0,
+    min: float = 0.0,
+    max: float = 100.0,
     step: float = 0.0,
     orientation: str = "horizontal",
     enabled: bool = True,
@@ -349,7 +365,7 @@ def Slider(
     **props: object,
 ) -> VNode:
     options = dict(
-        value=value, min_value=min_value, max_value=max_value,
+        value=value, min=min, max=max,
         step=step, orientation=orientation, enabled=enabled,
         on_change=on_change, **props,
     )
@@ -424,3 +440,78 @@ def Box(*children: object, key: Key | None = None, ref: object | None = None) ->
     props, no events, no portability guarantees.
     """
     return create_element("Box", *children, key=key, ref=ref)
+
+def ProgressBar(
+    *,
+    value: float = 0.0,
+    min: float = 0.0,
+    max: float = 100.0,
+    indeterminate: bool = False,
+    orientation: str = "horizontal",
+    enabled: bool = True,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Portable determinate or indeterminate progress bar.
+
+    In determinate mode, ``value`` moves between ``min`` and ``max``. In
+    indeterminate mode, the renderer animates the bar to signal that work
+    is in progress without a specific completion figure; ``value`` is
+    ignored in that mode. Out-of-range ``value`` values are clamped by the
+    renderer rather than rejected, so async updates that briefly overshoot
+    the range do not raise.
+    """
+    options = dict(
+        value=value, min=min, max=max,
+        indeterminate=indeterminate, orientation=orientation,
+        enabled=enabled, **props,
+    )
+    PROGRESSBAR_CONTRACT.validate_builder(options)
+    return create_element("ProgressBar", key=key, ref=ref, **options)
+def Radio(
+    value: str | int,
+    *,
+    label: str = "",
+    enabled: bool = True,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Portable radio button.
+
+    ``Radio`` is always expected to be placed inside a ``RadioGroup``, which
+    owns the ``value`` of the selected radio and dispatches ``on_change``.
+    A ``Radio`` outside a group has no portable selection semantics; the
+    renderer may still mount it but its behaviour is backend-specific.
+    """
+    options = dict(value=value, label=label, enabled=enabled, **props)
+    RADIO_CONTRACT.validate_builder(options)
+    return create_element("Radio", key=key, ref=ref, **options)
+
+
+def RadioGroup(
+    *children: object,
+    value: str | int | None = None,
+    on_change: Callable[[str | int], None] | None = None,
+    orientation: str = "vertical",
+    spacing: int = 0,
+    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
+    enabled: bool = True,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Portable mutually exclusive group of ``Radio`` children.
+
+    ``value`` is the currently selected radio's value, or ``None`` for no
+    selection. ``on_change`` receives the value of the radio the user just
+    selected. Children must be ``Radio`` nodes; any other node raises
+    ``RendererCapabilityError`` at mount time.
+    """
+    options = dict(
+        value=value, on_change=on_change, orientation=orientation,
+        spacing=spacing, padding=padding, enabled=enabled, **props,
+    )
+    RADIOGROUP_CONTRACT.validate_builder(options)
+    return create_element("RadioGroup", *children, key=key, ref=ref, **options)

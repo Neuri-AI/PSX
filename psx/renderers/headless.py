@@ -25,7 +25,13 @@ from psx.renderers.components.text import updated_text_props, validate_text_prop
 from psx.renderers.components.textarea import updated_textarea_props, validate_textarea_props
 from psx.renderers.components.divider import updated_divider_props, validate_divider_props
 from psx.renderers.components.image import updated_image_props, validate_image_props
-
+from psx.renderers.components.progressbar import updated_progressbar_props, validate_progressbar_props
+from psx.renderers.components.radio import (
+    updated_radio_props,
+    updated_radiogroup_props,
+    validate_radio_props,
+    validate_radiogroup_props,
+)
 
 # eq=False: handles compare by identity, so list.remove/in use the fast C
 # identity path instead of a recursive field-by-field dataclass comparison.
@@ -52,7 +58,8 @@ class HeadlessRenderer:
         for component in (
             "Column", "Row", "Fragment",
             "Text", "Button", "Input", "TextArea", "Checkbox", "Slider",
-            "Spacer", "Divider", "Image", "Native", "Box",
+            "Spacer", "Divider", "Image", "ProgressBar",
+            "Radio", "RadioGroup", "Box", "Native",
         ):
             self.adapters.register(component, self._default_adapter)
 
@@ -83,6 +90,12 @@ class HeadlessRenderer:
                 validate_divider_props(node.props)
             elif node.type == "Image":
                 validate_image_props(node.props)
+            elif node.type == "ProgressBar":
+                validate_progressbar_props(node.props)
+            elif node.type == "Radio":
+                validate_radio_props(node.props)
+            elif node.type == "RadioGroup":
+                validate_radiogroup_props(node.props)
         handle = HeadlessHandle(node.type, dict(node.props))
         self.operations.append(("create", handle))
         return handle
@@ -117,6 +130,12 @@ class HeadlessRenderer:
             updated_divider_props(target.props, changed, removed)
         elif target.type == "Image":
             updated_image_props(target.props, changed, removed)
+        elif target.type == "ProgressBar":
+            updated_progressbar_props(target.props, changed, removed)
+        elif target.type == "Radio":
+            updated_radio_props(target.props, changed, removed)
+        elif target.type == "RadioGroup":
+            updated_radiogroup_props(target.props, changed, removed)
         target.props.update(changed)
         for name in removed:
             target.props.pop(name, None)

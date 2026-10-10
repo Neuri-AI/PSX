@@ -24,6 +24,9 @@ from .validators import (
     validate_spacer_props,
     validate_divider_props,
     validate_image_props,
+    validate_progressbar_props,
+    validate_radio_props,
+    validate_radiogroup_props,
 )
 Validator = Callable[[Mapping[str, object]], None]
 
@@ -146,4 +149,30 @@ IMAGE_CONTRACT = ComponentContract(
     frozenset(),
     "none",
     validate_image_props,
+)
+
+PROGRESSBAR_CONTRACT = ComponentContract(
+    "ProgressBar",
+    PROGRESSBAR_PROPS,
+    PROGRESSBAR_DEFAULTS,
+    frozenset(),
+    "none",
+    validate_progressbar_props,
+)
+
+RADIO_CONTRACT = ComponentContract(
+    "Radio",
+    RADIO_PROPS,
+    RADIO_DEFAULTS,
+    frozenset(),
+    "none",
+    validate_radio_props,
+)
+RADIOGROUP_CONTRACT = ComponentContract(
+    "RadioGroup",
+    RADIOGROUP_PROPS,
+    RADIOGROUP_DEFAULTS,
+    frozenset({"on_change"}),
+    "multiple",
+    validate_radiogroup_props,
 )

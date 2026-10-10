@@ -46,6 +46,8 @@ from psx.renderers.components.input import apply_tk_input, updated_input_props
 from psx.renderers.components.textarea import apply_tk_textarea, updated_textarea_props
 from psx.renderers.components.slider import apply_tk_slider, updated_slider_props
 from psx.renderers.components.spacer import apply_tk_spacer, updated_spacer_props
+from psx.renderers.components.progressbar import apply_tk_progressbar, updated_progressbar_props
+from psx.renderers.components.radio import updated_radio_props
 
 from psx.core.contracts import (
     validate_textarea_props,
@@ -55,6 +57,8 @@ from psx.core.contracts import (
     validate_text_props,
     validate_slider_props,
     validate_spacer_props,
+    validate_progressbar_props,
+    validate_radio_props,
 )
 
 _LAYOUT_PROPS = frozenset({"spacing", "padding"})
@@ -62,6 +66,16 @@ _LAYOUT_UPDATABLE = frozenset({"spacing", "padding"})
 
 # (widget option that holds the callback, factory building the Python callback)
 EventDef = tuple[str, Callable[[tk.Misc, EventSlot], Callable[[], object | None]]]
+
+# Makers
+def _make_radio(master):
+    return ttk.Radiobutton(master)
+
+# Appliers
+def apply_tk_radio(widget, props):
+    widget.configure(text=str(props["label"]))
+    widget.state(("!disabled",) if props["enabled"] else ("disabled",))
+    widget._psx_radio_value = props["value"]
 
 # factories for creating event callbacks for Tkinter widgets
 def _tk_input_factory(master):
@@ -248,7 +262,19 @@ register_primitive(
     validate=validate_spacer_props, apply=apply_tk_spacer,
     updated_props=updated_spacer_props,
 )
+register_primitive(
+    "ProgressBar", factory=lambda master: ttk.Progressbar(master),
+    validate=validate_progressbar_props,
+    apply=apply_tk_progressbar,
+    updated_props=updated_progressbar_props,
+)
 
+register_primitive(
+    "Radio", factory=_make_radio,
+    validate=validate_radio_props,
+    apply=apply_tk_radio,
+    updated_props=updated_radio_props,
+)
 # -- renderer ---------------------------------------------------------------
 
 class TkinterRenderer:
@@ -271,11 +297,13 @@ class TkinterRenderer:
         from .divider import TkDividerAdapter
         from .image import TkImageAdapter
         from .box import TkBoxAdapter
+        from .radiogroup import TkRadioGroupAdapter
         self.adapters.register("Column", TkColumnAdapter())
         self.adapters.register("Row", TkRowAdapter())
         self.adapters.register("Divider", TkDividerAdapter())
         self.adapters.register("Image", TkImageAdapter())
         self.adapters.register("Box", TkBoxAdapter())
+        self.adapters.register("RadioGroup", TkRadioGroupAdapter())
         self._schedule_drain()
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:

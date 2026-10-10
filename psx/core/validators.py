@@ -14,7 +14,6 @@ from .contracts import (
     INPUT_PROPS,
     INPUT_DEFAULTS,
     CHECKBOX_PROPS,
-    CHECKBOX_DEFAULTS,
     ROW_PROPS,
     ROW_DEFAULTS,
     COLUMN_PROPS,
@@ -23,12 +22,19 @@ from .contracts import (
     SLIDER_DEFAULTS,
     IMAGE_PROPS,
     IMAGE_DEFAULTS,
+    PROGRESSBAR_PROPS,
+    PROGRESSBAR_DEFAULTS,
+    RADIO_PROPS,
+    RADIO_DEFAULTS,
+    RADIOGROUP_PROPS,
+    RADIOGROUP_DEFAULTS,
 )
 
 _VALID_ALIGN = frozenset({"start", "center", "end", "stretch"})
 _VALID_ORIENTATIONS = frozenset({"horizontal", "vertical"})
 _VALID_DIVIDER_ORIENTATIONS = frozenset({"horizontal", "vertical"})
 _VALID_IMAGE_FITS = frozenset({"contain", "cover", "fill", "none"})
+_VALID_RADIOGROUP_ORIENTATIONS = frozenset({"vertical", "horizontal"})
 _HEX_COLOR_RE = re.compile(r"#[0-9a-fA-F]{6}")
 
 def validate_image_props(props: Mapping[str, object]) -> None:
@@ -106,23 +112,22 @@ def validate_slider_props(props: Mapping[str, object]) -> None:
             f"Unsupported Slider props: {', '.join(sorted(unknown))}"
         )
 
-    for name in ("value", "min_value", "max_value", "step"):
+    for name in ("value", "min", "max", "step"):
         v = props.get(name, SLIDER_DEFAULTS[name])
         if isinstance(v, bool) or not isinstance(v, (int, float)):
             raise RendererCapabilityError(f"Slider.{name} must be a number.")
         if name == "step" and v < 0:
             raise RendererCapabilityError("Slider.step must be >= 0.")
 
-    min_v = props.get("min_value", SLIDER_DEFAULTS["min_value"])
-    max_v = props.get("max_value", SLIDER_DEFAULTS["max_value"])
-    if min_v >= max_v:
-        raise RendererCapabilityError("Slider.min_value must be < max_value.")
+    lo = props.get("min", SLIDER_DEFAULTS["min"])
+    hi = props.get("max", SLIDER_DEFAULTS["max"])
+    if lo >= hi:
+        raise RendererCapabilityError("Slider.min must be < max.")
 
-    value = props.get("value", SLIDER_DEFAULTS["value"])
-    if not (min_v <= value <= max_v):
-        raise RendererCapabilityError(
-            "Slider.value must be within [min_value, max_value]."
-        )
+    # NOTE: Slider.value is deliberately NOT range-checked here. During
+    # reconciliation, a transient state (for example, a decrement that
+    # briefly goes below min) would otherwise crash the app. The widget
+    # clamps the value to [min, max] when it is applied.
 
     orientation = props.get("orientation", SLIDER_DEFAULTS["orientation"])
     if orientation not in _VALID_ORIENTATIONS:
@@ -136,9 +141,7 @@ def validate_slider_props(props: Mapping[str, object]) -> None:
 
     cb = props.get("on_change", SLIDER_DEFAULTS["on_change"])
     if cb is not None and not callable(cb):
-        raise RendererCapabilityError(
-            "Slider.on_change must be callable or None.")
-
+        raise RendererCapabilityError("Slider.on_change must be callable or None.")
 
 def validate_textarea_props(props: Mapping[str, object]) -> None:
     unknown = set(props) - TEXTAREA_PROPS - {"ref", "key"}
@@ -380,3 +383,89 @@ def validate_row_props(props: Mapping[str, object]) -> None:
     enabled = props.get("enabled", ROW_DEFAULTS["enabled"])
     if not isinstance(enabled, bool):
         raise RendererCapabilityError("Row.enabled must be a bool.")
+
+def validate_progressbar_props(props: Mapping[str, object]) -> None:
+    unknown = set(props) - PROGRESSBAR_PROPS - {"ref", "key"}
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported ProgressBar props: {', '.join(sorted(unknown))}"
+        )
+
+    for name in ("value", "min", "max"):
+        v = props.get(name, PROGRESSBAR_DEFAULTS[name])
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            raise RendererCapabilityError(f"ProgressBar.{name} must be a number.")
+
+    lo = props.get("min", PROGRESSBAR_DEFAULTS["min"])
+    hi = props.get("max", PROGRESSBAR_DEFAULTS["max"])
+    if lo >= hi:
+        raise RendererCapabilityError("ProgressBar.min must be < max.")
+
+    indeterminate = props.get("indeterminate", PROGRESSBAR_DEFAULTS["indeterminate"])
+    if not isinstance(indeterminate, bool):
+        raise RendererCapabilityError("ProgressBar.indeterminate must be a bool.")
+
+    orientation = props.get("orientation", PROGRESSBAR_DEFAULTS["orientation"])
+    if orientation not in _VALID_ORIENTATIONS:
+        raise RendererCapabilityError(
+            f"ProgressBar.orientation must be one of {sorted(_VALID_ORIENTATIONS)}."
+        )
+
+    enabled = props.get("enabled", PROGRESSBAR_DEFAULTS["enabled"])
+    if not isinstance(enabled, bool):
+        raise RendererCapabilityError("ProgressBar.enabled must be a bool.")
+
+
+def validate_radio_props(props: Mapping[str, object]) -> None:
+    unknown = set(props) - RADIO_PROPS - {"ref", "key"}
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported Radio props: {', '.join(sorted(unknown))}"
+        )
+
+    value = props.get("value")
+    if isinstance(value, bool) or not isinstance(value, (str, int)):
+        raise RendererCapabilityError("Radio.value must be a str or int.")
+
+    label = props.get("label", RADIO_DEFAULTS["label"])
+    if not isinstance(label, str):
+        raise RendererCapabilityError("Radio.label must be a str.")
+
+    enabled = props.get("enabled", RADIO_DEFAULTS["enabled"])
+    if not isinstance(enabled, bool):
+        raise RendererCapabilityError("Radio.enabled must be a bool.")
+
+
+def validate_radiogroup_props(props: Mapping[str, object]) -> None:
+    unknown = set(props) - RADIOGROUP_PROPS
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported RadioGroup props: {', '.join(sorted(unknown))}"
+        )
+
+    value = props.get("value")
+    if value is not None and (isinstance(value, bool) or not isinstance(value, (str, int))):
+        raise RendererCapabilityError("RadioGroup.value must be a str, int, or None.")
+
+    orientation = props.get("orientation", RADIOGROUP_DEFAULTS["orientation"])
+    if orientation not in _VALID_RADIOGROUP_ORIENTATIONS:
+        raise RendererCapabilityError(
+            f"RadioGroup.orientation must be one of "
+            f"{sorted(_VALID_RADIOGROUP_ORIENTATIONS)}."
+        )
+
+    spacing = props.get("spacing", RADIOGROUP_DEFAULTS["spacing"])
+    if isinstance(spacing, bool) or not isinstance(spacing, int) or spacing < 0:
+        raise RendererCapabilityError("RadioGroup.spacing must be a non-negative int.")
+
+    _validate_padding(
+        props.get("padding", RADIOGROUP_DEFAULTS["padding"]), "RadioGroup.padding"
+    )
+
+    enabled = props.get("enabled", RADIOGROUP_DEFAULTS["enabled"])
+    if not isinstance(enabled, bool):
+        raise RendererCapabilityError("RadioGroup.enabled must be a bool.")
+
+    cb = props.get("on_change", RADIOGROUP_DEFAULTS["on_change"])
+    if cb is not None and not callable(cb):
+        raise RendererCapabilityError("RadioGroup.on_change must be callable or None.")

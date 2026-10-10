@@ -8,8 +8,8 @@ using stable event slots.
 | Property | Type | Default |
 | --- | --- | --- |
 | `value` | `float` | `0.0` |
-| `min_value` | `float` | `0.0` |
-| `max_value` | `float` | `100.0` |
+| `min` | `float` | `0.0` |
+| `max` | `float` | `100.0` |
 | `step` | Non-negative `float` (`0.0` = continuous) | `0.0` |
 | `orientation` | `"horizontal"` or `"vertical"` | `"horizontal"` |
 | `enabled` | `bool` | `True` |
@@ -17,15 +17,21 @@ using stable event slots.
 | `key` | `str`, `int`, or `None` | `None` |
 | `ref` | PSX ref or `None` | `None` |
 
-`value` is always a `float` and must lie within `[min_value, max_value]`.
+`value` is a `float`. Values outside `[min, max]` are clamped to the nearest
+bound by the renderer, so a transient state such as a decrement that briefly
+goes below `min` does not crash the app: the widget shows `min` until the
+state comes back into range. The stored props keep the original value, so a
+subsequent update to a different out-of-range value is still detected as a
+change.
+
 `step` controls the granularity of the slider: `0.0` means continuous motion,
 any positive value snaps to multiples of `step`. `orientation` selects the
 slider's axis. `enabled` disables user interaction.
 
 Qt's native `QSlider` only works with integers, so the adapter maps the float
 range to an integer range internally using a precision factor derived from
-`step` (or from the decimal places of `min_value` and `max_value` when `step`
-is `0.0`). The public contract stays float across all renderers.
+`step` (or from the decimal places of `min` and `max` when `step` is `0.0`).
+The public contract stays float across all renderers.
 
 The renderer updates value, range, step, orientation, and enabled state
 natively without re-creating the underlying widget. Event callbacks are bound
@@ -38,8 +44,8 @@ children to `<Slider>` raises `InvalidChildError`.
 ```python
 Slider(
     value=50.0,
-    min_value=0.0,
-    max_value=100.0,
+    min=0.0,
+    max=100.0,
     step=1.0,
     orientation="horizontal",
     on_change=set_volume,
@@ -48,8 +54,9 @@ Slider(
 
 ```python
 psx(
-    '<Slider value={volume} min_value={0} max_value={100} step={1} '
-    'on_change={set_volume} />',)
+    '<Slider value={volume} min={0} max={100} step={1} '
+    'on_change={set_volume} />',
+)
 ```
 Unknown properties and invalid property values raise RendererCapabilityError.
 Builders, markup, and native renderers enforce this same contract. Each update

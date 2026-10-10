@@ -23,6 +23,9 @@ from .contracts import (
     SPACER_CONTRACT,
     TEXT_CONTRACT,
     TEXTAREA_CONTRACT,
+    PROGRESSBAR_CONTRACT,
+    RADIO_CONTRACT,
+    RADIOGROUP_CONTRACT,
     ComponentContract,
 )
 from .errors import DuplicateComponentError, UnknownComponentError
@@ -126,6 +129,9 @@ def builtin_component_registry() -> ComponentRegistry:
         TextArea,
         Image,
         Box,
+        ProgressBar,
+        Radio,
+        RadioGroup,
     )
 
     registry = ComponentRegistry()
@@ -145,6 +151,9 @@ def builtin_component_registry() -> ComponentRegistry:
     registry.register("Divider", Divider, contract=DIVIDER_CONTRACT)
     registry.register("Fragment", Fragment)
     registry.register("Image", Image, contract=IMAGE_CONTRACT)
+    registry.register("ProgressBar", ProgressBar, contract=PROGRESSBAR_CONTRACT)
+    registry.register("Radio", Radio, contract=RADIO_CONTRACT)
+    registry.register("RadioGroup", RadioGroup, contract=RADIOGROUP_CONTRACT)
     registry.register("Box", Box)
     registry.register("Native", Native)
 

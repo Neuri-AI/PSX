@@ -48,6 +48,8 @@ from psx.renderers.components.textarea import apply_qt_textarea, updated_textare
 from psx.renderers.components.input import apply_qt_input, updated_input_props
 from psx.renderers.components.slider import apply_qt_slider, updated_slider_props
 from psx.renderers.components.spacer import apply_qt_spacer, updated_spacer_props
+from psx.renderers.components.progressbar import apply_qt_progressbar, updated_progressbar_props
+from psx.renderers.components.radio import radio_props, updated_radio_props
 from psx.core.contracts import (
     validate_textarea_props,
     validate_input_props,
@@ -56,6 +58,8 @@ from psx.core.contracts import (
     validate_text_props,
     validate_slider_props,
     validate_spacer_props,
+    validate_progressbar_props,
+    validate_radio_props,
 )
 
 _LAYOUT_PROPS = frozenset({"spacing", "padding"})
@@ -65,6 +69,11 @@ _CONTAINER_UPDATABLE = frozenset({"label", "enabled", "spacing", "padding"})
 EventFactory = Callable[[object, EventSlot], Callable[..., object]]
 EventDef = tuple[str, EventFactory]
 
+# Appliers
+def apply_qt_radio(widget, props):
+    widget.setText(str(props["label"]))
+    widget.setEnabled(bool(props["enabled"]))
+    widget._psx_radio_value = props["value"]
 
 @dataclass(slots=True)
 class QtHandle:
@@ -120,7 +129,7 @@ def emit_slider_value(widget, slot):
     props = widget._psx_props
     factor = widget._psx_factor
     return lambda int_value: slot.invoke(
-        props["min_value"] + int_value / factor
+        props["min"] + int_value / factor
     )
 
 # -- registries -------------------------------------------------------------
@@ -236,7 +245,20 @@ register_primitive(
     updated_props=updated_spacer_props,
     takes_binding=False,
 )
+register_primitive(
+    "ProgressBar", qt_class="QProgressBar",
+    validate=validate_progressbar_props,
+    apply=apply_qt_progressbar,
+    updated_props=updated_progressbar_props,
+)
 
+register_primitive(
+    "Radio", qt_class="QRadioButton",
+    validate=validate_radio_props,
+    apply=apply_qt_radio,
+    updated_props=updated_radio_props,
+    takes_binding=False,
+)
 
 
 # -- renderer ---------------------------------------------------------------
@@ -295,11 +317,13 @@ class QtRenderer:
         from .divider import make_qt_divider_adapter
         from .image import QtImageAdapter
         from .box import make_qt_box_adapter
+        from .radiogroup import make_qt_radiogroup_adapter
         self.adapters.register("Divider", make_qt_divider_adapter(self))
         self.adapters.register("Column", make_qt_column_adapter(self))
         self.adapters.register("Row", make_qt_row_adapter(self))
         self.adapters.register("Image", QtImageAdapter())
         self.adapters.register("Box", make_qt_box_adapter(self))
+        self.adapters.register("RadioGroup", make_qt_radiogroup_adapter(self))
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)

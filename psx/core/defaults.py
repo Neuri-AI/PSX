@@ -54,8 +54,8 @@ ROW_DEFAULTS = MappingProxyType({
 
 SLIDER_DEFAULTS = MappingProxyType({
     "value": 0.0,
-    "min_value": 0.0,
-    "max_value": 100.0,
+    "min": 0.0,
+    "max": 100.0,
     "step": 0.0,
     "orientation": "horizontal",
     "enabled": True,
@@ -75,5 +75,28 @@ IMAGE_DEFAULTS = MappingProxyType({
     "width": None,
     "height": None,
     "alt": "",
+    "enabled": True,
+})
+
+PROGRESSBAR_DEFAULTS = MappingProxyType({
+    "value": 0.0,
+    "min": 0.0,
+    "max": 100.0,
+    "indeterminate": False,
+    "orientation": "horizontal",
+    "enabled": True,
+})
+
+RADIO_DEFAULTS = MappingProxyType({
+    "label": "",
+    "enabled": True,
+})
+
+RADIOGROUP_DEFAULTS = MappingProxyType({
+    "value": None,
+    "on_change": None,
+    "orientation": "vertical",
+    "spacing": 0,
+    "padding": 0,
     "enabled": True,
 })
