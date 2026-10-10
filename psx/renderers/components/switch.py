@@ -7,11 +7,11 @@ from collections.abc import Mapping
 from psx.core.contracts import SWITCH_DEFAULTS, SWITCH_PROPS, validate_switch_props
 from psx.core.errors import RendererCapabilityError
 
-# Physical switch dimensions in logical pixels, shared by all backends.
+# Base switch track dimensions in logical pixels (Qt and Tkinter).
 SWITCH_SIZES: dict[str, tuple[int, int]] = {
-    "small": (68, 40),
-    "medium": (88, 52),
-    "large": (112, 64),
+    "small": (34, 20),
+    "medium": (44, 26),
+    "large": (56, 32),
 }
 
 
