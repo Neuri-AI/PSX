@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from .box_geometry import UsedBoxEdges, UsedEdges
 from .cross_margins import position_cross_margins
 from .cross_alignment import CrossAlign, resolve_cross_alignment
+from .cross_stretch import resolve_cross_stretch
 from .align_content import AlignContent, distribute_cross_lines
 from .flex_math import FlexBasis, _number, resolve_flexible_lengths
 from .line_layout import FlexDirection, FlexWrap
@@ -32,6 +33,9 @@ class MarginFlexItem:
     cross_start: UsedMargin = UsedMargin()
     cross_end: UsedMargin = UsedMargin()
     align_self: CrossAlign = CrossAlign.AUTO
+    cross_size_auto: bool = False
+    min_cross_content_size: float = 0.0
+    max_cross_content_size: float | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.node_id, str) or not self.node_id:
@@ -44,6 +48,13 @@ class MarginFlexItem:
             raise TypeError("margins must be UsedMargin.")
         if not isinstance(self.align_self, CrossAlign):
             raise TypeError("align_self must be CrossAlign.")
+        if type(self.cross_size_auto) is not bool:
+            raise TypeError("cross_size_auto must be bool.")
+        minimum = _number(self.min_cross_content_size, "min_cross_content_size")
+        maximum = (None if self.max_cross_content_size is None else
+                   _number(self.max_cross_content_size, "max_cross_content_size"))
+        if minimum < 0 or (maximum is not None and maximum < 0):
+            raise ValueError("Cross size constraints must be nonnegative.")
         if self.edges.margin != UsedEdges():
             raise ValueError("Set all physical margins to zero; use main_start/main_end.")
         if type(self.order) is not int:
@@ -190,6 +201,23 @@ def compute_margin_flex_layout(
         )
         for item, pos in zip(line, positioned):
             cross_size = cross_border(item)
+            chosen_align = align_items if item.align_self == CrossAlign.AUTO else item.align_self
+            if (
+                chosen_align == CrossAlign.STRETCH
+                and item.cross_size_auto
+                and item.cross_start.value is not None
+                and item.cross_end.value is not None
+            ):
+                edges = item.edges
+                pb_cross = (edges.border.vertical + edges.padding.vertical if horizontal
+                            else edges.border.horizontal + edges.padding.horizontal)
+                stretched = resolve_cross_stretch(
+                    line_cross_sizes[line_index], pb_cross,
+                    item.cross_start.value, item.cross_end.value,
+                    min_content_size=item.min_cross_content_size,
+                    max_content_size=item.max_cross_content_size,
+                )
+                cross_size = stretched.border_size
             cross_pos = position_cross_margins(
                 cross_size, line_cross_sizes[line_index],
                 start=item.cross_start, end=item.cross_end,
@@ -199,6 +227,11 @@ def compute_margin_flex_layout(
             # Auto cross margins have precedence over align-items/align-self.
             if item.cross_start.value is None or item.cross_end.value is None:
                 cross_offset = cross_pos.border_start
+            elif chosen_align == CrossAlign.STRETCH:
+                # A definite cross size, or an auto size just stretched above,
+                # takes the cross-start position (not a second sizing pass).
+                cross_offset = (item.cross_start.value if cross_forward else
+                                line_cross_sizes[line_index] - item.cross_start.value - cross_size)
             else:
                 cross_offset = resolve_cross_alignment(
                     align_items, item.align_self, cross_size,
