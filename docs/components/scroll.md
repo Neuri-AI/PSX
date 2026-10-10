@@ -101,11 +101,14 @@ native backend during manual DX rather than assuming exact equivalence.
   so enclosing views may handle them. Reorientation updates box layout in
   place without replacing child widgets.
 - **Kivy:** `ScrollView` containing a managed `BoxLayout`; minimum content
-  dimensions follow children and viewport. Native Kivy indicators are drawn
+  dimensions follow children and viewport. Kivy's native wheel handling is
+  supplemented by a bounded fallback for SDL2 mouse/trackpad scroll-button
+  touches, with 48 logical pixels per wheel increment. Native indicators are drawn
   over the viewport. Cross-axis hints and parent stretch constraints can
   affect sizing, so validate on all relevant layout configurations.
 - **Tkinter:** `Canvas` plus frame in `create_window`; PSX creates children
-  with that inner frame as their real Tk master. Visual thumb indicators are
+  with that inner frame as their real Tk master, passing a typed TkHandle
+  wrapper into renderer creation (never a proxy namespace). Visual thumb indicators are
   drawn inside Canvas. Per-widget wheel callbacks inspect enclosing Scroll
   frames without `bind_all` or global bindings.
 - **Headless:** contract validation, child ordering and lifecycle records.
@@ -123,6 +126,10 @@ No automated tests are added or run for this component phase.
 - [ ] Verify auto/always/hidden indicators overlay instead of resizing content
 - [ ] Check explicit width/height and parent-constrained viewports
 - [ ] Check nested Scroll wheel/trackpad input and limit handoff
+- [ ] On macOS, verify two-finger trackpad scrolling in Kivy separately from a
+  physical mouse wheel; backend/SDL2 versions may expose different events
+- [ ] Verify Tkinter creates normal Text/Column children within Scroll without
+  foreign-handle TypeError
 - [ ] Confirm content and widget identity survive keyed add/remove/reorder
 - [ ] Confirm offsets survive normal rerenders and clamp on content shrink
 - [ ] Change direction, padding, spacing, dimensions and enabled state live
