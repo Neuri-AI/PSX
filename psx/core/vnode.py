@@ -84,6 +84,7 @@ from psx.core.contracts import (
     SELECT_CONTRACT,
     SWITCH_CONTRACT,
     LINK_CONTRACT,
+    SPINBOX_CONTRACT,
 )
 
 from .validators import (
@@ -581,3 +582,25 @@ def Link(
     )
     LINK_CONTRACT.validate_builder(options)
     return create_element("Link", key=key, ref=ref, **options)
+
+
+def SpinBox(
+    *,
+    value: int | float = 0,
+    min: int | float = 0,
+    max: int | float = 100,
+    step: int | float = 1,
+    decimals: int = 0,
+    enabled: bool = True,
+    on_change: Callable[[int | float], None] | None = None,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Controlled portable numeric input with increment/decrement buttons."""
+    config = dict(
+        value=value, min=min, max=max, step=step, decimals=decimals,
+        enabled=enabled, on_change=on_change, **props,
+    )
+    SPINBOX_CONTRACT.validate_builder(config)
+    return create_element("SpinBox", key=key, ref=ref, **config)
