@@ -32,15 +32,12 @@ class LayoutEngine(Protocol):
 
 
 class PythonLayoutEngine:
-    """F2.1 contract-only placeholder; *not* a working Python fallback."""
+    """Internal fail-closed experimental snapshot coordinator (not advertised)."""
 
     @property
     def capabilities(self) -> EngineCapabilities:
         return CONTRACT_ONLY_CAPABILITIES
 
     def compute(self, request: LayoutInput) -> LayoutResult:
-        raise UnsupportedLayoutFeature(
-            DiagnosticCode.UNSUPPORTED_FEATURE,
-            "SFLE Flexbox computation is not implemented yet; "
-            "the F2.1 deliverable is the validated data contract only.",
-        )
+        from .compute_alpha import compute_snapshot
+        return compute_snapshot(request)
