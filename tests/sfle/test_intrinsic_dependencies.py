@@ -1,6 +1,6 @@
 import pytest
 from psx.sfle.errors import SFLECapabilityError, SFLEError
-from psx.sfle.intrinsic_dependencies import LeafAutoSizing, resolve_measured_auto_leaves
+from psx.sfle.intrinsic_dependencies import LeafAutoSizing, collect_leaf_intrinsic_suggestions
 from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection, IntrinsicSizes, MeasuredBox
 from psx.sfle.sizing import ResolutionKind
 from psx.sfle.used_size_tree import UsedSizeTree
@@ -19,37 +19,40 @@ def fixture(measure=True):
 
 def test_auto_leaf_from_intrinsic_snapshot():
     snapshot, used=fixture()
-    result=resolve_measured_auto_leaves(snapshot,used,declarations=(
+    result=collect_leaf_intrinsic_suggestions(snapshot,used,declarations=(
         LeafAutoSizing("leaf",ResolutionKind.AUTO,ResolutionKind.AUTO),
     ))
-    assert dict(result.content)["leaf"]==size(30,40)
-    assert result.deferred==()
+    assert len(result) == 1
+    assert result[0].node_id == "leaf"
+    assert (result[0].preferred_width, result[0].preferred_height) == (30,40)
+    # The input used tree remains indefinite: suggestions are not final CSS sizes.
+    assert used.deferred == ("leaf",)
 
 def test_missing_measurement_is_not_zero():
     snapshot,used=fixture(False)
     with pytest.raises(SFLEError):
-        resolve_measured_auto_leaves(snapshot,used,declarations=(
+        collect_leaf_intrinsic_suggestions(snapshot,used,declarations=(
             LeafAutoSizing("leaf",ResolutionKind.AUTO,ResolutionKind.AUTO),
         ))
 
 def test_percent_cycle_not_misclassified_auto():
     snapshot,used=fixture()
     with pytest.raises(SFLECapabilityError):
-        resolve_measured_auto_leaves(snapshot,used,declarations=(
+        collect_leaf_intrinsic_suggestions(snapshot,used,declarations=(
             LeafAutoSizing("leaf",ResolutionKind.UNRESOLVED_PERCENT,ResolutionKind.AUTO),
         ))
 
 def test_auto_container_rejected():
     snapshot,used=fixture()
     with pytest.raises(SFLECapabilityError):
-        resolve_measured_auto_leaves(snapshot,used,declarations=(
+        collect_leaf_intrinsic_suggestions(snapshot,used,declarations=(
             LeafAutoSizing("root",ResolutionKind.AUTO,ResolutionKind.USED),
         ))
 
 def test_stale_leaf_measurement_revision_rejected():
     snapshot, used = fixture()
     with pytest.raises(SFLEError):
-        resolve_measured_auto_leaves(snapshot,used,declarations=(
+        collect_leaf_intrinsic_suggestions(snapshot,used,declarations=(
             LeafAutoSizing("leaf",ResolutionKind.AUTO,ResolutionKind.AUTO),
         ),revisions=(("leaf",1),))
 
@@ -58,6 +61,6 @@ def test_stale_leaf_measurement_constraints_rejected():
     m = MeasuredBox("leaf",METRICS,size(50,None),0)
     stale = LayoutInput(1,8,WritingDirection.LTR,size(200,100),snapshot.nodes,(m,))
     with pytest.raises(SFLEError):
-        resolve_measured_auto_leaves(stale,used,declarations=(
+        collect_leaf_intrinsic_suggestions(stale,used,declarations=(
             LeafAutoSizing("leaf",ResolutionKind.AUTO,ResolutionKind.AUTO),
         ))
