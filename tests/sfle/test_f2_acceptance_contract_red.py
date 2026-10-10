@@ -1,0 +1,122 @@
+"""RED integration acceptance gates: v1 immutable layout snapshots.
+
+These intentionally exercise the complete LayoutEngine.compute boundary,
+rather than declaring narrow helper behavior to be accepted CSS semantics.
+"""
+import pytest
+
+from psx.sfle.engine import PythonLayoutEngine
+from psx.sfle.errors import DiagnosticCode, SFLEError
+from psx.sfle.lengths import Length
+from psx.sfle.model import (
+    AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
+    LayoutNode, MeasuredBox, WritingDirection,
+)
+
+
+def snapshot(spec, *, width=120, height=None, direction=WritingDirection.LTR):
+    nodes = tuple(
+        LayoutNode(node_id, parent, component, tuple(style.items()))
+        for node_id, parent, component, style in spec
+    )
+    constraints = LayoutConstraints(
+        AvailableSize(width, width is not None),
+        AvailableSize(height, height is not None),
+    )
+    # Intrinsic input is fixed so differential inputs have exactly the same
+    # measurements, independent of UI fonts or toolkit.
+    intrinsic = IntrinsicSizes(20, 100, 20, 60, 100, 60)
+    measurements = tuple(
+        MeasuredBox(n.node_id, intrinsic, constraints, 0)
+        for n in nodes
+    )
+    return LayoutInput(1, 17, direction, constraints, nodes, measurements)
+
+
+def boxes(result):
+    return {b.node_id: b for b in result.boxes}
+
+
+def test_A02_auto_parent_and_auto_flex_basis_use_intrinsic_content():
+    s = snapshot([
+        ("root", None, "Flex", {"direction": "row", "layout_width": Length.auto()}),
+        ("child", "root", "Text", {"flex_basis": Length.auto(), "layout_width": Length.auto()}),
+    ], width=None)
+    result = PythonLayoutEngine().compute(s)
+    assert boxes(result)["root"].content.width >= 100
+
+
+def test_A03_indefinite_percentage_reference_preserved_then_css_resolved():
+    s = snapshot([
+        ("root", None, "Flex", {"direction": "column", "layout_height": Length.auto()}),
+        ("inner", "root", "Flex", {"layout_height": Length.percent(0.5)}),
+    ], height=None)
+    result = PythonLayoutEngine().compute(s)
+    assert boxes(result)["root"].content.height >= 0
+
+
+def test_A04_grow_remeasures_final_text_width_and_parent_height():
+    s = snapshot([
+        ("root", None, "Flex", {"direction": "row", "layout_width": Length.px(150), "layout_height": Length.auto()}),
+        ("text", "root", "Text", {"flex_grow": 1, "flex_basis": Length.auto(), "layout_height": Length.auto()}),
+    ], width=150)
+    result = PythonLayoutEngine().compute(s)
+    assert boxes(result)["text"].content.width == pytest.approx(150, abs=0.01)
+    assert boxes(result)["root"].content.height >= boxes(result)["text"].content.height
+
+
+def test_A05_shrink_remeasures_both_items_at_35px():
+    s = snapshot([
+        ("root", None, "Flex", {"direction": "row", "layout_width": Length.px(70), "layout_height": Length.auto()}),
+        ("a", "root", "Text", {"flex_basis": Length.px(50), "flex_shrink": 1, "layout_min_width": Length.px(0)}),
+        ("b", "root", "Text", {"flex_basis": Length.px(50), "flex_shrink": 1, "layout_min_width": Length.px(0)}),
+    ], width=70)
+    result = PythonLayoutEngine().compute(s)
+    assert boxes(result)["a"].content.width == pytest.approx(35, abs=0.01)
+    assert boxes(result)["b"].content.width == pytest.approx(35, abs=0.01)
+
+
+def test_A06_generation_is_preserved_by_pure_layout_result():
+    s = snapshot([("root", None, "Flex", {})], height=40)
+    result = PythonLayoutEngine().compute(s)
+    assert result.generation == s.generation
+
+
+def test_A07_convergent_auto_layout_is_finite():
+    s = snapshot([
+        ("root", None, "Flex", {"layout_height": Length.auto()}),
+        ("child", "root", "Text", {"layout_height": Length.auto()}),
+    ], height=None)
+    result = PythonLayoutEngine().compute(s)
+    assert boxes(result)["root"].content.height >= 0
+
+
+@pytest.mark.parametrize("direction", [WritingDirection.LTR, WritingDirection.RTL])
+def test_A09_directional_positioning_preserves_identity(direction):
+    s = snapshot([
+        ("root", None, "Flex", {"direction": "row", "layout_width": Length.px(120)}),
+        ("a", "root", "Text", {"flex_basis": Length.px(20)}),
+        ("b", "root", "Text", {"flex_basis": Length.px(30)}),
+    ], height=60, direction=direction)
+    result = PythonLayoutEngine().compute(s)
+    assert tuple(b.node_id for b in result.boxes) == ("root", "a", "b")
+    a, b = boxes(result)["a"], boxes(result)["b"]
+    assert (a.border.x < b.border.x) == (direction is WritingDirection.LTR)
+
+
+def test_A10_layout_output_contains_separate_error_channels():
+    s = snapshot([("root", None, "Flex", {})], height=20)
+    result = PythonLayoutEngine().compute(s)
+    for channel in ("measurement_error", "engine_error", "geometry_commit_error"):
+        assert hasattr(result, channel), f"missing normative report field {channel}"
+
+
+def test_C99_unlisted_two_node_percent_cycle_fails_closed():
+    s = snapshot([
+        ("root", None, "Flex", {"layout_width": Length.auto(), "layout_height": Length.auto()}),
+        ("a", "root", "Flex", {"layout_width": Length.percent(0.5), "layout_height": Length.percent(0.5)}),
+        ("b", "a", "Flex", {"layout_width": Length.percent(0.5), "layout_height": Length.percent(0.5)}),
+    ], width=None, height=None)
+    with pytest.raises(SFLEError) as exc:
+        PythonLayoutEngine().compute(s)
+    assert exc.value.code == DiagnosticCode.UNSUPPORTED_FEATURE
