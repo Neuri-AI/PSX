@@ -72,3 +72,48 @@ def test_nested_auto_and_signed_main_margins_remain_distinct_from_box_size():
     assert boxes["parent"].border.x == 150
     assert boxes["parent"].used_main_start_margin == 135
     assert boxes["leaf"].border.x == 150
+
+
+def test_measured_intrinsic_flex_basis_feeds_nested_distribution():
+    from psx.sfle.intrinsic import IntrinsicFlexInput, MainAxis
+    from psx.sfle.lengths import Length, LengthKind
+    from psx.sfle.model import IntrinsicSizes
+
+    intrinsic = IntrinsicFlexInput(
+        intrinsic=IntrinsicSizes(20, 60, 10, 20, 60, 20),
+        axis=MainAxis.HORIZONTAL,
+        flex_basis=Length(LengthKind.AUTO),
+        min_main_size=0,
+    )
+    nodes = (
+        MarginTreeNode("root", None, 150, 80),
+        MarginTreeNode(
+            "parent", "root", 60, 40, item("parent", 5),
+            intrinsic_basis=intrinsic,
+        ),
+        MarginTreeNode("leaf", "parent", 10, 20, item("leaf", 10)),
+    )
+    boxes = {b.node_id:b for b in compute_margin_tree(nodes, generation=8).boxes}
+    assert boxes["parent"].content.width == 60
+    assert boxes["leaf"].border.x == 0
+
+
+def test_unimplemented_intrinsic_percentage_basis_rejected():
+    import pytest
+    from psx.sfle.errors import SFLECapabilityError
+    from psx.sfle.intrinsic import IntrinsicFlexInput, MainAxis
+    from psx.sfle.lengths import Length
+    from psx.sfle.model import IntrinsicSizes
+
+    metric = IntrinsicSizes(20, 60, 10, 20, 60, 20)
+    intrinsic = IntrinsicFlexInput(
+        intrinsic=metric, axis=MainAxis.HORIZONTAL,
+        flex_basis=Length.percent(0.5),
+    )
+    nodes = (
+        MarginTreeNode("root", None, 150, 80),
+        MarginTreeNode("child", "root", 60, 20, item("child", 5),
+                       intrinsic_basis=intrinsic),
+    )
+    with pytest.raises(SFLECapabilityError):
+        compute_margin_tree(nodes, generation=8)
