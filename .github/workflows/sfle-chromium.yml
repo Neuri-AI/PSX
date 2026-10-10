@@ -5,7 +5,8 @@ on:
   pull_request:
     paths:
       - "psx/sfle/**"
-      - "tests/browser/test_sfle_chromium.py"
+      - "tests/browser/test_sfle_*.py"
+      - "tests/sfle/fixtures/**"
       - ".github/workflows/sfle-chromium.yml"
       - "pyproject.toml"
   push:
@@ -39,4 +40,4 @@ jobs:
       - name: Install headless Chromium
         run: python -m playwright install --with-deps chromium
       - name: Compare SFLE rectangles to browser geometry
-        run: python -m pytest -q tests/browser/test_sfle_chromium.py
+        run: python -m pytest -q tests/browser/test_sfle_chromium.py tests/browser/test_sfle_f2_corpus.py
