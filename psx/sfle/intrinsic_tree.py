@@ -27,14 +27,14 @@ class IntrinsicLeafStyle:
     cross_size_auto: bool = True
 
 
-def compute_measured_leaf_tree(
+def prepare_measured_leaf_nodes(
     nodes: tuple[MarginTreeNode, ...],
     *,
     measurements: tuple[MeasuredBox, ...],
     leaves: tuple[IntrinsicLeafStyle, ...],
     generation: int,
     writing: WritingDirection = WritingDirection.LTR,
-) -> MarginTreeLayout:
+) -> tuple[MarginTreeNode, ...]:
     """Resolve CSS content-driven leaf inputs, then distribute with Flex.
 
     Styles for non-leaf containers or missing intrinsic data fail closed.
