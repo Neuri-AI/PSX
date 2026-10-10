@@ -8,6 +8,7 @@
 pub mod edge_pipeline;
 pub mod line_layout;
 pub mod resolved_pipeline;
+pub mod sizing;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct FlexBasis {
