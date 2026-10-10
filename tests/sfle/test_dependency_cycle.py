@@ -102,3 +102,37 @@ def test_non_ui_thread_never_calls_measurement():
             recompute=lambda snap, current: current,
         )
     assert not called
+
+
+def test_width_sensitive_intrinsic_height_triggers_third_pass():
+    calls = []
+    def measure(request):
+        width = request.constraints.width.value
+        calls.append((request.node_id, width))
+        height = 40 if width == 60 else 20
+        metrics = IntrinsicSizes(10,60,10,60,60,height)
+        return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
+
+    def recompute(snap, current):
+        leaf = next(m for m in snap.measurements if m.node_id == "leaf")
+        if current.content[1][1].width.value is None:
+            return UsedSizeTree(8, (
+                ("root", box(200,100)),
+                ("leaf", box(leaf.intrinsic.preferred_width, None)),
+            ), ("leaf",))
+        return UsedSizeTree(8, (
+            ("root", box(200,100)),
+            ("leaf", box(60,leaf.intrinsic.preferred_height)),
+        ), ())
+
+    start = UsedSizeTree(8, (
+        ("root",box(200,100)), ("leaf",box(None,None)),
+    ), ("leaf",))
+    result = resolve_measurement_dependencies(
+        snapshot(),start,
+        native_port=NativeMeasurementPort(lambda: True,measure),
+        recompute=recompute,
+    )
+    assert result.iterations == 3
+    assert dict(result.used_sizes.content)["leaf"] == box(60,40)
+    assert calls.count(("leaf",60)) == 2
