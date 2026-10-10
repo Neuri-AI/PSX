@@ -984,4 +984,4 @@ The pure spacing solver is now used by the main-axis margin placement kernel and
 The new regression test suite is `tests/sfle/test_justify_pipeline.py`, with Rust integration cases in `margin_flex_pipeline.rs`. The next slice remains cross-axis alignment and stretch/baseline. The small Chromium/Playwright CI checkpoint stays after F2.2.3, before formal F2.3 conformance.
 
 
-**Integrated justify-content CI:** code commit `02737d37`, SFLE run `38064998080`: Rust and Python 3.10–3.13 all passed. The general PSX validation run `38064997890` was in progress at documentation time; the result will be tracked separately. No Chromium geometry comparison or `align-content`/baseline/stretch support is implied.
+**Integrated justify-content CI:** code commit `02737d37`, SFLE run `38064998080`: Rust and Python 3.10–3.13 all passed. PSX alpha validation run `38064997890` passed Python 3.10–3.13, PySide6 offscreen, and distribution build. No Chromium geometry comparison or `align-content`/baseline/stretch support is implied.
