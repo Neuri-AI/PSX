@@ -24,7 +24,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | --- | --- | --- |
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
-| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: explicit cyclic percentage-gap phase and definite content/border box conversion (Python + Rust), CI pending** |
+| **F2.2.2** | **Percentage cycles, box-sizing and deferred sizing edge cases** | **In progress: cyclic percentage-gap phase and definite box sizing (Python + Rust); scoped CI passed** |
 | F2.2.3 | Main/cross alignment, baseline, stretch and multi-line distribution | Pending |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
@@ -606,6 +606,11 @@ For a definite specified dimension with already-resolved padding/border:
   content + edges. The fixed edges set the border-box floor.
 
 Both languages reject invalid negative values and preserve definite zero.
+
+**CI verification:** commit `6c7f5ea0a1e53996d23dd033c7878b7258f0e15c`
+passed Rust and Python SFLE 3.10–3.13, along with general PSX validation,
+PySide6 offscreen and the distribution build. The later docs-only update
+correctly skipped expensive test matrices.
 
 ~~~mermaid
 flowchart TD
