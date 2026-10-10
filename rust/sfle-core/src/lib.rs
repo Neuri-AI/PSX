@@ -15,6 +15,7 @@ pub mod constraint_propagation;
 pub mod used_size;
 pub mod used_size_tree;
 pub mod remeasurement;
+pub mod measurement_round;
 pub mod edge_pipeline;
 pub mod intrinsic;
 pub mod main_margins;
