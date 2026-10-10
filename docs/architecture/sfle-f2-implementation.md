@@ -25,7 +25,7 @@ the official F2.0–F2.4 phase structure. Status is updated after each delivery.
 | F2.2.0 | Resolved flex math, line formation, LTR/RTL, fixed-edge CSS boxes | Implemented; focused CI passed |
 | **F2.2.1** | **Intrinsic sizing and automatic main-axis minimums** | **Implemented; SFLE Rust + Python 3.10–3.13 CI passed (restricted scope)** |
 | **F2.2.2** | **Percentage cycles, box sizing and sizing-edge contracts** | **Scoped resolved-input implementation complete; context-dependent cases explicitly deferred to F2.2.4** |
-| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: justify-content and resolved non-stretch align-items/align-self integrated in Python/Rust; new CI pending** |
+| **F2.2.3** | **Main/cross alignment, baseline, stretch and multi-line distribution** | **In progress: justify-content and non-stretch align-items/align-self integrated in Python/Rust; focused CI passed** |
 | F2.2.4 | Recursive layout and constrained native measurement protocol | Pending |
 | F2.2.5 | PyO3/maturin Rust-primary engine and Python fallback integration | Pending |
 | F2.2.6 | Rust/Python parity corpus and core stabilization | Pending |
@@ -994,3 +994,6 @@ Both implementations now support typed `align-items` at the container boundary a
 Cross-axis `auto` margins still take priority over both alignment properties, as required by Flexbox. The existing used-margin output remains unchanged. New kernels are `psx/sfle/cross_alignment.py` and `rust/sfle-core/src/cross_alignment.rs`; integration resides in the existing `margin_flex_pipeline` pair. Python regression cases are in `tests/sfle/test_cross_alignment.py` with matching Rust module and integrated geometry tests.
 
 `stretch` and `baseline` deliberately fail with an explicit unsupported error when selected for fixed-margin alignment: stretch requires the cross-size auto-vs-definite/min-max sizing contract and potentially native measurement; baseline requires per-item baseline metrics and line baseline groups. `align-content` and general multi-line distribution remain pending. These are not silently mapped to `flex-start`. The initial Chromium/Playwright headless reference suite remains scheduled after F2.2.3.
+
+
+**CI for this increment:** commit `b5495b49` passed SFLE run `38065836312` (Rust and Python 3.10–3.13). The first run detected an incorrect expected reverse-axis center coordinate (35 vs 45 pixels) in the test fixtures; both fixtures were corrected and the second SFLE matrix passed. General PSX alpha run `38065836183` is tracked independently.
