@@ -26,6 +26,7 @@ def resolve_measured_auto_leaves(
     used: UsedSizeTree,
     *,
     declarations: tuple[LeafAutoSizing, ...],
+    revisions: tuple[tuple[str, int], ...] = (),
 ) -> UsedSizeTree:
     """Resolve AUTO on measured leaves; fail closed on non-leaves/cycles.
 
@@ -52,6 +53,11 @@ def resolve_measured_auto_leaves(
         if not isinstance(declaration.width_kind, ResolutionKind) or not isinstance(declaration.height_kind, ResolutionKind):
             raise TypeError("Expected ResolutionKind axes.")
         by_id[declaration.node_id] = declaration
+    expected_revisions: dict[str, int] = {}
+    for node_id, revision in revisions:
+        if node_id not in ids or node_id in expected_revisions or type(revision) is not int or revision < 0:
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Invalid measurement revision.")
+        expected_revisions[node_id] = revision
     measured = {m.node_id: m for m in snapshot.measurements}
     updated = []
     for node_id, constraints in used.content:
@@ -64,6 +70,12 @@ def resolve_measured_auto_leaves(
         ):
             raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Auto sizing of containers requires CSS child contributions.", node_id)
         measurement = measured.get(node_id)
+        needs_intrinsic = ((declaration.width_kind == ResolutionKind.AUTO and not constraints.width.definite)
+                           or (declaration.height_kind == ResolutionKind.AUTO and not constraints.height.definite))
+        if needs_intrinsic and measurement is not None and (
+            measurement.constraints != constraints or measurement.revision != expected_revisions.get(node_id, 0)
+        ):
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale intrinsic measurement constraints or revision.", node_id)
         def axis(value: AvailableSize, kind: ResolutionKind, preferred: float) -> AvailableSize:
             if kind == ResolutionKind.AUTO and not value.definite:
                 if measurement is None:
