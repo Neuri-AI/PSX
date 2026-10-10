@@ -29,6 +29,7 @@ from .validators import (
     validate_radiogroup_props,
     validate_select_props,
     validate_switch_props,
+    validate_link_props,
 )
 Validator = Callable[[Mapping[str, object]], None]
 
@@ -186,4 +187,10 @@ SELECT_CONTRACT = ComponentContract(
 SWITCH_CONTRACT = ComponentContract(
     "Switch", SWITCH_PROPS, SWITCH_DEFAULTS,
     frozenset({"on_change"}), "none", validate_switch_props,
+)
+
+LINK_CONTRACT = ComponentContract(
+    "Link", LINK_PROPS, LINK_DEFAULTS,
+    frozenset({"on_click"}), "text-only",
+    validate_link_props, content_property="label",
 )

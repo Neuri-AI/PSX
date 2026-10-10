@@ -93,3 +93,5 @@ RADIOGROUP_PROPS = frozenset({
 SELECT_PROPS = frozenset({"options", "value", "placeholder", "enabled", "on_change"})
 
 SWITCH_PROPS = frozenset({"checked", "enabled", "label", "size", "color", "on_change"})
+
+LINK_PROPS = frozenset({"href", "label", "on_click", "color", "underline", "enabled"})

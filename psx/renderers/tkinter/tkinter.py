@@ -300,6 +300,7 @@ class TkinterRenderer:
         from .radiogroup import TkRadioGroupAdapter
         from .select import TkSelectAdapter
         from .switch import TkSwitchAdapter
+        from .link import TkLinkAdapter
         self.adapters.register("Column", TkColumnAdapter())
         self.adapters.register("Row", TkRowAdapter())
         self.adapters.register("Divider", TkDividerAdapter())
@@ -308,6 +309,7 @@ class TkinterRenderer:
         self.adapters.register("RadioGroup", TkRadioGroupAdapter())
         self.adapters.register("Select", TkSelectAdapter())
         self.adapters.register("Switch", TkSwitchAdapter())
+        self.adapters.register("Link", TkLinkAdapter())
         self._schedule_drain()
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:

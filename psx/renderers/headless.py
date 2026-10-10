@@ -29,6 +29,8 @@ from psx.renderers.components.progressbar import updated_progressbar_props, vali
 from psx.renderers.components.select import updated_select_props
 from psx.core.contracts import validate_select_props, validate_switch_props
 from psx.renderers.components.switch import updated_switch_props
+from psx.renderers.components.link import updated_link_props
+from psx.core.contracts import validate_link_props
 from psx.renderers.components.radio import (
     updated_radio_props,
     updated_radiogroup_props,
@@ -62,7 +64,7 @@ class HeadlessRenderer:
             "Column", "Row", "Fragment",
             "Text", "Button", "Input", "TextArea", "Checkbox", "Slider",
             "Spacer", "Divider", "Image", "ProgressBar",
-            "Radio", "RadioGroup", "Select", "Switch", "Box", "Native",
+            "Radio", "RadioGroup", "Select", "Switch", "Link", "Box", "Native",
         ):
             self.adapters.register(component, self._default_adapter)
 
@@ -103,6 +105,8 @@ class HeadlessRenderer:
                 validate_select_props(node.props)
             elif node.type == "Switch":
                 validate_switch_props(node.props)
+            elif node.type == "Link":
+                validate_link_props(node.props)
         handle = HeadlessHandle(node.type, dict(node.props))
         self.operations.append(("create", handle))
         return handle
@@ -147,6 +151,8 @@ class HeadlessRenderer:
             updated_select_props(target.props, changed, removed)
         elif target.type == "Switch":
             updated_switch_props(target.props, changed, removed)
+        elif target.type == "Link":
+            updated_link_props(target.props, changed, removed)
         target.props.update(changed)
         for name in removed:
             target.props.pop(name, None)
