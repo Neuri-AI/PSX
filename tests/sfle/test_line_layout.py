@@ -18,13 +18,13 @@ def item(name: str, main: float, cross: float = 10, order: int = 0) -> ResolvedI
     ("direction", "writing", "expected"),
     [
         (FlexDirection.ROW, WritingDirection.LTR, ((0, 0), (35, 0))),
-        (FlexDirection.ROW, WritingDirection.RTL, ((80, 0), (55, 0))),
-        (FlexDirection.ROW_REVERSE, WritingDirection.LTR, ((80, 0), (55, 0))),
+        (FlexDirection.ROW, WritingDirection.RTL, ((80, 0), (45, 0))),
+        (FlexDirection.ROW_REVERSE, WritingDirection.LTR, ((80, 0), (45, 0))),
         (FlexDirection.ROW_REVERSE, WritingDirection.RTL, ((0, 0), (35, 0))),
         (FlexDirection.COLUMN, WritingDirection.LTR, ((0, 0), (0, 35))),
         (FlexDirection.COLUMN, WritingDirection.RTL, ((90, 0), (90, 35))),
-        (FlexDirection.COLUMN_REVERSE, WritingDirection.LTR, ((0, 80), (0, 55))),
-        (FlexDirection.COLUMN_REVERSE, WritingDirection.RTL, ((90, 80), (90, 55))),
+        (FlexDirection.COLUMN_REVERSE, WritingDirection.LTR, ((0, 80), (0, 45))),
+        (FlexDirection.COLUMN_REVERSE, WritingDirection.RTL, ((90, 80), (90, 45))),
     ],
 )
 def test_main_axes_and_writing_direction(direction, writing, expected):
