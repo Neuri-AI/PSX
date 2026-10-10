@@ -1,0 +1,12 @@
+[package]
+name = "sfle-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Backend-neutral SFLE CSS flex sizing kernel, not yet a full layout engine"
+
+[lib]
+name = "sfle_core"
+path = "src/lib.rs"
+
+[dependencies]
