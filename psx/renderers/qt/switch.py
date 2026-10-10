@@ -31,6 +31,7 @@ def _switch_widget_class(binding: str):
             self._progress = 0.0
             self._label = ""
             self._size_name = "medium"
+            self._active_color = "#16A34A"
             self._animation = core.QPropertyAnimation(self, b"progress", self)
             self._animation.setDuration(160)
             easing = getattr(getattr(core.QEasingCurve, "Type", core.QEasingCurve), "OutCubic")
@@ -66,6 +67,8 @@ def _switch_widget_class(binding: str):
         def set_props(self, props):
             self._label = props["label"]
             self._size_name = props["size"]
+            self._active_color = props["color"]
+            self.update()
             self._sync_dimensions()
             self.setEnabled(props["enabled"])
             if self.isChecked() != props["checked"]:
@@ -83,9 +86,9 @@ def _switch_widget_class(binding: str):
             painter.setRenderHint(gui.QPainter.RenderHint.Antialiasing if hasattr(gui.QPainter, "RenderHint") else gui.QPainter.Antialiasing)
             painter.setPen(pen_style)
             if not self.isEnabled():
-                off, on = gui.QColor("#BBBBBB"), gui.QColor("#91B7A1")
+                off, on = gui.QColor("#BBBBBB"), gui.QColor(self._active_color).lighter(150)
             else:
-                off, on = gui.QColor("#9CA3AF"), gui.QColor("#16A34A")
+                off, on = gui.QColor("#9CA3AF"), gui.QColor(self._active_color)
             t = self._progress
             color = gui.QColor(
                 round(off.red() * (1-t) + on.red() * t),
