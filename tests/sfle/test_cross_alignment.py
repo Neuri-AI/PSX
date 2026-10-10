@@ -82,10 +82,15 @@ def test_overflow_end_alignment_keeps_negative_coordinate():
     assert result.boxes[0].border.y == -30
 
 
-def test_unsupported_stretch_and_baseline_are_explicitly_gated():
-    for mode in (CrossAlign.STRETCH, CrossAlign.BASELINE):
-        with pytest.raises(SFLECapabilityError):
-            compute_margin_flex_layout((item(),), 100, 100, align_items=mode)
+def test_baseline_remains_explicitly_gated():
+    with pytest.raises(SFLECapabilityError):
+        compute_margin_flex_layout((item(),), 100, 100, align_items=CrossAlign.BASELINE)
+
+
+def test_stretch_with_definite_cross_size_behaves_as_cross_start():
+    result = compute_margin_flex_layout((item(),), 100, 100, align_items=CrossAlign.STRETCH)
+    assert result.boxes[0].border.height == 20
+    assert result.boxes[0].border.y == 0
 
 
 def test_invalid_align_items_is_rejected():
