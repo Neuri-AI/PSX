@@ -82,6 +82,7 @@ from psx.core.contracts import (
     SELECT_PROPS,
     SELECT_DEFAULTS,
     SELECT_CONTRACT,
+    SWITCH_CONTRACT,
 )
 
 from .validators import (
@@ -537,3 +538,23 @@ def Select(
     )
     SELECT_CONTRACT.validate_builder(config)
     return create_element("Select", key=key, ref=ref, **config)
+
+
+def Switch(
+    *,
+    checked: bool = False,
+    enabled: bool = True,
+    label: str = "",
+    size: str = "medium",
+    on_change: Callable[[bool], None] | None = None,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Controlled, animated and labeled portable toggle switch."""
+    options = dict(
+        checked=checked, enabled=enabled,
+        label=label, size=size, on_change=on_change, **props,
+    )
+    SWITCH_CONTRACT.validate_builder(options)
+    return create_element("Switch", key=key, ref=ref, **options)
