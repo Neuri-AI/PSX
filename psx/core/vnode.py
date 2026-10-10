@@ -78,7 +78,10 @@ from psx.core.contracts import (
     # RadioGroup
     RADIOGROUP_PROPS,
     RADIOGROUP_DEFAULTS,
-    RADIOGROUP_CONTRACT
+    RADIOGROUP_CONTRACT,
+    SELECT_PROPS,
+    SELECT_DEFAULTS,
+    SELECT_CONTRACT,
 )
 
 from .validators import (
@@ -515,3 +518,22 @@ def RadioGroup(
     )
     RADIOGROUP_CONTRACT.validate_builder(options)
     return create_element("RadioGroup", *children, key=key, ref=ref, **options)
+
+def Select(
+    *,
+    options: tuple[object, ...] | list[object] = (),
+    value: str | int | None = None,
+    placeholder: str = "",
+    enabled: bool = True,
+    on_change: Callable[[str | int], None] | None = None,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Portable, controlled, single-selection input."""
+    config = dict(
+        options=options, value=value, placeholder=placeholder,
+        enabled=enabled, on_change=on_change, **props,
+    )
+    SELECT_CONTRACT.validate_builder(config)
+    return create_element("Select", key=key, ref=ref, **config)
