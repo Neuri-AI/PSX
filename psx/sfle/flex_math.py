@@ -158,9 +158,8 @@ def resolve_flexible_lengths(
         # freezes max-violating items, per §9.7.
         to_freeze = [
             idx for idx in live
-            if violations[idx] > 0 if total_violation > 0
-        ] if total_violation > 0 else [
-            idx for idx in live if violations[idx] < 0
+            if (total_violation > 0 and violations[idx] > 0)
+            or (total_violation < 0 and violations[idx] < 0)
         ]
         if not to_freeze:
             raise RuntimeError("Flex size freeze loop made no progress.")
