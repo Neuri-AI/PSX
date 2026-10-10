@@ -12,4 +12,4 @@ dependencies = ["psx>=1.0.0a1"]
 [tool.maturin]
 features = ["python"]
 bindings = "pyo3"
-module-name = "psx._sfle_native"
+module-name = "_sfle_native"
