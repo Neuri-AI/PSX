@@ -90,8 +90,10 @@ diffing and developer tooling.
 
 - Metadata may be supplied on an item regardless of current parent. Only
   direct children of a `Flex` formatting context become active flex items.
-- A child of `Column` or `Row` keeps its existing behavior. A nested Flex
-  establishes a *new* formatting context for its own direct children.
+- **Historical statement superseded by corrected D-F1.10:** the original
+  proposal assumed Row/Column stayed public, but both are removed from the
+  target API. A nested `Flex` establishes its own formatting context for its
+  direct children; metadata outside explicit Flex remains inert.
 - A function component boundary is **not** a native widget. Metadata attached
   at that boundary must be retained as an explicit logical layout participant
   without copying the props to the first rendered child.
