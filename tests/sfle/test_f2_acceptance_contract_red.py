@@ -67,8 +67,9 @@ def test_A04_grow_remeasures_final_text_width_and_parent_height():
         ("text", "root", "Text", {"flex_grow": 1, "flex_basis": Length(LengthKind.AUTO), "layout_height": Length(LengthKind.AUTO)}),
     ], width=150)
     result = PythonLayoutEngine().compute(s)
-    assert boxes(result)["text"].content.width == pytest.approx(150, abs=0.01)
-    assert boxes(result)["root"].content.height >= boxes(result)["text"].content.height
+    assert boxes(result)["text"].content.width == pytest.approx(_ACCEPTANCE["A04"]["text.width"], abs=0.01)
+    assert boxes(result)["text"].content.height == pytest.approx(_ACCEPTANCE["A04"]["text.height"], abs=0.01)
+    assert boxes(result)["root"].content.height == pytest.approx(_ACCEPTANCE["A04"]["root.height"], abs=0.01)
 
 
 def test_A05_shrink_remeasures_both_items_at_35px():
