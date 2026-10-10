@@ -6,7 +6,9 @@ This restricted helper requires a premeasured non-replaced intrinsic snapshot;
 it does not perform cyclic measurement, aspect-ratio transfer or auto min size.
 """
 
-from __future__ import annotations\n\nfrom dataclasses import replace
+from __future__ import annotations
+
+from dataclasses import replace
 
 from .errors import DiagnosticCode, SFLECapabilityError
 from .intrinsic import IntrinsicFlexInput, resolve_intrinsic_flex_basis
