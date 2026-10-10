@@ -45,3 +45,19 @@ def test_auto_container_rejected():
         resolve_measured_auto_leaves(snapshot,used,declarations=(
             LeafAutoSizing("root",ResolutionKind.AUTO,ResolutionKind.USED),
         ))
+
+def test_stale_leaf_measurement_revision_rejected():
+    snapshot, used = fixture()
+    with pytest.raises(SFLEError):
+        resolve_measured_auto_leaves(snapshot,used,declarations=(
+            LeafAutoSizing("leaf",ResolutionKind.AUTO,ResolutionKind.AUTO),
+        ),revisions=(("leaf",1),))
+
+def test_stale_leaf_measurement_constraints_rejected():
+    snapshot, used = fixture()
+    m = MeasuredBox("leaf",METRICS,size(50,None),0)
+    stale = LayoutInput(1,8,WritingDirection.LTR,size(200,100),snapshot.nodes,(m,))
+    with pytest.raises(SFLEError):
+        resolve_measured_auto_leaves(stale,used,declarations=(
+            LeafAutoSizing("leaf",ResolutionKind.AUTO,ResolutionKind.AUTO),
+        ))
