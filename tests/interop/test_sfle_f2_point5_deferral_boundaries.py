@@ -130,7 +130,7 @@ def test_certified_intrinsic_auto_wrap_with_definite_max_width_remains_supported
         Path(__file__).resolve().parents[1] /
         "sfle" / "fixtures" / "f2_recursive_sizing.json"
     ).read_text())
-    case = next(c for c in fixtures["cases"] if c["id"] == "auto-parent-max-width-wrap")
+    case = next(c for c in fixtures if c["id"] == "auto-parent-max-width-wrap")
     from test_f2_recursive_sizing_red import make_snapshot
     snapshot = make_snapshot(case)
     python, rust = _python_compute(snapshot), _rust_compute(rust_binary, snapshot)
