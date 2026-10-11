@@ -1296,3 +1296,31 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         measurement_error:None,engine_error:None,geometry_commit_error:None,
     })
 }
+
+
+#[cfg(test)]
+mod point3_saturation_tests {
+    use super::*;
+
+    #[test]
+    fn signed_minimum_free_space_does_not_overflow_absolute_value() {
+        // Two MAX-sized bases saturate the negative initial free space at
+        // i32::MIN. A fractional flex shrink (sum 0.5) exercises the
+        // intermediate absolute-value comparison at precisely that bound.
+        // Previously i32::MIN.abs() panicked in debug builds.
+        let max = LayoutUnit::from_raw(i32::MAX).to_px();
+        let item = FlexBasis {
+            basis: max, hypothetical: max, min_size: 0.0,
+            max_size: None, grow: 0.0, shrink: 0.25,
+        };
+        let targets = blink_flex_targets(&[item, item], 0.0, 0.0, "saturation")
+            .expect("Saturating fractional shrink must never panic");
+        assert_eq!(targets.len(), 2);
+        for size in targets {
+            assert!(size.is_finite());
+            assert!(size >= 0.0);
+            assert!(size <= max);
+            assert_eq!(size * 64.0, (size * 64.0).trunc());
+        }
+    }
+}
