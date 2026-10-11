@@ -445,20 +445,37 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 node_id,
             )
 
+    def bounded_intrinsic(style: _Style, horizontal: bool, value: float) -> float:
+        """Apply CSS explicit intrinsic/cross min/max size constraints.
+
+        The minimum wins over an inconsistent smaller maximum. Indefinite
+        percentage constraints remain handled by the capability gates.
+        """
+        maximum = style.max_width if horizontal else style.max_height
+        minimum = style.min_width if horizontal else style.min_height
+        if maximum.kind == LengthKind.PX:
+            assert maximum.value is not None
+            value = min(value, maximum.value)
+        if minimum.kind == LengthKind.PX:
+            assert minimum.value is not None
+            value = max(value, minimum.value)
+        return value
+
     def preferred(node_id: str, horizontal: bool) -> float:
         style = styles[node_id]
         length = style.width if horizontal else style.height
         if length.kind == LengthKind.PX:
             assert length.value is not None
-            return length.value
+            return bounded_intrinsic(style, horizontal, length.value)
         metric = measures.get(node_id)
         if not children[node_id]:
             if metric is not None:
-                return metric.intrinsic.preferred_width if horizontal else metric.intrinsic.preferred_height
+                value = metric.intrinsic.preferred_width if horizontal else metric.intrinsic.preferred_height
+                return bounded_intrinsic(style, horizontal, value)
             if components[node_id] == "Text":
                 raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                                 "Text requires intrinsic measurement.", node_id)
-            return 0.0
+            return bounded_intrinsic(style, horizontal, 0.0)
         is_row = style.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
         # CSS auto intrinsic contributions include the child's own padding.
         # Percentage padding requiring a cyclic intrinsic reference stays
@@ -483,8 +500,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             contributions.append(preferred(child, horizontal) + padding_sum)
         if is_row == horizontal:
             gap_length = style.column_gap if is_row else style.row_gap
-            return sum(contributions) + _intrinsic_gap(gap_length, node_id) * max(0,len(contributions)-1)
-        return max(contributions, default=0.0)
+            value = sum(contributions) + _intrinsic_gap(gap_length, node_id) * max(0,len(contributions)-1)
+            return bounded_intrinsic(style, horizontal, value)
+        return bounded_intrinsic(style, horizontal, max(contributions, default=0.0))
 
     used: dict[str, tuple[float, float]] = {}
 
@@ -514,6 +532,8 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                         raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                             "Missing post-flex width-specific intrinsic measurement.", node_id)
                 height = preferred(node_id, False)
+            width = bounded_intrinsic(style, True, width)
+            height = bounded_intrinsic(style, False, height)
             width, height = _layout_unit(width), _layout_unit(height)
             used[node_id] = (width, height)
             return width, height
@@ -523,6 +543,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             width = preferred(node_id, True)
         if height is None and not horizontal:
             height = preferred(node_id, False)
+        width = bounded_intrinsic(style, True, width)
+        if height is not None:
+            height = bounded_intrinsic(style, False, height)
         main_size = width if horizontal else height
         assert main_size is not None
         # Intrinsically auto-sized main axes are NOT percentage-definite simply
