@@ -29,6 +29,7 @@ class TkSFLEFlexAdapter:
                 width=round(constraints.width.value),
                 height=round(constraints.height.value),
             )
+            renderer._sfle_root_widget = widget
         return TkHandle("Flex", widget, dict(node.props))
 
     def update(self, renderer, handle, changed, removed):
@@ -44,14 +45,21 @@ class TkSFLEFlexAdapter:
         # with the real SFLE parent by TkinterRenderer.create().
         if child.widget.master is not parent.widget:
             raise RendererCapabilityError("Tk SFLE child has an incorrect native master.")
+        if child in parent.children:
+            parent.children.remove(child)
+        parent.children.insert(index, child)
         return True
 
     def move(self, renderer, parent, child, index):
         if child.widget.master is not parent.widget:
             raise RendererCapabilityError("Tk SFLE moved child has an incorrect native master.")
+        parent.children.remove(child)
+        parent.children.insert(index, child)
         return True
 
     def remove(self, renderer, parent, child):
+        if child in parent.children:
+            parent.children.remove(child)
         child.widget.place_forget()
         return True
 
@@ -62,5 +70,7 @@ class TkSFLEFlexAdapter:
         return None
 
     def destroy(self, renderer, handle):
+        if renderer._sfle_root_widget is handle.widget:
+            renderer._sfle_root_widget = None
         if handle.widget.winfo_exists():
             handle.widget.destroy()
