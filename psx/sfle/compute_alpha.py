@@ -522,6 +522,94 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             )
         return max(outer_sizes, default=0.0)
 
+    def intrinsic_flex_height(node_id: str, minimum: bool) -> float:
+        """Recursive intrinsic block size from certified fixed child heights.
+
+        For columns the block main contributions add, including row-gap;
+        for rows the block cross contribution is the largest outer child.
+        Unknown percent cycles and nonfixed flexible columns stay fail-closed.
+        """
+        style = styles[node_id]
+        if not children[node_id]:
+            intrinsic = measures.get(node_id)
+            if intrinsic is not None:
+                return _layout_unit(
+                    intrinsic.intrinsic.min_content_height if minimum
+                    else intrinsic.intrinsic.max_content_height
+                )
+            if components[node_id] == "Text":
+                raise SFLEError(
+                    DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                    "Intrinsic block constraint requires measured text.", node_id,
+                )
+            return 0.0
+
+        is_column = style.direction in (
+            FlexDirection.COLUMN, FlexDirection.COLUMN_REVERSE,
+        )
+        contributions = []
+        for child_id in children[node_id]:
+            child = styles[child_id]
+            if is_column and child.shrink != 0:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Recursive intrinsic column block sizing requires nonshrinking items.",
+                    child_id,
+                )
+            if child.height.kind == LengthKind.PX:
+                used_height = _layout_unit(child.height.value)
+            elif child.height.kind in (
+                LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT,
+            ):
+                used_height = intrinsic_flex_height(child_id, minimum)
+            else:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Uncertified percentage block dependency in intrinsic constraint.",
+                    child_id,
+                )
+            if child.max_height.kind == LengthKind.PX:
+                used_height = min(used_height, _layout_unit(child.max_height.value))
+            elif child.max_height.kind != LengthKind.AUTO:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Unresolved intrinsic maximum block size.", child_id,
+                )
+            if child.min_height.kind == LengthKind.PX:
+                used_height = max(used_height, _layout_unit(child.min_height.value))
+            elif child.min_height.kind != LengthKind.AUTO:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Unresolved intrinsic minimum block size.", child_id,
+                )
+            edges = (
+                child.padding_top, child.padding_bottom,
+                child.border_top, child.border_bottom,
+                child.margin_top, child.margin_bottom,
+            )
+            total = used_height
+            for edge in edges:
+                if edge.kind == LengthKind.PX:
+                    total = _sum_units((total, edge.value))
+                elif edge.kind != LengthKind.AUTO:
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Uncertified relative block edges in intrinsic constraint.",
+                        child_id,
+                    )
+            contributions.append(total)
+        if not is_column:
+            return max(contributions, default=0.0)
+        if style.row_gap.kind != LengthKind.PX:
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Recursive intrinsic column gap must be definite.", node_id,
+            )
+        return _sum_units(
+            part for i, size in enumerate(contributions)
+            for part in ((style.row_gap.value, size) if i else (size,))
+        )
+
     for node in reversed(request.nodes):
         node_id = node.node_id
         style = styles[node_id]
@@ -535,13 +623,10 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 continue
             is_min = length.kind == LengthKind.MIN_CONTENT
             if children[node_id]:
-                if axis != "width":
-                    raise SFLECapabilityError(
-                        DiagnosticCode.UNSUPPORTED_FEATURE,
-                        "Recursive intrinsic block-axis constraint not yet certified.",
-                        node_id,
-                    )
-                value = intrinsic_flex_width(node_id, is_min)
+                value = (
+                    intrinsic_flex_width(node_id, is_min) if axis == "width"
+                    else intrinsic_flex_height(node_id, is_min)
+                )
             else:
                 measured = measures.get(node_id)
                 if measured is None:
