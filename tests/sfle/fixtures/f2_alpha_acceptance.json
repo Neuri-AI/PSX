@@ -1464,6 +1464,56 @@
         "python",
         "rust"
       ]
+    },
+    {
+      "id": "N07",
+      "name": "nested-auto-block-percentage-unmeasured-intrinsic-graph",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 120,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "120px",
+            "height": "auto"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Flex",
+          "style": {
+            "direction": "column",
+            "width": "20px",
+            "height": "50%"
+          }
+        },
+        {
+          "node_id": "inner",
+          "parent_id": "child",
+          "component": "Box",
+          "style": {
+            "width": "20px",
+            "height": "20px"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "diagnostic": "SFLE_UNSUPPORTED_FEATURE",
+        "node": "child",
+        "cycle_kind": "unmeasured indefinite percentage block dependency cycle"
+      },
+      "verification": [
+        "python",
+        "rust"
+      ]
     }
   ],
   "chromium_reference": {
