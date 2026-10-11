@@ -12,6 +12,7 @@ from enum import Enum
 from .errors import DiagnosticCode, SFLEError
 from .margin_tree import MarginTreeNode
 from .recursive_measurement import RecursiveMeasurementResult
+from .model import LayoutResult
 
 
 class GeometryBackend(str, Enum):
@@ -44,10 +45,14 @@ class NativeGeometryCommitter:
         if nodes and nodes[0].parent_id is not None:
             raise SFLEError(DiagnosticCode.INVALID_TREE, "Root must be first.")
 
-    def __call__(self, result: RecursiveMeasurementResult) -> None:
-        if not isinstance(result, RecursiveMeasurementResult):
-            raise TypeError("Expected RecursiveMeasurementResult.")
-        boxes = {box.node_id: box.border for box in result.geometry.boxes}
+    def __call__(self, result: RecursiveMeasurementResult | LayoutResult) -> None:
+        """Apply either legacy recursive geometry or the F2 snapshot result."""
+        if isinstance(result, RecursiveMeasurementResult):
+            boxes = {box.node_id: box.border for box in result.geometry.boxes}
+        elif isinstance(result, LayoutResult):
+            boxes = {node_id: box.border for node_id, box in result.boxes}
+        else:
+            raise TypeError("Expected RecursiveMeasurementResult or LayoutResult.")
         if set(boxes) != set(self._parents):
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Geometry tree identity mismatch.")
         if any(node_id not in self._widgets for node_id in self._parents if self._parents[node_id] is not None):
