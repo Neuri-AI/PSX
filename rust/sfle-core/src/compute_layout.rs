@@ -311,22 +311,31 @@ struct Context<'a>{
     measurements:HashMap<&'a str,&'a crate::compute::MeasuredBox>,
     used:Vec<Option<(f64,f64)>>,
 }
+fn bounded_intrinsic(style:Style,h:bool,mut value:f64)->f64{
+    // CSS intrinsic/cross min/max uses a bounded content size. A minimum
+    // overrides a conflicting smaller maximum.
+    let maximum=if h{style.max_width}else{style.max_height};
+    let minimum=if h{style.min_width}else{style.min_height};
+    if let Length::Px(maximum)=maximum{value=value.min(maximum);}
+    if let Length::Px(minimum)=minimum{value=value.max(minimum);}
+    value
+}
 impl Context<'_>{
     fn preferred(&self,index:usize,h:bool)->Result<f64,ComputeError>{
         let node=&self.input.nodes[index];
         let style=self.styles[index];
         match if h {style.width}else{style.height}{
-            Length::Px(n)=>return Ok(n),
+            Length::Px(n)=>return Ok(bounded_intrinsic(style,h,n)),
             _=>{},
         }
         if self.children[index].is_empty(){
             if let Some(m)=self.measurements.get(node.node_id.as_str()){
-                return Ok(if h{m.intrinsic.preferred_width}else{m.intrinsic.preferred_height});
+                return Ok(bounded_intrinsic(style,h,if h{m.intrinsic.preferred_width}else{m.intrinsic.preferred_height}));
             }
             if node.component=="Text" {
                 return Err(measurement("Text requires intrinsic measurement.",&node.node_id));
             }
-            return Ok(0.0);
+            return Ok(bounded_intrinsic(style,h,0.0));
         }
         let mut sizes=Vec::with_capacity(self.children[index].len());
         for &child in &self.children[index] {
@@ -350,9 +359,9 @@ impl Context<'_>{
         }
         if horizontal(style.direction)==h {
             let intrinsic = intrinsic_gap(if horizontal(style.direction){style.column_gap}else{style.row_gap},&node.node_id)?;
-            Ok(sizes.iter().sum::<f64>()+intrinsic*sizes.len().saturating_sub(1) as f64)
+            Ok(bounded_intrinsic(style,h,sizes.iter().sum::<f64>()+intrinsic*sizes.len().saturating_sub(1) as f64))
         } else {
-            Ok(sizes.into_iter().fold(0.0_f64,f64::max))
+            Ok(bounded_intrinsic(style,h,sizes.into_iter().fold(0.0_f64,f64::max)))
         }
     }
     fn layout(&mut self,index:usize,forced_w:Option<f64>,forced_h:Option<f64>,
@@ -380,13 +389,15 @@ impl Context<'_>{
                 }
                 height=Some(self.preferred(index,false)?);
             }
-            let dims=(layout_unit(width.unwrap()),layout_unit(height.unwrap()));
+            let dims=(layout_unit(bounded_intrinsic(style,true,width.unwrap())),layout_unit(bounded_intrinsic(style,false,height.unwrap())));
             self.used[index]=Some(dims);
             return Ok(dims);
         }
         let row=horizontal(style.direction);
         if width.is_none(){width=Some(self.preferred(index,true)?);}
         if height.is_none()&&!row{height=Some(self.preferred(index,false)?);}
+        width=width.map(|v|bounded_intrinsic(style,true,v));
+        height=height.map(|v|bounded_intrinsic(style,false,v));
         let main=if row{width.unwrap()}else{height.unwrap()};
         let main_reference=if (row&&matches!(style.width,Length::Auto)&&forced_w.is_none())||
                               (!row&&matches!(style.height,Length::Auto)&&forced_h.is_none()){
