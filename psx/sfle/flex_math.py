@@ -89,8 +89,14 @@ def resolve_flexible_lengths(
     if not items:
         return ()
 
+    # This low-level *resolved f64* kernel does not use LayoutUnit storage.
+    # A finite CSS gutter/count or basis sum may nevertheless overflow f64.
+    # Refuse nonfinite intermediates instead of producing silent NaN geometry.
     free_main = available - gutter * (len(items) - 1)
-    growing = sum(item.hypothetical for item in items) < free_main
+    hypothetical_total = sum(item.hypothetical for item in items)
+    if not math.isfinite(free_main) or not math.isfinite(hypothetical_total):
+        raise ValueError("Resolved Flex prequantization arithmetic overflow.")
+    growing = hypothetical_total < free_main
     targets = [item.basis for item in items]
     frozen = [False] * len(items)
 

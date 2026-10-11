@@ -107,8 +107,17 @@ pub fn resolve_flexible_lengths(
     if items.is_empty() {
         return Ok(vec![]);
     }
+    // This low-level resolved Flex kernel deliberately runs on f64; unlike
+    // used geometry it has no LayoutUnit storage to saturate into.
+    // Reject overflowing finite-input gutter products and basis sums.
     let free_main = container_inner_main_size - gap * (items.len() - 1) as f64;
-    let growing = items.iter().map(|i| i.hypothetical).sum::<f64>() < free_main;
+    let hypothetical_total=items.iter().map(|i| i.hypothetical).sum::<f64>();
+    if !free_main.is_finite() || !hypothetical_total.is_finite() {
+        return Err(FlexMathError::InvalidInput(
+            "resolved Flex prequantization arithmetic overflow",
+        ));
+    }
+    let growing = hypothetical_total < free_main;
     let mut targets: Vec<f64> = items.iter().map(|i| i.basis).collect();
     let mut frozen = vec![false; items.len()];
 
