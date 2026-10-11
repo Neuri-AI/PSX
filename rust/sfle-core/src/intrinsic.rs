@@ -57,6 +57,13 @@ impl IntrinsicFlexInput {
         {
             return Err(FlexMathError::InvalidInput("invalid intrinsic sizing input"));
         }
+        if self.has_aspect_ratio_transfer
+            && (self.aspect_ratio.is_none() || self.preferred_cross_size.is_none())
+        {
+            return Err(FlexMathError::InvalidInput(
+                "aspect-ratio transfer requires typed ratio and explicit cross-size measurement",
+            ));
+        }
         if (self.scroll_container && !matches!(self.overflow, OverflowMode::Auto | OverflowMode::Scroll))
             || (self.overflow == OverflowMode::Scroll && !self.scroll_container)
         {
