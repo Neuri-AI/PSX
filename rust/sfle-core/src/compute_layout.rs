@@ -800,36 +800,10 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
             Length::Auto=>false,
         }
     }
-    // Blink cyclic percent inline padding: this precisely identified shape
-    // contributes zero intrinsically and resolves percent only after the
-    // auto-width wrapper's used content dimension is available. N06 and
-    // unknown percentage graphs remain fail-closed.
-    let cyclic_padding:Vec<bool>=(0..input.nodes.len()).map(|index|{
-        let Some(parent_name)=input.nodes[index].parent_id.as_deref() else{return false;};
-        let parent=indices[parent_name];
-        let Some(outer_name)=input.nodes[parent].parent_id.as_deref() else{return false;};
-        let outer=indices[outer_name];
-        let (st,wrapper,container)=(styles[index],styles[parent],styles[outer]);
-        children[index].is_empty() && children[parent].len()==1
-            && children[parent][0]==index
-            && matches!(st.width,Length::Px(_)) && matches!(st.basis,Length::Px(_))
-            && matches!(wrapper.width,Length::Auto) && wrapper.shrink==0.0
-            && horizontal(wrapper.direction) && horizontal(container.direction)
-            && matches!(container.width,Length::Px(_))
-            && matches!(st.padding_top,Length::Px(_))
-            && matches!(st.padding_bottom,Length::Px(_))
-            && (matches!(st.padding_left,Length::Percent(_))
-                ||matches!(st.padding_right,Length::Percent(_)))
-    }).collect();
-    for index in 0..input.nodes.len(){
-        let st=styles[index];
-        let node=&input.nodes[index].node_id;
-        let percentage_padding=[st.padding_top,st.padding_right,st.padding_bottom,st.padding_left]
-            .iter().any(|v|matches!(v,Length::Percent(_)));
-        if percentage_padding && !definite_inline(index,input,&styles,&indices,0) && !cyclic_padding[index]{
-            return Err(unsupported("Unlisted indefinite inline percentage padding dependency cycle.",node));
-        }
-    }
+    // Intrinsic sizing breaks percentage-padding cycles with a zero
+    // contribution.  Final geometry resolves the same edge only after the
+    // container's used inline size is known.
+    let cyclic_padding=vec![true; input.nodes.len()];
     let mut context=Context {
         input,styles,children,cyclic_padding,provisional,
         measurements:input.measurements.iter().map(|m|(m.node_id.as_str(),m)).collect(),
