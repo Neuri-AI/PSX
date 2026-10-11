@@ -66,6 +66,7 @@ def test_A08_rust_worker_headless_ui_measuring_and_observed_commit():
     from psx.sfle.worker_lifecycle import start_native_worker_layout
     from psx.sfle.measurement_plan import MeasurementRequest
     from psx.sfle.model import AvailableSize, LayoutConstraints
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sfle"))
     from test_f2_native_worker_portable_red import _UIQueue, _source
 
     engine = load_layout_engine()
