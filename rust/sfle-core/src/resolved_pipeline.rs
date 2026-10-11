@@ -110,8 +110,10 @@ mod tests {
             Wrap::NoWrap, 10.0, 0.0,
         ).unwrap();
         assert_eq!(result.lines, vec![vec!["a", "b"]]);
-        assert!((result.items[0].rect.width - 36.66666666666667).abs() < 1e-9);
-        assert!((result.items[1].rect.x - 46.66666666666667).abs() < 1e-9);
+        assert_eq!(result.items[0].rect.width, 36.671875);
+        assert_eq!(result.items[1].rect.x, 46.671875);
+        assert_eq!(result.items[1].rect.width, 53.328125);
+        assert_eq!(result.items[1].rect.x + result.items[1].rect.width, 100.0);
     }
 
     #[test]

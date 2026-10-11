@@ -13,12 +13,13 @@ from psx.sfle.main_alignment import JustifyContent, resolve_main_alignment
     (JustifyContent.CENTER, 25, 10),
     (JustifyContent.SPACE_BETWEEN, 0, 60),
     (JustifyContent.SPACE_AROUND, 12.5, 35),
-    (JustifyContent.SPACE_EVENLY, 50 / 3, 10 + 50 / 3),
+    # Fixed-point rounding applies to each CSS distribution expression.
+    (JustifyContent.SPACE_EVENLY, 16.671875, 26.671875),
 ])
 def test_main_alignment_positive_free_space(mode, leading, between):
     value = resolve_main_alignment(mode, 100, (20, 20), gap=10)
-    assert value.leading_space == pytest.approx(leading)
-    assert value.between_space == pytest.approx(between)
+    assert value.leading_space == leading
+    assert value.between_space == between
     assert value.remaining_free_space == 50
 
 

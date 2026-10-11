@@ -21,7 +21,8 @@ def sample(name: str, *, cross: float = 20) -> MarginFlexItem:
     (AlignContent.CENTER, (25, 55)),
     (AlignContent.SPACE_BETWEEN, (0, 80)),
     (AlignContent.SPACE_AROUND, (12.5, 67.5)),
-    (AlignContent.SPACE_EVENLY, (50 / 3, 30 + 100 / 3)),
+    # Blink-sized gaps are snapped individually at 1/64px, then accumulated.
+    (AlignContent.SPACE_EVENLY, (16.671875, 63.34375)),
 ])
 def test_align_content_changes_multiline_positions(mode, positions):
     layout = compute_margin_flex_layout(
@@ -29,7 +30,7 @@ def test_align_content_changes_multiline_positions(mode, positions):
         wrap=FlexWrap.WRAP, cross_gap=10, align_content=mode,
     )
     assert layout.lines == (("a",), ("b",))
-    assert tuple(box.border.y for box in layout.boxes) == pytest.approx(positions)
+    assert tuple(box.border.y for box in layout.boxes) == positions
 
 
 def test_align_content_stretch_expands_lines_not_fixed_height_items():

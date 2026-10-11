@@ -84,3 +84,51 @@ def test_numeric_css_reference_in_real_chromium(case_id,page):
         assert actual==pytest.approx(wanted,abs=CORPUS["tolerance_px"]),(
             f"{case_id}: Chromium {key}={actual}, canonical expected={wanted}"
         )
+
+
+
+@pytest.mark.parametrize("mode", ("main", "cross"))
+def test_fractional_space_evenly_matches_chromium_layout_units(page, mode):
+    """Chromium 153 is the external oracle, not the helper's own expected data."""
+    from psx.sfle.align_content import AlignContent, distribute_cross_lines
+    from psx.sfle.main_alignment import JustifyContent, resolve_main_alignment
+
+    if mode == "main":
+        page.set_content(
+            '<!doctype html><html><body style="margin:0">'
+            '<div style="display:flex;width:100px;height:100px;'
+            'justify-content:space-evenly;column-gap:10px;align-items:flex-start">'
+            '<div id="a" style="flex:0 0 20px;height:20px"></div>'
+            '<div id="b" style="flex:0 0 20px;height:20px"></div>'
+            '</div></body></html>'
+        )
+        result = resolve_main_alignment(
+            JustifyContent.SPACE_EVENLY, 100, (20,20), gap=10
+        )
+        predicted = (result.leading_space,
+                     result.leading_space + 20 + result.between_space)
+        axis = "x"
+    else:
+        page.set_content(
+            '<!doctype html><html><body style="margin:0">'
+            '<div style="display:flex;flex-wrap:wrap;width:100px;height:100px;'
+            'align-content:space-evenly;row-gap:10px;align-items:flex-start">'
+            '<div id="a" style="flex:0 0 60px;height:20px"></div>'
+            '<div id="b" style="flex:0 0 60px;height:20px"></div>'
+            '</div></body></html>'
+        )
+        result = distribute_cross_lines(
+            AlignContent.SPACE_EVENLY, 100, (20,20), gap=10
+        )
+        predicted = result.starts
+        axis = "y"
+
+    observed = page.evaluate("""axis => ['a','b'].map(id => {
+        const rect=document.getElementById(id).getBoundingClientRect();
+        return axis==='x' ? rect.x : rect.y;
+    })""", axis)
+    for index in range(2):
+        assert abs(predicted[index] - observed[index]) <= CORPUS["tolerance_px"], (
+            f"space-evenly {mode}[{index}]: SFLE={predicted[index]} "
+            f"Chromium={observed[index]}"
+        )

@@ -78,9 +78,11 @@ mod tests {
         assert_eq!(resolve_main_alignment(
             JustifyContent::SpaceAround, 100.0, &sizes, 10.0
         ).unwrap().leading_space, 12.5);
-        assert_eq!(resolve_main_alignment(
+        let evenly = resolve_main_alignment(
             JustifyContent::SpaceEvenly, 100.0, &sizes, 10.0
-        ).unwrap().leading_space, 50.0 / 3.0);
+        ).unwrap();
+        assert_eq!(evenly.leading_space, 16.671875);
+        assert_eq!(evenly.between_space, 26.671875);
     }
 
     #[test]
