@@ -23,6 +23,10 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from threading import get_ident
+
+from psx.core.props import FLEX_ITEM_PROPS
+from psx.sfle.model import LayoutConstraints, LayoutResult
 
 from kivy.base import runTouchApp
 from kivy.clock import Clock
@@ -301,7 +305,27 @@ register_primitive(
 class KivyRenderer:
     """Map portable PSX layout nodes to Kivy's native widget/layout APIs."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        sfle_constraints: LayoutConstraints | None = None,
+        engine: object | None = None,
+    ) -> None:
+        if sfle_constraints is not None and not isinstance(sfle_constraints, LayoutConstraints):
+            raise TypeError("Kivy SFLE viewport must be LayoutConstraints.")
+        if sfle_constraints is None and engine is not None:
+            raise ValueError("Kivy SFLE engine requires explicit viewport constraints.")
+        if sfle_constraints is not None and (
+            not sfle_constraints.width.definite or not sfle_constraints.height.definite
+        ):
+            raise RendererCapabilityError("Kivy SFLE viewport must have definite axes.")
+        from psx.sfle.backend import load_layout_engine
+        self._sfle_constraints = sfle_constraints
+        self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
+        self._sfle_generation = 0
+        self._sfle_in_commit = False
+        self._sfle_owner_thread = get_ident()
+        self.sfle_result: LayoutResult | None = None
         self._root: Widget | None = None
         self.adapters = RendererAdapterRegistry()
         self._default_adapter = DelegatingAdapter()
@@ -334,9 +358,34 @@ class KivyRenderer:
         self.adapters.register("ProgressBar", KivyProgressBarAdapter())
         self.adapters.register("Radio", KivyRadioAdapter())
         self.adapters.register("RadioGroup", KivyRadioGroupAdapter())
+        if sfle_constraints is not None:
+            from .flex import KivySFLEFlexAdapter
+            self.adapters.register("Flex", KivySFLEFlexAdapter(), replace=True)
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
+
+    def set_sfle_constraints(self, constraints: LayoutConstraints) -> None:
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("Kivy SFLE has not been enabled for this renderer.")
+        if not isinstance(constraints, LayoutConstraints):
+            raise TypeError("Kivy SFLE viewport needs LayoutConstraints.")
+        if not constraints.width.definite or not constraints.height.definite:
+            raise RendererCapabilityError("Kivy SFLE viewport axes must be definite.")
+        self._sfle_constraints = constraints
+        self._sfle_generation += 1
+        if self._root is not None:
+            self._root.size = (constraints.width.value, constraints.height.value)
+
+    def commit_layout(self, root: object) -> None:
+        if self._sfle_constraints is not None:
+            from psx.sfle.f3_kivy import commit_kivy_sfle
+            commit_kivy_sfle(self, root)
+
+    def invalidate_layout(self) -> None:
+        if self._sfle_constraints is not None:
+            self._sfle_generation += 1
+            self.sfle_result = None
 
     def _adapter_for(self, key: object):
         return self.adapters.get(key) or self._default_adapter
@@ -344,6 +393,16 @@ class KivyRenderer:
     # -- create -----------------------------------------------------------
 
     def create(self, node: VNode, parent: object | None) -> KivyHandle:
+        if self._sfle_constraints is not None:
+            # Only certified widget types join the native SFLE tree until
+            # the complete G2 registry/backend matrix is implemented.
+            if node.kind is not NodeKind.HOST or node.type not in ("Flex", "Text", "Button"):
+                raise RendererCapabilityError(
+                    f"F3-G2 Kivy SFLE geometry not certified for {node.type!r}.")
+            if node.type != "Flex":
+                node = VNode(node.kind, node.type, node.key,
+                             {key: val for key, val in node.props.items()
+                              if key not in FLEX_ITEM_PROPS}, node.children)
         # type: ignore[return-value]
         return self._adapter_for(adapter_key(node)).create(self, node, parent)
 
@@ -359,6 +418,10 @@ class KivyRenderer:
             handle = self._native(node, native_parent)
         else:
             handle = self._create_local(node)
+        if self._sfle_constraints is not None:
+            # Widget itself must not accept an external Kivy layout's size hints.
+            handle.widget.size_hint = (None, None)
+            handle.widget.pos_hint = {}
         if parent is None:
             self._root = handle.widget
         return handle
@@ -385,6 +448,11 @@ class KivyRenderer:
     # -- update -----------------------------------------------------------
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
+        if self._sfle_constraints is not None and _handle(handle).node_type != "Flex":
+            changed = {key: val for key, val in changed.items() if key not in FLEX_ITEM_PROPS}
+            removed = frozenset(key for key in removed if key not in FLEX_ITEM_PROPS)
+            if not changed and not removed:
+                return
         self._adapter_for(handle_adapter_key(handle)).update(
             self, handle, changed, removed)
 
