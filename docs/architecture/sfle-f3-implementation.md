@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Qt/Kivy/Tk explicit Native/custom geometry ports certified at `63544c6`); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (SFLE native Qt parity verified across PySide6/PyQt6/PyQt5/PySide2 at `32050c0`); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -493,3 +493,23 @@ Historical G1.2 incremental evidence is retained above.
   ```
 - **Certification:** Code commit [`63544c6`](https://github.com/Neuri-AI/PSX/commit/63544c69b8879cd1081341520547628e9ba8b34c) passed [F3 selective #38166068973](https://github.com/Neuri-AI/PSX/actions/runs/38166068973) **COMPLETED SUCCESS** (**175 Core tests; 35 PySide6; 23 Tk native; 3 Kivy subprocess pytest functions covering real SDL2 scenarios**), and [G1 Python matrix #38166068974](https://github.com/Neuri-AI/PSX/actions/runs/38166068974) **COMPLETED SUCCESS** on that same SHA. Direct/native tests cover `Native` on all three GUI backends, custom registered leaves on all three, foreign/missing port preflight, invalid measurement/readback, F2 mixed builtin/external projection and Qt geometry restoration on bad readback. The first CI attempt exposed an import-order cycle in F2 and an incorrect unported-builtin diagnostic; both were corrected before this certified SHA.
 - **Open for G2 closure:** remaining custom lifecycle / borrowed widgets matrix, unsupported per-backend builtins and port variations, all Qt bindings, actual automatic viewport resize, width-dependent intrinsic remeasure and DPI, complete `registry × backend × operation` table, rollback under toolkit destruction, and remaining full cross-platform acceptance. **This port increment is GREEN but G2 is not formally closed.** G3 continues to own full Scroll offsets/events and clipping.
+
+## F3-G2 iteration — mandatory four-binding Qt SFLE parity (2026-10-11)
+
+**Formal status: G2 IN PROGRESS; F3 officially 1/5 gates closed (20%). This is Qt binding parity for the currently supported G2 leaf subset, not full platform parity.**
+
+- **Implementation reused:** All four concrete Qt renderer facades — `PySide6Renderer`, `PyQt6Renderer`, `PyQt5Renderer`, `PySide2Renderer` — reuse the same `QtRenderer`, production `QtSFLEFlexAdapter`, `QtMeasurementSource`, F2 `NativeGeometryCommitter(GeometryBackend.QT)`, immutable `LayoutInput`, generation/owner-thread guards, explicit `Native` and registered custom `SFLEExternalPort(measure,apply,read)`. No separate Qt5 CSS solver or `QBoxLayout` fallback was added.
+- **Actual defect repaired:** `Native()` previously rejected `renderer="pyside2"` despite the Qt renderer correctly supporting it. `psx/core/native.py` now accepts PySide2 and correctly infers it from `PySide2.QtWidgets` classes/instances (including existing borrowed widget ownership behavior). This defect was discovered by the first live PySide2 matrix run, not papered over by a skip.
+- **Binding matrix with explicit platform/Python constraints:** `tests/test_f3_g2_qt_family.py` is executed in a **fresh process per binding**, all with actual widgets under Ubuntu `QT_QPA_PLATFORM=offscreen`:
+  | Binding | Tested Python | G2 common parity |
+  | --- | --- | --- |
+  | PySide6 / Qt 6 | 3.12 | **14/14 PASS** |
+  | PyQt6 / Qt 6 | 3.12 | **14/14 PASS** |
+  | PyQt5 / Qt 5 | 3.12 | **14/14 PASS** |
+  | PySide2 / Qt 5 | **3.10 only** | **14/14 PASS** |
+
+  PySide2's last published wheel series is `5.15.2.1` (January 2022), with interpreter tags up through Python 3.10. The CI pins `PySide2==5.15.2.1` in an independent Python 3.10 Linux x86-64 job; no unsupported 3.11–3.13 PySide2 claim is made. The other Qt bindings are tested on Python 3.12, not yet every supported OS/Python combination.
+- **Parities exercised:** real `QWidget.geometry` and correct native parent for nested Builder and Markup `Flex` with padding/gaps; Text/Button; Checkbox/Input/Slider/Radio/ProgressBar/Select native types and exactly matching border rectangles; `key` moves with stable widget identity; coalesced hooks/state and callback rebinding; explicit viewport recomputation; owning UI thread; valid/invalid SFLE generation; reject unported primitive and non-SFLE `Flex`; `Native` explicit and inferred toolkit binding plus `SFLEExternalPort`, and registered custom leaf adapters with actual native projection/readback. `ProgressBar` checks **normalized progress**, not raw Qt scaled integer units.
+- **CI enforcement:** `.github/workflows/f3-selective.yml` has a required four-cell `qt-parity` job; the `F3 required CI conclusion` also fails when its aggregate is not successful, even if the pre-existing PySide6 native suite passes. `scripts/ci/impact.py` now sends both Qt-family parity test changes and central F3 workflow changes through Qt testing, with explicit router regressions.
+- **Certificate:** Source commit [`32050c0`](https://github.com/Neuri-AI/PSX/commit/32050c0b5af59f0997e0718c7d2f029025870086) passed [F3 selective CI #38167340136](https://github.com/Neuri-AI/PSX/actions/runs/38167340136) **COMPLETED SUCCESS** with all four binding jobs (14 tests each) and **35 existing PySide6 native tests**; [G1 certification #38167340147](https://github.com/Neuri-AI/PSX/actions/runs/38167340147) also **COMPLETED SUCCESS** on the identical source SHA.
+- **Open for full G2 closure:** Qt OS × Python × toolkit-version matrix beyond the certified Linux subset; remaining components and custom/borrowed lifecycle cases; automated native window resize propagation; width-dependent text intrinsic remeasurement; DPI scaling; complete registry × backend × operation tests. Cross-platform final acceptance remains **G5**.
