@@ -1363,6 +1363,63 @@
         "chromium"
       ],
       "browser_case_index": 76
+    },
+    {
+      "id": "N05",
+      "name": "mixed-sign-frozen-flex-target-fails-closed",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 100,
+        "height": 60
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "100px",
+            "height": "60px"
+          }
+        },
+        {
+          "node_id": "a",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "20px",
+            "height": "20px",
+            "flex_basis": "20px",
+            "flex_shrink": 0,
+            "flex_grow": 0,
+            "min_width": "40px"
+          }
+        },
+        {
+          "node_id": "b",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "80px",
+            "height": "20px",
+            "flex_basis": "80px",
+            "flex_shrink": 1,
+            "flex_grow": 0,
+            "min_width": "0px"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "diagnostic": "SFLE_UNSUPPORTED_FEATURE",
+        "node": "root",
+        "cycle_kind": "Mixed-sign flex target constraints need explicit freeze metadata"
+      },
+      "verification": [
+        "python",
+        "rust"
+      ]
     }
   ]
 }
