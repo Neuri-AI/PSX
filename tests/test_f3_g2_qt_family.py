@@ -214,6 +214,56 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertIn(("apply", Rect(0, 0, 30, 18)), calls)
         self.assertIn("read", calls)
 
+    def test_registered_custom_adapter_uses_sfles_native_port(self):
+        from psx.core.vnode import create_element
+        from psx.renderers.qt.pyqt import QtHandle
+
+        calls = []
+        def measure(widget, limits):
+            calls.append("measure")
+            return IntrinsicSizes(8, 23, 8, 15, 23, 15)
+        def apply(widget, rect):
+            calls.append(("apply", rect))
+            widget.setGeometry(round(rect.x), round(rect.y),
+                               round(rect.width), round(rect.height))
+        def read(widget):
+            calls.append("read")
+            r = widget.geometry()
+            return Rect(r.x(), r.y(), r.width(), r.height())
+
+        class BadgeAdapter:
+            sfle_port = SFLEExternalPort(measure, apply, read)
+
+            def create(self, renderer, node, parent):
+                return QtHandle("ParityBadge", qtwidgets.QLabel("Badge"))
+
+            def update(self, renderer, handle, changed, removed):
+                pass
+
+            def destroy(self, renderer, handle):
+                handle.widget.deleteLater()
+
+            def bind_event(self, renderer, handle, event, slot):
+                raise RendererCapabilityError("Unsupported external event.")
+
+            def unbind_event(self, renderer, subscription):
+                pass
+
+        self.renderer.register_adapter("ParityBadge", BadgeAdapter())
+        root = self.reconciler.render(Flex(
+            create_element("ParityBadge", key="badge",
+                           layout_width="42px", layout_height="18px",
+                           flex_basis="42px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        widget = root.children[0].handle.widget
+        self.assertIsInstance(widget, qtwidgets.QLabel)
+        self.assertIs(widget.parentWidget(), root.handle.widget)
+        self.assertEqual(geometry(widget), (0, 0, 42, 18))
+        self.assertIn("measure", calls)
+        self.assertIn(("apply", Rect(0, 0, 42, 18)), calls)
+        self.assertIn("read", calls)
+
     def test_missing_native_geometry_port_fails_before_factory(self):
         created = []
         def factory():
