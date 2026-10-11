@@ -103,7 +103,7 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
 
 def _layout_unit(value: float) -> float:
     """Quantize a resolved CSS used size to Chromium's 1/64 CSS-px grid."""
-    return math.floor(value * 64) / 64
+    return math.floor(value * 64.0 + 0.5) / 64.0
 
 
 def _axis_value(length: Length, reference: float | None, *,
@@ -319,6 +319,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                         raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                             "Missing post-flex width-specific intrinsic measurement.", node_id)
                 height = preferred(node_id, False)
+            width, height = _layout_unit(width), _layout_unit(height)
             used[node_id] = (width, height)
             return width, height
 
@@ -393,6 +394,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 cross_sizes.append(child_width)
         if height is None:
             height = max(cross_sizes, default=0.0)
+        width, height = _layout_unit(width), _layout_unit(height)
         used[node_id] = (width,height)
         return width,height
 
