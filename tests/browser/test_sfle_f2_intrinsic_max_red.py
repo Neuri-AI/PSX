@@ -242,3 +242,72 @@ def test_definite_row_percentage_min_width_and_conflicting_max_red(page, rust_bi
             assert abs(rv - expected[axis]) <= 0.01, (
                 f"B1 percent-min[{index}] {node_id}.{axis}: Rust={rv}, Chromium={expected[axis]}"
             )
+
+
+
+@pytest.mark.parametrize("index", range(8))
+def test_cyclic_percentage_intrinsic_padding_zero_then_used_width_red(page, rust_binary, index):
+    """B1 RED: cyclic percent inline padding contributes zero intrinsically,
+    but resolves against the resulting auto parent's used inline width.
+    """
+    root_width = 300 + 7 * index
+    leaf_width = 40 + index
+    percent = 10 + 5 * index
+    nodes = (
+        LayoutNode("root", None, "Flex", _typed({
+            "direction": "row", "width": f"{root_width}px",
+            "height": "100px", "align_items": "flex-start",
+        })),
+        LayoutNode("nested", "root", "Flex", _typed({
+            "direction": "row", "width": "auto", "height": "auto",
+            "flex_basis": "auto", "flex_shrink": 0,
+            "min_width": "0px", "align_items": "flex-start",
+        })),
+        LayoutNode("leaf", "nested", "Box", _typed({
+            "width": f"{leaf_width}px", "height": "20px",
+            "flex_basis": f"{leaf_width}px", "flex_shrink": 0,
+            "layout_padding_left": f"{percent}%",
+        })),
+    )
+    snapshot = LayoutInput(
+        1, 131 + index, WritingDirection.LTR,
+        LayoutConstraints(AvailableSize(root_width, True), AvailableSize(100, True)),
+        nodes, (),
+    )
+    py = dict(PythonLayoutEngine().compute(snapshot).boxes)
+    process = subprocess.run(
+        [str(rust_binary)], input=serialize_snapshot(snapshot),
+        text=True, capture_output=True, check=True, timeout=30,
+    )
+    native = json.loads(process.stdout)
+    assert native["ok"], f"Rust rejected cyclic percentage contribution index={index}: {native.get('error')}"
+    rs = {box["node_id"]: box for box in native["result"]["boxes"]}
+    page.set_content(
+        "<!doctype html><html><body style='margin:0'>"
+        f"<div id='root' style='display:flex;width:{root_width}px;height:100px;"
+        "align-items:flex-start;box-sizing:content-box'>"
+        "<div id='nested' style='display:flex;flex-direction:row;width:auto;"
+        "height:auto;flex:0 0 auto;min-width:0;align-items:flex-start;"
+        "box-sizing:content-box'>"
+        f"<div id='leaf' style='width:{leaf_width}px;height:20px;"
+        f"flex:0 0 {leaf_width}px;padding-left:{percent}%;"
+        "box-sizing:content-box'></div>"
+        "</div></div></body></html>"
+    )
+    browser = page.evaluate("""() => Object.fromEntries(
+      [...document.querySelectorAll('[id]')].map(el => {
+        const r = el.getBoundingClientRect();
+        return [el.id, {x:r.x, y:r.y, width:r.width, height:r.height}];
+      })
+    )""")
+    assert set(py) == set(rs) == set(browser)
+    for node_id, expected in browser.items():
+        for axis in ("x", "y", "width", "height"):
+            pv = getattr(py[node_id].border, axis)
+            rv = rs[node_id]["border"][axis]
+            assert abs(pv - expected[axis]) <= 0.01, (
+                f"B1 cyclic-padding[{index}] {node_id}.{axis}: Python={pv}, Chromium={expected[axis]}"
+            )
+            assert abs(rv - expected[axis]) <= 0.01, (
+                f"B1 cyclic-padding[{index}] {node_id}.{axis}: Rust={rv}, Chromium={expected[axis]}"
+            )
