@@ -101,6 +101,11 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
     return result
 
 
+def _layout_unit(value: float) -> float:
+    """Quantize a resolved CSS used size to Chromium's 1/64 CSS-px grid."""
+    return math.floor(value * 64 + 0.5) / 64
+
+
 def _axis_value(length: Length, reference: float | None, *,
                 axis: str, node_id: str) -> float | None:
     if length.kind == LengthKind.PX:
@@ -111,7 +116,7 @@ def _axis_value(length: Length, reference: float | None, *,
     if length.kind == LengthKind.PERCENT:
         if reference is not None:
             assert length.value is not None
-            return length.value * reference
+            return _layout_unit(length.value * reference)
         # CSS block-axis cyclic percentage on an auto-sized containing block:
         # do not globally resolve to 0. This supported sizing context treats
         # it as auto and obtains the item's intrinsic contribution.
@@ -162,7 +167,7 @@ def _padding(style: _Style, inline_reference: float, node_id: str) -> UsedEdges:
         if length.kind == LengthKind.PX:
             value = length.value
         elif length.kind == LengthKind.PERCENT:
-            value = length.value * inline_reference
+            value = _layout_unit(length.value * inline_reference)
         else:
             raise SFLECapabilityError(DiagnosticCode.INVALID_LENGTH,
                                       "Padding requires a valid CSS numeric length.", node_id)
@@ -344,7 +349,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             elif basis.kind == LengthKind.PX:
                 desired = basis.value
             elif basis.kind == LengthKind.PERCENT:
-                desired = basis.value * main_reference if main_reference is not None else preferred(child_id, horizontal)
+                desired = _layout_unit(basis.value * main_reference) if main_reference is not None else preferred(child_id, horizontal)
             else:
                 raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unsupported flex basis keyword.", child_id)
             assert desired is not None
