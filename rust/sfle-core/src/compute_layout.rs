@@ -304,6 +304,12 @@ fn percent_flex_basis_used(fraction:f64,reference:f64)->f64 {
     LayoutUnit::from_floor(used)
         .expect("SFLE prevalidated finite percentage").to_px()
 }
+fn saturating_gutter_product(gutter:LayoutUnit, count:usize)->LayoutUnit{
+    // A usize count must never narrow to i32 before multiplying the
+    // signed raw gap: even the unsupported >2^31-node extreme must not wrap.
+    let raw=(gutter.raw() as i128)*(count as i128);
+    LayoutUnit::from_raw(raw.clamp(i32::MIN as i128,i32::MAX as i128) as i32)
+}
 fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec<f64>,ComputeError>{
     // Exact port of Chromium 153 line_flexer.cc:
     // FreezeItems + ResolveFlexibleLengths. Integer LayoutUnit for all
@@ -318,8 +324,7 @@ fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec
     let min:Vec<LayoutUnit>=bases.iter().map(|b|raw(b.min_size)).collect::<Result<_,_>>()?;
     let max:Vec<Option<LayoutUnit>>=bases.iter().map(|b|b.max_size.map(&raw).transpose())
         .collect::<Result<_,_>>()?;
-    let usable=available-LayoutUnit::from_raw(
-        gutter.raw().saturating_mul((bases.len()-1) as i32));
+    let usable=available-saturating_gutter_product(gutter,bases.len().saturating_sub(1));
     let growing=hypot.iter().map(|v|v.raw() as i64).sum::<i64>()<usable.raw() as i64;
     let mut frozen:Vec<bool>=bases.iter().enumerate().map(|(i,b)|{
         let factor=if growing{b.grow}else{b.shrink};
@@ -1335,6 +1340,20 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
 #[cfg(test)]
 mod point3_saturation_tests {
     use super::*;
+
+    #[test]
+    fn multiplied_gutter_count_is_never_truncated_to_i32() {
+        let max=LayoutUnit::from_raw(i32::MAX);
+        let count=(i32::MAX as usize)+4096;
+        assert_eq!(saturating_gutter_product(max,count).raw(),i32::MAX);
+        assert_eq!(
+            saturating_gutter_product(LayoutUnit::from_raw(1),count).raw(),
+            i32::MAX,
+        );
+        assert_eq!(
+            saturating_gutter_product(LayoutUnit::from_raw(1),3).raw(),3,
+        );
+    }
 
     #[test]
     fn signed_overflow_in_percentage_margin_saturates_at_i32_endpoints() {
