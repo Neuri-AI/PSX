@@ -119,6 +119,8 @@ def test_seeded_flex_differential_against_chromium(case,browser,rust_binary):
     FUZZ_STATUS[index]='matched'
     p=dict(py["result"].boxes)
     native={v["node_id"]:v for v in rs["result"]["boxes"]}
+    if index in (24,75,76):
+        print(f"F2 rounding diagnostics seed={SEED:#x} case={index} expected={observed} python="+str({nid:{axis:getattr(b.border,axis) for axis in ("x","y","width","height")} for nid,b in p.items()}))
     for node_id,box in p.items():
         for axis in ("x","y","width","height"):
             expected=observed[node_id][axis]
