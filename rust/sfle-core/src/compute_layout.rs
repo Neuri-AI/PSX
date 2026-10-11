@@ -318,6 +318,40 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         }
         indices.insert(node.node_id.as_str(),index);
     }
+    // Parent-index traversal determines whether a percentage's containing
+    // inline reference is actually definite, without depending on fixture IDs.
+    fn definite_inline(
+        node:usize,input:&LayoutInput,styles:&[Style],indices:&HashMap<&str,usize>,
+        depth:usize,
+    )->bool{
+        if depth>input.nodes.len(){return false;}
+        let Some(parent_name)=input.nodes[node].parent_id.as_deref() else{
+            return input.constraints.width.definite
+                || matches!(styles[node].width,Length::Px(_));
+        };
+        let parent=indices[parent_name];
+        match styles[parent].width{
+            Length::Px(_)=>true,
+            Length::Percent(_)=>definite_inline(parent,input,styles,indices,depth+1),
+            Length::Auto if styles[parent].grow>0.0 =>{
+                if let Some(grand)=input.nodes[parent].parent_id.as_deref(){
+                    let outer=indices[grand];
+                    horizontal(styles[outer].direction)
+                        && definite_inline(parent,input,styles,indices,depth+1)
+                }else{false}
+            },
+            Length::Auto=>false,
+        }
+    }
+    for index in 1..input.nodes.len(){
+        if matches!(styles[index].width,Length::Percent(_))
+            && !definite_inline(index,input,&styles,&indices,0){
+            return Err(unsupported(
+                "Unlisted indefinite inline percentage dependency cycle.",
+                &input.nodes[index].node_id,
+            ));
+        }
+    }
     for index in 0..input.nodes.len(){
         if children[index].len()!=1 {continue;}
         let child=children[index][0];
