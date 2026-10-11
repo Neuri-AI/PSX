@@ -18,6 +18,10 @@ from test_f2_acceptance_contract_red import case_snapshot
 
 
 def test_qt_live_label_remeasures_and_readback_commits_real_widget():
+    assert_qt_live_geometry(PythonLayoutEngine())
+
+
+def assert_qt_live_geometry(engine):
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     parent = QtWidgets.QWidget()
     parent.resize(150, 300)
@@ -32,7 +36,6 @@ def test_qt_live_label_remeasures_and_readback_commits_real_widget():
     label.show()
 
     snapshot = replace(case_snapshot("A04"), measurements=())
-    engine = PythonLayoutEngine()
     source = QtMeasurementSource({"text": label}, qtcore=QtCore)
     ui_thread = threading.get_ident()
     computed = []
