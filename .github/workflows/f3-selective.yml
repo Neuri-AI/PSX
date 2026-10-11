@@ -46,22 +46,53 @@ jobs:
             let changed = [];
             if (context.eventName === 'pull_request') {
               try {
-                const files = await github.paginate(github.rest.pulls.listFiles, {
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  pull_number: context.issue.number,
-                  per_page: 100,
-                });
-                // The API caps this list at 3000 changed files.
-                // Fail open rather than trust an incomplete diff.
-                if (files.length >= 3000) {
-                  core.warning('Large PR exceeds complete file inventory; select all checks.');
-                } else {
-                  changed = files.flatMap(file =>
-                    [file.filename, file.previous_filename].filter(Boolean));
+                const common = {owner: context.repo.owner, repo: context.repo.repo};
+                const before = context.payload.before;
+                const after = context.payload.after;
+                const pr = context.issue.number;
+                let verifiedDelta = false;
+                // Reuse results only when the exact previous PR HEAD has a
+                // completed, successful F3 selective workflow run.
+                if (context.payload.action === 'synchronize' && before && after) {
+                  const past = await github.rest.actions.listWorkflowRunsForRepo({
+                    ...common, head_sha: before, event: 'pull_request', per_page: 100,
+                  });
+                  const certified = (past.data.workflow_runs || []).some(run =>
+                    run.name === 'F3 selective validation' &&
+                    run.head_sha === before &&
+                    run.status === 'completed' &&
+                    run.conclusion === 'success' &&
+                    (run.pull_requests || []).some(p => p.number === pr));
+                  if (certified) {
+                    const diff = await github.rest.repos.compareCommits({
+                      ...common, base: before, head: after, per_page: 100,
+                    });
+                    const files = diff.data.files || [];
+                    if (diff.data.total_commits <= 250 &&
+                        files.length > 0 && files.length < 300) {
+                      changed = files.flatMap(file =>
+                        [file.filename, file.previous_filename].filter(Boolean));
+                      verifiedDelta = true;
+                      core.info('Verified previous green PR SHA: ' + before +
+                        '; only revalidate delta to ' + after);
+                    }
+                  }
+                }
+                if (!verifiedDelta) {
+                  // New PR, previous failure, ambiguous delta or missing
+                  // predecessor: evaluate ALL cumulative changed paths.
+                  const files = await github.paginate(github.rest.pulls.listFiles, {
+                    ...common, pull_number: pr, per_page: 100,
+                  });
+                  if (files.length >= 3000) {
+                    core.warning('PR exceeds complete file inventory; select all checks.');
+                  } else {
+                    changed = files.flatMap(file =>
+                      [file.filename, file.previous_filename].filter(Boolean));
+                  }
                 }
               } catch (error) {
-                core.warning('Cannot classify PR safely: ' + error.message);
+                core.warning('Diff/provenance unavailable: full testing. ' + error.message);
                 changed = [];
               }
             }

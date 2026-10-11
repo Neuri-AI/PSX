@@ -118,12 +118,21 @@ one authoritative test-to-category map and use it from selectors.
    `chromium`, `native_abi`, `packaging`, `legacy_removal`,
    `g2_registry_coverage`, `full_certification`.
    Report the selected tests, workflows and **why** each was selected.
-2. **On PRs compare the full cumulative PR change set against the base
-   merge-base**, **not only the last `synchronize.before..after` push**:
-   the latter can miss older code changes still part of the PR and falsely
-   skip a necessary job. Paginate `pulls.listFiles`, include renames;
-   if the API returns incomplete/ambiguous/too-large diffs, **fail open
-   to tests**. Do not let a 300-file compare cap silently truncate paths.
+2. **On a new PR or after any failed/canceled/unknown previous CI run**,
+   classify the **entire cumulative PR diff**, not just the most recent
+   `synchronize.before..after` delta. Paginate `pulls.listFiles`
+   and include both sides of renames; missing/unsafe/truncated data must
+   fail open to tests.
+   **Safe incremental exception:** for a `synchronize` update, first verify
+   that the exact preceding `before` SHA has a `completed/success`
+   `F3 selective validation` run **associated with the same PR**.
+   Only then may the selector inspect the new `before..after` delta,
+   preserving the prior green coverage as evidence. If no exact green
+   predecessor exists, if compare exceeds GitHub bounds, or any API
+   request fails, revert to the complete PR file list (or all tests).
+   This avoids needlessly rebuilding wheels on every subsequent
+   unrelated/docs-only commit without allowing incomplete checks to
+   masquerade as success.
 3. **On push** use the event's `before..after` where reliable; on branch
    create, missing base, force push, ambiguous changes, classifier errors
    or incomplete files, conservatively widen to relevant full testing.
