@@ -17,7 +17,7 @@ from .margin_flex_pipeline import MarginFlexItem
 from .box_geometry import UsedBoxEdges, UsedEdges
 from .margin_tree import MarginTreeNode, compute_margin_tree
 from .model import (
-    AvailableSize, BoxRect, LayoutInput, LayoutResult, MeasuredBox, Rect,
+    AvailableSize, BoxRect, LayoutInput, LayoutResult, MeasuredBox, Rect, WritingDirection,
 )
 from .cross_alignment import CrossAlign
 from .align_content import AlignContent
