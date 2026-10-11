@@ -72,9 +72,18 @@ pub fn collect_leaf_intrinsic_suggestions(
         if let Some(style) = styles.get(id.as_str()) {
             let need_w = style.width_kind == AxisKind::Auto && !constraints.width.definite;
             let need_h = style.height_kind == AxisKind::Auto && !constraints.height.definite;
-            if parent_ids.contains(id.as_str())
-                || style.width_kind == AxisKind::UnresolvedPercent && !constraints.width.definite
+            if style.width_kind == AxisKind::UnresolvedPercent && !constraints.width.definite
                 || style.height_kind == AxisKind::UnresolvedPercent && !constraints.height.definite {
+                return Err(FlexMathError::InvalidInput(
+                    "unresolved percentage requires dependency resolver",
+                ));
+            }
+            if parent_ids.contains(id.as_str()) {
+                if need_w || need_h {
+                    return Err(FlexMathError::InvalidInput(
+                        "container auto sizing requires recursive resolution",
+                    ));
+                }
                 continue;
             }
             let item = measured.get(id.as_str());
