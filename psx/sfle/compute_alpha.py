@@ -193,38 +193,6 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         children[node.parent_id].append(node.node_id)
     measures = {box.node_id: box for box in request.measurements}
 
-    # Conservative dependency classifier. Explicitly proven definite ancestor
-    # chains may resolve percentages; an intrinsically-sized inline ancestor
-    # cannot supply a definite reference to a percentage descendant.
-    # This is structural and deliberately independent of acceptance-case IDs.
-    def inline_reference_definite(node_id: str) -> bool:
-        parent = parents[node_id]
-        if parent is None:
-            return request.constraints.width.definite or styles[node_id].width.kind == LengthKind.PX
-        ancestor = styles[parent]
-        if ancestor.width.kind == LengthKind.PX:
-            return True
-        if ancestor.width.kind == LengthKind.PERCENT:
-            return inline_reference_definite(parent)
-        if ancestor.grow > 0:
-            grandparent = parents[parent]
-            if grandparent is not None:
-                container = styles[grandparent]
-                if (container.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
-                        and inline_reference_definite(parent)):
-                    return True
-        return False
-
-    for node in request.nodes[1:]:
-        style = styles[node.node_id]
-        parent = parents[node.node_id]
-        if style.width.kind == LengthKind.PERCENT and not inline_reference_definite(node.node_id):
-            raise SFLECapabilityError(
-                DiagnosticCode.UNSUPPORTED_FEATURE,
-                "Unlisted indefinite inline percentage dependency cycle.",
-                node.node_id,
-            )
-
     # The alpha C99 restriction is a specific multi-node dependency cycle.
     # Do not confuse it with a generic unsupported-compute placeholder.
     for node in request.nodes:
@@ -264,6 +232,38 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                         child_id,
                     )
                 pending.extend(children[descendant])
+
+    # Conservative dependency classifier. Explicitly proven definite ancestor
+    # chains may resolve percentages; an intrinsically-sized inline ancestor
+    # cannot supply a definite reference to a percentage descendant.
+    # This is structural and deliberately independent of acceptance-case IDs.
+    def inline_reference_definite(node_id: str) -> bool:
+        parent = parents[node_id]
+        if parent is None:
+            return request.constraints.width.definite or styles[node_id].width.kind == LengthKind.PX
+        ancestor = styles[parent]
+        if ancestor.width.kind == LengthKind.PX:
+            return True
+        if ancestor.width.kind == LengthKind.PERCENT:
+            return inline_reference_definite(parent)
+        if ancestor.grow > 0:
+            grandparent = parents[parent]
+            if grandparent is not None:
+                container = styles[grandparent]
+                if (container.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+                        and inline_reference_definite(parent)):
+                    return True
+        return False
+
+    for node in request.nodes[1:]:
+        style = styles[node.node_id]
+        parent = parents[node.node_id]
+        if style.width.kind == LengthKind.PERCENT and not inline_reference_definite(node.node_id):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite inline percentage dependency cycle.",
+                node.node_id,
+            )
 
     def preferred(node_id: str, horizontal: bool) -> float:
         style = styles[node_id]
