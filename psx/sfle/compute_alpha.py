@@ -116,7 +116,8 @@ def _percent_flex_basis_used(value: float, reference: float) -> float:
 
 
 def _used_flex_target_units(
-    targets: tuple[float, ...], bases: tuple[FlexBasis, ...],
+    targets: tuple[float, ...], bases: tuple[FlexBasis, ...], *,
+    node_id: str,
 ) -> tuple[float, ...]:
     """Allocate rounded free-space in reverse child order (Blink LineFlexer).
 
@@ -139,6 +140,7 @@ def _used_flex_target_units(
         raise SFLECapabilityError(
             DiagnosticCode.UNSUPPORTED_FEATURE,
             "Mixed-sign flex target constraints need explicit freeze metadata.",
+            node_id,
         )
     used_units = basis_units[:]
     if not active:
@@ -430,7 +432,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             resolve_flexible_lengths(
                 tuple(bases), max(0.0, main_size - fixed_main_edges), main_gap
             ),
-            tuple(bases),
+            tuple(bases), node_id=node_id,
         )
         cross_sizes = []
         for child_id, target in zip(children[node_id], targets):
