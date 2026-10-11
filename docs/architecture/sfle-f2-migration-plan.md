@@ -36,6 +36,20 @@ Scope is tracked text in `psx/`, `docs/`, `tests/`, and `examples/`; exact case-
 
 The inventory above names the definitive **paths and ownership categories**; occurrence counts are deliberately not treated as completeness evidence. Before F3 removal, perform a complete code/docs/examples grep in CI and fail if Row/Column names remain in public API, markup samples or legacy layout authority.
 
+## Verified external Qyro boilerplate inventory (2026-10-10)
+
+The original repository-only inventory above is a **historical snapshot** (not the current exhaustive scope). [F2.4 external RED test 78016ca](https://github.com/Neuri-AI/PSX/commit/78016cad473221e31519f845fbbc788830254af0) / [Core 38114249063](https://github.com/Neuri-AI/PSX/actions/runs/38114249063) established that the audit could silently ignore external repository arguments and never produce the requested artifact. After correcting a test-fixture comment that itself contained a standalone `Scroll` token, [script d278a3e](https://github.com/Neuri-AI/PSX/commit/d278a3ee7d024edbb387f6f398105931715f1f31) now requires clean, independent tracked Git repository roots, a valid HEAD SHA, and exact per-repository identifier counts. Missing/dirty external checkouts fail closed.
+
+[CI integration cb16d74](https://github.com/Neuri-AI/PSX/commit/cb16d749c245b83dd056cdaa1467b385054731a9) checks out each public external boilerplate at the pinned commit and attaches `inventory.json`, `git-grep-matches.txt`, `external-git-grep-matches.txt`. **[SFLE Core run 38114340439](https://github.com/Neuri-AI/PSX/actions/runs/38114340439)**: F2.4 inventory job success, as well as Python 3.10–3.13 tests for exact external counts and missing-source rejection. External Git commits and observed whole-token `Row`/`Column`/`Scroll` occurrences:
+
+| External repository | Pinned HEAD | `Row` | `Column` | `Scroll` |
+| --- | --- | ---: | ---: | ---: |
+| [qyro-boilerplate-qt](https://github.com/Neuri-AI/qyro-boilerplate-qt) | `a9d1c65e2afcff3ddd878c8ff8175d423379293b` | 0 | 0 | 0 |
+| [qyro-boilerplate-kivy](https://github.com/Neuri-AI/qyro-boilerplate-kivy) | `56da7d54e8323839c080c31658e435a18875c68b` | 0 | 0 | 0 |
+| [qyro-boilerplate-tkinter](https://github.com/Neuri-AI/qyro-boilerplate-tkinter) | `2eb3ef8f93aa960137ee31da54c5e6d7e6d297f3` | 0 | 0 | 0 |
+
+This is **source inventory only** for these exact identifiers at these immutable commits. It is not evidence that their runtime widget layout is SFLE-based, that lowercase aliases are absent, or that all F3 migration tasks are done.
+
 ## Renderer-neutral F2 contract to carry into F3
 
 1. **Measure on UI thread.** Adapter measures intrinsic content with constrained width and definite/indefinite axes, preserving `AUTO`, `NONE` and intrinsic keywords as tagged values. Measurement revisions and `generation` are captured in an immutable snapshot. Scroll exposes its native **viewport as constraints**; content bounds are computed separately.
@@ -54,4 +68,4 @@ The inventory above names the definitive **paths and ownership categories**; occ
 - **F3-G4**: Delete Row/Column public exports, registries, contract classes, adapters and old native layout algorithms. Migrate examples, boilerplates, tutorials and tests; add grep/no-alias gate. Keep Scroll.
 - **F3-G5**: Verify Windows/macOS/Linux wheels, PyO3 load and fallback when absent, source/frozen imports, Qt/Kivy/Tkinter/Headless parity, RTL/reverse, bounded sizing and complete Chromium oracle.
 
-**F2.4 acceptance state:** the listed paths, concrete source-count command, source counts, and CI artifact are now verified. **F2.4 remains open** until adapter contract enforcement and external-boilerplate scope reconciliation are tested; F3 executes the native migration. This is not grounds to defer F2.2/F2.3 pure Flex sizing/browser requirements to F3.
+**F2.4 acceptance state:** the documented current-repository and three pinned external-boilerplate source inventories, exact commands, and CI artifact are verified at their named commits. **F2.4 remains open** because the single-SFLE-authority adapter contract still needs executable enforcement tests and proof of no competing portable geometry; F3 executes the actual native/API migration. This is not grounds to defer F2.2/F2.3 pure Flex sizing/browser requirements to F3.
