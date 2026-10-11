@@ -668,13 +668,40 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 and sibling.padding_top.kind == sibling.padding_bottom.kind == LengthKind.PX
             )
 
+        def definite_row_ancestor_chain() -> bool:
+            # Only single-child auto-row links can safely propagate the
+            # definite leaf intrinsic basis to a known definite row root.
+            # The immediate wrapper may have a certified fixed-basis sibling
+            # group, as already checked above.
+            current = parent
+            while current is not None:
+                node_style = styles[current]
+                if (
+                    node_style.width.kind != LengthKind.AUTO
+                    or node_style.shrink != 0
+                    or node_style.direction not in
+                        (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+                ):
+                    return False
+                ancestor = parents[current]
+                if ancestor is None:
+                    return False
+                ancestor_style = styles[ancestor]
+                if ancestor_style.width.kind == LengthKind.PX:
+                    return ancestor_style.direction in (
+                        FlexDirection.ROW, FlexDirection.ROW_REVERSE,
+                    )
+                if children[ancestor] != [current]:
+                    return False
+                current = ancestor
+            return False
+
         return (
             not children[node_id] and bool(children[parent])
             and all(fixed_intrinsic_sibling(sibling) for sibling in children[parent])
             and wrapper.width.kind == LengthKind.AUTO and wrapper.shrink == 0
             and wrapper.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
-            and container.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
-            and container.width.kind == LengthKind.PX
+            and definite_row_ancestor_chain()
             and own.padding_top.kind == own.padding_bottom.kind == LengthKind.PX
             and any(e.kind == LengthKind.PERCENT for e in (own.padding_left, own.padding_right))
         )
