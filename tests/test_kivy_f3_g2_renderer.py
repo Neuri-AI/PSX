@@ -193,6 +193,9 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         """)
         environment = dict(os.environ)
         environment["KIVY_NO_FILELOG"] = "1"
+        # CI disables console logs globally. Override it in this subprocess
+        # so unexpected native Kivy failures expose their Python traceback.
+        environment.pop("KIVY_NO_CONSOLELOG", None)
         environment["KIVY_NO_ARGS"] = "1"
         environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
         result = subprocess.run(
