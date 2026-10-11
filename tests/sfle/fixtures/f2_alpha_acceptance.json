@@ -1423,6 +1423,47 @@
         "chromium"
       ],
       "migration_note": "Superseded old SFLE_UNSUPPORTED_FEATURE by implemented Chromium 153 LineFlexer freezing. N05 is now POSITIVE CSS regression; original negative expectation from 4928c2fe remains in git history. No holdout fixture or tolerance changed."
+    },
+    {
+      "id": "N06",
+      "name": "indefinite-inline-percentage-padding-graph",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": null,
+        "height": 40
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "auto",
+            "height": "40px"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "20px",
+            "height": "10px",
+            "layout_padding_top": "10%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "diagnostic": "SFLE_UNSUPPORTED_FEATURE",
+        "node": "child",
+        "cycle_kind": "indefinite inline percentage padding dependency cycle"
+      },
+      "verification": [
+        "python",
+        "rust"
+      ]
     }
   ],
   "chromium_reference": {
