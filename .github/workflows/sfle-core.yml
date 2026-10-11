@@ -155,3 +155,18 @@ jobs:
           cd /tmp
           python -c "import _sfle_native as n; assert n.schema_version() == 1"
           python -m pytest -q "$GITHUB_WORKSPACE/tests/interop/test_sfle_f2_native_wheel.py"
+
+  f2-migration-inventory:
+    name: F2.4 tracked Row Column Scroll inventory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Count real tracked Row Column Scroll occurrences
+        run: python scripts/audit_sfle_f2_migration.py
+      - name: Upload reproducible inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfle-f2-migration-inventory
+          path: /tmp/sfle-f2-inventory/
+          if-no-files-found: error
