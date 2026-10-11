@@ -296,13 +296,16 @@ def _axis_value(length: Length, reference: float | None, *,
         if reference is not None:
             assert length.value is not None
             return _layout_unit(length.value * reference)
-        # A percentage whose containing axis is intrinsically indefinite has
-        # no used numeric value in this phase.  Flex intrinsic sizing treats
-        # it as auto/content rather than fabricating zero; once a definite
-        # parent size exists this function is called again with that value.
-        return None
-    raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
-                              f"Unsupported CSS {axis} length.", node_id)
+        # CSS block-axis cyclic percentage on an auto-sized containing block:
+        # do not globally resolve to 0. This supported sizing context treats
+        # it as auto and obtains the item's intrinsic contribution.
+        if axis == "height":
+            return None
+    raise SFLECapabilityError(
+        DiagnosticCode.UNSUPPORTED_FEATURE,
+        f"Unlisted indefinite inline percentage dependency cycle (CSS {axis} reference).",
+        node_id,
+    )
 
 
 def _intrinsic_gap(length: Length, node_id: str) -> float:
@@ -453,6 +456,16 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                     return True
         return False
 
+    for node in request.nodes[1:]:
+        style = styles[node.node_id]
+        parent = parents[node.node_id]
+        if style.width.kind == LengthKind.PERCENT and not inline_reference_definite(node.node_id):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite inline percentage dependency cycle.",
+                node.node_id,
+            )
+
     # D-F1.13 / C01–C06: deny by default any *indefinite* percentage
     # dependency not matched by a recognized CSS intrinsic rule. This is
     # structural (typed lengths/known references/actual measurements), never
@@ -503,6 +516,19 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             raise SFLECapabilityError(
                 DiagnosticCode.UNSUPPORTED_FEATURE,
                 "Unlisted indefinite inline percentage padding dependency cycle.",
+                node_id,
+            )
+        if st.max_height.kind == LengthKind.PERCENT and not block_reference_definite(node_id):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite percentage maximum size dependency cycle.",
+                node_id,
+            )
+        if (st.height.kind == LengthKind.PERCENT and
+                not block_reference_definite(node_id) and node_id not in measures):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unmeasured indefinite percentage block dependency cycle.",
                 node_id,
             )
 
@@ -624,6 +650,12 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             if width is None:
                 width = preferred(node_id, True)
             if height is None:
+                if style.height.kind == LengthKind.PERCENT and metrics is None:
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Unmeasured indefinite percentage block dependency cycle.",
+                        node_id,
+                    )
                 if metrics is not None:
                     measured_width = metrics.constraints.width
                     if not provisional and measured_width.definite and abs(measured_width.value - width) > 0.01:
@@ -732,13 +764,8 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                     minimum = min(minimum, specified)
             elif min_length.kind == LengthKind.PERCENT and main_reference is not None:
                 minimum = _layout_unit(min_length.value * main_reference)
-            elif min_length.kind == LengthKind.PERCENT:
-                # CSS min-size percentages without a definite containing
-                # axis remain automatic during intrinsic flex sizing.
-                minimum = 0.0 if child_style.overflow == OverflowMode.SCROLL else preferred(child_id, horizontal, True)
-                if transferred is not None:
-                    minimum = (min(minimum, transferred) if components[child_id] == "Image"
-                               else max(minimum, transferred))
+            else:
+                raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unlisted percentage minimum size dependency cycle.", child_id)
             assert minimum is not None
             max_length = child_style.max_width if horizontal else child_style.max_height
             if max_length.kind == LengthKind.PX:
@@ -747,10 +774,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 maximum = None
             elif max_length.kind == LengthKind.PERCENT and main_reference is not None:
                 maximum = _layout_unit(max_length.value * main_reference)
-            elif max_length.kind == LengthKind.PERCENT:
-                # An indefinite percentage maximum is not a numeric cap in
-                # this intrinsic pass; retain the CSS unconstrained branch.
-                maximum = None
+            else:
+                raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Unlisted indefinite percentage maximum size dependency cycle.", child_id)
             if min_length.kind == LengthKind.AUTO and maximum is not None:
                 minimum = min(minimum, maximum)
             if maximum is not None and maximum < minimum:
