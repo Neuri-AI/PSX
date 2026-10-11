@@ -885,10 +885,16 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
                 (false,false)=>metric.intrinsic.max_content_height,
             }))
         };
-        styles[index].min_width=bound(styles[index].min_width,true)?;
-        styles[index].max_width=bound(styles[index].max_width,true)?;
-        styles[index].min_height=bound(styles[index].min_height,false)?;
-        styles[index].max_height=bound(styles[index].max_height,false)?;
+        let bounds=[
+            bound(styles[index].min_width,true)?,
+            bound(styles[index].max_width,true)?,
+            bound(styles[index].min_height,false)?,
+            bound(styles[index].max_height,false)?,
+        ];
+        styles[index].min_width=bounds[0];
+        styles[index].max_width=bounds[1];
+        styles[index].min_height=bounds[2];
+        styles[index].max_height=bounds[3];
     }
     for index in 0..input.nodes.len(){
         if children[index].len()!=1 {continue;}
