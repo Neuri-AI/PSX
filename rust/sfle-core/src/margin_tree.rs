@@ -160,6 +160,43 @@ mod tests {
             intrinsic_basis:None}
     }
     #[test]
+    fn b2_saturates_root_box_dimensions_on_each_edge_accumulation() {
+        let limit=i32::MAX as f64 / 64.0;
+        let mut root=node("root",None,limit,20.0,None);
+        root.edges.padding.left=16.0;
+        root.edges.padding.right=8.0;
+        root.edges.border.left=4.0;
+        root.edges.border.right=2.0;
+        let b=compute_margin_tree(&[root],WritingDirection::Ltr).unwrap().boxes.remove(0);
+        assert_eq!(b.content.x,20.0);
+        assert_eq!(b.padding.width,limit);
+        assert_eq!(b.border.width,limit);
+        for v in [b.content.x,b.content.y,b.content.width,b.content.height,
+                  b.padding.x,b.padding.y,b.padding.width,b.padding.height,
+                  b.border.x,b.border.y,b.border.width,b.border.height] {
+            assert!(v>=i32::MIN as f64/64.0 && v<=limit);
+            assert_eq!(v*64.0,(v*64.0).trunc());
+        }
+    }
+    #[test]
+    fn b2_saturates_nested_signed_translation_in_both_directions() {
+        let mut item=flex(12.0);
+        item.id="leaf".into();
+        let b=MarginFlexBox{
+            id:"leaf".into(),
+            content:Rect{x:100.0,y:-100.0,width:12.0,height:13.0},
+            padding:Rect{x:100.0,y:-100.0,width:12.0,height:13.0},
+            border:Rect{x:100.0,y:-100.0,width:12.0,height:13.0},
+            used_main_start_margin:0.0,used_main_end_margin:0.0,line_index:0,
+        };
+        let b=translate_box(b,i32::MAX as f64/64.0,i32::MIN as f64/64.0);
+        for rect in [b.content,b.padding,b.border] {
+            assert_eq!(rect.x,i32::MAX as f64/64.0);
+            assert_eq!(rect.y,i32::MIN as f64/64.0);
+            assert_eq!(rect.width,12.0);
+        }
+    }
+    #[test]
     fn nested_justify_offsets_from_parent_content_origin(){
         let mut root=node("root",None,200.0,80.0,None);
         root.edges.padding.left=5.0;
