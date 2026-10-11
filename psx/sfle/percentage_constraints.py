@@ -12,7 +12,10 @@ from dataclasses import dataclass
 
 from .errors import DiagnosticCode, SFLECapabilityError
 from .flex_math import FlexBasis
-from .intrinsic import IntrinsicFlexInput
+from .intrinsic import (
+    IntrinsicFlexInput, resolve_automatic_main_minimum,
+    resolve_intrinsic_flex_basis,
+)
 from .lengths import Length, LengthKind
 from .model import AvailableSize
 from .percentage_box_sizing import BoxSizing, normalize_flex_box_basis
@@ -85,13 +88,31 @@ def resolve_percentage_flex_constraints(
     minimum = resolve(request.minimum, min_prop)
     maximum = resolve(request.maximum, max_prop)
 
-    if minimum.kind != ResolutionKind.USED:
+    if minimum.kind == ResolutionKind.USED:
+        assert minimum.value is not None
+        minimum_value = minimum.value
+    elif minimum.kind in (
+        ResolutionKind.AUTO, ResolutionKind.INTRINSIC,
+        ResolutionKind.UNRESOLVED_PERCENT,
+    ) and request.intrinsic is not None:
+        minimum_value = resolve_automatic_main_minimum(request.intrinsic)
+    else:
         _needs_used("Minimum main size", minimum.kind)
-    assert minimum.value is not None
 
-    if maximum.kind not in (ResolutionKind.USED, ResolutionKind.NONE):
+    if maximum.kind == ResolutionKind.USED:
+        maximum_value = maximum.value
+    elif maximum.kind in (ResolutionKind.NONE, ResolutionKind.UNRESOLVED_PERCENT):
+        maximum_value = None
+    elif maximum.kind == ResolutionKind.INTRINSIC and request.intrinsic is not None:
+        metric = request.intrinsic.intrinsic
+        if request.horizontal:
+            maximum_value = (metric.min_content_width if request.maximum.kind == LengthKind.MIN_CONTENT
+                             else metric.max_content_width)
+        else:
+            maximum_value = (metric.min_content_height if request.maximum.kind == LengthKind.MIN_CONTENT
+                             else metric.max_content_height)
+    else:
         _needs_used("Maximum main size", maximum.kind)
-    maximum_value = maximum.value if maximum.kind == ResolutionKind.USED else None
 
     basis = resolve(request.basis, SizeProperty.FLEX_BASIS)
     if basis.kind == ResolutionKind.USED:
@@ -105,11 +126,16 @@ def resolve_percentage_flex_constraints(
         basis_value = resolve_percentage_flex_basis(
             request.basis, request.flex_container_main_size, request.intrinsic,
         )
+    elif basis.kind in (ResolutionKind.AUTO, ResolutionKind.INTRINSIC) and request.intrinsic is not None:
+        from dataclasses import replace
+        basis_value = resolve_intrinsic_flex_basis(
+            replace(request.intrinsic, flex_basis=request.basis)
+        )
     else:
         _needs_used("Flex basis", basis.kind)
 
     return normalize_flex_box_basis(
         basis_value, request.padding_border, request.sizing,
-        min_size=minimum.value, max_size=maximum_value,
+        min_size=minimum_value, max_size=maximum_value,
         grow=request.grow, shrink=request.shrink,
     )

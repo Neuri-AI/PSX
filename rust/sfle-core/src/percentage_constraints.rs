@@ -2,7 +2,10 @@
 //! Indefinite min/max constraints remain explicitly unsupported, rather
 //! than silently rewritten as zero, auto or none.
 
-use crate::intrinsic::IntrinsicFlexInput;
+use crate::intrinsic::{
+    Basis, IntrinsicFlexInput, MainAxis, resolve_automatic_main_minimum,
+    resolve_intrinsic_flex_basis,
+};
 use crate::percentage_box_sizing::{normalize_flex_box_basis, BoxSizing};
 use crate::percentage_flex_basis::resolve_percentage_flex_basis;
 use crate::sizing::{
@@ -40,11 +43,24 @@ pub fn resolve_percentage_flex_constraints(
 
     let minimum = match resolve(request.minimum, min_prop)? {
         ResolvedLength::Used(value) => value,
+        ResolvedLength::Auto | ResolvedLength::Intrinsic | ResolvedLength::UnresolvedPercent
+            if request.intrinsic.is_some() =>
+                resolve_automatic_main_minimum(request.intrinsic.expect("checked intrinsic"))?,
         _ => return Err(FlexMathError::InvalidInput("minimum needs measurement/dependency phase")),
     };
     let maximum = match resolve(request.maximum, max_prop)? {
         ResolvedLength::Used(value) => Some(value),
-        ResolvedLength::None => None,
+        ResolvedLength::None | ResolvedLength::UnresolvedPercent => None,
+        ResolvedLength::Intrinsic if request.intrinsic.is_some() => {
+            let intrinsic=request.intrinsic.expect("checked intrinsic");
+            let min=matches!(request.maximum,Length::MinContent);
+            Some(match (intrinsic.axis,min) {
+                (MainAxis::Horizontal,true)=>intrinsic.intrinsic.min_content_width,
+                (MainAxis::Horizontal,false)=>intrinsic.intrinsic.max_content_width,
+                (MainAxis::Vertical,true)=>intrinsic.intrinsic.min_content_height,
+                (MainAxis::Vertical,false)=>intrinsic.intrinsic.max_content_height,
+            })
+        },
         _ => return Err(FlexMathError::InvalidInput("maximum needs measurement/dependency phase")),
     };
     let basis = match resolve(request.basis, Property::FlexBasis)? {
@@ -55,6 +71,17 @@ pub fn resolve_percentage_flex_constraints(
                     fraction, request.flex_container_main_size, intrinsic
                 )?,
             _ => return Err(FlexMathError::InvalidInput("flex basis needs intrinsic measurement")),
+        },
+        ResolvedLength::Auto | ResolvedLength::Intrinsic if request.intrinsic.is_some() => {
+            let mut intrinsic=request.intrinsic.expect("checked intrinsic");
+            intrinsic.flex_basis=match request.basis {
+                Length::Auto=>Basis::Auto,
+                Length::MinContent=>Basis::MinContent,
+                Length::MaxContent=>Basis::MaxContent,
+                Length::Content=>Basis::Content,
+                _=>return Err(FlexMathError::InvalidInput("unsupported intrinsic flex basis")),
+            };
+            resolve_intrinsic_flex_basis(intrinsic)?
         },
         _ => return Err(FlexMathError::InvalidInput("flex basis needs measurement")),
     };
