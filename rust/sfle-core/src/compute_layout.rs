@@ -273,7 +273,18 @@ fn padding(style:Style,inline_reference:f64,id:&str)->Result<Edges,ComputeError>
     fn edge(value:Length,base:f64,id:&str)->Result<f64,ComputeError>{
         match value{
             Length::Px(n)=>Ok(n),
-            Length::Percent(p)=>Ok(layout_unit(p*base)),
+            Length::Percent(p)=>{
+                // Used padding percentages use Blink's floor LayoutUnit
+                // conversion, not the flex allocation's nearest conversion.
+                // Move one representational ULP up to stabilize decimal CSS
+                // boundaries such as 35% * 45px = 15.75px.
+                let value=p*base;
+                let stable=if value.is_finite()&&value>=0.0{
+                    f64::from_bits(value.to_bits()+1)
+                }else{value};
+                LayoutUnit::from_floor(stable).map(|n|n.to_px())
+                    .map_err(|e|unsupported(e,id))
+            },
             Length::Auto=>Err(failure("SFLE_INVALID_LENGTH","Padding requires a valid numeric CSS length.",Some(id))),
         }
     }
