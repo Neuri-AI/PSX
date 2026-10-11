@@ -52,6 +52,9 @@ def _ports(generation=42, alive=True):
         nodes_alive=lambda _ids: alive,
         apply_rectangles=lambda _result: None,
         read_rectangles=lambda: {},
+        scroll_content_root=lambda host_id: {
+            "native-scroll": "content", "other-native-scroll": "content",
+        }.get(host_id),
     )
 
 
