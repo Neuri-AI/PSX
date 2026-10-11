@@ -7,6 +7,8 @@ use crate::main_alignment::{resolve_main_alignment, JustifyContent};
 use crate::FlexMathError;
 use std::collections::HashSet;
 
+fn layout_unit(value: f64) -> f64 { (value * 64.0 + 0.5).floor() / 64.0 }
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct MarginItem {
     pub id: String,
@@ -84,19 +86,23 @@ pub fn position_main_margins_justified(
     let reversed = matches!(direction, Direction::RowReverse | Direction::ColumnReverse);
     let forward = if horizontal { (writing == WritingDirection::Ltr) != reversed }
                   else { !reversed };
-    let mut cursor = if forward { alignment.leading_space }
-        else { container_main_size - alignment.leading_space };
+    let mut cursor = layout_unit(if forward { alignment.leading_space }
+        else { container_main_size - alignment.leading_space });
     let mut positions = Vec::with_capacity(items.len());
     for item in items {
         let start = item.start.unwrap_or(share);
         let end = item.end.unwrap_or(share);
         let border_start;
         if forward {
-            border_start = cursor + start;
-            cursor += start + item.border_main_size + end + alignment.between_space;
+            border_start = layout_unit(cursor + start);
+            cursor = layout_unit(border_start + item.border_main_size);
+            cursor = layout_unit(cursor + end);
+            cursor = layout_unit(cursor + alignment.between_space);
         } else {
-            border_start = cursor - start - item.border_main_size;
-            cursor -= start + item.border_main_size + end + alignment.between_space;
+            cursor = layout_unit(cursor - start);
+            border_start = layout_unit(cursor - item.border_main_size);
+            cursor = layout_unit(border_start - end);
+            cursor = layout_unit(cursor - alignment.between_space);
         }
         positions.push(MarginPosition {
             id: item.id.clone(), border_start,
