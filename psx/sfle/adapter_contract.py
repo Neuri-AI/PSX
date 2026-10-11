@@ -122,6 +122,12 @@ def validate_adapter_commit(
                 "Scroll viewport must target an explicit SFLE content Flex root.",
                 viewport.content_root_id,
             )
+        if by_id[viewport.content_root_id].component != "Flex":
+            raise SFLEError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Scroll viewport content must be explicitly rooted at a Flex node.",
+                viewport.content_root_id,
+            )
         # This source is independent of the viewport's claimed content_root_id.
         if ports.scroll_content_root is not None and (
             ports.scroll_content_root(viewport.host_id) != viewport.content_root_id
@@ -130,12 +136,6 @@ def validate_adapter_commit(
                 DiagnosticCode.INVALID_SNAPSHOT,
                 "Scroll content root disagrees with its authoritative host binding.",
                 viewport.host_id,
-            )
-        if by_id[viewport.content_root_id].component != "Flex":
-            raise SFLEError(
-                DiagnosticCode.UNSUPPORTED_FEATURE,
-                "Scroll viewport content must be explicitly rooted at a Flex node.",
-                viewport.content_root_id,
             )
     return result_ids
 
