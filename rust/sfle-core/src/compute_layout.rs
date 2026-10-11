@@ -329,7 +329,25 @@ impl Context<'_>{
             return Ok(0.0);
         }
         let mut sizes=Vec::with_capacity(self.children[index].len());
-        for &child in &self.children[index] {sizes.push(self.preferred(child,h)?);}
+        for &child in &self.children[index] {
+            let child_style = self.styles[child];
+            let edges = if h {
+                [child_style.padding_left, child_style.padding_right]
+            } else {
+                [child_style.padding_top, child_style.padding_bottom]
+            };
+            let mut padding_sum = 0.0_f64;
+            for edge in edges {
+                match edge {
+                    Length::Px(n) => padding_sum += n,
+                    _ => return Err(unsupported(
+                        "Unresolved intrinsic percentage padding contribution.",
+                        &self.input.nodes[child].node_id,
+                    )),
+                }
+            }
+            sizes.push(self.preferred(child,h)? + padding_sum);
+        }
         if horizontal(style.direction)==h {
             let intrinsic = intrinsic_gap(if horizontal(style.direction){style.column_gap}else{style.row_gap},&node.node_id)?;
             Ok(sizes.iter().sum::<f64>()+intrinsic*sizes.len().saturating_sub(1) as f64)
