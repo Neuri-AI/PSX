@@ -537,6 +537,42 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
             ));
         }
     }
+    // D-F1.13 / C01–C06: explicit allowlist for definitely referenced
+    // percentages and measurable C05 block auto. Unknown graphs fail closed,
+    // irrespective of fixture name; Python applies identical class/node ID.
+    fn definite_block(
+        node:usize,input:&LayoutInput,styles:&[Style],indices:&HashMap<&str,usize>,
+        depth:usize,
+    )->bool{
+        if depth>input.nodes.len(){return false;}
+        let Some(parent_name)=input.nodes[node].parent_id.as_deref() else{
+            return input.constraints.height.definite || matches!(styles[node].height,Length::Px(_));
+        };
+        let parent=indices[parent_name];
+        match styles[parent].height{
+            Length::Px(_)=>true,
+            Length::Percent(_)=>definite_block(parent,input,styles,indices,depth+1),
+            Length::Auto=>false,
+        }
+    }
+    for index in 0..input.nodes.len(){
+        let st=styles[index];
+        let node=&input.nodes[index].node_id;
+        let percentage_padding=[st.padding_top,st.padding_right,st.padding_bottom,st.padding_left]
+            .iter().any(|v|matches!(v,Length::Percent(_)));
+        if percentage_padding && !definite_inline(index,input,&styles,&indices,0){
+            return Err(unsupported("Unlisted indefinite inline percentage padding dependency cycle.",node));
+        }
+        if matches!(st.max_height,Length::Percent(_))
+            && !definite_block(index,input,&styles,&indices,0){
+            return Err(unsupported("Unlisted indefinite percentage maximum size dependency cycle.",node));
+        }
+        if matches!(st.height,Length::Percent(_))
+            && !definite_block(index,input,&styles,&indices,0)
+            && !input.measurements.iter().any(|measurement|measurement.node_id==*node){
+            return Err(unsupported("Unmeasured indefinite percentage block dependency cycle.",node));
+        }
+    }
     let mut context=Context {
         input,styles,children,provisional,
         measurements:input.measurements.iter().map(|m|(m.node_id.as_str(),m)).collect(),
