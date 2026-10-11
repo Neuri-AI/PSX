@@ -1,6 +1,6 @@
 # SFLE F2 — audited acceptance and implementation register
 
-> **Last source audit:** 2026-10-10, branch `feat/sfle-f2-core`, base commit `e235b0229ff25cf9a8d64d8f0c89c2bb0808db72`, PR #11.
+> **Last validation:** 2026-10-10, branch `feat/sfle-f2-core`, verified implementation commit `fdff39037ad3f0f54fcc445246b17e32637f31a4`, PR #11. Historical baseline before changes: `e235b0229ff25cf9a8d64d8f0c89c2bb0808db72`.
 > **Status: F2 OPEN; public capability manifest CLOSED.** This is the **single current acceptance/status table**. A green CI job, helper test or commit count never substitutes for the named acceptance cases.
 
 ## Authority and hard boundaries
@@ -11,7 +11,7 @@ SFLE is the *only* target portable Flex geometry authority. Rust/PyO3/maturin is
 
 **F2.4 is an inventory/adapter contract only**; deleting Row/Column without aliases and integrating Scroll occur in F3 (F1 final §§5–6). Do not touch Row, Column, Scroll or the closed public manifest in F2. Importing `psx` must not require `_sfle_native`.
 
-## Audit of code, tests and CI (baseline)
+## Historical baseline audit (before this implementation; not current states)
 
 | Requirement | Python implementation | Rust implementation | Test actually exercised | Acceptance state |
 | --- | --- | --- | --- | --- |
@@ -23,9 +23,9 @@ SFLE is the *only* target portable Flex geometry authority. Rust/PyO3/maturin is
 | Horizontal LTR/RTL, reverse, wrap, lines | Subset of independent resolved helpers + restricted compute | Mirrored subset | A09 LTR/RTL narrow scenario; no full browser orientation matrix | **FAIL overall** |
 | Independent numerical error channels | Fields and calibrated tests | Wire fields | A10; native measured commit coverage incomplete | **FAIL native gate** |
 | Chromium 0.01px / Python-Rust parity | Position stage quantized; width distribution still divergent | Same architectural shortcoming | Seeded 100 browser cases; on `e235b022` 69 matched / 20 rejected / 11 geometry failures | **FAIL** |
-| F2.4 migration plan, without migration | Incomplete integration inventory | N/A | No exhaustive Row/Column/Scroll inventory test | **NO TEST** |
+| F2.4 migration plan, without migration | Initial inventory incomplete | N/A | Historical: no Row/Column/Scroll completeness gate | **NO TEST at baseline** |
 
-CI baseline [core](https://github.com/Neuri-AI/PSX/actions/runs/38102700326) PASS, [PSX alpha](https://github.com/Neuri-AI/PSX/actions/runs/38102700314) PASS, [Chromium](https://github.com/Neuri-AI/PSX/actions/runs/38102700291) FAIL. The current 11 deviations are visible as individual **1/64 px errors on actual border widths**, not merely positions. The acceptance corpus's schema/shape tests are *not* computation tests.
+Historical CI at `e235b022`: [core](https://github.com/Neuri-AI/PSX/actions/runs/38102700326) PASS, [PSX alpha](https://github.com/Neuri-AI/PSX/actions/runs/38102700314) PASS, [Chromium](https://github.com/Neuri-AI/PSX/actions/runs/38102700291) FAIL (11 border-width deviations of 1/64px, beyond 0.01px). **Current implementation CI:** [core Rust/Python/corpus](https://github.com/Neuri-AI/PSX/actions/runs/38103558470) PASS; [PSX alpha](https://github.com/Neuri-AI/PSX/actions/runs/38103558467) PASS; [Chromium geometry](https://github.com/Neuri-AI/PSX/actions/runs/38103558516) PASS (**129 browser tests**). These statuses are for `fdff3903` only; the corpus's schema/shape tests alone never count as computation tests.
 
 ## Current alpha acceptance cases: concrete trees and oracle
 
@@ -45,9 +45,11 @@ Every tree below is a logical Flex tree, **not** a migration of public Row/Colum
 | **A10** D-F1.11 | Three independent comparison channels 1px measurement, 2px engine, 3px native; absent measurement is **None**, not 0 | `test_f2_a10_quantitative_channels_red.py`, browser error reporting, Rust wire | YES | **PASS pure channels**, native end-to-end OPEN |
 | **C01–C06** F1 box-model §5 / F2.2 | Percentage basis with indefinite main ⇒ content basis; auto basis; post-flex 50% child ⇒ 60px of 120px; intrinsic 10% gap ⇒ 0 contribution, used 4px, next x=24px; auto ancestor 50%-height child ⇒ 30px; padding-top 10% of width 400 ⇒ 40px | `test_f2_cycle_corpus_runtime_red.py`, Rust equivalent; Chromium CSS matrix covers only C04–C06 | YES | **FAIL broad cycle graph certification** |
 | **N01–N04, C99** F1 box-model §5 / F2.2 | Unsupported indefinite inline percentage/minimum/column-descendant/height measurement/multi-node cycles ⇒ same `SFLE_UNSUPPORTED_FEATURE` and offending ID on both engines, never warning + geometry | Python `test_f2_n0*_cycle_red.py`, `test_f2_c99_red.py`; Rust counterparts and differential | YES | **PASS named negative patterns**, exhaustive classifier OPEN |
-| **F01** D-F1.11 / F2.2/F2.3 | `Flex(row,width:96,gap:4) → a(width:30px,basis:auto,shrink:0), b(basis:40%,shrink:0), c(basis:20px,shrink:0)` with percentage paddings; **b border/content width=38.390625px**, not 38.40625px (seed case 68) | Existing `test_sfle_f2_seeded_fuzz_red.py[case-68]`; add named Python/Rust RED and immutable Chromium assertion | YES | **FAIL** |
-| **F02** D-F1.11 / F2.2/F2.3 | `Flex(row,width:96,gap:10%) → a(basis:20,grow:2,pad:10%),b(basis:30,grow:2,pad:10%),c(basis:auto,width:20,grow:2)`; **b width=32.28125px; c x=73.734375px** (seed case 24), with stable border widths and exact order | Existing fuzz case 24; add named Python/Rust RED/Chromium assertions | YES | **FAIL** |
-| **F03** D-F1.11 / F2.3 | Seed `0x5F1E2026`, **100 cases**: all matching to 0.01px OR same explicit unsupported diagnostics on both backends, **0 silent divergences**; never skip cases | `test_sfle_f2_seeded_fuzz_red.py` | YES | **FAIL: 69 match / 20 reject / 11 diverge** |
+| **F01** D-F1.11 / F2.2/F2.3 | `Flex(row,width:96,gap:4) → a(width:30,basis:auto),b(basis:40%),c(basis:20)` with cross-axis 5–10% paddings; **n1 content/border width=38.390625px** (seed 68) | Named `test_F01_F02_fractional_browser_oracle_red[F01]`, Rust `f01_percent_basis_layout_unit_matches_chromium`, independent CSS matrix F01, fuzz case 68 | YES | **PASS named pure tree** |
+| **F02** D-F1.11 / F2.2/F2.3 | `Flex(row,width:96,gap:10%) → a(basis:20,grow:2,pad:10%),b(basis:30,grow:2,pad:10%),c(basis:auto,width:20,grow:2)`; **n1 width=32.28125px, n2 x=73.734375px** (seed 24) | Named `test_F01_F02_fractional_browser_oracle_red[F02]`, Rust `f02_flex_remainder_and_position_match_chromium`, CSS matrix F02, fuzz case 24 | YES | **PASS named pure tree** |
+| **F04** D-F1.11 / F2.2/F2.3 | `Flex(row,width:200,gap:4) → n0(basis:25%,shrink:0),n1(basis:40%,shrink:1),n2(basis:20px,shrink:1),n3(basis:40%,shrink:1)`; **n1 width=61.34375px, n2 x=119.34375px** (seed 75) | Named `test_F01_F02_fractional_browser_oracle_red[F04]`, Rust `f04_f05_reverse_flex_remainder_matches_chromium`, CSS matrix F04, fuzz case 75 | YES | **PASS named pure tree** |
+| **F05** D-F1.11 / F2.2/F2.3 | `Flex(row,width:240,gap:5%) → n0(basis:20,grow:1),n1(basis:30,grow:1),n2(basis:25%,grow:1),n3(basis:20,grow:2)`; **n1 width=44.8125px, n2 x=103.609375px** (seed 76) | Named `test_F01_F02_fractional_browser_oracle_red[F05]`, Rust `f04_f05_reverse_flex_remainder_matches_chromium`, CSS matrix F05, fuzz case 76 | YES | **PASS named pure tree** |
+| **F03** D-F1.11 / F2.3 | Seed `0x5F1E2026`, **100 cases**: geometry within 0.01px or matching explicit rejections, with 0 silent divergences | `test_sfle_f2_seeded_fuzz_red.py` parametrized 100 trees + final audit; [Chromium run 38103558516](https://github.com/Neuri-AI/PSX/actions/runs/38103558516) **129 passed** | YES | **PASS this 100-case seed** |
 
 **PASS restricted** is a statement about exactly the listed tree and existing test, **not** permission to advertise a generalized CSS feature. All unimplemented semantic combinations must fail closed with the same diagnostic on both engines. Do not change thresholds, silently reject known supported cases or alter the browser fixture to make F03 green.
 
@@ -59,7 +61,7 @@ Every tree below is a logical Flex tree, **not** a migration of public Row/Colum
 | Replaced elements and aspect-ratio transferred suggestions | **Not certified in first-alpha slice**, must reject on both engines; **still pending F2 sizing/verification**, not reclassified as F3 | F1 box-model §4.2; F1 final §6 F2.2/F2.3. Expanding initial feature scope requires an acceptance case |
 | Intrinsically auto-sized wrapped containers | **Not certified in first-alpha slice**, reject explicitly until implemented; belongs to F2, not F3 | F1 final §6 F2.2 line formation/intrinsics, F2.3 browser |
 | Vertical writing modes, `calc()`, CSS variables | Out of first horizontal-writing alpha grammar; deterministic unsupported diagnostic | F1 final D-F1.8 and F1 box-model §3.1; needs later architecture approval |
-| Actual Row/Column deletion and Scroll integration | **Do not modify during F2**; create migration inventory/adapter plan only | F1 final §§5–6, **F2.4 planning / F3 integration** |
+| Actual Row/Column deletion and Scroll integration | **F2.4 migration [plan documented](sfle-f2-migration-plan.md)**; no native changes until F3 | F1 final §§5–6, **F2.4 planning / F3 integration** |
 
 ## Evidence rules and remaining gates
 
@@ -67,6 +69,6 @@ Every tree below is a logical Flex tree, **not** a migration of public Row/Colum
 2. Fix width percentage reference and flex remainder allocation **inside the sizing pipeline** rather than post-processing `LayoutResult` or adjusting tolerances. Verify root-to-leaf box IDs, flex lines and all four box rectangles at ≤0.01px.
 3. Integrate active UI-thread remeasurement with generation-safe native geometry commits and a bounded **actual** fixed-point solver; protect against oscillations. Certify toolkit measurement versus engine versus native-commit error independently.
 4. Expand Rust/Python plus Chromium matrices across RTL/reverse/wrap/intrinsic and negative semantic graphs; require Windows/macOS/Linux native wheel/import tests, and source/frozen Python fallback.
-5. Complete F2.4 inventory/adapter contract without public migration. Keep manifest CLOSED until all F2 exit gates are proven.
+5. [F2.4 migration inventory and renderer-adapter contract](sfle-f2-migration-plan.md) now names public exports, markup/registries, Qt/Kivy/Tkinter/Headless native paths, Scroll boundaries, examples and tests. Add an independent inventory-completeness verification before closing the F2.4 gate; do not migrate public components until F3. Keep capability manifest CLOSED until all F2 exit gates are proven.
 
 There is no percentage-completion indicator or commit-count progress metric. Update the **single acceptance table above** after each real test result; preserve failed states and explicit gaps until resolved.
