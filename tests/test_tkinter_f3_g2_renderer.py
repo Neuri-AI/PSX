@@ -208,6 +208,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
 
     def test_additional_tk_native_primitives_have_sfle_geometry_no_pack(self):
         from psx import Slider, ProgressBar, Radio
+        # The root content box must agree with the explicitly owned viewport.
+        self.renderer.set_sfle_constraints(constraints(440, 80))
         specs = [
             (Checkbox(checked=True, key="cb", layout_width="24px",
                       layout_height="30px", flex_basis="24px", flex_shrink=0), ttk.Checkbutton, 24),
