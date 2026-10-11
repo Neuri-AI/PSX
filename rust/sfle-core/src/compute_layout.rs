@@ -817,7 +817,7 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         }
         let mut greatest=0.0_f64;
         let mut total=0.0_f64;
-        for &child in &children[index] {
+        for (child_index,&child) in children[index].iter().enumerate() {
             let style=styles[child];
             let child_id=&nodes[child].node_id;
             let mut width=match style.width {
@@ -864,7 +864,7 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
                         "Recursive row intrinsic gap must be definite.",id,
                     )),
                 };
-                total=sum_units([total,if total==0.0 {0.0} else {gap},outer]);
+                total=sum_units([total,if child_index==0 {0.0} else {gap},outer]);
             }
         }
         Ok(if row{total}else{greatest})
