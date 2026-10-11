@@ -270,6 +270,12 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             if width is None:
                 width = preferred(node_id, True)
             if height is None:
+                if style.height.kind == LengthKind.PERCENT and metrics is None:
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Unmeasured indefinite percentage block dependency cycle.",
+                        node_id,
+                    )
                 if metrics is not None:
                     measured_width = metrics.constraints.width
                     if not provisional and measured_width.definite and abs(measured_width.value - width) > 0.01:
