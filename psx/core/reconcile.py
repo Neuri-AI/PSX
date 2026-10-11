@@ -64,6 +64,9 @@ class Reconciler:
             root = self.root
         finally:
             self._is_rendering = False
+        commit_layout = getattr(self.renderer, "commit_layout", None)
+        if callable(commit_layout):
+            commit_layout(root)
         self._commit_refs()
         self.scheduler.run_effects()
         assert root is not None
@@ -73,6 +76,9 @@ class Reconciler:
         if self.root is not None:
             self._unmount(self.root, detach=False)
             self.root = None
+        invalidate_layout = getattr(self.renderer, "invalidate_layout", None)
+        if callable(invalidate_layout):
+            invalidate_layout()
 
     def _mount(self, node: VNode, parent: MountedInstance | None) -> MountedInstance:
         instance = MountedInstance(node=node, parent=parent)
@@ -352,6 +358,9 @@ class Reconciler:
                         self._refresh_ancestor_layout(ancestor)
         finally:
             self._is_rendering = False
+        commit_layout = getattr(self.renderer, "commit_layout", None)
+        if callable(commit_layout) and self.root is not None:
+            commit_layout(self.root)
         self._commit_refs()
         self.scheduler.run_effects()
 

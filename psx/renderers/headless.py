@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from threading import RLock
+from threading import RLock, get_ident
+
+from psx.sfle.model import IntrinsicSizes, LayoutConstraints, LayoutResult, Rect
 
 from psx.core.errors import RendererCapabilityError
 from psx.core.events import EventSlot
@@ -55,12 +57,31 @@ class HeadlessHandle:
     children: list["HeadlessHandle"] = field(default_factory=list)
     events: dict[str, EventSlot] = field(default_factory=dict)
     destroyed: bool = False
+    geometry: Rect | None = None
 
 
 class HeadlessRenderer:
     """Records native-like operations without importing a UI toolkit."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        sfle_constraints: LayoutConstraints | None = None,
+        measure_intrinsic: Callable[[VNode], IntrinsicSizes | None] | None = None,
+        engine: object | None = None,
+    ) -> None:
+        if sfle_constraints is not None and not isinstance(sfle_constraints, LayoutConstraints):
+            raise TypeError("Headless SFLE constraints must be LayoutConstraints.")
+        if sfle_constraints is None and (measure_intrinsic is not None or engine is not None):
+            raise ValueError("Headless SFLE measurements/engine require viewport constraints.")
+        from psx.sfle.backend import load_layout_engine
+        self._sfle_constraints = sfle_constraints
+        self._sfle_measure = measure_intrinsic
+        self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
+        self._sfle_generation = 0
+        self._sfle_in_commit = False
+        self._sfle_owner_thread = get_ident()
+        self.sfle_result: LayoutResult | None = None
         self.operations: list[tuple[object, ...]] = []
         self._pending: list[Callable[[], None]] = []
         self._lock = RLock()
@@ -77,11 +98,48 @@ class HeadlessRenderer:
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
 
+    def set_sfle_constraints(self, constraints: LayoutConstraints) -> None:
+        """Change Headless viewport constraints; caller requests a new commit."""
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("SFLE was not enabled for this Headless renderer.")
+        if not isinstance(constraints, LayoutConstraints):
+            raise TypeError("SFLE constraints must be LayoutConstraints.")
+        self._sfle_constraints = constraints
+        self._sfle_generation += 1
+
+    def commit_layout(self, root: object) -> None:
+        """Commit actual SFLE geometry for the mounted root (if enabled)."""
+        if self._sfle_constraints is not None:
+            from psx.sfle.f3_headless import commit_headless_sfle
+            commit_headless_sfle(self, root)
+
+    def invalidate_layout(self) -> None:
+        if self._sfle_constraints is not None:
+            self._sfle_generation += 1
+            self.sfle_result = None
+
     def create(self, node: VNode, parent: object | None) -> HeadlessHandle:
         adapter = self.adapters.get(adapter_key(node)) or self._default_adapter
         return adapter.create(self, node, parent)  # type: ignore[return-value]
 
     def _adapter_create(self, node: VNode, parent: object | None) -> HeadlessHandle:
+        if self._sfle_constraints is not None:
+            if node.kind is NodeKind.NATIVE:
+                raise RendererCapabilityError(
+                    "F3-G2 native custom widgets require declared geometry and measurement ports."
+                )
+            if node.kind is NodeKind.HOST:
+                if node.type in ("Row", "Column"):
+                    raise RendererCapabilityError("Legacy Row/Column cannot own SFLE layout.")
+                from psx.core.registry import builtin_component_registry
+                definition = builtin_component_registry().snapshot().get(node.type)
+                if definition is None:
+                    raise RendererCapabilityError(f"Unknown Headless SFLE host {node.type!r}.")
+                if definition.contract is not None:
+                    definition.contract.validate(node.props)
+            handle = HeadlessHandle(node.type, dict(node.props))
+            self.operations.append(("create", handle))
+            return handle
         if node.kind is NodeKind.HOST and node.type == "Flex":
             raise RendererCapabilityError(
                 "Flex requires the F3-G2 SFLE geometry adapter for Headless; "
@@ -139,6 +197,21 @@ class HeadlessRenderer:
         removed: frozenset[str],
     ) -> None:
         target = _handle(handle)
+        if self._sfle_constraints is not None:
+            from psx.core.registry import builtin_component_registry
+            from psx.core.layout_item import validate_flex_item_props
+            updated = dict(target.props)
+            updated.update(changed)
+            for name in removed:
+                updated.pop(name, None)
+            definition = builtin_component_registry().snapshot().get(target.type)
+            if definition is not None and definition.contract is not None:
+                definition.contract.validate(updated)
+            else:
+                validate_flex_item_props(updated, owner=str(target.type))
+            target.props = updated
+            self.operations.append(("update", target, dict(changed), removed))
+            return
         if target.type == "Text":
             updated_text_props(target.props, changed, removed)
         elif target.type == "Input":
