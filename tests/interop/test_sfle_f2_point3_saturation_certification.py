@@ -233,3 +233,34 @@ def test_entire_many_item_flex_pipeline_uses_bounded_accumulated_gaps(
                     "Gap accumulation escaped signed LayoutUnit bounds",
                     count,gap,direction,box,axis,raw,
                 )
+
+
+@pytest.mark.parametrize("width,basis,grow,shrink",(
+    (220,20,1e308,1),     # overflow in accumulated grow factors
+    (10,80,0,1e308),     # overflow in scaled shrink weights
+))
+def test_primary_flex_finite_factor_overflow_fails_closed_equivalently(
+    width,basis,grow,shrink,rust_binary,
+):
+    """Neither primary Rust nor Python fallback may emit NaN or fake geometry."""
+    children=tuple(LayoutNode(f"n_{index}","root","Box",(
+        ("width",f"{basis}px"),("height","20px"),
+        ("flex_basis",f"{basis}px"),("min_width","0px"),
+        ("flex_grow",grow),("flex_shrink",shrink),
+    )) for index in range(2))
+    snapshot=LayoutInput(
+        1,3333,WritingDirection.LTR,
+        LayoutConstraints(AvailableSize(width,True),AvailableSize(120,True)),
+        (LayoutNode("root",None,"Flex",(
+            ("direction","row"),("width",f"{width}px"),("height","120px"),
+            ("align_items","flex-start"),
+        )),*children),(),
+    )
+    python=_python_compute(snapshot)
+    rust=_rust_compute(rust_binary,snapshot)
+    for name,response in (("python",python),("rust",rust)):
+        assert not response["ok"],("Nonfinite Flex factor accepted",name,width,basis,response)
+        assert response["error"]["code"]=="SFLE_UNSUPPORTED_FEATURE",(
+            name,width,basis,response["error"],
+        )
+        assert response["error"]["node_id"]=="root"
