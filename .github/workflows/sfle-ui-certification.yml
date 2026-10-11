@@ -1,0 +1,43 @@
+name: SFLE real native UI certification
+
+on:
+  pull_request:
+    paths:
+      - "psx/sfle/**"
+      - "tests/ui/**"
+      - ".github/workflows/sfle-ui-certification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-qt-tk-kivy:
+    name: Live Qt Tk Kivy widgets and measurements
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+      KIVY_NO_ARGS: "1"
+      KIVY_NO_CONSOLELOG: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Xvfb and native UI libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            xvfb xauth python3-tk libegl1 libopengl0 libxkbcommon-x11-0 \
+            libxcb-cursor0 libmtdev1 libsdl2-2.0-0 \
+            libsdl2-image-2.0-0 libsdl2-ttf-2.0-0
+      - name: Install three real toolkit runtime dependencies
+        run: python -m pip install -e '.[qt,kivy]' pytest
+      - name: Assert live native widgets without skips
+        run: |
+          set -o pipefail
+          xvfb-run -a python -m pytest -q -rs tests/ui/test_sfle_real_toolkit_geometry.py | tee /tmp/sfle-ui-cert.txt
+          if grep -Eq '([0-9]+ skipped|SKIPPED \[)' /tmp/sfle-ui-cert.txt; then
+            echo 'Native certification forbids skipped toolkit tests'; exit 1
+          fi
