@@ -574,13 +574,15 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 if cross is None and height is not None and style.align_items == CrossAlign.STRETCH:
                     cross = max(0.0, height - edges[child_id].vertical)
                 child_width, child_height = layout(child_id,target,cross,width,height)
-                cross_sizes.append(child_height)
+                # Auto cross-size contains each child outer padding box. A
+                # nested column's content-only height undercounts the row.
+                cross_sizes.append(child_height + edges[child_id].vertical)
             else:
                 cross = _axis_value(child_style.width,width,axis="width",node_id=child_id)
                 if cross is None and style.align_items == CrossAlign.STRETCH:
                     cross = max(0.0, width - edges[child_id].horizontal)
                 child_width, child_height = layout(child_id,cross,target,width,height)
-                cross_sizes.append(child_width)
+                cross_sizes.append(child_width + edges[child_id].horizontal)
         if height is None:
             height = max(cross_sizes, default=0.0)
         width, height = _layout_unit(width), _layout_unit(height)
