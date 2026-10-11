@@ -810,9 +810,16 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
                 "Recursive row intrinsic constraint requires no-wrap.",id,
             ));
         }
-        if row && children[index].iter().any(|&child|styles[child].shrink!=0.0){
+        if row && children[index].iter().any(|&child|{
+            let s=styles[child];
+            s.shrink!=0.0 && (
+                minimum || !matches!(s.width,Length::Px(_))
+                || !matches!(s.basis,Length::Px(_))
+                || !matches!(s.min_width,Length::Px(_))
+            )
+        }){
             return Err(unsupported(
-                "Recursive row intrinsic constraint requires nonshrinking children.",id,
+                "Shrinking row max-content requires definite item width, basis and minimum.",id,
             ));
         }
         let mut greatest=0.0_f64;
