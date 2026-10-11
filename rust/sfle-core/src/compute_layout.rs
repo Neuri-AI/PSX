@@ -876,6 +876,90 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         }
         Ok(if row{total}else{greatest})
     }
+    fn intrinsic_flex_height(
+        index:usize,minimum:bool,nodes:&[crate::compute::LayoutNode],
+        children:&[Vec<usize>],styles:&[Style],
+        measurements:&[crate::compute::MeasuredBox],
+    )->Result<f64,ComputeError>{
+        let id=&nodes[index].node_id;
+        if children[index].is_empty(){
+            if let Some(metric)=measurements.iter().find(|m|m.node_id==*id){
+                return Ok(layout_unit(if minimum{
+                    metric.intrinsic.min_content_height
+                }else{metric.intrinsic.max_content_height}));
+            }
+            if nodes[index].component=="Text"{
+                return Err(measurement(
+                    "Intrinsic block constraint requires measured text.",id,
+                ));
+            }
+            return Ok(0.0);
+        }
+        let column=!horizontal(styles[index].direction);
+        let mut contributions=Vec::with_capacity(children[index].len());
+        for &child_index in &children[index]{
+            let child=styles[child_index];
+            let child_id=&nodes[child_index].node_id;
+            if column && child.shrink!=0.0{
+                return Err(unsupported(
+                    "Recursive intrinsic column block sizing requires nonshrinking items.",
+                    child_id,
+                ));
+            }
+            let mut height=match child.height{
+                Length::Px(n)=>layout_unit(n),
+                Length::Auto|Length::MinContent|Length::MaxContent=>
+                    intrinsic_flex_height(child_index,minimum,nodes,children,styles,measurements)?,
+                _=>return Err(unsupported(
+                    "Uncertified percentage block dependency in intrinsic constraint.",
+                    child_id,
+                )),
+            };
+            match child.max_height{
+                Length::Px(n)=>height=height.min(layout_unit(n)),
+                Length::Auto=>{},
+                _=>return Err(unsupported(
+                    "Unresolved intrinsic maximum block size.",child_id,
+                )),
+            }
+            match child.min_height{
+                Length::Px(n)=>height=height.max(layout_unit(n)),
+                Length::Auto=>{},
+                _=>return Err(unsupported(
+                    "Unresolved intrinsic minimum block size.",child_id,
+                )),
+            }
+            for edge in [
+                child.padding_top,child.padding_bottom,
+                child.border_top,child.border_bottom,
+                child.margin_top,child.margin_bottom,
+            ] {
+                match edge{
+                    Length::Px(n)=>height=sum_units([height,n]),
+                    Length::Auto=>{},
+                    _=>return Err(unsupported(
+                        "Uncertified relative block edges in intrinsic constraint.",
+                        child_id,
+                    )),
+                }
+            }
+            contributions.push(height);
+        }
+        if !column{
+            return Ok(contributions.into_iter().fold(0.0_f64,f64::max));
+        }
+        let gap=match styles[index].row_gap{
+            Length::Px(n)=>n,
+            _=>return Err(unsupported(
+                "Recursive intrinsic column gap must be definite.",id,
+            )),
+        };
+        let mut total=0.0;
+        for (i,height) in contributions.into_iter().enumerate(){
+            total=sum_units([total,if i==0{0.0}else{gap},height]);
+        }
+        Ok(total)
+    }
     for index in (0..input.nodes.len()).rev() {
         let id=&input.nodes[index].node_id;
         let has_bound=[
@@ -890,14 +974,15 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
                 _=>return Ok(value),
             };
             if !children[index].is_empty(){
-                if !axis_width {
-                    return Err(unsupported(
-                        "Recursive intrinsic block-axis constraint not yet certified.",id,
-                    ));
-                }
-                return Ok(Length::Px(intrinsic_flex_width(
-                    index,is_min,&input.nodes,&children,&styles,&input.measurements,
-                )?));
+                return Ok(Length::Px(if axis_width {
+                    intrinsic_flex_width(
+                        index,is_min,&input.nodes,&children,&styles,&input.measurements,
+                    )?
+                } else {
+                    intrinsic_flex_height(
+                        index,is_min,&input.nodes,&children,&styles,&input.measurements,
+                    )?
+                }));
             }
             let metric=metric.ok_or_else(||measurement(
                 "Intrinsic min/max constraint requires measured leaf content.",id,
