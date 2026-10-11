@@ -53,5 +53,5 @@ def test_a07_real_remeasurement_oscillates_without_native_commit():
 
     assert error.value.code == DiagnosticCode.UNSUPPORTED_MEASUREMENT
     assert "oscillat" in str(error.value).lower()
-    assert calls[:3] == [100, 60, 100]
+    assert calls == [100, 60], "Coordinator detects the repeated 100px signature before an unsafe third measurement"
     assert commits == [], "A07 never commits a provisional or oscillating geometry"
