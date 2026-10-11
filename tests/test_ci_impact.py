@@ -67,8 +67,11 @@ class RoutingTests(unittest.TestCase):
     def test_selector_changes_only_test_selector(self):
         self.assertEqual(self.selected("scripts/ci/impact.py"), {"router"})
 
-    def test_f3_workflow_only_tests_router(self):
-        self.assertEqual(self.selected(".github/workflows/f3-selective.yml"), {"router"})
+    def test_f3_workflow_must_exercise_qt_family_matrix(self):
+        self.assertEqual(self.selected(".github/workflows/f3-selective.yml"), {"router", "qt"})
+
+    def test_f3_qt_binding_parity_module_routes_to_qt_not_core(self):
+        self.assertEqual(self.selected("tests/test_f3_g2_qt_family.py"), {"qt"})
 
     def test_workflow_affecting_browser_enables_chromium(self):
         self.assertEqual(

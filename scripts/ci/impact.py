@@ -31,7 +31,11 @@ def _classify_path(path: str) -> set[str]:
         # certify their own affected suite, not all of F2 by default.
         result = {"router"}
         name = PurePosixPath(path).name
-        if name == "sfle-chromium.yml":
+        if name == "f3-selective.yml":
+            # Changes to the shared F3 workflow must exercise the Qt parity
+            # matrix; don't certify its new required job with router-only CI.
+            result.add("qt")
+        elif name == "sfle-chromium.yml":
             result.add("chromium")
         elif name == "sfle-ui-certification.yml":
             result.update({"qt", "kivy", "tkinter"})
@@ -89,7 +93,7 @@ def _classify_path(path: str) -> set[str]:
             return {"kivy"}
         if "tkinter" in name or name.startswith("test_tk"):
             return {"tkinter"}
-        if "pyqt" in name or "pyside" in name:
+        if "pyqt" in name or "pyside" in name or "_qt_" in name:
             return {"qt"}
         return {"core"}
     if path.startswith("examples/") or path.startswith("scripts/"):
