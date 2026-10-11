@@ -17,6 +17,7 @@ from psx.core.vnode import NodeKind
 from psx.sfle.adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from psx.sfle.errors import DiagnosticCode, SFLEError
 from psx.sfle.f3_snapshot import prepare_f3_snapshot
+from psx.sfle.f3_external import external_port_for, measure_external, read_external
 from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
 from psx.sfle.fixed_point import LayoutUnit
 from psx.sfle.kivy_measurement import KivyMeasurementSource
@@ -67,6 +68,11 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             normalized, renderer._sfle_constraints, generation=generation,
         )
         bindings = {node_id: handles[id(source)] for node_id, source in prepared.identities}
+        external = {
+            node_id: port
+            for node_id, source in prepared.identities
+            if (port := external_port_for(source, renderer)) is not None
+        }
         for node in prepared.snapshot.nodes:
             if node.parent_id is None:
                 if bindings[node.node_id].widget is not renderer._root:
@@ -88,6 +94,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             node_id: bindings[node_id].widget
             for node_id, source in prepared.identities
             if source.kind is NodeKind.HOST and source.type != "Flex"
+            and node_id not in external
             and g2_native_leaf_needs_measurement(source, backend="kivy")
         }
         source = KivyMeasurementSource(leaf_widgets)
@@ -103,8 +110,25 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             )))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Kivy measurement became stale.")
+        for node_id, port in external.items():
+            readings.append(measure_external(
+                port, bindings[node_id].widget, renderer._sfle_constraints,
+                node_id, generation,
+            ))
+            if renderer._sfle_generation != generation:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external kivy measurement.")
         snapshot = replace(prepared.snapshot, measurements=tuple(readings))
         result = renderer._sfle_engine.compute(snapshot)
+        def read_widget(node_id, handle):
+            port = external.get(node_id)
+            if port is not None:
+                widget = handle if "kivy" == "tk" else handle.widget
+                rect = read_external(port, widget, node_id)
+                return dict(x=rect.x, y=rect.y, width=rect.width, height=rect.height)
+            widget = handle.widget
+            return dict(x=float(widget.x), y=float(widget.y),
+                        width=float(widget.width), height=float(widget.height))
+
         ports = SFLEAdapterPorts(
             current_generation=lambda: renderer._sfle_generation,
             nodes_alive=lambda ids: all(
@@ -113,10 +137,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             ),
             apply_rectangles=lambda _: None,
             read_rectangles=lambda: {
-                node_id: {
-                    "x": float(handle.widget.x), "y": float(handle.widget.y),
-                    "width": float(handle.widget.width), "height": float(handle.widget.height),
-                }
+                node_id: read_widget(node_id, handle)
                 for node_id, handle in bindings.items()
             },
         )
@@ -145,6 +166,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         committer = NativeGeometryCommitter(
             GeometryBackend.KIVY, nodes,
             {node_id: handle.widget for node_id, handle in bindings.items()},
+            external_ports=external,
         )
         before = {
             node_id: (tuple(handle.widget.pos), tuple(handle.widget.size))
@@ -182,8 +204,14 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 )
         except BaseException:
             for node_id, (pos, size) in before.items():
-                bindings[node_id].widget.pos = pos
-                bindings[node_id].widget.size = size
+                if node_id in external:
+                    from psx.sfle.model import Rect
+                    external[node_id].apply(bindings[node_id].widget, Rect(
+                        pos[0], pos[1], size[0], size[1],
+                    ))
+                else:
+                    bindings[node_id].widget.pos = pos
+                    bindings[node_id].widget.size = size
             raise
         renderer.sfle_result = replace(result, geometry_commit_error=maximum)
     finally:

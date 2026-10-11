@@ -16,6 +16,7 @@ from psx.core.vnode import NodeKind
 from psx.sfle.adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from psx.sfle.errors import DiagnosticCode, SFLEError
 from psx.sfle.f3_snapshot import prepare_f3_snapshot
+from psx.sfle.f3_external import external_port_for, measure_external, read_external
 from psx.sfle.margin_tree import MarginTreeNode
 from psx.sfle.measurement_plan import MeasurementRequest
 from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
@@ -76,6 +77,11 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             normalized, renderer._sfle_constraints, generation=generation,
         )
         widgets = {node_id: handles[id(node)].widget for node_id, node in prepared.identities}
+        external = {
+            node_id: port
+            for node_id, source in prepared.identities
+            if (port := external_port_for(source, renderer)) is not None
+        }
         root_id = prepared.snapshot.nodes[0].node_id
 
         for node in prepared.snapshot.nodes:
@@ -98,6 +104,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             node_id: widgets[node_id]
             for node_id, source in prepared.identities
             if source.kind is NodeKind.HOST and source.type != "Flex"
+            and node_id not in external
         }
         # Let Tcl calculate requested sizes without giving it layout authority.
         renderer.root.update_idletasks()
@@ -109,8 +116,23 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             )))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Tk measurement.")
+        for node_id, port in external.items():
+            readings.append(measure_external(
+                port, widgets[node_id], renderer._sfle_constraints,
+                node_id, generation,
+            ))
+            if renderer._sfle_generation != generation:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external tk measurement.")
         snapshot = replace(prepared.snapshot, measurements=tuple(readings))
         result = renderer._sfle_engine.compute(snapshot)
+
+        def read_widget(node_id, handle):
+            port = external.get(node_id)
+            if port is not None:
+                widget = handle if "tk" == "tk" else handle.widget
+                rect = read_external(port, widget, node_id)
+                return dict(x=rect.x, y=rect.y, width=rect.width, height=rect.height)
+            return _geometry(handle)
 
         ports = SFLEAdapterPorts(
             current_generation=lambda: renderer._sfle_generation,
@@ -119,7 +141,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             ),
             apply_rectangles=lambda _: None,
             read_rectangles=lambda: {
-                node_id: _geometry(widget)
+                node_id: read_widget(node_id, widget)
                 for node_id, widget in widgets.items()
                 if widget.winfo_manager() == "place"
             },
@@ -145,7 +167,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             for node in snapshot.nodes
         )
         committer = NativeGeometryCommitter(
-            GeometryBackend.TK, nodes, widgets,
+            GeometryBackend.TK, nodes, widgets, external_ports=external,
         )
         before = {
             node_id: dict(widget.place_info())
@@ -178,7 +200,14 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 if not widget.winfo_exists():
                     continue
                 if old:
-                    widget.place(**old)
+                    if node_id in external:
+                        from psx.sfle.model import Rect
+                        rect = Rect(*(float(old[axis]) for axis in (
+                            "x", "y", "width", "height",
+                        )))
+                        external[node_id].apply(widget, rect)
+                    else:
+                        widget.place(**old)
                 else:
                     widget.place_forget()
             raise

@@ -15,6 +15,7 @@ from psx.core.vnode import NodeKind
 from psx.sfle.adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from psx.sfle.errors import DiagnosticCode, SFLEError
 from psx.sfle.f3_snapshot import prepare_f3_snapshot
+from psx.sfle.f3_external import external_port_for, measure_external, read_external
 from psx.sfle.margin_tree import MarginTreeNode
 from psx.sfle.measurement_plan import MeasurementRequest
 from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
@@ -63,6 +64,11 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             normalized, renderer._sfle_constraints, generation=generation,
         )
         bindings = {node_id: handles[id(node)] for node_id, node in prepared.identities}
+        external = {
+            node_id: port
+            for node_id, source in prepared.identities
+            if (port := external_port_for(source, renderer)) is not None
+        }
         # A Qt layout must never be allowed to override SFLE rectangles.
         for node_id, handle in bindings.items():
             if handle.layout is not None or handle.widget.layout() is not None:
@@ -80,6 +86,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             node_id: bindings[node_id].widget
             for node_id, source in prepared.identities
             if source.kind is NodeKind.HOST and source.type != "Flex"
+            and node_id not in external
         }
         source = QtMeasurementSource(leaf_widgets, qtcore=renderer._qtcore)
         if not source.is_ui_thread():
@@ -92,8 +99,25 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             )))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Qt measurement generation.")
+        for node_id, port in external.items():
+            measurements.append(measure_external(
+                port, bindings[node_id].widget, renderer._sfle_constraints,
+                node_id, generation,
+            ))
+            if renderer._sfle_generation != generation:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external qt measurement.")
         snapshot = replace(prepared.snapshot, measurements=tuple(measurements))
         result = renderer._sfle_engine.compute(snapshot)
+
+        def read_widget(node_id, handle):
+            port = external.get(node_id)
+            if port is not None:
+                widget = handle if "qt" == "tk" else handle.widget
+                rect = read_external(port, widget, node_id)
+                return dict(x=rect.x, y=rect.y, width=rect.width, height=rect.height)
+            rect = handle.widget.geometry()
+            return dict(x=float(rect.x()), y=float(rect.y()),
+                        width=float(rect.width()), height=float(rect.height()))
 
         ports = SFLEAdapterPorts(
             current_generation=lambda: renderer._sfle_generation,
@@ -103,12 +127,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             ),
             apply_rectangles=lambda _: None,
             read_rectangles=lambda: {
-                node_id: {
-                    "x": float(handle.widget.geometry().x()),
-                    "y": float(handle.widget.geometry().y()),
-                    "width": float(handle.widget.geometry().width()),
-                    "height": float(handle.widget.geometry().height()),
-                }
+                node_id: read_widget(node_id, handle)
                 for node_id, handle in bindings.items()
             },
         )
@@ -125,6 +144,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         committer = NativeGeometryCommitter(
             GeometryBackend.QT, nodes,
             {node_id: handle.widget for node_id, handle in bindings.items()},
+            external_ports=external,
         )
         before = {
             node_id: (
@@ -154,7 +174,11 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                                 "Qt widget geometry readback exceeds 1px tolerance.")
         except BaseException:
             for node_id, values in before.items():
-                bindings[node_id].widget.setGeometry(*values)
+                if node_id in external:
+                    from psx.sfle.model import Rect
+                    external[node_id].apply(bindings[node_id].widget, Rect(*values))
+                else:
+                    bindings[node_id].widget.setGeometry(*values)
             raise
         renderer.sfle_result = replace(result, geometry_commit_error=maximum)
     finally:
