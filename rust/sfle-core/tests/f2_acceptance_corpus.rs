@@ -11,7 +11,7 @@ fn f2_shared_acceptance_trees_have_preorder_identity() {
     let cases = corpus["cases"].as_array().expect("cases array");
     let expected: HashSet<&str> = [
         "A01", "A02", "A03", "A04", "A05", "A06", "A07",
-        "C01", "C02", "C03", "C04", "C05", "C06", "C99",
+        "C01", "C02", "C03", "C04", "C05", "C06", "C99", "F01", "F02",
         "A08", "A09-LTR", "A09-RTL", "A10", "N01", "N02", "N03", "N04",
     ].into_iter().collect();
     let mut seen_cases = HashSet::new();
