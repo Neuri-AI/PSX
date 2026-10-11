@@ -13,7 +13,10 @@ from .errors import DiagnosticCode, SFLEError
 from .margin_tree import MarginTreeNode
 from .recursive_measurement import RecursiveMeasurementResult
 from .model import LayoutResult, Rect
-from .f3_external import SFLEExternalPort
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .f3_external import SFLEExternalPort
 from .fixed_point import LayoutUnit
 
 
@@ -49,6 +52,10 @@ class NativeGeometryCommitter:
         self._external_ports = dict(external_ports or {})
         if not set(self._external_ports) <= set(self._parents):
             raise SFLEError(DiagnosticCode.INVALID_TREE, "External geometry port has no SFLE node.")
+        if self._external_ports:
+            # Keep the F2 toolkit-worker/core import graph independent of
+            # G2 vnode/native modules (avoids core.vnode initialization cycle).
+            from .f3_external import SFLEExternalPort
         if any(not isinstance(port, SFLEExternalPort) for port in self._external_ports.values()):
             raise TypeError("External geometry ports must be SFLEExternalPort instances.")
         if nodes and nodes[0].parent_id is not None:
