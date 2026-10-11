@@ -15,7 +15,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 
 from .errors import DiagnosticCode, SFLEError
-from .adapter_contract import SFLEAdapterPorts, validate_adapter_commit
+from .adapter_contract import SFLEAdapterPorts, ScrollViewport, validate_adapter_commit
 from .model import IntrinsicSizes, LayoutInput, LayoutResult
 from .remeasure_session import compute_with_width_measurements
 
@@ -93,6 +93,7 @@ def start_native_worker_layout(
     post_to_ui: Callable[[Callable[[], None]], None],
     on_finished: Callable[[LayoutResult | None, Exception | None], None],
     nodes_alive: Callable[[tuple[str, ...]], bool] | None = None,
+    scroll_viewports: tuple[ScrollViewport, ...] = (),
 ) -> NativeWorkerLayoutHandle:
     """Start real OS-worker computation, with *only* UI-owned native operations.
 
@@ -104,6 +105,10 @@ def start_native_worker_layout(
     """
     if not isinstance(snapshot, LayoutInput):
         raise TypeError("Expected an immutable LayoutInput snapshot.")
+    if not isinstance(scroll_viewports, tuple) or not all(
+        isinstance(viewport, ScrollViewport) for viewport in scroll_viewports
+    ):
+        raise TypeError("scroll_viewports must be an immutable ScrollViewport tuple.")
     if not is_ui_thread():
         raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                         "Portable SFLE dispatcher must start on the UI thread.")
@@ -191,6 +196,7 @@ def start_native_worker_layout(
                     apply_rectangles=apply_geometry,
                     read_rectangles=observed_geometry,
                 ),
+                scroll_viewports=scroll_viewports,
             )
             if nodes_alive is not None and not nodes_alive(ids):
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
