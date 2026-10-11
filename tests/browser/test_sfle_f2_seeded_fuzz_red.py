@@ -24,6 +24,7 @@ from psx.sfle.errors import SFLEError,DiagnosticCode
 SEED=0x5F1E2026
 COUNT=24
 TOLERANCE=0.01
+FUZZ_STATUS={}
 
 
 def fuzz_cases():
@@ -89,6 +90,7 @@ def test_seeded_flex_differential_against_chromium(case,browser,rust_binary):
         text=True,capture_output=True,check=True,timeout=30)
     rs=json.loads(run.stdout)
     if not py["ok"] or not rs["ok"]:
+        FUZZ_STATUS[index]='rejected'
         assert not py["ok"] and not rs["ok"],(
             f"Silent backend disagreement seed={SEED}, case={index}: {py}, {rs}")
         assert py["code"]==rs["error"]["code"]==DiagnosticCode.UNSUPPORTED_FEATURE.value
@@ -106,6 +108,7 @@ def test_seeded_flex_differential_against_chromium(case,browser,rust_binary):
             return [el.id,{x:r.x,y:r.y,width:r.width,height:r.height}];
         })
     )""")
+    FUZZ_STATUS[index]='matched'
     p=dict(py["result"].boxes)
     native={v["node_id"]:v for v in rs["result"]["boxes"]}
     for node_id,box in p.items():
@@ -113,9 +116,20 @@ def test_seeded_flex_differential_against_chromium(case,browser,rust_binary):
             expected=observed[node_id][axis]
             python_actual=getattr(box.border,axis)
             rust_actual=native[node_id]["border"][axis]
+            if abs(python_actual-expected)>TOLERANCE:
+                FUZZ_STATUS[index]='silent_discrepancy'
             assert abs(python_actual-expected)<=TOLERANCE, (
                 f"SILENT GEOMETRY BUG seed={SEED} case={index} {node_id}.{axis} "
                 f"Python={python_actual} Chromium={expected} input={case!r}")
             assert abs(rust_actual-expected)<=TOLERANCE, (
                 f"SILENT GEOMETRY BUG seed={SEED} case={index} {node_id}.{axis} "
                 f"Rust={rust_actual} Chromium={expected} input={case!r}")
+
+
+def test_seeded_fuzz_audited_outcomes():
+    """Report rejected, matching and silently divergent trees."""
+    from collections import Counter
+    assert len(FUZZ_STATUS)==COUNT
+    counts=Counter(FUZZ_STATUS.values())
+    print(f"SFLE FUZZ seed={SEED:#x} total={COUNT} matched={counts['matched']} rejected={counts['rejected']} silent_discrepancies={counts['silent_discrepancy']}")
+    assert counts["silent_discrepancy"]==0, f"Silent geometry bugs: {counts}"
