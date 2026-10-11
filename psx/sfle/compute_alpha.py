@@ -445,20 +445,33 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 node_id,
             )
 
-    def bounded_intrinsic(style: _Style, horizontal: bool, value: float) -> float:
-        """Apply CSS explicit intrinsic/cross min/max size constraints.
+    def bounded_intrinsic(
+        style: _Style, horizontal: bool, value: float,
+        reference: float | None = None,
+    ) -> float:
+        """Apply definite min/max constraints to used/intrinsic content sizes.
 
-        The minimum wins over an inconsistent smaller maximum. Indefinite
-        percentage constraints remain handled by the capability gates.
+        Intrinsic widths without a definite containing-block reference only
+        honor PX bounds. Resolved percentage bounds use LayoutUnit and CSS
+        gives the minimum precedence over an inconsistent maximum.
         """
         maximum = style.max_width if horizontal else style.max_height
         minimum = style.min_width if horizontal else style.min_height
-        if maximum.kind == LengthKind.PX:
-            assert maximum.value is not None
-            value = min(value, maximum.value)
-        if minimum.kind == LengthKind.PX:
-            assert minimum.value is not None
-            value = max(value, minimum.value)
+
+        def bound(length: Length) -> float | None:
+            if length.kind == LengthKind.PX:
+                return length.value
+            if length.kind == LengthKind.PERCENT and reference is not None:
+                assert length.value is not None
+                return _layout_unit(length.value * reference)
+            return None
+
+        cap = bound(maximum)
+        floor = bound(minimum)
+        if cap is not None:
+            value = min(value, cap)
+        if floor is not None:
+            value = max(value, floor)
         return value
 
     def preferred(node_id: str, horizontal: bool) -> float:
@@ -532,8 +545,8 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                         raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                             "Missing post-flex width-specific intrinsic measurement.", node_id)
                 height = preferred(node_id, False)
-            width = bounded_intrinsic(style, True, width)
-            height = bounded_intrinsic(style, False, height)
+            width = bounded_intrinsic(style, True, width, parent_width)
+            height = bounded_intrinsic(style, False, height, parent_height)
             width, height = _layout_unit(width), _layout_unit(height)
             used[node_id] = (width, height)
             return width, height
@@ -543,9 +556,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             width = preferred(node_id, True)
         if height is None and not horizontal:
             height = preferred(node_id, False)
-        width = bounded_intrinsic(style, True, width)
+        width = bounded_intrinsic(style, True, width, parent_width)
         if height is not None:
-            height = bounded_intrinsic(style, False, height)
+            height = bounded_intrinsic(style, False, height, parent_height)
         main_size = width if horizontal else height
         assert main_size is not None
         # Intrinsically auto-sized main axes are NOT percentage-definite simply
@@ -580,6 +593,8 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 minimum = (metric.intrinsic.min_content_width if horizontal else metric.intrinsic.min_content_height) if metric is not None else (
                     basis_axis.value if basis_axis.kind == LengthKind.PX else 0.0
                 )
+            elif min_length.kind == LengthKind.PERCENT and main_reference is not None:
+                minimum = _layout_unit(min_length.value * main_reference)
             else:
                 raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unlisted percentage minimum size dependency cycle.", child_id)
             assert minimum is not None
@@ -594,7 +609,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
                     "Unlisted indefinite percentage maximum size dependency cycle.", child_id)
             if maximum is not None and maximum < minimum:
-                minimum = maximum
+                maximum = minimum
             hypo = min(max(desired, minimum), maximum) if maximum is not None else max(desired,minimum)
             bases.append(FlexBasis(desired, hypo,
                                     grow=child_style.grow,shrink=child_style.shrink,
@@ -629,7 +644,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         if height is None:
             # An auto cross-size is finalized after children are laid out;
             # its own min/max constraints must still bound the used size.
-            height = bounded_intrinsic(style, False, max(cross_sizes, default=0.0))
+            height = bounded_intrinsic(style, False, max(cross_sizes, default=0.0), parent_height)
         width, height = _layout_unit(width), _layout_unit(height)
         used[node_id] = (width,height)
         return width,height
