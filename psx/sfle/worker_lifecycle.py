@@ -196,7 +196,16 @@ def start_native_worker_layout(
                 if nodes_alive is not None and not nodes_alive(ids):
                     raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                     "Native node disposed during SFLE geometry application.")
-                error = _observed_error(result, observed_geometry())
+                # A disappearing native observation is not successful geometry.
+                # Preserve the exact set of UI-managed nodes across this commit.
+                # Root/window nodes may be absent from both observations.
+                observed_after = observed_geometry()
+                if set(observed_after) != set(original):
+                    raise SFLEError(
+                        DiagnosticCode.INVALID_SNAPSHOT,
+                        "Native geometry observation set changed during SFLE commit.",
+                    )
+                error = _observed_error(result, observed_after)
                 if error > 1.0:
                     raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                                     "Native geometry commit exceeds 1.0 logical px.")

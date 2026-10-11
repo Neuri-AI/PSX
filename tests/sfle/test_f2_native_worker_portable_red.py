@@ -177,3 +177,57 @@ def test_native_worker_stale_generation_rejects_all_partial_commits(backend):
     assert outcomes[0][1].code==DiagnosticCode.INVALID_SNAPSHOT
     assert commits==[]
     assert observed==before
+
+
+def test_native_worker_missing_observation_after_commit_rolls_back():
+    """A missing native widget must not be treated as zero read-back error."""
+    ui = _UIQueue()
+    engine = PythonLayoutEngine()
+    generation = 17
+    outcomes = []
+    applied = []
+    observed = {
+        "root": {"x": 9.0, "y": 9.0, "width": 10.0, "height": 10.0},
+        "text": {"x": 4.0, "y": 8.0, "width": 3.0, "height": 2.0},
+    }
+    original = {name: dict(rect) for name, rect in observed.items()}
+
+    def apply(result):
+        applied.append(True)
+        root = dict(result.boxes)["root"].border
+        observed["root"] = {
+            axis: getattr(root, axis) for axis in ("x", "y", "width", "height")
+        }
+        # The text widget vanishes after applying the native geometry.
+        # A matching root cannot mask that missing read-back.
+        del observed["text"]
+
+    def restore(before):
+        observed.clear()
+        observed.update({name: dict(rect) for name, rect in before.items()})
+
+    handle = start_native_worker_layout(
+        replace(case_snapshot("A04"), measurements=()),
+        compute=engine.compute,
+        provisional=engine.compute_provisional,
+        measure_on_ui=lambda node_id, width: IntrinsicSizes(
+            0, 210, 20, 40, width, 40
+        ),
+        is_ui_thread=lambda: threading.get_ident() == ui.thread,
+        current_generation=lambda: generation,
+        apply_geometry=apply,
+        observed_geometry=lambda: {name: dict(rect) for name, rect in observed.items()},
+        restore_geometry=restore,
+        initial_widths={"text": 100},
+        post_to_ui=ui.post,
+        on_finished=lambda result, error: outcomes.append((result, error)),
+    )
+    ui.drain(handle)
+
+    assert applied == [True]
+    assert len(outcomes) == 1
+    result, error = outcomes[0]
+    assert result is None
+    assert isinstance(error, SFLEError)
+    assert error.code is DiagnosticCode.INVALID_SNAPSHOT
+    assert observed == original
