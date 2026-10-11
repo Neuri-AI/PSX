@@ -167,8 +167,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Count real tracked Row Column Scroll occurrences
-        run: python scripts/audit_sfle_f2_migration.py
+      - name: Checkout pinned public external Qyro boilerplates for F2.4 inventory
+        run: |
+          mkdir -p /tmp/sfle-external-boilerplates
+          git clone --quiet --depth 1 https://github.com/Neuri-AI/qyro-boilerplate-qt.git /tmp/sfle-external-boilerplates/qt
+          git -C /tmp/sfle-external-boilerplates/qt fetch --quiet --depth 1 origin a9d1c65e2afcff3ddd878c8ff8175d423379293b
+          git -C /tmp/sfle-external-boilerplates/qt checkout --quiet --detach a9d1c65e2afcff3ddd878c8ff8175d423379293b
+          git clone --quiet --depth 1 https://github.com/Neuri-AI/qyro-boilerplate-kivy.git /tmp/sfle-external-boilerplates/kivy
+          git -C /tmp/sfle-external-boilerplates/kivy fetch --quiet --depth 1 origin 56da7d54e8323839c080c31658e435a18875c68b
+          git -C /tmp/sfle-external-boilerplates/kivy checkout --quiet --detach 56da7d54e8323839c080c31658e435a18875c68b
+          git clone --quiet --depth 1 https://github.com/Neuri-AI/qyro-boilerplate-tkinter.git /tmp/sfle-external-boilerplates/tkinter
+          git -C /tmp/sfle-external-boilerplates/tkinter fetch --quiet --depth 1 origin 2eb3ef8f93aa960137ee31da54c5e6d7e6d297f3
+          git -C /tmp/sfle-external-boilerplates/tkinter checkout --quiet --detach 2eb3ef8f93aa960137ee31da54c5e6d7e6d297f3
+      - name: Count tracked PSX and all three pinned external boilerplates
+        run: |
+          python scripts/audit_sfle_f2_migration.py \
+            --external-root qt=/tmp/sfle-external-boilerplates/qt \
+            --external-root kivy=/tmp/sfle-external-boilerplates/kivy \
+            --external-root tkinter=/tmp/sfle-external-boilerplates/tkinter
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("/tmp/sfle-f2-inventory/inventory.json").read_text())
+          expected={
+              "qt":"a9d1c65e2afcff3ddd878c8ff8175d423379293b",
+              "kivy":"56da7d54e8323839c080c31658e435a18875c68b",
+              "tkinter":"2eb3ef8f93aa960137ee31da54c5e6d7e6d297f3",
+          }
+          assert {name:record["commit_sha"] for name,record
+                  in data["external_repositories"].items()}==expected
+          PY
       - name: Upload reproducible inventory
         if: always()
         uses: actions/upload-artifact@v4
