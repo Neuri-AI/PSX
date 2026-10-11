@@ -230,7 +230,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb xauth libmtdev1 libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-ttf-2.0-0
       - run: python -m pip install -e '.[kivy]' pytest
-      - run: xvfb-run -a python -m pytest -q tests/test_kivy_renderer.py
+      - run: xvfb-run -a python -m pytest -q tests/test_kivy_renderer.py tests/test_kivy_f3_g2_renderer.py
 
   tkinter:
     name: F3 Tkinter native components
