@@ -38,6 +38,9 @@ jobs:
         run: python -m pytest -q tests/browser/test_sfle_chromium_version.py tests/browser/test_sfle_chromium.py tests/browser/test_sfle_f2_corpus.py tests/browser/test_sfle_f2_engine_chromium.py tests/browser/test_sfle_f2_live_text_chromium.py tests/browser/test_sfle_f2_css_reference_matrix.py tests/browser/test_sfle_f2_seeded_fuzz_red.py
       - name: Verify five independent holdout seeds (200 each)
         run: python -m pytest -q -s tests/browser/test_sfle_f2_holdout_red.py
+      - name: Audit expanded CSS dimensions (all RED until Chromium geometry agrees)
+        if: success() || failure()
+        run: python -m pytest -q -s tests/browser/test_sfle_f2_rtl_red.py tests/browser/test_sfle_f2_reverse_red.py tests/browser/test_sfle_f2_wrap_fixed_red.py tests/browser/test_sfle_f2_nested_columns_red.py tests/browser/test_sfle_f2_min_max_red.py tests/browser/test_sfle_f2_alignment_red.py tests/browser/test_sfle_f2_margins_red.py
       - name: Preserve complete per-seed RED outcomes
         if: always()
         uses: actions/upload-artifact@v4
