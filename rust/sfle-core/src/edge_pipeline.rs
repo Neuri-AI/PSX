@@ -162,6 +162,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn extreme_inset_geometry_saturates_signed_layout_coordinates() {
+        let max=crate::layout_unit::LayoutUnit::from_raw(i32::MAX).to_px();
+        let min=crate::layout_unit::LayoutUnit::from_raw(i32::MIN).to_px();
+        let rect=crate::line_layout::Rect {
+            x:max,y:min,width:max,height:max,
+        };
+        let edges=Edges{left:32.0,top:16.0,..Edges::default()};
+        let inner=inset(rect,edges).unwrap();
+        assert_eq!(inner.x,max);
+        assert_eq!(inner.y,min+16.0);
+        assert_eq!(inner.width,max-32.0);
+        assert_eq!(inner.height,max-16.0);
+        for coordinate in [inner.x,inner.y,inner.width,inner.height] {
+            assert_eq!(coordinate*64.0,(coordinate*64.0).trunc());
+            assert!((min..=max).contains(&coordinate));
+        }
+    }
+
+    #[test]
     fn edges_reduce_available_flex_content_and_preserve_geometry() {
         let e = BoxEdges {
             margin: Edges { left: 5.0, right: 5.0, ..Edges::default() },
