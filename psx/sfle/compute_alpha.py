@@ -301,7 +301,11 @@ def _padding(style: _Style, inline_reference: float, node_id: str) -> UsedEdges:
         if length.kind == LengthKind.PX:
             value = length.value
         elif length.kind == LengthKind.PERCENT:
-            value = _layout_unit(length.value * inline_reference)
+            # Blink's used percentage padding follows LayoutUnit truncation,
+            # not FromDoubleRound. Compensate a single f64 representational
+            # ULP before flooring (e.g. 35% * 45 = 15.749999999999998).
+            used = math.nextafter(length.value * inline_reference, math.inf)
+            value = LayoutUnit.from_floor(used).to_px()
         else:
             raise SFLECapabilityError(DiagnosticCode.INVALID_LENGTH,
                                       "Padding requires a valid CSS numeric length.", node_id)
