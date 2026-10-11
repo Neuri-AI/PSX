@@ -56,6 +56,10 @@ class _Style:
     padding_right: Length
     padding_bottom: Length
     padding_left: Length
+    border_top: Length
+    border_right: Length
+    border_bottom: Length
+    border_left: Length
     aspect_ratio: float | None
 
 
@@ -69,6 +73,7 @@ _ALLOWED = frozenset({
     "layout_margin_top", "layout_margin_right", "layout_margin_bottom",
     "layout_margin_left", "row_gap", "column_gap",
     "layout_padding_top", "layout_padding_right", "layout_padding_bottom", "layout_padding_left",
+    "layout_border_top", "layout_border_right", "layout_border_bottom", "layout_border_left",
     "aspect_ratio",
 })
 
@@ -144,6 +149,10 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
             padding_right=parse_length(values.get('layout_padding_right', 0)),
             padding_bottom=parse_length(values.get('layout_padding_bottom', 0)),
             padding_left=parse_length(values.get('layout_padding_left', 0)),
+            border_top=parse_length(values.get('layout_border_top', 0)),
+            border_right=parse_length(values.get('layout_border_right', 0)),
+            border_bottom=parse_length(values.get('layout_border_bottom', 0)),
+            border_left=parse_length(values.get('layout_border_left', 0)),
             aspect_ratio=ratio,
         )
     return result
@@ -347,6 +356,19 @@ def _padding(style: _Style, inline_reference: float, node_id: str) -> UsedEdges:
         top=edge(style.padding_top), right=edge(style.padding_right),
         bottom=edge(style.padding_bottom), left=edge(style.padding_left),
     )
+
+
+def _border(style: _Style, node_id: str) -> UsedEdges:
+    """Resolve physical border widths; CSS percentage borders are invalid."""
+    def edge(length: Length) -> float:
+        if length.kind != LengthKind.PX or length.value is None or length.value < 0:
+            raise SFLECapabilityError(
+                DiagnosticCode.INVALID_LENGTH,
+                "Borders require nonnegative pixel lengths.", node_id,
+            )
+        return _layout_unit(length.value)
+    return UsedEdges(top=edge(style.border_top), right=edge(style.border_right),
+                     bottom=edge(style.border_bottom), left=edge(style.border_left))
 
 
 def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> LayoutResult:
@@ -727,7 +749,13 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                                     grow=child_style.grow,shrink=child_style.shrink,
                                     min_size=minimum,max_size=maximum))
         main_gap = _main_gap(style,width,height if height is not None else 0.0,node_id)
-        edges = {child: _padding(styles[child], width, child) for child in children[node_id]}
+        edges = {
+            child: UsedBoxEdges(
+                padding=_padding(styles[child], width, child),
+                border=_border(styles[child], child),
+            )
+            for child in children[node_id]
+        }
         main_size, main_gap = _layout_unit(main_size), _layout_unit(main_gap)
         def fixed_margin(length: Length) -> float:
             if length.kind == LengthKind.AUTO:
@@ -742,9 +770,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         fixed_edges = []
         for child in children[node_id]:
             e, s = edges[child], styles[child]
-            fixed_edges.append(_sum_units((e.left, e.right, fixed_margin(s.margin_left),
+            fixed_edges.append(_sum_units((e.padding.left, e.padding.right, e.border.left, e.border.right, fixed_margin(s.margin_left),
                                           fixed_margin(s.margin_right))) if horizontal else
-                               _sum_units((e.top, e.bottom, fixed_margin(s.margin_top),
+                               _sum_units((e.padding.top, e.padding.bottom, e.border.top, e.border.bottom, fixed_margin(s.margin_top),
                                            fixed_margin(s.margin_bottom))))
         # CSS 9.3 collects outer hypothetical sizes before flexing each line.
         lines: list[list[int]] = [[]]
@@ -774,14 +802,14 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                         and style.wrap == FlexWrap.NOWRAP
                         and child_style.margin_top.kind != LengthKind.AUTO
                         and child_style.margin_bottom.kind != LengthKind.AUTO):
-                    cross = max(0.0, _subtract_units(height, (edges[child_id].top,
-                        edges[child_id].bottom, fixed_margin(child_style.margin_top),
+                    cross = max(0.0, _subtract_units(height, (edges[child_id].padding.top,
+                        edges[child_id].padding.bottom, edges[child_id].border.top, edges[child_id].border.bottom, fixed_margin(child_style.margin_top),
                         fixed_margin(child_style.margin_bottom))))
                 child_width, child_height = layout(child_id,target,cross,width,height)
                 # Auto cross-size contains each child outer padding box. A
                 # nested column's content-only height undercounts the row.
-                cross_sizes.append(max(0.0, _sum_units((child_height, edges[child_id].top,
-                    edges[child_id].bottom, fixed_margin(child_style.margin_top),
+                cross_sizes.append(max(0.0, _sum_units((child_height, edges[child_id].padding.top,
+                    edges[child_id].padding.bottom, edges[child_id].border.top, edges[child_id].border.bottom, fixed_margin(child_style.margin_top),
                     fixed_margin(child_style.margin_bottom)))))
             else:
                 cross = _axis_value(child_style.width,width,axis="width",node_id=child_id)
@@ -790,12 +818,12 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                         and style.wrap == FlexWrap.NOWRAP
                         and child_style.margin_left.kind != LengthKind.AUTO
                         and child_style.margin_right.kind != LengthKind.AUTO):
-                    cross = max(0.0, _subtract_units(width, (edges[child_id].left,
-                        edges[child_id].right, fixed_margin(child_style.margin_left),
+                    cross = max(0.0, _subtract_units(width, (edges[child_id].padding.left,
+                        edges[child_id].padding.right, edges[child_id].border.left, edges[child_id].border.right, fixed_margin(child_style.margin_left),
                         fixed_margin(child_style.margin_right))))
                 child_width, child_height = layout(child_id,cross,target,width,height)
-                cross_sizes.append(max(0.0, _sum_units((child_width, edges[child_id].left,
-                    edges[child_id].right, fixed_margin(child_style.margin_left),
+                cross_sizes.append(max(0.0, _sum_units((child_width, edges[child_id].padding.left,
+                    edges[child_id].padding.right, edges[child_id].border.left, edges[child_id].border.right, fixed_margin(child_style.margin_left),
                     fixed_margin(child_style.margin_right)))))
         if height is None:
             # An auto cross-size is finalized after children are laid out;
@@ -839,6 +867,8 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         width,height = used[node_id]
         if parent_id is None:
             resolved.append(MarginTreeNode(node_id,None,width,height,
+                edges=UsedBoxEdges(padding=_padding(styles[node_id], width, node_id),
+                                   border=_border(styles[node_id], node_id)),
                 direction=styles[node_id].direction,
                 wrap=styles[node_id].wrap,
                 justify=styles[node_id].justify,
@@ -852,7 +882,10 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         horizontal = styles[parent_id].direction in (FlexDirection.ROW,FlexDirection.ROW_REVERSE)
         main = width if horizontal else height
         cross = height if horizontal else width
-        item_edges = _padding(styles[node_id], used[parent_id][0], node_id)
+        item_edges = UsedBoxEdges(
+            padding=_padding(styles[node_id], used[parent_id][0], node_id),
+            border=_border(styles[node_id], node_id),
+        )
         parent_st = styles[parent_id]
         item_st = styles[node_id]
         parent_width = used[parent_id][0]
@@ -872,7 +905,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         cross_end = (mb if cross_forwards else mt) if main_horizontal else (mr if cross_forwards else ml)
         item = MarginFlexItem(
             node_id, FlexBasis(main,main,grow=0,shrink=0,min_size=0),
-            cross, edges=UsedBoxEdges(padding=item_edges),
+            cross, edges=item_edges,
             main_start=main_start,main_end=main_end,
             cross_start=cross_start,cross_end=cross_end,
             align_self=item_st.align_self,

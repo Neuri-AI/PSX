@@ -45,6 +45,10 @@ struct Style {
     padding_right:Length,
     padding_bottom:Length,
     padding_left:Length,
+    border_top:Length,
+    border_right:Length,
+    border_bottom:Length,
+    border_left:Length,
     aspect_ratio:Option<f64>,
 }
 
@@ -106,7 +110,9 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
             "layout_margin_top"|"layout_margin_right"|"layout_margin_bottom"|"layout_margin_left"|
             "row_gap"|"column_gap"|
             "layout_padding_top"|"layout_padding_right"|
-            "layout_padding_bottom"|"layout_padding_left"|"aspect_ratio"){
+            "layout_padding_bottom"|"layout_padding_left"|
+            "layout_border_top"|"layout_border_right"|"layout_border_bottom"|"layout_border_left"|
+            "aspect_ratio"){
             return Err(unsupported(format!("Unimplemented CSS style property: {key}."),&input.node_id));
         }
     }
@@ -181,6 +187,10 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         padding_right:if map.contains_key("layout_padding_right"){length(map.get("layout_padding_right"),&input.node_id)?}else{Length::Px(0.0)},
         padding_bottom:if map.contains_key("layout_padding_bottom"){length(map.get("layout_padding_bottom"),&input.node_id)?}else{Length::Px(0.0)},
         padding_left:if map.contains_key("layout_padding_left"){length(map.get("layout_padding_left"),&input.node_id)?}else{Length::Px(0.0)},
+        border_top:if map.contains_key("layout_border_top"){length(map.get("layout_border_top"),&input.node_id)?}else{Length::Px(0.0)},
+        border_right:if map.contains_key("layout_border_right"){length(map.get("layout_border_right"),&input.node_id)?}else{Length::Px(0.0)},
+        border_bottom:if map.contains_key("layout_border_bottom"){length(map.get("layout_border_bottom"),&input.node_id)?}else{Length::Px(0.0)},
+        border_left:if map.contains_key("layout_border_left"){length(map.get("layout_border_left"),&input.node_id)?}else{Length::Px(0.0)},
         width:length(value(map,&["layout_width","width"]),&input.node_id)?,
         height:length(value(map,&["layout_height","height"]),&input.node_id)?,
         basis:length(map.get("flex_basis"),&input.node_id)?,
@@ -329,6 +339,16 @@ fn padding(style:Style,inline_reference:f64,id:&str)->Result<Edges,ComputeError>
         bottom:edge(style.padding_bottom,inline_reference,id)?,
         left:edge(style.padding_left,inline_reference,id)?,
     })
+}
+fn border(style:Style,id:&str)->Result<Edges,ComputeError>{
+    fn edge(value:Length,id:&str)->Result<f64,ComputeError>{
+        match value {
+            Length::Px(value) if value>=0.0=>Ok(layout_unit(value)),
+            _=>Err(failure("SFLE_INVALID_LENGTH","Borders require nonnegative pixel lengths.",Some(id))),
+        }
+    }
+    Ok(Edges{top:edge(style.border_top,id)?,right:edge(style.border_right,id)?,
+             bottom:edge(style.border_bottom,id)?,left:edge(style.border_left,id)?})
 }
 fn intrinsic_gap(length:Length,id:&str)->Result<f64,ComputeError>{
     match length{
@@ -557,14 +577,17 @@ impl Context<'_>{
         }
         let main=layout_unit(main);
         let gap=layout_unit(main_gap(style,width.unwrap(),height.unwrap_or(0.0),&id)?);
-        let edges=child_indices.iter().map(|&child|
-            padding(self.styles[child],width.unwrap(),&self.input.nodes[child].node_id)
+        let edges=child_indices.iter().map(|&child| Ok(BoxEdges{
+            padding:padding(self.styles[child],width.unwrap(),&self.input.nodes[child].node_id)?,
+            border:border(self.styles[child],&self.input.nodes[child].node_id)?,
+            ..BoxEdges::default()
+        })
         ).collect::<Result<Vec<_>,ComputeError>>()?;
         let fixed_margin=|length|margin_value(length,width.unwrap()).unwrap_or(0.0);
         let fixed_edges:Vec<f64>=child_indices.iter().zip(&edges).map(|(&child,e)|{
             let s=self.styles[child];
-            if row {sum_units([e.left,e.right,fixed_margin(s.margin_left),fixed_margin(s.margin_right)])}
-            else {sum_units([e.top,e.bottom,fixed_margin(s.margin_top),fixed_margin(s.margin_bottom)])}
+            if row {sum_units([e.padding.left,e.padding.right,e.border.left,e.border.right,fixed_margin(s.margin_left),fixed_margin(s.margin_right)])}
+            else {sum_units([e.padding.top,e.padding.bottom,e.border.top,e.border.bottom,fixed_margin(s.margin_top),fixed_margin(s.margin_bottom)])}
         }).collect();
         // Outer hypothetical sizes determine line membership before flexing.
         let mut lines:Vec<Vec<usize>>=vec![vec![]];
@@ -598,7 +621,7 @@ impl Context<'_>{
                     &&style.wrap==Wrap::NoWrap
                     &&!matches!(child_style.margin_top,Length::Auto)
                     &&!matches!(child_style.margin_bottom,Length::Auto){
-                    cross=Some(subtract_units(height.unwrap(),[padding_box.top,padding_box.bottom,
+                    cross=Some(subtract_units(height.unwrap(),[padding_box.padding.top,padding_box.padding.bottom,padding_box.border.top,padding_box.border.bottom,
                         fixed_margin(child_style.margin_top),fixed_margin(child_style.margin_bottom)]).max(0.0));
                 }
                 self.layout(child,Some(target),cross,width,height)?
@@ -608,16 +631,16 @@ impl Context<'_>{
                 if cross.is_none()&&align==CrossAlign::Stretch&&style.wrap==Wrap::NoWrap
                     &&!matches!(child_style.margin_left,Length::Auto)
                     &&!matches!(child_style.margin_right,Length::Auto){
-                    cross=Some(subtract_units(width.unwrap(),[padding_box.left,padding_box.right,
+                    cross=Some(subtract_units(width.unwrap(),[padding_box.padding.left,padding_box.padding.right,padding_box.border.left,padding_box.border.right,
                         fixed_margin(child_style.margin_left),fixed_margin(child_style.margin_right)]).max(0.0));
                 }
                 self.layout(child,cross,Some(target),width,height)?
             };
             // CSS auto cross contribution is the entire child padding box,
             // not merely the content size returned by recursive layout.
-            cross_sizes.push(if row{sum_units([ch,padding_box.top,padding_box.bottom,
+            cross_sizes.push(if row{sum_units([ch,padding_box.padding.top,padding_box.padding.bottom,padding_box.border.top,padding_box.border.bottom,
                 fixed_margin(child_style.margin_top),fixed_margin(child_style.margin_bottom)]).max(0.0)}
-                else{sum_units([cw,padding_box.left,padding_box.right,
+                else{sum_units([cw,padding_box.padding.left,padding_box.padding.right,padding_box.border.left,padding_box.border.right,
                     fixed_margin(child_style.margin_left),fixed_margin(child_style.margin_right)]).max(0.0)});
         }
         if height.is_none(){
@@ -816,7 +839,11 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
             let h=horizontal(context.styles[parent].direction);
             let (main,cross)=if h{(width,height)}else{(height,width)};
             let parent_width=context.used[parent].unwrap().0;
-            let resolved_padding=padding(st,parent_width,&node.node_id)?;
+            let resolved_edges=BoxEdges{
+                padding:padding(st,parent_width,&node.node_id)?,
+                border:border(st,&node.node_id)?,
+                ..BoxEdges::default()
+            };
             let outer_st=context.styles[parent];
             let (top,right,bottom,left)=(
                 margin_value(st.margin_top,parent_width),
@@ -837,7 +864,7 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
                 flex:FlexBasis {basis:main,hypothetical:main,grow:0.0,shrink:0.0,
                     min_size:0.0,max_size:None},
                 cross_content_size:cross,
-                edges:BoxEdges{padding:resolved_padding,..BoxEdges::default()},
+                edges:resolved_edges,
                 main_start,main_end,cross_start,cross_end,
                 order:st.order,align_self:st.align_self,cross_size_auto:false,
                 min_cross_content_size:0.0,max_cross_content_size:None,
@@ -846,7 +873,10 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         }
         nodes.push(MarginTreeNode {
             id:node.node_id.clone(),parent:node.parent_id.clone(),
-            width,height,item,edges:BoxEdges::default(),
+            width,height,item,edges:if index==0 {BoxEdges{
+                padding:padding(st,width,&node.node_id)?,border:border(st,&node.node_id)?,
+                ..BoxEdges::default()
+            }} else {BoxEdges::default()},
             direction:st.direction,wrap:st.wrap,
             main_gap:main_gap(st,width,height,&node.node_id)?,
             cross_gap:cross_gap(st,width,&node.node_id)?,
