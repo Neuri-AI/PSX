@@ -92,12 +92,24 @@ def _style_length(value: object, node_id: str) -> Length:
     SFLE_UNSUPPORTED_FEATURE for the same immutable layout snapshot.
     """
     try:
-        return parse_length(value)
+        parsed = parse_length(value)
     except ValueError as exc:
         raise SFLECapabilityError(
             DiagnosticCode.UNSUPPORTED_FEATURE,
             "Unsupported CSS length keyword or expression.", node_id,
         ) from exc
+    if parsed.kind in (
+        LengthKind.FIT_CONTENT, LengthKind.CONTENT,
+        LengthKind.NONE, LengthKind.NORMAL,
+    ):
+        # The shared parser recognizes these tokens, but the frozen SFLE
+        # alpha compute contract does not implement their used-size rules.
+        # Fail before geometry rather than treating them as auto/zero.
+        raise SFLECapabilityError(
+            DiagnosticCode.UNSUPPORTED_FEATURE,
+            "Unsupported CSS length keyword or expression.", node_id,
+        )
+    return parsed
 
 
 def _length(style: dict[str, object], node_id: str, *keys: str) -> Length:

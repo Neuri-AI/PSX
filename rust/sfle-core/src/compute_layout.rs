@@ -69,20 +69,43 @@ fn measurement(message: impl Into<String>, id: &str) -> ComputeError {
 fn value<'a>(map: &'a serde_json::Map<String,Value>, keys: &[&str]) -> Option<&'a Value> {
     keys.iter().find_map(|key| map.get(*key))
 }
+fn css_decimal(raw:&str)->Option<f64>{
+    // Match psx.sfle.lengths._PX_RE / _PERCENT_RE: no scientific
+    // notation, internal whitespace, Infinity, NaN, or bare sign.
+    let unsigned=raw.strip_prefix('+')
+        .or_else(||raw.strip_prefix('-')).unwrap_or(raw);
+    let mut parts=unsigned.split('.');
+    let integer=parts.next()?;
+    let fraction=parts.next();
+    if parts.next().is_some() || !integer.bytes().all(|c|c.is_ascii_digit()){
+        return None;
+    }
+    if let Some(decimal)=fraction {
+        if !decimal.bytes().all(|c|c.is_ascii_digit())
+            || (integer.is_empty() && decimal.is_empty()){
+            return None;
+        }
+    } else if integer.is_empty() {
+        return None;
+    }
+    raw.parse::<f64>().ok().filter(|value|value.is_finite())
+}
 fn length(raw: Option<&Value>, id: &str) -> Result<Length, ComputeError> {
     let Some(v) = raw else { return Ok(Length::Auto) };
     if let Some(n)=v.as_f64() {
         if !n.is_finite() { return Err(failure("SFLE_INVALID_LENGTH","Length payload must be finite.",Some(id))); }
         return Ok(Length::Px(n));
     }
-    if let Some(s) = v.as_str() {
+    if let Some(original) = v.as_str() {
+        let normalized=original.trim().to_ascii_lowercase();
+        let s=normalized.as_str();
         if s=="auto" { return Ok(Length::Auto); }
         if s=="min-content" { return Ok(Length::MinContent); }
         if s=="max-content" { return Ok(Length::MaxContent); }
-        if let Some(n) = s.strip_suffix("px").and_then(|x|x.parse::<f64>().ok()) {
+        if let Some(n) = s.strip_suffix("px").and_then(css_decimal) {
             if n.is_finite(){return Ok(Length::Px(n));}
         }
-        if let Some(n) = s.strip_suffix('%').and_then(|x|x.parse::<f64>().ok()) {
+        if let Some(n) = s.strip_suffix('%').and_then(css_decimal) {
             if n.is_finite(){return Ok(Length::Percent(n/100.0));}
         }
     }
@@ -106,6 +129,16 @@ fn factor(raw: Option<&Value>, default: f64, id:&str)->Result<f64,ComputeError>{
         return Err(failure("SFLE_INVALID_LENGTH","Invalid flex factors.",Some(id)));
     }
     Ok(n)
+}
+fn enum_raw<'a>(
+    map:&'a serde_json::Map<String,Value>,key:&str,
+    default:&'a str,id:&str,
+)->Result<&'a str,ComputeError>{
+    match map.get(key){
+        None=>Ok(default),
+        Some(Value::String(s))=>Ok(s.as_str()),
+        Some(_)=>Err(unsupported(format!("Unsupported {key} value."),id)),
+    }
 }
 fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
     let map=&input.style;
@@ -137,13 +170,13 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
     if map.contains_key("height")&&map.contains_key("layout_height") {
         return Err(failure("SFLE_LAYOUT_CONSTRAINT_ERROR","Conflicting height declarations.",Some(&input.node_id)));
     }
-    let direction=match map.get("direction").and_then(Value::as_str).unwrap_or("row"){
+    let direction=match enum_raw(map,"direction","row",&input.node_id)?{
         "row"=>Direction::Row,"row-reverse"=>Direction::RowReverse,
         "column"=>Direction::Column,"column-reverse"=>Direction::ColumnReverse,
         _=>return Err(unsupported("Unsupported direction value.",&input.node_id)),
     };
     let parse_align=|k:&str,default:&str| -> Result<CrossAlign,ComputeError> {
-        match map.get(k).and_then(Value::as_str).unwrap_or(default) {
+        match enum_raw(map,k,default,&input.node_id)? {
             "stretch"=>Ok(CrossAlign::Stretch),"flex-start"=>Ok(CrossAlign::FlexStart),
             "flex-end"=>Ok(CrossAlign::FlexEnd),"center"=>Ok(CrossAlign::Center),
             "baseline"=>Ok(CrossAlign::Baseline),
@@ -153,17 +186,17 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
     };
     let align=parse_align("align_items","stretch")?;
     let align_self=parse_align("align_self","auto")?;
-    let wrap=match map.get("wrap").and_then(Value::as_str).unwrap_or("nowrap"){
+    let wrap=match enum_raw(map,"wrap","nowrap",&input.node_id)?{
         "nowrap"=>Wrap::NoWrap,"wrap"=>Wrap::Wrap,"wrap-reverse"=>Wrap::WrapReverse,
         _=>return Err(unsupported("Unsupported wrap value.",&input.node_id)),
     };
-    let justify=match map.get("justify_content").and_then(Value::as_str).unwrap_or("flex-start"){
+    let justify=match enum_raw(map,"justify_content","flex-start",&input.node_id)?{
         "flex-start"=>JustifyContent::FlexStart,"flex-end"=>JustifyContent::FlexEnd,
         "center"=>JustifyContent::Center,"space-between"=>JustifyContent::SpaceBetween,
         "space-around"=>JustifyContent::SpaceAround,"space-evenly"=>JustifyContent::SpaceEvenly,
         _=>return Err(unsupported("Unsupported justify-content value.",&input.node_id)),
     };
-    let align_content=match map.get("align_content").and_then(Value::as_str).unwrap_or("normal"){
+    let align_content=match enum_raw(map,"align_content","normal",&input.node_id)?{
         "normal"|"stretch"=>AlignContent::Stretch,
         "flex-start"=>AlignContent::FlexStart,"flex-end"=>AlignContent::FlexEnd,
         "center"=>AlignContent::Center,"space-between"=>AlignContent::SpaceBetween,
@@ -181,7 +214,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
             Some(ratio)
         },
     };
-    let overflow=match map.get("overflow").and_then(Value::as_str).unwrap_or("visible") {
+    let overflow=match enum_raw(map,"overflow","visible",&input.node_id)? {
         "visible"=>Overflow::Visible,"clip"=>Overflow::Clip,"hidden"=>Overflow::Hidden,
         "auto"=>Overflow::Auto,"scroll"=>Overflow::Scroll,
         _=>return Err(unsupported("Unsupported overflow value.",&input.node_id)),
