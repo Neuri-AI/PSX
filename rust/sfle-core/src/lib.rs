@@ -6,6 +6,7 @@
 //! The Python counterpart lives at psx/sfle/flex_math.py.
 
 pub mod compute;
+pub mod layout_unit;
 #[cfg(feature = "python")]
 mod python_binding;
 mod compute_layout;
