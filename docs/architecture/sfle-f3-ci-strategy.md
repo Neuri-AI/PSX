@@ -247,6 +247,24 @@ started before high-volume G1/G2 iteration, **not** a sixth F3 gate.
 No shortcuts are allowed on phase gate closures or known safety,
 geometric precision, backend parity, identity or lifecycle guarantees.
 
+## Real certification evidence — F3 bootstrap, 2026-10-11
+
+- **F3 selected-suite baseline:** [Actions #38150107662](https://github.com/Neuri-AI/PSX/actions/runs/38150107662)
+  completed **GREEN** on source SHA `41860ae5553ee9d8c398f0b28b9dc479be8a69e1`;
+  Core, SFLE, Rust/Python, Chromium, Qt, Kivy, Tkinter, all three
+  Windows/macOS ABI/fallback jobs and routing regressions succeeded.
+  Headless was correctly skipped because no changes required it.
+- **G1 first actual implementation:** [Actions #38150865981](https://github.com/Neuri-AI/PSX/actions/runs/38150865981)
+  completed **GREEN** on source SHA `3210c8b77c0bb09152968c93321f396e9f72849c`.
+  This includes the 58 Core cases with the new public Flex contract,
+  all selected native/platform regressions, Chromium, engine parity
+  and successful aggregate. This is **G1 IN PROGRESS**, not G1 CLOSED.
+- **Docs-only revalidation:** This section's commit is intentionally
+  documentation-only. Its GitHub Actions outcome must demonstrate that
+  no product test is repeated (either the workflow is path-skipped or
+  a tiny selection/status job succeeds with `selected=[]`). Verify
+  that evidence independently before considering docs routing certified.
+
 ## 7. Handoff / response contract
 
 Each F3 change should report: change category, exact diff base and head
