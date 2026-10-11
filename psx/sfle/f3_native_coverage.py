@@ -23,8 +23,7 @@ G2_LEAF_TYPES = MappingProxyType({
         "Slider", "Radio", "ProgressBar", "Select",
     }),
     "tk": frozenset({
-        "Text", "Button", "Checkbox", "Input", "TextArea",
-        "Slider", "Radio", "ProgressBar",
+        "Text", "Button", "Checkbox", "Slider", "Radio", "ProgressBar",
     }),
     "kivy": frozenset({
         "Text", "Button", "Checkbox", "Slider", "Spacer",
