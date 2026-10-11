@@ -29,6 +29,9 @@ DIMENSION_SEEDS = {
     "min_max": 0x7120E,
     "alignment": 0x7120F,
     "margins": 0x71210,
+    "align_items": 0x71211,
+    "align_self": 0x71212,
+    "align_content": 0x71213,
 }
 ROWS_PER_DIMENSION = 8
 
@@ -68,6 +71,16 @@ def generate_dimension(dimension: str):
             extra_margin = (index % 3 + 1) * 4
             items[0][1]["layout_margin_left"] = f"{extra_margin}px"
             items[0] = (items[0][0], items[0][1], items[0][2] + f";margin-left:{extra_margin}px")
+        elif dimension == "align_items":
+            extra["align_items"] = ("center", "flex-end", "flex-start", "stretch")[index % 4]
+        elif dimension == "align_self":
+            self_align = ("center", "flex-end", "flex-start", "stretch")[index % 4]
+            items[0][1]["align_self"] = self_align
+            items[0] = (items[0][0], items[0][1], items[0][2] + f";align-self:{self_align}")
+        elif dimension == "align_content":
+            root_w = a + b - 8
+            extra["wrap"] = "wrap"
+            extra["align_content"] = ("center", "flex-end", "flex-start", "space-between")[index % 4]
         root_style = {
             "direction": direction, "width": f"{root_w}px", "height": "90px",
             "align_items": "flex-start", "column_gap": "4px", "row_gap": "4px", **extra,
@@ -128,9 +141,10 @@ def run_dimension(page, rust_binary, dimension: str, case):
 
     direction = root_style["direction"]
     css_root = f"display:flex;flex-direction:{direction};direction:{writing};width:{width}px;"
-    css_root += f"height:{'auto' if nested else '90px'};gap:4px;align-items:flex-start;"
+    css_root += f"height:{'auto' if nested else '90px'};gap:4px;align-items:{root_style['align_items']};"
     if "wrap" in root_style: css_root += "flex-wrap:wrap;"
     if "justify_content" in root_style: css_root += f"justify-content:{root_style['justify_content']};"
+    if "align_content" in root_style: css_root += f"align-content:{root_style['align_content']};"
     dom_children = []
     if nested:
         column = items[1]
