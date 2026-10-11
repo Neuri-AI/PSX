@@ -64,6 +64,7 @@ class _Style:
     aspect_ratio: float | None
     overflow: OverflowMode
     scroll_container: bool
+    replaced: bool
 
 
 _ALLOWED = frozenset({
@@ -80,6 +81,7 @@ _ALLOWED = frozenset({
     "aspect_ratio",
     "overflow",
     "scroll_container",
+    "replaced",
 })
 
 
@@ -135,6 +137,10 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
         if scroll_container and overflow not in (OverflowMode.AUTO, OverflowMode.SCROLL):
             raise SFLEError(DiagnosticCode.LAYOUT_CONSTRAINT,
                             "scroll_container requires overflow auto or scroll.", node.node_id)
+        replaced = values.get("replaced", node.component == "Image")
+        if type(replaced) is not bool:
+            raise SFLEError(DiagnosticCode.INVALID_LENGTH,
+                            "replaced must be boolean.", node.node_id)
         result[node.node_id] = _Style(
             direction=direction,
             wrap=wrap,
@@ -169,6 +175,7 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
             aspect_ratio=ratio,
             overflow=overflow,
             scroll_container=scroll_container,
+            replaced=replaced,
         )
     return result
 
@@ -590,12 +597,14 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         height = forced_height if forced_height is not None else _axis_value(
             style.height, parent_height, axis="height", node_id=node_id,
         )
+        # A definite axis transfers through aspect-ratio for leaves and
+        # containers alike. Min/max are applied below on both axes.
+        if width is None and height is not None and style.aspect_ratio is not None:
+            width = _layout_unit(height * style.aspect_ratio)
+        if height is None and width is not None and style.aspect_ratio is not None:
+            height = _layout_unit(width / style.aspect_ratio)
         if not children[node_id]:
             metrics = measures.get(node_id)
-            if width is None and height is not None and style.aspect_ratio is not None:
-                width = _layout_unit(height * style.aspect_ratio)
-            if height is None and width is not None and style.aspect_ratio is not None:
-                height = _layout_unit(width / style.aspect_ratio)
             if width is None:
                 width = preferred(node_id, True)
             if height is None:
@@ -657,6 +666,15 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             if (transfer_cross is None and cross_reference is not None
                     and style.wrap == FlexWrap.NOWRAP and alignment == CrossAlign.STRETCH):
                 transfer_cross = cross_reference
+            if (transfer_cross is None and child_style.aspect_ratio is not None
+                    and child_id in measures):
+                metric = measures[child_id].intrinsic
+                transfer_cross = (metric.preferred_height if horizontal
+                                  else metric.preferred_width)
+            if transfer_cross is not None:
+                transfer_cross = bounded_intrinsic(
+                    child_style, not horizontal, transfer_cross, cross_reference,
+                )
             transferred = None
             if transfer_cross is not None and child_style.aspect_ratio is not None:
                 transferred = _layout_unit(
@@ -680,7 +698,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             elif min_length.kind == LengthKind.AUTO:
                 minimum = 0.0 if child_style.scroll_container else preferred(child_id, horizontal, True)
                 if transferred is not None:
-                    minimum = (min(minimum, transferred) if components[child_id] == "Image"
+                    minimum = (min(minimum, transferred) if child_style.replaced
                                else max(minimum, transferred))
                 specified = _axis_value(basis_axis, main_reference,
                                         axis="width" if horizontal else "height", node_id=child_id)
@@ -691,9 +709,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             elif min_length.kind == LengthKind.PERCENT:
                 # CSS min-size percentages without a definite containing
                 # axis remain automatic during intrinsic flex sizing.
-                minimum = 0.0 if child_style.overflow == OverflowMode.SCROLL else preferred(child_id, horizontal, True)
+                minimum = 0.0 if child_style.scroll_container else preferred(child_id, horizontal, True)
                 if transferred is not None:
-                    minimum = (min(minimum, transferred) if components[child_id] == "Image"
+                    minimum = (min(minimum, transferred) if child_style.replaced
                                else max(minimum, transferred))
             assert minimum is not None
             max_length = child_style.max_width if horizontal else child_style.max_height

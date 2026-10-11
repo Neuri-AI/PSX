@@ -54,6 +54,7 @@ struct Style {
     aspect_ratio:Option<f64>,
     overflow:Overflow,
     scroll_container:bool,
+    replaced:bool,
 }
 
 fn failure(code: &'static str, message: impl Into<String>, id: Option<&str>) -> ComputeError {
@@ -116,7 +117,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
             "layout_padding_top"|"layout_padding_right"|
             "layout_padding_bottom"|"layout_padding_left"|
             "layout_border_top"|"layout_border_right"|"layout_border_bottom"|"layout_border_left"|
-            "aspect_ratio"|"overflow"|"scroll_container"){
+            "aspect_ratio"|"overflow"|"scroll_container"|"replaced"){
             return Err(unsupported(format!("Unimplemented CSS style property: {key}."),&input.node_id));
         }
     }
@@ -181,6 +182,11 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
     if scroll_container && overflow!=Overflow::Auto && overflow!=Overflow::Scroll {
         return Err(failure("SFLE_LAYOUT_CONSTRAINT","scroll_container requires overflow auto or scroll.",Some(&input.node_id)));
     }
+    let replaced=match map.get("replaced") {
+        None=>input.component=="Image",
+        Some(Value::Bool(value))=>*value,
+        _=>return Err(failure("SFLE_INVALID_LENGTH","replaced must be boolean.",Some(&input.node_id))),
+    };
     let order=match map.get("order") {
         None=>0,
         Some(value)=>{
@@ -219,6 +225,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         aspect_ratio,
         overflow,
         scroll_container,
+        replaced,
     })
 }
 fn layout_unit(value:f64)->f64 {
@@ -496,13 +503,13 @@ impl Context<'_>{
         let id=node.node_id.clone();
         let mut width=forced_w.or(resolved(style.width,pw,false,&id)?);
         let mut height=forced_h.or(resolved(style.height,ph,true,&id)?);
+        if width.is_none() && height.is_some() && style.aspect_ratio.is_some() {
+            width=Some(layout_unit(height.unwrap()*style.aspect_ratio.unwrap()));
+        }
+        if height.is_none() && width.is_some() && style.aspect_ratio.is_some() {
+            height=Some(layout_unit(width.unwrap()/style.aspect_ratio.unwrap()));
+        }
         if self.children[index].is_empty(){
-            if width.is_none() && height.is_some() && style.aspect_ratio.is_some() {
-                width=Some(layout_unit(height.unwrap()*style.aspect_ratio.unwrap()));
-            }
-            if height.is_none() && width.is_some() && style.aspect_ratio.is_some() {
-                height=Some(layout_unit(width.unwrap()/style.aspect_ratio.unwrap()));
-            }
             if width.is_none(){width=Some(self.preferred(index,true)?);}
             if height.is_none(){
                 if let Some(m)=self.measurements.get(id.as_str()){
@@ -560,6 +567,17 @@ impl Context<'_>{
                 && alignment==CrossAlign::Stretch {
                 transfer_cross=cross_reference;
             }
+            if transfer_cross.is_none() && child_style.aspect_ratio.is_some() {
+                if let Some(metric)=self.measurements.get(child_id.as_str()) {
+                    transfer_cross=Some(if row {metric.intrinsic.preferred_height}
+                        else {metric.intrinsic.preferred_width});
+                }
+            }
+            if let Some(cross)=transfer_cross {
+                transfer_cross=Some(bounded_intrinsic(
+                    child_style,!row,cross,cross_reference,
+                ));
+            }
             let transferred=transfer_cross.zip(child_style.aspect_ratio).map(|(cross,ratio)|
                 layout_unit(if row{cross*ratio}else{cross/ratio})
             );
@@ -582,7 +600,7 @@ impl Context<'_>{
                     let mut content=if child_style.scroll_container {0.0}
                         else {self.intrinsic_contribution(child,row,true)?};
                     if let Some(transferred)=transferred {
-                        content=if self.input.nodes[child].component=="Image" {
+                        content=if child_style.replaced {
                             content.min(transferred)
                         } else {content.max(transferred)};
                     }
@@ -590,10 +608,10 @@ impl Context<'_>{
                 },
                 Length::Percent(p) if main_reference.is_some()=>layout_unit(p*main_reference.unwrap()),
                 Length::Percent(_)=>{
-                    let mut content=if child_style.overflow==Overflow::Scroll {0.0}
+                    let mut content=if child_style.scroll_container {0.0}
                         else {self.intrinsic_contribution(child,row,true)?};
                     if let Some(transferred)=transferred {
-                        content=if self.input.nodes[child].component=="Image" {
+                        content=if child_style.replaced {
                             content.min(transferred)
                         } else {content.max(transferred)};
                     }
