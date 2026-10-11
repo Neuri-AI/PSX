@@ -118,33 +118,45 @@ def _percent_flex_basis_used(value: float, reference: float) -> float:
 def _used_flex_target_units(
     targets: tuple[float, ...], bases: tuple[FlexBasis, ...],
 ) -> tuple[float, ...]:
-    """Materialize final used flex sizes with deterministic subpixel diffusion.
+    """Allocate rounded free-space in reverse child order (Blink LineFlexer).
 
-    CSS §9.7 keeps double precision throughout flex distribution. For the
-    final used child sizes, preserve the rounded *sum* of distributed targets,
-    rather than losing a LayoutUnit when separately rounding all children.
-    Do not force a line to fill its containing box when CSS leaves free space.
+    CSS flex factors are distributed in float precision by §9.7 first.
+    Blink then represents used sizes in LayoutUnits and allocates *remaining*
+    fractional free-space from the last live item to the first, not by
+    independently rounding all targets or by correcting final rectangles.
+    See blink/renderer/core/layout/flex/line_flexer.cc
+    (LineFlexer::ResolveFlexibleLengths).
     """
-    units = [math.floor(target * 64.0 + 0.5) for target in targets]
-    total = math.floor(sum(targets) * 64.0 + 0.5)
-    correction = total - sum(units)
-    if correction:
-        candidates = [
-            idx for idx, (target, base) in enumerate(zip(targets, bases))
-            if abs(target - base.basis) > 1e-12
-        ]
-        if candidates:
-            # Distribute the subpixel remainder by error magnitude, preserving
-            # stable input identity and never rewriting layout result boxes.
-            candidates.sort(
-                key=lambda idx: ((targets[idx] * 64.0) % 1.0),
-                reverse=correction > 0,
+    if not targets:
+        return ()
+    basis_units = [math.floor(item.basis * 64.0 + 0.5) for item in bases]
+    deltas = [target - item.basis for target, item in zip(targets, bases)]
+    active = [i for i, delta in enumerate(deltas) if abs(delta) > 1e-12]
+    # If constrained freezing produced both grow and shrink changes, the
+    # target-shares cannot identify which items were frozen. Reject rather
+    # than silently claim Chromium-level rounding parity.
+    if any(deltas[i] > 0 for i in active) and any(deltas[i] < 0 for i in active):
+        raise SFLECapabilityError(
+            DiagnosticCode.UNSUPPORTED_FEATURE,
+            "Mixed-sign flex target constraints need explicit freeze metadata.",
+        )
+    used_units = basis_units[:]
+    if not active:
+        return tuple(value / 64.0 for value in used_units)
+    remaining = math.floor(sum(targets) * 64.0 + 0.5) - sum(basis_units)
+    active_magnitude = sum(abs(deltas[i]) for i in active)
+    for i in reversed(active):
+        magnitude = abs(deltas[i])
+        if active_magnitude - magnitude < 1e-12:
+            allocated = remaining
+        else:
+            allocated = math.floor(
+                remaining * (magnitude / active_magnitude) + 0.5
             )
-            for step in range(abs(correction)):
-                idx = candidates[step % len(candidates)]
-                units[idx] += 1 if correction > 0 else -1
-    return tuple(value / 64.0 for value in units)
-
+        used_units[i] += allocated
+        remaining -= allocated
+        active_magnitude -= magnitude
+    return tuple(value / 64.0 for value in used_units)
 
 def _axis_value(length: Length, reference: float | None, *,
                 axis: str, node_id: str) -> float | None:
