@@ -1514,6 +1514,47 @@
         "python",
         "rust"
       ]
+    },
+    {
+      "id": "N08",
+      "name": "indefinite-cross-max-size-constraint-must-not-be-silently-ignored",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 120,
+        "height": null
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "120px",
+            "height": "auto"
+          }
+        },
+        {
+          "node_id": "child",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "20px",
+            "height": "20px",
+            "max_height": "50%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "diagnostic": "SFLE_UNSUPPORTED_FEATURE",
+        "node": "child",
+        "cycle_kind": "indefinite percentage maximum size dependency cycle"
+      },
+      "verification": [
+        "python",
+        "rust"
+      ]
     }
   ],
   "chromium_reference": {
