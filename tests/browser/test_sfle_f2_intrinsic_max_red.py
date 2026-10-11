@@ -176,3 +176,69 @@ def test_intrinsic_row_auto_cross_height_respects_min_max_red(page, rust_binary,
             assert abs(rust_value - expected[axis]) <= 0.01, (
                 f"B1 cross[{index}] {node_id}.{axis}: Rust={rust_value}, Chromium={expected[axis]}"
             )
+
+
+
+@pytest.mark.parametrize("index", range(8))
+def test_definite_row_percentage_min_width_and_conflicting_max_red(page, rust_binary, index):
+    """B1 RED: definite parent percentage minimum is CSS-supported; min wins over max."""
+    root_width = 240 + 7 * index
+    maximum = 60 if index >= 4 else None
+    first_props = {
+        "width": "40px", "height": "20px", "flex_basis": "40px",
+        "flex_grow": 0, "flex_shrink": 0, "min_width": "50%",
+    }
+    if maximum is not None:
+        first_props["max_width"] = f"{maximum}px"
+    nodes = (
+        LayoutNode("root", None, "Flex", _typed({
+            "direction": "row", "width": f"{root_width}px", "height": "100px",
+            "align_items": "flex-start",
+        })),
+        LayoutNode("first", "root", "Box", _typed(first_props)),
+        LayoutNode("other", "root", "Box", _typed({
+            "width": "40px", "height": "20px", "flex_basis": "40px",
+            "flex_grow": 0, "flex_shrink": 0,
+        })),
+    )
+    snapshot = LayoutInput(
+        1, 111 + index, WritingDirection.LTR,
+        LayoutConstraints(AvailableSize(root_width, True), AvailableSize(100, True)),
+        nodes, (),
+    )
+    py = dict(PythonLayoutEngine().compute(snapshot).boxes)
+    process = subprocess.run(
+        [str(rust_binary)], input=serialize_snapshot(snapshot),
+        text=True, capture_output=True, check=True, timeout=30,
+    )
+    native = json.loads(process.stdout)
+    assert native["ok"], f"Rust rejected valid percentage minimum index={index}: {native.get('error')}"
+    rs = {box["node_id"]: box for box in native["result"]["boxes"]}
+    max_css = f"max-width:{maximum}px;" if maximum is not None else ""
+    page.set_content(
+        "<!doctype html><html><body style='margin:0'>"
+        f"<div id='root' style='display:flex;width:{root_width}px;height:100px;"
+        "align-items:flex-start;box-sizing:content-box'>"
+        f"<div id='first' style='width:40px;height:20px;flex:0 0 40px;"
+        f"min-width:50%;{max_css}box-sizing:content-box'></div>"
+        "<div id='other' style='width:40px;height:20px;flex:0 0 40px;"
+        "box-sizing:content-box'></div>"
+        "</div></body></html>"
+    )
+    browser = page.evaluate("""() => Object.fromEntries(
+      [...document.querySelectorAll('[id]')].map(el => {
+        const r = el.getBoundingClientRect();
+        return [el.id, {x:r.x, y:r.y, width:r.width, height:r.height}];
+      })
+    )""")
+    assert set(py) == set(rs) == set(browser)
+    for node_id, expected in browser.items():
+        for axis in ("x", "y", "width", "height"):
+            pv = getattr(py[node_id].border, axis)
+            rv = rs[node_id]["border"][axis]
+            assert abs(pv - expected[axis]) <= 0.01, (
+                f"B1 percent-min[{index}] {node_id}.{axis}: Python={pv}, Chromium={expected[axis]}"
+            )
+            assert abs(rv - expected[axis]) <= 0.01, (
+                f"B1 percent-min[{index}] {node_id}.{axis}: Rust={rv}, Chromium={expected[axis]}"
+            )
