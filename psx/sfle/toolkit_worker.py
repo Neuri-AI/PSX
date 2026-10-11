@@ -25,7 +25,8 @@ class ToolkitWorkerAdapter:
     """Own measurement, geometry commit/readback and rollback for one tree."""
 
     def __init__(self, backend: GeometryBackend, nodes: tuple[MarginTreeNode, ...],
-                 widgets: Mapping[str, object]) -> None:
+                 widgets: Mapping[str, object], *,
+                 scroll_viewports: tuple[ScrollViewport, ...] = ()) -> None:
         if backend not in (GeometryBackend.KIVY, GeometryBackend.TK):
             raise ValueError("ToolkitWorkerAdapter supports Kivy and Tk only.")
         self.backend = backend
@@ -36,8 +37,26 @@ class ToolkitWorkerAdapter:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                             "Toolkit widget map must match the SFLE tree.")
         self.commit = NativeGeometryCommitter(backend, nodes, self.widgets)
+        content_roots = {viewport.content_root_id for viewport in scroll_viewports}
+        if not content_roots.issubset(self.parents):
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                            "Scroll content roots must belong to the SFLE tree.")
+        self.managed_roots = {
+            node_id for node_id in content_roots if self.parents[node_id] is None
+        }
         self.measurement = (KivyMeasurementSource(self.widgets) if backend == GeometryBackend.KIVY
                             else TkMeasurementSource(self.widgets))
+
+    def apply_geometry(self, result: LayoutResult) -> None:
+        self.commit(result)
+        boxes = dict(result.boxes)
+        for node_id in self.managed_roots:
+            border = boxes[node_id].border
+            widget = self.widgets[node_id]
+            if self.backend == GeometryBackend.TK:
+                widget.place_configure(width=round(border.width), height=round(border.height))
+            else:
+                widget.size = (border.width, border.height)
 
     def nodes_alive(self, node_ids: tuple[str, ...]) -> bool:
         if any(node_id not in self.widgets for node_id in node_ids):
@@ -64,6 +83,10 @@ class ToolkitWorkerAdapter:
             x, y, width, height = self._native_local(node.node_id)
             if node.parent_id is None:
                 absolute[node.node_id] = (0.0, 0.0, width, height)
+                if node.node_id in self.managed_roots:
+                    observed[node.node_id] = {
+                        "x": 0.0, "y": 0.0, "width": width, "height": height,
+                    }
                 continue
             parent_x, parent_y, _, parent_height = absolute[node.parent_id]
             if self.backend == GeometryBackend.KIVY:
@@ -81,6 +104,14 @@ class ToolkitWorkerAdapter:
         local_parent: dict[str, tuple[float, float, float, float]] = {}
         root = self.nodes[0]
         _, _, root_width, root_height = self._native_local(root.node_id)
+        if root.node_id in self.managed_roots:
+            rect = rectangles[root.node_id]
+            root_width, root_height = float(rect["width"]), float(rect["height"])
+            root_widget = self.widgets[root.node_id]
+            if self.backend == GeometryBackend.TK:
+                root_widget.place_configure(width=round(root_width), height=round(root_height))
+            else:
+                root_widget.size = (root_width, root_height)
         local_parent[root.node_id] = (0.0, 0.0, root_width, root_height)
         for node in self.nodes[1:]:
             rect = rectangles[node.node_id]
@@ -109,7 +140,7 @@ def _start(snapshot: LayoutInput, adapter: ToolkitWorkerAdapter, *,
         snapshot, compute=compute, provisional=provisional,
         measure_on_ui=adapter.measurement.measure_width,
         is_ui_thread=adapter.measurement.is_ui_thread,
-        current_generation=current_generation, apply_geometry=adapter.commit,
+        current_generation=current_generation, apply_geometry=adapter.apply_geometry,
         observed_geometry=adapter.read_rectangles,
         restore_geometry=adapter.restore_rectangles, initial_widths=initial_widths,
         post_to_ui=post_to_ui, on_finished=on_finished,
@@ -124,7 +155,8 @@ def start_kivy_worker_layout(snapshot: LayoutInput, *, clock: object,
         current_generation: Callable[[], int], initial_widths: dict[str, float],
         on_finished: Callable[[LayoutResult | None, Exception | None], None],
         scroll_viewports: tuple[ScrollViewport, ...] = ()) -> NativeWorkerLayoutHandle:
-    adapter = ToolkitWorkerAdapter(GeometryBackend.KIVY, nodes, widgets)
+    adapter = ToolkitWorkerAdapter(GeometryBackend.KIVY, nodes, widgets,
+                                   scroll_viewports=scroll_viewports)
     return _start(snapshot, adapter, compute=compute, provisional=provisional,
         current_generation=current_generation, initial_widths=initial_widths,
         post_to_ui=lambda callback: clock.schedule_once(lambda _dt: callback(), 0),
@@ -138,7 +170,8 @@ def start_tk_worker_layout(snapshot: LayoutInput, *, root: object,
         current_generation: Callable[[], int], initial_widths: dict[str, float],
         on_finished: Callable[[LayoutResult | None, Exception | None], None],
         scroll_viewports: tuple[ScrollViewport, ...] = ()) -> NativeWorkerLayoutHandle:
-    adapter = ToolkitWorkerAdapter(GeometryBackend.TK, nodes, widgets)
+    adapter = ToolkitWorkerAdapter(GeometryBackend.TK, nodes, widgets,
+                                   scroll_viewports=scroll_viewports)
     return _start(snapshot, adapter, compute=compute, provisional=provisional,
         current_generation=current_generation, initial_widths=initial_widths,
         post_to_ui=root.after_idle, on_finished=on_finished,
