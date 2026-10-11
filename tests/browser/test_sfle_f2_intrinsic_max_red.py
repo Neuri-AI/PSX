@@ -13,7 +13,21 @@ from psx.sfle.model import (
     AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
 )
 from psx.sfle.native_wire import serialize_snapshot
-from f2_fuzz_dimension_helpers import _typed
+from f2_fuzz_dimension_helpers import _typed, rust_binary
+
+
+@pytest.fixture(scope="module")
+def page():
+    """Pinned real Chromium, not the local browser or a simulated DOM."""
+    from playwright.sync_api import sync_playwright
+    from test_sfle_chromium_version import reference_version
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            assert browser.version == reference_version()
+            yield browser.new_page(viewport={"width": 800, "height": 600}, device_scale_factor=1)
+        finally:
+            browser.close()
 
 
 @pytest.mark.parametrize("index", range(8))
