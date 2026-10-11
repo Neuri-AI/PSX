@@ -25,6 +25,11 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from kivy.uix.button import Button as KivyButton
 
             from psx import Flex, Text, Button, Checkbox, Slider, Spacer, Image, component, use_state, psx
+            from psx.core.native import Native
+            from psx.core.vnode import create_element
+            from psx.sfle.f3_external import SFLEExternalPort
+            from psx.sfle.model import IntrinsicSizes, Rect
+            from psx.renderers.kivy.kivy import KivyHandle
             from psx.core.reconcile import Reconciler
             from psx.core.errors import RendererCapabilityError
             from psx.renderers.kivy.kivy import KivyRenderer
@@ -199,6 +204,89 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert calls == [True]
             assert backend.sfle_result.geometry_commit_error <= 1.0
             cleanup(backend, tree)
+
+            # Native and registered custom leaves have an explicit
+            # measure -> projected apply -> readback contract, with no Kivy
+            # default size_hint or CSS fallback pretending to be intrinsic.
+            external_calls = []
+            def external_measure(widget, limits):
+                external_calls.append("measure")
+                return IntrinsicSizes(10, 20, 8, 14, 20, 14)
+            def external_apply(widget, rect):
+                external_calls.append(("apply", rect))
+                widget.pos = (rect.x, rect.y)
+                widget.size = (rect.width, rect.height)
+            def external_read(widget):
+                external_calls.append("read")
+                return Rect(widget.x, widget.y, widget.width, widget.height)
+            external_port = SFLEExternalPort(
+                external_measure, external_apply, external_read,
+            )
+            backend, tree = create()
+            root = tree.render(Flex(
+                Flex(
+                    Native(Widget, renderer="kivy", sfle_port=external_port,
+                           key="native", layout_width="26px",
+                           layout_height="12px", flex_basis="26px",
+                           flex_shrink=0),
+                    width="90px", height="40px", align_items="flex-start",
+                ),
+                width="160px", height="80px", align_items="flex-start",
+            ))
+            inner = root.children[0].handle.widget
+            external_widget = root.children[0].children[0].handle.widget
+            assert external_widget.parent is inner
+            assert tuple(external_widget.pos) + tuple(external_widget.size) == (0, 28, 26, 12)
+            assert "measure" in external_calls
+            assert ("apply", Rect(0, 28, 26, 12)) in external_calls
+            assert "read" in external_calls
+            assert backend.sfle_result.geometry_commit_error <= 1.0
+            cleanup(backend, tree)
+
+            backend, tree = create()
+            class CustomAdapter:
+                sfle_port = external_port
+                def create(self, renderer, node, parent):
+                    return KivyHandle("CustomTile", Widget(size_hint=(None, None)), {})
+                def update(self, renderer, handle, changed, removed):
+                    pass
+                def destroy(self, renderer, handle):
+                    if handle.widget.parent is not None:
+                        handle.widget.parent.remove_widget(handle.widget)
+                def bind_event(self, renderer, handle, event, slot):
+                    raise RendererCapabilityError("Unknown custom event")
+                def unbind_event(self, renderer, subscription):
+                    pass
+            backend.register_adapter("CustomTile", CustomAdapter())
+            custom_root = tree.render(Flex(
+                create_element("CustomTile", layout_width="30px",
+                               layout_height="14px", flex_basis="30px",
+                               flex_shrink=0),
+                width="160px", height="80px",
+            ))
+            custom = custom_root.children[0].handle.widget
+            assert custom.parent is custom_root.handle.widget
+            assert tuple(custom.pos) + tuple(custom.size) == (0, 66, 30, 14)
+            assert ("apply", Rect(0, 66, 30, 14)) in external_calls
+            cleanup(backend, tree)
+
+            native_created = []
+            backend, tree = create()
+            def bad_native_factory():
+                native_created.append(True)
+                return Widget()
+            try:
+                tree.render(Flex(
+                    Native(bad_native_factory, renderer="kivy",
+                           layout_width="20px", layout_height="20px"),
+                    width="160px", height="80px",
+                ))
+            except RendererCapabilityError as error:
+                assert "Native requires" in str(error)
+            else:
+                raise AssertionError("Kivy Native without SFLE port was mounted")
+            assert not native_created
+            tree.unmount()
 
             # Unported component: no fallback to Kivy BoxLayout.
             backend, tree = create()
