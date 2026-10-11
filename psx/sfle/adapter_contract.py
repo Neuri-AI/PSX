@@ -85,12 +85,21 @@ def validate_adapter_commit(
     if not ports.nodes_alive(result_ids):
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Disposed native nodes cannot receive SFLE geometry.")
     seen_hosts: set[str] = set()
+    seen_content_roots: set[str] = set()
+    by_id = {node.node_id: node for node in snapshot.nodes}
     for viewport in scroll_viewports:
         if not isinstance(viewport, ScrollViewport):
             raise TypeError("Expected ScrollViewport entries.")
         if viewport.host_id in seen_hosts:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Duplicate native scroll host.", viewport.host_id)
         seen_hosts.add(viewport.host_id)
+        if viewport.content_root_id in seen_content_roots:
+            raise SFLEError(
+                DiagnosticCode.INVALID_SNAPSHOT,
+                "One Flex content root cannot be governed by multiple Scroll hosts.",
+                viewport.content_root_id,
+            )
+        seen_content_roots.add(viewport.content_root_id)
         if viewport.host_id in result_ids:
             raise SFLEError(
                 DiagnosticCode.INVALID_SNAPSHOT,
@@ -103,4 +112,65 @@ def validate_adapter_commit(
                 "Scroll viewport must target an explicit SFLE content Flex root.",
                 viewport.content_root_id,
             )
+        if by_id[viewport.content_root_id].component != "Flex":
+            raise SFLEError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Scroll viewport content must be explicitly rooted at a Flex node.",
+                viewport.content_root_id,
+            )
     return result_ids
+
+
+@dataclass(frozen=True, slots=True)
+class ScrollContentMetrics:
+    """Read-only scroll extents; native offsets never resize SFLE content."""
+
+    content_width: float
+    content_height: float
+    max_offset_x: float
+    max_offset_y: float
+    offset_x: float
+    offset_y: float
+
+
+def derive_scroll_content_metrics(
+    snapshot: LayoutInput,
+    result: LayoutResult,
+    ports: SFLEAdapterPorts,
+    viewport: ScrollViewport,
+) -> ScrollContentMetrics:
+    """Derive a Scroll host's extent and clamped offset *only* from SFLE boxes.
+
+    The native host may clip or scroll, but must not re-run a BoxLayout,
+    QBoxLayout or pack algorithm to determine content or descendant sizes.
+    Descendant overflows can increase the positive scrollable extent. Negative
+    overflow is not converted into a fabricated negative scroll offset.
+    """
+    validate_adapter_commit(snapshot, result, ports, scroll_viewports=(viewport,))
+    nodes = {node.node_id: node for node in snapshot.nodes}
+    boxes = dict(result.boxes)
+    root = boxes[viewport.content_root_id].border
+
+    def inside(node_id: str) -> bool:
+        cursor: str | None = node_id
+        while cursor is not None:
+            if cursor == viewport.content_root_id:
+                return True
+            cursor = nodes[cursor].parent_id
+        return False
+
+    content_width = root.width
+    content_height = root.height
+    for node_id, box in result.boxes:
+        if not inside(node_id):
+            continue
+        rect = box.border
+        content_width = max(content_width, rect.x + rect.width - root.x)
+        content_height = max(content_height, rect.y + rect.height - root.y)
+    max_x = max(0.0, content_width - viewport.viewport_width)
+    max_y = max(0.0, content_height - viewport.viewport_height)
+    return ScrollContentMetrics(
+        content_width, content_height, max_x, max_y,
+        min(max(0.0, viewport.offset_x), max_x),
+        min(max(0.0, viewport.offset_y), max_y),
+    )
