@@ -86,6 +86,31 @@ The seven normative F2 exit checks and same-commit CI must still pass
 before F2 is declared CLOSED. F3 remains renderer integration/migration,
 not a catch-all for unimplemented CSS features.
 
+## F3 — native SFLE integration and component coverage (planning)
+
+**Base:** `develop` at `979b6ed9e86c63b640d498439045910ed1a189aa`.
+**Feature branch:** [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
+**State:** planning documented; **F3-G1 through F3-G5 not yet closed**.
+[Read the full F3 implementation plan and mandatory G2 component matrix](architecture/sfle-f3-implementation.md).
+
+**G1:** public Flex contract + explicit Scroll content policy.
+**G2 (mandatory expanded scope):** integration of all applicable built-ins
+from `psx/core/registry.py`, central layout props and lifecycle, Qt/Kivy/Tk/Headless
+native ports, mixed component trees, and testable `Native`/custom adapter
+measurement/application contracts. Tests must cover every supported
+component/backend pair; unsupported pairs produce explicit errors.
+**G3:** native Scroll viewport/content isolation, nested scrolling, events,
+offsets, clipping and scrollbars.
+**G4:** remove Row/Column builders, exports, registries, adapters, native
+portable layout duplication and stale examples without compatibility shims.
+**G5:** complete integration and cross-platform CI certification.
+
+G2 **cannot** be closed using Flex + Button-only examples; all supported
+component/backend matrix entries, tests and custom-adapter gates must pass.
+**F4** remains the responsive twelve-column Flexbox Grid milestone.
+`SFLE-CSS-01` and `SFLE-CSS-02` remain separately deferred; neither
+becomes F3 work.
+
 ## SFLE — official phase status (2026-10-11)
 
 **F1 CLOSED · F2 CLOSED (seven F1 §6 normative gates and all five workstreams certified; final documentation-only CI required) · F3 NOT STARTED.**
