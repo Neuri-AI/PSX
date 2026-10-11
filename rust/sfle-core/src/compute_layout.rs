@@ -146,11 +146,19 @@ fn used_flex_target_units(targets:Vec<f64>,bases:&[FlexBasis],id:&str)->Result<V
     }
     let mut units=base_units.clone();
     if !active.is_empty(){
+        let growing=deltas.iter().sum::<f64>()>0.0;
+        // Exact flex weights prevent cancellation from nudging a 1/2
+        // LayoutUnit tie to the wrong child, matching Python and Blink.
+        let weights:Vec<f64>=(0..bases.len()).map(|idx|{
+            if !active.contains(&idx) {0.0}
+            else if growing {bases[idx].grow}
+            else {bases[idx].shrink*bases[idx].basis}
+        }).collect();
         let mut remaining=(targets.iter().sum::<f64>()*64.0+0.5).floor() as i64
             -base_units.iter().sum::<i64>();
-        let mut magnitude:f64=active.iter().map(|&i|deltas[i].abs()).sum();
+        let mut magnitude:f64=active.iter().map(|&i|weights[i]).sum();
         for &idx in active.iter().rev(){
-            let share=deltas[idx].abs();
+            let share=weights[idx];
             let allocated=if (magnitude-share).abs()<1e-12{
                 remaining
             }else{
