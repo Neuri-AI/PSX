@@ -318,6 +318,39 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         }
         indices.insert(node.node_id.as_str(),index);
     }
+    for index in 0..input.nodes.len(){
+        if children[index].len()!=1 {continue;}
+        let child=children[index][0];
+        let Some(&grand)=children[child].first() else{continue;};
+        let (s,c,g)=(styles[index],styles[child],styles[grand]);
+        if matches!(s.width,Length::Auto)&&matches!(s.height,Length::Auto)
+            &&matches!(c.width,Length::Percent(_))&&matches!(c.height,Length::Percent(_))
+            &&matches!(g.width,Length::Percent(_))&&matches!(g.height,Length::Percent(_)){
+            return Err(unsupported("Unlisted multi-node percentage dependency cycle across auto ancestors.",
+                &input.nodes[child].node_id));
+        }
+    }
+    // Fail closed for nested indefinite column intrinsic-percent
+    // dependencies. C01 permits a percentage basis with a measured leaf,
+    // but not a percent-height descendant cycle.
+    for index in 0..input.nodes.len(){
+        let style=styles[index];
+        if !matches!(style.direction,Direction::Column|Direction::ColumnReverse)
+            || !matches!(style.height,Length::Auto){continue;}
+        for &child in &children[index]{
+            if !matches!(styles[child].basis,Length::Percent(_)){continue;}
+            let mut pending=children[child].clone();
+            while let Some(descendant)=pending.pop(){
+                if matches!(styles[descendant].height,Length::Percent(_)){
+                    return Err(unsupported(
+                        "Unlisted column intrinsic percentage basis descendant cycle.",
+                        &input.nodes[child].node_id,
+                    ));
+                }
+                pending.extend(children[descendant].iter().copied());
+            }
+        }
+    }
     // Parent-index traversal determines whether a percentage's containing
     // inline reference is actually definite, without depending on fixture IDs.
     fn definite_inline(
@@ -350,39 +383,6 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
                 "Unlisted indefinite inline percentage dependency cycle.",
                 &input.nodes[index].node_id,
             ));
-        }
-    }
-    for index in 0..input.nodes.len(){
-        if children[index].len()!=1 {continue;}
-        let child=children[index][0];
-        let Some(&grand)=children[child].first() else{continue;};
-        let (s,c,g)=(styles[index],styles[child],styles[grand]);
-        if matches!(s.width,Length::Auto)&&matches!(s.height,Length::Auto)
-            &&matches!(c.width,Length::Percent(_))&&matches!(c.height,Length::Percent(_))
-            &&matches!(g.width,Length::Percent(_))&&matches!(g.height,Length::Percent(_)){
-            return Err(unsupported("Unlisted multi-node percentage dependency cycle across auto ancestors.",
-                &input.nodes[child].node_id));
-        }
-    }
-    // Fail closed for nested indefinite column intrinsic-percent
-    // dependencies. C01 permits a percentage basis with a measured leaf,
-    // but not a percent-height descendant cycle.
-    for index in 0..input.nodes.len(){
-        let style=styles[index];
-        if !matches!(style.direction,Direction::Column|Direction::ColumnReverse)
-            || !matches!(style.height,Length::Auto){continue;}
-        for &child in &children[index]{
-            if !matches!(styles[child].basis,Length::Percent(_)){continue;}
-            let mut pending=children[child].clone();
-            while let Some(descendant)=pending.pop(){
-                if matches!(styles[descendant].height,Length::Percent(_)){
-                    return Err(unsupported(
-                        "Unlisted column intrinsic percentage basis descendant cycle.",
-                        &input.nodes[child].node_id,
-                    ));
-                }
-                pending.extend(children[descendant].iter().copied());
-            }
         }
     }
     let mut context=Context {
