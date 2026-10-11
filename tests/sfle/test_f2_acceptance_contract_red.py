@@ -223,7 +223,7 @@ def test_C99_supported_A01_is_not_diagnosed_as_unsupported():
     assert dict(result.boxes)["root"].content.height == pytest.approx(case["expected"]["root.height"], abs=0.01)
 
 
-@pytest.mark.parametrize("case_id", ["F01", "F02"])
+@pytest.mark.parametrize("case_id", ["F01", "F02", "F04", "F05"])
 def test_F01_F02_fractional_browser_oracle_red(case_id):
     """RED: an end-to-end normalized snapshot must match independent Chromium sizes."""
     snapshot_value = case_snapshot(case_id)
