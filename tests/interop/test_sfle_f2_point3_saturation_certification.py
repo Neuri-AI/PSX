@@ -179,3 +179,57 @@ def test_huge_finite_percentage_margins_saturate_without_backend_exceptions(
                 raw=box[rect][axis]*SCALE
                 assert I32_MIN<=raw<=I32_MAX
                 assert raw==int(raw)
+
+
+@pytest.mark.parametrize("count",(3,16,128))
+@pytest.mark.parametrize("gap",(0.008,1e308))
+@pytest.mark.parametrize("direction",("row","column"))
+def test_entire_many_item_flex_pipeline_uses_bounded_accumulated_gaps(
+    count,gap,direction,rust_binary,
+):
+    """CI end-to-end: repeated large/subpixel gutters must be identical.
+
+    A finite CSS length may exceed 32-bit LayoutUnit storage; conversion
+    saturates it. All *subsequent* repeated gaps and physical placements
+    must remain bounded, regardless of child count or main axis.
+    """
+    from psx.sfle.lengths import Length
+    nodes=[LayoutNode("root",None,"Flex",(
+        ("direction",direction),("width","180px"),("height","120px"),
+        ("wrap","nowrap"),("justify_content","flex-start"),
+        ("align_items","flex-start"),
+        ("row_gap",Length.px(gap)),
+        ("column_gap",Length.px(gap)),
+    ))]
+    for i in range(count):
+        nodes.append(LayoutNode(f"item_{i}","root","Box",(
+            ("width","1px"),("height","1px"),("flex_basis","1px"),
+            ("min_width","0px"),("min_height","0px"),
+            ("flex_grow",0),("flex_shrink",0),
+        )))
+    snapshot=LayoutInput(
+        1,9101,WritingDirection.LTR,
+        LayoutConstraints(AvailableSize(180,True),AvailableSize(120,True)),
+        tuple(nodes),(),
+    )
+    py=_python_compute(snapshot)
+    rs=_rust_compute(rust_binary,snapshot)
+    assert py["ok"]==rs["ok"],(
+        "Different accepted CSS gap shape",count,gap,direction,
+        py.get("error"),rs.get("error"),
+    )
+    assert py["ok"],(
+        "Approved finite gap inputs must not overflow the layout worker",
+        count,gap,direction,py.get("error"),rs.get("error"),
+    )
+    assert _rects(py["result"])==_rects(rs["result"]),(
+        "Repeated-gap Rust/Python placement mismatch",count,gap,direction,
+    )
+    for node in _rects(py["result"]).values():
+        for box in ("content","padding","border","margin"):
+            for axis in ("x","y","width","height"):
+                raw=node[box][axis]*SCALE
+                assert I32_MIN<=raw<=I32_MAX and raw==int(raw),(
+                    "Gap accumulation escaped signed LayoutUnit bounds",
+                    count,gap,direction,box,axis,raw,
+                )
