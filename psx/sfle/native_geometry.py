@@ -58,6 +58,18 @@ class NativeGeometryCommitter:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Geometry tree identity mismatch.")
         if any(node_id not in self._widgets for node_id in self._parents if self._parents[node_id] is not None):
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Missing native geometry widget.")
+        # The solver, not a toolkit, owns fixed-point CSS geometry. A
+        # forged or unsnapped output must fail *before* touching any widget.
+        # Clamping silently here would conceal a LayoutUnit overflow bug.
+        for node_id, rect in boxes.items():
+            for axis in ("x", "y", "width", "height"):
+                value = getattr(rect, axis)
+                if LayoutUnit.from_nearest(value).to_px() != value:
+                    raise SFLEError(
+                        DiagnosticCode.INVALID_SNAPSHOT,
+                        "Native geometry requires signed i32 LayoutUnit coordinates.",
+                        node_id,
+                    )
         # Check the full input before applying any geometry. Native mutation
         # itself is non-transactional and must remain on the owner UI thread.
         placements = []
