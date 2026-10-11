@@ -25,12 +25,15 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from queue import Empty, SimpleQueue
+from threading import get_ident
 import tkinter as tk
 from tkinter import ttk
 from psx.core.errors import RendererCapabilityError
 from psx.core.events import EventSlot
 from psx.core.native import NativeOwnership, NativeWidget
 from psx.core.vnode import NodeKind, VNode
+from psx.core.props import FLEX_ITEM_PROPS
+from psx.sfle.model import LayoutConstraints, LayoutResult
 from psx.renderers.adapters import (
     AdapterSubscription,
     DelegatingAdapter,
@@ -280,7 +283,27 @@ register_primitive(
 class TkinterRenderer:
     """Map PSX primitives to ttk widgets and use Tk's existing event loop."""
 
-    def __init__(self, root: tk.Tk | None = None, *, poll_interval_ms: int = 10) -> None:
+    def __init__(
+        self, root: tk.Tk | None = None, *, poll_interval_ms: int = 10,
+        sfle_constraints: LayoutConstraints | None = None,
+        engine: object | None = None,
+    ) -> None:
+        if sfle_constraints is not None and not isinstance(sfle_constraints, LayoutConstraints):
+            raise TypeError("Tk SFLE viewport must be LayoutConstraints.")
+        if sfle_constraints is None and engine is not None:
+            raise ValueError("Tk SFLE engine requires explicit viewport constraints.")
+        if sfle_constraints is not None and (
+            not sfle_constraints.width.definite or not sfle_constraints.height.definite
+        ):
+            raise RendererCapabilityError("Tk SFLE viewport requires definite axes.")
+        from psx.sfle.backend import load_layout_engine
+        self._sfle_constraints = sfle_constraints
+        self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
+        self._sfle_generation = 0
+        self._sfle_in_commit = False
+        self._sfle_owner_thread = get_ident()
+        self._sfle_root_widget: tk.Misc | None = None
+        self.sfle_result: LayoutResult | None = None
         self.root = root if root is not None else tk.Tk()
         self._owns_root = root is None
         self._pending: SimpleQueue[Callable[[], None]] = SimpleQueue()
@@ -316,10 +339,40 @@ class TkinterRenderer:
         self.adapters.register("Badge", TkBadgeAdapter())
         self.adapters.register("SpinBox", TkSpinBoxAdapter())
         self.adapters.register("Scroll", TkScrollAdapter())
+        if sfle_constraints is not None:
+            from .flex import TkSFLEFlexAdapter
+            self.adapters.register("Flex", TkSFLEFlexAdapter(), replace=True)
         self._schedule_drain()
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
+
+    def set_sfle_constraints(self, constraints: LayoutConstraints) -> None:
+        """Explicit Tk host viewport change; caller re-commits the mounted tree."""
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("Tk SFLE was not enabled for this renderer.")
+        if not isinstance(constraints, LayoutConstraints):
+            raise TypeError("Tk SFLE viewport must be LayoutConstraints.")
+        if not constraints.width.definite or not constraints.height.definite:
+            raise RendererCapabilityError("Tk SFLE viewport axes must be definite.")
+        self._sfle_constraints = constraints
+        self._sfle_generation += 1
+        if self._sfle_root_widget is not None and self._sfle_root_widget.winfo_exists():
+            self._sfle_root_widget.place_configure(
+                width=round(constraints.width.value),
+                height=round(constraints.height.value),
+            )
+
+    def commit_layout(self, root: object) -> None:
+        if self._sfle_constraints is not None:
+            from psx.sfle.f3_tk import commit_tk_sfle
+            commit_tk_sfle(self, root)
+
+    def invalidate_layout(self) -> None:
+        if self._sfle_constraints is not None:
+            self._sfle_generation += 1
+            self.sfle_result = None
+            self._sfle_root_widget = None
 
     def _adapter_for(self, key: object):
         return self.adapters.get(key) or self._default_adapter
@@ -327,6 +380,16 @@ class TkinterRenderer:
     # -- create -----------------------------------------------------------
 
     def create(self, node: VNode, parent: object | None) -> TkHandle:
+        if self._sfle_constraints is not None:
+            # G2 incremental native coverage: no silent native pack/grid
+            # fallback for builtins or custom declarations not ported yet.
+            if node.kind is not NodeKind.HOST or node.type not in ("Flex", "Text", "Button"):
+                raise RendererCapabilityError(
+                    f"F3-G2 Tk SFLE geometry not certified for {node.type!r}.")
+            if node.type != "Flex":
+                node = VNode(node.kind, node.type, node.key,
+                             {name: value for name, value in node.props.items()
+                              if name not in FLEX_ITEM_PROPS}, node.children)
         # Scroll owns an inner content frame. New Tk widgets must be constructed
         # with that frame as their real native master; pack(in_=...) alone
         # cannot reparent a widget into a descendant of its original master.
@@ -391,6 +454,12 @@ class TkinterRenderer:
     # -- update -----------------------------------------------------------
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
+        if self._sfle_constraints is not None and _as_handle(handle).node_type != "Flex":
+            changed = {name: value for name, value in changed.items()
+                       if name not in FLEX_ITEM_PROPS}
+            removed = frozenset(name for name in removed if name not in FLEX_ITEM_PROPS)
+            if not changed and not removed:
+                return
         self._adapter_for(handle_adapter_key(handle)).update(self, handle, changed, removed)
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
