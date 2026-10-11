@@ -130,3 +130,13 @@ def test_A08_rust_worker_headless_ui_measuring_and_observed_commit():
     assert result.measurement_error is None and result.engine_error is None
     assert result.geometry_commit_error is not None
     assert 0.0 <= result.geometry_commit_error <= 1.0
+
+
+
+def test_A08_installed_rust_wheel_real_qt_geometry_commit():
+    """Actual PyO3 Rust computes off-UI; live Qt QLabel measures and commits."""
+    from test_f2_b1_qt_native_geometry import assert_qt_live_geometry
+
+    engine = load_layout_engine()
+    assert engine.backend_name == "rust", "Live Qt test must use installed Rust, never fallback."
+    assert_qt_live_geometry(engine)
