@@ -68,6 +68,13 @@ def external_port_for(node: VNode, renderer: object) -> SFLEExternalPort | None:
         )
     port = getattr(adapter, "sfle_port", None)
     if not isinstance(port, SFLEExternalPort):
+        # Existing portable builtin adapters are not user custom adapters.
+        # Keep their existing explicit "not certified" failure contract.
+        from psx.core.registry import builtin_component_registry
+        if node.type in builtin_component_registry().snapshot():
+            raise RendererCapabilityError(
+                f"F3-G2 {kind} SFLE geometry not certified for {node.type!r}."
+            )
         raise RendererCapabilityError(
             f"F3-G2 custom adapter {node.type!r} requires "
             "sfle_port=SFLEExternalPort(measure, apply, read)."

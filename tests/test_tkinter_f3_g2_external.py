@@ -86,7 +86,7 @@ class TkExternalPortTests(unittest.TestCase):
         class Adapter:
             sfle_port = port(calls)
             def create(self, renderer, node, parent):
-                return TkHandle("CustomBadge", ttk.Label(parent.widget, text="Badge"))
+                return TkHandle("CustomBadge", ttk.Label(parent.widget, text="Badge"), {})
             def update(self, renderer, handle, changed, removed):
                 pass
             def destroy(self, renderer, handle):
