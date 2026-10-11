@@ -17,7 +17,10 @@ def test_A06_stale_during_real_qt_remeasurement_zero_commits():
     label.setWordWrap(True)
     probe=QtWidgets.QLabel("wrap "*55,parent)
     probe.setWordWrap(True)
-    probe.setStyleSheet("font: 10px monospace")
+    font=QtWidgets.QApplication.font()
+    font.setFamily("DejaVu Sans Mono")
+    font.setPixelSize(10)
+    probe.setFont(font)
     original_geometry=label.geometry()
     generation=[17]
     calls=[]
