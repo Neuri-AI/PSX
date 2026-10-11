@@ -1,6 +1,6 @@
 """RED first: Chromium rtl geometry, eight generated trees on Rust/Python."""
 import pytest
-from f2_fuzz_dimension_helpers import generate_dimension, run_dimension
+from f2_fuzz_dimension_helpers import generate_dimension, run_dimension, rust_binary
 
 DIMENSION = "rtl"
 
@@ -24,7 +24,3 @@ def page():
         finally:
             browser.close()
 
-@pytest.fixture(scope="module")
-def rust_binary():
-    from f2_fuzz_dimension_helpers import rust_binary as compiled_runner
-    return compiled_runner.__wrapped__()
