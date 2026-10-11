@@ -24,6 +24,12 @@ Each quotation in the first column is **literal text from [F1 final §6](sfle-f1
 
 **Closure rule:** F2 closes only when every row is **PASA** or an explicitly requested deferral has been **approved by the user in writing**. No such new approval is assumed in this register.
 
+## A1 portable worker bridge — executed increment (2026-10-10)
+
+**Commit [8953425](https://github.com/Neuri-AI/PSX/commit/8953425d266de6dedcad4ede092c37fa6f96fab0)** introduced `psx/sfle/worker_lifecycle.py` against the prior independent RED [44b9d77](https://github.com/Neuri-AI/PSX/commit/44b9d77a7060000de0d999eefeeb29841a1fdb50). Local Python 3.13: `pytest -q tests/sfle/test_f2_native_worker_portable_red.py` **6 passed**; entire `pytest -q tests/sfle` **395 passed / 6 skipped** because Qt is unavailable in this local environment. Relevant **[SFLE Core CI 38108750526](https://github.com/Neuri-AI/PSX/actions/runs/38108750526)** completed successfully in Rust and Python 3.10–3.13 including the portable worker RED (all Python jobs successful). The worker performs pure calculation off UI, UI-only measured rounds, generation checks, readback-based `geometry_commit_error` and rollback if commit/observation fails. Unknown measurement/engine reference errors remain `None`, not fabricated zero.
+
+**Not certified by these tests:** production renderer hookup, real Kivy/Tk windows, nodes-alive callback enforcement across all adapters, full Headless-vs-Chromium current-generation parity, or Windows/macOS wheel/frozen matrix. The corresponding exit rows remain **FALLA**. See the native-matrix run for cross-OS evidence rather than treating the Linux Core run as proof.
+
 ## Precision decision and actual implementation
 
 **D-F1.11:** 0.01 logical px pure / 1.0 logical px native; exact tree IDs/order/flex lines. A single Blink LayoutUnit is **1/64 = 0.015625 logical px**, which **exceeds 0.01**. The original fuzz failures were incorrect **border widths** as well as subsequent x positions. Rounding final sanitized boxes is prohibited because it cannot repair an allocation error that already propagates to later children.
