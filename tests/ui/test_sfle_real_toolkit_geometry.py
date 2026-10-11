@@ -19,14 +19,46 @@ from test_f2_acceptance_contract_red import case_snapshot  # noqa: E402
 
 from psx.sfle.engine import PythonLayoutEngine  # noqa: E402
 from psx.sfle.native_geometry import NativeGeometryCommitter, GeometryBackend  # noqa: E402
-from psx.sfle.model import AvailableSize, LayoutConstraints  # noqa: E402
+from psx.sfle.model import (  # noqa: E402
+    AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
+)
 from psx.sfle.measurement_plan import MeasurementRequest  # noqa: E402
 from psx.sfle.kivy_measurement import KivyMeasurementSource  # noqa: E402
 from psx.sfle.tk_measurement import TkMeasurementSource  # noqa: E402
 
 
 def sfle_case(case_id):
-    snapshot=case_snapshot(case_id)
+    if case_id in ("P3-FRACTIONAL-ROW", "P3-FRACTIONAL-COLUMN"):
+        direction=("row-reverse" if case_id=="P3-FRACTIONAL-ROW"
+                   else "column-reverse")
+        basis=("87.3125px" if direction=="row-reverse" else "72.3125px")
+        snapshot=LayoutInput(
+            1,3003,WritingDirection.LTR,
+            LayoutConstraints(
+                AvailableSize(211.625,True),AvailableSize(130.125,True),
+            ),
+            (
+                LayoutNode("root",None,"Flex",(
+                    ("direction",direction),("width","211.625px"),
+                    ("height","130.125px"),("align_items","flex-start"),
+                    ("row_gap","3.1875px"),("column_gap","5.1875px"),
+                )),
+                LayoutNode("wrapper","root","Flex",(
+                    ("direction","row"),("width","87.3125px"),
+                    ("height","72.3125px"),("flex_basis",basis),
+                    ("flex_shrink",0),("align_items","flex-start"),
+                    ("layout_padding_left","3.125px"),
+                    ("layout_border_top","1.125px"),
+                )),
+                LayoutNode("child","wrapper","Box",(
+                    ("width","31.3125px"),("height","17.125px"),
+                    ("flex_basis","31.3125px"),("flex_shrink",0),
+                    ("min_width","0px"),
+                )),
+            ),(),
+        )
+    else:
+        snapshot=case_snapshot(case_id)
     result=PythonLayoutEngine().compute(snapshot)
     nodes=tuple(SimpleNamespace(node_id=n.node_id,parent_id=n.parent_id)
                 for n in snapshot.nodes)
@@ -51,7 +83,9 @@ def check_widget_coordinates(backend,parents,rects,observed):
             )
 
 
-@pytest.mark.parametrize("case_id",("A01","F01","N05"))
+@pytest.mark.parametrize("case_id",(
+    "A01","F01","N05","P3-FRACTIONAL-ROW","P3-FRACTIONAL-COLUMN",
+))
 def test_qt_real_nested_widget_geometry(case_id):
     from PySide6 import QtWidgets
     app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
@@ -84,7 +118,9 @@ def test_qt_real_nested_widget_geometry(case_id):
         app.processEvents()
 
 
-@pytest.mark.parametrize("case_id",("A01","F01","N05"))
+@pytest.mark.parametrize("case_id",(
+    "A01","F01","N05","P3-FRACTIONAL-ROW","P3-FRACTIONAL-COLUMN",
+))
 def test_tk_real_nested_frame_geometry(case_id):
     import tkinter as tk
     nodes,parents,rects,result=sfle_case(case_id)
@@ -111,7 +147,9 @@ def test_tk_real_nested_frame_geometry(case_id):
         root.destroy()
 
 
-@pytest.mark.parametrize("case_id",("A01","F01","N05"))
+@pytest.mark.parametrize("case_id",(
+    "A01","F01","N05","P3-FRACTIONAL-ROW","P3-FRACTIONAL-COLUMN",
+))
 def test_kivy_real_window_nested_widget_geometry(case_id):
     from kivy.core.window import Window
     from kivy.uix.widget import Widget
