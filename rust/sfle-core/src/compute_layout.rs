@@ -16,6 +16,8 @@ use std::collections::HashMap;
 
 #[derive(Clone, Copy)]
 enum Length { Auto, Px(f64), Percent(f64) }
+#[derive(Clone, Copy, PartialEq)]
+enum Overflow { Visible, Clip, Hidden, Auto, Scroll }
 
 #[derive(Clone, Copy)]
 struct Style {
@@ -50,6 +52,7 @@ struct Style {
     border_bottom:Length,
     border_left:Length,
     aspect_ratio:Option<f64>,
+    overflow:Overflow,
 }
 
 fn failure(code: &'static str, message: impl Into<String>, id: Option<&str>) -> ComputeError {
@@ -112,7 +115,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
             "layout_padding_top"|"layout_padding_right"|
             "layout_padding_bottom"|"layout_padding_left"|
             "layout_border_top"|"layout_border_right"|"layout_border_bottom"|"layout_border_left"|
-            "aspect_ratio"){
+            "aspect_ratio"|"overflow"){
             return Err(unsupported(format!("Unimplemented CSS style property: {key}."),&input.node_id));
         }
     }
@@ -164,6 +167,11 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
             Some(ratio)
         },
     };
+    let overflow=match map.get("overflow").and_then(Value::as_str).unwrap_or("visible") {
+        "visible"=>Overflow::Visible,"clip"=>Overflow::Clip,"hidden"=>Overflow::Hidden,
+        "auto"=>Overflow::Auto,"scroll"=>Overflow::Scroll,
+        _=>return Err(unsupported("Unsupported overflow value.",&input.node_id)),
+    };
     let order=match map.get("order") {
         None=>0,
         Some(value)=>{
@@ -200,6 +208,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         min_width:length(value(map,&["layout_min_width","min_width"]),&input.node_id)?,
         min_height:length(value(map,&["layout_min_height","min_height"]),&input.node_id)?,
         aspect_ratio,
+        overflow,
     })
 }
 fn layout_unit(value:f64)->f64 {
@@ -546,7 +555,8 @@ impl Context<'_>{
             let mut minimum=match if row{child_style.min_width}else{child_style.min_height}{
                 Length::Px(n)=>n,
                 Length::Auto=>{
-                    let mut content=self.intrinsic_contribution(child,row,true)?;
+                    let mut content=if child_style.overflow==Overflow::Scroll {0.0}
+                        else {self.intrinsic_contribution(child,row,true)?};
                     if let Some(transferred)=transferred {
                         content=if self.input.nodes[child].component=="Image" {
                             content.min(transferred)

@@ -26,6 +26,7 @@ from .align_content import AlignContent
 from .main_alignment import JustifyContent
 from .main_margins import UsedMargin
 from .fixed_point import LayoutUnit, I32_MAX, I32_MIN
+from .intrinsic import OverflowMode
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,7 @@ class _Style:
     border_bottom: Length
     border_left: Length
     aspect_ratio: float | None
+    overflow: OverflowMode
 
 
 _ALLOWED = frozenset({
@@ -75,6 +77,7 @@ _ALLOWED = frozenset({
     "layout_padding_top", "layout_padding_right", "layout_padding_bottom", "layout_padding_left",
     "layout_border_top", "layout_border_right", "layout_border_bottom", "layout_border_left",
     "aspect_ratio",
+    "overflow",
 })
 
 
@@ -109,6 +112,7 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
                 "stretch" if values.get("align_content", "normal") == "normal"
                 else values["align_content"]
             )
+            overflow = OverflowMode(values.get("overflow", "visible"))
         except ValueError as exc:
             raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, str(exc), node.node_id) from exc
         grow, shrink = values.get("flex_grow", 0), values.get("flex_shrink", 1)
@@ -154,6 +158,7 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
             border_bottom=parse_length(values.get('layout_border_bottom', 0)),
             border_left=parse_length(values.get('layout_border_left', 0)),
             aspect_ratio=ratio,
+            overflow=overflow,
         )
     return result
 
@@ -717,7 +722,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             if min_length.kind == LengthKind.PX:
                 minimum = min_length.value
             elif min_length.kind == LengthKind.AUTO:
-                minimum = preferred(child_id, horizontal, True)
+                minimum = 0.0 if child_style.overflow == OverflowMode.SCROLL else preferred(child_id, horizontal, True)
                 if transferred is not None:
                     minimum = (min(minimum, transferred) if components[child_id] == "Image"
                                else max(minimum, transferred))
