@@ -317,6 +317,11 @@ fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec
     // f64 only for cumulative flex factors / weighted shrink fractions.
     if bases.is_empty(){return Ok(vec![]);}
     let raw=|v:f64| LayoutUnit::from_nearest(v).map_err(|e|unsupported(e,id));
+    let finite_factor=|value:f64|->Result<f64,ComputeError>{
+        if value.is_finite(){Ok(value)}else{
+            Err(unsupported("Flex factor accumulation exceeds finite f64 range.",id))
+        }
+    };
     let available=raw(inner)?;
     let gutter=raw(gap)?;
     let base:Vec<LayoutUnit>=bases.iter().map(|b|raw(b.basis)).collect::<Result<_,_>>()?;
@@ -344,13 +349,14 @@ fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec
             }
             sizes[i]=hypot[i];
             let factor=if growing{b.grow}else{b.shrink};
-            total_factor+=factor;
+            total_factor=finite_factor(total_factor+factor)?;
             if growing{
-                fractions[i]=factor/total_factor;
+                fractions[i]=finite_factor(factor/total_factor)?;
             }else{
-                let weighted=factor*base[i].to_px();
-                total_scaled_shrink+=weighted;
-                fractions[i]=if total_scaled_shrink==0.0{0.0}else{weighted/total_scaled_shrink};
+                let weighted=finite_factor(factor*base[i].to_px())?;
+                total_scaled_shrink=finite_factor(total_scaled_shrink+weighted)?;
+                fractions[i]=if total_scaled_shrink==0.0{0.0}
+                    else{finite_factor(weighted/total_scaled_shrink)?};
             }
             remaining=remaining-base[i]-gutter;
         }

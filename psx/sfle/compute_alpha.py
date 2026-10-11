@@ -263,6 +263,16 @@ def _blink_flex_targets(
     if not bases:
         return ()
     raw = lambda v: LayoutUnit.from_nearest(v)
+
+    def finite_factor(value: float) -> float:
+        if not math.isfinite(value):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Flex factor accumulation exceeds finite f64 range.",
+                node_id,
+            )
+        return value
+
     zero = LayoutUnit.from_raw(0)
     available = raw(inner_main)
     gutter = raw(gap)
@@ -293,13 +303,14 @@ def _blink_flex_targets(
                 remaining = remaining - sizes[i] - gutter
                 continue
             sizes[i] = hypot[i]
-            total_factor += factor
+            total_factor = finite_factor(total_factor + factor)
             if growing:
-                fractions[i] = factor / total_factor
+                fractions[i] = finite_factor(factor / total_factor)
             else:
-                weight = factor * base[i].to_px()
-                total_scaled_shrink += weight
-                fractions[i] = weight / total_scaled_shrink if total_scaled_shrink else 0.0
+                weight = finite_factor(factor * base[i].to_px())
+                total_scaled_shrink = finite_factor(total_scaled_shrink + weight)
+                fractions[i] = (finite_factor(weight / total_scaled_shrink)
+                                if total_scaled_shrink else 0.0)
             remaining = remaining - base[i] - gutter
         remaining = remaining + gutter
         if iteration == 0:
