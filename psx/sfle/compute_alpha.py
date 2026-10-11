@@ -6,7 +6,7 @@ layout-time native measurement may cross this boundary.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from collections.abc import Iterable
 import math
@@ -427,6 +427,41 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
     for node in request.nodes[1:]:
         children[node.parent_id].append(node.node_id)
     measures = {box.node_id: box for box in request.measurements}
+
+    # Resolve explicit min/max-content *constraints* on measured intrinsic
+    # leaves before computing ancestor contributions. The fixed-point used
+    # constraint is then consumed by the identical normal flex min/max solver.
+    # Do not guess intrinsic metrics for unmeasured widgets or containers.
+    for node in request.nodes:
+        node_id = node.node_id
+        style = styles[node_id]
+        intrinsic_bounds = {}
+        for prop, axis, minimum in (
+            ("min_width", "width", True), ("max_width", "width", False),
+            ("min_height", "height", True), ("max_height", "height", False),
+        ):
+            length = getattr(style, prop)
+            if length.kind not in (LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT):
+                continue
+            if children[node_id]:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Intrinsic min/max constraint on a container requires recursive certification.",
+                    node_id,
+                )
+            measured = measures.get(node_id)
+            if measured is None:
+                raise SFLEError(
+                    DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                    "Intrinsic min/max constraint requires measured leaf content.",
+                    node_id,
+                )
+            kind = "min_content" if length.kind == LengthKind.MIN_CONTENT else "max_content"
+            intrinsic_bounds[prop] = Length.px(
+                getattr(measured.intrinsic, f"{kind}_{axis}")
+            )
+        if intrinsic_bounds:
+            styles[node_id] = replace(style, **intrinsic_bounds)
 
     parents = {node.node_id: node.parent_id for node in request.nodes}
 

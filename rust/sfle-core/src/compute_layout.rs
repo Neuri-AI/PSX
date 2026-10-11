@@ -776,6 +776,42 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         }
         indices.insert(node.node_id.as_str(),index);
     }
+    // Resolve measured intrinsic constraint keywords at the shared immutable
+    // leaf boundary, before the flex minimum/maximum freeze algorithm runs.
+    // Container intrinsic bounds stay explicitly unsupported until recursive
+    // Chromium geometry has been certified; never silently ignore a keyword.
+    for (index,node) in input.nodes.iter().enumerate(){
+        let has_bound=[
+            styles[index].min_width,styles[index].max_width,
+            styles[index].min_height,styles[index].max_height,
+        ].iter().any(|bound| matches!(bound,Length::MinContent|Length::MaxContent));
+        if !has_bound {continue;}
+        if !children[index].is_empty(){
+            return Err(unsupported(
+                "Intrinsic min/max constraint on a container requires recursive certification.",
+                &node.node_id,
+            ));
+        }
+        let metric=input.measurements.iter().find(|m|m.node_id==node.node_id)
+            .ok_or_else(||measurement(
+                "Intrinsic min/max constraint requires measured leaf content.",
+                &node.node_id,
+            ))?;
+        let intrinsic=&metric.intrinsic;
+        let resolve_bound=|value:Length,min:f64,max:f64|match value{
+            Length::MinContent=>Length::Px(min),
+            Length::MaxContent=>Length::Px(max),
+            other=>other,
+        };
+        styles[index].min_width=resolve_bound(styles[index].min_width,
+            intrinsic.min_content_width,intrinsic.max_content_width);
+        styles[index].max_width=resolve_bound(styles[index].max_width,
+            intrinsic.min_content_width,intrinsic.max_content_width);
+        styles[index].min_height=resolve_bound(styles[index].min_height,
+            intrinsic.min_content_height,intrinsic.max_content_height);
+        styles[index].max_height=resolve_bound(styles[index].max_height,
+            intrinsic.min_content_height,intrinsic.max_content_height);
+    }
     for index in 0..input.nodes.len(){
         if children[index].len()!=1 {continue;}
         let child=children[index][0];
