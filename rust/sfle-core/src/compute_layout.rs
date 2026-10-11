@@ -1013,8 +1013,28 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         let Some(parent_name)=input.nodes[index].parent_id.as_deref() else{return false;};
         let parent=indices[parent_name];
         let Some(outer_name)=input.nodes[parent].parent_id.as_deref() else{return false;};
-        let outer=indices[outer_name];
-        let (st,wrapper,container)=(styles[index],styles[parent],styles[outer]);
+        let _outer=indices[outer_name];
+        let (st,wrapper)=(styles[index],styles[parent]);
+        let rooted_auto_chain={
+            let mut current=parent;
+            loop {
+                let state=styles[current];
+                if !matches!(state.width,Length::Auto)
+                    || state.shrink!=0.0 || !horizontal(state.direction) {
+                    break false;
+                }
+                let Some(ancestor_name)=input.nodes[current].parent_id.as_deref()
+                    else {break false;};
+                let ancestor=indices[ancestor_name];
+                if matches!(styles[ancestor].width,Length::Px(_)) {
+                    break horizontal(styles[ancestor].direction);
+                }
+                if children[ancestor].len()!=1 || children[ancestor][0]!=current {
+                    break false;
+                }
+                current=ancestor;
+            }
+        };
         let fixed_siblings=!children[parent].is_empty()
             && children[parent].iter().all(|&sibling|{
                 let sibling_style=styles[sibling];
@@ -1028,8 +1048,7 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         children[index].is_empty() && fixed_siblings
             && matches!(st.width,Length::Px(_)) && matches!(st.basis,Length::Px(_))
             && matches!(wrapper.width,Length::Auto) && wrapper.shrink==0.0
-            && horizontal(wrapper.direction) && horizontal(container.direction)
-            && matches!(container.width,Length::Px(_))
+            && horizontal(wrapper.direction) && rooted_auto_chain
             && matches!(st.padding_top,Length::Px(_))
             && matches!(st.padding_bottom,Length::Px(_))
             && (matches!(st.padding_left,Length::Percent(_))
