@@ -311,3 +311,10 @@ contract tests.
   pre-SFLE Scroll's multi-child behavior is replaced only in its
   normalization path (explicit single Flex root); G3 retains native Scroll
   migration ownership. No CSS, grid, or F2 numerical capability expansion.
+
+
+## F3-G2 started — incremental evidence (2026-10-11)
+
+- Source SHA [`a03f300`](https://github.com/Neuri-AI/PSX/commit/a03f30056ceadc9372049b84d8133ec5ec3ba9a3): [F3 selective #38158347861](https://github.com/Neuri-AI/PSX/actions/runs/38158347861) GREEN after the new canonical mapper and mounted Headless SFLE transaction tests were added to Core and Headless selection. **151 Core tests**, **19 Headless tests** passed.
+- `tests/test_f3_g2_snapshot.py` checks source-vs-native dimension separation, keyed paths, explicit measurement, real Python SFLE compute and failing Scroll/unsupported roots. `tests/test_f3_g2_headless.py` checks actual mounted geometry, keyed identity/reorder, resize, hook updates, explicit native measurements, stale-result rejection, owner thread and legacy fail-closed behavior.
+- The G2 gate is **not certified**: Qt, Kivy, Tkinter still lack the production SFLE bridge, and the complete registry/native custom matrix has not been fulfilled. Formal overall phase progress is **1/5**; do not conflate green impacted CI with G2 closure.

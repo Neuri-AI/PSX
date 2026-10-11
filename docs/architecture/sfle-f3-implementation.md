@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED (certified `df6fe1c`); G2–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Headless opt-in SFLE geometry GREEN on `a03f300`); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -351,7 +351,7 @@ a compatibility alias for Row/Column, wrapper boxes added by normalization
 solely to make geometry pass, hidden 12-column system inserted in F3,
 or modifications to F2 precision/parity without independent RED evidence.
 
-**Current F3 progress: 1/5 gates CLOSED (20%). G1 CLOSED: builder, Markup, shared item metadata, normalizer, explicit Scroll content policy, fail-closed renderer routing and adverse cases certified at `df6fe1c`. G2–G5 NOT STARTED. F3 change-aware CI is implemented and verified. See the G1 certification below.** This document is the acceptance
+**Current F3 progress: 1/5 gates CLOSED (20%). G1 CLOSED: builder, Markup, shared item metadata, normalizer, explicit Scroll content policy, fail-closed renderer routing and adverse cases certified at `df6fe1c`. G2 IN PROGRESS; G3–G5 NOT STARTED. F3 change-aware CI is implemented and verified. See the G1 certificate and G2 increment below.** This document is the acceptance
 specification only. Implementation and executable certification are separate.
 
 
@@ -405,6 +405,15 @@ Historical G1.2 incremental evidence is retained above.
   jobs passed, with the required aggregate GREEN. Rust, Chromium, SFLE
   numerical recalibration, wheels and G4 removal were **correctly skipped**
   by impact routing; they are not counted as executed G1 tests.
-- **F3 remaining:** G2 (full `registry × backend × operation` SFLE/native
-  bridge), G3 (Scroll native behavior), G4 (remove Row/Column), G5
-  (single-SHA cross-platform final acceptance) are all **NOT STARTED**.
+- **At G1 signoff:** G2–G5 had not started. Subsequent G2 progress and open criteria are recorded below; G3–G5 are still NOT STARTED.
+
+
+## F3-G2 implementation evidence — first incremental geometry bridge (2026-10-11)
+
+**State:** G2 **IN PROGRESS**, **not CLOSED**. Whole-phase progress remains **1/5 gates (20%)**.
+
+- **Canonical SFLE snapshot mapper:** [`aa245fe`](https://github.com/Neuri-AI/PSX/commit/aa245fe63677e22fb9943e8d34582ffea82a7d7a) introduced `psx/sfle/f3_snapshot.py`; it converts G1 normalized Flex participants into immutable `LayoutInput` styles and stable keyed IDs. Gap shorthand, padding longhands, flex item properties, native width separation, fragment/component transparency and unsupported Scroll are explicit. No second Flexbox algorithm.
+- **Mounted Headless geometry:** `psx/sfle/f3_headless.py` and `HeadlessRenderer` now have an **explicit opt-in viewport**. The reconciler's existing mounted/hook/key tree supplies source identities and real handle bindings; `load_layout_engine()` uses Rust primary and Python fallback at load time. Successful commits apply only SFLE border rectangles, after snapshot/generation/liveness/grid checks, with readback and rollback on commit failure. Host-provided intrinsic measurements are required where needed; the bridge never invents text/widget size.
+- **No misleading automatic fallback:** Unconfigured `HeadlessRenderer()` still rejects mounting `Flex`, and legacy `Row`/`Column` cannot act as competing layout authorities within an opted-in SFLE tree. Qt, Kivy and Tkinter Flex mounting remain intentionally fail-closed until their real G2 ports are wired.
+- **Tests and single-SHA CI:** [`a03f300`](https://github.com/Neuri-AI/PSX/commit/a03f30056ceadc9372049b84d8133ec5ec3ba9a3) passed [F3 selective #38158347861](https://github.com/Neuri-AI/PSX/actions/runs/38158347861), including **151 Core tests and 19 Headless tests**, plus impacted SFLE, Rust/Python, Chromium, Qt/Kivy/Tk regressions and platform wheels. [G1 regression matrix](https://github.com/Neuri-AI/PSX/actions/runs/38158347847) was scheduled on the same SHA; G1 continues closed.
+- **G2 remaining:** wire actual Qt/Kivy/Tkinter native measuring and rectangle commits (Kivy parent-relative Y inversion from existing `NativeGeometryCommitter`); cover all registered supported widgets plus `Native`/custom adapters and negative capability cells; width-dependent remeasurement, viewport/resize invalidation and strict native commit/readback/error separation. G3 still owns scrolling events/offset lifecycle. **Neither live Qt/Kivy/Tk Flex rendering nor full G2 certification is claimed by Headless-only evidence.**

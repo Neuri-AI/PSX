@@ -90,7 +90,7 @@ not a catch-all for unimplemented CSS features.
 
 **Base:** `develop` at `979b6ed9e86c63b640d498439045910ed1a189aa`.
 **Feature branch:** [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
-**State:** **G1 CLOSED** on SHA [`df6fe1c`](https://github.com/Neuri-AI/PSX/commit/df6fe1c107c98d9506944d10ced923a45f5608d7), with both [G1 matrix #38155096426](https://github.com/Neuri-AI/PSX/actions/runs/38155096426) and [selective CI #38155096518](https://github.com/Neuri-AI/PSX/actions/runs/38155096518) GREEN. G2–G5 NOT STARTED; **1/5 official gates CLOSED (20%)**.
+**State:** **G1 CLOSED**, **G2 IN PROGRESS** (snapshot bridge and actual opt-in Headless geometry GREEN on [`a03f300`](https://github.com/Neuri-AI/PSX/commit/a03f30056ceadc9372049b84d8133ec5ec3ba9a3)); G3–G5 NOT STARTED. [G2 selective CI #38158347861](https://github.com/Neuri-AI/PSX/actions/runs/38158347861) GREEN. **1/5 official gates CLOSED (20%)**.
 [Read the full F3 implementation plan and mandatory G2 component matrix](architecture/sfle-f3-implementation.md).
 
 **G1:** public Flex contract + explicit Scroll content policy.
