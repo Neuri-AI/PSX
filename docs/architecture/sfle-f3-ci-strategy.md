@@ -318,3 +318,10 @@ contract tests.
 - Source SHA [`a03f300`](https://github.com/Neuri-AI/PSX/commit/a03f30056ceadc9372049b84d8133ec5ec3ba9a3): [F3 selective #38158347861](https://github.com/Neuri-AI/PSX/actions/runs/38158347861) GREEN after the new canonical mapper and mounted Headless SFLE transaction tests were added to Core and Headless selection. **151 Core tests**, **19 Headless tests** passed.
 - `tests/test_f3_g2_snapshot.py` checks source-vs-native dimension separation, keyed paths, explicit measurement, real Python SFLE compute and failing Scroll/unsupported roots. `tests/test_f3_g2_headless.py` checks actual mounted geometry, keyed identity/reorder, resize, hook updates, explicit native measurements, stale-result rejection, owner thread and legacy fail-closed behavior.
 - The G2 gate is **not certified**: Qt, Kivy, Tkinter still lack the production SFLE bridge, and the complete registry/native custom matrix has not been fulfilled. Formal overall phase progress is **1/5**; do not conflate green impacted CI with G2 closure.
+
+
+## F3-G2 native Qt iteration — 2026-10-11
+
+- **Source SHA [`8e4d3b5`](https://github.com/Neuri-AI/PSX/commit/8e4d3b5919a7855ae73108393d8054a69bf6dc1b):** [F3 selected impact CI #38159181324](https://github.com/Neuri-AI/PSX/actions/runs/38159181324) completed GREEN and [G1 supported-Python matrix #38159181381](https://github.com/Neuri-AI/PSX/actions/runs/38159181381) completed GREEN on the same source SHA.
+- **Qt job mandatory:** `.github/workflows/f3-selective.yml` runs `tests/test_pyside6_f3_g2_renderer.py` alongside existing PySide6 tests and the Qt SFLE worker/lifecycle test; **28 Qt native tests passed**. New assertions use actual `QWidget.geometry()`, no Qt `QLayout`, identity/event preservation, nested relative coordinates, and explicit negative cases.
+- **Scoped claims:** Qt path is an *opt-in G2 subset* for Flex/Text/Button, not full registry certification. Kivy/Tkinter full SFLE path, wider Qt coverage and G2 registry/Native matrix are still open. The historical Headless status above described the state at that time and must not be read as today's overall G2 state. F3 remains **1/5 officially closed (20%)**.
