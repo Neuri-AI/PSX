@@ -12,7 +12,8 @@ from enum import Enum
 from .errors import DiagnosticCode, SFLEError
 from .margin_tree import MarginTreeNode
 from .recursive_measurement import RecursiveMeasurementResult
-from .model import LayoutResult
+from .model import LayoutResult, Rect
+from .f3_external import SFLEExternalPort
 from .fixed_point import LayoutUnit
 
 
@@ -35,6 +36,8 @@ class NativeGeometryCommitter:
         backend: GeometryBackend,
         nodes: tuple[MarginTreeNode, ...],
         widgets: Mapping[str, object],
+        *,
+        external_ports: Mapping[str, SFLEExternalPort] | None = None,
     ) -> None:
         if not isinstance(backend, GeometryBackend):
             raise TypeError("Expected GeometryBackend.")
@@ -43,6 +46,11 @@ class NativeGeometryCommitter:
         if len(self._parents) != len(nodes):
             raise SFLEError(DiagnosticCode.INVALID_TREE, "Duplicate geometry node.")
         self._widgets = dict(widgets)
+        self._external_ports = dict(external_ports or {})
+        if not set(self._external_ports) <= set(self._parents):
+            raise SFLEError(DiagnosticCode.INVALID_TREE, "External geometry port has no SFLE node.")
+        if any(not isinstance(port, SFLEExternalPort) for port in self._external_ports.values()):
+            raise TypeError("External geometry ports must be SFLEExternalPort instances.")
         if nodes and nodes[0].parent_id is not None:
             raise SFLEError(DiagnosticCode.INVALID_TREE, "Root must be first.")
 
@@ -84,9 +92,12 @@ class NativeGeometryCommitter:
             if self._backend == GeometryBackend.KIVY:
                 y = (LayoutUnit.from_nearest(parent.height) - LayoutUnit.from_nearest(y)
                      - LayoutUnit.from_nearest(border.height)).to_px()
-            placements.append((self._widgets[node_id], x, y, border.width, border.height))
-        for widget, x, y, width, height in placements:
-            if self._backend == GeometryBackend.QT:
+            placements.append((node_id, self._widgets[node_id], x, y, border.width, border.height))
+        for node_id, widget, x, y, width, height in placements:
+            port = self._external_ports.get(node_id)
+            if port is not None:
+                port.apply(widget, Rect(x, y, width, height))
+            elif self._backend == GeometryBackend.QT:
                 widget.setGeometry(round(x), round(y), round(width), round(height))
             elif self._backend == GeometryBackend.TK:
                 widget.place(x=round(x), y=round(y), width=round(width), height=round(height))
