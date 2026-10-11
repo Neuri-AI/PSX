@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from psx.sfle.model import LayoutConstraints, LayoutResult
 from psx.core.props import FLEX_ITEM_PROPS
 from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
+from psx.sfle.f3_external import external_port_for
 
 
 from psx.core.errors import RendererCapabilityError
@@ -323,6 +324,7 @@ class QtRenderer:
         self._sfle_generation = 0
         self._sfle_in_commit = False
         self.sfle_result: LayoutResult | None = None
+        self._sfle_backend = "qt"
         self._binding = binding.lower()
         self._binding_package = binding
         core = importlib.import_module(f"{binding}.QtCore")
@@ -412,9 +414,13 @@ class QtRenderer:
         if self._sfle_constraints is not None:
             # G2 incremental native coverage: don't silently delegate an unported
             # layout or primitive to native Qt layout managers.
-            if node.kind is not NodeKind.HOST:
-                raise RendererCapabilityError("F3-G2 Qt SFLE geometry requires a certified host node.")
-            g2_native_leaf_needs_measurement(node, backend="qt")
+            if node.kind not in (NodeKind.HOST, NodeKind.NATIVE):
+                raise RendererCapabilityError("F3-G2 requires a host or Native layout participant.")
+            # An unregistered custom host or a Native declaration without a
+            # strict SFLE port must fail *before* its factory mutates the GUI.
+            port = external_port_for(node, self)
+            if port is None and node.type != "Flex":
+                g2_native_leaf_needs_measurement(node, backend="qt")
             if node.type != "Flex":
                 node = VNode(node.kind, node.type, node.key,
                              {k: v for k, v in node.props.items() if k not in FLEX_ITEM_PROPS},

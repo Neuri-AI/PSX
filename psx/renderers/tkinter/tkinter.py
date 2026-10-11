@@ -34,6 +34,7 @@ from psx.core.native import NativeOwnership, NativeWidget
 from psx.core.vnode import NodeKind, VNode
 from psx.core.props import FLEX_ITEM_PROPS
 from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
+from psx.sfle.f3_external import external_port_for
 from psx.sfle.model import LayoutConstraints, LayoutResult
 from psx.renderers.adapters import (
     AdapterSubscription,
@@ -300,6 +301,7 @@ class TkinterRenderer:
         from psx.sfle.backend import load_layout_engine
         self._sfle_constraints = sfle_constraints
         self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
+        self._sfle_backend = "tk"
         self._sfle_generation = 0
         self._sfle_in_commit = False
         self._sfle_owner_thread = get_ident()
@@ -384,9 +386,13 @@ class TkinterRenderer:
         if self._sfle_constraints is not None:
             # G2 incremental native coverage: no silent native pack/grid
             # fallback for builtins or custom declarations not ported yet.
-            if node.kind is not NodeKind.HOST:
-                raise RendererCapabilityError("F3-G2 Tk SFLE geometry requires a certified host node.")
-            g2_native_leaf_needs_measurement(node, backend="tk")
+            if node.kind not in (NodeKind.HOST, NodeKind.NATIVE):
+                raise RendererCapabilityError("F3-G2 requires a host or Native layout participant.")
+            # An unregistered custom host or a Native declaration without a
+            # strict SFLE port must fail *before* its factory mutates the GUI.
+            port = external_port_for(node, self)
+            if port is None and node.type != "Flex":
+                g2_native_leaf_needs_measurement(node, backend="tk")
             if node.type != "Flex":
                 node = VNode(node.kind, node.type, node.key,
                              {name: value for name, value in node.props.items()
