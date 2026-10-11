@@ -64,7 +64,10 @@ def resolve_main_alignment(
     if extent < 0 or fixed_gap < 0:
         raise ValueError("Container and gap must be nonnegative.")
     count = len(sizes)
-    gap_total = LayoutUnit.from_nearest(fixed_gap * max(0, count - 1))
+    # The gap is a *used* 1/64px length before repetition. Multiplying
+    # f64 CSS pixels first loses subpixel gutters and may overflow to inf.
+    # Multiply widened raw units and clamp to signed i32 exactly once.
+    gap_total = LayoutUnit.from_raw(_lu(fixed_gap).raw * max(0, count - 1))
     free_u = _lu(extent) - _sum(sizes) - gap_total
     free = free_u.to_px()
     if count == 0:
