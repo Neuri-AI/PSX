@@ -1,0 +1,22 @@
+[package]
+name = "sfle-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Backend-neutral SFLE CSS flex sizing kernel, not yet a full layout engine"
+
+[lib]
+name = "sfle_core"
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
+
+[features]
+default = []
+python = ["dep:pyo3"]
+
+[dependencies]
+pyo3 = { version = "0.23", optional = true, features = ["extension-module", "abi3-py310"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]

@@ -1,0 +1,206 @@
+name: SFLE core checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    paths:
+      - "psx/sfle/**"
+      - "rust/sfle-core/**"
+      - "tests/sfle/**"
+      - ".github/workflows/sfle-core.yml"
+      - "pyproject.toml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    name: Detect SFLE changes
+    runs-on: ubuntu-latest
+    outputs:
+      sfle: ${{ steps.filter.outputs.sfle }}
+    steps:
+      - name: Inspect current PR update
+        id: filter
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const affectsSFLE = path =>
+              path.startsWith('psx/sfle/') ||
+              path.startsWith('rust/sfle-core/') ||
+              path.startsWith('tests/sfle/') ||
+              path === 'pyproject.toml' ||
+              path === '.github/workflows/sfle-core.yml';
+            let files;
+            if (context.eventName === 'pull_request' &&
+                context.payload.action === 'synchronize') {
+              const before = context.payload.before;
+              const after = context.payload.after;
+              if (before && after) {
+                const response = await github.rest.repos.compareCommits({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  base: before, head: after, per_page: 100,
+                });
+                files = response.data.files || [];
+                if (response.data.total_commits > 250 || files.length >= 300) {
+                  core.warning('Diff too large to classify safely; run SFLE tests.');
+                  core.setOutput('sfle', 'true');
+                  return;
+                }
+              }
+            }
+            if (!files && context.eventName === 'pull_request') {
+              files = await github.paginate(github.rest.pulls.listFiles, {
+                owner: context.repo.owner, repo: context.repo.repo,
+                pull_number: context.issue.number, per_page: 100,
+              });
+            }
+            if (!files) {
+              // A push passed the event-level paths filter.
+              core.setOutput('sfle', 'true');
+              return;
+            }
+            const changed = files.some(
+              file => affectsSFLE(file.filename) ||
+                      (file.previous_filename && affectsSFLE(file.previous_filename))
+            );
+            core.info(`Relevant SFLE changes: ${changed}`);
+            core.setOutput('sfle', String(changed));
+
+  python-contracts:
+    name: Python SFLE / ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Qt offscreen system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - name: Install SFLE and Qt test dependencies
+        run: python -m pip install -e '.[qt]' pytest
+      - name: Compile SFLE Python
+        run: python -m compileall -q psx/sfle
+      - name: SFLE focused tests (zero skip policy)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          set -o pipefail
+          python -m pytest -q -rs tests/sfle | tee /tmp/sfle-python-tests.txt
+          if grep -Eq '([0-9]+ skipped|SKIPPED \[)' /tmp/sfle-python-tests.txt; then
+            echo 'SFLE Core must execute every collected test, including Qt lifecycle'; exit 1
+          fi
+
+  rust-core:
+    name: Rust SFLE core
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust/sfle-core
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Rust unit tests
+        run: cargo test --all-targets --no-fail-fast
+
+  differential:
+    name: SFLE Rust/Python alpha corpus differential
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install PSX Python contract tests
+        run: python -m pip install -e . pytest
+      - name: Verify alpha corpus against both pure compute backends
+        run: python -m pytest -q tests/interop/test_sfle_f2_differential.py tests/interop/test_f2_a01_active_remeasure_red.py tests/interop/test_f2_a04_active_remeasure_red.py tests/interop/test_f2_a05_active_remeasure_red.py tests/interop/test_sfle_f2_negative_fuzz_red.py tests/interop/test_sfle_f2_unsupported_taxonomy.py tests/interop/test_sfle_f2_point2_capability_parity.py tests/interop/test_sfle_f2_point2_final_certification.py tests/interop/test_sfle_f2_point3_saturation_certification.py tests/interop/test_sfle_f2_point5_deferral_boundaries.py
+
+  native-wheel:
+    name: SFLE PyO3 native wheel ABI and parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Qt offscreen system libraries for installed PyO3 GUI integration
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - name: Install SFLE source with real Qt and maturin
+        run: python -m pip install -e '.[qt]' pytest 'maturin>=1.8,<2'
+      - name: Build Rust PyO3 wheel
+        run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out /tmp/sfle-native-wheels
+      - name: Install native wheel and inspect actual import locations
+        run: |
+          python -m pip install --no-deps /tmp/sfle-native-wheels/*.whl
+          unzip -l /tmp/sfle-native-wheels/*.whl | tail -n 24
+          python -m pip show -f psx-sfle-native
+      - name: Verify installed native module outside editable source checkout
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          cd /tmp
+          python -c "import _sfle_native as n; assert n.schema_version() == 1"
+          python -m pytest -q "$GITHUB_WORKSPACE/tests/interop/test_sfle_f2_native_wheel.py"
+
+  f2-migration-inventory:
+    name: F2.4 tracked Row Column Scroll inventory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned public external Qyro boilerplates for F2.4 inventory
+        run: |
+          mkdir -p /tmp/sfle-external-boilerplates
+          git clone --quiet --depth 1 https://github.com/Neuri-AI/qyro-boilerplate-qt.git /tmp/sfle-external-boilerplates/qt
+          git -C /tmp/sfle-external-boilerplates/qt fetch --quiet --depth 1 origin a9d1c65e2afcff3ddd878c8ff8175d423379293b
+          git -C /tmp/sfle-external-boilerplates/qt checkout --quiet --detach a9d1c65e2afcff3ddd878c8ff8175d423379293b
+          git clone --quiet --depth 1 https://github.com/Neuri-AI/qyro-boilerplate-kivy.git /tmp/sfle-external-boilerplates/kivy
+          git -C /tmp/sfle-external-boilerplates/kivy fetch --quiet --depth 1 origin 56da7d54e8323839c080c31658e435a18875c68b
+          git -C /tmp/sfle-external-boilerplates/kivy checkout --quiet --detach 56da7d54e8323839c080c31658e435a18875c68b
+          git clone --quiet --depth 1 https://github.com/Neuri-AI/qyro-boilerplate-tkinter.git /tmp/sfle-external-boilerplates/tkinter
+          git -C /tmp/sfle-external-boilerplates/tkinter fetch --quiet --depth 1 origin 2eb3ef8f93aa960137ee31da54c5e6d7e6d297f3
+          git -C /tmp/sfle-external-boilerplates/tkinter checkout --quiet --detach 2eb3ef8f93aa960137ee31da54c5e6d7e6d297f3
+      - name: Count tracked PSX and all three pinned external boilerplates
+        run: |
+          python scripts/audit_sfle_f2_migration.py \
+            --external-root qt=/tmp/sfle-external-boilerplates/qt \
+            --external-root kivy=/tmp/sfle-external-boilerplates/kivy \
+            --external-root tkinter=/tmp/sfle-external-boilerplates/tkinter
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("/tmp/sfle-f2-inventory/inventory.json").read_text())
+          expected={
+              "qt":"a9d1c65e2afcff3ddd878c8ff8175d423379293b",
+              "kivy":"56da7d54e8323839c080c31658e435a18875c68b",
+              "tkinter":"2eb3ef8f93aa960137ee31da54c5e6d7e6d297f3",
+          }
+          assert {name:record["commit_sha"] for name,record
+                  in data["external_repositories"].items()}==expected
+          PY
+      - name: Upload reproducible inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfle-f2-migration-inventory
+          path: /tmp/sfle-f2-inventory/
+          if-no-files-found: error

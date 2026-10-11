@@ -1,0 +1,232 @@
+//! F2.2.4.6 nested resolved Flex with signed/auto margins and alignment.
+//! Source CSS/intrinsic dependencies are resolved in preceding sizing phases.
+
+use crate::align_content::AlignContent;
+use crate::cross_alignment::CrossAlign;
+use crate::edge_pipeline::{BoxEdges, Edges};
+use crate::line_layout::{Direction, Rect, Wrap, WritingDirection};
+use crate::main_alignment::JustifyContent;
+use crate::margin_flex_pipeline::{
+    compute_margin_flex_layout_content, MarginFlexBox, MarginFlexItem,
+};
+use crate::intrinsic::{IntrinsicFlexInput, build_intrinsic_flex_basis};
+use crate::FlexMathError;
+use crate::layout_unit::LayoutUnit;
+use std::collections::HashMap;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct MarginTreeNode {
+    pub id: String,
+    pub parent: Option<String>,
+    pub width: f64,
+    pub height: f64,
+    pub item: Option<MarginFlexItem>,
+    pub edges: BoxEdges,
+    pub direction: Direction,
+    pub wrap: Wrap,
+    pub main_gap: f64,
+    pub cross_gap: f64,
+    pub justify: JustifyContent,
+    pub align_items: CrossAlign,
+    pub align_content: AlignContent,
+    pub intrinsic_basis: Option<IntrinsicFlexInput>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct MarginTreeLayout {
+    pub boxes: Vec<MarginFlexBox>,
+}
+
+fn to_unit(value:f64)->LayoutUnit {
+    LayoutUnit::from_nearest(value).expect("validated finite margin-tree geometry")
+}
+fn layout_unit(value:f64)->f64 {to_unit(value).to_px()}
+fn unit_sum(values:&[f64])->f64 {
+    values.iter().fold(LayoutUnit::from_raw(0),|acc,value|acc+to_unit(*value)).to_px()
+}
+fn translate(r: Rect, x: f64, y: f64) -> Rect {
+    Rect {x:unit_sum(&[r.x,x]),y:unit_sum(&[r.y,y]),
+          width:layout_unit(r.width),height:layout_unit(r.height)}
+}
+fn translate_box(mut b: MarginFlexBox, x: f64, y: f64) -> MarginFlexBox {
+    b.content=translate(b.content,x,y);
+    b.padding=translate(b.padding,x,y);
+    b.border=translate(b.border,x,y);
+    b
+}
+
+pub fn compute_margin_tree(
+    nodes: &[MarginTreeNode],
+    writing: WritingDirection,
+) -> Result<MarginTreeLayout, FlexMathError> {
+    if nodes.is_empty() { return Ok(MarginTreeLayout{boxes:vec![]}); }
+    let mut children:HashMap<&str,Vec<usize>>=HashMap::new();
+    for (i,node) in nodes.iter().enumerate() {
+        if node.id.is_empty() || children.contains_key(node.id.as_str())
+            || ![node.width,node.height,node.main_gap,node.cross_gap]
+                .iter().all(|x| x.is_finite() && *x >= 0.0)
+            || node.edges.margin != Edges::default()
+            || node.align_items == CrossAlign::Auto
+        {
+            return Err(FlexMathError::InvalidInput("invalid margin tree node"));
+        }
+        if i==0 {
+            if node.parent.is_some() || node.item.is_some() {
+                return Err(FlexMathError::InvalidInput("root cannot be item"));
+            }
+        } else {
+            if node.edges != BoxEdges::default() {
+                return Err(FlexMathError::InvalidInput(
+                    "child edges must be supplied by MarginFlexItem",
+                ));
+            }
+            let parent=node.parent.as_deref().ok_or(
+                FlexMathError::InvalidInput("missing parent")
+            )?;
+            if !children.contains_key(parent) || node.item.as_ref().is_none_or(|it| it.id!=node.id) {
+                return Err(FlexMathError::InvalidInput("non-preorder parent or mismatched item"));
+            }
+            children.get_mut(parent).expect("parent exists").push(i);
+        }
+        children.insert(node.id.as_str(),vec![]);
+    }
+    // Root physical edges are resolved inputs. Reject malformed nonfinite
+    // values before any infallible fixed-point accumulation.
+    let root_edges=&nodes[0].edges;
+    let root_values=[
+        root_edges.padding.top,root_edges.padding.right,
+        root_edges.padding.bottom,root_edges.padding.left,
+        root_edges.border.top,root_edges.border.right,
+        root_edges.border.bottom,root_edges.border.left,
+    ];
+    if root_values.iter().any(|v|!v.is_finite()||*v<0.0) {
+        return Err(FlexMathError::InvalidInput("nonfinite/negative root box edge"));
+    }
+    let root=&nodes[0];
+    let e=root.edges;
+    let content=Rect {
+        x:unit_sum(&[e.border.left,e.padding.left]),
+        y:unit_sum(&[e.border.top,e.padding.top]),
+        width:layout_unit(root.width),
+        height:layout_unit(root.height),
+    };
+    let padding=Rect {
+        x:layout_unit(e.border.left),y:layout_unit(e.border.top),
+        width:unit_sum(&[root.width,e.padding.left,e.padding.right]),
+        height:unit_sum(&[root.height,e.padding.top,e.padding.bottom]),
+    };
+    let border=Rect {
+        x:0.0,y:0.0,
+        width:unit_sum(&[padding.width,e.border.left,e.border.right]),
+        height:unit_sum(&[padding.height,e.border.top,e.border.bottom]),
+    };
+    let mut geometry:HashMap<&str,MarginFlexBox>=HashMap::new();
+    geometry.insert(root.id.as_str(),MarginFlexBox{
+        id:root.id.clone(),content,padding,border,
+        used_main_start_margin:0.0,used_main_end_margin:0.0,line_index:0,
+        used_cross_start_margin:0.0,used_cross_end_margin:0.0,
+    });
+    for parent in nodes {
+        let origin=geometry[parent.id.as_str()].content;
+        let child_indices=&children[parent.id.as_str()];
+        if child_indices.is_empty(){continue;}
+        let items: Vec<MarginFlexItem> = child_indices.iter().map(|&index| {
+            let child = &nodes[index];
+            let mut item = child.item.as_ref().expect("validated").clone();
+            if let Some(intrinsic) = child.intrinsic_basis {
+                item.flex = build_intrinsic_flex_basis(intrinsic)?;
+            }
+            Ok(item)
+        }).collect::<Result<Vec<_>, FlexMathError>>()?;
+        let positioned=compute_margin_flex_layout_content(
+            &items,origin.width,origin.height,
+            parent.direction,writing,parent.wrap,parent.main_gap,parent.cross_gap,
+            parent.justify,parent.align_items,parent.align_content,
+        )?;
+        for item in positioned.boxes {
+            let key=nodes.iter().find(|n|n.id==item.id).expect("known").id.as_str();
+            geometry.insert(key,translate_box(item,origin.x,origin.y));
+        }
+    }
+    Ok(MarginTreeLayout{
+        boxes:nodes.iter().map(|n|geometry[n.id.as_str()].clone()).collect(),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::FlexBasis;
+    fn flex(v:f64)->MarginFlexItem {
+        MarginFlexItem {
+            id:"".into(),flex:FlexBasis{
+                basis:v,hypothetical:v,min_size:0.0,max_size:None,
+                grow:0.0,shrink:0.0,
+            },
+            cross_content_size:20.0,edges:BoxEdges::default(),
+            main_start:Some(0.0),main_end:Some(0.0),order:0,
+            cross_start:Some(0.0),cross_end:Some(0.0),
+            align_self:CrossAlign::Auto,cross_size_auto:false,
+            min_cross_content_size:0.0,max_cross_content_size:None,
+            baseline_from_cross_start:None,
+        }
+    }
+    fn node(id:&str,parent:Option<&str>,width:f64,height:f64,item:Option<MarginFlexItem>)->MarginTreeNode{
+        MarginTreeNode{id:id.into(),parent:parent.map(str::to_string),
+            width,height,item,edges:BoxEdges::default(),
+            direction:Direction::Row,wrap:Wrap::NoWrap,
+            main_gap:0.0,cross_gap:0.0,justify:JustifyContent::FlexStart,
+            align_items:CrossAlign::FlexStart,align_content:AlignContent::FlexStart,
+            intrinsic_basis:None}
+    }
+    #[test]
+    fn b2_saturates_root_box_dimensions_on_each_edge_accumulation() {
+        let limit=i32::MAX as f64 / 64.0;
+        let mut root=node("root",None,limit,20.0,None);
+        root.edges.padding.left=16.0;
+        root.edges.padding.right=8.0;
+        root.edges.border.left=4.0;
+        root.edges.border.right=2.0;
+        let b=compute_margin_tree(&[root],WritingDirection::Ltr).unwrap().boxes.remove(0);
+        assert_eq!(b.content.x,20.0);
+        assert_eq!(b.padding.width,limit);
+        assert_eq!(b.border.width,limit);
+        for v in [b.content.x,b.content.y,b.content.width,b.content.height,
+                  b.padding.x,b.padding.y,b.padding.width,b.padding.height,
+                  b.border.x,b.border.y,b.border.width,b.border.height] {
+            assert!(v>=i32::MIN as f64/64.0 && v<=limit);
+            assert_eq!(v*64.0,(v*64.0).trunc());
+        }
+    }
+    #[test]
+    fn b2_saturates_nested_signed_translation_in_both_directions() {
+        let b=MarginFlexBox{
+            id:"leaf".into(),
+            content:Rect{x:100.0,y:-100.0,width:12.0,height:13.0},
+            padding:Rect{x:100.0,y:-100.0,width:12.0,height:13.0},
+            border:Rect{x:100.0,y:-100.0,width:12.0,height:13.0},
+            used_main_start_margin:0.0,used_main_end_margin:0.0,line_index:0,
+            used_cross_start_margin:0.0,used_cross_end_margin:0.0,
+        };
+        let b=translate_box(b,i32::MAX as f64/64.0,i32::MIN as f64/64.0);
+        for rect in [b.content,b.padding,b.border] {
+            assert_eq!(rect.x,i32::MAX as f64/64.0);
+            assert_eq!(rect.y,i32::MIN as f64/64.0);
+            assert_eq!(rect.width,12.0);
+        }
+    }
+    #[test]
+    fn nested_justify_offsets_from_parent_content_origin(){
+        let mut root=node("root",None,200.0,80.0,None);
+        root.edges.padding.left=5.0;
+        root.justify=JustifyContent::Center;
+        let mut p=flex(100.0);p.id="parent".into();p.edges.padding.left=6.0;
+        let mut parent=node("parent",Some("root"),100.0,40.0,Some(p));
+        parent.justify=JustifyContent::FlexEnd;
+        let mut l=flex(20.0);l.id="leaf".into();
+        let leaf=node("leaf",Some("parent"),20.0,20.0,Some(l));
+        let result=compute_margin_tree(&[root,parent,leaf],WritingDirection::Ltr).unwrap();
+        assert_eq!(result.boxes[1].border.x,52.0);
+        assert_eq!(result.boxes[2].border.x,138.0);
+    }
+}
