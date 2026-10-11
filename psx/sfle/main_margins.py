@@ -13,6 +13,11 @@ wrapping, or CSS line breaking. It is deliberately not a complete layout.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
+
+
+def _layout_unit(value: float) -> float:
+    return math.floor(value * 64.0 + 0.5) / 64.0
 
 from .flex_math import _number
 from .main_alignment import JustifyContent, resolve_main_alignment
@@ -112,17 +117,21 @@ def position_main_margins(
     horizontal = direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
     reversed_axis = direction in (FlexDirection.ROW_REVERSE, FlexDirection.COLUMN_REVERSE)
     forward = ((writing == WritingDirection.LTR) != reversed_axis) if horizontal else not reversed_axis
-    cursor = alignment.leading_space if forward else extent - alignment.leading_space
+    cursor = _layout_unit(alignment.leading_space if forward else extent - alignment.leading_space)
     out: list[MarginPosition] = []
     for item in items:
         start_margin = share if item.start.value is None else item.start.value
         end_margin = share if item.end.value is None else item.end.value
         if forward:
-            border_start = cursor + start_margin
-            cursor += start_margin + item.border_main_size + end_margin + alignment.between_space
+            border_start = _layout_unit(cursor + start_margin)
+            cursor = _layout_unit(border_start + item.border_main_size)
+            cursor = _layout_unit(cursor + end_margin)
+            cursor = _layout_unit(cursor + alignment.between_space)
         else:
-            border_start = cursor - start_margin - item.border_main_size
-            cursor -= start_margin + item.border_main_size + end_margin + alignment.between_space
+            cursor = _layout_unit(cursor - start_margin)
+            border_start = _layout_unit(cursor - item.border_main_size)
+            cursor = _layout_unit(border_start - end_margin)
+            cursor = _layout_unit(cursor - alignment.between_space)
         out.append(MarginPosition(
             item.node_id, border_start, item.border_main_size,
             start_margin, end_margin,
