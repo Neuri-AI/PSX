@@ -1,6 +1,6 @@
 # SFLE F2 — consolidated implementation and acceptance register
 
-> **Single current status table** as of 2026-10-10. Verified code baseline: `bd6dd74c00eb3eb16650d94d0901816370693478` on `feat/sfle-f2-core`, PR #11.  
+> **Single current status table** as of 2026-10-10. Verified code baseline: `2b65ee7f39a396804e2bcbff695ec70436664567` on `feat/sfle-f2-core`, PR #11.  
 > **F2 is NOT complete and the public SFLE capability manifest remains CLOSED.** Numerical success of a restricted fixture is not evidence that the whole CSS feature is supported. No historical 4/8 or 5/8 progress counts are accepted.
 
 ## 1. Normative authority and scope
@@ -103,6 +103,13 @@ Fuzzing differential, comprehensive cycle-rejection testing, Windows/macOS/froze
 The Qt asynchronous worker dispatcher is covered by `test_f2_qt_worker_async_red.py` (worker compute, GUI measurement queue, generation gate, single UI commit); [SFLE run 38100680508](https://github.com/Neuri-AI/PSX/actions/runs/38100680508) passed. The original preimplementation RED workflow was canceled by a subsequent commit, so it is not valid to claim visible RED for that test.
 
 **Blocks 2 and 3 remain OPEN:** 100-case fuzzing is not GREEN, and inline-reference structural rejection does not yet establish a complete cross-axis CSS percentage dependency graph. Toolkit rollouts and cross-platform native wheels must remain deferred.
+
+### 2026-10-10 — requested 1/64px final box rounding and genuine Qt worker RED
+
+- Python `4300075c` implements `math.floor(value * 64.0 + 0.5) / 64.0` for `_layout_unit` and final `used` leaf/container width and height. Rust `da0de0ec` implements `(value * 64.0 + 0.5).floor() / 64.0` and the corresponding final dimensions.
+- **Observed outcome contradicts the 80/20/0 expectation:** [Chromium run 38101986591](https://github.com/Neuri-AI/PSX/actions/runs/38101986591) reports **69 matched / 20 rejected / 11 silent discrepancies** on 100 deterministic cases with seed `0x5F1E2026`, threshold **0.01px** unchanged. The unresolved case IDs are **08, 15, 22, 24, 25, 33, 50, 68, 71, 75, 76**. Applying independent final-dimension rounding introduces new failures, because Chromium's flex rounding allocation also depends on the distribution and ordering of fractional remainders. **The fuzz gate is RED, not closed.** Do not claim 80/20/0 or hide these cases.
+- Qt worker **independent RED**: `tests/sfle/test_f2_qt_worker_cancel_red.py` commit `52fe9822` required explicit queued-transaction cancellation and **0 native commits**; [SFLE Core 38101986605](https://github.com/Neuri-AI/PSX/actions/runs/38101986605) shows **1 failed / 363 passed**, with the expected `AttributeError: 'QtLayoutHandle' object has no attribute 'cancel'`. Production cancel support followed in `2b65ee7f`: flagging requests before UI measurements and before final commit. [SFLE Core 38102046614](https://github.com/Neuri-AI/PSX/actions/runs/38102046614) subsequently shows **364 passed (Python 3.12), 0 skipped**, plus all eight SFLE jobs green. This restores visible RED/GREEN evidence, not by making a previously passing test fail artificially, but by requiring a real missing cancellation contract.
+- Qt cancellation, async positive dispatch and UI affinity are validated. Platform toolkit parity, generalized CSS dependency classification, wheel matrices, integrated A07 and A09 remain open. Public manifest CLOSED.
 
 ## 5. Explicit deferred-feature register
 
