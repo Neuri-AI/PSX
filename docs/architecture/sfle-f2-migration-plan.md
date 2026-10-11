@@ -87,3 +87,11 @@ passed all 11 widget geometry/measurement tests without skips on Ubuntu/Xvfb.
 Those are **ports and native widgets**, not evidence that the current legacy
 Row/Column/Scroll renderers have stopped performing their own layouts.
 Production adapter rewiring and Row/Column removal remain explicitly F3-G1–G5.
+
+## Point 4 final executable certification — 2026-10-11
+
+The historical F2.4 open notes above describe the earlier inventory-only evidence. The independent [point-4 certificate](sfle-f2-point4-final-certification.md) supersedes their status, not the migration plan.
+
+Following RED commit [`73c0b6e`](https://github.com/Neuri-AI/PSX/commit/73c0b6e994b44721f38c39b5c870429de6c2fdf4), `adapter_contract.py` now rejects a crossed Scroll content-root binding supplied without reconciler authority; paired positive/adversarial tests prove nested viewport overflow separation, offset/resize immutability, reversible coordinates and worker-port rollback. [GREEN `33261d5`](https://github.com/Neuri-AI/PSX/commit/33261d50e6585a3c21c91e32664a90705e77b938) received 5/5 mandatory workflows passing on the same source SHA. The approved F2 point 4 is **CLOSED**.
+
+F3-G1–G5 remain unchanged and unexecuted: the F2 contract does not assert that legacy native Qt/Kivy/Tk/Headless production adapters already consume SFLE results, nor that `Row`/`Column` are removed.
