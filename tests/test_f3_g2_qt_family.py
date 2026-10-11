@@ -256,7 +256,9 @@ class QtFamilySFLEParityTests(unittest.TestCase):
             self.assertIsNone(widget.layout())
             self.assertEqual(geometry(widget), (x, 0, width, 24))
             x += width + 5
-        self.assertEqual(root.children[1].handle.widget.value(), 40)
+        progress = root.children[1].handle.widget
+        # QProgressBar uses integer-scaled units for portable float precision.
+        self.assertAlmostEqual(progress.value() / progress.maximum(), 0.4)
         self.assertEqual(root.children[2].handle.widget.currentText(), "Beta")
 
     def test_registered_custom_adapter_uses_sfles_native_port(self):
