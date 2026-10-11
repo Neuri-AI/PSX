@@ -460,7 +460,27 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                                 "Text requires intrinsic measurement.", node_id)
             return 0.0
         is_row = style.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
-        contributions = [preferred(child, horizontal) for child in children[node_id]]
+        # CSS auto intrinsic contributions include the child's own padding.
+        # Percentage padding requiring a cyclic intrinsic reference stays
+        # unsupported, never silently mapped to numeric zero.
+        contributions = []
+        for child in children[node_id]:
+            child_style = styles[child]
+            intrinsic_edges = (
+                (child_style.padding_left, child_style.padding_right)
+                if horizontal else (child_style.padding_top, child_style.padding_bottom)
+            )
+            padding_sum = 0.0
+            for edge in intrinsic_edges:
+                if edge.kind == LengthKind.PX:
+                    assert edge.value is not None
+                    padding_sum += edge.value
+                else:
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Unresolved intrinsic percentage padding contribution.", child,
+                    )
+            contributions.append(preferred(child, horizontal) + padding_sum)
         if is_row == horizontal:
             gap_length = style.column_gap if is_row else style.row_gap
             return sum(contributions) + _intrinsic_gap(gap_length, node_id) * max(0,len(contributions)-1)
