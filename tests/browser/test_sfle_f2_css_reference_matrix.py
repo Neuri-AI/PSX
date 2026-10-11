@@ -33,6 +33,19 @@ _HTML={
           '<div id="n1" style="width:30px;height:20px;flex:0 0 40%;min-width:0;padding-top:5%;box-sizing:content-box"></div>'
           '<div id="n2" style="width:25%;height:20px;flex:0 0 20px;min-width:0;padding-top:10%;box-sizing:content-box"></div>'
           '</div>',
+
+    "F04":'<div id="root" style="display:flex;width:200px;height:60px;column-gap:4px;align-items:flex-start">'
+          '<div id="n0" style="width:auto;height:20px;flex:1 0 25%;min-width:0;padding-top:4px;box-sizing:content-box"></div>'
+          '<div id="n1" style="width:20px;height:20px;flex:1 1 40%;min-width:0;padding-top:10%;box-sizing:content-box"></div>'
+          '<div id="n2" style="width:auto;height:20px;flex:0 1 20px;min-width:0;padding-top:5%;box-sizing:content-box"></div>'
+          '<div id="n3" style="width:30px;height:20px;flex:0 1 40%;min-width:0;padding-top:10%;box-sizing:content-box"></div>'
+          '</div>',
+    "F05":'<div id="root" style="display:flex;width:240px;height:60px;column-gap:5%;align-items:flex-start">'
+          '<div id="n0" style="width:30px;height:20px;flex:1 0 20px;min-width:0;padding-top:5%;box-sizing:content-box"></div>'
+          '<div id="n1" style="width:20px;height:20px;flex:1 1 30px;min-width:0;padding-top:0px;box-sizing:content-box"></div>'
+          '<div id="n2" style="width:25%;height:20px;flex:1 0 25%;min-width:0;padding-top:5%;box-sizing:content-box"></div>'
+          '<div id="n3" style="width:30px;height:20px;flex:2 0 20px;min-width:0;padding-top:5%;box-sizing:content-box"></div>'
+          '</div>',
     "F02":'<div id="root" style="display:flex;width:96px;height:60px;column-gap:10%;align-items:flex-start">'
           '<div id="n0" style="width:20px;height:20px;flex:2 1 20px;min-width:0;padding-top:10%;box-sizing:content-box"></div>'
           '<div id="n1" style="width:auto;height:20px;flex:2 1 30px;min-width:0;padding-top:10%;box-sizing:content-box"></div>'
