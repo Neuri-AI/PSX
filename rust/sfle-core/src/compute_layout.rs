@@ -565,15 +565,29 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
             let (main,cross)=if h{(width,height)}else{(height,width)};
             let parent_width=context.used[parent].unwrap().0;
             let resolved_padding=padding(st,parent_width,&node.node_id)?;
+            let outer_st=context.styles[parent];
+            let (top,right,bottom,left)=(
+                margin_value(st.margin_top,parent_width),
+                margin_value(st.margin_right,parent_width),
+                margin_value(st.margin_bottom,parent_width),
+                margin_value(st.margin_left,parent_width));
+            let rtl=input.direction=="rtl";
+            let reversed=matches!(outer_st.direction,Direction::RowReverse|Direction::ColumnReverse);
+            let forward=if h{(!reversed)!=rtl}else{!reversed};
+            let (main_start,main_end,cross_start,cross_end)=if h{
+                (if forward{left}else{right},if forward{right}else{left},top,bottom)
+            }else{
+                (if forward{top}else{bottom},if forward{bottom}else{top},
+                    if rtl{right}else{left},if rtl{left}else{right})
+            };
             item=Some(MarginFlexItem {
                 id:node.node_id.clone(),
                 flex:FlexBasis {basis:main,hypothetical:main,grow:0.0,shrink:0.0,
                     min_size:0.0,max_size:None},
                 cross_content_size:cross,
                 edges:BoxEdges{padding:resolved_padding,..BoxEdges::default()},
-                main_start:Some(0.0),main_end:Some(0.0),
-                cross_start:Some(0.0),cross_end:Some(0.0),
-                order:0,align_self:CrossAlign::Auto,cross_size_auto:false,
+                main_start,main_end,cross_start,cross_end,
+                order:0,align_self:st.align_self,cross_size_auto:false,
                 min_cross_content_size:0.0,max_cross_content_size:None,
                 baseline_from_cross_start:None,
             });
