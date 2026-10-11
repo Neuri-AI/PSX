@@ -221,3 +221,18 @@ def test_C99_supported_A01_is_not_diagnosed_as_unsupported():
         assert exc.code != DiagnosticCode.UNSUPPORTED_FEATURE, "A01 is supported by the approved alpha scope"
         raise
     assert dict(result.boxes)["root"].content.height == pytest.approx(case["expected"]["root.height"], abs=0.01)
+
+
+@pytest.mark.parametrize("case_id", ["F01", "F02"])
+def test_F01_F02_fractional_browser_oracle_red(case_id):
+    """RED: an end-to-end normalized snapshot must match independent Chromium sizes."""
+    snapshot_value = case_snapshot(case_id)
+    result = PythonLayoutEngine().compute(snapshot_value)
+    actual = boxes(result)
+    expected = _ACCEPTANCE[case_id]
+    assert tuple(actual) == tuple(node.node_id for node in snapshot_value.nodes)
+    for key, wanted in expected.items():
+        node_id, axis = key.split(".")
+        assert getattr(actual[node_id].content, axis) == pytest.approx(
+            wanted, abs=0.01
+        ), f"{case_id} {key} must match actual Chromium used geometry"
