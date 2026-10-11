@@ -10,6 +10,7 @@ use crate::main_alignment::JustifyContent;
 use crate::margin_flex_pipeline::MarginFlexItem;
 use crate::margin_tree::{compute_margin_tree, MarginTreeNode};
 use crate::{resolve_flexible_lengths, FlexBasis};
+use crate::layout_unit::LayoutUnit;
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -123,53 +124,98 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         min_height:length(value(map,&["layout_min_height","min_height"]),&input.node_id)?,
     })
 }
-fn layout_unit(value:f64)->f64 {(value*64.0+0.5).floor()/64.0}
-fn percent_flex_basis_used(fraction:f64,reference:f64)->f64{
-    // Quantize the resolved basis before distribution, not output rectangles.
-    (fraction*reference*64.0).floor()/64.0
+fn layout_unit(value:f64)->f64 {
+    LayoutUnit::from_nearest(value).expect("SFLE prevalidated finite used length").to_px()
 }
-fn used_flex_target_units(targets:Vec<f64>,bases:&[FlexBasis],id:&str)->Result<Vec<f64>,ComputeError>{
-    // Blink's LineFlexer distributes each LayoutUnit-rounded share in
-    // reverse child order, using the remaining free-space. This occurs
-    // after the pure CSS §9.7 double-precision target calculation, before
-    // recursive placement. Never patch output rectangles.
-    if targets.is_empty(){return Ok(vec![]);}
-    let base_units:Vec<i64>=bases.iter()
-        .map(|item|(item.basis*64.0+0.5).floor() as i64).collect();
-    let deltas:Vec<f64>=targets.iter().zip(bases.iter())
-        .map(|(target,item)|target-item.basis).collect();
-    let active:Vec<usize>=(0..deltas.len())
-        .filter(|&i|deltas[i].abs()>1e-12).collect();
-    if active.iter().any(|&idx|deltas[idx]>0.0) &&
-        active.iter().any(|&idx|deltas[idx]<0.0){
-        return Err(unsupported("Mixed-sign flex target constraints need explicit freeze metadata.",id));
-    }
-    let mut units=base_units.clone();
-    if !active.is_empty(){
-        let growing=deltas.iter().sum::<f64>()>0.0;
-        // Exact flex weights prevent cancellation from nudging a 1/2
-        // LayoutUnit tie to the wrong child, matching Python and Blink.
-        let weights:Vec<f64>=(0..bases.len()).map(|idx|{
-            if !active.contains(&idx) {0.0}
-            else if growing {bases[idx].grow}
-            else {bases[idx].shrink*bases[idx].basis}
-        }).collect();
-        let mut remaining=(targets.iter().sum::<f64>()*64.0+0.5).floor() as i64
-            -base_units.iter().sum::<i64>();
-        let mut magnitude:f64=active.iter().map(|&i|weights[i]).sum();
-        for &idx in active.iter().rev(){
-            let share=weights[idx];
-            let allocated=if (magnitude-share).abs()<1e-12{
-                remaining
+fn percent_flex_basis_used(fraction:f64,reference:f64)->f64 {
+    LayoutUnit::from_floor(fraction*reference)
+        .expect("SFLE prevalidated finite percentage").to_px()
+}
+fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec<f64>,ComputeError>{
+    // Exact port of Chromium 153 line_flexer.cc:
+    // FreezeItems + ResolveFlexibleLengths. Integer LayoutUnit for all
+    // free-space subtractions, used sizes, clamping and repeated violations.
+    // f64 only for cumulative flex factors / weighted shrink fractions.
+    if bases.is_empty(){return Ok(vec![]);}
+    let raw=|v:f64| LayoutUnit::from_nearest(v).map_err(|e|unsupported(e,id));
+    let available=raw(inner)?;
+    let gutter=raw(gap)?;
+    let base:Vec<LayoutUnit>=bases.iter().map(|b|raw(b.basis)).collect::<Result<_,_>>()?;
+    let hypot:Vec<LayoutUnit>=bases.iter().map(|b|raw(b.hypothetical)).collect::<Result<_,_>>()?;
+    let min:Vec<LayoutUnit>=bases.iter().map(|b|raw(b.min_size)).collect::<Result<_,_>>()?;
+    let max:Vec<Option<LayoutUnit>>=bases.iter().map(|b|b.max_size.map(&raw).transpose())
+        .collect::<Result<_,_>>()?;
+    let usable=available-LayoutUnit::from_raw(
+        gutter.raw().saturating_mul((bases.len()-1) as i32));
+    let growing=hypot.iter().map(|v|v.raw() as i64).sum::<i64>()<usable.raw() as i64;
+    let mut frozen:Vec<bool>=bases.iter().enumerate().map(|(i,b)|{
+        let factor=if growing{b.grow}else{b.shrink};
+        factor==0.0 || if growing{base[i]>hypot[i]}else{base[i]<hypot[i]}
+    }).collect();
+    let mut sizes=hypot.clone();
+    let mut initial_free=LayoutUnit::from_raw(0);
+    for round in 0..=bases.len(){
+        let mut total_factor=0.0_f64;
+        let mut total_scaled_shrink=0.0_f64;
+        let mut fractions=vec![0.0_f64;bases.len()];
+        let mut remaining=available;
+        for (i,b) in bases.iter().enumerate(){
+            if frozen[i]{
+                remaining=remaining-sizes[i]-gutter;
+                continue;
+            }
+            sizes[i]=hypot[i];
+            let factor=if growing{b.grow}else{b.shrink};
+            total_factor+=factor;
+            if growing{
+                fractions[i]=factor/total_factor;
             }else{
-                (remaining as f64*(share/magnitude)+0.5).floor() as i64
+                let weighted=factor*base[i].to_px();
+                total_scaled_shrink+=weighted;
+                fractions[i]=if total_scaled_shrink==0.0{0.0}else{weighted/total_scaled_shrink};
+            }
+            remaining=remaining-base[i]-gutter;
+        }
+        remaining=remaining+gutter;
+        if round==0{initial_free=remaining;}
+        if total_factor>0.0 && total_factor<1.0 {
+            let fraction=LayoutUnit::from_trunc(initial_free.to_px()*total_factor)
+                .map_err(|e|unsupported(e,id))?;
+            if fraction.raw().abs()<remaining.raw().abs(){remaining=fraction;}
+        }
+        if (growing && remaining.raw()<=0) || (!growing && remaining.raw()>=0){
+            return Ok(sizes.into_iter().map(|v|v.to_px()).collect());
+        }
+        let mut violations=vec![0_i32;bases.len()];
+        let mut total_violation=LayoutUnit::from_raw(0);
+        for i in (0..bases.len()).rev(){
+            if frozen[i]{continue;}
+            let extra=if fractions[i]==1.0{remaining}else{
+                LayoutUnit::from_nearest(remaining.to_px()*fractions[i])
+                    .map_err(|e|unsupported(e,id))?
             };
-            units[idx]+=allocated;
-            remaining-=allocated;
-            magnitude-=share;
+            remaining=remaining-extra;
+            let unbounded=base[i]+extra;
+            let mut bounded=unbounded;
+            if bounded<min[i]{bounded=min[i];}
+            if let Some(maximum)=max[i]{
+                if bounded>maximum{bounded=maximum;}
+            }
+            sizes[i]=bounded;
+            let violation=bounded-unbounded;
+            violations[i]=violation.raw();
+            total_violation=total_violation+violation;
+        }
+        if total_violation.raw()==0{
+            return Ok(sizes.into_iter().map(|v|v.to_px()).collect());
+        }
+        for (i,&v) in violations.iter().enumerate(){
+            if (v<0 && total_violation.raw()<0) || (v>0 && total_violation.raw()>0){
+                frozen[i]=true;
+            }
         }
     }
-    Ok(units.into_iter().map(|unit|unit as f64/64.0).collect())
+    Err(measurement("Blink fractional freezing did not converge.",id))
 }
 fn resolved(v:Length, reference:Option<f64>, vertical:bool, id:&str)->Result<Option<f64>,ComputeError>{
     match v {
@@ -317,11 +363,7 @@ impl Context<'_>{
             padding(self.styles[child],width.unwrap(),&self.input.nodes[child].node_id)
         ).collect::<Result<Vec<_>,ComputeError>>()?;
         let fixed_edges:f64=edges.iter().map(|e|if row{e.left+e.right}else{e.top+e.bottom}).sum();
-        let targets=used_flex_target_units(
-            resolve_flexible_lengths(&bases,(main-fixed_edges).max(0.0),gap)
-                .map_err(|e|failure("SFLE_LAYOUT_CONSTRAINT_ERROR",format!("Flex allocation failed: {e:?}"),Some(&id)))?,
-            &bases, &id,
-        )?;
+        let targets=blink_flex_targets(&bases,(main-fixed_edges).max(0.0),gap,&id)?;
         let mut cross_sizes=Vec::new();
         for ((&child,&target),padding_box) in child_indices.iter().zip(targets.iter()).zip(edges.iter()){
             let child_id=self.input.nodes[child].node_id.clone();
