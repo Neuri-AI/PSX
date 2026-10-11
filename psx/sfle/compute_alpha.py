@@ -55,6 +55,7 @@ class _Style:
     padding_right: Length
     padding_bottom: Length
     padding_left: Length
+    aspect_ratio: float | None
 
 
 _ALLOWED = frozenset({
@@ -66,6 +67,7 @@ _ALLOWED = frozenset({
     "layout_margin_top", "layout_margin_right", "layout_margin_bottom",
     "layout_margin_left", "row_gap", "column_gap",
     "layout_padding_top", "layout_padding_right", "layout_padding_bottom", "layout_padding_left",
+    "aspect_ratio",
 })
 
 
@@ -105,6 +107,11 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
         grow, shrink = values.get("flex_grow", 0), values.get("flex_shrink", 1)
         if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v < float("inf") for v in (grow, shrink)):
             raise SFLEError(DiagnosticCode.INVALID_LENGTH, "Invalid flex factors.", node.node_id)
+        ratio = values.get("aspect_ratio")
+        if ratio is not None:
+            if isinstance(ratio, bool) or not isinstance(ratio, (int, float)) or not math.isfinite(ratio) or ratio <= 0:
+                raise ValueError("aspect_ratio must be a positive finite number.")
+            ratio = float(ratio)
         result[node.node_id] = _Style(
             direction=direction,
             wrap=wrap,
@@ -131,6 +138,7 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
             padding_right=parse_length(values.get('layout_padding_right', 0)),
             padding_bottom=parse_length(values.get('layout_padding_bottom', 0)),
             padding_left=parse_length(values.get('layout_padding_left', 0)),
+            aspect_ratio=ratio,
         )
     return result
 
@@ -602,6 +610,10 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         )
         if not children[node_id]:
             metrics = measures.get(node_id)
+            if width is None and height is not None and style.aspect_ratio is not None:
+                width = _layout_unit(height * style.aspect_ratio)
+            if height is None and width is not None and style.aspect_ratio is not None:
+                height = _layout_unit(width / style.aspect_ratio)
             if width is None:
                 width = preferred(node_id, True)
             if height is None:
@@ -646,10 +658,26 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             child_style = styles[child_id]
             basis = child_style.flex_basis
             basis_axis = child_style.width if horizontal else child_style.height
+            cross_axis = child_style.height if horizontal else child_style.width
+            cross_reference = height if horizontal else width
+            transfer_cross = _axis_value(
+                cross_axis, cross_reference,
+                axis="height" if horizontal else "width", node_id=child_id,
+            )
+            alignment = child_style.align_self if child_style.align_self != CrossAlign.AUTO else style.align_items
+            if (transfer_cross is None and cross_reference is not None
+                    and style.wrap == FlexWrap.NOWRAP and alignment == CrossAlign.STRETCH):
+                transfer_cross = cross_reference
+            transferred = None
+            if transfer_cross is not None and child_style.aspect_ratio is not None:
+                transferred = _layout_unit(
+                    transfer_cross * child_style.aspect_ratio if horizontal
+                    else transfer_cross / child_style.aspect_ratio
+                )
             if basis.kind == LengthKind.AUTO:
                 desired = _axis_value(basis_axis, main_reference, axis="width" if horizontal else "height", node_id=child_id)
                 if desired is None:
-                    desired = preferred(child_id, horizontal)
+                    desired = transferred if transferred is not None else preferred(child_id, horizontal)
             elif basis.kind == LengthKind.PX:
                 desired = basis.value
             elif basis.kind == LengthKind.PERCENT:
@@ -662,6 +690,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 minimum = min_length.value
             elif min_length.kind == LengthKind.AUTO:
                 minimum = preferred(child_id, horizontal, True)
+                if transferred is not None:
+                    minimum = (min(minimum, transferred) if components[child_id] == "Image"
+                               else max(minimum, transferred))
                 specified = _axis_value(basis_axis, main_reference,
                                         axis="width" if horizontal else "height", node_id=child_id)
                 if specified is not None:

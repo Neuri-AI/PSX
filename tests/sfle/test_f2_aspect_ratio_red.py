@@ -36,7 +36,7 @@ def test_aspect_ratio_transfers_definite_cross_size(nodes, expected):
 
 @pytest.mark.parametrize("ratio", (0, -1, float("inf")))
 def test_aspect_ratio_requires_a_positive_finite_number(ratio):
-    request = snapshot((("root", None, "Flex", (("width", 10),)),
-                        ("image", "root", "Image", (("aspect_ratio", ratio),))))
     with pytest.raises(ValueError):
+        request = snapshot((("root", None, "Flex", (("width", 10),)),
+                            ("image", "root", "Image", (("aspect_ratio", ratio),))))
         PythonLayoutEngine().compute(request)

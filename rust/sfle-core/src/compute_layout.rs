@@ -44,6 +44,7 @@ struct Style {
     padding_right:Length,
     padding_bottom:Length,
     padding_left:Length,
+    aspect_ratio:Option<f64>,
 }
 
 fn failure(code: &'static str, message: impl Into<String>, id: Option<&str>) -> ComputeError {
@@ -103,7 +104,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
             "layout_margin_top"|"layout_margin_right"|"layout_margin_bottom"|"layout_margin_left"|
             "row_gap"|"column_gap"|
             "layout_padding_top"|"layout_padding_right"|
-            "layout_padding_bottom"|"layout_padding_left"){
+            "layout_padding_bottom"|"layout_padding_left"|"aspect_ratio"){
             return Err(unsupported(format!("Unimplemented CSS style property: {key}."),&input.node_id));
         }
     }
@@ -144,6 +145,17 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         "space-around"=>AlignContent::SpaceAround,"space-evenly"=>AlignContent::SpaceEvenly,
         _=>return Err(unsupported("Unsupported align-content value.",&input.node_id)),
     };
+    let aspect_ratio=match map.get("aspect_ratio") {
+        None=>None,
+        Some(value)=>{
+            let ratio=value.as_f64().ok_or_else(||failure(
+                "SFLE_INVALID_LENGTH","aspect_ratio must be numeric.",Some(&input.node_id)))?;
+            if !ratio.is_finite()||ratio<=0.0 {
+                return Err(failure("SFLE_INVALID_LENGTH","aspect_ratio must be positive and finite.",Some(&input.node_id)));
+            }
+            Some(ratio)
+        },
+    };
     Ok(Style{
         direction,align,wrap,justify,align_content,align_self,
         margin_top:if map.contains_key("layout_margin_top"){length(map.get("layout_margin_top"),&input.node_id)?}else{Length::Px(0.0)},
@@ -165,6 +177,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         shrink:factor(map.get("flex_shrink"),1.0,&input.node_id)?,
         min_width:length(value(map,&["layout_min_width","min_width"]),&input.node_id)?,
         min_height:length(value(map,&["layout_min_height","min_height"]),&input.node_id)?,
+        aspect_ratio,
     })
 }
 fn layout_unit(value:f64)->f64 {
@@ -431,6 +444,12 @@ impl Context<'_>{
         let mut width=forced_w.or(resolved(style.width,pw,false,&id)?);
         let mut height=forced_h.or(resolved(style.height,ph,true,&id)?);
         if self.children[index].is_empty(){
+            if width.is_none() && height.is_some() && style.aspect_ratio.is_some() {
+                width=Some(layout_unit(height.unwrap()*style.aspect_ratio.unwrap()));
+            }
+            if height.is_none() && width.is_some() && style.aspect_ratio.is_some() {
+                height=Some(layout_unit(width.unwrap()/style.aspect_ratio.unwrap()));
+            }
             if width.is_none(){width=Some(self.preferred(index,true)?);}
             if height.is_none(){
                 if matches!(style.height,Length::Percent(_))
@@ -468,9 +487,25 @@ impl Context<'_>{
             let child_style=self.styles[child];
             let child_id=&self.input.nodes[child].node_id;
             let axis=if row{child_style.width}else{child_style.height};
+            let cross_axis=if row{child_style.height}else{child_style.width};
+            let cross_reference=if row{height}else{width};
+            let mut transfer_cross=resolved(cross_axis,cross_reference,row,child_id)?;
+            let alignment=if child_style.align_self==CrossAlign::Auto{style.align}else{child_style.align_self};
+            if transfer_cross.is_none() && cross_reference.is_some() && style.wrap==Wrap::NoWrap
+                && alignment==CrossAlign::Stretch {
+                transfer_cross=cross_reference;
+            }
+            let transferred=transfer_cross.zip(child_style.aspect_ratio).map(|(cross,ratio)|
+                layout_unit(if row{cross*ratio}else{cross/ratio})
+            );
             let desired=match child_style.basis{
-                Length::Auto=>resolved(axis,main_reference,!row,child_id)?
-                    .unwrap_or(self.preferred(child,row)?),
+                Length::Auto=>match resolved(axis,main_reference,!row,child_id)? {
+                    Some(value)=>value,
+                    None=>match transferred {
+                        Some(value)=>value,
+                        None=>self.preferred(child,row)?,
+                    },
+                },
                 Length::Px(n)=>n,
                 Length::Percent(p)=>match main_reference{
                     Some(n)=>percent_flex_basis_used(p,n),None=>self.preferred(child,row)?,
@@ -479,7 +514,12 @@ impl Context<'_>{
             let mut minimum=match if row{child_style.min_width}else{child_style.min_height}{
                 Length::Px(n)=>n,
                 Length::Auto=>{
-                    let content=self.intrinsic_contribution(child,row,true)?;
+                    let mut content=self.intrinsic_contribution(child,row,true)?;
+                    if let Some(transferred)=transferred {
+                        content=if self.input.nodes[child].component=="Image" {
+                            content.min(transferred)
+                        } else {content.max(transferred)};
+                    }
                     resolved(axis,main_reference,!row,child_id)?.map_or(content,|n|content.min(n))
                 },
                 Length::Percent(p) if main_reference.is_some()=>layout_unit(p*main_reference.unwrap()),
