@@ -85,6 +85,22 @@ def test_seeded_flex_differential_against_chromium(case,browser,rust_binary):
             f'flex:{item["grow"]} {item["shrink"]} {item["basis"]};'
             f'min-width:0;padding-top:{item["pad"]};box-sizing:content-box"></div>'
         )
+    # A block-level flex with width:auto fills the 800px viewport; that
+    # is *not* equivalent to the indefinite root snapshot. For 80-99 use
+    # inline-flex auto sizing (shrink-to-fit) so its inline-size comes
+    # from its contents instead of the available viewport width.
+    root_display="inline-flex" if width is None else "flex"
+    root_css_width="auto" if width is None else f"{width}px"
+    browser.set_content('<!doctype html><html><body style="margin:0">'
+        f'<div id="root" style="display:{root_display};width:{root_css_width};height:60px;'
+        f'column-gap:{gap};align-items:flex-start">'+''.join(elements)
+        +'</div></body></html>')
+    observed=browser.evaluate("""() => Object.fromEntries(
+        [...document.querySelectorAll('[id]')].map(el=>{
+            const r=el.getBoundingClientRect();
+            return [el.id,{x:r.x,y:r.y,width:r.width,height:r.height}];
+        })
+    )""")
     snapshot=LayoutInput(1,17,WritingDirection.LTR,
         LayoutConstraints(AvailableSize(width,width is not None),AvailableSize(60,True)),
         tuple(nodes),())
@@ -106,16 +122,6 @@ def test_seeded_flex_differential_against_chromium(case,browser,rust_binary):
         for word in ("cycle","percentage"):
             assert word in py["kind"].lower() and word in rs["error"]["message"].lower()
         return
-    browser.set_content('<!doctype html><html><body style="margin:0">'
-        f'<div id="root" style="display:flex;width:{width}px;height:60px;'
-        f'column-gap:{gap};align-items:flex-start">'+''.join(elements)
-        +'</div></body></html>')
-    observed=browser.evaluate("""() => Object.fromEntries(
-        [...document.querySelectorAll('[id]')].map(el=>{
-            const r=el.getBoundingClientRect();
-            return [el.id,{x:r.x,y:r.y,width:r.width,height:r.height}];
-        })
-    )""")
     FUZZ_STATUS[index]='matched'
     p=dict(py["result"].boxes)
     native={v["node_id"]:v for v in rs["result"]["boxes"]}
