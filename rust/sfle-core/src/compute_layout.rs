@@ -900,7 +900,13 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
                 main_start,main_end,cross_start,cross_end,
                 order:st.order,align_self:st.align_self,cross_size_auto:false,
                 min_cross_content_size:0.0,max_cross_content_size:None,
-                baseline_from_cross_start:None,
+                // The adapter provides a measured first baseline in the
+                // immutable snapshot; column baseline stays an explicit
+                // orthogonal-measurement requirement in the shared kernel.
+                baseline_from_cross_start:if h {
+                    context.measurements.get(node.node_id.as_str())
+                        .and_then(|measurement|measurement.intrinsic.baseline)
+                } else {None},
             });
         }
         nodes.push(MarginTreeNode {
