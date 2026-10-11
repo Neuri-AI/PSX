@@ -11,6 +11,18 @@ from dataclasses import dataclass
 
 from .flex_math import _number
 from .main_margins import UsedMargin
+from .fixed_point import LayoutUnit
+
+
+def _unit(value: float) -> float:
+    return LayoutUnit.from_nearest(value).to_px()
+
+
+def _sub(value: float, *deductions: float) -> float:
+    total = LayoutUnit.from_nearest(value)
+    for deduction in deductions:
+        total = total - LayoutUnit.from_nearest(deduction)
+    return total.to_px()
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,8 +50,8 @@ def position_cross_margins(
     The caller maps cross-start to top/left or bottom/right based on
     horizontal writing direction and wrap-reverse.
     """
-    border = _number(border_cross_size, "border_cross_size")
-    line = _number(line_cross_size, "line_cross_size")
+    border = _unit(_number(border_cross_size, "border_cross_size"))
+    line = _unit(_number(line_cross_size, "line_cross_size"))
     if min(border, line) < 0:
         raise ValueError("Cross sizes cannot be negative.")
     if not isinstance(start, UsedMargin) or not isinstance(end, UsedMargin):
@@ -49,7 +61,7 @@ def position_cross_margins(
 
     start_fixed = 0.0 if start.value is None else start.value
     end_fixed = 0.0 if end.value is None else end.value
-    free = line - border - start_fixed - end_fixed
+    free = _sub(line, border, start_fixed, end_fixed)
     auto_count = int(start.value is None) + int(end.value is None)
     if auto_count and free > 0:
         share = free / auto_count
@@ -58,11 +70,11 @@ def position_cross_margins(
     elif auto_count and free <= 0:
         used_start = 0.0 if start.value is None else start_fixed
         used_end = (
-            line - border - used_start if end.value is None
+            _sub(line, border, used_start) if end.value is None
             else end_fixed
         )
     else:
         used_start, used_end = start_fixed, end_fixed
 
-    position = used_start if cross_forward else line - used_start - border
+    position = _unit(used_start if cross_forward else _sub(line, used_start, border))
     return CrossMarginPosition(position, used_start, used_end)

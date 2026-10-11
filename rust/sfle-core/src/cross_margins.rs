@@ -1,6 +1,10 @@
 //! Resolved cross-axis Flexbox margins, no native measurement/alignment.
 
 use crate::FlexMathError;
+use crate::layout_unit::LayoutUnit;
+
+fn unit(value:f64)->f64 { LayoutUnit::from_nearest(value).expect("validated geometry").to_px() }
+fn sub(value:f64, values:impl IntoIterator<Item=f64>)->f64 { values.into_iter().fold(LayoutUnit::from_nearest(value).expect("validated geometry"),|a,v|a-LayoutUnit::from_nearest(v).expect("validated geometry")).to_px() }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CrossMarginPosition {
@@ -23,9 +27,11 @@ pub fn position_cross_margins(
     {
         return Err(FlexMathError::InvalidInput("invalid resolved cross margins"));
     }
+    let border_cross_size=unit(border_cross_size);
+    let line_cross_size=unit(line_cross_size);
     let start_fixed = start.unwrap_or(0.0);
     let end_fixed = end.unwrap_or(0.0);
-    let free = line_cross_size - border_cross_size - start_fixed - end_fixed;
+    let free = sub(line_cross_size,[border_cross_size,start_fixed,end_fixed]);
     let auto_count = usize::from(start.is_none()) + usize::from(end.is_none());
 
     let (used_start, used_end) = if auto_count > 0 && free > 0.0 {
@@ -33,7 +39,7 @@ pub fn position_cross_margins(
         (start.unwrap_or(share), end.unwrap_or(share))
     } else if auto_count > 0 {
         let used_start = start.unwrap_or(0.0);
-        (used_start, end.unwrap_or(line_cross_size - border_cross_size - used_start))
+        (used_start, end.unwrap_or(sub(line_cross_size,[border_cross_size,used_start])))
     } else {
         (start_fixed, end_fixed)
     };
@@ -42,7 +48,7 @@ pub fn position_cross_margins(
         border_start: if cross_forward {
             used_start
         } else {
-            line_cross_size - used_start - border_cross_size
+            sub(line_cross_size,[used_start,border_cross_size])
         },
         used_start_margin: used_start,
         used_end_margin: used_end,
