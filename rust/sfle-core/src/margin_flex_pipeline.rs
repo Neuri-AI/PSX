@@ -237,11 +237,6 @@ pub fn compute_margin_flex_layout_content(
                          else { item.align_self };
             if chosen != CrossAlign::Baseline || item.cross_start.is_none()
                 || item.cross_end.is_none() { continue; }
-            if !horizontal {
-                return Err(FlexMathError::InvalidInput(
-                    "column baseline requires orthogonal baseline measurements",
-                ));
-            }
             let baseline = item.baseline_from_cross_start.ok_or(
                 FlexMathError::InvalidInput("missing measured baseline"),
             )?;
@@ -250,7 +245,9 @@ pub fn compute_margin_flex_layout_content(
                 border_cross_size: item.cross_border(horizontal),
                 start_margin: item.cross_start.expect("checked fixed margin"),
                 end_margin: item.cross_end.expect("checked fixed margin"),
-                baseline: sum_units([e.border.top, e.padding.top, baseline]),
+                baseline: sum_units(if horizontal {
+                    [e.border.top, e.padding.top, baseline]
+                } else {[e.border.left, e.padding.left, baseline]}),
             });
         }
         baseline_groups.push(if measured.is_empty() { None }
@@ -332,10 +329,13 @@ pub fn compute_margin_flex_layout_content(
                     border_cross_size: cross_size,
                     start_margin: item.cross_start.expect("checked fixed margin"),
                     end_margin: item.cross_end.expect("checked fixed margin"),
-                    baseline: sum_units([e.border.top, e.padding.top,
-                        item.baseline_from_cross_start.ok_or(
+                    baseline: sum_units(if horizontal {
+                        [e.border.top, e.padding.top, item.baseline_from_cross_start.ok_or(
                             FlexMathError::InvalidInput("missing measured baseline"),
-                        )?]),
+                        )?]
+                    } else {[e.border.left, e.padding.left, item.baseline_from_cross_start.ok_or(
+                            FlexMathError::InvalidInput("missing measured baseline"),
+                        )?]}),
                 };
                 position_baseline_item(metric, group, line_cross_sizes[line_index],
                                        cross_forward)?

@@ -183,7 +183,8 @@ def compute_margin_flex_layout(
         lines.append(current)
 
     # Baseline metrics are supplied by a measurement port, never fabricated.
-    # This restricted slice only supports the horizontal first-baseline group.
+    # The adapter supplies the baseline on the active cross axis for both
+    # row and column contexts; geometry does not infer one from box bounds.
     baseline_groups = []
     for line in lines:
         selected = [item for item in line
@@ -191,11 +192,6 @@ def compute_margin_flex_layout(
                         else item.align_self) == CrossAlign.BASELINE
                     and item.cross_start.value is not None
                     and item.cross_end.value is not None]
-        if selected and not horizontal:
-            raise SFLECapabilityError(
-                DiagnosticCode.UNSUPPORTED_FEATURE,
-                "Column baseline needs orthogonal baseline measurement.",
-            )
         metrics = []
         for item in selected:
             if item.baseline_from_cross_start is None:
@@ -204,8 +200,11 @@ def compute_margin_flex_layout(
                     "Baseline requires a measured cross-content baseline offset.",
                 )
             edges = item.edges
-            offset = _sum_units(edges.border.top, edges.padding.top,
-                                item.baseline_from_cross_start)
+            offset = _sum_units(
+                edges.border.top if horizontal else edges.border.left,
+                edges.padding.top if horizontal else edges.padding.left,
+                item.baseline_from_cross_start,
+            )
             metrics.append(BaselineItem(
                 cross_border(item),
                 item.cross_start.value, item.cross_end.value, offset,
@@ -296,7 +295,11 @@ def compute_margin_flex_layout(
                 edges = item.edges
                 metric = BaselineItem(
                     cross_size, item.cross_start.value, item.cross_end.value,
-                    _sum_units(edges.border.top, edges.padding.top, item.baseline_from_cross_start),
+                    _sum_units(
+                        edges.border.top if horizontal else edges.border.left,
+                        edges.padding.top if horizontal else edges.padding.left,
+                        item.baseline_from_cross_start,
+                    ),
                 )
                 cross_offset = position_baseline_item(
                     metric, group, line_cross_sizes[line_index],

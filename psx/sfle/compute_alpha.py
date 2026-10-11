@@ -963,12 +963,13 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             align_self=item_st.align_self,
             order=item_st.order,
             cross_size_auto=False,
-            # Native measurement owns the baseline.  Passing it through the
-            # immutable snapshot lets the pure geometry pass form real
-            # first-baseline groups instead of rejecting measured text.
+            # Native measurement owns both physical baseline axes. Passing
+            # them through the immutable snapshot supports row and column
+            # first-baseline groups without deriving one from widget bounds.
             baseline_from_cross_start=(
-                measures[node_id].intrinsic.baseline
-                if main_horizontal and node_id in measures else None
+                (measures[node_id].intrinsic.baseline if main_horizontal
+                 else measures[node_id].intrinsic.orthogonal_baseline)
+                if node_id in measures else None
             ),
         )
         resolved.append(MarginTreeNode(node_id,parent_id,width,height,item=item,

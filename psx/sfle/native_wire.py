@@ -42,6 +42,7 @@ def serialize_snapshot(request: LayoutInput) -> str:
                 "preferred_width": m.intrinsic.preferred_width,
                 "preferred_height": m.intrinsic.preferred_height,
                 "baseline": m.intrinsic.baseline,
+                "orthogonal_baseline": m.intrinsic.orthogonal_baseline,
             },
         } for m in request.measurements],
     }, separators=(",", ":"), allow_nan=False)

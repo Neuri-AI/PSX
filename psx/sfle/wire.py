@@ -118,18 +118,19 @@ def _intrinsic_to_wire(i: IntrinsicSizes) -> dict[str, WireValue]:
         "preferred_width": i.preferred_width,
         "preferred_height": i.preferred_height,
         "baseline": i.baseline,
+        "orthogonal_baseline": i.orthogonal_baseline,
     }
 
 
 def _intrinsic_from_wire(v: object) -> IntrinsicSizes:
     names = {
         "min_content_width", "max_content_width", "min_content_height",
-        "max_content_height", "preferred_width", "preferred_height", "baseline",
+        "max_content_height", "preferred_width", "preferred_height", "baseline", "orthogonal_baseline",
     }
     d = _fields(v, names, "IntrinsicSizes")
     try:
         values = {
-            key: (None if key == "baseline" and d[key] is None
+            key: (None if key in ("baseline", "orthogonal_baseline") and d[key] is None
                   else _number(d[key], f"IntrinsicSizes.{key}"))
             for key in names
         }

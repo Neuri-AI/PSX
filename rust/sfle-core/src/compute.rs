@@ -35,6 +35,7 @@ pub struct IntrinsicSizes {
     pub preferred_width: f64,
     pub preferred_height: f64,
     pub baseline: Option<f64>,
+    pub orthogonal_baseline: Option<f64>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

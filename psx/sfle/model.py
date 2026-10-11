@@ -124,12 +124,13 @@ class IntrinsicSizes:
     preferred_width: float
     preferred_height: float
     baseline: float | None = None
+    orthogonal_baseline: float | None = None
 
     def __post_init__(self) -> None:
         for name in (
             "min_content_width", "max_content_width",
             "min_content_height", "max_content_height",
-            "preferred_width", "preferred_height", "baseline",
+            "preferred_width", "preferred_height", "baseline", "orthogonal_baseline",
         ):
             value = getattr(self, name)
             _finite(value, f"IntrinsicSizes.{name}")
