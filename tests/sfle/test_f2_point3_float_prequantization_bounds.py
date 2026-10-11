@@ -18,3 +18,21 @@ def test_resolved_flex_rejects_sum_of_finite_hypothetical_bases_overflow():
     items=(FlexBasis(1e308,1e308),FlexBasis(1e308,1e308))
     with pytest.raises(ValueError,match="overflow|nonfinite"):
         resolve_flexible_lengths(items,100.0,0.0)
+
+
+def test_resolved_flex_rejects_overflowing_weighted_shrink_factor():
+    items=(
+        FlexBasis(1e308,1e308,shrink=1e308),
+        FlexBasis(1,1,shrink=1),
+    )
+    with pytest.raises(ValueError,match="overflow|nonfinite"):
+        resolve_flexible_lengths(items,100.0)
+
+
+def test_resolved_flex_rejects_overflowing_aggregate_grow_factor():
+    items=(
+        FlexBasis(1,1,grow=1e308),
+        FlexBasis(1,1,grow=1e308),
+    )
+    with pytest.raises(ValueError,match="overflow|nonfinite"):
+        resolve_flexible_lengths(items,100.0)

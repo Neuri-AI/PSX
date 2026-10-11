@@ -29,3 +29,28 @@ fn finite_base_sum_overflow_must_fail_closed() {
         Err(FlexMathError::InvalidInput(_))
     ));
 }
+
+
+#[test]
+fn weighted_shrink_factor_overflow_must_fail_closed() {
+    let items=[
+        FlexBasis{basis:1e308,hypothetical:1e308,shrink:1e308,..fixed()},
+        fixed(),
+    ];
+    assert!(matches!(
+        resolve_flexible_lengths(&items,100.0,0.0),
+        Err(FlexMathError::InvalidInput(_))
+    ));
+}
+
+#[test]
+fn aggregate_grow_factor_overflow_must_fail_closed() {
+    let items=[
+        FlexBasis{grow:1e308,..fixed()},
+        FlexBasis{grow:1e308,..fixed()},
+    ];
+    assert!(matches!(
+        resolve_flexible_lengths(&items,100.0,0.0),
+        Err(FlexMathError::InvalidInput(_))
+    ));
+}
