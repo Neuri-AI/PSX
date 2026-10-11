@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import replace
+import math
 
 from .errors import DiagnosticCode, SFLEError
 from .model import (
@@ -42,9 +43,9 @@ def compute_with_width_measurements(
     if not initial_widths or not set(initial_widths).issubset(nodes):
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                         "Measurement leaves must be present in the tree.")
-    if any(not isinstance(v, (int, float)) or isinstance(v, bool) or v <= 0
+    if any(type(v) not in (int, float) or not math.isfinite(v) or v < 0
            for v in initial_widths.values()):
-        raise ValueError("Measurement widths must be positive finite values.")
+        raise ValueError("Measurement widths must be nonnegative finite values.")
     measurements: dict[str, MeasuredBox] = {
         item.node_id: item for item in snapshot.measurements
         if item.node_id not in initial_widths
