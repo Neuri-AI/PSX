@@ -96,6 +96,14 @@ Fuzzing differential, comprehensive cycle-rejection testing, Windows/macOS/froze
 - `68cf5e01`/`84fefd38` quantize percentage width/basis/padding used sizes before flexible distribution, intended to address the five browser discrepancies. **Do not mark this GREEN until all three CI workflows finish successfully with the 100-case test.**
 - No Kivy/Tk/Headless rollout, Windows/macOS/frozen wheels, A07 integrated oscillation or A09 reverse/wrap 0.01px matrix has been implemented in this increment. The public capability manifest remains CLOSED.
 
+### 100-seed Chromium regression checkpoint
+
+[Chromium run 38101062844](https://github.com/Neuri-AI/PSX/actions/runs/38101062844) shows: seed `0x5F1E2026`, 100 trees, **77 matched / 20 identical unsupported rejections / 3 silent geometry discrepancies** at tolerance 0.01px. The remaining failures are cases **24, 75, 76**. Browser comparison details and full rectangles are available from [run 38101164280](https://github.com/Neuri-AI/PSX/actions/runs/38101164280). The Python widths vs Chromium are 32.270833 vs 32.28125px (24), 61.333333 vs 61.34375px (75), 44.8 vs 44.8125px (76). These differences come from fractional flex sizing/rounding allocation, not a permitted indefinite cycle. **Do not reclassify these definite cases as unsupported.**
+
+The Qt asynchronous worker dispatcher is covered by `test_f2_qt_worker_async_red.py` (worker compute, GUI measurement queue, generation gate, single UI commit); [SFLE run 38100680508](https://github.com/Neuri-AI/PSX/actions/runs/38100680508) passed. The original preimplementation RED workflow was canceled by a subsequent commit, so it is not valid to claim visible RED for that test.
+
+**Blocks 2 and 3 remain OPEN:** 100-case fuzzing is not GREEN, and inline-reference structural rejection does not yet establish a complete cross-axis CSS percentage dependency graph. Toolkit rollouts and cross-platform native wheels must remain deferred.
+
 ## 5. Explicit deferred-feature register
 
 | Feature | Why deferred | Required diagnostic on both engines | Normative placement |
