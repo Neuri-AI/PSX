@@ -32,7 +32,14 @@ pub fn resolve_main_alignment(
     }
     let count = outer_sizes.len();
     let total=outer_sizes.iter().fold(LayoutUnit::from_raw(0),|a,v|a+lu(*v));
-    let free = (lu(available_main)-total-lu(gap*count.saturating_sub(1) as f64)).to_px();
+    // A fixed gutter is rounded to the LayoutUnit grid before repetition.
+    // Multiply widened raw units (not floating-point gap*count) and clamp
+    // to the signed i32 extent. This avoids inf/panic and precision drift.
+    let gutter_raw=(lu(gap).raw() as i128)*(count.saturating_sub(1) as i128);
+    let gap_total=LayoutUnit::from_raw(
+        gutter_raw.clamp(i32::MIN as i128,i32::MAX as i128) as i32
+    );
+    let free = (lu(available_main)-total-gap_total).to_px();
     if count == 0 {
         return Ok(MainAlignment {
             leading_space: 0.0, between_space: gap, remaining_free_space: free,
