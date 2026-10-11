@@ -212,6 +212,52 @@ jobs:
           python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@56e6df858bc0e1ae598cd1cab0aa384c921cf253"
       - run: python -m pytest -q tests/test_pyside6_renderer.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_f3_g2_renderer.py tests/test_pyside6_f3_g2_external.py
 
+  qt-parity:
+    name: F3 Qt SFLE parity ${{ matrix.binding }} / Python ${{ matrix.python }}
+    needs: changes
+    if: needs.changes.outputs.qt == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - binding: pyside6
+            package: PySide6
+            python: "3.12"
+          - binding: pyqt6
+            package: PyQt6
+            python: "3.12"
+          - binding: pyqt5
+            package: PyQt5
+            python: "3.12"
+          # PySide2's last official wheels only list up to CPython 3.10.
+          # Keep it isolated; an install failure must fail this required job.
+          - binding: pyside2
+            package: PySide2==5.15.2.1
+            python: "3.10"
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PSX_QT_BINDING: ${{ matrix.binding }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install native Qt runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - name: Install PSX and only the selected Qt binding
+        run: |
+          python -m pip install -e . pytest
+          python -m pip install --only-binary=:all: "${{ matrix.package }}"
+      - name: Check binding and native SFLE parity (no skip)
+        run: |
+          python -c "import importlib; p={'pyside6':'PySide6','pyqt6':'PyQt6','pyqt5':'PyQt5','pyside2':'PySide2'}['${{ matrix.binding }}']; importlib.import_module(p+'.QtWidgets')"
+          python -m pytest -q -rs tests/test_f3_g2_qt_family.py
+
   kivy:
     name: F3 Kivy native components
     needs: changes
@@ -325,7 +371,7 @@ jobs:
 
   summary:
     name: F3 required CI conclusion
-    needs: [changes, selector-tests, core, sfle, rust, chromium, qt, kivy, tkinter, headless, native, legacy]
+    needs: [changes, selector-tests, core, sfle, rust, chromium, qt, qt-parity, kivy, tkinter, headless, native, legacy]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -348,6 +394,13 @@ jobs:
               outcome = needs.get(job, {}).get("result")
               if outcome != "success":
                   failures.append(f"{job}={outcome}")
+          # Qt parity is a required four-binding matrix, not an optional
+          # informational job. GitHub sets its aggregate result to failure if
+          # any PySide6/PyQt6/PyQt5/PySide2 matrix cell fails or is cancelled.
+          if "qt" in selected:
+              parity = needs.get("qt-parity", {}).get("result")
+              if parity != "success":
+                  failures.append(f"qt-parity={parity}")
           if failures:
               sys.exit("Mandatory selected jobs not successful: " + ", ".join(failures))
           print("F3 selected suites GREEN:", ", ".join(sorted(selected)) or "(none)")
