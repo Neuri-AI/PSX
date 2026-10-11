@@ -62,6 +62,18 @@ def test_each_holdout_red_matches_independent_chromium(path, browser, rust_binar
             return [el.id, {x:r.x,y:r.y,width:r.width,height:r.height}];
         })
     )""")
+    # Full four-rectangle bit-for-bit parity for all nodes, not just RED axes.
+    for node_id, py_box in py.items():
+        rs_box = boxes_rs[node_id]
+        for rect_name in ("content", "padding", "border", "margin"):
+            p_rect = getattr(py_box, rect_name)
+            for axis in ("x", "y", "width", "height"):
+                p_raw = getattr(p_rect, axis) * 64
+                r_raw = rs_box[rect_name][axis] * 64
+                assert p_raw == r_raw and p_raw == int(p_raw), (
+                    f"{path.name} {node_id}.{rect_name}.{axis}: "
+                    f"Python raw={p_raw} Rust raw={r_raw}"
+                )
     for error in fixture["errors"]:
         node_id, axis, expected = error["node"], error["axis"], error["chromium"]
         assert abs(observed[node_id][axis] - expected) < 0.000001, (
