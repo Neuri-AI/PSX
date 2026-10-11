@@ -59,7 +59,9 @@ def _graph(property_name, value, seed):
         nodes.append(replace(node,node_id=id_map[node.node_id],
                     parent_id=id_map[node.parent_id] if node.parent_id else None,
                     style=tuple(style.items())))
-    return replace(original, generation=seed,nodes=tuple(nodes)), id_map["child"]
+    # The source fixture's original measured node ID must not leak into
+    # renamed graphs; property classification precedes any UI measurement.
+    return replace(original, generation=seed,nodes=tuple(nodes),measurements=()), id_map["child"]
 
 
 @pytest.mark.parametrize("case",UNSUPPORTED_PROPERTY_FAMILIES,ids=lambda row:row[0])
