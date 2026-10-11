@@ -466,7 +466,11 @@ impl Context<'_>{
             // not merely the content size returned by recursive layout.
             cross_sizes.push(if row{ch+padding_box.top+padding_box.bottom}else{cw+padding_box.left+padding_box.right});
         }
-        if height.is_none(){height=Some(cross_sizes.into_iter().fold(0.0_f64,f64::max));}
+        if height.is_none(){
+            // Apply cross min/max only after recursive auto sizing has used
+            // the children's outer contributions (matching Python + Blink).
+            height=Some(bounded_intrinsic(style,false,cross_sizes.into_iter().fold(0.0_f64,f64::max)));
+        }
         let dims=(width.unwrap(),height.unwrap());
         self.used[index]=Some(dims);
         Ok(dims)
