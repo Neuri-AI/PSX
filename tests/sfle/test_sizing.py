@@ -82,10 +82,10 @@ def test_negative_margins_are_valid_but_negative_padding_is_not():
         resolve(Length.percent(-0.1), SizeProperty.PADDING)
 
 
-def test_percentage_gap_is_capability_gated():
-    with pytest.raises(SFLECapabilityError) as error:
-        resolve(Length.percent(0.1), SizeProperty.GAP)
-    assert error.value.code == DiagnosticCode.UNSUPPORTED_FEATURE
+def test_percentage_gap_uses_selected_flex_axis_or_remains_unresolved():
+    assert resolve(Length.percent(0.1), SizeProperty.GAP).require_used() == 30
+    result = resolve(Length.percent(0.1), SizeProperty.GAP, main=indefinite())
+    assert result.kind == ResolutionKind.UNRESOLVED_PERCENT
 
 
 def test_border_percent_is_invalid_not_unresolved():

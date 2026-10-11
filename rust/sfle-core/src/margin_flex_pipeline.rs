@@ -14,7 +14,24 @@ use crate::line_layout::{
 use crate::main_margins::{position_main_margins_justified, MarginItem};
 use crate::main_alignment::JustifyContent;
 use crate::{resolve_flexible_lengths, FlexBasis, FlexMathError};
+use crate::layout_unit::LayoutUnit;
 use std::collections::HashSet;
+
+fn layout_unit(value: f64) -> f64 {
+    LayoutUnit::from_nearest(value).expect("validated geometry is finite").to_px()
+}
+fn sum_units(values: impl IntoIterator<Item = f64>) -> f64 {
+    values.into_iter().fold(LayoutUnit::from_raw(0), |total, value|
+        total + LayoutUnit::from_nearest(value).expect("validated geometry is finite")
+    ).to_px()
+}
+fn subtract_units(value: f64, deductions: impl IntoIterator<Item = f64>) -> f64 {
+    deductions.into_iter().fold(
+        LayoutUnit::from_nearest(value).expect("validated geometry is finite"),
+        |total, deduction|
+        total - LayoutUnit::from_nearest(deduction).expect("validated geometry is finite")
+    ).to_px()
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MarginFlexItem {
@@ -81,25 +98,25 @@ impl MarginFlexItem {
     fn main_pb(&self, horizontal: bool) -> f64 {
         let e = self.edges;
         if horizontal {
-            e.border.left + e.border.right + e.padding.left + e.padding.right
+            sum_units([e.border.left, e.border.right, e.padding.left, e.padding.right])
         } else {
-            e.border.top + e.border.bottom + e.padding.top + e.padding.bottom
+            sum_units([e.border.top, e.border.bottom, e.padding.top, e.padding.bottom])
         }
     }
 
     fn main_fixed(&self, horizontal: bool) -> f64 {
-        self.main_pb(horizontal) + self.main_start.unwrap_or(0.0)
-            + self.main_end.unwrap_or(0.0)
+        sum_units([self.main_pb(horizontal), self.main_start.unwrap_or(0.0),
+                   self.main_end.unwrap_or(0.0)])
     }
 
     fn cross_border(&self, horizontal: bool) -> f64 {
         let e = self.edges;
         if horizontal {
-            self.cross_content_size + e.border.top + e.border.bottom
-                + e.padding.top + e.padding.bottom
+            sum_units([self.cross_content_size, e.border.top, e.border.bottom,
+                       e.padding.top, e.padding.bottom])
         } else {
-            self.cross_content_size + e.border.left + e.border.right
-                + e.padding.left + e.padding.right
+            sum_units([self.cross_content_size, e.border.left, e.border.right,
+                       e.padding.left, e.padding.right])
         }
     }
 }
@@ -187,7 +204,9 @@ pub fn compute_margin_flex_layout_content(
         }
     }
     let horizontal = matches!(direction, Direction::Row | Direction::RowReverse);
-    let main_extent = if horizontal { width } else { height };
+    let main_gap = layout_unit(main_gap);
+    let cross_gap = layout_unit(cross_gap);
+    let main_extent = layout_unit(if horizontal { width } else { height });
     let mut order: Vec<usize> = (0..items.len()).collect();
     order.sort_by_key(|&index| (items[index].order, index));
 
@@ -196,8 +215,8 @@ pub fn compute_margin_flex_layout_content(
     let mut occupied = 0.0;
     for index in order {
         let item = &items[index];
-        let outer = item.flex.hypothetical + item.main_fixed(horizontal);
-        let candidate = occupied + if current.is_empty() { 0.0 } else { main_gap } + outer;
+        let outer = sum_units([item.flex.hypothetical, item.main_fixed(horizontal)]);
+        let candidate = sum_units([occupied, if current.is_empty() { 0.0 } else { main_gap }, outer]);
         if wrap != Wrap::NoWrap && !current.is_empty() && candidate > main_extent {
             lines.push(current);
             current = vec![index];
@@ -231,19 +250,19 @@ pub fn compute_margin_flex_layout_content(
                 border_cross_size: item.cross_border(horizontal),
                 start_margin: item.cross_start.expect("checked fixed margin"),
                 end_margin: item.cross_end.expect("checked fixed margin"),
-                baseline: e.border.top + e.padding.top + baseline,
+                baseline: sum_units([e.border.top, e.padding.top, baseline]),
             });
         }
         baseline_groups.push(if measured.is_empty() { None }
             else { Some(measure_baseline_group(&measured)?) });
     }
-    let cross_extent = if horizontal { height } else { width };
+    let cross_extent = layout_unit(if horizontal { height } else { width });
     let line_cross_sizes: Vec<f64> = lines.iter().enumerate().map(|(index,line)| {
         if wrap == Wrap::NoWrap { return cross_extent; }
         let outer = line.iter().map(|i| {
             let item = &items[*i];
-            item.cross_border(horizontal) + item.cross_start.unwrap_or(0.0)
-                + item.cross_end.unwrap_or(0.0)
+            sum_units([item.cross_border(horizontal), item.cross_start.unwrap_or(0.0),
+                       item.cross_end.unwrap_or(0.0)])
         }).fold(0.0, f64::max);
         outer.max(baseline_groups[index].map_or(0.0, |group| group.extent()))
     }).collect();
@@ -258,14 +277,14 @@ pub fn compute_margin_flex_layout_content(
     let mut boxes = Vec::new();
 
     for (line_index, line) in lines.iter().enumerate() {
-        let fixed: f64 = line.iter().map(|i| items[*i].main_fixed(horizontal)).sum();
-        let available = (main_extent - fixed).max(0.0);
+        let fixed = sum_units(line.iter().map(|i| items[*i].main_fixed(horizontal)));
+        let available = subtract_units(main_extent, [fixed]).max(0.0);
         let bases: Vec<FlexBasis> = line.iter().map(|i| items[*i].flex).collect();
         let targets = resolve_flexible_lengths(&bases, available, main_gap)?;
         let border_items: Vec<MarginItem> = line.iter().zip(targets.iter()).map(|(i, target)| {
             let item = &items[*i];
             MarginItem {
-                id: item.id.clone(), border_main_size: target + item.main_pb(horizontal),
+                id: item.id.clone(), border_main_size: sum_units([*target, item.main_pb(horizontal)]),
                 start: item.main_start, end: item.main_end,
             }
         }).collect();
@@ -285,9 +304,9 @@ pub fn compute_margin_flex_layout_content(
             {
                 let e = item.edges;
                 let pb = if horizontal {
-                    e.border.top + e.border.bottom + e.padding.top + e.padding.bottom
+                    sum_units([e.border.top, e.border.bottom, e.padding.top, e.padding.bottom])
                 } else {
-                    e.border.left + e.border.right + e.padding.left + e.padding.right
+                    sum_units([e.border.left, e.border.right, e.padding.left, e.padding.right])
                 };
                 let stretched = resolve_cross_stretch(
                     line_cross_sizes[line_index], pb,
@@ -313,17 +332,17 @@ pub fn compute_margin_flex_layout_content(
                     border_cross_size: cross_size,
                     start_margin: item.cross_start.expect("checked fixed margin"),
                     end_margin: item.cross_end.expect("checked fixed margin"),
-                    baseline: e.border.top + e.padding.top
-                        + item.baseline_from_cross_start.ok_or(
+                    baseline: sum_units([e.border.top, e.padding.top,
+                        item.baseline_from_cross_start.ok_or(
                             FlexMathError::InvalidInput("missing measured baseline"),
-                        )?,
+                        )?]),
                 };
                 position_baseline_item(metric, group, line_cross_sizes[line_index],
                                        cross_forward)?
             } else if chosen_align == CrossAlign::Stretch {
                 let start = item.cross_start.expect("checked fixed margin");
                 if cross_forward { start } else {
-                    line_cross_sizes[line_index] - start - cross_size
+                    subtract_units(line_cross_sizes[line_index], [start, cross_size])
                 }
             } else {
                 resolve_cross_alignment(
@@ -333,7 +352,7 @@ pub fn compute_margin_flex_layout_content(
                     item.cross_end.expect("checked fixed margin"), cross_forward,
                 )?
             };
-            let cross_start = cross_origin + cross_offset;
+            let cross_start = sum_units([cross_origin, cross_offset]);
             let border = if horizontal {
                 Rect {
                     x: position.border_start, y: cross_start,
@@ -347,14 +366,14 @@ pub fn compute_margin_flex_layout_content(
             };
             let e = item.edges;
             let padding = Rect {
-                x: border.x + e.border.left, y: border.y + e.border.top,
-                width: border.width - e.border.left - e.border.right,
-                height: border.height - e.border.top - e.border.bottom,
+                x: sum_units([border.x, e.border.left]), y: sum_units([border.y, e.border.top]),
+                width: subtract_units(border.width, [e.border.left, e.border.right]),
+                height: subtract_units(border.height, [e.border.top, e.border.bottom]),
             };
             let content = Rect {
-                x: padding.x + e.padding.left, y: padding.y + e.padding.top,
-                width: padding.width - e.padding.left - e.padding.right,
-                height: padding.height - e.padding.top - e.padding.bottom,
+                x: sum_units([padding.x, e.padding.left]), y: sum_units([padding.y, e.padding.top]),
+                width: subtract_units(padding.width, [e.padding.left, e.padding.right]),
+                height: subtract_units(padding.height, [e.padding.top, e.padding.bottom]),
             };
             boxes.push(MarginFlexBox {
                 id: item.id.clone(), content, padding, border,

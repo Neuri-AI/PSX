@@ -101,10 +101,12 @@ def resolve_length(
 
     Percentage padding and physical margins use the containing block's
     *inline* size, including top/bottom edges in horizontal writing mode.
-    Percentage flex-basis uses the definite flex container MAIN size.
-    Width/height/min/max resolve against the relevant containing-block
-    axis. Percent gap cyclic/intrinsic rules are not yet implemented, so
-    percentages for gap are rejected rather than incorrectly resolved.
+    Percentage flex-basis and the caller-selected flex gap axis use the
+    definite flex-container main size. Width/height/min/max resolve against
+    the relevant containing-block axis. An indefinite percentage gap remains
+    explicitly unresolved here; intrinsic callers apply its CSS
+    zero-contribution rule through ``resolve_percentage_gap`` and used
+    layout establishes the corresponding definite axis first.
     """
 
     if not isinstance(length, Length) or not isinstance(property_name, SizeProperty):
@@ -130,16 +132,13 @@ def resolve_length(
         assert length.value is not None
         if length.value < 0 and property_name != SizeProperty.MARGIN:
             raise ValueError(f"Negative {property_name.value} percentage is invalid.")
-        if property_name == SizeProperty.GAP:
-            raise SFLECapabilityError(
-                DiagnosticCode.UNSUPPORTED_FEATURE,
-                "Percentage gap cyclic/intrinsic semantics are not implemented.",
-            )
         ref = (
             containing_inline_size if property_name in (
                 SizeProperty.MARGIN, SizeProperty.PADDING,
             )
-            else flex_container_main_size if property_name == SizeProperty.FLEX_BASIS
+            else flex_container_main_size if property_name in (
+                SizeProperty.FLEX_BASIS, SizeProperty.GAP,
+            )
             else containing_block_axis_size
         )
         if not ref.definite:
