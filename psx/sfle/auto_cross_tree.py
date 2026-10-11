@@ -43,6 +43,13 @@ def compute_auto_cross_tree(
         if not parents[node.node_id]:
             raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Auto cross requires a nonempty container.")
         horizontal = node.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+        # A descendant can be orthogonal to its parent: the parent's
+        # auto cross contribution may be the child's *main* dimension.
+        # Example A01: a column's auto height feeds a row parent's height.
+        parent = by_id[node.parent_id] if node.parent_id is not None else None
+        auto_width = (parent.direction in (FlexDirection.COLUMN, FlexDirection.COLUMN_REVERSE)
+                      if parent is not None else not horizontal)
+        resolves_own_cross = auto_width != horizontal
         main_limit = LayoutUnit.from_nearest(node.width if horizontal else node.height)
         lines: list[tuple[LayoutUnit, LayoutUnit]] = []
         line_main = LayoutUnit.from_raw(0)
@@ -78,10 +85,16 @@ def compute_auto_cross_tree(
                     line_cross = outer_cross
         lines.append((line_main, line_cross))
         used_u = LayoutUnit.from_raw(0)
-        for index, (_, cross) in enumerate(lines):
-            if index:
-                used_u += LayoutUnit.from_nearest(node.cross_gap)
-            used_u += cross
+        if resolves_own_cross:
+            for index, (_, cross) in enumerate(lines):
+                if index:
+                    used_u += LayoutUnit.from_nearest(node.cross_gap)
+                used_u += cross
+        else:
+            # Orthogonal child's auto main size is its intrinsic line extent.
+            # For nowrap this is the sum of child main contributions and gaps.
+            used_u = max((main for main, _ in lines),
+                         default=LayoutUnit.from_raw(0), key=lambda unit: unit.raw)
         used = used_u.to_px()
         if node.parent_id is None:
             by_id[node.node_id] = replace(node, height=used) if horizontal else replace(node, width=used)
@@ -91,7 +104,6 @@ def compute_auto_cross_tree(
                 raise SFLEError(DiagnosticCode.INVALID_TREE, "Missing container Flex item.")
             parent = by_id[node.parent_id]
             parent_horizontal = parent.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
-            auto_width = not horizontal
             parent_cross_width = not parent_horizontal
             if auto_width == parent_cross_width:
                 updated_item = replace(item, cross_content_size=used, cross_size_auto=False)
