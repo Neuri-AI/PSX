@@ -528,9 +528,21 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             return False
         outer = parents[parent]
         own, wrapper, container = styles[node_id], styles[parent], styles[outer]
+        def fixed_intrinsic_sibling(sibling_id: str) -> bool:
+            # Each item contributes a definite PX flex basis to the auto's
+            # max-content inline width. Inline percentage padding contributes
+            # zero to that intrinsic sum and resolves only after sizing.
+            sibling = styles[sibling_id]
+            return (
+                not children[sibling_id]
+                and sibling.width.kind == sibling.flex_basis.kind == LengthKind.PX
+                and sibling.shrink == 0
+                and sibling.padding_top.kind == sibling.padding_bottom.kind == LengthKind.PX
+            )
+
         return (
-            not children[node_id] and children[parent] == [node_id]
-            and own.width.kind == own.flex_basis.kind == LengthKind.PX
+            not children[node_id] and bool(children[parent])
+            and all(fixed_intrinsic_sibling(sibling) for sibling in children[parent])
             and wrapper.width.kind == LengthKind.AUTO and wrapper.shrink == 0
             and wrapper.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
             and container.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)

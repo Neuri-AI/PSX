@@ -871,8 +871,17 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         let Some(outer_name)=input.nodes[parent].parent_id.as_deref() else{return false;};
         let outer=indices[outer_name];
         let (st,wrapper,container)=(styles[index],styles[parent],styles[outer]);
-        children[index].is_empty() && children[parent].len()==1
-            && children[parent][0]==index
+        let fixed_siblings=!children[parent].is_empty()
+            && children[parent].iter().all(|&sibling|{
+                let sibling_style=styles[sibling];
+                children[sibling].is_empty()
+                    && matches!(sibling_style.width,Length::Px(_))
+                    && matches!(sibling_style.basis,Length::Px(_))
+                    && sibling_style.shrink==0.0
+                    && matches!(sibling_style.padding_top,Length::Px(_))
+                    && matches!(sibling_style.padding_bottom,Length::Px(_))
+            });
+        children[index].is_empty() && fixed_siblings
             && matches!(st.width,Length::Px(_)) && matches!(st.basis,Length::Px(_))
             && matches!(wrapper.width,Length::Auto) && wrapper.shrink==0.0
             && horizontal(wrapper.direction) && horizontal(container.direction)
