@@ -7,6 +7,8 @@ layout-time native measurement may cross this boundary.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
+from collections.abc import Iterable
 import math
 
 from .errors import DiagnosticCode, SFLECapabilityError, SFLEError
@@ -136,6 +138,21 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
 def _layout_unit(value: float) -> float:
     """Convert a used CSS length at its Blink double-round callsite."""
     return LayoutUnit.from_nearest(value).to_px()
+
+
+def _sum_units(values: Iterable[float]) -> float:
+    """Accumulate used geometry, saturating after each addition."""
+    total = LayoutUnit.from_raw(0)
+    for value in values:
+        total = total + LayoutUnit.from_nearest(value)
+    return total.to_px()
+
+
+def _subtract_units(value: float, deductions: Iterable[float]) -> float:
+    total = LayoutUnit.from_nearest(value)
+    for deduction in deductions:
+        total = total - LayoutUnit.from_nearest(deduction)
+    return total.to_px()
 
 
 def _percent_flex_basis_used(value: float, reference: float) -> float:
@@ -489,7 +506,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
 
         def bound(length: Length) -> float | None:
             if length.kind == LengthKind.PX:
-                return length.value
+                return _layout_unit(length.value)
             if length.kind == LengthKind.PERCENT and reference is not None:
                 assert length.value is not None
                 return _layout_unit(length.value * reference)
@@ -501,9 +518,10 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             value = min(value, cap)
         if floor is not None:
             value = max(value, floor)
-        return value
+        return _layout_unit(value)
 
-    def preferred(node_id: str, horizontal: bool) -> float:
+    @lru_cache(maxsize=None)
+    def preferred(node_id: str, horizontal: bool, minimum: bool = False) -> float:
         style = styles[node_id]
         length = style.width if horizontal else style.height
         if length.kind == LengthKind.PX:
@@ -512,9 +530,12 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         metric = measures.get(node_id)
         if not children[node_id]:
             if metric is not None:
-                value = metric.intrinsic.preferred_width if horizontal else metric.intrinsic.preferred_height
+                if minimum:
+                    value = metric.intrinsic.min_content_width if horizontal else metric.intrinsic.min_content_height
+                else:
+                    value = metric.intrinsic.preferred_width if horizontal else metric.intrinsic.preferred_height
                 return bounded_intrinsic(style, horizontal, value)
-            if components[node_id] == "Text":
+            if components[node_id] == "Text" and not minimum:
                 raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                                 "Text requires intrinsic measurement.", node_id)
             return bounded_intrinsic(style, horizontal, 0.0)
@@ -533,7 +554,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             for edge in intrinsic_edges:
                 if edge.kind == LengthKind.PX:
                     assert edge.value is not None
-                    padding_sum += edge.value
+                    padding_sum = _sum_units((padding_sum, edge.value))
                 elif edge.kind == LengthKind.PERCENT and child in allowed_cyclic_padding:
                     # Blink's cyclic contribution is zero only in this
                     # intrinsic phase; _padding resolves the final used edge.
@@ -543,10 +564,28 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                         DiagnosticCode.UNSUPPORTED_FEATURE,
                         "Unresolved intrinsic percentage padding contribution.", child,
                     )
-            contributions.append(preferred(child, horizontal) + padding_sum)
+            contribution = preferred(child, horizontal, minimum)
+            if is_row == horizontal:
+                basis = child_style.flex_basis
+                base = basis.value if basis.kind == LengthKind.PX else preferred(child, horizontal)
+                if child_style.grow == 0:
+                    contribution = min(contribution, _layout_unit(base))
+                if child_style.shrink == 0:
+                    contribution = max(contribution, _layout_unit(base))
+                contribution = bounded_intrinsic(child_style, horizontal, contribution)
+            margin_edges = ((child_style.margin_left, child_style.margin_right) if horizontal
+                            else (child_style.margin_top, child_style.margin_bottom))
+            # Cyclic percentages and auto margins contribute zero intrinsically.
+            contributions.append(_sum_units((contribution, padding_sum, *(
+                edge.value for edge in margin_edges if edge.kind == LengthKind.PX
+            ))))
         if is_row == horizontal:
+            if minimum and style.wrap != FlexWrap.NOWRAP:
+                return bounded_intrinsic(style, horizontal, max(contributions, default=0.0))
             gap_length = style.column_gap if is_row else style.row_gap
-            value = sum(contributions) + _intrinsic_gap(gap_length, node_id) * max(0,len(contributions)-1)
+            gap = _layout_unit(_intrinsic_gap(gap_length, node_id))
+            value = _sum_units(v for i, size in enumerate(contributions)
+                               for v in ((gap, size) if i else (size,)))
             return bounded_intrinsic(style, horizontal, value)
         return bounded_intrinsic(style, horizontal, max(contributions, default=0.0))
 
@@ -622,10 +661,11 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             if min_length.kind == LengthKind.PX:
                 minimum = min_length.value
             elif min_length.kind == LengthKind.AUTO:
-                metric = measures.get(child_id)
-                minimum = (metric.intrinsic.min_content_width if horizontal else metric.intrinsic.min_content_height) if metric is not None else (
-                    basis_axis.value if basis_axis.kind == LengthKind.PX else 0.0
-                )
+                minimum = preferred(child_id, horizontal, True)
+                specified = _axis_value(basis_axis, main_reference,
+                                        axis="width" if horizontal else "height", node_id=child_id)
+                if specified is not None:
+                    minimum = min(minimum, specified)
             elif min_length.kind == LengthKind.PERCENT and main_reference is not None:
                 minimum = _layout_unit(min_length.value * main_reference)
             else:
@@ -641,6 +681,8 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             else:
                 raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
                     "Unlisted indefinite percentage maximum size dependency cycle.", child_id)
+            if min_length.kind == LengthKind.AUTO and maximum is not None:
+                minimum = min(minimum, maximum)
             if maximum is not None and maximum < minimum:
                 maximum = minimum
             hypo = min(max(desired, minimum), maximum) if maximum is not None else max(desired,minimum)
@@ -649,35 +691,83 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                                     min_size=minimum,max_size=maximum))
         main_gap = _main_gap(style,width,height if height is not None else 0.0,node_id)
         edges = {child: _padding(styles[child], width, child) for child in children[node_id]}
-        fixed_main_edges = sum(
-            edge.horizontal if horizontal else edge.vertical
-            for edge in edges.values()
-        )
-        targets = _blink_flex_targets(
-            tuple(bases), max(0.0, main_size - fixed_main_edges), main_gap,
-            node_id=node_id,
-        )
+        main_size, main_gap = _layout_unit(main_size), _layout_unit(main_gap)
+        def fixed_margin(length: Length) -> float:
+            if length.kind == LengthKind.AUTO:
+                return 0.0
+            if length.kind == LengthKind.PX:
+                return _layout_unit(length.value)
+            if length.kind == LengthKind.PERCENT:
+                return _layout_unit(length.value * width)
+            raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
+                                      "Unsupported margin length.", node_id)
+
+        fixed_edges = []
+        for child in children[node_id]:
+            e, s = edges[child], styles[child]
+            fixed_edges.append(_sum_units((e.left, e.right, fixed_margin(s.margin_left),
+                                          fixed_margin(s.margin_right))) if horizontal else
+                               _sum_units((e.top, e.bottom, fixed_margin(s.margin_top),
+                                           fixed_margin(s.margin_bottom))))
+        # CSS 9.3 collects outer hypothetical sizes before flexing each line.
+        lines: list[list[int]] = [[]]
+        occupied = 0.0
+        for index, basis in enumerate(bases):
+            outer = _sum_units((basis.hypothetical, fixed_edges[index]))
+            candidate = _sum_units((occupied, main_gap if lines[-1] else 0.0, outer))
+            if style.wrap != FlexWrap.NOWRAP and lines[-1] and candidate > main_size:
+                lines.append([])
+                occupied = 0.0
+            occupied = _sum_units((occupied, main_gap if lines[-1] else 0.0, outer))
+            lines[-1].append(index)
+        targets = [0.0] * len(bases)
+        for line in lines:
+            available = max(0.0, _subtract_units(main_size, (fixed_edges[i] for i in line)))
+            for index, target in zip(line, _blink_flex_targets(
+                tuple(bases[i] for i in line), available, main_gap, node_id=node_id,
+            )):
+                targets[index] = target
         cross_sizes = []
         for child_id, target in zip(children[node_id], targets):
             child_style = styles[child_id]
             if horizontal:
                 cross = _axis_value(child_style.height,height,axis="height",node_id=child_id)
-                if cross is None and height is not None and style.align_items == CrossAlign.STRETCH:
-                    cross = max(0.0, height - edges[child_id].vertical)
+                alignment = child_style.align_self if child_style.align_self != CrossAlign.AUTO else style.align_items
+                if (cross is None and height is not None and alignment == CrossAlign.STRETCH
+                        and style.wrap == FlexWrap.NOWRAP
+                        and child_style.margin_top.kind != LengthKind.AUTO
+                        and child_style.margin_bottom.kind != LengthKind.AUTO):
+                    cross = max(0.0, _subtract_units(height, (edges[child_id].top,
+                        edges[child_id].bottom, fixed_margin(child_style.margin_top),
+                        fixed_margin(child_style.margin_bottom))))
                 child_width, child_height = layout(child_id,target,cross,width,height)
                 # Auto cross-size contains each child outer padding box. A
                 # nested column's content-only height undercounts the row.
-                cross_sizes.append(child_height + edges[child_id].vertical)
+                cross_sizes.append(max(0.0, _sum_units((child_height, edges[child_id].top,
+                    edges[child_id].bottom, fixed_margin(child_style.margin_top),
+                    fixed_margin(child_style.margin_bottom)))))
             else:
                 cross = _axis_value(child_style.width,width,axis="width",node_id=child_id)
-                if cross is None and style.align_items == CrossAlign.STRETCH:
-                    cross = max(0.0, width - edges[child_id].horizontal)
+                alignment = child_style.align_self if child_style.align_self != CrossAlign.AUTO else style.align_items
+                if (cross is None and alignment == CrossAlign.STRETCH
+                        and style.wrap == FlexWrap.NOWRAP
+                        and child_style.margin_left.kind != LengthKind.AUTO
+                        and child_style.margin_right.kind != LengthKind.AUTO):
+                    cross = max(0.0, _subtract_units(width, (edges[child_id].left,
+                        edges[child_id].right, fixed_margin(child_style.margin_left),
+                        fixed_margin(child_style.margin_right))))
                 child_width, child_height = layout(child_id,cross,target,width,height)
-                cross_sizes.append(child_width + edges[child_id].horizontal)
+                cross_sizes.append(max(0.0, _sum_units((child_width, edges[child_id].left,
+                    edges[child_id].right, fixed_margin(child_style.margin_left),
+                    fixed_margin(child_style.margin_right)))))
         if height is None:
             # An auto cross-size is finalized after children are laid out;
             # its own min/max constraints must still bound the used size.
-            height = bounded_intrinsic(style, False, max(cross_sizes, default=0.0), parent_height)
+            line_sizes = [max((cross_sizes[i] for i in line), default=0.0) for line in lines]
+            gap = _intrinsic_gap(style.row_gap, node_id)
+            auto_cross = _sum_units(v for i, size in enumerate(line_sizes)
+                                    for v in ((gap, size) if i else (size,)))
+            height = bounded_intrinsic(style, False, auto_cross, parent_height)
         width, height = _layout_unit(width), _layout_unit(height)
         used[node_id] = (width,height)
         return width,height

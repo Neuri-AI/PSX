@@ -170,6 +170,16 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
 fn layout_unit(value:f64)->f64 {
     LayoutUnit::from_nearest(value).expect("SFLE prevalidated finite used length").to_px()
 }
+fn sum_units(values: impl IntoIterator<Item=f64>) -> f64 {
+    values.into_iter().fold(LayoutUnit::from_raw(0), |total, value|
+        total + LayoutUnit::from_nearest(value).expect("Finite used geometry")
+    ).to_px()
+}
+fn subtract_units(value: f64, deductions: impl IntoIterator<Item=f64>) -> f64 {
+    deductions.into_iter().fold(LayoutUnit::from_nearest(value).expect("Finite used geometry"),
+        |total, deduction| total - LayoutUnit::from_nearest(deduction).expect("Finite used geometry")
+    ).to_px()
+}
 fn percent_flex_basis_used(fraction:f64,reference:f64)->f64 {
     LayoutUnit::from_floor(fraction*reference)
         .expect("SFLE prevalidated finite percentage").to_px()
@@ -329,16 +339,19 @@ fn bounded_intrinsic(style:Style,h:bool,mut value:f64,reference:Option<f64>)->f6
     let maximum=if h{style.max_width}else{style.max_height};
     let minimum=if h{style.min_width}else{style.min_height};
     let bound=|v:Length|match v {
-        Length::Px(n)=>Some(n),
+        Length::Px(n)=>Some(layout_unit(n)),
         Length::Percent(p)=>reference.map(|r|layout_unit(p*r)),
         Length::Auto=>None,
     };
     if let Some(cap)=bound(maximum){value=value.min(cap);}
     if let Some(floor)=bound(minimum){value=value.max(floor);}
-    value
+    layout_unit(value)
 }
 impl Context<'_>{
     fn preferred(&self,index:usize,h:bool)->Result<f64,ComputeError>{
+        self.intrinsic_contribution(index,h,false)
+    }
+    fn intrinsic_contribution(&self,index:usize,h:bool,minimum:bool)->Result<f64,ComputeError>{
         let node=&self.input.nodes[index];
         let style=self.styles[index];
         match if h {style.width}else{style.height}{
@@ -347,9 +360,14 @@ impl Context<'_>{
         }
         if self.children[index].is_empty(){
             if let Some(m)=self.measurements.get(node.node_id.as_str()){
-                return Ok(bounded_intrinsic(style,h,if h{m.intrinsic.preferred_width}else{m.intrinsic.preferred_height},None));
+                let value = if minimum {
+                    if h {m.intrinsic.min_content_width} else {m.intrinsic.min_content_height}
+                } else {
+                    if h {m.intrinsic.preferred_width} else {m.intrinsic.preferred_height}
+                };
+                return Ok(bounded_intrinsic(style,h,value,None));
             }
-            if node.component=="Text" {
+            if node.component=="Text" && !minimum {
                 return Err(measurement("Text requires intrinsic measurement.",&node.node_id));
             }
             return Ok(bounded_intrinsic(style,h,0.0,None));
@@ -365,7 +383,7 @@ impl Context<'_>{
             let mut padding_sum = 0.0_f64;
             for edge in edges {
                 match edge {
-                    Length::Px(n) => padding_sum += n,
+                    Length::Px(n) => padding_sum = sum_units([padding_sum,n]),
                     Length::Percent(_) if self.cyclic_padding[child] => {},
                     _ => return Err(unsupported(
                         "Unresolved intrinsic percentage padding contribution.",
@@ -373,11 +391,34 @@ impl Context<'_>{
                     )),
                 }
             }
-            sizes.push(self.preferred(child,h)? + padding_sum);
+            let mut contribution = self.intrinsic_contribution(child,h,minimum)?;
+            if horizontal(style.direction)==h {
+                let base = match child_style.basis {
+                    Length::Px(n) => layout_unit(n),
+                    _ => self.preferred(child,h)?,
+                };
+                if child_style.grow==0.0 {contribution=contribution.min(base);}
+                if child_style.shrink==0.0 {contribution=contribution.max(base);}
+                contribution=bounded_intrinsic(child_style,h,contribution,None);
+            }
+            let margins=if h {[child_style.margin_left,child_style.margin_right]}
+                        else {[child_style.margin_top,child_style.margin_bottom]};
+            let mut outer=sum_units([contribution,padding_sum]);
+            for margin in margins {
+                if let Length::Px(n)=margin {outer=sum_units([outer,n]);}
+            }
+            sizes.push(outer);
         }
         if horizontal(style.direction)==h {
+            if minimum && style.wrap!=Wrap::NoWrap {
+                return Ok(bounded_intrinsic(style,h,sizes.into_iter().fold(0.0_f64,f64::max),None));
+            }
             let intrinsic = intrinsic_gap(if horizontal(style.direction){style.column_gap}else{style.row_gap},&node.node_id)?;
-            Ok(bounded_intrinsic(style,h,sizes.iter().sum::<f64>()+intrinsic*sizes.len().saturating_sub(1) as f64,None))
+            let mut total=0.0;
+            for (i,size) in sizes.into_iter().enumerate() {
+                total=sum_units([total,if i>0 {intrinsic} else {0.0},size]);
+            }
+            Ok(bounded_intrinsic(style,h,total,None))
         } else {
             Ok(bounded_intrinsic(style,h,sizes.into_iter().fold(0.0_f64,f64::max),None))
         }
@@ -437,9 +478,10 @@ impl Context<'_>{
             };
             let mut minimum=match if row{child_style.min_width}else{child_style.min_height}{
                 Length::Px(n)=>n,
-                Length::Auto=>self.measurements.get(child_id.as_str())
-                    .map(|m|if row{m.intrinsic.min_content_width}else{m.intrinsic.min_content_height})
-                    .unwrap_or(match axis{Length::Px(n)=>n,_=>0.0}),
+                Length::Auto=>{
+                    let content=self.intrinsic_contribution(child,row,true)?;
+                    resolved(axis,main_reference,!row,child_id)?.map_or(content,|n|content.min(n))
+                },
                 Length::Percent(p) if main_reference.is_some()=>layout_unit(p*main_reference.unwrap()),
                 Length::Percent(_)=>return Err(unsupported("Unlisted percentage minimum size dependency cycle.",child_id)),
             };
@@ -449,6 +491,9 @@ impl Context<'_>{
                 Length::Percent(_)=>return Err(unsupported("Unlisted indefinite percentage maximum size dependency cycle.",child_id)),
             };
             if let Some(cap)=maximum{
+                if matches!(if row{child_style.min_width}else{child_style.min_height},Length::Auto){
+                    minimum=minimum.min(cap);
+                }
                 if cap<minimum{maximum=Some(minimum);}
             }
             let hypothetical=desired.max(minimum).min(maximum.unwrap_or(f64::INFINITY));
@@ -458,39 +503,83 @@ impl Context<'_>{
                 min_size:minimum,max_size:maximum,
             });
         }
-        let gap=main_gap(style,width.unwrap(),height.unwrap_or(0.0),&id)?;
+        let main=layout_unit(main);
+        let gap=layout_unit(main_gap(style,width.unwrap(),height.unwrap_or(0.0),&id)?);
         let edges=child_indices.iter().map(|&child|
             padding(self.styles[child],width.unwrap(),&self.input.nodes[child].node_id)
         ).collect::<Result<Vec<_>,ComputeError>>()?;
-        let fixed_edges:f64=edges.iter().map(|e|if row{e.left+e.right}else{e.top+e.bottom}).sum();
-        let targets=blink_flex_targets(&bases,(main-fixed_edges).max(0.0),gap,&id)?;
+        let fixed_margin=|length|margin_value(length,width.unwrap()).unwrap_or(0.0);
+        let fixed_edges:Vec<f64>=child_indices.iter().zip(&edges).map(|(&child,e)|{
+            let s=self.styles[child];
+            if row {sum_units([e.left,e.right,fixed_margin(s.margin_left),fixed_margin(s.margin_right)])}
+            else {sum_units([e.top,e.bottom,fixed_margin(s.margin_top),fixed_margin(s.margin_bottom)])}
+        }).collect();
+        // Outer hypothetical sizes determine line membership before flexing.
+        let mut lines:Vec<Vec<usize>>=vec![vec![]];
+        let mut occupied=0.0;
+        for (i,basis) in bases.iter().enumerate(){
+            let outer=sum_units([basis.hypothetical,fixed_edges[i]]);
+            let candidate=sum_units([occupied,if lines.last().unwrap().is_empty(){0.0}else{gap},outer]);
+            if style.wrap!=Wrap::NoWrap && !lines.last().unwrap().is_empty() && candidate>main {
+                lines.push(vec![]);
+                occupied=0.0;
+            }
+            occupied=sum_units([occupied,if lines.last().unwrap().is_empty(){0.0}else{gap},outer]);
+            lines.last_mut().unwrap().push(i);
+        }
+        let mut targets=vec![0.0;bases.len()];
+        for line in &lines {
+            let available=subtract_units(main,line.iter().map(|&i|fixed_edges[i])).max(0.0);
+            let line_bases:Vec<FlexBasis>=line.iter().map(|&i|bases[i]).collect();
+            for (&i,target) in line.iter().zip(blink_flex_targets(&line_bases,available,gap,&id)?){
+                targets[i]=target;
+            }
+        }
         let mut cross_sizes=Vec::new();
         for ((&child,&target),padding_box) in child_indices.iter().zip(targets.iter()).zip(edges.iter()){
             let child_id=self.input.nodes[child].node_id.clone();
             let child_style=self.styles[child];
             let (cw,ch)=if row{
                 let mut cross=resolved(child_style.height,height,true,&child_id)?;
-                if cross.is_none()&&height.is_some()&&style.align==CrossAlign::Stretch{
-                    cross=Some((height.unwrap()-padding_box.top-padding_box.bottom).max(0.0));
+                let align=if child_style.align_self==CrossAlign::Auto{style.align}else{child_style.align_self};
+                if cross.is_none()&&height.is_some()&&align==CrossAlign::Stretch
+                    &&style.wrap==Wrap::NoWrap
+                    &&!matches!(child_style.margin_top,Length::Auto)
+                    &&!matches!(child_style.margin_bottom,Length::Auto){
+                    cross=Some(subtract_units(height.unwrap(),[padding_box.top,padding_box.bottom,
+                        fixed_margin(child_style.margin_top),fixed_margin(child_style.margin_bottom)]).max(0.0));
                 }
                 self.layout(child,Some(target),cross,width,height)?
             }else{
                 let mut cross=resolved(child_style.width,width,false,&child_id)?;
-                if cross.is_none()&&style.align==CrossAlign::Stretch{
-                    cross=Some((width.unwrap()-padding_box.left-padding_box.right).max(0.0));
+                let align=if child_style.align_self==CrossAlign::Auto{style.align}else{child_style.align_self};
+                if cross.is_none()&&align==CrossAlign::Stretch&&style.wrap==Wrap::NoWrap
+                    &&!matches!(child_style.margin_left,Length::Auto)
+                    &&!matches!(child_style.margin_right,Length::Auto){
+                    cross=Some(subtract_units(width.unwrap(),[padding_box.left,padding_box.right,
+                        fixed_margin(child_style.margin_left),fixed_margin(child_style.margin_right)]).max(0.0));
                 }
                 self.layout(child,cross,Some(target),width,height)?
             };
             // CSS auto cross contribution is the entire child padding box,
             // not merely the content size returned by recursive layout.
-            cross_sizes.push(if row{ch+padding_box.top+padding_box.bottom}else{cw+padding_box.left+padding_box.right});
+            cross_sizes.push(if row{sum_units([ch,padding_box.top,padding_box.bottom,
+                fixed_margin(child_style.margin_top),fixed_margin(child_style.margin_bottom)]).max(0.0)}
+                else{sum_units([cw,padding_box.left,padding_box.right,
+                    fixed_margin(child_style.margin_left),fixed_margin(child_style.margin_right)]).max(0.0)});
         }
         if height.is_none(){
             // Apply cross min/max only after recursive auto sizing has used
             // the children's outer contributions (matching Python + Blink).
-            height=Some(bounded_intrinsic(style,false,cross_sizes.into_iter().fold(0.0_f64,f64::max),ph));
+            let cross_gap=intrinsic_gap(style.row_gap,&id)?;
+            let mut auto_cross=0.0;
+            for (i,line) in lines.iter().enumerate(){
+                let size=line.iter().map(|&i|cross_sizes[i]).fold(0.0_f64,f64::max);
+                auto_cross=sum_units([auto_cross,if i>0{cross_gap}else{0.0},size]);
+            }
+            height=Some(bounded_intrinsic(style,false,auto_cross,ph));
         }
-        let dims=(width.unwrap(),height.unwrap());
+        let dims=(layout_unit(width.unwrap()),layout_unit(height.unwrap()));
         self.used[index]=Some(dims);
         Ok(dims)
     }
