@@ -33,7 +33,7 @@ def test_B7_external_repo_scan_is_versioned_and_counts_only_source_tokens(tmp_pa
     qt = tmp_path / "qt"
     tk = tmp_path / "tk"
     qt_sha = _repo(qt, "Row Row Column Scroll\n")
-    tk_sha = _repo(tk, "Column Row\n# Scrollbar is not the Scroll component\n")
+    tk_sha = _repo(tk, "Column Row\n# Scrollbar is not a layout component\n")
     out = tmp_path / "inventory"
     proc = subprocess.run(
         [
