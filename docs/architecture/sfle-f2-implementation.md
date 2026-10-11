@@ -2,7 +2,7 @@
 
 > **F2 OPEN — alpha capability manifest CLOSED.** This document contains the **single current status table**: the F2 exit criteria from [F1 final architecture §6](sfle-f1-final-architecture.md) and explicit proposed deferrals. No percentages of effort, commit-count status, relaxed tolerance, silent skip, or F3 reclassification. Latest B7 external-boilerplate inventory GREEN: [Core 38114340439](https://github.com/Neuri-AI/PSX/actions/runs/38114340439), [Chromium 38114340432](https://github.com/Neuri-AI/PSX/actions/runs/38114340432), [native matrix 38114340460](https://github.com/Neuri-AI/PSX/actions/runs/38114340460), [PSX Alpha 38114340421](https://github.com/Neuri-AI/PSX/actions/runs/38114340421), all success. Earlier B2 [Core 38114038367](https://github.com/Neuri-AI/PSX/actions/runs/38114038367) and B1 [Chromium 38112842327](https://github.com/Neuri-AI/PSX/actions/runs/38112842327) remain documented. The regression seed `0x5F1E2026` remains mandatory.
 
-> **F2 OPEN — user-approved points 1–4 CLOSED; point 5 formally approved for explicit deferral on 2026-10-11.** The supported alpha CSS subset is frozen for F2 certification. The approved five-point closeout gates do not override the separate normative F2 exit criteria or imply universal CSS Flexbox compatibility. Unlisted CSS graphs still fail closed under the Rust/Python parity contract. The public versioned capability manifest remains CLOSED pending the full F2 exit. Historic B1/F2.1 OPEN annotations below are chronological evidence recorded before this user decision, not a reopening of point 1.
+> **F2 OPEN — all five user-approved workstream gates CLOSED as of 2026-10-11; the distinct seven normative F2 exit criteria still require a final evidence reconciliation.** The supported alpha CSS subset is frozen for F2 certification. The approved five-point closeout gates do not override the separate normative F2 exit criteria or imply universal CSS Flexbox compatibility. Unlisted CSS graphs still fail closed under the Rust/Python parity contract. The public versioned capability manifest remains CLOSED pending the full F2 exit. Historic B1/F2.1 OPEN annotations below are chronological evidence recorded before this user decision, not a reopening of point 1.
 >
 > **Scope closure authority (2026-10-11):** the user explicitly approved closing point 1 after the [Chromium 38128419156](https://github.com/Neuri-AI/PSX/actions/runs/38128419156), [Core 38128419132](https://github.com/Neuri-AI/PSX/actions/runs/38128419132), [Native UI 38128419136](https://github.com/Neuri-AI/PSX/actions/runs/38128419136), [cross-OS wheels 38128419134](https://github.com/Neuri-AI/PSX/actions/runs/38128419134), and [Alpha 38128419131](https://github.com/Neuri-AI/PSX/actions/runs/38128419131) successes on SHA `d73301770570f87337558dea49dd5e02fa8f05c3`. No CSS tolerance was relaxed.
 
@@ -16,7 +16,7 @@ This is a project-workstream tracker, **not** a replacement for the separate nor
 | **2** | Rust/Python geometry, accepted/rejected CSS classes, stable diagnostics | **CLOSED — final certification 2026-10-11** | 521 mandatory differential tests GREEN, four box types bit-identical for accepted snapshots, matching supported/unsupported verdicts and error codes/node IDs. Strict enum typing and CSS length normalization parity corrected via independent RED evidence. |
 | **3** | Signed 32-bit LayoutUnit saturation, Chromium/Headless/native precision | **CLOSED — certified 2026-10-11** | [Final point-3 certificate](sfle-f2-point3-final-certification.md): signed i32 stages, cumulative gaps, finite f64 boundary guards, bit-identical Rust/Python, ≤0.01px Chromium/Headless and ≤1px native. Five CI workflows GREEN on code SHA `21edce7`. |
 | **4** | SFLE sole portable layout authority and Scroll viewport/content boundary | **CLOSED — P4.5 + P4.6 certified 2026-10-11** | [Point-4 final certificate and P4.6 supplement](sfle-f2-point4-final-certification.md): independent bindings, nested Scroll isolation, reversible transforms, adversarial rollback and **20 additional four-backend parametrized tests**; 5/5 mandatory workflows GREEN on code SHA `390de326`. F3 production migration explicitly excluded. |
-| **5** | Aspect-ratio/replaced intrinsic and auto-sized wrap scope decisions | **APPROVED DEFERRALS — 2026-10-11; final CI verification required** | Both [SFLE-CSS-01 and SFLE-CSS-02](../roadmap.md#pending--sfle-css-extensions-after-the-f2-alpha-scope) are formally deferred to a separately authorized post-F2 CSS milestone, **not F3**. Negative Rust/Python diagnostic parity must be verified for out-of-scope cases; previously accepted subsets are retained. |
+| **5** | Aspect-ratio/replaced intrinsic and auto-sized wrap scope decisions | **CLOSED — written deferrals and fail-closed parity certified 2026-10-11** | Both [SFLE-CSS-01 and SFLE-CSS-02](../roadmap.md#pending--sfle-css-extensions-after-the-f2-alpha-scope) are formally deferred to a separately authorized post-F2 CSS milestone, **not F3**. Negative Rust/Python diagnostic parity must be verified for out-of-scope cases; previously accepted subsets are retained. |
 
 **Fixed alpha support gate for point 2:** a CSS shape only counts as accepted if it has evidence in the Chromium/Python/Rust positive corpora. The rest of the style vocabulary is not silently accepted: produce matching `SFLE_UNSUPPORTED_FEATURE` with the same node identity, or a more specific agreed diagnostic for malformed input. Point 2 must compare the same snapshot bytes and four rectangle classes, preserve N01–N08/C99 rejects, and retain positively accepted indefinite percentage cases. If an existing supported feature breaks, fix the regression rather than reopen exploratory CSS scope.
 
@@ -102,13 +102,30 @@ node ID; no fabricated geometry or silent fallback. Retain positive
 definite-ratio and fixed-wrap cases. See mandatory
 [`tests/interop/test_sfle_f2_point5_deferral_boundaries.py`](../../tests/interop/test_sfle_f2_point5_deferral_boundaries.py).
 
-**Real RED prerequisite:** [commit `8ce11c5`](https://github.com/Neuri-AI/PSX/commit/8ce11c5a6922423269026be01fc066875d4eb2e0);
-[SFLE Core #38138393455](https://github.com/Neuri-AI/PSX/actions/runs/38138393455)
-reported **8 RED cases** (563 existing differential cases passed), proving
-that previously the engines silently accepted the deferred shapes.
-Any GREEN certification requires mandatory workflows on the final
-commit. The distinct F2 normative exit checklist remains independently
-OPEN, without reopening points 1–4.
+**Executed RED→GREEN certification:** [RED test-only commit `8ce11c5`](https://github.com/Neuri-AI/PSX/commit/8ce11c5a6922423269026be01fc066875d4eb2e0)
+and [Core RED #38138393455](https://github.com/Neuri-AI/PSX/actions/runs/38138393455)
+showed **8 silently accepted deferred cases** (563 other differential tests passed).
+After fail-closed guards, the first Rust/Python regression run detected that
+a **pre-existing certified** `width:auto; max-width:100px; wrap:wrap`
+case must remain supported; the guard was narrowed accordingly, without
+changing that fixture or weakening its assertion.
+
+**Final CODE evidence:** [`296d1a2`](https://github.com/Neuri-AI/PSX/commit/296d1a2e5228166de0aa3954da957c8488f5780c)
+passed **5/5 mandatory workflows on the exact same SHA**:
+[Core #38138829826](https://github.com/Neuri-AI/PSX/actions/runs/38138829826)
+(572/572 differential, 566/566 Python SFLE 3.12, Python 3.10–3.13,
+Rust and PyO3 all GREEN),
+[Chromium #38138829818](https://github.com/Neuri-AI/PSX/actions/runs/38138829818),
+[real UI #38138829840](https://github.com/Neuri-AI/PSX/actions/runs/38138829840),
+[Windows/macOS wheels/fallback #38138829846](https://github.com/Neuri-AI/PSX/actions/runs/38138829846),
+and [PSX Alpha #38138829823](https://github.com/Neuri-AI/PSX/actions/runs/38138829823).
+
+**Decision: POINT 5 CLOSED** for its two explicitly approved deferrals,
+with the current alpha's bounded positive behavior preserved and
+unsupported feature graphs rejected. This does **not** waive the
+separate seven F1 §6 normative F2 exit requirements, which must be
+reconciled using fresh evidence before F2 itself is CLOSED.
+See [final point-5 certificate](sfle-f2-point5-final-certification.md).
 
 ## Normative F2 exit checklist — only current acceptance status table
 

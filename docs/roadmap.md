@@ -59,7 +59,8 @@ The user explicitly approved both SFLE F2 point-5 deferrals on 2026-10-11.
 Neither full feature is advertised as supported in the frozen F2 alpha
 capability manifest or automatically assigned to F3. Previously certified
 bounded positive cases remain available while unsupported cases fail closed.
-See [F2 five-point closure tracker](architecture/sfle-f2-implementation.md).
+See [F2 five-point closure tracker](architecture/sfle-f2-implementation.md)
+and [F2 point-5 final certification](architecture/sfle-f2-point5-final-certification.md).
 
 | ID | Deferred candidate / feature | User-visible value | Remaining implementation and certification | Planned timing / status |
 | --- | --- | --- | --- | --- |
