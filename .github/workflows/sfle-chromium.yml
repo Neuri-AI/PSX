@@ -40,7 +40,7 @@ jobs:
         run: python -m pytest -q -s tests/browser/test_sfle_f2_holdout_red.py
       - name: Audit expanded CSS dimensions (all RED until Chromium geometry agrees)
         if: success() || failure()
-        run: python -m pytest -q -s tests/browser/test_sfle_f2_rtl_red.py tests/browser/test_sfle_f2_reverse_red.py tests/browser/test_sfle_f2_wrap_fixed_red.py tests/browser/test_sfle_f2_nested_columns_red.py tests/browser/test_sfle_f2_min_max_red.py tests/browser/test_sfle_f2_alignment_red.py tests/browser/test_sfle_f2_align_items_red.py tests/browser/test_sfle_f2_align_self_red.py tests/browser/test_sfle_f2_align_content_red.py tests/browser/test_sfle_f2_margins_red.py
+        run: python -m pytest -q -s tests/browser/test_sfle_f2_rtl_red.py tests/browser/test_sfle_f2_reverse_red.py tests/browser/test_sfle_f2_wrap_fixed_red.py tests/browser/test_sfle_f2_nested_columns_red.py tests/browser/test_sfle_f2_intrinsic_max_red.py tests/browser/test_sfle_f2_min_max_red.py tests/browser/test_sfle_f2_alignment_red.py tests/browser/test_sfle_f2_align_items_red.py tests/browser/test_sfle_f2_align_self_red.py tests/browser/test_sfle_f2_align_content_red.py tests/browser/test_sfle_f2_margins_red.py
       - name: Verify individually committed RED holdout fixtures against Chromium
         if: success() || failure()
         run: python -m pytest -q -s tests/browser/test_sfle_f2_holdout_fixtures_red.py
