@@ -12,9 +12,10 @@ from test_f2_acceptance_contract_red import case_snapshot
 def test_A04_qt_real_wrap_measures_twice_and_commits_final_geometry():
     app=QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
     parent=QtWidgets.QWidget()
-    label=QtWidgets.QLabel("x "*18,parent)
+    label=QtWidgets.QLabel("wrap "*55,parent)
     label.setWordWrap(True)
     label.setStyleSheet("font: 10px monospace")
+    label.setWordWrap(True)
     calls=[]
     commits=[]
     engine=PythonLayoutEngine()
