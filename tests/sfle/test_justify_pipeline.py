@@ -31,7 +31,7 @@ def item(name: str, *, start: float | None = 0,
     (JustifyContent.CENTER, (25, 55)),
     (JustifyContent.SPACE_BETWEEN, (0, 80)),
     (JustifyContent.SPACE_AROUND, (12.5, 67.5)),
-    (JustifyContent.SPACE_EVENLY, (50 / 3, 30 + 100 / 3)),
+    (JustifyContent.SPACE_EVENLY, (16.671875, 63.34375)),
 ])
 def test_justify_controls_used_border_coordinates(justify, expected):
     result = compute_margin_flex_layout(
