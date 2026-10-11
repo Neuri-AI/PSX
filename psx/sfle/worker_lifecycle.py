@@ -94,6 +94,7 @@ def start_native_worker_layout(
     on_finished: Callable[[LayoutResult | None, Exception | None], None],
     nodes_alive: Callable[[tuple[str, ...]], bool] | None = None,
     scroll_viewports: tuple[ScrollViewport, ...] = (),
+    scroll_content_root: Callable[[str], str | None] | None = None,
 ) -> NativeWorkerLayoutHandle:
     """Start real OS-worker computation, with *only* UI-owned native operations.
 
@@ -195,6 +196,7 @@ def start_native_worker_layout(
                     nodes_alive=nodes_alive or (lambda _: True),
                     apply_rectangles=apply_geometry,
                     read_rectangles=observed_geometry,
+                    scroll_content_root=scroll_content_root,
                 ),
                 scroll_viewports=scroll_viewports,
             )
