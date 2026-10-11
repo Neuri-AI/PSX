@@ -86,11 +86,11 @@ The seven normative F2 exit checks and same-commit CI must still pass
 before F2 is declared CLOSED. F3 remains renderer integration/migration,
 not a catch-all for unimplemented CSS features.
 
-## F3 — native SFLE integration and component coverage (planning)
+## F3 — native SFLE integration and component coverage (in progress)
 
 **Base:** `develop` at `979b6ed9e86c63b640d498439045910ed1a189aa`.
 **Feature branch:** [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
-**State:** planning documented; **F3-G1 through F3-G5 not yet closed**.
+**State:** G1 IN PROGRESS (G1.2 structural normalization GREEN on `3ac035b`); G2–G5 NOT STARTED; **0/5 official gates CLOSED**.
 [Read the full F3 implementation plan and mandatory G2 component matrix](architecture/sfle-f3-implementation.md).
 
 **G1:** public Flex contract + explicit Scroll content policy.
@@ -108,10 +108,7 @@ portable layout duplication and stale examples without compatibility shims.
 **CI and test execution policy (F3, mandatory):**
 [Smart CI selective routing and F2 workflow reuse](architecture/sfle-f3-ci-strategy.md).
 Documentation-only edits run **no product tests**; regular code changes
-run only impacted test suites and dependency consumers. The
-existing F2 `ci.yml` / `sfle-core.yml` change detectors currently
-do not gate expensive downstream jobs, so workflows still need
-real updates before selective CI can be called implemented.
+run only impacted test suites and dependency consumers. For F3 PRs into `develop`, `.github/workflows/f3-selective.yml` now routes impacted suites using `scripts/ci/impact.py`, with an exact-SHA aggregate status; F2 legacy workflows remain available for `main` and explicit manual use. Verified G1.2 [RED #38153047652](https://github.com/Neuri-AI/PSX/actions/runs/38153047652), [GREEN #38153141925](https://github.com/Neuri-AI/PSX/actions/runs/38153141925). Full G2/G5 certifications remain pending.
 Explicit G1–G5 closure requires each gate's complete criteria;
 G5's final certification intentionally runs all mandatory suites
 on a single immutable SHA. This improves routine CI efficiency
@@ -125,7 +122,7 @@ becomes F3 work.
 
 ## SFLE — official phase status (2026-10-11)
 
-**F1 CLOSED · F2 CLOSED (seven F1 §6 normative gates and all five workstreams certified; final documentation-only CI required) · F3 NOT STARTED.**
+**F1 CLOSED · F2 CLOSED (seven F1 §6 normative gates and all five workstreams certified; final documentation-only CI required) · F3 IN PROGRESS (G1, 0/5 CLOSED).**
 
 - [Formal F2 final exit certificate](architecture/sfle-f2-final-certification.md)
 - [F2 current implementation and normative exit ledger](architecture/sfle-f2-implementation.md)

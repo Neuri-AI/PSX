@@ -216,7 +216,7 @@ PR triggering all tests as the default daily development policy.
 
 ## 6. Enforceability and migration checklist for the next agent
 
-**This document does not implement CI optimization.** Before claiming
+**Historical bootstrap checklist (the selective CI is now implemented and verified).** Before claiming
 "intelligent CI enabled", the next agent must:
 
 - [ ] Introduce and unit-test a single source-of-truth change classifier
@@ -279,3 +279,10 @@ G1–G5 gate closeout, name every required run on the **same SHA**.
 closed. Existing F2 workflows are reused conceptually but retain the
 specific routing weaknesses documented in §2 until actual YAML/classifier
 implementation is committed and tested.
+
+
+## G1.2 proof and continued CI rules (2026-10-11)
+
+- The new `psx/core/layout_tree.py` and G1.2 cases in `tests/test_f3_flex_contract.py` are covered by the Core path classifier. RED case: [#38153047652](https://github.com/Neuri-AI/PSX/actions/runs/38153047652). GREEN: [#38153141925](https://github.com/Neuri-AI/PSX/actions/runs/38153141925) on source SHA `3ac035b58cc90a1f3f0f05223a881bb96ab0dc2a` (70 Core tests, aggregate successful).
+- G1.2 is an incremental structural contract, not full G1 acceptance; do not count G2/G3/G4/G5 as implemented.
+- The full-registry G2 census, per-backend operations matrix, all required Chromium/GUI/packaging subsets and single-SHA G5 certification are still formal future gates. The prior checklist is historical implementation guidance, not a claim that every checkbox is complete.

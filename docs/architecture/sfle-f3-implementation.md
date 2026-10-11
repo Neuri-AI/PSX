@@ -351,5 +351,13 @@ a compatibility alias for Row/Column, wrapper boxes added by normalization
 solely to make geometry pass, hidden 12-column system inserted in F3,
 or modifications to F2 precision/parity without independent RED evidence.
 
-**Current F3 progress: 0/5 gates closed. Smart CI policy is documented but workflow changes have not yet been implemented.** This document is the acceptance
+**Current F3 progress: 0/5 gates CLOSED. G1 IN PROGRESS (G1.2 structurally implemented and selectively certified); G2–G5 NOT STARTED. F3 change-aware CI is implemented and verified. See the G1.2 evidence section below.** This document is the acceptance
 specification only. Implementation and executable certification are separate.
+
+
+## G1.2 implemented evidence — 2026-10-11
+
+- **RED:** [`4468dba`](https://github.com/Neuri-AI/PSX/commit/4468dba644cdc22e38e4d11dc1e3d7a35330b177) added 12 intentionally failing normalization/Scroll cases while 58 prior Core cases passed; [RED CI #38153047652](https://github.com/Neuri-AI/PSX/actions/runs/38153047652).
+- **GREEN:** [`3ac035b`](https://github.com/Neuri-AI/PSX/commit/3ac035b58cc90a1f3f0f05223a881bb96ab0dc2a) added `psx/core/layout_tree.py` with immutable declarative normalization: transparent fragment and resolved-function-component boundaries, stable keyed paths, no synthetic visible boxes and a unique explicit `Flex` content root per Scroll viewport. Components are **not** invoked inside normalization; G2 will provide their already-rendered roots from the reconciler.
+- **Tests:** `tests/test_f3_flex_contract.py` now covers Markup/builder equivalence, nested Flex, preserved boundaries, reorder identity, unresolved components, Scroll roots, nested Scroll and duplicate-key errors. [GREEN CI #38153141925](https://github.com/Neuri-AI/PSX/actions/runs/38153141925) certified SHA `3ac035b` (70 Core tests, all selected CI jobs green; G4 legacy removal deliberately not selected).
+- **Remaining G1:** classify/enforce shared Flex item metadata on ordinary controls (not only Flex itself), complete negative markup/normalization cases and the full G1 gate. The normalizer is a preparatory contract, **not** evidence of production Qt/Kivy/Tk/Headless SFLE integration or completed Scroll migration; G2/G3 remain pending.
