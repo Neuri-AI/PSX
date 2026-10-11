@@ -219,6 +219,11 @@ def _subtract_units(value: float, deductions: Iterable[float]) -> float:
     return total.to_px()
 
 
+def _percent_used_dimension(value: float, reference: float) -> float:
+    """Floor CSS used percentage sizes to Chromium's 1/64px grid."""
+    return LayoutUnit.from_floor(math.nextafter(value * reference, math.inf)).to_px()
+
+
 def _percent_flex_basis_used(value: float, reference: float) -> float:
     """Percent flex base is floored when resolving the basis (Blink)."""
     return LayoutUnit.from_floor(value * reference).to_px()
@@ -333,7 +338,7 @@ def _axis_value(length: Length, reference: float | None, *,
     if length.kind == LengthKind.PERCENT:
         if reference is not None:
             assert length.value is not None
-            return _layout_unit(length.value * reference)
+            return _percent_used_dimension(length.value, reference)
         # A percentage whose containing axis is intrinsically indefinite has
         # no used numeric value in this phase.  Flex intrinsic sizing treats
         # it as auto/content rather than fabricating zero; once a definite
@@ -654,7 +659,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 return _layout_unit(length.value)
             if length.kind == LengthKind.PERCENT and reference is not None:
                 assert length.value is not None
-                return _layout_unit(length.value * reference)
+                return _percent_used_dimension(length.value, reference)
             return None
 
         cap = bound(maximum)
@@ -863,7 +868,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 if specified is not None:
                     minimum = min(minimum, specified)
             elif min_length.kind == LengthKind.PERCENT and main_reference is not None:
-                minimum = _layout_unit(min_length.value * main_reference)
+                minimum = _percent_used_dimension(min_length.value, main_reference)
             elif min_length.kind == LengthKind.PERCENT:
                 # CSS min-size percentages without a definite containing
                 # axis remain automatic during intrinsic flex sizing.
@@ -878,7 +883,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             elif max_length.kind == LengthKind.AUTO:
                 maximum = None
             elif max_length.kind == LengthKind.PERCENT and main_reference is not None:
-                maximum = _layout_unit(max_length.value * main_reference)
+                maximum = _percent_used_dimension(max_length.value, main_reference)
             elif max_length.kind == LengthKind.PERCENT:
                 # An indefinite percentage maximum is not a numeric cap in
                 # this intrinsic pass; retain the CSS unconstrained branch.

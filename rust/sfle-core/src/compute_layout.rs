@@ -253,6 +253,13 @@ fn subtract_units(value: f64, deductions: impl IntoIterator<Item=f64>) -> f64 {
         |total, deduction| total - LayoutUnit::from_nearest(deduction).expect("Finite used geometry")
     ).to_px()
 }
+fn percent_used_dimension(fraction:f64,reference:f64)->f64 {
+    let value=fraction*reference;
+    let stable=if value.is_finite()&&value>=0.0 {
+        f64::from_bits(value.to_bits()+1)
+    } else {value};
+    LayoutUnit::from_floor(stable).expect("prevalidated finite CSS percentage").to_px()
+}
 fn percent_flex_basis_used(fraction:f64,reference:f64)->f64 {
     LayoutUnit::from_floor(fraction*reference)
         .expect("SFLE prevalidated finite percentage").to_px()
@@ -347,7 +354,7 @@ fn resolved(v:Length, reference:Option<f64>, _vertical:bool, _id:&str)->Result<O
     match v {
         Length::Auto|Length::MinContent|Length::MaxContent=>Ok(None),
         Length::Px(n)=>Ok(Some(n)),
-        Length::Percent(p) if reference.is_some()=>Ok(Some(layout_unit(p*reference.unwrap()))),
+        Length::Percent(p) if reference.is_some()=>Ok(Some(percent_used_dimension(p,reference.unwrap()))),
         // An intrinsically indefinite percentage has no used numeric value
         // in this phase. Flex sizing uses the auto/content branch and calls
         // this again after the containing axis becomes definite.
@@ -424,7 +431,7 @@ fn bounded_intrinsic(style:Style,h:bool,mut value:f64,reference:Option<f64>)->f6
     let minimum=if h{style.min_width}else{style.min_height};
     let bound=|v:Length|match v {
         Length::Px(n)=>Some(layout_unit(n)),
-        Length::Percent(p)=>reference.map(|r|layout_unit(p*r)),
+        Length::Percent(p)=>reference.map(|r|percent_used_dimension(p,r)),
         Length::Auto|Length::MinContent|Length::MaxContent=>None,
     };
     if let Some(cap)=bound(maximum){value=value.min(cap);}
@@ -623,7 +630,7 @@ impl Context<'_>{
                     }
                     resolved(axis,main_reference,!row,child_id)?.map_or(content,|n|content.min(n))
                 },
-                Length::Percent(p) if main_reference.is_some()=>layout_unit(p*main_reference.unwrap()),
+                Length::Percent(p) if main_reference.is_some()=>percent_used_dimension(p,main_reference.unwrap()),
                 Length::Percent(_)=>{
                     let mut content=if child_style.scroll_container {0.0}
                         else {self.intrinsic_contribution(child,row,true)?};
@@ -640,7 +647,7 @@ impl Context<'_>{
             };
             let mut maximum=match if row{child_style.max_width}else{child_style.max_height}{
                 Length::Px(n)=>Some(n),Length::Auto=>None,
-                Length::Percent(p) if main_reference.is_some()=>Some(layout_unit(p*main_reference.unwrap())),
+                Length::Percent(p) if main_reference.is_some()=>Some(percent_used_dimension(p,main_reference.unwrap())),
                 Length::Percent(_)=>None,
                 Length::MinContent|Length::MaxContent=>{
                     return Err(unsupported("Intrinsic max-size keyword not yet certified.",child_id));
