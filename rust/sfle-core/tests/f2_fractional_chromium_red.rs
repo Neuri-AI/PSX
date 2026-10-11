@@ -23,3 +23,19 @@ fn f02_flex_remainder_and_position_match_chromium() {
             "F02 {node}.{axis} Chromium {expected}, Rust {actual}");
     }
 }
+
+#[test]
+fn f04_f05_reverse_flex_remainder_matches_chromium() {
+    for id in ["F04", "F05"] {
+        let (case, snapshot) = common::fixture(id);
+        let result = compute(&snapshot).expect("Rust pure geometry must produce F04/F05");
+        for (key, value) in case["expected"].as_object().unwrap() {
+            let (node, axis) = key.split_once('.').unwrap();
+            let box_ = result.boxes.iter().find(|b| b.node_id == node).unwrap();
+            let actual = if axis == "width" {box_.content.width} else {box_.content.x};
+            let expected = value.as_f64().unwrap();
+            assert!((actual - expected).abs() <= 0.01,
+                "{id} {key}: Chromium {expected}, Rust {actual}");
+        }
+    }
+}
