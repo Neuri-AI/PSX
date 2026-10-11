@@ -1,6 +1,6 @@
 # SFLE F2 — consolidated implementation and acceptance register
 
-> **Single current status table** as of 2026-10-10. Verified code baseline: `387ab3b7fa69afcd85a77b8f6239e270b5024228` on `feat/sfle-f2-core`, PR #11.  
+> **Single current status table** as of 2026-10-10. Verified code baseline: `5cbb690ac156c881a35ecf243e98e654648a6669` on `feat/sfle-f2-core`, PR #11.  
 > **F2 is NOT complete and the public SFLE capability manifest remains CLOSED.** Numerical success of a restricted fixture is not evidence that the whole CSS feature is supported. No historical 4/8 or 5/8 progress counts are accepted.
 
 ## 1. Normative authority and scope
@@ -29,8 +29,8 @@ Meaning of **test PASS**: the named test actually ran and passed in the referenc
 | **C04** | Intrinsic percentage gap contributes **0px**, final used gap **4px**, second child **x=24px** | **PASS** real compute corpus | **PASS** real Rust compute corpus | **PASS** differential + `test_sfle_f2_css_reference_matrix.py[C04]` | **PASS listed scenario**; additional intrinsic phase probes pending |
 | **C05** | Auto ancestor with percent child height: measured parent and child **30px** | **PASS** real compute corpus | **PASS** real Rust compute corpus | **PASS** differential + `test_sfle_f2_css_reference_matrix.py[C05]` | **PASS listed context**; unlisted nested dependencies must fail closed |
 | **C06** | Percentage padding-top 10% of containing inline 400px = **40px** | **PASS** real compute corpus | **PASS** real Rust compute corpus | **PASS** differential + `test_sfle_f2_css_reference_matrix.py[C06]` | **PASS listed scenario**; more edge combination coverage pending |
-| **C99** | Explicitly reject unsupported multi-node percent cycle with `SFLE_UNSUPPORTED_FEATURE`, node `a`; supported A01 never raises that generic error | **PASS** paired C99 positive/negative tests | **PASS** paired Rust C99 tests | **PASS** differential diagnostic parity; **N01–N03** distinct negative patterns are also executed | **PASS four known negative classes**, but no proof yet that **all** unlisted cyclic percentage graphs are rejected |
-| **N01–N03** | Three unsupported indefinite percentage references: inline width, percent minimum, and nested column percent-basis/descendant cycle | **PASS** each separate `test_f2_n0*_cycle_red.py` | **PASS** each separate `f2_n0*_cycle_red.rs` | **PASS** differential matching error code, node identity and cycle kind | **PASS three tested rejection patterns**, exhaustive rejection remains an explicit open gate |
+| **C99** | Explicitly reject unsupported multi-node percent cycle with `SFLE_UNSUPPORTED_FEATURE`, node `a`; supported A01 never raises that generic error | **PASS** paired C99 positive/negative tests | **PASS** paired Rust C99 tests | **PASS** differential diagnostic parity; **N01–N03** distinct negative patterns are also executed | **PASS five tested negative classes (C99, N01–N04)**; exhaustive unlisted cyclic graph policy remains OPEN |
+| **N01–N04** | Four unsupported indefinite percentage references: inline width, percent minimum, nested column percent-basis/descendant cycle, and unmeasured block-axis percentage | **PASS** each separate `test_f2_n0*_cycle_red.py` | **PASS** each separate `f2_n0*_cycle_red.rs` | **PASS** differential matching error code, node identity and cycle kind | **PASS four tested rejection patterns**, exhaustive rejection remains an explicit open gate |
 
 **The public alpha capability manifest remains CLOSED.** Passing individual numeric scenarios does not certify every value in a CSS feature family. Required remaining work includes native toolkit integration, exhaustive negative cycle classification and cross-platform wheel builds.
 
@@ -73,6 +73,20 @@ The two RED tests were committed **independently** before `psx/sfle/live_lifecyc
 - **Not yet complete:** no dedicated concrete `QtActiveLayoutAdapter` composing `QtMeasurementSource` and `NativeGeometryCommitter`; A01/A05 still need Qt-specific active text cases; Kivy, Tk and Headless still need adapter contract verification.
 
 Fuzzing differential, comprehensive cycle-rejection testing, Windows/macOS/frozen wheels, integrated A07 oscillation and A09 reverse/wrap 0.01px matrix have **not** been run in this increment. Their RED commit and CI evidence remain mandatory before work on those blocks is considered done.
+
+### 2026-10-10 — seeded Chromium differential and fail-closed N04 (current)
+
+**Seed:** `0x5F1E2026` (`1595809830`); **24** generated shallow flex trees, with width percentages, auto basis, grow/shrink, percentage/px gap, and percentage/px padding. Strict acceptance: both engine border rectangles match *independent* headless Chromium to **0.01 CSS px** or **both** reject as `SFLE_UNSUPPORTED_FEATURE` with the same node and cycle class. This generator is deterministic, not yet exhaustive or property-based.
+
+**RED:** [Chromium 38099822056](https://github.com/Neuri-AI/PSX/actions/runs/38099822056) reported **23 matched, 0 rejected, 1 silent discrepancy** (case 09, node `n2.x`, Python 67.2 vs Chromium 67.1875, absolute error 0.0125px). The test was **not** xfailed or relaxed. The correction quantizes resolved percentage gaps **per CSS used-value step** at 1/64 CSS px in both engines before position accumulation (Python `0351ec7a`, Rust `60b79ce9`).
+
+**GREEN:** [Chromium 38100029391](https://github.com/Neuri-AI/PSX/actions/runs/38100029391), **49 passed**, including the 24 seeded cases and summary assertion: **24 matched, 0 rejected, 0 silent discrepancies**. The numerical tolerance remains **0.01px**. These 24 tests exercise only *definite containing blocks*. Their 0 rejections do **not** prove the indefinite-percentage fail-closed policy.
+
+**New negative class N04:** A percentage block-height under an auto-height parent without intrinsic measurement previously became zero silently. N04 has a shared corpus definition and **separate Python/Rust RED commits** `27c77dc3` and `70c448e6`. RED was observed at [SFLE 38099971732](https://github.com/Neuri-AI/PSX/actions/runs/38099971732) (the differential N04 test failed because compute silently succeeded). Python `295df578` and Rust `5cbb690a` now reject this *specific* dependency with `SFLE_UNSUPPORTED_FEATURE`, node `child`, and classified reason. [SFLE 38100029417](https://github.com/Neuri-AI/PSX/actions/runs/38100029417) passed afterward. **Known negative classes: C99 and N01–N04**. This is *not* proof that every unlisted indefinite percentage graph is caught.
+
+**Qt regression checks:** `test_f2_qt_worker_ui_thread_red.py` rejects an attempt to invoke the synchronous native-measurement lifecycle on a worker; all real widget measurements remain UI-thread-only. `test_f2_a04_qt_real_wrap_red.py` fixes DejaVu Sans Mono at 10 logical pixels and checks exactly two width-dependent measurements and `geometry_commit_error == approx(0, abs=1.0)`; A06 also uses deterministic Qt font. **Important:** the positive design in which computation runs on a background worker while UI measurement requests are *dispatched* to the Qt event loop is **not yet implemented**. The test above is a negative thread-affinity guard, not positive evidence of split-thread production scheduling.
+
+**Still open, in priority order:** exhaustive positive/negative classification for indefinite percentages beyond C99/N01–N04; Qt worker-compute → UI-thread measurement dispatch with generation-safe one-shot commit; Kivy, Tk and Headless adapter parity; Windows/macOS/frozen native wheels; real coordinator A07 oscillation; and full A09 reverse/wrap Chromium grid. No public component, alpha capability manifest or Row/Column/Scroll API changed.
 
 ## 5. Explicit deferred-feature register
 
