@@ -1,0 +1,51 @@
+[
+  {"id":"recursive-row-minimum", "nodes":[
+    {"node_id":"root","parent_id":null,"style":{"width":40,"align_items":"flex-start"}},
+    {"node_id":"inner","parent_id":"root","style":{"align_items":"flex-start"}},
+    {"node_id":"a","parent_id":"inner","style":{"width":30,"height":10}},
+    {"node_id":"b","parent_id":"inner","style":{"width":20,"height":10}}
+  ],"expected":{"root":{"width":40},"inner":{"width":50},"b":{"x":30}}},
+  {"id":"orthogonal-recursive-minimum", "nodes":[
+    {"node_id":"root","parent_id":null,"style":{"width":40,"align_items":"flex-start"}},
+    {"node_id":"column","parent_id":"root","style":{"direction":"column","align_items":"flex-start"}},
+    {"node_id":"row","parent_id":"column","style":{"align_items":"flex-start"}},
+    {"node_id":"a","parent_id":"row","style":{"width":30,"height":10}},
+    {"node_id":"b","parent_id":"row","style":{"width":20,"height":10}}
+  ],"expected":{"column":{"width":50},"row":{"width":50},"b":{"x":30}}},
+  {"id":"automatic-minimum-specified-cap", "nodes":[
+    {"node_id":"root","parent_id":null,"style":{"width":20}},
+    {"node_id":"a","parent_id":"root","style":{"width":30,"height":10}}
+  ],"measurements":[{"node_id":"a","intrinsic":{"min_content_width":80,"max_content_width":100,"preferred_width":100,"min_content_height":10,"max_content_height":10,"preferred_height":10,"baseline":null}}],
+  "expected":{"a":{"width":30}}},
+  {"id":"automatic-minimum-maximum-cap", "nodes":[
+    {"node_id":"root","parent_id":null,"style":{"width":20}},
+    {"node_id":"a","parent_id":"root","style":{"max_width":40,"height":10}}
+  ],"measurements":[{"node_id":"a","intrinsic":{"min_content_width":80,"max_content_width":100,"preferred_width":100,"min_content_height":10,"max_content_height":10,"preferred_height":10,"baseline":null}}],
+  "expected":{"a":{"width":40}}},
+  {"id":"intrinsic-quantized-edge-sum", "nodes":[
+    {"node_id":"root","parent_id":null,"style":{"align_items":"flex-start"}},
+    {"node_id":"a","parent_id":"root","style":{"width":0.02,"height":1}},
+    {"node_id":"b","parent_id":"root","style":{"width":0.02,"height":1}},
+    {"node_id":"c","parent_id":"root","style":{"width":0.02,"height":1}}
+  ],"expected":{"root":{"width":0.046875},"c":{"x":0.03125}}},
+  {"id":"wrap-grow-per-line-auto-height", "nodes":[
+    {"node_id":"root","parent_id":null,"style":{"width":100,"wrap":"wrap","align_items":"flex-start","row_gap":5}},
+    {"node_id":"a","parent_id":"root","style":{"flex_basis":60,"flex_grow":1,"min_width":0,"height":10}},
+    {"node_id":"b","parent_id":"root","style":{"flex_basis":60,"flex_grow":1,"min_width":0,"height":20}}
+  ],"expected":{"root":{"height":35},"a":{"width":100},"b":{"width":100,"y":15}}},
+  {"id":"auto-parent-max-width-wrap", "nodes":[
+    {"node_id":"root","parent_id":null,"style":{"max_width":100,"wrap":"wrap","align_items":"flex-start"}},
+    {"node_id":"a","parent_id":"root","style":{"width":60,"height":10,"flex_shrink":0}},
+    {"node_id":"b","parent_id":"root","style":{"width":60,"height":20,"flex_shrink":0}}
+  ],"expected":{"root":{"width":100,"height":30},"b":{"y":10}}},
+  {"id":"wrap-column-grow-per-line", "nodes":[
+    {"node_id":"root","parent_id":null,"style":{"width":40,"height":100,"direction":"column","wrap":"wrap","align_items":"flex-start","align_content":"flex-start"}},
+    {"node_id":"a","parent_id":"root","style":{"flex_basis":60,"flex_grow":1,"min_height":0,"width":10}},
+    {"node_id":"b","parent_id":"root","style":{"flex_basis":60,"flex_grow":1,"min_height":0,"width":20}}
+  ],"expected":{"a":{"height":100},"b":{"height":100,"x":10,"y":0}}},
+  {"id":"wrap-fixed-margin-reservation", "nodes":[
+    {"node_id":"root","parent_id":null,"style":{"width":100,"wrap":"wrap","align_items":"flex-start"}},
+    {"node_id":"a","parent_id":"root","style":{"flex_basis":50,"flex_grow":1,"min_width":0,"height":10,"layout_margin_left":10}},
+    {"node_id":"b","parent_id":"root","style":{"flex_basis":50,"flex_grow":1,"min_width":0,"height":10,"layout_margin_left":10}}
+  ],"expected":{"root":{"height":20},"a":{"width":90,"x":10},"b":{"width":90,"x":10,"y":10}}}
+]
