@@ -131,7 +131,9 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         )):
             raise SFLEError(
                 DiagnosticCode.LAYOUT_CONSTRAINT,
-                "Kivy root host dimensions must match SFLE root; update the viewport.",
+                f"Kivy root host dimensions must match SFLE root; "
+                f"host=({host.width},{host.height}), "
+                f"SFLE=({root_rect.width},{root_rect.height}).",
                 root_id,
             )
         nodes = tuple(
