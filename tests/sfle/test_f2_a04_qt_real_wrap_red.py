@@ -49,7 +49,22 @@ def test_A04_qt_real_wrap_measures_twice_and_commits_final_geometry():
         assert calls[0][1]>calls[1][1]
         assert len(commits)==1
         assert label.geometry().height()==pytest.approx(calls[-1][1],abs=1)
-        assert result.geometry_commit_error==pytest.approx(0.0,abs=1.0), "Qt native integer pixel geometry tolerance"
+        assert result.geometry_commit_error is not None, "Native geometry was observed, not inferred"
+        assert 0.0 <= result.geometry_commit_error <= 1.0, (
+            f"D-F1.11 Qt geometry_commit_error={result.geometry_commit_error}px"
+        )
+        assert result.measurement_error is None, "No independent browser intrinsic oracle here"
+        assert result.engine_error is None, "No independent Chromium geometry oracle here"
+        committed = dict(result.boxes)["text"].border
+        observed_rect = label.geometry()
+        for axis, expected, applied in (
+            ("x", committed.x, observed_rect.x()),
+            ("y", committed.y, observed_rect.y()),
+            ("width", committed.width, observed_rect.width()),
+            ("height", committed.height, observed_rect.height()),
+        ):
+            assert abs(expected - applied) <= 1.0, f"Qt {axis}: engine={expected}, native={applied}"
+
     finally:
         label.deleteLater()
         parent.deleteLater()
