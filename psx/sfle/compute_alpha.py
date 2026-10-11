@@ -326,7 +326,9 @@ def _axis_value(length: Length, reference: float | None, *,
     if length.kind == LengthKind.PX:
         assert length.value is not None
         return length.value
-    if length.kind == LengthKind.AUTO:
+    if length.kind in (LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT):
+        # Explicit intrinsic keywords are resolved through preferred() using
+        # host-provided min/max metrics, not through available-space hints.
         return None
     if length.kind == LengthKind.PERCENT:
         if reference is not None:
@@ -623,11 +625,16 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         if length.kind == LengthKind.PX:
             assert length.value is not None
             return bounded_intrinsic(style, horizontal, length.value)
+        requested_minimum = minimum or length.kind == LengthKind.MIN_CONTENT
+        if length.kind == LengthKind.MAX_CONTENT:
+            requested_minimum = False
         metric = measures.get(node_id)
         if not children[node_id]:
             if metric is not None:
-                if minimum:
+                if requested_minimum:
                     value = metric.intrinsic.min_content_width if horizontal else metric.intrinsic.min_content_height
+                elif length.kind == LengthKind.MAX_CONTENT:
+                    value = metric.intrinsic.max_content_width if horizontal else metric.intrinsic.max_content_height
                 else:
                     value = metric.intrinsic.preferred_width if horizontal else metric.intrinsic.preferred_height
                 return bounded_intrinsic(style, horizontal, value)
@@ -656,7 +663,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                     # establishing intrinsic size; _padding resolves it from
                     # the used container inline size in the geometry phase.
                     continue
-            contribution = preferred(child, horizontal, minimum)
+            contribution = preferred(child, horizontal, requested_minimum)
             if is_row == horizontal:
                 basis = child_style.flex_basis
                 base = basis.value if basis.kind == LengthKind.PX else preferred(child, horizontal)
@@ -672,7 +679,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 edge.value for edge in margin_edges if edge.kind == LengthKind.PX
             ))))
         if is_row == horizontal:
-            if minimum and style.wrap != FlexWrap.NOWRAP:
+            if requested_minimum and style.wrap != FlexWrap.NOWRAP:
                 return bounded_intrinsic(style, horizontal, max(contributions, default=0.0))
             gap_length = style.column_gap if is_row else style.row_gap
             gap = _layout_unit(_intrinsic_gap(gap_length, node_id))
@@ -741,9 +748,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         # Intrinsically auto-sized main axes are NOT percentage-definite simply
         # because the intrinsic phase produced a finite provisional number.
         main_reference = main_size
-        if horizontal and style.width.kind == LengthKind.AUTO and forced_width is None:
+        if horizontal and style.width.kind in (LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT) and forced_width is None:
             main_reference = None
-        if not horizontal and style.height.kind == LengthKind.AUTO and forced_height is None:
+        if not horizontal and style.height.kind in (LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT) and forced_height is None:
             main_reference = None
 
         bases = []
@@ -784,6 +791,15 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 desired = basis.value
             elif basis.kind == LengthKind.PERCENT:
                 desired = _percent_flex_basis_used(basis.value, main_reference) if main_reference is not None else preferred(child_id, horizontal)
+            elif basis.kind in (LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT):
+                if child_id not in measures and not children[child_id]:
+                    raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                                    "Intrinsic flex basis requires measured leaf content.", child_id)
+                if child_id in measures and not children[child_id]:
+                    intrinsic = measures[child_id].intrinsic
+                    desired = (intrinsic.min_content_width if horizontal else intrinsic.min_content_height) if basis.kind == LengthKind.MIN_CONTENT else (intrinsic.max_content_width if horizontal else intrinsic.max_content_height)
+                else:
+                    desired = preferred(child_id, horizontal, basis.kind == LengthKind.MIN_CONTENT)
             else:
                 raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unsupported flex basis keyword.", child_id)
             assert desired is not None
@@ -930,9 +946,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
     root_height = _axis_value(root_style.height,
         request.constraints.height.value if request.constraints.height.definite else None,
         axis="height",node_id=root)
-    if root_width is None and request.constraints.width.definite:
+    if root_width is None and root_style.width.kind == LengthKind.AUTO and request.constraints.width.definite:
         root_width = request.constraints.width.value
-    if root_height is None and request.constraints.height.definite:
+    if root_height is None and root_style.height.kind == LengthKind.AUTO and request.constraints.height.definite:
         root_height = request.constraints.height.value
     layout(root,root_width,root_height,None,None)
 
