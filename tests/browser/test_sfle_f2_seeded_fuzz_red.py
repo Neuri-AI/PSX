@@ -22,7 +22,7 @@ from psx.sfle.lengths import parse_length
 from psx.sfle.errors import SFLEError,DiagnosticCode
 
 SEED=0x5F1E2026
-COUNT=24
+COUNT=100
 TOLERANCE=0.01
 FUZZ_STATUS={}
 
@@ -30,16 +30,16 @@ FUZZ_STATUS={}
 def fuzz_cases():
     rng=random.Random(SEED)
     for index in range(COUNT):
-        width=rng.choice([96,120,160,200])
-        gap=rng.choice(["0px","4px","10%"])
-        n=rng.choice([2,3])
+        width=rng.choice([96,120,160,200,240,320])
+        gap=rng.choice(["0px","4px","10%","5%","8px"])
+        n=rng.choice([1,2,3,4])
         items=[]
         for i in range(n):
-            basis=rng.choice(["20px","30px","25%","auto"])
-            specified=rng.choice(["20px","30px","25%"])
+            basis=rng.choice(["20px","30px","25%","auto","40%"])
+            specified=rng.choice(["20px","30px","25%","auto"])
             grow=rng.choice([0,1,2])
             shrink=rng.choice([0,1])
-            pad=rng.choice(["0px","4px","10%"])
+            pad=rng.choice(["0px","4px","10%","5%"])
             items.append(dict(basis=basis,width=specified,grow=grow,shrink=shrink,pad=pad))
         yield index,width,gap,items
 
