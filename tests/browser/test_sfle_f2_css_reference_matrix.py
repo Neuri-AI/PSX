@@ -27,6 +27,17 @@ _HTML={
     "C04":'<div id="root" style="display:inline-flex;width:auto;column-gap:10%"><div id="a" style="flex:0 0 20px;height:10px"></div><div id="b" style="flex:0 0 20px;height:10px"></div></div>',
     "C05":'<div id="root" style="display:flex;width:120px;height:auto"><div id="child" style="height:50%;min-height:0"><div style="height:30px"></div></div></div>',
     "C06":'<div id="root" style="display:flex;width:400px;height:100px"><div id="child" style="padding-top:10%;box-sizing:content-box"></div></div>',
+    # Fractional acceptance cases match the fixed snapshots F01 and F02.
+    "F01":'<div id="root" style="display:flex;width:96px;height:60px;column-gap:4px;align-items:flex-start">'
+          '<div id="n0" style="width:30px;height:20px;flex:0 0 auto;min-width:0;padding-top:5%;box-sizing:content-box"></div>'
+          '<div id="n1" style="width:30px;height:20px;flex:0 0 40%;min-width:0;padding-top:5%;box-sizing:content-box"></div>'
+          '<div id="n2" style="width:25%;height:20px;flex:0 0 20px;min-width:0;padding-top:10%;box-sizing:content-box"></div>'
+          '</div>',
+    "F02":'<div id="root" style="display:flex;width:96px;height:60px;column-gap:10%;align-items:flex-start">'
+          '<div id="n0" style="width:20px;height:20px;flex:2 1 20px;min-width:0;padding-top:10%;box-sizing:content-box"></div>'
+          '<div id="n1" style="width:auto;height:20px;flex:2 1 30px;min-width:0;padding-top:10%;box-sizing:content-box"></div>'
+          '<div id="n2" style="width:20px;height:20px;flex:2 1 auto;min-width:0;padding-top:0px;box-sizing:content-box"></div>'
+          '</div>',
 }
 
 
