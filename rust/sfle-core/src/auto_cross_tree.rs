@@ -42,6 +42,13 @@ pub fn compute_auto_cross_tree(
         if children[node.id.as_str()].is_empty() {
             return Err(FlexMathError::InvalidInput("auto cross requires nonempty container"));
         }
+        // The bounded helper cannot certify wrapped auto cross without
+        // recursive measurement. Do not synthesize a final used size here.
+        if node.wrap != Wrap::NoWrap {
+            return Err(FlexMathError::InvalidInput(
+                "wrapped auto cross requires recursive measurement",
+            ));
+        }
         let is_horizontal = horizontal(node.direction);
         // A column's auto main height can be the cross contribution of
         // its row parent (A01). Select the axis required by that parent,

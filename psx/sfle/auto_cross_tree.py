@@ -42,6 +42,15 @@ def compute_auto_cross_tree(
             continue
         if not parents[node.node_id]:
             raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Auto cross requires a nonempty container.")
+        # This isolated helper has no wrap-specific intrinsic/remeasurement
+        # contract; an apparent line extent must not be mistaken for a
+        # certified auto cross contribution. The full engine handles wrap.
+        if node.wrap != FlexWrap.NOWRAP:
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Wrapped auto cross requires the recursive measurement stage.",
+                node.node_id,
+            )
         horizontal = node.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
         # A descendant can be orthogonal to its parent: the parent's
         # auto cross contribution may be the child's *main* dimension.
