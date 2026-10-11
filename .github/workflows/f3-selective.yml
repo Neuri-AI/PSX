@@ -1,0 +1,268 @@
+name: F3 selective validation
+
+on:
+  pull_request:
+    branches: [develop]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    name: F3 classify full PR diff
+    runs-on: ubuntu-latest
+    outputs:
+      router: "${{ steps.select.outputs.router }}"
+      core: "${{ steps.select.outputs.core }}"
+      sfle: "${{ steps.select.outputs.sfle }}"
+      rust: "${{ steps.select.outputs.rust }}"
+      chromium: "${{ steps.select.outputs.chromium }}"
+      qt: "${{ steps.select.outputs.qt }}"
+      kivy: "${{ steps.select.outputs.kivy }}"
+      tkinter: "${{ steps.select.outputs.tkinter }}"
+      headless: "${{ steps.select.outputs.headless }}"
+      native: "${{ steps.select.outputs.native }}"
+      legacy: "${{ steps.select.outputs.legacy }}"
+      full: "${{ steps.select.outputs.full }}"
+      docs_only: "${{ steps.select.outputs.docs_only }}"
+      selected: "${{ steps.select.outputs.selected }}"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read complete changed paths (including rename sources)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let changed = [];
+            if (context.eventName === 'pull_request') {
+              try {
+                const files = await github.paginate(github.rest.pulls.listFiles, {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: context.issue.number,
+                  per_page: 100,
+                });
+                // The API caps this list at 3000 changed files.
+                // Fail open rather than trust an incomplete diff.
+                if (files.length >= 3000) {
+                  core.warning('Large PR exceeds complete file inventory; select all checks.');
+                } else {
+                  changed = files.flatMap(file =>
+                    [file.filename, file.previous_filename].filter(Boolean));
+                }
+              } catch (error) {
+                core.warning('Cannot classify PR safely: ' + error.message);
+                changed = [];
+              }
+            }
+            fs.writeFileSync('f3-changed-files.json', JSON.stringify(changed));
+      - name: Select impacted suites; fail open on missing diff
+        id: select
+        env:
+          F3_FULL: "${{ github.event_name == 'workflow_dispatch' }}"
+        shell: bash
+        run: |
+          args=()
+          if [[ "$F3_FULL" == "true" ]]; then args+=(--full); fi
+          python scripts/ci/impact.py --changed-json f3-changed-files.json --github-output "$GITHUB_OUTPUT" "${args[@]}"
+      - name: Explain CI selection
+        run: |
+          echo "Selected checks: ${{ steps.select.outputs.selected }}"
+          echo "Docs-only: ${{ steps.select.outputs.docs_only }}"
+          echo "Full certification: ${{ steps.select.outputs.full }}"
+
+  selector-tests:
+    name: F3 change-router regression
+    needs: changes
+    if: needs.changes.outputs.router == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify zero-doc and dependency-aware routing
+        run: python -m unittest discover -s tests -p test_ci_impact.py -v
+
+  core:
+    name: F3 core and registry
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e . pytest
+      - run: python -m pytest -q tests/test_core.py tests/test_component_contracts.py tests/test_component_registry.py tests/test_markup_registry.py tests/test_markup.py tests/test_hooks_scheduler.py tests/test_renderer_adapters.py
+
+  sfle:
+    name: F3 SFLE geometry contracts
+    needs: changes
+    if: needs.changes.outputs.sfle == 'true'
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Qt offscreen libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - run: python -m pip install -e '.[qt]' pytest
+      - run: python -m pytest -q -rs tests/sfle
+
+  rust:
+    name: F3 Rust and Python differential
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --manifest-path rust/sfle-core/Cargo.toml --all-targets
+      - run: python -m pip install -e . pytest
+      - name: Rust/Python capability and geometry agreement
+        run: python -m pytest -q tests/interop/test_sfle_f2_differential.py tests/interop/test_sfle_f2_point2_capability_parity.py tests/interop/test_sfle_f2_point5_deferral_boundaries.py
+
+  chromium:
+    name: F3 browser geometry oracle
+    needs: changes
+    if: needs.changes.outputs.chromium == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python -m pip install -e . pytest playwright==1.63.0
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m pytest -q tests/browser/test_sfle_chromium.py tests/browser/test_sfle_f2_engine_chromium.py tests/browser/test_sfle_f2_headless_oracle.py tests/browser/test_sfle_f2_seeded_fuzz_red.py
+
+  qt:
+    name: F3 Qt native components
+    needs: changes
+    if: needs.changes.outputs.qt == 'true'
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - run: python -m pip install -e '.[qt]' pytest
+      - run: python -m pytest -q tests/test_pyside6_renderer.py tests/sfle/test_qt_native_lifecycle.py
+
+  kivy:
+    name: F3 Kivy native components
+    needs: changes
+    if: needs.changes.outputs.kivy == 'true'
+    runs-on: ubuntu-latest
+    env:
+      KIVY_NO_ARGS: "1"
+      KIVY_NO_CONSOLELOG: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth libmtdev1 libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-ttf-2.0-0
+      - run: python -m pip install -e '.[kivy]' pytest
+      - run: xvfb-run -a python -m pytest -q tests/test_kivy_renderer.py
+
+  tkinter:
+    name: F3 Tkinter native components
+    needs: changes
+    if: needs.changes.outputs.tkinter == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth python3-tk
+      - run: python -m pip install -e . pytest
+      - run: xvfb-run -a python -m pytest -q tests/test_tkinter_renderer.py
+
+  headless:
+    name: F3 deterministic Headless
+    needs: changes
+    if: needs.changes.outputs.headless == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e . pytest
+      - run: python -m pytest -q tests/test_core.py tests/test_renderer_adapters.py
+
+  native:
+    name: F3 native ABI, Windows and macOS
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
+    uses: ./.github/workflows/sfle-native-matrix.yml
+
+  summary:
+    name: F3 required CI conclusion
+    needs: [changes, selector-tests, core, sfle, rust, chromium, qt, kivy, tkinter, headless, native]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure every selected job succeeded
+        env:
+          CHANGE_RESULT: "${{ needs.changes.result }}"
+          SELECTED: "${{ needs.changes.outputs.selected }}"
+          RESULTS: "${{ toJSON(needs) }}"
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["RESULTS"])
+          if os.environ["CHANGE_RESULT"] != "success":
+              sys.exit("Change router did not succeed; CI cannot be certified.")
+          selected = {x for x in os.environ["SELECTED"].split(",") if x}
+          aliases = {"router": "selector-tests"}
+          failures = []
+          for suite in selected:
+              job = aliases.get(suite, suite)
+              if job == "legacy":
+                  continue  # G4 audit remains an explicit gate, not daily job
+              outcome = needs.get(job, {}).get("result")
+              if outcome != "success":
+                  failures.append(f"{job}={outcome}")
+          if failures:
+              sys.exit("Mandatory selected jobs not successful: " + ", ".join(failures))
+          print("F3 selected suites GREEN:", ", ".join(sorted(selected)) or "(none)")
+          PY
