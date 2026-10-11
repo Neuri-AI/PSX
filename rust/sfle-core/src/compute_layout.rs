@@ -123,11 +123,12 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         min_height:length(value(map,&["layout_min_height","min_height"]),&input.node_id)?,
     })
 }
+fn layout_unit(value:f64)->f64 {(value*64.0).round()/64.0}
 fn resolved(v:Length, reference:Option<f64>, vertical:bool, id:&str)->Result<Option<f64>,ComputeError>{
     match v {
         Length::Auto=>Ok(None),
         Length::Px(n)=>Ok(Some(n)),
-        Length::Percent(p) if reference.is_some()=>Ok(Some(p*reference.unwrap())),
+        Length::Percent(p) if reference.is_some()=>Ok(Some(layout_unit(p*reference.unwrap()))),
         Length::Percent(_) if vertical=>Ok(None), // CSS auto-block-size cyclic context
         Length::Percent(_)=>Err(unsupported("Unlisted indefinite inline percentage dependency cycle.",id)),
     }
@@ -136,7 +137,7 @@ fn padding(style:Style,inline_reference:f64,id:&str)->Result<Edges,ComputeError>
     fn edge(value:Length,base:f64,id:&str)->Result<f64,ComputeError>{
         match value{
             Length::Px(n)=>Ok(n),
-            Length::Percent(p)=>Ok(p*base),
+            Length::Percent(p)=>Ok(layout_unit(p*base)),
             Length::Auto=>Err(failure("SFLE_INVALID_LENGTH","Padding requires a valid numeric CSS length.",Some(id))),
         }
     }
@@ -248,7 +249,7 @@ impl Context<'_>{
                     .unwrap_or(self.preferred(child,row)?),
                 Length::Px(n)=>n,
                 Length::Percent(p)=>match main_reference{
-                    Some(n)=>p*n,None=>self.preferred(child,row)?,
+                    Some(n)=>layout_unit(p*n),None=>self.preferred(child,row)?,
                 },
             };
             let minimum=match if row{child_style.min_width}else{child_style.min_height}{
