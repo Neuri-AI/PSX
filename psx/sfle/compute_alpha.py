@@ -471,6 +471,25 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         children[node.parent_id].append(node.node_id)
     measures = {box.node_id: box for box in request.measurements}
 
+    # Approved F2 point-5 deferral: do not invent intrinsic size for an
+    # unmeasured replaced ratio leaf with two auto axes and no cross stretch.
+    # Definite-axis ratio transfer remains supported by the frozen alpha subset.
+    for node in request.nodes[1:]:
+        style = styles[node.node_id]
+        if (style.replaced and style.aspect_ratio is not None
+                and style.width.kind == LengthKind.AUTO
+                and style.height.kind == LengthKind.AUTO
+                and node.node_id not in measures):
+            parent = styles[node.parent_id]
+            alignment = (style.align_self if style.align_self != CrossAlign.AUTO
+                         else parent.align_items)
+            if alignment != CrossAlign.STRETCH:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Replaced intrinsic aspect-ratio sizing without native measurement is deferred.",
+                    node.node_id,
+                )
+
     # Resolve intrinsic constraint keywords bottom-up before flex sizing.
     # The certified recursive branch is COLUMN inline intrinsic width; its
     # width equals the maximum definite/minmax-clamped outer child width.
@@ -1025,6 +1044,15 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         # determined from the resulting flex lines below.  Eagerly replacing
         # an auto column width with an intrinsic guess made wrapped columns
         # use a different cross size than their actual children.
+        # Intrinsic main-axis wrap has no certified line-formation reference.
+        if style.wrap != FlexWrap.NOWRAP and (
+            (horizontal and width is None) or (not horizontal and height is None)
+        ):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Intrinsically auto-sized Flex wrap without definite main axis is deferred.",
+                node_id,
+            )
         if horizontal and width is None:
             width = preferred(node_id, True)
         if not horizontal and height is None:

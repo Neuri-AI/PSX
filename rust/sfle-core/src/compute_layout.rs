@@ -597,6 +597,15 @@ impl Context<'_>{
         let id=node.node_id.clone();
         let mut width=forced_w.or(resolved(style.width,pw,false,&id)?);
         let mut height=forced_h.or(resolved(style.height,ph,true,&id)?);
+        if style.wrap!=Wrap::NoWrap && (
+            (horizontal(style.direction) && width.is_none())
+            || (!horizontal(style.direction) && height.is_none())
+        ){
+            return Err(unsupported(
+                "Intrinsically auto-sized Flex wrap without definite main axis is deferred.",
+                &id,
+            ));
+        }
         if width.is_none() && height.is_some() && style.aspect_ratio.is_some() {
             width=Some(layout_unit(height.unwrap()*style.aspect_ratio.unwrap()));
         }
@@ -860,6 +869,28 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
             children[parent_index].push(index);
         }
         indices.insert(node.node_id.as_str(),index);
+    }
+    // Point-5 deferral: an unmeasured replaced ratio leaf with two auto
+    // dimensions cannot guess a transferred size unless cross stretch exists.
+    for (index,node) in input.nodes.iter().enumerate().skip(1) {
+        let st=styles[index];
+        if !(st.replaced && st.aspect_ratio.is_some()
+            && matches!(st.width,Length::Auto)
+            && matches!(st.height,Length::Auto)
+            && !input.measurements.iter().any(|m|m.node_id==node.node_id)) {
+            continue;
+        }
+        let parent=indices[node.parent_id.as_ref().unwrap().as_str()];
+        let parent_style=styles[parent];
+        let align=if st.align_self==CrossAlign::Auto{
+            parent_style.align
+        }else{st.align_self};
+        if align!=CrossAlign::Stretch{
+            return Err(unsupported(
+                "Replaced intrinsic aspect-ratio sizing without native measurement is deferred.",
+                &node.node_id,
+            ));
+        }
     }
     // Convert min/max-content constraint keywords bottom-up. Recursive
     // intrinsic inline sizing is supported only for certified column cross
