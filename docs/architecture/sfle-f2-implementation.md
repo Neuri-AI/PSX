@@ -1,6 +1,6 @@
 # SFLE F2 — consolidated implementation and acceptance register
 
-> **Single current status table** as of 2026-10-10. Verified code baseline: `84fefd38f88f2f6bf9cff137624d21f2fe5882eb` on `feat/sfle-f2-core`, PR #11.  
+> **Single current status table** as of 2026-10-10. Verified code baseline: `bd6dd74c00eb3eb16650d94d0901816370693478` on `feat/sfle-f2-core`, PR #11.  
 > **F2 is NOT complete and the public SFLE capability manifest remains CLOSED.** Numerical success of a restricted fixture is not evidence that the whole CSS feature is supported. No historical 4/8 or 5/8 progress counts are accepted.
 
 ## 1. Normative authority and scope
