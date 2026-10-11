@@ -1,0 +1,101 @@
+{
+  "seed": "0x6a112026",
+  "index": 114,
+  "input": {
+    "width": 120,
+    "gap": "8px",
+    "items": [
+      {
+        "basis": "30px",
+        "width": "30px",
+        "grow": 2,
+        "shrink": 1,
+        "pad": "0px"
+      },
+      {
+        "basis": "25%",
+        "width": "25%",
+        "grow": 2,
+        "shrink": 1,
+        "pad": "4px"
+      },
+      {
+        "basis": "25%",
+        "width": "20px",
+        "grow": 1,
+        "shrink": 1,
+        "pad": "10%"
+      },
+      {
+        "basis": "30px",
+        "width": "20px",
+        "grow": 1,
+        "shrink": 1,
+        "pad": "0px"
+      },
+      {
+        "basis": "25%",
+        "width": "20px",
+        "grow": 1,
+        "shrink": 1,
+        "pad": "10%"
+      }
+    ]
+  },
+  "type": "geometry",
+  "errors": [
+    {
+      "node": "n0",
+      "axis": "width",
+      "chromium": 17.609375,
+      "python": 17.59375,
+      "rust": 17.59375
+    },
+    {
+      "node": "n1",
+      "axis": "x",
+      "chromium": 25.609375,
+      "python": 25.59375,
+      "rust": 25.59375
+    },
+    {
+      "node": "n1",
+      "axis": "width",
+      "chromium": 17.59375,
+      "python": 17.609375,
+      "rust": 17.609375
+    },
+    {
+      "node": "n2",
+      "axis": "width",
+      "chromium": 17.609375,
+      "python": 17.59375,
+      "rust": 17.59375
+    },
+    {
+      "node": "n3",
+      "axis": "x",
+      "chromium": 76.8125,
+      "python": 76.796875,
+      "rust": 76.796875
+    },
+    {
+      "node": "n3",
+      "axis": "width",
+      "chromium": 17.59375,
+      "python": 17.609375,
+      "rust": 17.609375
+    }
+  ],
+  "fixture_id": "6a112026-114",
+  "chromium_reference": {
+    "version": "153.0.8010.12",
+    "playwright": "1.63.0",
+    "build": 1243,
+    "run": "https://github.com/Neuri-AI/PSX/actions/runs/38104700812"
+  },
+  "tolerance_px": 0.01,
+  "expected_rejection": false,
+  "acceptance": "RED — must match independent Chromium oracle for every listed axis",
+  "rule": "Fixture is immutable: refresh only on documented browser-version migration"
+}
