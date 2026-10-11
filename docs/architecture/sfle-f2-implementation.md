@@ -2,6 +2,24 @@
 
 > **F2 OPEN — alpha capability manifest CLOSED.** This document contains the **single current status table**: the F2 exit criteria from [F1 final architecture §6](sfle-f1-final-architecture.md) and explicit proposed deferrals. No percentages of effort, commit-count status, relaxed tolerance, silent skip, or F3 reclassification. Latest B7 external-boilerplate inventory GREEN: [Core 38114340439](https://github.com/Neuri-AI/PSX/actions/runs/38114340439), [Chromium 38114340432](https://github.com/Neuri-AI/PSX/actions/runs/38114340432), [native matrix 38114340460](https://github.com/Neuri-AI/PSX/actions/runs/38114340460), [PSX Alpha 38114340421](https://github.com/Neuri-AI/PSX/actions/runs/38114340421), all success. Earlier B2 [Core 38114038367](https://github.com/Neuri-AI/PSX/actions/runs/38114038367) and B1 [Chromium 38112842327](https://github.com/Neuri-AI/PSX/actions/runs/38112842327) remain documented. The regression seed `0x5F1E2026` remains mandatory.
 
+> **F2 OPEN — user-approved checklist point 1 OFFICIALLY CLOSED; point 2 IN PROGRESS.** The supported alpha CSS subset is frozen for F2 certification. This closes the *user's five-point CSS-scope gate*, not the normative F2 exit criteria or universal CSS Flexbox compatibility. Uncertified CSS graphs remain explicitly unsupported and will be audited for Rust/Python equivalence in point 2. The public versioned capability manifest remains CLOSED pending the full F2 exit. Historic B1/F2.1 OPEN annotations below are chronological evidence recorded before this user decision, not a reopening of point 1.
+>
+> **Scope closure authority (2026-10-11):** the user explicitly approved closing point 1 after the [Chromium 38128419156](https://github.com/Neuri-AI/PSX/actions/runs/38128419156), [Core 38128419132](https://github.com/Neuri-AI/PSX/actions/runs/38128419132), [Native UI 38128419136](https://github.com/Neuri-AI/PSX/actions/runs/38128419136), [cross-OS wheels 38128419134](https://github.com/Neuri-AI/PSX/actions/runs/38128419134), and [Alpha 38128419131](https://github.com/Neuri-AI/PSX/actions/runs/38128419131) successes on SHA `d73301770570f87337558dea49dd5e02fa8f05c3`. No CSS tolerance was relaxed.
+
+## Five-point F2 closeout sequence — user-approved control status (2026-10-11)
+
+This is a project-workstream tracker, **not** a replacement for the separate normative F1 §6 F2 exit table below. The statuses are independent: the first workstream can close while the normative F2 rows remain FALLA until cross-engine, adapter and geometry exit proof is complete.
+
+| Point | Workstream | Current gate | Operational interpretation |
+| --- | --- | --- | --- |
+| **1** | Alpha CSS scope: intrinsic and recursive sizing, percentages, cross-axis, flex min/max | **CLOSED — user approved 2026-10-11** | Frozen certified behavior; no more exploratory CSS feature expansion in F2. Existing validated geometries must continue to pass; unlisted features must fail explicitly. |
+| **2** | Rust/Python geometry, accepted/rejected CSS classes, stable diagnostics | **IN PROGRESS** | Audit the frozen supported corpus + both implementations' fail-closed taxonomy and negative boundary cases; remediate real mismatches, no silent acceptance. |
+| **3** | Signed 32-bit LayoutUnit saturation, Chromium/Headless/native precision | **NOT STARTED in this sequence** | Exact raw geometry audit and approved logical/native tolerances; retain all existing tests. |
+| **4** | SFLE sole portable layout authority and Scroll viewport/content boundary | **NOT STARTED in this sequence** | Executable adapter contract, F3 integration reserved for F3. |
+| **5** | Aspect-ratio/replaced intrinsic and auto-sized wrap scope decisions | **AWAITING DECISION** | Implement and certify or obtain explicit written deferral; point-1 closure **does not** authorize either deferral. |
+
+**Fixed alpha support gate for point 2:** a CSS shape only counts as accepted if it has evidence in the Chromium/Python/Rust positive corpora. The rest of the style vocabulary is not silently accepted: produce matching `SFLE_UNSUPPORTED_FEATURE` with the same node identity, or a more specific agreed diagnostic for malformed input. Point 2 must compare the same snapshot bytes and four rectangle classes, preserve N01–N08/C99 rejects, and retain positively accepted indefinite percentage cases. If an existing supported feature breaks, fix the regression rather than reopen exploratory CSS scope.
+
 ## Normative authority
 
 Descending: `sfle-f1-final-architecture.md` (D-F1.1–13 (approved D-F1.13 fixed-point amendment), F1-RUST, §6 F2.0–F2.4/exit); `sfle-f1-box-model.md`; `sfle-f1-contracts.md` (its F2.A–D labels are nonbinding proposals); `sfle-f1-props-lengths.md`; `sfle.md` (§§5,9,10); [CSS Flexbox Level 1](https://www.w3.org/TR/css-flexbox-1/). No Row/Column/Scroll changes or public manifest changes are authorized here. F2.4 plans the breaking migration; F3 performs it, without aliases.
