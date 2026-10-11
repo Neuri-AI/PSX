@@ -14,7 +14,7 @@ from psx.sfle.adapter_contract import (
 )
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.model import LayoutNode
+from psx.sfle.model import IntrinsicSizes, LayoutNode
 from psx.sfle.worker_lifecycle import start_native_worker_layout
 from test_f2_adapter_authority_certification import _snapshot
 from test_f2_native_worker_portable_red import _UIQueue
@@ -165,13 +165,13 @@ def test_D_instrumented_worker_ports_cannot_replace_SFLE_geometry_for_nested_scr
 
     handle = start_native_worker_layout(
         snapshot, compute=engine.compute, provisional=engine.compute_provisional,
-        measure_on_ui=lambda _id, _width: pytest.fail("No intrinsic measurement expected"),
+        measure_on_ui=lambda _id, _width: IntrinsicSizes(0, 300, 20, 200, 300, 200),
         is_ui_thread=lambda: threading.get_ident() == ui.thread,
         current_generation=lambda: snapshot.generation,
         apply_geometry=apply,
         observed_geometry=lambda: {k: dict(v) for k, v in observed.items()},
         restore_geometry=restore,
-        initial_widths={}, post_to_ui=ui.post,
+        initial_widths={"inner-overflow": 300.0}, post_to_ui=ui.post,
         on_finished=lambda result, error: outcomes.append((result, error)),
         nodes_alive=lambda ids: set(ids) == set(node.node_id for node in snapshot.nodes),
         scroll_viewports=scrolls,
