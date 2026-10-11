@@ -131,7 +131,10 @@ def test_shared_normalized_input_rust_python_and_expected_geometry(case,rust_bin
             for axis in ("x","y","width","height"):
                 a=pboxes[node_id][box_type][axis]
                 b=rboxes[node_id][box_type][axis]
-                assert math.isclose(a,b,rel_tol=0,abs_tol=CORPUS["tolerance_px"]),(
+                assert a*64.0 == math.trunc(a*64.0) and b*64.0 == math.trunc(b*64.0), (
+                    f"{case['id']} {node_id}.{box_type}.{axis} not on LayoutUnit grid: Python={a}, Rust={b}"
+                )
+                assert a == b,(
                     f"{case['id']} {node_id}.{box_type}.{axis}: Python={a}, Rust={b}"
                 )
     for key,expected in case["expected"].items():
