@@ -20,6 +20,7 @@ from .model import (
     AvailableSize, BoxRect, LayoutInput, LayoutResult, MeasuredBox, Rect,
 )
 from .cross_alignment import CrossAlign
+from .fixed_point import LayoutUnit, I32_MAX, I32_MIN
 
 
 @dataclass(frozen=True)
@@ -102,70 +103,111 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
 
 
 def _layout_unit(value: float) -> float:
-    """Quantize a resolved CSS used size to Chromium's 1/64 CSS-px grid."""
-    return math.floor(value * 64.0 + 0.5) / 64.0
+    """Convert a used CSS length at its Blink double-round callsite."""
+    return LayoutUnit.from_nearest(value).to_px()
 
 
 def _percent_flex_basis_used(value: float, reference: float) -> float:
-    """Blink uses an integer LayoutUnit for the resolved percentage basis.
-
-    This quantization occurs at the *basis resolution*, before available free
-    space and flex factors are computed, never on final output rectangles.
-    """
-    return math.floor(value * reference * 64.0) / 64.0
+    """Percent flex base is floored when resolving the basis (Blink)."""
+    return LayoutUnit.from_floor(value * reference).to_px()
 
 
-def _used_flex_target_units(
-    targets: tuple[float, ...], bases: tuple[FlexBasis, ...], *,
-    node_id: str,
+def _blink_flex_targets(
+    bases: tuple[FlexBasis, ...], inner_main: float, gap: float, *, node_id: str,
 ) -> tuple[float, ...]:
-    """Allocate rounded free-space in reverse child order (Blink LineFlexer).
+    """Port LineFlexer::FreezeItems/ResolveFlexibleLengths, Chromium 153.
 
-    CSS flex factors are distributed in float precision by §9.7 first.
-    Blink then represents used sizes in LayoutUnits and allocates *remaining*
-    fractional free-space from the last live item to the first, not by
-    independently rounding all targets or by correcting final rectangles.
-    See blink/renderer/core/layout/flex/line_flexer.cc
-    (LineFlexer::ResolveFlexibleLengths).
+    The *entire* free-space/freeze iteration uses saturating signed raw
+    LayoutUnits. Only cumulative flex fractions are finite double values.
+    No post-hoc rectangle rounding and no reconstruction of freeze states
+    from the output of another floating-point implementation.
     """
-    if not targets:
+    if not bases:
         return ()
-    basis_units = [math.floor(item.basis * 64.0 + 0.5) for item in bases]
-    deltas = [target - item.basis for target, item in zip(targets, bases)]
-    active = [i for i, delta in enumerate(deltas) if abs(delta) > 1e-12]
-    # If constrained freezing produced both grow and shrink changes, the
-    # target-shares cannot identify which items were frozen. Reject rather
-    # than silently claim Chromium-level rounding parity.
-    if any(deltas[i] > 0 for i in active) and any(deltas[i] < 0 for i in active):
-        raise SFLECapabilityError(
-            DiagnosticCode.UNSUPPORTED_FEATURE,
-            "Mixed-sign flex target constraints need explicit freeze metadata.",
-            node_id,
-        )
-    used_units = basis_units[:]
-    if not active:
-        return tuple(value / 64.0 for value in used_units)
-    growing = sum(deltas) > 0.0
-    # Use the exact CSS flex weights, not target-size deltas (which can
-    # acquire floating cancellation error and flip a 1/2 LayoutUnit tie).
-    weights = [
-        (bases[i].grow if growing else bases[i].shrink * bases[i].basis)
-        if i in active else 0.0 for i in range(len(bases))
+    raw = lambda v: LayoutUnit.from_nearest(v)
+    zero = LayoutUnit.from_raw(0)
+    available = raw(inner_main)
+    gutter = raw(gap)
+    base = [raw(item.basis) for item in bases]
+    hypot = [raw(item.hypothetical) for item in bases]
+    minimum = [raw(item.min_size) for item in bases]
+    maximum = [raw(item.max_size) if item.max_size is not None else None
+               for item in bases]
+    free_for_items = available - LayoutUnit.from_raw(gutter.raw * (len(bases) - 1))
+    growing = sum((unit.raw for unit in hypot), 0) < free_for_items.raw
+    frozen = [
+        (item.grow if growing else item.shrink) == 0 or
+        (base[i].raw > hypot[i].raw if growing else base[i].raw < hypot[i].raw)
+        for i, item in enumerate(bases)
     ]
-    remaining = math.floor(sum(targets) * 64.0 + 0.5) - sum(basis_units)
-    active_magnitude = sum(weights[i] for i in active)
-    for i in reversed(active):
-        magnitude = weights[i]
-        if active_magnitude - magnitude < 1e-12:
-            allocated = remaining
-        else:
-            allocated = math.floor(
-                remaining * (magnitude / active_magnitude) + 0.5
-            )
-        used_units[i] += allocated
-        remaining -= allocated
-        active_magnitude -= magnitude
-    return tuple(value / 64.0 for value in used_units)
+    sizes = hypot[:]
+    initial_free = zero
+
+    for iteration in range(len(bases) + 1):
+        # Blink FreezeItems recomputes the complete factor prefix sum.
+        total_factor = 0.0
+        total_scaled_shrink = 0.0
+        fractions = [0.0] * len(bases)
+        remaining = available
+        for i, item in enumerate(bases):
+            factor = item.grow if growing else item.shrink
+            if frozen[i]:
+                remaining = remaining - sizes[i] - gutter
+                continue
+            sizes[i] = hypot[i]
+            total_factor += factor
+            if growing:
+                fractions[i] = factor / total_factor
+            else:
+                weight = factor * base[i].to_px()
+                total_scaled_shrink += weight
+                fractions[i] = weight / total_scaled_shrink if total_scaled_shrink else 0.0
+            remaining = remaining - base[i] - gutter
+        remaining = remaining + gutter
+        if iteration == 0:
+            initial_free = remaining
+
+        if 0.0 < total_factor < 1.0:
+            fractional = LayoutUnit.from_trunc(initial_free.to_px() * total_factor)
+            if abs(fractional.raw) < abs(remaining.raw):
+                remaining = fractional
+        if (growing and remaining.raw <= 0) or (not growing and remaining.raw >= 0):
+            return tuple(size.to_px() for size in sizes)
+
+        violations = [0] * len(bases)
+        total_violation = zero
+        for i in range(len(bases) - 1, -1, -1):
+            if frozen[i]:
+                continue
+            fraction = fractions[i]
+            if fraction == 1.0:
+                extra = remaining
+            else:
+                extra = LayoutUnit.from_nearest(remaining.to_px() * fraction)
+            remaining = remaining - extra
+            unbounded = base[i] + extra
+            bounded = unbounded
+            if bounded.raw < minimum[i].raw:
+                bounded = minimum[i]
+            if maximum[i] is not None and bounded.raw > maximum[i].raw:
+                bounded = maximum[i]
+            sizes[i] = bounded
+            delta = bounded - unbounded
+            violations[i] = delta.raw
+            total_violation = total_violation + delta
+
+        if total_violation.raw == 0:
+            return tuple(size.to_px() for size in sizes)
+        # Freeze only max violations if net violation <0, else min violations.
+        for i, v in enumerate(violations):
+            if (v < 0 and total_violation.raw < 0) or (v > 0 and total_violation.raw > 0):
+                frozen[i] = True
+
+    raise SFLEError(
+        DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+        "Blink fractional freezing did not converge.", node_id,
+    )
+
 
 def _axis_value(length: Length, reference: float | None, *,
                 axis: str, node_id: str) -> float | None:
@@ -435,11 +477,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             edge.horizontal if horizontal else edge.vertical
             for edge in edges.values()
         )
-        targets = _used_flex_target_units(
-            resolve_flexible_lengths(
-                tuple(bases), max(0.0, main_size - fixed_main_edges), main_gap
-            ),
-            tuple(bases), node_id=node_id,
+        targets = _blink_flex_targets(
+            tuple(bases), max(0.0, main_size - fixed_main_edges), main_gap,
+            node_id=node_id,
         )
         cross_sizes = []
         for child_id, target in zip(children[node_id], targets):
