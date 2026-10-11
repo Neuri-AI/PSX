@@ -37,13 +37,23 @@ TEXTAREA_PROPS = frozenset({
     "read_only", "on_change",
 })
 
+# Metadata is not part of the native widget/property namespace.
+FLEX_ITEM_PROPS = frozenset({
+    "flex_grow", "flex_shrink", "flex_basis", "align_self", "order",
+    "layout_width", "layout_height", "layout_min_width", "layout_min_height",
+    "layout_max_width", "layout_max_height",
+    *(f"layout_margin_{edge}" for edge in ("top", "right", "bottom", "left")),
+    *(f"layout_padding_{edge}" for edge in ("top", "right", "bottom", "left")),
+    *(f"layout_border_{edge}" for edge in ("top", "right", "bottom", "left")),
+})
+
 FLEX_PROPS = frozenset({
     "direction", "wrap", "justify_content", "align_items", "align_content",
     "gap", "row_gap", "column_gap", "width", "height", "min_width", "min_height",
     "max_width", "max_height", "padding", "flex_grow", "flex_shrink",
     "flex_basis", "align_self", "order", "layout_width", "layout_height",
     "layout_min_width", "layout_min_height", "layout_max_width", "layout_max_height",
-})
+}) | FLEX_ITEM_PROPS
 
 COLUMN_PROPS = frozenset({
     "spacing",

@@ -12,7 +12,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TypeAlias
 
-from .contracts import FLEX_CONTRACT
+from .layout_item import validate_flex_item_props
+from .props import FLEX_ITEM_PROPS
 from .errors import DuplicateKeyError, RendererCapabilityError
 from .vnode import NodeKind, VNode
 
@@ -87,6 +88,11 @@ def normalize_flex_tree(
     if not isinstance(root, VNode):
         raise TypeError("normalize_flex_tree requires a VNode.")
     resolved = component_roots if component_roots is not None else {}
+    # Registry lookup is local and does not load optional GUI libraries.
+    # Extension hosts without a core contract retain their custom props;
+    # their SFLE metadata must still validate identically.
+    from .registry import builtin_component_registry
+    definitions = builtin_component_registry().snapshot()
 
     def visit(
         node: VNode, path: LayoutPath, active: frozenset[int],
@@ -107,8 +113,21 @@ def normalize_flex_tree(
                 visit(rendered, path + (("rendered", 0),), next_active, depth + 1),
             )
         else:
-            if node.kind is NodeKind.HOST and node.type == "Flex":
-                FLEX_CONTRACT.validate(node.props)
+            if node.kind is NodeKind.HOST:
+                definition = definitions.get(node.type) if isinstance(node.type, str) else None
+                if definition is not None and definition.contract is not None:
+                    definition.contract.validate(node.props)
+                else:
+                    validate_flex_item_props(node.props, owner=str(node.type))
+                    if node.type == "Box":
+                        invalid = set(node.props) - {"ref"} - FLEX_ITEM_PROPS
+                        if invalid:
+                            raise RendererCapabilityError(
+                                f"Unsupported Box props: {', '.join(sorted(invalid))}.")
+            elif node.kind is NodeKind.NATIVE:
+                validate_flex_item_props(node.props, owner="Native")
+            elif node.kind is NodeKind.FRAGMENT and node.props:
+                raise RendererCapabilityError("Fragment does not accept layout metadata.")
             seen: set[str | int] = set()
             for child in node.children:
                 if child.key is None:

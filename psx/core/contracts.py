@@ -8,6 +8,7 @@ retain their established signatures and delegate here.
 from __future__ import annotations
 
 from .props import *
+from .layout_item import validate_flex_item_props
 from .defaults import *
 
 from collections.abc import Callable, Mapping
@@ -56,11 +57,23 @@ class ComponentContract:
     builder_validator: Validator | None = None
     content_property: str | None = None
 
+    def _validate(self, props: Mapping[str, object], *, builder: bool) -> None:
+        validator = (self.builder_validator or self.validator) if builder else self.validator
+        if self.name in ("Row", "Column", "Flex"):
+            # Legacy layouts keep their old contract until F3-G4 removal;
+            # Flex validates its own closed syntax and shared item metadata.
+            validator(props)
+            return
+        validate_flex_item_props(props, owner=self.name)
+        native_props = {key: value for key, value in props.items()
+                        if key not in FLEX_ITEM_PROPS}
+        validator(native_props)
+
     def validate(self, props: Mapping[str, object]) -> None:
-        self.validator(props)
+        self._validate(props, builder=False)
 
     def validate_builder(self, props: Mapping[str, object]) -> None:
-        (self.builder_validator or self.validator)(props)
+        self._validate(props, builder=True)
 
     def with_defaults(self, props: Mapping[str, object]) -> dict[str, object]:
         self.validate(props)

@@ -182,8 +182,8 @@ def create_element(
 
     if node_type == "Text":
         validate_text_props(props)
-    if key is not None and not isinstance(key, (str, int)):
-        raise TypeError("PSX keys must be str, int, or None.")
+    if key is not None and (isinstance(key, bool) or not isinstance(key, (str, int))):
+        raise TypeError("PSX keys must be str, int, or None (not bool).")
     if ref is not None:
         props["ref"] = ref
     if isinstance(node_type, ComponentType):

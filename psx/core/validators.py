@@ -5,6 +5,7 @@ import re
 from urllib.parse import urlsplit
 from collections.abc import Mapping
 from .errors import RendererCapabilityError
+from .layout_item import validate_flex_item_props
 from .contracts import (
     TEXTAREA_PROPS,
     TEXTAREA_DEFAULTS,
@@ -340,6 +341,13 @@ def validate_flex_props(props: Mapping[str, object]) -> None:
     if unknown:
         raise RendererCapabilityError(
             f"Unsupported Flex props: {', '.join(sorted(unknown))}")
+    validate_flex_item_props(props, owner="Flex")
+    # A Flex container's native dimensions ARE layout dimensions; other
+    # controls retain their own width/height and use layout_* separately.
+    for axis in ("width", "height", "min_width", "min_height", "max_width", "max_height"):
+        if axis in props and f"layout_{axis}" in props:
+            raise RendererCapabilityError(
+                f"Conflicting Flex.{axis} and Flex.layout_{axis} declarations.")
     enums = {
         "direction": ("row", "row-reverse", "column", "column-reverse"),
         "wrap": ("nowrap", "wrap", "wrap-reverse"),
