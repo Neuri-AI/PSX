@@ -1,6 +1,6 @@
 # SFLE F2 — consolidated implementation and acceptance register
 
-> **Single current status table** as of 2026-10-10. Verified code baseline: `5cbb690ac156c881a35ecf243e98e654648a6669` on `feat/sfle-f2-core`, PR #11.  
+> **Single current status table** as of 2026-10-10. Verified code baseline: `84fefd38f88f2f6bf9cff137624d21f2fe5882eb` on `feat/sfle-f2-core`, PR #11.  
 > **F2 is NOT complete and the public SFLE capability manifest remains CLOSED.** Numerical success of a restricted fixture is not evidence that the whole CSS feature is supported. No historical 4/8 or 5/8 progress counts are accepted.
 
 ## 1. Normative authority and scope
@@ -87,6 +87,14 @@ Fuzzing differential, comprehensive cycle-rejection testing, Windows/macOS/froze
 **Qt regression checks:** `test_f2_qt_worker_ui_thread_red.py` rejects an attempt to invoke the synchronous native-measurement lifecycle on a worker; all real widget measurements remain UI-thread-only. `test_f2_a04_qt_real_wrap_red.py` fixes DejaVu Sans Mono at 10 logical pixels and checks exactly two width-dependent measurements and `geometry_commit_error == approx(0, abs=1.0)`; A06 also uses deterministic Qt font. **Important:** the positive design in which computation runs on a background worker while UI measurement requests are *dispatched* to the Qt event loop is **not yet implemented**. The test above is a negative thread-affinity guard, not positive evidence of split-thread production scheduling.
 
 **Still open, in priority order:** exhaustive positive/negative classification for indefinite percentages beyond C99/N01–N04; Qt worker-compute → UI-thread measurement dispatch with generation-safe one-shot commit; Kivy, Tk and Headless adapter parity; Windows/macOS/frozen native wheels; real coordinator A07 oscillation; and full A09 reverse/wrap Chromium grid. No public component, alpha capability manifest or Row/Column/Scroll API changed.
+
+### 2026-10-10 — async Qt worker + 100-case Chromium expansion (in progress)
+
+- Qt worker positive test in dedicated RED commit `88e77d0c`, corrected numeric assertions `ce7cc708`, implementation `1a1859a7`: asynchronous compute uses `ThreadPoolExecutor`; a UI-owned `QTimer` drains measurement requests and performs one generation-checked commit. The Qt event loop heartbeat is tested. [SFLE Core 38100680508](https://github.com/Neuri-AI/PSX/actions/runs/38100680508) GREEN on the implementation. **Caveat:** the RED run of the separate pre-implementation commit was cancelled by subsequent PR commits; therefore *visible RED evidence for that exact test is not established* and must not be claimed retroactively. More races and error/rollback semantics remain open.
+- Fuzzing: `350c4933` raised the deterministic count from 24 to 100, same `0x5F1E2026` seed. [Chromium 38100724913](https://github.com/Neuri-AI/PSX/actions/runs/38100724913) RED, **95 matched, 0 rejected, 5 silent discrepancies**, specifically case IDs **15, 24, 75, 76, 81**. No numerical tolerance relaxation. Fractional flex basis and percentage used-value rounding are under correction in both engines.
+- `13a7c73c` adds **20 intrinsically-indefinite percentage cases** within the 100-tree generator. These are required to fail explicitly and identically in Python/Rust; no accepted browser geometry is asserted for unsupported CSS cycles. `d948ccec`/`10effcdc` add structural inline dependency tracing in both engines; specific C99 diagnostics still precede the generic classifier. The change is *not* yet an exhaustive generalized dependency graph for every axis, flex basis, gap or padding.
+- `68cf5e01`/`84fefd38` quantize percentage width/basis/padding used sizes before flexible distribution, intended to address the five browser discrepancies. **Do not mark this GREEN until all three CI workflows finish successfully with the 100-case test.**
+- No Kivy/Tk/Headless rollout, Windows/macOS/frozen wheels, A07 integrated oscillation or A09 reverse/wrap 0.01px matrix has been implemented in this increment. The public capability manifest remains CLOSED.
 
 ## 5. Explicit deferred-feature register
 
