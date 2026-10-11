@@ -33,6 +33,13 @@ def fuzz_cases():
         width=rng.choice([96,120,160,200,240,320])
         gap=rng.choice(["0px","4px","10%","5%","8px"])
         n=rng.choice([1,2,3,4])
+        if index >= 80:
+            items=[
+                dict(basis="auto",width="25%",grow=0,shrink=1,pad="10%"),
+                dict(basis="auto",width="20px",grow=0,shrink=1,pad="4px"),
+            ]
+            yield index,None,gap,items
+            continue
         items=[]
         for i in range(n):
             basis=rng.choice(["20px","30px","25%","auto","40%"])
@@ -60,8 +67,9 @@ def test_seeded_flex_differential_against_chromium(case,browser,rust_binary):
         return tuple((key,parse_length(value) if isinstance(value,str) and
             (value.endswith("px") or value.endswith("%") or value=="auto") else value)
                      for key,value in spec.items())
+    root_width="auto" if width is None else f"{width}px"
     nodes=[LayoutNode("root",None,"Flex",style_tuple({
-        "direction":"row","width":f"{width}px","height":"60px",
+        "direction":"row","width":root_width,"height":"60px",
         "column_gap":gap,"align_items":"flex-start",
     }))]
     elements=[]
@@ -78,7 +86,7 @@ def test_seeded_flex_differential_against_chromium(case,browser,rust_binary):
             f'min-width:0;padding-top:{item["pad"]};box-sizing:content-box"></div>'
         )
     snapshot=LayoutInput(1,17,WritingDirection.LTR,
-        LayoutConstraints(AvailableSize(width,True),AvailableSize(60,True)),
+        LayoutConstraints(AvailableSize(width,width is not None),AvailableSize(60,True)),
         tuple(nodes),())
     try:py={"ok":True,"result":PythonLayoutEngine().compute(snapshot)}
     except SFLEError as error:
