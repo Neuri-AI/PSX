@@ -101,10 +101,10 @@ def Native(
     if selected is None:
         raise TypeError(
             "Cannot infer a renderer for Native(); pass renderer='pyside6', "
-            "renderer='pyqt6', renderer='pyqt5', renderer='tkinter', or renderer='kivy'."
+            "renderer='pyqt6', renderer='pyqt5', renderer='pyside2', renderer='tkinter', or renderer='kivy'."
         )
     selected = selected.lower()
-    if selected not in {"pyside6", "pyqt6", "pyqt5", "tkinter", "kivy"}:
+    if selected not in {"pyside6", "pyside2", "pyqt6", "pyqt5", "tkinter", "kivy"}:
         raise ValueError(f"Unsupported Native renderer {selected!r}.")
     if isinstance(widget, type) or callable(widget):
         declaration = NativeWidget(
@@ -146,6 +146,8 @@ def _infer_renderer(value: object) -> str | None:
         module = getattr(cls, "__module__", "")
         if module.startswith("PySide6."):
             return "pyside6"
+        if module.startswith("PySide2."):
+            return "pyside2"
         if module.startswith("PyQt6."):
             return "pyqt6"
         if module.startswith("PyQt5."):
