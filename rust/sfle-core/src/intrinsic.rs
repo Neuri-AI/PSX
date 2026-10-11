@@ -1,5 +1,5 @@
 //! F2.2.1 immutable intrinsic content sizing; no native font/widget access.
-//! Only non-replaced, no-aspect-ratio-transfer items are supported so far.
+//! Aspect transfer requires an explicit immutable cross-size suggestion.
 
 use crate::{FlexBasis, FlexMathError};
 
@@ -32,6 +32,10 @@ pub struct IntrinsicFlexInput {
     pub min_main_size: Option<f64>,
     pub overflow: OverflowMode,
     pub scroll_container: bool,
+    pub aspect_ratio: Option<f64>,
+    pub preferred_cross_size: Option<f64>,
+    pub replaced: bool,
+    /// Compatibility flag for callers that omit the typed transfer contract.
     pub has_aspect_ratio_transfer: bool,
 }
 
@@ -47,6 +51,8 @@ impl IntrinsicFlexInput {
             || self.preferred_main_size.is_some_and(|v| !v.is_finite() || v < 0.0)
             || self.max_main_size.is_some_and(|v| !v.is_finite() || v < 0.0)
             || self.min_main_size.is_some_and(|v| !v.is_finite() || v < 0.0)
+            || self.aspect_ratio.is_some_and(|v| !v.is_finite() || v <= 0.0)
+            || self.preferred_cross_size.is_some_and(|v| !v.is_finite() || v < 0.0)
             || self.min_main_size.zip(self.max_main_size).is_some_and(|(min, max)| min > max)
         {
             return Err(FlexMathError::InvalidInput("invalid intrinsic sizing input"));
@@ -67,19 +73,31 @@ impl IntrinsicFlexInput {
                 (self.intrinsic.min_content_height, self.intrinsic.max_content_height),
         }
     }
+
+    fn transferred_main_suggestion(self) -> Result<Option<f64>, FlexMathError> {
+        if self.has_aspect_ratio_transfer && self.aspect_ratio.is_none() {
+            return Err(FlexMathError::InvalidInput("aspect-ratio transfer lacks typed suggestions"));
+        }
+        match (self.aspect_ratio, self.preferred_cross_size) {
+            (None, _) => Ok(None),
+            (Some(_), None) => Err(FlexMathError::InvalidInput("aspect-ratio transfer lacks cross-size suggestion")),
+            (Some(ratio), Some(cross)) => Ok(Some(match self.axis {
+                MainAxis::Horizontal => cross * ratio,
+                MainAxis::Vertical => cross / ratio,
+            })),
+        }
+    }
 }
 
 pub fn resolve_intrinsic_flex_basis(req: IntrinsicFlexInput) -> Result<f64, FlexMathError> {
     req.validate()?;
-    if req.has_aspect_ratio_transfer {
-        return Err(FlexMathError::InvalidInput("aspect-ratio transfer not implemented"));
-    }
+    let transferred = req.transferred_main_suggestion()?;
     let (minimum, maximum) = req.metrics();
     match req.flex_basis {
         Basis::Px(value) if value.is_finite() && value >= 0.0 => Ok(value),
         Basis::MinContent => Ok(minimum),
         Basis::MaxContent | Basis::Content => Ok(maximum),
-        Basis::Auto => Ok(req.preferred_main_size.unwrap_or(maximum)),
+        Basis::Auto => Ok(req.preferred_main_size.or(transferred).unwrap_or(maximum)),
         _ => Err(FlexMathError::InvalidInput("unsupported intrinsic flex-basis")),
     }
 }
@@ -88,13 +106,17 @@ pub fn resolve_automatic_main_minimum(req: IntrinsicFlexInput) -> Result<f64, Fl
     req.validate()?;
     if let Some(minimum) = req.min_main_size { return Ok(minimum); }
     if req.scroll_container { return Ok(0.0); }
-    if req.has_aspect_ratio_transfer {
-        return Err(FlexMathError::InvalidInput("aspect-ratio transfer not implemented"));
-    }
     let (min_content, _) = req.metrics();
-    let with_suggestion = req.preferred_main_size.map_or(
+    let mut with_suggestion = req.preferred_main_size.map_or(
         min_content, |suggestion| min_content.min(suggestion),
     );
+    if let Some(transferred) = req.transferred_main_suggestion()? {
+        with_suggestion = if req.replaced {
+            with_suggestion.min(transferred)
+        } else {
+            with_suggestion.max(transferred)
+        };
+    }
     Ok(req.max_main_size.map_or(
         with_suggestion, |maximum| with_suggestion.min(maximum),
     ))
@@ -129,7 +151,8 @@ mod tests {
             grow: 1.0, shrink: 1.0, preferred_main_size: None,
             max_main_size: None, min_main_size: None,
             overflow: OverflowMode::Visible,
-            scroll_container: false, has_aspect_ratio_transfer: false,
+            scroll_container: false, aspect_ratio: None, preferred_cross_size: None,
+            replaced: false, has_aspect_ratio_transfer: false,
         }
     }
 
@@ -166,9 +189,13 @@ mod tests {
     }
 
     #[test]
-    fn aspect_ratio_transfer_is_rejected() {
+    fn aspect_ratio_transfer_uses_typed_cross_size() {
         let mut req = fixture();
-        req.has_aspect_ratio_transfer = true;
-        assert!(build_intrinsic_flex_basis(req).is_err());
+        req.aspect_ratio = Some(2.0);
+        req.preferred_cross_size = Some(30.0);
+        req.replaced = true;
+        let result = build_intrinsic_flex_basis(req).unwrap();
+        assert_eq!(result.basis, 60.0);
+        assert_eq!(result.min_size, 40.0);
     }
 }

@@ -44,6 +44,9 @@ mod tests {
             min_main_size: None,
             overflow: OverflowMode::Visible,
             scroll_container: false,
+            aspect_ratio: None,
+            preferred_cross_size: None,
+            replaced: false,
             has_aspect_ratio_transfer: false,
         }
     }

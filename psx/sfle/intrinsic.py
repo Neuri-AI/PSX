@@ -1,8 +1,8 @@
 """F2.2.1: pure intrinsic flex-basis and automatic minimum-size resolution.
 
 Accepts immutable intrinsic snapshots collected by UI-thread adapters. This
-module never measures fonts/widgets, and rejects unsupported aspect-ratio
-transfers and cyclic remeasurement rather than inventing CSS geometry.
+module never measures fonts/widgets. Aspect-ratio transfer requires an
+explicit immutable cross-size suggestion; it never invents one.
 """
 
 from __future__ import annotations
@@ -48,6 +48,10 @@ class IntrinsicFlexInput:
     min_main_size: float | None = None
     overflow: OverflowMode = OverflowMode.VISIBLE
     scroll_container: bool = False
+    aspect_ratio: float | None = None
+    preferred_cross_size: float | None = None
+    replaced: bool = False
+    # Retained to reject callers using the former underspecified flag.
     has_aspect_ratio_transfer: bool = False
 
     def __post_init__(self) -> None:
@@ -57,8 +61,9 @@ class IntrinsicFlexInput:
             raise TypeError("axis and flex_basis must be typed.")
         if not isinstance(self.overflow, OverflowMode):
             raise TypeError("overflow must be OverflowMode.")
-        if type(self.scroll_container) is not bool or type(self.has_aspect_ratio_transfer) is not bool:
-            raise TypeError("scroll and aspect-ratio flags must be bool.")
+        if (type(self.scroll_container) is not bool or type(self.replaced) is not bool
+                or type(self.has_aspect_ratio_transfer) is not bool):
+            raise TypeError("scroll, replaced, and aspect-ratio flags must be bool.")
         if self.scroll_container and self.overflow not in (OverflowMode.AUTO, OverflowMode.SCROLL):
             raise ValueError("Scroll container flag requires auto or scroll overflow.")
         if self.overflow == OverflowMode.SCROLL and not self.scroll_container:
@@ -71,6 +76,16 @@ class IntrinsicFlexInput:
             if numeric < 0:
                 raise ValueError(f"{name} must be nonnegative.")
             object.__setattr__(self, name, numeric)
+        if self.aspect_ratio is not None:
+            ratio = _number(self.aspect_ratio, "aspect_ratio")
+            if ratio <= 0:
+                raise ValueError("aspect_ratio must be positive.")
+            object.__setattr__(self, "aspect_ratio", ratio)
+        if self.preferred_cross_size is not None:
+            cross = _number(self.preferred_cross_size, "preferred_cross_size")
+            if cross < 0:
+                raise ValueError("preferred_cross_size must be nonnegative.")
+            object.__setattr__(self, "preferred_cross_size", cross)
         if self.max_main_size is not None and self.min_main_size is not None:
             if self.max_main_size < self.min_main_size:
                 raise ValueError("max_main_size cannot be below min_main_size.")
@@ -87,18 +102,29 @@ def _unsupported(message: str) -> None:
     raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, message)
 
 
+def _transferred_main_suggestion(request: IntrinsicFlexInput) -> float | None:
+    if request.has_aspect_ratio_transfer and request.aspect_ratio is None:
+        _unsupported("Aspect-ratio transfer requires ratio and cross-size suggestions.")
+    if request.aspect_ratio is None:
+        return None
+    if request.preferred_cross_size is None:
+        _unsupported("Aspect-ratio transfer requires a definite cross-size suggestion.")
+    if request.axis == MainAxis.HORIZONTAL:
+        return request.preferred_cross_size * request.aspect_ratio
+    return request.preferred_cross_size / request.aspect_ratio
+
+
 def resolve_intrinsic_flex_basis(request: IntrinsicFlexInput) -> float:
     """Resolve a constrained set of content-based flex-basis values.
 
     `auto` uses a *definite* main-size suggestion if provided, otherwise
-    content-based max-content. Percentage, fit-content and aspect transfers
-    remain unsupported until the containing-size/measurement phases exist.
+    content-based max-content. A typed aspect ratio with a definite measured
+    or resolved cross-size suggestion transfers into the main axis.
     """
 
     minimum, maximum, _ = _metrics(request)
     basis = request.flex_basis
-    if request.has_aspect_ratio_transfer:
-        _unsupported("Transferred aspect-ratio size requires an aspect-ratio sizing contract.")
+    transferred = _transferred_main_suggestion(request)
     if basis.kind == LengthKind.PX:
         assert basis.value is not None
         if basis.value < 0:
@@ -109,7 +135,9 @@ def resolve_intrinsic_flex_basis(request: IntrinsicFlexInput) -> float:
     if basis.kind in (LengthKind.MAX_CONTENT, LengthKind.CONTENT):
         return maximum
     if basis.kind == LengthKind.AUTO:
-        return request.preferred_main_size if request.preferred_main_size is not None else maximum
+        if request.preferred_main_size is not None:
+            return request.preferred_main_size
+        return transferred if transferred is not None else maximum
     _unsupported(f"Intrinsic flex-basis {basis.kind.value!r} is not supported by this slice.")
 
 
@@ -118,8 +146,8 @@ def resolve_automatic_main_minimum(request: IntrinsicFlexInput) -> float:
 
     Non-scroll containers use content-size suggestion capped by the definite
     specified-size suggestion and definite max main size. Scroll containers
-    have zero automatic minimum. Replaced elements/aspect-ratio transferred
-    size and cross-axis remeasurement are intentionally unsupported.
+    have zero automatic minimum. Replaced elements use the smaller
+    content/transferred suggestion; other elements use the larger value.
     Explicit min-width/height overrides the automatic minimum.
     """
 
@@ -127,10 +155,11 @@ def resolve_automatic_main_minimum(request: IntrinsicFlexInput) -> float:
         return request.min_main_size
     if request.scroll_container:
         return 0.0
-    if request.has_aspect_ratio_transfer:
-        _unsupported("Automatic minimum with aspect-ratio transfer is not supported.")
     min_content, _, _ = _metrics(request)
     suggested = min_content
+    transferred = _transferred_main_suggestion(request)
+    if transferred is not None:
+        suggested = min(suggested, transferred) if request.replaced else max(suggested, transferred)
     if request.preferred_main_size is not None:
         suggested = min(suggested, request.preferred_main_size)
     if request.max_main_size is not None:

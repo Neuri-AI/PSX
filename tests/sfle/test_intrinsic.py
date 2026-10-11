@@ -91,10 +91,22 @@ def test_percentage_basis_requires_definite_reference_stage(sample):
     assert error.value.code == DiagnosticCode.UNSUPPORTED_FEATURE
 
 
-def test_aspect_ratio_transfer_is_not_silently_approximated(sample):
+def test_aspect_ratio_transfer_requires_explicit_cross_contract(sample):
     candidate = replace(sample, has_aspect_ratio_transfer=True)
     with pytest.raises(SFLECapabilityError):
         build_intrinsic_flex_basis(candidate)
+
+
+def test_aspect_ratio_transfer_resolves_basis_and_replaced_minimum(sample):
+    candidate = replace(sample, aspect_ratio=2, preferred_cross_size=30, replaced=True)
+    assert resolve_intrinsic_flex_basis(candidate) == 60
+    assert resolve_automatic_main_minimum(candidate) == 40
+    assert build_intrinsic_flex_basis(candidate).hypothetical == 60
+
+
+def test_non_replaced_aspect_ratio_uses_larger_content_based_minimum(sample):
+    candidate = replace(sample, aspect_ratio=2, preferred_cross_size=30)
+    assert resolve_automatic_main_minimum(candidate) == 60
 
 
 def test_scroll_flag_validation(sample):
