@@ -13,7 +13,7 @@ from dataclasses import dataclass
 import math
 
 from .errors import DiagnosticCode, SFLEError
-from .model import LayoutInput, LayoutResult
+from .model import LayoutInput, LayoutResult, Rect
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,12 +50,17 @@ class SFLEAdapterPorts:
     nodes_alive: Callable[[tuple[str, ...]], bool]
     apply_rectangles: Callable[[LayoutResult], None]
     read_rectangles: Callable[[], Mapping[str, Mapping[str, float]]]
+    # Independent reconciler-owned binding: a viewport cannot nominate another root.
+    # F3 must supply this port whenever it exposes an SFLE-managed Scroll host.
+    scroll_content_root: Callable[[str], str | None] | None = None
 
     def __post_init__(self) -> None:
         if not all(callable(port) for port in (
             self.current_generation, self.nodes_alive, self.apply_rectangles, self.read_rectangles,
         )):
             raise TypeError("Adapter ports must be callable.")
+        if self.scroll_content_root is not None and not callable(self.scroll_content_root):
+            raise TypeError("Scroll root resolver must be callable.")
 
 
 def validate_adapter_commit(
@@ -84,6 +89,11 @@ def validate_adapter_commit(
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "SFLE result identity/order differs from its snapshot.")
     if not ports.nodes_alive(result_ids):
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Disposed native nodes cannot receive SFLE geometry.")
+    if scroll_viewports and ports.scroll_content_root is None:
+        raise SFLEError(
+            DiagnosticCode.INVALID_SNAPSHOT,
+            "Scroll requires an independent host-to-content binding from the reconciler.",
+        )
     seen_hosts: set[str] = set()
     seen_content_roots: set[str] = set()
     by_id = {node.node_id: node for node in snapshot.nodes}
@@ -112,6 +122,15 @@ def validate_adapter_commit(
                 "Scroll viewport must target an explicit SFLE content Flex root.",
                 viewport.content_root_id,
             )
+        # This source is independent of the viewport's claimed content_root_id.
+        if ports.scroll_content_root is not None and (
+            ports.scroll_content_root(viewport.host_id) != viewport.content_root_id
+        ):
+            raise SFLEError(
+                DiagnosticCode.INVALID_SNAPSHOT,
+                "Scroll content root disagrees with its authoritative host binding.",
+                viewport.host_id,
+            )
         if by_id[viewport.content_root_id].component != "Flex":
             raise SFLEError(
                 DiagnosticCode.UNSUPPORTED_FEATURE,
@@ -133,11 +152,42 @@ class ScrollContentMetrics:
     offset_y: float
 
 
+def scroll_to_viewport_point(
+    root: Rect, viewport: ScrollViewport, x: float, y: float,
+) -> tuple[float, float]:
+    """Project SFLE absolute coordinates into a native viewport's local frame.
+
+    The native offset changes presentation only, never the SFLE source boxes.
+    Use clamped offsets from ScrollContentMetrics before native application.
+    """
+    _check_scroll_projection(root, viewport, x, y)
+    return x - root.x - viewport.offset_x, y - root.y - viewport.offset_y
+
+
+def scroll_to_sfle_point(
+    root: Rect, viewport: ScrollViewport, x: float, y: float,
+) -> tuple[float, float]:
+    """Recover immutable SFLE absolute geometry from a viewport-local point."""
+    _check_scroll_projection(root, viewport, x, y)
+    return x + root.x + viewport.offset_x, y + root.y + viewport.offset_y
+
+
+def _check_scroll_projection(
+    root: Rect, viewport: ScrollViewport, x: float, y: float,
+) -> None:
+    if not isinstance(root, Rect) or not isinstance(viewport, ScrollViewport):
+        raise TypeError("Expected an SFLE Rect and native ScrollViewport.")
+    if any(type(value) not in (int, float) or not math.isfinite(value) for value in (x, y)):
+        raise ValueError("Scroll projection coordinates must be finite numbers.")
+
+
 def derive_scroll_content_metrics(
     snapshot: LayoutInput,
     result: LayoutResult,
     ports: SFLEAdapterPorts,
     viewport: ScrollViewport,
+    *,
+    scroll_viewports: tuple[ScrollViewport, ...] | None = None,
 ) -> ScrollContentMetrics:
     """Derive a Scroll host's extent and clamped offset *only* from SFLE boxes.
 
@@ -146,7 +196,11 @@ def derive_scroll_content_metrics(
     Descendant overflows can increase the positive scrollable extent. Negative
     overflow is not converted into a fabricated negative scroll offset.
     """
-    validate_adapter_commit(snapshot, result, ports, scroll_viewports=(viewport,))
+    scope = (viewport,) if scroll_viewports is None else scroll_viewports
+    if viewport not in scope:
+        raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                        "Target viewport is absent from the authoritative Scroll scope.")
+    validate_adapter_commit(snapshot, result, ports, scroll_viewports=scope)
     nodes = {node.node_id: node for node in snapshot.nodes}
     boxes = dict(result.boxes)
     root = boxes[viewport.content_root_id].border
@@ -159,14 +213,27 @@ def derive_scroll_content_metrics(
             cursor = nodes[cursor].parent_id
         return False
 
+    # Nested Scroll is its own clipping boundary. A child Scroll's overflow
+    # belongs to that child's scrolling range, not to its outer Scroll host.
+    # Only the nested viewport's native footprint contributes to the parent.
+    nested = tuple(child for child in scope
+                   if child.content_root_id != viewport.content_root_id
+                   and inside(child.content_root_id))
     content_width = root.width
     content_height = root.height
     for node_id, box in result.boxes:
         if not inside(node_id):
             continue
+        nested_owner = next((child for child in nested
+                             if node_id == child.content_root_id or
+                             _is_descendant(nodes, node_id, child.content_root_id)), None)
+        if nested_owner is not None and node_id != nested_owner.content_root_id:
+            continue
         rect = box.border
-        content_width = max(content_width, rect.x + rect.width - root.x)
-        content_height = max(content_height, rect.y + rect.height - root.y)
+        width = nested_owner.viewport_width if nested_owner is not None else rect.width
+        height = nested_owner.viewport_height if nested_owner is not None else rect.height
+        content_width = max(content_width, rect.x + width - root.x)
+        content_height = max(content_height, rect.y + height - root.y)
     max_x = max(0.0, content_width - viewport.viewport_width)
     max_y = max(0.0, content_height - viewport.viewport_height)
     return ScrollContentMetrics(
@@ -174,3 +241,13 @@ def derive_scroll_content_metrics(
         min(max(0.0, viewport.offset_x), max_x),
         min(max(0.0, viewport.offset_y), max_y),
     )
+
+
+def _is_descendant(nodes: Mapping[str, object], node_id: str, ancestor_id: str) -> bool:
+    """Walk the immutable SFLE parent graph, excluding the ancestor itself."""
+    cursor = nodes[node_id].parent_id
+    while cursor is not None:
+        if cursor == ancestor_id:
+            return True
+        cursor = nodes[cursor].parent_id
+    return False
