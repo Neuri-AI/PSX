@@ -20,6 +20,16 @@ enum Length { Auto, Px(f64), Percent(f64) }
 #[derive(Clone, Copy)]
 struct Style {
     direction: Direction,
+    wrap: Wrap,
+    justify: JustifyContent,
+    align_content: AlignContent,
+    align_self: CrossAlign,
+    margin_top: Length,
+    margin_right: Length,
+    margin_bottom: Length,
+    margin_left: Length,
+    max_width: Length,
+    max_height: Length,
     width: Length,
     height: Length,
     basis: Length,
@@ -88,6 +98,9 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         if !matches!(key.as_str(),"direction"|"width"|"height"|"layout_width"|"layout_height"|
             "flex_basis"|"flex_grow"|"flex_shrink"|"min_width"|"min_height"|
             "layout_min_width"|"layout_min_height"|"align_items"|
+            "wrap"|"justify_content"|"align_content"|"align_self"|
+            "max_width"|"max_height"|"layout_max_width"|"layout_max_height"|
+            "layout_margin_top"|"layout_margin_right"|"layout_margin_bottom"|"layout_margin_left"|
             "row_gap"|"column_gap"|
             "layout_padding_top"|"layout_padding_right"|
             "layout_padding_bottom"|"layout_padding_left"){
@@ -103,12 +116,42 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         "column"=>Direction::Column,"column-reverse"=>Direction::ColumnReverse,
         _=>return Err(unsupported("Unsupported flex direction.",&input.node_id)),
     };
-    let align=match map.get("align_items").and_then(Value::as_str).unwrap_or("stretch"){
-        "stretch"=>CrossAlign::Stretch,"flex-start"=>CrossAlign::FlexStart,
-        _=>return Err(unsupported("Unsupported align-items value.",&input.node_id)),
+    let parse_align=|k:&str,default:&str| -> Result<CrossAlign,ComputeError> {
+        match map.get(k).and_then(Value::as_str).unwrap_or(default) {
+            "stretch"=>Ok(CrossAlign::Stretch),"flex-start"=>Ok(CrossAlign::FlexStart),
+            "flex-end"=>Ok(CrossAlign::FlexEnd),"center"=>Ok(CrossAlign::Center),
+            "baseline"=>Ok(CrossAlign::Baseline),
+            "auto" if k=="align_self"=>Ok(CrossAlign::Auto),
+            _=>Err(unsupported(format!("Unsupported {k} value."),&input.node_id)),
+        }
+    };
+    let align=parse_align("align_items","stretch")?;
+    let align_self=parse_align("align_self","auto")?;
+    let wrap=match map.get("wrap").and_then(Value::as_str).unwrap_or("nowrap"){
+        "nowrap"=>Wrap::NoWrap,"wrap"=>Wrap::Wrap,"wrap-reverse"=>Wrap::WrapReverse,
+        _=>return Err(unsupported("Unsupported wrap value.",&input.node_id)),
+    };
+    let justify=match map.get("justify_content").and_then(Value::as_str).unwrap_or("flex-start"){
+        "flex-start"=>JustifyContent::FlexStart,"flex-end"=>JustifyContent::FlexEnd,
+        "center"=>JustifyContent::Center,"space-between"=>JustifyContent::SpaceBetween,
+        "space-around"=>JustifyContent::SpaceAround,"space-evenly"=>JustifyContent::SpaceEvenly,
+        _=>return Err(unsupported("Unsupported justify-content value.",&input.node_id)),
+    };
+    let align_content=match map.get("align_content").and_then(Value::as_str).unwrap_or("normal"){
+        "normal"|"stretch"=>AlignContent::Stretch,
+        "flex-start"=>AlignContent::FlexStart,"flex-end"=>AlignContent::FlexEnd,
+        "center"=>AlignContent::Center,"space-between"=>AlignContent::SpaceBetween,
+        "space-around"=>AlignContent::SpaceAround,"space-evenly"=>AlignContent::SpaceEvenly,
+        _=>return Err(unsupported("Unsupported align-content value.",&input.node_id)),
     };
     Ok(Style{
-        direction,align,
+        direction,align,wrap,justify,align_content,align_self,
+        margin_top:if map.contains_key("layout_margin_top"){length(map.get("layout_margin_top"),&input.node_id)?}else{Length::Px(0.0)},
+        margin_right:if map.contains_key("layout_margin_right"){length(map.get("layout_margin_right"),&input.node_id)?}else{Length::Px(0.0)},
+        margin_bottom:if map.contains_key("layout_margin_bottom"){length(map.get("layout_margin_bottom"),&input.node_id)?}else{Length::Px(0.0)},
+        margin_left:if map.contains_key("layout_margin_left"){length(map.get("layout_margin_left"),&input.node_id)?}else{Length::Px(0.0)},
+        max_width:length(value(map,&["layout_max_width","max_width"]),&input.node_id)?,
+        max_height:length(value(map,&["layout_max_height","max_height"]),&input.node_id)?,
         row_gap:if map.contains_key("row_gap"){length(map.get("row_gap"),&input.node_id)?}else{Length::Px(0.0)},
         column_gap:if map.contains_key("column_gap"){length(map.get("column_gap"),&input.node_id)?}else{Length::Px(0.0)},
         padding_top:if map.contains_key("layout_padding_top"){length(map.get("layout_padding_top"),&input.node_id)?}else{Length::Px(0.0)},
@@ -345,17 +388,26 @@ impl Context<'_>{
                     Some(n)=>percent_flex_basis_used(p,n),None=>self.preferred(child,row)?,
                 },
             };
-            let minimum=match if row{child_style.min_width}else{child_style.min_height}{
+            let mut minimum=match if row{child_style.min_width}else{child_style.min_height}{
                 Length::Px(n)=>n,
                 Length::Auto=>self.measurements.get(child_id.as_str())
                     .map(|m|if row{m.intrinsic.min_content_width}else{m.intrinsic.min_content_height})
                     .unwrap_or(match axis{Length::Px(n)=>n,_=>0.0}),
                 Length::Percent(_)=>return Err(unsupported("Unlisted percentage minimum size dependency cycle.",child_id)),
             };
+            let maximum=match if row{child_style.max_width}else{child_style.max_height}{
+                Length::Px(n)=>Some(n),Length::Auto=>None,
+                Length::Percent(p) if main_reference.is_some()=>Some(layout_unit(p*main_reference.unwrap())),
+                Length::Percent(_)=>return Err(unsupported("Unlisted indefinite percentage maximum size dependency cycle.",child_id)),
+            };
+            if let Some(maximum)=maximum{
+                if maximum<minimum{minimum=maximum;}
+            }
+            let hypothetical=desired.max(minimum).min(maximum.unwrap_or(f64::INFINITY));
             bases.push(FlexBasis {
-                basis:desired, hypothetical:desired.max(minimum),
+                basis:desired,hypothetical,
                 grow:child_style.grow,shrink:child_style.shrink,
-                min_size:minimum,max_size:None,
+                min_size:minimum,max_size:maximum,
             });
         }
         let gap=main_gap(style,width.unwrap(),height.unwrap_or(0.0),&id)?;
@@ -388,6 +440,13 @@ impl Context<'_>{
         self.used[index]=Some(dims);
         Ok(dims)
     }
+}
+fn margin_value(v:Length,base:f64)->Option<f64>{
+    match v{Length::Auto=>None,Length::Px(n)=>Some(layout_unit(n)),
+        Length::Percent(p)=>Some(layout_unit(p*base))}
+}
+fn cross_gap(st:Style,width:f64,id:&str)->Result<f64,ComputeError>{
+    used_gap(if horizontal(st.direction){st.row_gap}else{st.column_gap},width,id)
 }
 fn converted(r:crate::line_layout::Rect)->Rect{
     Rect{x:r.x,y:r.y,width:r.width,height:r.height}
@@ -522,11 +581,11 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         nodes.push(MarginTreeNode {
             id:node.node_id.clone(),parent:node.parent_id.clone(),
             width,height,item,edges:BoxEdges::default(),
-            direction:st.direction,wrap:Wrap::NoWrap,
-            main_gap:main_gap(st,width,height,&node.node_id)?,cross_gap:0.0,
-            justify:JustifyContent::FlexStart,
-            align_items:CrossAlign::FlexStart,
-            align_content:AlignContent::FlexStart,intrinsic_basis:None,
+            direction:st.direction,wrap:st.wrap,
+            main_gap:main_gap(st,width,height,&node.node_id)?,
+            cross_gap:cross_gap(st,width,&node.node_id)?,
+            justify:st.justify,align_items:st.align,
+            align_content:st.align_content,intrinsic_basis:None,
         });
     }
     let writing=match input.direction.as_str(){"ltr"=>WritingDirection::Ltr,_=>WritingDirection::Rtl};
