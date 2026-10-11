@@ -1421,5 +1421,15 @@
         "rust"
       ]
     }
-  ]
+  ],
+  "chromium_reference": {
+    "version": "153.0.8010.12",
+    "distribution": "Chrome for Testing / Chromium Headless Shell",
+    "playwright": "1.63.0",
+    "playwright_build": 1243,
+    "platform": "ubuntu-latest x86_64",
+    "device_scale_factor": 1,
+    "source_run": "https://github.com/Neuri-AI/PSX/actions/runs/38103899275",
+    "regeneration_policy": "Update only with regenerated Chromium reference rectangles and documented review; fail on version mismatch."
+  }
 }
