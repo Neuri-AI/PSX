@@ -85,10 +85,25 @@ _ALLOWED = frozenset({
 })
 
 
-def _length(style: dict[str, object], *keys: str) -> Length:
+def _style_length(value: object, node_id: str) -> Length:
+    """Convert unsupported CSS expressions into stable capability diagnostics.
+
+    Python must not leak a raw parser ValueError where Rust reports
+    SFLE_UNSUPPORTED_FEATURE for the same immutable layout snapshot.
+    """
+    try:
+        return parse_length(value)
+    except ValueError as exc:
+        raise SFLECapabilityError(
+            DiagnosticCode.UNSUPPORTED_FEATURE,
+            "Unsupported CSS length keyword or expression.", node_id,
+        ) from exc
+
+
+def _length(style: dict[str, object], node_id: str, *keys: str) -> Length:
     for key in keys:
         if key in style:
-            return parse_length(style[key])
+            return _style_length(style[key], node_id)
     return Length(LengthKind.AUTO)
 
 
@@ -151,31 +166,31 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
             justify=justify,
             align_content=content_alignment,
             align_self=self_alignment,
-            margin_top=parse_length(values.get("layout_margin_top", 0)),
-            margin_right=parse_length(values.get("layout_margin_right", 0)),
-            margin_bottom=parse_length(values.get("layout_margin_bottom", 0)),
-            margin_left=parse_length(values.get("layout_margin_left", 0)),
-            max_width=_length(values, "layout_max_width", "max_width"),
-            max_height=_length(values, "layout_max_height", "max_height"),
-            width=_length(values, "layout_width", "width"),
-            height=_length(values, "layout_height", "height"),
-            flex_basis=_length(values, "flex_basis"),
+            margin_top=_style_length(values.get("layout_margin_top", 0), node.node_id),
+            margin_right=_style_length(values.get("layout_margin_right", 0), node.node_id),
+            margin_bottom=_style_length(values.get("layout_margin_bottom", 0), node.node_id),
+            margin_left=_style_length(values.get("layout_margin_left", 0), node.node_id),
+            max_width=_length(values, node.node_id, "layout_max_width", "max_width"),
+            max_height=_length(values, node.node_id, "layout_max_height", "max_height"),
+            width=_length(values, node.node_id, "layout_width", "width"),
+            height=_length(values, node.node_id, "layout_height", "height"),
+            flex_basis=_length(values, node.node_id, "flex_basis"),
             grow=float(grow),
             shrink=float(shrink),
             order=order,
-            min_width=_length(values, "layout_min_width", "min_width"),
-            min_height=_length(values, "layout_min_height", "min_height"),
+            min_width=_length(values, node.node_id, "layout_min_width", "min_width"),
+            min_height=_length(values, node.node_id, "layout_min_height", "min_height"),
             align_items=alignment,
-            row_gap=parse_length(values.get('row_gap', 0)),
-            column_gap=parse_length(values.get('column_gap', 0)),
-            padding_top=parse_length(values.get('layout_padding_top', 0)),
-            padding_right=parse_length(values.get('layout_padding_right', 0)),
-            padding_bottom=parse_length(values.get('layout_padding_bottom', 0)),
-            padding_left=parse_length(values.get('layout_padding_left', 0)),
-            border_top=parse_length(values.get('layout_border_top', 0)),
-            border_right=parse_length(values.get('layout_border_right', 0)),
-            border_bottom=parse_length(values.get('layout_border_bottom', 0)),
-            border_left=parse_length(values.get('layout_border_left', 0)),
+            row_gap=_style_length(values.get('row_gap', 0), node.node_id),
+            column_gap=_style_length(values.get('column_gap', 0), node.node_id),
+            padding_top=_style_length(values.get('layout_padding_top', 0), node.node_id),
+            padding_right=_style_length(values.get('layout_padding_right', 0), node.node_id),
+            padding_bottom=_style_length(values.get('layout_padding_bottom', 0), node.node_id),
+            padding_left=_style_length(values.get('layout_padding_left', 0), node.node_id),
+            border_top=_style_length(values.get('layout_border_top', 0), node.node_id),
+            border_right=_style_length(values.get('layout_border_right', 0), node.node_id),
+            border_bottom=_style_length(values.get('layout_border_bottom', 0), node.node_id),
+            border_left=_style_length(values.get('layout_border_left', 0), node.node_id),
             aspect_ratio=ratio,
             overflow=overflow,
             scroll_container=scroll_container,
