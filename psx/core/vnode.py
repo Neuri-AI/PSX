@@ -181,7 +181,7 @@ def create_element(
     from .component import ComponentType
 
     if node_type == "Text":
-        validate_text_props(props)
+        TEXT_CONTRACT.validate(props)
     if key is not None and (isinstance(key, bool) or not isinstance(key, (str, int))):
         raise TypeError("PSX keys must be str, int, or None (not bool).")
     if ref is not None:

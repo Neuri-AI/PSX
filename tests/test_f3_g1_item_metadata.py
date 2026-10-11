@@ -115,7 +115,15 @@ def test_markup_matches_builder_with_item_metadata_and_preserves_ref() -> None:
 
 
 def test_direct_host_declarations_cannot_bypass_item_validation() -> None:
-    raw = create_element("Text", value="A", layout_width=True)
+    from dataclasses import replace
+    from types import MappingProxyType
+
+    with pytest.raises(RendererCapabilityError, match="layout_width"):
+        create_element("Text", value="A", layout_width=True)
+    # A VNode can be supplied by a custom host/adapter, so normalization
+    # must independently reject bad metadata even after builder bypass.
+    raw = replace(create_element("Text", value="A"),
+                  props=MappingProxyType({"value": "A", "layout_width": True}))
     with pytest.raises(RendererCapabilityError, match="layout_width"):
         normalize_flex_tree(Flex(raw))
 
