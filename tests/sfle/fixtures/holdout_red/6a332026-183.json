@@ -1,0 +1,101 @@
+{
+  "seed": "0x6a332026",
+  "index": 183,
+  "input": {
+    "width": 320,
+    "gap": "5%",
+    "items": [
+      {
+        "basis": "40%",
+        "width": "auto",
+        "grow": 1,
+        "shrink": 1,
+        "pad": "5%"
+      },
+      {
+        "basis": "40%",
+        "width": "auto",
+        "grow": 0,
+        "shrink": 1,
+        "pad": "4px"
+      },
+      {
+        "basis": "40%",
+        "width": "20px",
+        "grow": 0,
+        "shrink": 1,
+        "pad": "5%"
+      },
+      {
+        "basis": "40%",
+        "width": "30px",
+        "grow": 0,
+        "shrink": 1,
+        "pad": "4px"
+      },
+      {
+        "basis": "25%",
+        "width": "20px",
+        "grow": 0,
+        "shrink": 1,
+        "pad": "10%"
+      }
+    ]
+  },
+  "type": "geometry",
+  "errors": [
+    {
+      "node": "n0",
+      "axis": "width",
+      "chromium": 55.359375,
+      "python": 55.34375,
+      "rust": 55.34375
+    },
+    {
+      "node": "n1",
+      "axis": "x",
+      "chromium": 71.359375,
+      "python": 71.34375,
+      "rust": 71.34375
+    },
+    {
+      "node": "n1",
+      "axis": "width",
+      "chromium": 55.34375,
+      "python": 55.359375,
+      "rust": 55.359375
+    },
+    {
+      "node": "n2",
+      "axis": "width",
+      "chromium": 55.359375,
+      "python": 55.34375,
+      "rust": 55.34375
+    },
+    {
+      "node": "n3",
+      "axis": "x",
+      "chromium": 214.0625,
+      "python": 214.046875,
+      "rust": 214.046875
+    },
+    {
+      "node": "n3",
+      "axis": "width",
+      "chromium": 55.34375,
+      "python": 55.359375,
+      "rust": 55.359375
+    }
+  ],
+  "fixture_id": "6a332026-183",
+  "chromium_reference": {
+    "version": "153.0.8010.12",
+    "playwright": "1.63.0",
+    "build": 1243,
+    "run": "https://github.com/Neuri-AI/PSX/actions/runs/38104700812"
+  },
+  "tolerance_px": 0.01,
+  "expected_rejection": false,
+  "acceptance": "RED — must match independent Chromium oracle for every listed axis",
+  "rule": "Fixture is immutable: refresh only on documented browser-version migration"
+}
