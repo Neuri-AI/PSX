@@ -70,7 +70,7 @@ def generate_dimension(dimension: str):
             items[0] = (items[0][0], items[0][1], items[0][2] + f";margin-left:{extra_margin}px")
         root_style = {
             "direction": direction, "width": f"{root_w}px", "height": "90px",
-            "align_items": "flex-start", "column_gap": "4px", **extra,
+            "align_items": "flex-start", "column_gap": "4px", "row_gap": "4px", **extra,
         }
         if direction in ("column", "column-reverse"):
             # CSS gap:4px sets both axes; SFLE needs row_gap for a column's
