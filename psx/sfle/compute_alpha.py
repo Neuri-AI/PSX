@@ -145,10 +145,17 @@ def _used_flex_target_units(
     used_units = basis_units[:]
     if not active:
         return tuple(value / 64.0 for value in used_units)
+    growing = sum(deltas) > 0.0
+    # Use the exact CSS flex weights, not target-size deltas (which can
+    # acquire floating cancellation error and flip a 1/2 LayoutUnit tie).
+    weights = [
+        (bases[i].grow if growing else bases[i].shrink * bases[i].basis)
+        if i in active else 0.0 for i in range(len(bases))
+    ]
     remaining = math.floor(sum(targets) * 64.0 + 0.5) - sum(basis_units)
-    active_magnitude = sum(abs(deltas[i]) for i in active)
+    active_magnitude = sum(weights[i] for i in active)
     for i in reversed(active):
-        magnitude = abs(deltas[i])
+        magnitude = weights[i]
         if active_magnitude - magnitude < 1e-12:
             allocated = remaining
         else:
