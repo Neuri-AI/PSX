@@ -35,7 +35,7 @@ jobs:
       - name: Install headless Chromium
         run: python -m playwright install --with-deps chromium
       - name: Compare SFLE rectangles to browser geometry
-        run: python -m pytest -q tests/browser/test_sfle_chromium_version.py tests/browser/test_sfle_chromium.py tests/browser/test_sfle_f2_corpus.py tests/browser/test_sfle_f2_engine_chromium.py tests/browser/test_sfle_f2_live_text_chromium.py tests/browser/test_sfle_f2_headless_oracle.py tests/browser/test_sfle_f2_css_reference_matrix.py tests/browser/test_sfle_f2_seeded_fuzz_red.py
+        run: python -m pytest -q tests/browser/test_sfle_chromium_version.py tests/browser/test_sfle_chromium.py tests/browser/test_sfle_f2_corpus.py tests/browser/test_sfle_f2_engine_chromium.py tests/browser/test_sfle_f2_live_text_chromium.py tests/browser/test_sfle_f2_headless_oracle.py tests/browser/test_sfle_f2_independent_dimension_holdout.py tests/browser/test_sfle_f2_css_reference_matrix.py tests/browser/test_sfle_f2_seeded_fuzz_red.py
       - name: Verify five independent holdout seeds (200 each)
         run: python -m pytest -q -s tests/browser/test_sfle_f2_holdout_red.py
       - name: Audit expanded CSS dimensions (all RED until Chromium geometry agrees)
