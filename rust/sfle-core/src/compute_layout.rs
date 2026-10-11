@@ -816,7 +816,14 @@ impl Context<'_>{
 fn margin_value(v:Length,base:f64)->Option<f64>{
     match v{Length::Auto|Length::MinContent|Length::MaxContent=>None,
         Length::Px(n)=>Some(layout_unit(n)),
-        Length::Percent(p)=>Some(layout_unit(p*base))}
+        Length::Percent(p)=>{
+            let used=p*base;
+            if used.is_infinite(){
+                Some(LayoutUnit::from_raw(if used.is_sign_positive(){i32::MAX}else{i32::MIN}).to_px())
+            }else{
+                Some(layout_unit(used))
+            }
+        }}
 }
 fn cross_gap(st:Style,width:f64,id:&str)->Result<f64,ComputeError>{
     used_gap(if horizontal(st.direction){st.row_gap}else{st.column_gap},width,id)
@@ -1328,6 +1335,14 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
 #[cfg(test)]
 mod point3_saturation_tests {
     use super::*;
+
+    #[test]
+    fn signed_overflow_in_percentage_margin_saturates_at_i32_endpoints() {
+        let max=LayoutUnit::from_raw(i32::MAX).to_px();
+        let min=LayoutUnit::from_raw(i32::MIN).to_px();
+        assert_eq!(margin_value(Length::Percent(1e308),max),Some(max));
+        assert_eq!(margin_value(Length::Percent(-1e308),max),Some(min));
+    }
 
     #[test]
     fn finite_percentage_multiplication_overflow_saturates_without_panic() {
