@@ -29,14 +29,19 @@ class QtLayoutHandle:
     """Owns the UI pump and worker until the single completion callback."""
 
     def __init__(self, timer: object, pool: ThreadPoolExecutor,
-                 future: Future[LayoutResult]) -> None:
+                 future: Future[LayoutResult], cancel_flag: threading.Event) -> None:
         self._timer = timer
         self._pool = pool
         self._future = future
         self._finished = False
+        self._cancel_flag = cancel_flag
 
     def done(self) -> bool:
         return self._finished
+
+    def cancel(self) -> None:
+        """Invalidate the transaction before any pending UI measurement or commit."""
+        self._cancel_flag.set()
 
 
 def start_qt_worker_layout(
@@ -59,11 +64,12 @@ def start_qt_worker_layout(
     if current_generation() != generation:
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation at start.")
     pending: queue.Queue[_Request] = queue.Queue()
+    cancel_flag = threading.Event()
     pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sfle-qt-compute")
 
     def worker_measure(node_id: str, width: float) -> IntrinsicSizes:
-        if current_generation() != generation:
-            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Generation changed before Qt measurement.")
+        if cancel_flag.is_set() or current_generation() != generation:
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Cancelled or stale Qt measurement.")
         request = _Request(node_id, width)
         pending.put(request)
         if not request.ready.wait(timeout=10):
@@ -82,7 +88,7 @@ def start_qt_worker_layout(
     )
     timer = qtcore.QTimer()
     timer.setInterval(1)
-    handle = QtLayoutHandle(timer, pool, future)
+    handle = QtLayoutHandle(timer, pool, future, cancel_flag)
 
     def tick() -> None:
         # QObject timer fires exclusively on the GUI thread.
@@ -94,9 +100,9 @@ def start_qt_worker_layout(
             except queue.Empty:
                 break
             try:
-                if current_generation() != generation:
+                if cancel_flag.is_set() or current_generation() != generation:
                     raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
-                                    "Stale Qt measurement request.")
+                                    "Cancelled or stale Qt measurement request.")
                 request.value = measure_on_ui(request.node_id, request.width)
                 if current_generation() != generation:
                     raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
@@ -111,7 +117,7 @@ def start_qt_worker_layout(
             pool.shutdown(wait=False)
             try:
                 result = future.result()
-                if current_generation() != generation or result.generation != generation:
+                if cancel_flag.is_set() or current_generation() != generation or result.generation != generation:
                     raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                     "Stale Qt worker layout cannot commit.")
                 commit_on_ui(result)
