@@ -155,3 +155,27 @@ def test_fixed_point_signed_boundaries_never_wrap_or_lose_grid(raw):
     assert value.to_px() * SCALE == raw
     assert (value + LayoutUnit.from_raw(99)).raw == min(I32_MAX, raw + 99)
     assert (value - LayoutUnit.from_raw(99)).raw == max(I32_MIN, raw - 99)
+
+
+@pytest.mark.parametrize("fraction",(1e308,-1e308))
+def test_huge_finite_percentage_margins_saturate_without_backend_exceptions(
+    fraction,rust_binary,
+):
+    """Finite normalized CSS percentages must not create infinite raw geometry."""
+    from dataclasses import replace
+    from psx.sfle.lengths import Length
+    snapshot=_snapshot(MAX_PX, 25.0)
+    child=snapshot.nodes[1]
+    modified=replace(child,style=child.style+(("layout_margin_left",Length.percent(fraction)),))
+    snapshot=replace(snapshot,nodes=(snapshot.nodes[0],modified,snapshot.nodes[2]))
+    py=_python_compute(snapshot)
+    rs=_rust_compute(rust_binary,snapshot)
+    assert py["ok"]==rs["ok"],(fraction,py.get("error"),rs.get("error"))
+    assert py["ok"],(fraction,py.get("error"),rs.get("error"))
+    assert _rects(py["result"])==_rects(rs["result"])
+    for box in _rects(py["result"]).values():
+        for rect in ("content","padding","border","margin"):
+            for axis in ("x","y","width","height"):
+                raw=box[rect][axis]*SCALE
+                assert I32_MIN<=raw<=I32_MAX
+                assert raw==int(raw)
