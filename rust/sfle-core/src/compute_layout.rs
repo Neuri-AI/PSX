@@ -128,18 +128,22 @@ fn percent_flex_basis_used(fraction:f64,reference:f64)->f64{
     // Quantize the resolved basis before distribution, not output rectangles.
     (fraction*reference*64.0).floor()/64.0
 }
-fn used_flex_target_units(targets:Vec<f64>,bases:&[FlexBasis])->Vec<f64>{
+fn used_flex_target_units(targets:Vec<f64>,bases:&[FlexBasis],id:&str)->Result<Vec<f64>,ComputeError>{
     // Blink's LineFlexer distributes each LayoutUnit-rounded share in
     // reverse child order, using the remaining free-space. This occurs
     // after the pure CSS §9.7 double-precision target calculation, before
     // recursive placement. Never patch output rectangles.
-    if targets.is_empty(){return vec![];}
+    if targets.is_empty(){return Ok(vec![]);}
     let base_units:Vec<i64>=bases.iter()
         .map(|item|(item.basis*64.0+0.5).floor() as i64).collect();
     let deltas:Vec<f64>=targets.iter().zip(bases.iter())
         .map(|(target,item)|target-item.basis).collect();
     let active:Vec<usize>=(0..deltas.len())
         .filter(|&i|deltas[i].abs()>1e-12).collect();
+    if active.iter().any(|&idx|deltas[idx]>0.0) &&
+        active.iter().any(|&idx|deltas[idx]<0.0){
+        return Err(unsupported("Mixed-sign flex target constraints need explicit freeze metadata.",id));
+    }
     let mut units=base_units.clone();
     if !active.is_empty(){
         let mut remaining=(targets.iter().sum::<f64>()*64.0+0.5).floor() as i64
@@ -157,7 +161,7 @@ fn used_flex_target_units(targets:Vec<f64>,bases:&[FlexBasis])->Vec<f64>{
             magnitude-=share;
         }
     }
-    units.into_iter().map(|unit|unit as f64/64.0).collect()
+    Ok(units.into_iter().map(|unit|unit as f64/64.0).collect())
 }
 fn resolved(v:Length, reference:Option<f64>, vertical:bool, id:&str)->Result<Option<f64>,ComputeError>{
     match v {
@@ -308,8 +312,8 @@ impl Context<'_>{
         let targets=used_flex_target_units(
             resolve_flexible_lengths(&bases,(main-fixed_edges).max(0.0),gap)
                 .map_err(|e|failure("SFLE_LAYOUT_CONSTRAINT_ERROR",format!("Flex allocation failed: {e:?}"),Some(&id)))?,
-            &bases,
-        );
+            &bases, &id,
+        )?;
         let mut cross_sizes=Vec::new();
         for ((&child,&target),padding_box) in child_indices.iter().zip(targets.iter()).zip(edges.iter()){
             let child_id=self.input.nodes[child].node_id.clone();
