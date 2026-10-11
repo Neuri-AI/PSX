@@ -420,12 +420,37 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             return block_reference_definite(parent)
         return False
 
+    # A single definite-root row with an auto-width, no-shrink row holding
+    # one definite-width leaf has a CSS-defined cyclic inline padding rule:
+    # its percent padding contributes zero INTRINSICALLY, then resolves
+    # against the wrapper's actual used width. Unknown cycles still fail.
+    def supported_cyclic_padding(node_id: str) -> bool:
+        parent = parents[node_id]
+        if parent is None or parents[parent] is None:
+            return False
+        outer = parents[parent]
+        own, wrapper, container = styles[node_id], styles[parent], styles[outer]
+        return (
+            not children[node_id] and children[parent] == [node_id]
+            and own.width.kind == own.flex_basis.kind == LengthKind.PX
+            and wrapper.width.kind == LengthKind.AUTO and wrapper.shrink == 0
+            and wrapper.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+            and container.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+            and container.width.kind == LengthKind.PX
+            and own.padding_top.kind == own.padding_bottom.kind == LengthKind.PX
+            and any(e.kind == LengthKind.PERCENT for e in (own.padding_left, own.padding_right))
+        )
+
+    allowed_cyclic_padding = {
+        node.node_id for node in request.nodes if supported_cyclic_padding(node.node_id)
+    }
+
     for node in request.nodes:
         node_id = node.node_id
         st = styles[node_id]
         if any(edge.kind == LengthKind.PERCENT for edge in (
             st.padding_top, st.padding_right, st.padding_bottom, st.padding_left
-        )) and not inline_reference_definite(node_id):
+        )) and not inline_reference_definite(node_id) and node_id not in allowed_cyclic_padding:
             raise SFLECapabilityError(
                 DiagnosticCode.UNSUPPORTED_FEATURE,
                 "Unlisted indefinite inline percentage padding dependency cycle.",
@@ -505,6 +530,10 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 if edge.kind == LengthKind.PX:
                     assert edge.value is not None
                     padding_sum += edge.value
+                elif edge.kind == LengthKind.PERCENT and child in allowed_cyclic_padding:
+                    # Blink's cyclic contribution is zero only in this
+                    # intrinsic phase; _padding resolves the final used edge.
+                    continue
                 else:
                     raise SFLECapabilityError(
                         DiagnosticCode.UNSUPPORTED_FEATURE,
