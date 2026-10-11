@@ -103,7 +103,7 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
 
 def _layout_unit(value: float) -> float:
     """Quantize a resolved CSS used size to Chromium's 1/64 CSS-px grid."""
-    return math.floor(value * 64 + 0.5) / 64
+    return math.floor(value * 64) / 64
 
 
 def _axis_value(length: Length, reference: float | None, *,
