@@ -32,7 +32,14 @@ pub fn resolve_main_alignment(
     }
     let count = outer_sizes.len();
     let total=outer_sizes.iter().fold(LayoutUnit::from_raw(0),|a,v|a+lu(*v));
-    let free = (lu(available_main)-total-lu(gap*count.saturating_sub(1) as f64)).to_px();
+    // A fixed gutter is rounded to the LayoutUnit grid before repetition.
+    // Multiply widened raw units (not floating-point gap*count) and clamp
+    // to the signed i32 extent. This avoids inf/panic and precision drift.
+    let gutter_raw=(lu(gap).raw() as i128)*(count.saturating_sub(1) as i128);
+    let gap_total=LayoutUnit::from_raw(
+        gutter_raw.clamp(i32::MIN as i128,i32::MAX as i128) as i32
+    );
+    let free = (lu(available_main)-total-gap_total).to_px();
     if count == 0 {
         return Ok(MainAlignment {
             leading_space: 0.0, between_space: gap, remaining_free_space: free,
@@ -58,8 +65,13 @@ pub fn resolve_main_alignment(
             }
         }
     };
+    // Chromium 153 floors the fractional leading offset for
+    // space-evenly; distributed internal space is rounded separately.
+    let leading_unit = if justify == JustifyContent::SpaceEvenly && free > 0.0 {
+        LayoutUnit::from_floor(leading).expect("validated leading offset")
+    } else { lu(leading) };
     Ok(MainAlignment {
-        leading_space: lu(leading).to_px(),
+        leading_space: leading_unit.to_px(),
         between_space: (lu(gap) + lu(extra)).to_px(),
         remaining_free_space: free,
     })
@@ -70,6 +82,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn point3_repeated_finite_gaps_saturate_without_float_overflow() {
+        let limit=LayoutUnit::from_raw(i32::MAX).to_px();
+        for count in [3_usize,4,12,128] {
+            for gap in [limit,1e308] {
+                let sizes=vec![0.0;count];
+                let value=resolve_main_alignment(
+                    JustifyContent::FlexStart,0.0,&sizes,gap,
+                ).expect("finite per-gap input must saturate signed LayoutUnits");
+                assert_eq!(value.remaining_free_space,-limit);
+                assert!(value.between_space>=0.0&&value.between_space<=limit);
+            }
+        }
+    }
+
+    #[test]
+    fn point3_fractional_gaps_round_individually_before_multiplication() {
+        for count in [3_usize,4,12,128] {
+            let sizes=vec![0.0;count];
+            let value=resolve_main_alignment(
+                JustifyContent::FlexStart,20.0,&sizes,0.008,
+            ).unwrap();
+            assert_eq!(value.remaining_free_space,20.0-(count-1) as f64/64.0);
+        }
+    }
+
+    #[test]
     fn positive_free_space_variants() {
         let sizes = [20.0, 20.0];
         assert_eq!(resolve_main_alignment(
@@ -78,9 +116,11 @@ mod tests {
         assert_eq!(resolve_main_alignment(
             JustifyContent::SpaceAround, 100.0, &sizes, 10.0
         ).unwrap().leading_space, 12.5);
-        assert_eq!(resolve_main_alignment(
+        let evenly = resolve_main_alignment(
             JustifyContent::SpaceEvenly, 100.0, &sizes, 10.0
-        ).unwrap().leading_space, 50.0 / 3.0);
+        ).unwrap();
+        assert_eq!(evenly.leading_space, 16.65625);
+        assert_eq!(evenly.between_space, 26.671875);
     }
 
     #[test]

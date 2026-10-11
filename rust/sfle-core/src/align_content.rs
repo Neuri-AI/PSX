@@ -58,7 +58,8 @@ pub fn distribute_cross_lines(
             }
             AlignContent::SpaceEvenly if free > 0.0 => {
                 between = sum([between, free / (count + 1) as f64]);
-                leading = free / (count + 1) as f64;
+                leading = LayoutUnit::from_floor(free / (count + 1) as f64)
+                    .expect("validated fractional leading offset").to_px();
             }
             AlignContent::Stretch if free > 0.0 => {
                 for size in &mut sizes { *size = sum([*size, free / count as f64]); }
@@ -96,6 +97,15 @@ mod tests {
         let v = distribute_cross_lines(AlignContent::Stretch, 100.0, &[20.0, 20.0], 10.0, true, false).unwrap();
         assert_eq!(v.sizes, vec![45.0, 45.0]);
         assert_eq!(v.starts, vec![0.0, 55.0]);
+    }
+
+    #[test]
+    fn chromium_153_fractional_space_evenly_uses_floored_leading_and_rounded_gap() {
+        let v = distribute_cross_lines(
+            AlignContent::SpaceEvenly, 100.0, &[20.0, 20.0], 10.0, true, false
+        ).unwrap();
+        assert_eq!(v.starts, vec![16.65625, 63.328125]);
+        assert_eq!(v.free_space, 50.0);
     }
 
     #[test]

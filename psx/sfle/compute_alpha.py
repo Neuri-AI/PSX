@@ -6,7 +6,7 @@ layout-time native measurement may cross this boundary.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from collections.abc import Iterable
 import math
@@ -85,10 +85,37 @@ _ALLOWED = frozenset({
 })
 
 
-def _length(style: dict[str, object], *keys: str) -> Length:
+def _style_length(value: object, node_id: str) -> Length:
+    """Convert unsupported CSS expressions into stable capability diagnostics.
+
+    Python must not leak a raw parser ValueError where Rust reports
+    SFLE_UNSUPPORTED_FEATURE for the same immutable layout snapshot.
+    """
+    try:
+        parsed = parse_length(value)
+    except ValueError as exc:
+        raise SFLECapabilityError(
+            DiagnosticCode.UNSUPPORTED_FEATURE,
+            "Unsupported CSS length keyword or expression.", node_id,
+        ) from exc
+    if parsed.kind in (
+        LengthKind.FIT_CONTENT, LengthKind.CONTENT,
+        LengthKind.NONE, LengthKind.NORMAL,
+    ):
+        # The shared parser recognizes these tokens, but the frozen SFLE
+        # alpha compute contract does not implement their used-size rules.
+        # Fail before geometry rather than treating them as auto/zero.
+        raise SFLECapabilityError(
+            DiagnosticCode.UNSUPPORTED_FEATURE,
+            "Unsupported CSS length keyword or expression.", node_id,
+        )
+    return parsed
+
+
+def _length(style: dict[str, object], node_id: str, *keys: str) -> Length:
     for key in keys:
         if key in style:
-            return parse_length(style[key])
+            return _style_length(style[key], node_id)
     return Length(LengthKind.AUTO)
 
 
@@ -128,6 +155,9 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
         order = values.get("order", 0)
         if isinstance(order, bool) or not isinstance(order, int):
             raise SFLEError(DiagnosticCode.INVALID_LENGTH, "order must be a signed integer.", node.node_id)
+        if order < -(1 << 31) or order > (1 << 31) - 1:
+            raise SFLEError(DiagnosticCode.INVALID_LENGTH,
+                            "order is outside the supported signed range.", node.node_id)
         ratio = values.get("aspect_ratio")
         if ratio is not None:
             if isinstance(ratio, bool) or not isinstance(ratio, (int, float)) or not math.isfinite(ratio) or ratio <= 0:
@@ -151,31 +181,31 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
             justify=justify,
             align_content=content_alignment,
             align_self=self_alignment,
-            margin_top=parse_length(values.get("layout_margin_top", 0)),
-            margin_right=parse_length(values.get("layout_margin_right", 0)),
-            margin_bottom=parse_length(values.get("layout_margin_bottom", 0)),
-            margin_left=parse_length(values.get("layout_margin_left", 0)),
-            max_width=_length(values, "layout_max_width", "max_width"),
-            max_height=_length(values, "layout_max_height", "max_height"),
-            width=_length(values, "layout_width", "width"),
-            height=_length(values, "layout_height", "height"),
-            flex_basis=_length(values, "flex_basis"),
+            margin_top=_style_length(values.get("layout_margin_top", 0), node.node_id),
+            margin_right=_style_length(values.get("layout_margin_right", 0), node.node_id),
+            margin_bottom=_style_length(values.get("layout_margin_bottom", 0), node.node_id),
+            margin_left=_style_length(values.get("layout_margin_left", 0), node.node_id),
+            max_width=_length(values, node.node_id, "layout_max_width", "max_width"),
+            max_height=_length(values, node.node_id, "layout_max_height", "max_height"),
+            width=_length(values, node.node_id, "layout_width", "width"),
+            height=_length(values, node.node_id, "layout_height", "height"),
+            flex_basis=_length(values, node.node_id, "flex_basis"),
             grow=float(grow),
             shrink=float(shrink),
             order=order,
-            min_width=_length(values, "layout_min_width", "min_width"),
-            min_height=_length(values, "layout_min_height", "min_height"),
+            min_width=_length(values, node.node_id, "layout_min_width", "min_width"),
+            min_height=_length(values, node.node_id, "layout_min_height", "min_height"),
             align_items=alignment,
-            row_gap=parse_length(values.get('row_gap', 0)),
-            column_gap=parse_length(values.get('column_gap', 0)),
-            padding_top=parse_length(values.get('layout_padding_top', 0)),
-            padding_right=parse_length(values.get('layout_padding_right', 0)),
-            padding_bottom=parse_length(values.get('layout_padding_bottom', 0)),
-            padding_left=parse_length(values.get('layout_padding_left', 0)),
-            border_top=parse_length(values.get('layout_border_top', 0)),
-            border_right=parse_length(values.get('layout_border_right', 0)),
-            border_bottom=parse_length(values.get('layout_border_bottom', 0)),
-            border_left=parse_length(values.get('layout_border_left', 0)),
+            row_gap=_style_length(values.get('row_gap', 0), node.node_id),
+            column_gap=_style_length(values.get('column_gap', 0), node.node_id),
+            padding_top=_style_length(values.get('layout_padding_top', 0), node.node_id),
+            padding_right=_style_length(values.get('layout_padding_right', 0), node.node_id),
+            padding_bottom=_style_length(values.get('layout_padding_bottom', 0), node.node_id),
+            padding_left=_style_length(values.get('layout_padding_left', 0), node.node_id),
+            border_top=_style_length(values.get('layout_border_top', 0), node.node_id),
+            border_right=_style_length(values.get('layout_border_right', 0), node.node_id),
+            border_bottom=_style_length(values.get('layout_border_bottom', 0), node.node_id),
+            border_left=_style_length(values.get('layout_border_left', 0), node.node_id),
             aspect_ratio=ratio,
             overflow=overflow,
             scroll_container=scroll_container,
@@ -204,9 +234,20 @@ def _subtract_units(value: float, deductions: Iterable[float]) -> float:
     return total.to_px()
 
 
+def _percent_used_dimension(value: float, reference: float) -> float:
+    """Floor CSS used percentage sizes to Chromium's 1/64px grid."""
+    used = value * reference
+    if math.isinf(used):
+        return LayoutUnit.from_raw(I32_MAX if used > 0 else I32_MIN).to_px()
+    return LayoutUnit.from_floor(math.nextafter(used, math.inf)).to_px()
+
+
 def _percent_flex_basis_used(value: float, reference: float) -> float:
     """Percent flex base is floored when resolving the basis (Blink)."""
-    return LayoutUnit.from_floor(value * reference).to_px()
+    used = value * reference
+    if math.isinf(used):
+        return LayoutUnit.from_raw(I32_MAX if used > 0 else I32_MIN).to_px()
+    return LayoutUnit.from_floor(used).to_px()
 
 
 def _blink_flex_targets(
@@ -222,6 +263,16 @@ def _blink_flex_targets(
     if not bases:
         return ()
     raw = lambda v: LayoutUnit.from_nearest(v)
+
+    def finite_factor(value: float) -> float:
+        if not math.isfinite(value):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Flex factor accumulation exceeds finite f64 range.",
+                node_id,
+            )
+        return value
+
     zero = LayoutUnit.from_raw(0)
     available = raw(inner_main)
     gutter = raw(gap)
@@ -252,13 +303,14 @@ def _blink_flex_targets(
                 remaining = remaining - sizes[i] - gutter
                 continue
             sizes[i] = hypot[i]
-            total_factor += factor
+            total_factor = finite_factor(total_factor + factor)
             if growing:
-                fractions[i] = factor / total_factor
+                fractions[i] = finite_factor(factor / total_factor)
             else:
-                weight = factor * base[i].to_px()
-                total_scaled_shrink += weight
-                fractions[i] = weight / total_scaled_shrink if total_scaled_shrink else 0.0
+                weight = finite_factor(factor * base[i].to_px())
+                total_scaled_shrink = finite_factor(total_scaled_shrink + weight)
+                fractions[i] = (finite_factor(weight / total_scaled_shrink)
+                                if total_scaled_shrink else 0.0)
             remaining = remaining - base[i] - gutter
         remaining = remaining + gutter
         if iteration == 0:
@@ -311,12 +363,14 @@ def _axis_value(length: Length, reference: float | None, *,
     if length.kind == LengthKind.PX:
         assert length.value is not None
         return length.value
-    if length.kind == LengthKind.AUTO:
+    if length.kind in (LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT):
+        # Explicit intrinsic keywords are resolved through preferred() using
+        # host-provided min/max metrics, not through available-space hints.
         return None
     if length.kind == LengthKind.PERCENT:
         if reference is not None:
             assert length.value is not None
-            return _layout_unit(length.value * reference)
+            return _percent_used_dimension(length.value, reference)
         # A percentage whose containing axis is intrinsically indefinite has
         # no used numeric value in this phase.  Flex intrinsic sizing treats
         # it as auto/content rather than fabricating zero; once a definite
@@ -348,7 +402,10 @@ def _used_gap(length: Length, reference: float, node_id: str) -> float:
         # Chromium exposes used flex gaps on a 1/64 CSS-pixel layout grid.
         # Quantize each resolved gap before placement: rounding only the
         # accumulated x-coordinate loses intermediate browser rounding.
-        return math.floor(length.value * reference * 64 + 0.5) / 64
+        used = length.value * reference
+        if math.isinf(used):
+            return LayoutUnit.from_raw(I32_MAX if used > 0 else I32_MIN).to_px()
+        return LayoutUnit.from_nearest(used).to_px()
     assert length.value is not None
     return length.value
 
@@ -367,8 +424,11 @@ def _padding(style: _Style, inline_reference: float, node_id: str) -> UsedEdges:
             # Blink's used percentage padding follows LayoutUnit truncation,
             # not FromDoubleRound. Compensate a single f64 representational
             # ULP before flooring (e.g. 35% * 45 = 15.749999999999998).
-            used = math.nextafter(length.value * inline_reference, math.inf)
-            value = LayoutUnit.from_floor(used).to_px()
+            used = length.value * inline_reference
+            if math.isinf(used):
+                value = LayoutUnit.from_raw(I32_MAX if used > 0 else I32_MIN).to_px()
+            else:
+                value = LayoutUnit.from_floor(math.nextafter(used, math.inf)).to_px()
         else:
             raise SFLECapabilityError(DiagnosticCode.INVALID_LENGTH,
                                       "Padding requires a valid CSS numeric length.", node_id)
@@ -411,10 +471,433 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         children[node.parent_id].append(node.node_id)
     measures = {box.node_id: box for box in request.measurements}
 
-    # CSS intrinsic contributions break percentage-padding cycles by using a
-    # zero contribution. Once the container's used inline size is available,
-    # the same edge is resolved normally by ``_padding``. This is a sizing
-    # phase rule, not a numeric zero substituted into final geometry.
+    # Approved F2 point-5 deferral: do not invent intrinsic size for an
+    # unmeasured replaced ratio leaf with two auto axes and no cross stretch.
+    # Definite-axis ratio transfer remains supported by the frozen alpha subset.
+    for node in request.nodes[1:]:
+        style = styles[node.node_id]
+        if (style.replaced and style.aspect_ratio is not None
+                and style.width.kind == LengthKind.AUTO
+                and style.height.kind == LengthKind.AUTO
+                and node.node_id not in measures):
+            parent = styles[node.parent_id]
+            alignment = (style.align_self if style.align_self != CrossAlign.AUTO
+                         else parent.align_items)
+            if alignment != CrossAlign.STRETCH:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Replaced intrinsic aspect-ratio sizing without native measurement is deferred.",
+                    node.node_id,
+                )
+
+    # Resolve intrinsic constraint keywords bottom-up before flex sizing.
+    # The certified recursive branch is COLUMN inline intrinsic width; its
+    # width equals the maximum definite/minmax-clamped outer child width.
+    # Other recursive dependency classes fail closed rather than pretending
+    # a guessed intrinsic size is authoritative.
+    def intrinsic_flex_width(node_id: str, minimum: bool) -> float:
+        style = styles[node_id]
+        if not children[node_id]:
+            intrinsic = measures.get(node_id)
+            if intrinsic is None:
+                if components[node_id] == "Text":
+                    raise SFLEError(
+                        DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                        "Intrinsic constraint requires measured text.", node_id,
+                    )
+                return 0.0
+            return _layout_unit(
+                intrinsic.intrinsic.min_content_width if minimum
+                else intrinsic.intrinsic.max_content_width
+            )
+        horizontal = style.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+        if horizontal and style.wrap != FlexWrap.NOWRAP:
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Recursive row intrinsic constraint requires no-wrap.",
+                node_id,
+            )
+        if horizontal and any(styles[c].shrink != 0 and (minimum or styles[c].width.kind != LengthKind.PX or styles[c].flex_basis.kind != LengthKind.PX or styles[c].min_width.kind != LengthKind.PX) for c in children[node_id]):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Shrinking row max-content requires definite item width, basis and minimum.",
+                node_id,
+            )
+        outer_sizes = []
+        for child_id in children[node_id]:
+            child = styles[child_id]
+            if child.width.kind == LengthKind.PX:
+                child_width = _layout_unit(child.width.value)
+            elif child.width.kind in (LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT):
+                child_width = intrinsic_flex_width(child_id, minimum)
+            else:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Uncertified percentage dependency in recursive intrinsic constraint.",
+                    child_id,
+                )
+            if child.max_width.kind == LengthKind.PX:
+                child_width = min(child_width, _layout_unit(child.max_width.value))
+            elif child.max_width.kind != LengthKind.AUTO:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Unresolved intrinsic maximum in recursive child.", child_id,
+                )
+            if child.min_width.kind == LengthKind.PX:
+                child_width = max(child_width, _layout_unit(child.min_width.value))
+            elif child.min_width.kind != LengthKind.AUTO:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Unresolved intrinsic minimum in recursive child.", child_id,
+                )
+            fixed_edges = 0.0
+            for edge in (
+                child.padding_left, child.padding_right,
+                child.border_left, child.border_right,
+                child.margin_left, child.margin_right,
+            ):
+                if edge.kind == LengthKind.PX:
+                    fixed_edges = _sum_units((fixed_edges, edge.value))
+                elif edge.kind != LengthKind.AUTO:
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Uncertified relative edges in recursive intrinsic constraint.",
+                        child_id,
+                    )
+            outer_sizes.append(_sum_units((child_width, fixed_edges)))
+        if horizontal:
+            gap = style.column_gap
+            if gap.kind != LengthKind.PX:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Recursive row intrinsic gap must be definite.",
+                    node_id,
+                )
+            return _sum_units(
+                size for i, outer in enumerate(outer_sizes)
+                for size in ((gap.value, outer) if i else (outer,))
+            )
+        return max(outer_sizes, default=0.0)
+
+    def intrinsic_flex_height(node_id: str, minimum: bool) -> float:
+        """Recursive intrinsic block size from certified fixed child heights.
+
+        For columns the block main contributions add, including row-gap;
+        for rows the block cross contribution is the largest outer child.
+        Unknown percent cycles and nonfixed flexible columns stay fail-closed.
+        """
+        style = styles[node_id]
+        if not children[node_id]:
+            intrinsic = measures.get(node_id)
+            if intrinsic is not None:
+                return _layout_unit(
+                    intrinsic.intrinsic.min_content_height if minimum
+                    else intrinsic.intrinsic.max_content_height
+                )
+            if components[node_id] == "Text":
+                raise SFLEError(
+                    DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                    "Intrinsic block constraint requires measured text.", node_id,
+                )
+            return 0.0
+
+        is_column = style.direction in (
+            FlexDirection.COLUMN, FlexDirection.COLUMN_REVERSE,
+        )
+        contributions = []
+        for child_id in children[node_id]:
+            child = styles[child_id]
+            if is_column and child.shrink != 0:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Recursive intrinsic column block sizing requires nonshrinking items.",
+                    child_id,
+                )
+            if child.height.kind == LengthKind.PX:
+                used_height = _layout_unit(child.height.value)
+            elif child.height.kind in (
+                LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT,
+            ):
+                used_height = intrinsic_flex_height(child_id, minimum)
+            else:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Uncertified percentage block dependency in intrinsic constraint.",
+                    child_id,
+                )
+            if child.max_height.kind == LengthKind.PX:
+                used_height = min(used_height, _layout_unit(child.max_height.value))
+            elif child.max_height.kind != LengthKind.AUTO:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Unresolved intrinsic maximum block size.", child_id,
+                )
+            if child.min_height.kind == LengthKind.PX:
+                used_height = max(used_height, _layout_unit(child.min_height.value))
+            elif child.min_height.kind != LengthKind.AUTO:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Unresolved intrinsic minimum block size.", child_id,
+                )
+            edges = (
+                child.padding_top, child.padding_bottom,
+                child.border_top, child.border_bottom,
+                child.margin_top, child.margin_bottom,
+            )
+            total = used_height
+            for edge in edges:
+                if edge.kind == LengthKind.PX:
+                    total = _sum_units((total, edge.value))
+                elif edge.kind != LengthKind.AUTO:
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Uncertified relative block edges in intrinsic constraint.",
+                        child_id,
+                    )
+            contributions.append(total)
+        if not is_column:
+            return max(contributions, default=0.0)
+        if style.row_gap.kind != LengthKind.PX:
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Recursive intrinsic column gap must be definite.", node_id,
+            )
+        return _sum_units(
+            part for i, size in enumerate(contributions)
+            for part in ((style.row_gap.value, size) if i else (size,))
+        )
+
+    for node in reversed(request.nodes):
+        node_id = node.node_id
+        style = styles[node_id]
+        intrinsic_bounds = {}
+        for prop, axis in (
+            ("min_width", "width"), ("max_width", "width"),
+            ("min_height", "height"), ("max_height", "height"),
+        ):
+            length = getattr(style, prop)
+            if length.kind not in (LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT):
+                continue
+            is_min = length.kind == LengthKind.MIN_CONTENT
+            if children[node_id]:
+                value = (
+                    intrinsic_flex_width(node_id, is_min) if axis == "width"
+                    else intrinsic_flex_height(node_id, is_min)
+                )
+            else:
+                measured = measures.get(node_id)
+                if measured is None:
+                    raise SFLEError(
+                        DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                        "Intrinsic min/max constraint requires measured leaf content.",
+                        node_id,
+                    )
+                kind = "min_content" if is_min else "max_content"
+                value = getattr(measured.intrinsic, f"{kind}_{axis}")
+            intrinsic_bounds[prop] = Length.px(value)
+        if intrinsic_bounds:
+            styles[node_id] = replace(style, **intrinsic_bounds)
+
+    parents = {node.node_id: node.parent_id for node in request.nodes}
+
+    # The alpha C99 restriction is a specific multi-node dependency cycle.
+    # Do not confuse it with a generic unsupported-compute placeholder.
+    for node in request.nodes:
+        if len(children[node.node_id]) != 1:
+            continue
+        child_id = children[node.node_id][0]
+        grand = children[child_id]
+        if not grand:
+            continue
+        s, c, g = styles[node.node_id], styles[child_id], styles[grand[0]]
+        if (s.width.kind == LengthKind.AUTO and s.height.kind == LengthKind.AUTO
+            and c.width.kind == c.height.kind == LengthKind.PERCENT
+            and g.width.kind == g.height.kind == LengthKind.PERCENT):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted multi-node percentage dependency cycle across auto ancestors.",
+                child_id,
+            )
+
+    # Fail-closed: cyclic descendant percentages after an indefinite
+    # column's percentage flex-basis are NOT the supported leaf-only C01 rule.
+    for node in request.nodes:
+        style = styles[node.node_id]
+        if (style.direction not in (FlexDirection.COLUMN, FlexDirection.COLUMN_REVERSE)
+            or style.height.kind != LengthKind.AUTO):
+            continue
+        for child_id in children[node.node_id]:
+            if styles[child_id].flex_basis.kind != LengthKind.PERCENT:
+                continue
+            pending = list(children[child_id])
+            while pending:
+                descendant = pending.pop()
+                if styles[descendant].height.kind == LengthKind.PERCENT:
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Unlisted column intrinsic percentage basis descendant cycle.",
+                        child_id,
+                    )
+                pending.extend(children[descendant])
+
+    # Conservative dependency classifier. Explicitly proven definite ancestor
+    # chains may resolve percentages; an intrinsically-sized inline ancestor
+    # cannot supply a definite reference to a percentage descendant.
+    # This is structural and deliberately independent of acceptance-case IDs.
+    def inline_reference_definite(node_id: str) -> bool:
+        parent = parents[node_id]
+        if parent is None:
+            return request.constraints.width.definite or styles[node_id].width.kind == LengthKind.PX
+        ancestor = styles[parent]
+        if ancestor.width.kind == LengthKind.PX:
+            return True
+        if ancestor.width.kind == LengthKind.PERCENT:
+            return inline_reference_definite(parent)
+        if ancestor.grow > 0:
+            grandparent = parents[parent]
+            if grandparent is not None:
+                container = styles[grandparent]
+                if (container.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+                        and inline_reference_definite(parent)):
+                    return True
+        return False
+
+    for node in request.nodes[1:]:
+        style = styles[node.node_id]
+        parent = parents[node.node_id]
+        if style.width.kind == LengthKind.PERCENT and not inline_reference_definite(node.node_id):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite inline percentage dependency cycle.",
+                node.node_id,
+            )
+
+    # D-F1.13 / C01–C06: deny by default any *indefinite* percentage
+    # dependency not matched by a recognized CSS intrinsic rule. This is
+    # structural (typed lengths/known references/actual measurements), never
+    # keyed to the acceptance fixture ID.
+    def block_reference_definite(node_id: str) -> bool:
+        parent = parents[node_id]
+        if parent is None:
+            return (request.constraints.height.definite or
+                    styles[node_id].height.kind == LengthKind.PX)
+        ancestor = styles[parent]
+        if ancestor.height.kind == LengthKind.PX:
+            return True
+        if ancestor.height.kind == LengthKind.PERCENT:
+            return block_reference_definite(parent)
+        return False
+
+    # A single definite-root row with an auto-width, no-shrink row holding
+    # one definite-width leaf has a CSS-defined cyclic inline padding rule:
+    # its percent padding contributes zero INTRINSICALLY, then resolves
+    # against the wrapper's actual used width. Unknown cycles still fail.
+    def supported_cyclic_padding(node_id: str) -> bool:
+        parent = parents[node_id]
+        if parent is None or parents[parent] is None:
+            return False
+        outer = parents[parent]
+        own, wrapper, container = styles[node_id], styles[parent], styles[outer]
+        def fixed_intrinsic_sibling(sibling_id: str) -> bool:
+            # Each item contributes a definite PX flex basis to the auto's
+            # max-content inline width. Inline percentage padding contributes
+            # zero to that intrinsic sum and resolves only after sizing.
+            sibling = styles[sibling_id]
+            return (
+                not children[sibling_id]
+                and sibling.width.kind == sibling.flex_basis.kind == LengthKind.PX
+                and sibling.shrink == 0
+                and sibling.padding_top.kind == sibling.padding_bottom.kind == LengthKind.PX
+            )
+
+        def definite_row_ancestor_chain() -> bool:
+            # Only single-child auto-row links can safely propagate the
+            # definite leaf intrinsic basis to a known definite row root.
+            # The immediate wrapper may have a certified fixed-basis sibling
+            # group, as already checked above.
+            current = parent
+            while current is not None:
+                node_style = styles[current]
+                if (
+                    node_style.width.kind != LengthKind.AUTO
+                    or node_style.shrink != 0
+                    or node_style.direction not in
+                        (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+                ):
+                    return False
+                ancestor = parents[current]
+                if ancestor is None:
+                    return False
+                ancestor_style = styles[ancestor]
+                if ancestor_style.width.kind == LengthKind.PX:
+                    return ancestor_style.direction in (
+                        FlexDirection.ROW, FlexDirection.ROW_REVERSE,
+                    )
+                if children[ancestor] != [current]:
+                    return False
+                current = ancestor
+            return False
+
+        return (
+            not children[node_id] and bool(children[parent])
+            and all(fixed_intrinsic_sibling(sibling) for sibling in children[parent])
+            and wrapper.width.kind == LengthKind.AUTO and wrapper.shrink == 0
+            and wrapper.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+            and definite_row_ancestor_chain()
+            and own.padding_top.kind == own.padding_bottom.kind == LengthKind.PX
+            and any(e.kind == LengthKind.PERCENT for e in (own.padding_left, own.padding_right))
+        )
+
+    allowed_cyclic_padding = {
+        node.node_id for node in request.nodes if supported_cyclic_padding(node.node_id)
+    }
+
+    for node in request.nodes:
+        node_id = node.node_id
+        st = styles[node_id]
+        if any(edge.kind == LengthKind.PERCENT for edge in (
+            st.padding_top, st.padding_right, st.padding_bottom, st.padding_left
+        )) and not inline_reference_definite(node_id) and node_id not in allowed_cyclic_padding:
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite inline percentage padding dependency cycle.",
+                node_id,
+            )
+        # An intrinsically auto-sized containing axis cannot supply a used
+        # reference for a percentage min/max. Keep these dependency classes
+        # fail-closed until independently certified by Chromium.
+        if (st.min_width.kind == LengthKind.PERCENT and
+                not inline_reference_definite(node_id)):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted percentage minimum size dependency cycle.", node_id,
+            )
+        if (st.min_height.kind == LengthKind.PERCENT and
+                not block_reference_definite(node_id)):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted percentage minimum size dependency cycle.", node_id,
+            )
+        if (st.max_width.kind == LengthKind.PERCENT and
+                not inline_reference_definite(node_id)):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite percentage maximum size dependency cycle.", node_id,
+            )
+        if st.max_height.kind == LengthKind.PERCENT and not block_reference_definite(node_id):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite percentage maximum size dependency cycle.",
+                node_id,
+            )
+        if (st.height.kind == LengthKind.PERCENT and
+                not block_reference_definite(node_id) and node_id not in measures):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unmeasured indefinite percentage block dependency cycle.",
+                node_id,
+            )
+
     def bounded_intrinsic(
         style: _Style, horizontal: bool, value: float,
         reference: float | None = None,
@@ -433,7 +916,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 return _layout_unit(length.value)
             if length.kind == LengthKind.PERCENT and reference is not None:
                 assert length.value is not None
-                return _layout_unit(length.value * reference)
+                return _percent_used_dimension(length.value, reference)
             return None
 
         cap = bound(maximum)
@@ -451,11 +934,16 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         if length.kind == LengthKind.PX:
             assert length.value is not None
             return bounded_intrinsic(style, horizontal, length.value)
+        requested_minimum = minimum or length.kind == LengthKind.MIN_CONTENT
+        if length.kind == LengthKind.MAX_CONTENT:
+            requested_minimum = False
         metric = measures.get(node_id)
         if not children[node_id]:
             if metric is not None:
-                if minimum:
+                if requested_minimum:
                     value = metric.intrinsic.min_content_width if horizontal else metric.intrinsic.min_content_height
+                elif length.kind == LengthKind.MAX_CONTENT:
+                    value = metric.intrinsic.max_content_width if horizontal else metric.intrinsic.max_content_height
                 else:
                     value = metric.intrinsic.preferred_width if horizontal else metric.intrinsic.preferred_height
                 return bounded_intrinsic(style, horizontal, value)
@@ -484,7 +972,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                     # establishing intrinsic size; _padding resolves it from
                     # the used container inline size in the geometry phase.
                     continue
-            contribution = preferred(child, horizontal, minimum)
+            contribution = preferred(child, horizontal, requested_minimum)
             if is_row == horizontal:
                 basis = child_style.flex_basis
                 base = basis.value if basis.kind == LengthKind.PX else preferred(child, horizontal)
@@ -500,7 +988,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 edge.value for edge in margin_edges if edge.kind == LengthKind.PX
             ))))
         if is_row == horizontal:
-            if minimum and style.wrap != FlexWrap.NOWRAP:
+            if requested_minimum and style.wrap != FlexWrap.NOWRAP:
                 return bounded_intrinsic(style, horizontal, max(contributions, default=0.0))
             gap_length = style.column_gap if is_row else style.row_gap
             gap = _layout_unit(_intrinsic_gap(gap_length, node_id))
@@ -556,6 +1044,16 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         # determined from the resulting flex lines below.  Eagerly replacing
         # an auto column width with an intrinsic guess made wrapped columns
         # use a different cross size than their actual children.
+        # Intrinsic main-axis wrap has no certified line-formation reference.
+        if style.wrap != FlexWrap.NOWRAP and (
+            (horizontal and width is None and style.max_width.kind != LengthKind.PX)
+            or (not horizontal and height is None and style.max_height.kind != LengthKind.PX)
+        ):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Intrinsically auto-sized Flex wrap without definite main axis is deferred.",
+                node_id,
+            )
         if horizontal and width is None:
             width = preferred(node_id, True)
         if not horizontal and height is None:
@@ -569,9 +1067,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         # Intrinsically auto-sized main axes are NOT percentage-definite simply
         # because the intrinsic phase produced a finite provisional number.
         main_reference = main_size
-        if horizontal and style.width.kind == LengthKind.AUTO and forced_width is None:
+        if horizontal and style.width.kind in (LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT) and forced_width is None:
             main_reference = None
-        if not horizontal and style.height.kind == LengthKind.AUTO and forced_height is None:
+        if not horizontal and style.height.kind in (LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT) and forced_height is None:
             main_reference = None
 
         bases = []
@@ -612,6 +1110,15 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 desired = basis.value
             elif basis.kind == LengthKind.PERCENT:
                 desired = _percent_flex_basis_used(basis.value, main_reference) if main_reference is not None else preferred(child_id, horizontal)
+            elif basis.kind in (LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT):
+                if child_id not in measures and not children[child_id]:
+                    raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                                    "Intrinsic flex basis requires measured leaf content.", child_id)
+                if child_id in measures and not children[child_id]:
+                    intrinsic = measures[child_id].intrinsic
+                    desired = (intrinsic.min_content_width if horizontal else intrinsic.min_content_height) if basis.kind == LengthKind.MIN_CONTENT else (intrinsic.max_content_width if horizontal else intrinsic.max_content_height)
+                else:
+                    desired = preferred(child_id, horizontal, basis.kind == LengthKind.MIN_CONTENT)
             else:
                 raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unsupported flex basis keyword.", child_id)
             assert desired is not None
@@ -628,7 +1135,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 if specified is not None:
                     minimum = min(minimum, specified)
             elif min_length.kind == LengthKind.PERCENT and main_reference is not None:
-                minimum = _layout_unit(min_length.value * main_reference)
+                minimum = _percent_used_dimension(min_length.value, main_reference)
             elif min_length.kind == LengthKind.PERCENT:
                 # CSS min-size percentages without a definite containing
                 # axis remain automatic during intrinsic flex sizing.
@@ -643,7 +1150,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             elif max_length.kind == LengthKind.AUTO:
                 maximum = None
             elif max_length.kind == LengthKind.PERCENT and main_reference is not None:
-                maximum = _layout_unit(max_length.value * main_reference)
+                maximum = _percent_used_dimension(max_length.value, main_reference)
             elif max_length.kind == LengthKind.PERCENT:
                 # An indefinite percentage maximum is not a numeric cap in
                 # this intrinsic pass; retain the CSS unconstrained branch.
@@ -672,7 +1179,10 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             if length.kind == LengthKind.PX:
                 return _layout_unit(length.value)
             if length.kind == LengthKind.PERCENT:
-                return _layout_unit(length.value * inline_size)
+                used = length.value * inline_size
+                if math.isinf(used):
+                    return LayoutUnit.from_raw(I32_MAX if used > 0 else I32_MIN).to_px()
+                return _layout_unit(used)
             raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
                                       "Unsupported margin length.", node_id)
 
@@ -758,9 +1268,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
     root_height = _axis_value(root_style.height,
         request.constraints.height.value if request.constraints.height.definite else None,
         axis="height",node_id=root)
-    if root_width is None and request.constraints.width.definite:
+    if root_width is None and root_style.width.kind == LengthKind.AUTO and request.constraints.width.definite:
         root_width = request.constraints.width.value
-    if root_height is None and request.constraints.height.definite:
+    if root_height is None and root_style.height.kind == LengthKind.AUTO and request.constraints.height.definite:
         root_height = request.constraints.height.value
     layout(root,root_width,root_height,None,None)
 
@@ -771,7 +1281,12 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         if value.kind == LengthKind.PX:
             return UsedMargin(_layout_unit(value.value))
         if value.kind == LengthKind.PERCENT:
-            return UsedMargin(_layout_unit(value.value * reference))
+            used = value.value * reference
+            if math.isinf(used):
+                return UsedMargin(LayoutUnit.from_raw(
+                    I32_MAX if used > 0 else I32_MIN,
+                ).to_px())
+            return UsedMargin(_layout_unit(used))
         raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
                                   "Unsupported margin length.", node_id)
 

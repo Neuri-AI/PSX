@@ -36,9 +36,14 @@ DIMENSION_SEEDS = {
 ROWS_PER_DIMENSION = 8
 
 
-def generate_dimension(dimension: str):
-    rng = random.Random(DIMENSION_SEEDS[dimension])
-    for index in range(ROWS_PER_DIMENSION):
+def generate_dimension(
+    dimension: str, *, seed: int | None = None, count: int = ROWS_PER_DIMENSION,
+):
+    # Existing 8-case dimensions retain their original fixture seeds exactly.
+    # Independent multi-dimensional certification supplies fresh, disjoint
+    # seeds and 200 cases without changing the original regression suite.
+    rng = random.Random(DIMENSION_SEEDS[dimension] if seed is None else seed)
+    for index in range(count):
         a = rng.choice((20, 24, 30))
         b = rng.choice((32, 40, 48))
         root_w = 120 + 8 * (index % 3)

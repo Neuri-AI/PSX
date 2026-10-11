@@ -186,7 +186,14 @@ class LayoutNode:
         for name, value in self.style:
             if not isinstance(name, str) or not name:
                 raise ValueError("LayoutNode style names must be nonempty strings.")
-            if isinstance(value, bool) or not isinstance(value, (Length, str, int, float)):
+            if isinstance(value, bool):
+                # These are the two explicitly boolean normalized style
+                # fields shared with the Rust wire contract. All other
+                # boolean CSS values remain invalid (not numeric aliases).
+                if name not in ("scroll_container", "replaced"):
+                    raise TypeError("Only scroll_container and replaced accept boolean style values.")
+                continue
+            if not isinstance(value, (Length, str, int, float)):
                 raise TypeError("LayoutNode style values must be normalized scalar or Length.")
             if isinstance(value, (int, float)):
                 _finite(value, "LayoutNode.style numeric value")

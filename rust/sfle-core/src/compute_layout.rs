@@ -15,7 +15,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 #[derive(Clone, Copy)]
-enum Length { Auto, Px(f64), Percent(f64) }
+enum Length { Auto, Px(f64), Percent(f64), MinContent, MaxContent }
 #[derive(Clone, Copy, PartialEq)]
 enum Overflow { Visible, Clip, Hidden, Auto, Scroll }
 
@@ -69,18 +69,43 @@ fn measurement(message: impl Into<String>, id: &str) -> ComputeError {
 fn value<'a>(map: &'a serde_json::Map<String,Value>, keys: &[&str]) -> Option<&'a Value> {
     keys.iter().find_map(|key| map.get(*key))
 }
+fn css_decimal(raw:&str)->Option<f64>{
+    // Match psx.sfle.lengths._PX_RE / _PERCENT_RE: no scientific
+    // notation, internal whitespace, Infinity, NaN, or bare sign.
+    let unsigned=raw.strip_prefix('+')
+        .or_else(||raw.strip_prefix('-')).unwrap_or(raw);
+    let mut parts=unsigned.split('.');
+    let integer=parts.next()?;
+    let fraction=parts.next();
+    if parts.next().is_some() || !integer.bytes().all(|c|c.is_ascii_digit()){
+        return None;
+    }
+    if let Some(decimal)=fraction {
+        if !decimal.bytes().all(|c|c.is_ascii_digit())
+            || (integer.is_empty() && decimal.is_empty()){
+            return None;
+        }
+    } else if integer.is_empty() {
+        return None;
+    }
+    raw.parse::<f64>().ok().filter(|value|value.is_finite())
+}
 fn length(raw: Option<&Value>, id: &str) -> Result<Length, ComputeError> {
     let Some(v) = raw else { return Ok(Length::Auto) };
     if let Some(n)=v.as_f64() {
         if !n.is_finite() { return Err(failure("SFLE_INVALID_LENGTH","Length payload must be finite.",Some(id))); }
         return Ok(Length::Px(n));
     }
-    if let Some(s) = v.as_str() {
+    if let Some(original) = v.as_str() {
+        let normalized=original.trim().to_ascii_lowercase();
+        let s=normalized.as_str();
         if s=="auto" { return Ok(Length::Auto); }
-        if let Some(n) = s.strip_suffix("px").and_then(|x|x.parse::<f64>().ok()) {
+        if s=="min-content" { return Ok(Length::MinContent); }
+        if s=="max-content" { return Ok(Length::MaxContent); }
+        if let Some(n) = s.strip_suffix("px").and_then(css_decimal) {
             if n.is_finite(){return Ok(Length::Px(n));}
         }
-        if let Some(n) = s.strip_suffix('%').and_then(|x|x.parse::<f64>().ok()) {
+        if let Some(n) = s.strip_suffix('%').and_then(css_decimal) {
             if n.is_finite(){return Ok(Length::Percent(n/100.0));}
         }
     }
@@ -89,6 +114,8 @@ fn length(raw: Option<&Value>, id: &str) -> Result<Length, ComputeError> {
         let number=map.get("value").and_then(Value::as_f64);
         match kind {
             Some("auto") if map.get("value").is_none_or(Value::is_null) => return Ok(Length::Auto),
+            Some("min-content") if map.get("value").is_none_or(Value::is_null) => return Ok(Length::MinContent),
+            Some("max-content") if map.get("value").is_none_or(Value::is_null) => return Ok(Length::MaxContent),
             Some("px") if number.is_some_and(f64::is_finite) =>return Ok(Length::Px(number.unwrap())),
             Some("percent") if number.is_some_and(f64::is_finite) =>return Ok(Length::Percent(number.unwrap())),
             _=>{},
@@ -102,6 +129,16 @@ fn factor(raw: Option<&Value>, default: f64, id:&str)->Result<f64,ComputeError>{
         return Err(failure("SFLE_INVALID_LENGTH","Invalid flex factors.",Some(id)));
     }
     Ok(n)
+}
+fn enum_raw<'a>(
+    map:&'a serde_json::Map<String,Value>,key:&str,
+    default:&'a str,id:&str,
+)->Result<&'a str,ComputeError>{
+    match map.get(key){
+        None=>Ok(default),
+        Some(Value::String(s))=>Ok(s.as_str()),
+        Some(_)=>Err(unsupported(format!("Unsupported {key} value."),id)),
+    }
 }
 fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
     let map=&input.style;
@@ -133,13 +170,13 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
     if map.contains_key("height")&&map.contains_key("layout_height") {
         return Err(failure("SFLE_LAYOUT_CONSTRAINT_ERROR","Conflicting height declarations.",Some(&input.node_id)));
     }
-    let direction=match map.get("direction").and_then(Value::as_str).unwrap_or("row"){
+    let direction=match enum_raw(map,"direction","row",&input.node_id)?{
         "row"=>Direction::Row,"row-reverse"=>Direction::RowReverse,
         "column"=>Direction::Column,"column-reverse"=>Direction::ColumnReverse,
         _=>return Err(unsupported("Unsupported direction value.",&input.node_id)),
     };
     let parse_align=|k:&str,default:&str| -> Result<CrossAlign,ComputeError> {
-        match map.get(k).and_then(Value::as_str).unwrap_or(default) {
+        match enum_raw(map,k,default,&input.node_id)? {
             "stretch"=>Ok(CrossAlign::Stretch),"flex-start"=>Ok(CrossAlign::FlexStart),
             "flex-end"=>Ok(CrossAlign::FlexEnd),"center"=>Ok(CrossAlign::Center),
             "baseline"=>Ok(CrossAlign::Baseline),
@@ -149,17 +186,17 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
     };
     let align=parse_align("align_items","stretch")?;
     let align_self=parse_align("align_self","auto")?;
-    let wrap=match map.get("wrap").and_then(Value::as_str).unwrap_or("nowrap"){
+    let wrap=match enum_raw(map,"wrap","nowrap",&input.node_id)?{
         "nowrap"=>Wrap::NoWrap,"wrap"=>Wrap::Wrap,"wrap-reverse"=>Wrap::WrapReverse,
         _=>return Err(unsupported("Unsupported wrap value.",&input.node_id)),
     };
-    let justify=match map.get("justify_content").and_then(Value::as_str).unwrap_or("flex-start"){
+    let justify=match enum_raw(map,"justify_content","flex-start",&input.node_id)?{
         "flex-start"=>JustifyContent::FlexStart,"flex-end"=>JustifyContent::FlexEnd,
         "center"=>JustifyContent::Center,"space-between"=>JustifyContent::SpaceBetween,
         "space-around"=>JustifyContent::SpaceAround,"space-evenly"=>JustifyContent::SpaceEvenly,
         _=>return Err(unsupported("Unsupported justify-content value.",&input.node_id)),
     };
-    let align_content=match map.get("align_content").and_then(Value::as_str).unwrap_or("normal"){
+    let align_content=match enum_raw(map,"align_content","normal",&input.node_id)?{
         "normal"|"stretch"=>AlignContent::Stretch,
         "flex-start"=>AlignContent::FlexStart,"flex-end"=>AlignContent::FlexEnd,
         "center"=>AlignContent::Center,"space-between"=>AlignContent::SpaceBetween,
@@ -177,7 +214,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
             Some(ratio)
         },
     };
-    let overflow=match map.get("overflow").and_then(Value::as_str).unwrap_or("visible") {
+    let overflow=match enum_raw(map,"overflow","visible",&input.node_id)? {
         "visible"=>Overflow::Visible,"clip"=>Overflow::Clip,"hidden"=>Overflow::Hidden,
         "auto"=>Overflow::Auto,"scroll"=>Overflow::Scroll,
         _=>return Err(unsupported("Unsupported overflow value.",&input.node_id)),
@@ -249,9 +286,29 @@ fn subtract_units(value: f64, deductions: impl IntoIterator<Item=f64>) -> f64 {
         |total, deduction| total - LayoutUnit::from_nearest(deduction).expect("Finite used geometry")
     ).to_px()
 }
+fn percent_used_dimension(fraction:f64,reference:f64)->f64 {
+    let value=fraction*reference;
+    let stable=if value.is_finite()&&value>=0.0 {
+        f64::from_bits(value.to_bits()+1)
+    } else {value};
+    if stable.is_infinite(){
+        return LayoutUnit::from_raw(if stable.is_sign_positive(){i32::MAX}else{i32::MIN}).to_px();
+    }
+    LayoutUnit::from_floor(stable).expect("prevalidated finite CSS percentage").to_px()
+}
 fn percent_flex_basis_used(fraction:f64,reference:f64)->f64 {
-    LayoutUnit::from_floor(fraction*reference)
+    let used=fraction*reference;
+    if used.is_infinite(){
+        return LayoutUnit::from_raw(if used.is_sign_positive(){i32::MAX}else{i32::MIN}).to_px();
+    }
+    LayoutUnit::from_floor(used)
         .expect("SFLE prevalidated finite percentage").to_px()
+}
+fn saturating_gutter_product(gutter:LayoutUnit, count:usize)->LayoutUnit{
+    // A usize count must never narrow to i32 before multiplying the
+    // signed raw gap: even the unsupported >2^31-node extreme must not wrap.
+    let raw=(gutter.raw() as i128)*(count as i128);
+    LayoutUnit::from_raw(raw.clamp(i32::MIN as i128,i32::MAX as i128) as i32)
 }
 fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec<f64>,ComputeError>{
     // Exact port of Chromium 153 line_flexer.cc:
@@ -260,6 +317,11 @@ fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec
     // f64 only for cumulative flex factors / weighted shrink fractions.
     if bases.is_empty(){return Ok(vec![]);}
     let raw=|v:f64| LayoutUnit::from_nearest(v).map_err(|e|unsupported(e,id));
+    let finite_factor=|value:f64|->Result<f64,ComputeError>{
+        if value.is_finite(){Ok(value)}else{
+            Err(unsupported("Flex factor accumulation exceeds finite f64 range.",id))
+        }
+    };
     let available=raw(inner)?;
     let gutter=raw(gap)?;
     let base:Vec<LayoutUnit>=bases.iter().map(|b|raw(b.basis)).collect::<Result<_,_>>()?;
@@ -267,8 +329,7 @@ fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec
     let min:Vec<LayoutUnit>=bases.iter().map(|b|raw(b.min_size)).collect::<Result<_,_>>()?;
     let max:Vec<Option<LayoutUnit>>=bases.iter().map(|b|b.max_size.map(&raw).transpose())
         .collect::<Result<_,_>>()?;
-    let usable=available-LayoutUnit::from_raw(
-        gutter.raw().saturating_mul((bases.len()-1) as i32));
+    let usable=available-saturating_gutter_product(gutter,bases.len().saturating_sub(1));
     let growing=hypot.iter().map(|v|v.raw() as i64).sum::<i64>()<usable.raw() as i64;
     let mut frozen:Vec<bool>=bases.iter().enumerate().map(|(i,b)|{
         let factor=if growing{b.grow}else{b.shrink};
@@ -288,13 +349,14 @@ fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec
             }
             sizes[i]=hypot[i];
             let factor=if growing{b.grow}else{b.shrink};
-            total_factor+=factor;
+            total_factor=finite_factor(total_factor+factor)?;
             if growing{
-                fractions[i]=factor/total_factor;
+                fractions[i]=finite_factor(factor/total_factor)?;
             }else{
-                let weighted=factor*base[i].to_px();
-                total_scaled_shrink+=weighted;
-                fractions[i]=if total_scaled_shrink==0.0{0.0}else{weighted/total_scaled_shrink};
+                let weighted=finite_factor(factor*base[i].to_px())?;
+                total_scaled_shrink=finite_factor(total_scaled_shrink+weighted)?;
+                fractions[i]=if total_scaled_shrink==0.0{0.0}
+                    else{finite_factor(weighted/total_scaled_shrink)?};
             }
             remaining=remaining-base[i]-gutter;
         }
@@ -303,7 +365,12 @@ fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec
         if total_factor>0.0 && total_factor<1.0 {
             let fraction=LayoutUnit::from_trunc(initial_free.to_px()*total_factor)
                 .map_err(|e|unsupported(e,id))?;
-            if fraction.raw().abs()<remaining.raw().abs(){remaining=fraction;}
+            // i32::MIN.abs() overflows in debug and wraps in release.
+            // Widen before abs to preserve Python's unbounded signed
+            // comparison at the exact -2^31 LayoutUnit boundary.
+            if (fraction.raw() as i64).abs() < (remaining.raw() as i64).abs() {
+                remaining=fraction;
+            }
         }
         if (growing && remaining.raw()<=0) || (!growing && remaining.raw()>=0){
             return Ok(sizes.into_iter().map(|v|v.to_px()).collect());
@@ -341,9 +408,9 @@ fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec
 }
 fn resolved(v:Length, reference:Option<f64>, _vertical:bool, _id:&str)->Result<Option<f64>,ComputeError>{
     match v {
-        Length::Auto=>Ok(None),
+        Length::Auto|Length::MinContent|Length::MaxContent=>Ok(None),
         Length::Px(n)=>Ok(Some(n)),
-        Length::Percent(p) if reference.is_some()=>Ok(Some(layout_unit(p*reference.unwrap()))),
+        Length::Percent(p) if reference.is_some()=>Ok(Some(percent_used_dimension(p,reference.unwrap()))),
         // An intrinsically indefinite percentage has no used numeric value
         // in this phase. Flex sizing uses the auto/content branch and calls
         // this again after the containing axis becomes definite.
@@ -363,10 +430,14 @@ fn padding(style:Style,inline_reference:f64,id:&str)->Result<Edges,ComputeError>
                 let stable=if value.is_finite()&&value>=0.0{
                     f64::from_bits(value.to_bits()+1)
                 }else{value};
-                LayoutUnit::from_floor(stable).map(|n|n.to_px())
-                    .map_err(|e|unsupported(e,id))
+                if stable.is_infinite(){
+                    Ok(LayoutUnit::from_raw(if stable.is_sign_positive(){i32::MAX}else{i32::MIN}).to_px())
+                }else{
+                    LayoutUnit::from_floor(stable).map(|n|n.to_px())
+                        .map_err(|e|unsupported(e,id))
+                }
             },
-            Length::Auto=>Err(failure("SFLE_INVALID_LENGTH","Padding requires a valid numeric CSS length.",Some(id))),
+            Length::Auto|Length::MinContent|Length::MaxContent=>Err(failure("SFLE_INVALID_LENGTH","Padding requires a valid numeric CSS length.",Some(id))),
         }
     }
     Ok(Edges{
@@ -390,13 +461,24 @@ fn intrinsic_gap(length:Length,id:&str)->Result<f64,ComputeError>{
     match length{
         Length::Px(n)=>Ok(n),
         Length::Percent(_)=>Ok(0.0), // intrinsic contribution only
-        Length::Auto=>Err(failure("SFLE_INVALID_LENGTH","Invalid gap keyword.",Some(id))),
+        Length::Auto|Length::MinContent|Length::MaxContent=>Err(failure("SFLE_INVALID_LENGTH","Invalid gap keyword.",Some(id))),
     }
 }
 fn used_gap(length:Length,reference:f64,id:&str)->Result<f64,ComputeError>{
     intrinsic_gap(length,id)?;
-    match length{Length::Px(n)=>Ok(n),Length::Percent(p)=>Ok((p*reference*64.0).round()/64.0),
-        Length::Auto=>Err(failure("SFLE_INVALID_LENGTH","Invalid gap.",Some(id))),}
+    match length{
+        Length::Px(n)=>Ok(n),
+        Length::Percent(p)=>{
+            let used=p*reference;
+            if used.is_infinite(){
+                Ok(LayoutUnit::from_raw(if used.is_sign_positive(){i32::MAX}else{i32::MIN}).to_px())
+            }else{
+                LayoutUnit::from_nearest(used).map(|unit|unit.to_px())
+                    .map_err(|e|unsupported(e,id))
+            }
+        },
+        Length::Auto|Length::MinContent|Length::MaxContent=>Err(failure("SFLE_INVALID_LENGTH","Invalid gap.",Some(id))),
+    }
 }
 fn main_gap(style:Style,width:f64,height:f64,id:&str)->Result<f64,ComputeError>{
     if horizontal(style.direction){used_gap(style.column_gap,width,id)}
@@ -420,8 +502,8 @@ fn bounded_intrinsic(style:Style,h:bool,mut value:f64,reference:Option<f64>)->f6
     let minimum=if h{style.min_width}else{style.min_height};
     let bound=|v:Length|match v {
         Length::Px(n)=>Some(layout_unit(n)),
-        Length::Percent(p)=>reference.map(|r|layout_unit(p*r)),
-        Length::Auto=>None,
+        Length::Percent(p)=>reference.map(|r|percent_used_dimension(p,r)),
+        Length::Auto|Length::MinContent|Length::MaxContent=>None,
     };
     if let Some(cap)=bound(maximum){value=value.min(cap);}
     if let Some(floor)=bound(minimum){value=value.max(floor);}
@@ -434,14 +516,21 @@ impl Context<'_>{
     fn intrinsic_contribution(&self,index:usize,h:bool,minimum:bool)->Result<f64,ComputeError>{
         let node=&self.input.nodes[index];
         let style=self.styles[index];
-        match if h {style.width}else{style.height}{
-            Length::Px(n)=>return Ok(bounded_intrinsic(style,h,n,None)),
-            _=>{},
+        let sizing=if h {style.width}else{style.height};
+        let minimum=match sizing {
+            Length::MinContent=>true,
+            Length::MaxContent=>false,
+            _=>minimum,
+        };
+        if let Length::Px(n)=sizing {
+            return Ok(bounded_intrinsic(style,h,n,None));
         }
         if self.children[index].is_empty(){
             if let Some(m)=self.measurements.get(node.node_id.as_str()){
                 let value = if minimum {
                     if h {m.intrinsic.min_content_width} else {m.intrinsic.min_content_height}
+                } else if matches!(sizing,Length::MaxContent) {
+                    if h {m.intrinsic.max_content_width} else {m.intrinsic.max_content_height}
                 } else {
                     if h {m.intrinsic.preferred_width} else {m.intrinsic.preferred_height}
                 };
@@ -508,6 +597,17 @@ impl Context<'_>{
         let id=node.node_id.clone();
         let mut width=forced_w.or(resolved(style.width,pw,false,&id)?);
         let mut height=forced_h.or(resolved(style.height,ph,true,&id)?);
+        if style.wrap!=Wrap::NoWrap && (
+            (horizontal(style.direction) && width.is_none()
+                && !matches!(style.max_width,Length::Px(_)))
+            || (!horizontal(style.direction) && height.is_none()
+                && !matches!(style.max_height,Length::Px(_)))
+        ){
+            return Err(unsupported(
+                "Intrinsically auto-sized Flex wrap without definite main axis is deferred.",
+                &id,
+            ));
+        }
         if width.is_none() && height.is_some() && style.aspect_ratio.is_some() {
             width=Some(layout_unit(height.unwrap()*style.aspect_ratio.unwrap()));
         }
@@ -537,8 +637,8 @@ impl Context<'_>{
         width=width.map(|v|bounded_intrinsic(style,true,v,pw));
         height=height.map(|v|bounded_intrinsic(style,false,v,ph));
         let main=if row{width.unwrap()}else{height.unwrap()};
-        let main_reference=if (row&&matches!(style.width,Length::Auto)&&forced_w.is_none())||
-                              (!row&&matches!(style.height,Length::Auto)&&forced_h.is_none()){
+        let main_reference=if (row&&matches!(style.width,Length::Auto|Length::MinContent|Length::MaxContent)&&forced_w.is_none())||
+                              (!row&&matches!(style.height,Length::Auto|Length::MinContent|Length::MaxContent)&&forced_h.is_none()){
             None
         }else{Some(main)};
         // CSS `order` establishes the flex order used for line formation as
@@ -585,6 +685,20 @@ impl Context<'_>{
                 Length::Percent(p)=>match main_reference{
                     Some(n)=>percent_flex_basis_used(p,n),None=>self.preferred(child,row)?,
                 },
+                Length::MinContent|Length::MaxContent=>{
+                    if self.children[child].is_empty() {
+                        let Some(metric)=self.measurements.get(child_id.as_str()) else {
+                            return Err(measurement("Intrinsic flex basis requires measured leaf content.",child_id));
+                        };
+                        let min=matches!(child_style.basis,Length::MinContent);
+                        if row {
+                            if min {metric.intrinsic.min_content_width} else {metric.intrinsic.max_content_width}
+                        }else if min {metric.intrinsic.min_content_height}
+                            else {metric.intrinsic.max_content_height}
+                    } else {
+                        self.intrinsic_contribution(child,row,matches!(child_style.basis,Length::MinContent))?
+                    }
+                },
             };
             let mut minimum=match if row{child_style.min_width}else{child_style.min_height}{
                 Length::Px(n)=>n,
@@ -598,7 +712,7 @@ impl Context<'_>{
                     }
                     resolved(axis,main_reference,!row,child_id)?.map_or(content,|n|content.min(n))
                 },
-                Length::Percent(p) if main_reference.is_some()=>layout_unit(p*main_reference.unwrap()),
+                Length::Percent(p) if main_reference.is_some()=>percent_used_dimension(p,main_reference.unwrap()),
                 Length::Percent(_)=>{
                     let mut content=if child_style.scroll_container {0.0}
                         else {self.intrinsic_contribution(child,row,true)?};
@@ -609,11 +723,17 @@ impl Context<'_>{
                     }
                     content
                 },
+                Length::MinContent|Length::MaxContent=>{
+                    return Err(unsupported("Intrinsic min-size keyword not yet certified.",child_id));
+                },
             };
             let mut maximum=match if row{child_style.max_width}else{child_style.max_height}{
                 Length::Px(n)=>Some(n),Length::Auto=>None,
-                Length::Percent(p) if main_reference.is_some()=>Some(layout_unit(p*main_reference.unwrap())),
+                Length::Percent(p) if main_reference.is_some()=>Some(percent_used_dimension(p,main_reference.unwrap())),
                 Length::Percent(_)=>None,
+                Length::MinContent|Length::MaxContent=>{
+                    return Err(unsupported("Intrinsic max-size keyword not yet certified.",child_id));
+                },
             };
             if let Some(cap)=maximum{
                 if matches!(if row{child_style.min_width}else{child_style.min_height},Length::Auto){
@@ -716,8 +836,16 @@ impl Context<'_>{
     }
 }
 fn margin_value(v:Length,base:f64)->Option<f64>{
-    match v{Length::Auto=>None,Length::Px(n)=>Some(layout_unit(n)),
-        Length::Percent(p)=>Some(layout_unit(p*base))}
+    match v{Length::Auto|Length::MinContent|Length::MaxContent=>None,
+        Length::Px(n)=>Some(layout_unit(n)),
+        Length::Percent(p)=>{
+            let used=p*base;
+            if used.is_infinite(){
+                Some(LayoutUnit::from_raw(if used.is_sign_positive(){i32::MAX}else{i32::MIN}).to_px())
+            }else{
+                Some(layout_unit(used))
+            }
+        }}
 }
 fn cross_gap(st:Style,width:f64,id:&str)->Result<f64,ComputeError>{
     used_gap(if horizontal(st.direction){st.row_gap}else{st.column_gap},width,id)
@@ -744,9 +872,414 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         }
         indices.insert(node.node_id.as_str(),index);
     }
-    // Intrinsic sizing breaks percentage-padding cycles with a zero
-    // contribution.  Final geometry resolves the same edge only after the
-    // container's used inline size is known.
+    // Point-5 deferral: an unmeasured replaced ratio leaf with two auto
+    // dimensions cannot guess a transferred size unless cross stretch exists.
+    for (index,node) in input.nodes.iter().enumerate().skip(1) {
+        let st=styles[index];
+        if !(st.replaced && st.aspect_ratio.is_some()
+            && matches!(st.width,Length::Auto)
+            && matches!(st.height,Length::Auto)
+            && !input.measurements.iter().any(|m|m.node_id==node.node_id)) {
+            continue;
+        }
+        let parent=indices[node.parent_id.as_ref().unwrap().as_str()];
+        let parent_style=styles[parent];
+        let align=if st.align_self==CrossAlign::Auto{
+            parent_style.align
+        }else{st.align_self};
+        if align!=CrossAlign::Stretch{
+            return Err(unsupported(
+                "Replaced intrinsic aspect-ratio sizing without native measurement is deferred.",
+                &node.node_id,
+            ));
+        }
+    }
+    // Convert min/max-content constraint keywords bottom-up. Recursive
+    // intrinsic inline sizing is supported only for certified column cross
+    // contributions; unknown direction, percentage and relative-edge graphs
+    // fail closed with an explicit diagnostic.
+    fn intrinsic_flex_width(
+        index:usize, minimum:bool, nodes:&[crate::compute::LayoutNode],
+        children:&[Vec<usize>], styles:&[Style],
+        measurements:&[crate::compute::MeasuredBox],
+    )->Result<f64,ComputeError>{
+        let id=&nodes[index].node_id;
+        if children[index].is_empty(){
+            if let Some(metric)=measurements.iter().find(|m|m.node_id==*id){
+                return Ok(layout_unit(if minimum {
+                    metric.intrinsic.min_content_width
+                } else {metric.intrinsic.max_content_width}));
+            }
+            if nodes[index].component=="Text" {
+                return Err(measurement("Intrinsic constraint requires measured text.",id));
+            }
+            return Ok(0.0);
+        }
+        let row=horizontal(styles[index].direction);
+        if row && !matches!(styles[index].wrap,Wrap::NoWrap){
+            return Err(unsupported(
+                "Recursive row intrinsic constraint requires no-wrap.",id,
+            ));
+        }
+        if row && children[index].iter().any(|&child|{
+            let s=styles[child];
+            s.shrink!=0.0 && (
+                minimum || !matches!(s.width,Length::Px(_))
+                || !matches!(s.basis,Length::Px(_))
+                || !matches!(s.min_width,Length::Px(_))
+            )
+        }){
+            return Err(unsupported(
+                "Shrinking row max-content requires definite item width, basis and minimum.",id,
+            ));
+        }
+        let mut greatest=0.0_f64;
+        let mut total=0.0_f64;
+        for (child_index,&child) in children[index].iter().enumerate() {
+            let style=styles[child];
+            let child_id=&nodes[child].node_id;
+            let mut width=match style.width {
+                Length::Px(v)=>layout_unit(v),
+                Length::Auto|Length::MinContent|Length::MaxContent=>
+                    intrinsic_flex_width(child,minimum,nodes,children,styles,measurements)?,
+                _=>return Err(unsupported(
+                    "Uncertified percentage dependency in recursive intrinsic constraint.",child_id,
+                )),
+            };
+            match style.max_width {
+                Length::Px(n)=>width=width.min(layout_unit(n)),
+                Length::Auto=>{},
+                _=>return Err(unsupported(
+                    "Unresolved intrinsic maximum in recursive child.",child_id,
+                )),
+            }
+            match style.min_width {
+                Length::Px(n)=>width=width.max(layout_unit(n)),
+                Length::Auto=>{},
+                _=>return Err(unsupported(
+                    "Unresolved intrinsic minimum in recursive child.",child_id,
+                )),
+            }
+            let mut fixed=0.0_f64;
+            for edge in [style.padding_left,style.padding_right,
+                style.border_left,style.border_right,
+                style.margin_left,style.margin_right] {
+                match edge {
+                    Length::Px(n)=>fixed=sum_units([fixed,n]),
+                    Length::Auto=>{},
+                    _=>return Err(unsupported(
+                        "Uncertified relative edges in recursive intrinsic constraint.",
+                        child_id,
+                    )),
+                }
+            }
+            let outer=sum_units([width,fixed]);
+            greatest=greatest.max(outer);
+            if row {
+                let gap=match styles[index].column_gap {
+                    Length::Px(n)=>n,
+                    _=>return Err(unsupported(
+                        "Recursive row intrinsic gap must be definite.",id,
+                    )),
+                };
+                total=sum_units([total,if child_index==0 {0.0} else {gap},outer]);
+            }
+        }
+        Ok(if row{total}else{greatest})
+    }
+    fn intrinsic_flex_height(
+        index:usize,minimum:bool,nodes:&[crate::compute::LayoutNode],
+        children:&[Vec<usize>],styles:&[Style],
+        measurements:&[crate::compute::MeasuredBox],
+    )->Result<f64,ComputeError>{
+        let id=&nodes[index].node_id;
+        if children[index].is_empty(){
+            if let Some(metric)=measurements.iter().find(|m|m.node_id==*id){
+                return Ok(layout_unit(if minimum{
+                    metric.intrinsic.min_content_height
+                }else{metric.intrinsic.max_content_height}));
+            }
+            if nodes[index].component=="Text"{
+                return Err(measurement(
+                    "Intrinsic block constraint requires measured text.",id,
+                ));
+            }
+            return Ok(0.0);
+        }
+        let column=!horizontal(styles[index].direction);
+        let mut contributions=Vec::with_capacity(children[index].len());
+        for &child_index in &children[index]{
+            let child=styles[child_index];
+            let child_id=&nodes[child_index].node_id;
+            if column && child.shrink!=0.0{
+                return Err(unsupported(
+                    "Recursive intrinsic column block sizing requires nonshrinking items.",
+                    child_id,
+                ));
+            }
+            let mut height=match child.height{
+                Length::Px(n)=>layout_unit(n),
+                Length::Auto|Length::MinContent|Length::MaxContent=>
+                    intrinsic_flex_height(child_index,minimum,nodes,children,styles,measurements)?,
+                _=>return Err(unsupported(
+                    "Uncertified percentage block dependency in intrinsic constraint.",
+                    child_id,
+                )),
+            };
+            match child.max_height{
+                Length::Px(n)=>height=height.min(layout_unit(n)),
+                Length::Auto=>{},
+                _=>return Err(unsupported(
+                    "Unresolved intrinsic maximum block size.",child_id,
+                )),
+            }
+            match child.min_height{
+                Length::Px(n)=>height=height.max(layout_unit(n)),
+                Length::Auto=>{},
+                _=>return Err(unsupported(
+                    "Unresolved intrinsic minimum block size.",child_id,
+                )),
+            }
+            for edge in [
+                child.padding_top,child.padding_bottom,
+                child.border_top,child.border_bottom,
+                child.margin_top,child.margin_bottom,
+            ] {
+                match edge{
+                    Length::Px(n)=>height=sum_units([height,n]),
+                    Length::Auto=>{},
+                    _=>return Err(unsupported(
+                        "Uncertified relative block edges in intrinsic constraint.",
+                        child_id,
+                    )),
+                }
+            }
+            contributions.push(height);
+        }
+        if !column{
+            return Ok(contributions.into_iter().fold(0.0_f64,f64::max));
+        }
+        let gap=match styles[index].row_gap{
+            Length::Px(n)=>n,
+            _=>return Err(unsupported(
+                "Recursive intrinsic column gap must be definite.",id,
+            )),
+        };
+        let mut total=0.0;
+        for (i,height) in contributions.into_iter().enumerate(){
+            total=sum_units([total,if i==0{0.0}else{gap},height]);
+        }
+        Ok(total)
+    }
+    for index in (0..input.nodes.len()).rev() {
+        let id=&input.nodes[index].node_id;
+        let has_bound=[
+            styles[index].min_width,styles[index].max_width,
+            styles[index].min_height,styles[index].max_height,
+        ].iter().any(|value| matches!(value,Length::MinContent|Length::MaxContent));
+        if !has_bound {continue;}
+        let metric=input.measurements.iter().find(|m|m.node_id==*id);
+        let bound=|value:Length,axis_width:bool|->Result<Length,ComputeError>{
+            let is_min=match value {
+                Length::MinContent=>true,Length::MaxContent=>false,
+                _=>return Ok(value),
+            };
+            if !children[index].is_empty(){
+                return Ok(Length::Px(if axis_width {
+                    intrinsic_flex_width(
+                        index,is_min,&input.nodes,&children,&styles,&input.measurements,
+                    )?
+                } else {
+                    intrinsic_flex_height(
+                        index,is_min,&input.nodes,&children,&styles,&input.measurements,
+                    )?
+                }));
+            }
+            let metric=metric.ok_or_else(||measurement(
+                "Intrinsic min/max constraint requires measured leaf content.",id,
+            ))?;
+            Ok(Length::Px(match (axis_width,is_min){
+                (true,true)=>metric.intrinsic.min_content_width,
+                (true,false)=>metric.intrinsic.max_content_width,
+                (false,true)=>metric.intrinsic.min_content_height,
+                (false,false)=>metric.intrinsic.max_content_height,
+            }))
+        };
+        let bounds=[
+            bound(styles[index].min_width,true)?,
+            bound(styles[index].max_width,true)?,
+            bound(styles[index].min_height,false)?,
+            bound(styles[index].max_height,false)?,
+        ];
+        styles[index].min_width=bounds[0];
+        styles[index].max_width=bounds[1];
+        styles[index].min_height=bounds[2];
+        styles[index].max_height=bounds[3];
+    }
+    for index in 0..input.nodes.len(){
+        if children[index].len()!=1 {continue;}
+        let child=children[index][0];
+        let Some(&grand)=children[child].first() else{continue;};
+        let (s,c,g)=(styles[index],styles[child],styles[grand]);
+        if matches!(s.width,Length::Auto)&&matches!(s.height,Length::Auto)
+            &&matches!(c.width,Length::Percent(_))&&matches!(c.height,Length::Percent(_))
+            &&matches!(g.width,Length::Percent(_))&&matches!(g.height,Length::Percent(_)){
+            return Err(unsupported("Unlisted multi-node percentage dependency cycle across auto ancestors.",
+                &input.nodes[child].node_id));
+        }
+    }
+    // Fail closed for nested indefinite column intrinsic-percent
+    // dependencies. C01 permits a percentage basis with a measured leaf,
+    // but not a percent-height descendant cycle.
+    for index in 0..input.nodes.len(){
+        let style=styles[index];
+        if !matches!(style.direction,Direction::Column|Direction::ColumnReverse)
+            || !matches!(style.height,Length::Auto){continue;}
+        for &child in &children[index]{
+            if !matches!(styles[child].basis,Length::Percent(_)){continue;}
+            let mut pending=children[child].clone();
+            while let Some(descendant)=pending.pop(){
+                if matches!(styles[descendant].height,Length::Percent(_)){
+                    return Err(unsupported(
+                        "Unlisted column intrinsic percentage basis descendant cycle.",
+                        &input.nodes[child].node_id,
+                    ));
+                }
+                pending.extend(children[descendant].iter().copied());
+            }
+        }
+    }
+    // Parent-index traversal determines whether a percentage's containing
+    // inline reference is actually definite, without depending on fixture IDs.
+    fn definite_inline(
+        node:usize,input:&LayoutInput,styles:&[Style],indices:&HashMap<&str,usize>,
+        depth:usize,
+    )->bool{
+        if depth>input.nodes.len(){return false;}
+        let Some(parent_name)=input.nodes[node].parent_id.as_deref() else{
+            return input.constraints.width.definite
+                || matches!(styles[node].width,Length::Px(_));
+        };
+        let parent=indices[parent_name];
+        match styles[parent].width{
+            Length::Px(_)=>true,
+            Length::Percent(_)=>definite_inline(parent,input,styles,indices,depth+1),
+            Length::Auto if styles[parent].grow>0.0 =>{
+                if let Some(grand)=input.nodes[parent].parent_id.as_deref(){
+                    let outer=indices[grand];
+                    horizontal(styles[outer].direction)
+                        && definite_inline(parent,input,styles,indices,depth+1)
+                }else{false}
+            },
+            Length::Auto|Length::MinContent|Length::MaxContent=>false,
+        }
+    }
+    for index in 1..input.nodes.len(){
+        if matches!(styles[index].width,Length::Percent(_))
+            && !definite_inline(index,input,&styles,&indices,0){
+            return Err(unsupported(
+                "Unlisted indefinite inline percentage dependency cycle.",
+                &input.nodes[index].node_id,
+            ));
+        }
+    }
+    // D-F1.13 / C01–C06: explicit allowlist for definitely referenced
+    // percentages and measurable C05 block auto. Unknown graphs fail closed,
+    // irrespective of fixture name; Python applies identical class/node ID.
+    fn definite_block(
+        node:usize,input:&LayoutInput,styles:&[Style],indices:&HashMap<&str,usize>,
+        depth:usize,
+    )->bool{
+        if depth>input.nodes.len(){return false;}
+        let Some(parent_name)=input.nodes[node].parent_id.as_deref() else{
+            return input.constraints.height.definite || matches!(styles[node].height,Length::Px(_));
+        };
+        let parent=indices[parent_name];
+        match styles[parent].height{
+            Length::Px(_)=>true,
+            Length::Percent(_)=>definite_block(parent,input,styles,indices,depth+1),
+            Length::Auto|Length::MinContent|Length::MaxContent=>false,
+        }
+    }
+    // Blink cyclic percent inline padding: this precisely identified shape
+    // contributes zero intrinsically and resolves percent only after the
+    // auto-width wrapper's used content dimension is available. N06 and
+    // unknown percentage graphs remain fail-closed.
+    let cyclic_padding:Vec<bool>=(0..input.nodes.len()).map(|index|{
+        let Some(parent_name)=input.nodes[index].parent_id.as_deref() else{return false;};
+        let parent=indices[parent_name];
+        let Some(outer_name)=input.nodes[parent].parent_id.as_deref() else{return false;};
+        let _outer=indices[outer_name];
+        let (st,wrapper)=(styles[index],styles[parent]);
+        let rooted_auto_chain={
+            let mut current=parent;
+            loop {
+                let state=styles[current];
+                if !matches!(state.width,Length::Auto)
+                    || state.shrink!=0.0 || !horizontal(state.direction) {
+                    break false;
+                }
+                let Some(ancestor_name)=input.nodes[current].parent_id.as_deref()
+                    else {break false;};
+                let ancestor=indices[ancestor_name];
+                if matches!(styles[ancestor].width,Length::Px(_)) {
+                    break horizontal(styles[ancestor].direction);
+                }
+                if children[ancestor].len()!=1 || children[ancestor][0]!=current {
+                    break false;
+                }
+                current=ancestor;
+            }
+        };
+        let fixed_siblings=!children[parent].is_empty()
+            && children[parent].iter().all(|&sibling|{
+                let sibling_style=styles[sibling];
+                children[sibling].is_empty()
+                    && matches!(sibling_style.width,Length::Px(_))
+                    && matches!(sibling_style.basis,Length::Px(_))
+                    && sibling_style.shrink==0.0
+                    && matches!(sibling_style.padding_top,Length::Px(_))
+                    && matches!(sibling_style.padding_bottom,Length::Px(_))
+            });
+        children[index].is_empty() && fixed_siblings
+            && matches!(st.width,Length::Px(_)) && matches!(st.basis,Length::Px(_))
+            && matches!(wrapper.width,Length::Auto) && wrapper.shrink==0.0
+            && horizontal(wrapper.direction) && rooted_auto_chain
+            && matches!(st.padding_top,Length::Px(_))
+            && matches!(st.padding_bottom,Length::Px(_))
+            && (matches!(st.padding_left,Length::Percent(_))
+                ||matches!(st.padding_right,Length::Percent(_)))
+    }).collect();
+    for index in 0..input.nodes.len(){
+        let st=styles[index];
+        let node=&input.nodes[index].node_id;
+        let percentage_padding=[st.padding_top,st.padding_right,st.padding_bottom,st.padding_left]
+            .iter().any(|v|matches!(v,Length::Percent(_)));
+        if percentage_padding && !definite_inline(index,input,&styles,&indices,0) && !cyclic_padding[index]{
+            return Err(unsupported("Unlisted indefinite inline percentage padding dependency cycle.",node));
+        }
+        // Indefinite containing axes do not authorize implicit min/max
+        // percentages: reject with the same error class/node as Python.
+        if (matches!(st.min_width,Length::Percent(_))
+            && !definite_inline(index,input,&styles,&indices,0))
+            || (matches!(st.min_height,Length::Percent(_))
+                && !definite_block(index,input,&styles,&indices,0)){
+            return Err(unsupported("Unlisted percentage minimum size dependency cycle.",node));
+        }
+        if matches!(st.max_width,Length::Percent(_))
+            && !definite_inline(index,input,&styles,&indices,0){
+            return Err(unsupported("Unlisted indefinite percentage maximum size dependency cycle.",node));
+        }
+        if matches!(st.max_height,Length::Percent(_))
+            && !definite_block(index,input,&styles,&indices,0){
+            return Err(unsupported("Unlisted indefinite percentage maximum size dependency cycle.",node));
+        }
+        if matches!(st.height,Length::Percent(_))
+            && !definite_block(index,input,&styles,&indices,0)
+            && !input.measurements.iter().any(|measurement|measurement.node_id==*node){
+            return Err(unsupported("Unmeasured indefinite percentage block dependency cycle.",node));
+        }
+    }
     let mut context=Context {
         input,styles,children,provisional,
         measurements:input.measurements.iter().map(|m|(m.node_id.as_str(),m)).collect(),
@@ -756,11 +1289,15 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
     let width=resolved(root_style.width,
         input.constraints.width.value.filter(|_|input.constraints.width.definite),
         false,&input.nodes[0].node_id)?
-        .or(input.constraints.width.value.filter(|_|input.constraints.width.definite));
+        .or_else(||if matches!(root_style.width,Length::Auto){
+            input.constraints.width.value.filter(|_|input.constraints.width.definite)
+        }else{None});
     let height=resolved(root_style.height,
         input.constraints.height.value.filter(|_|input.constraints.height.definite),
         true,&input.nodes[0].node_id)?
-        .or(input.constraints.height.value.filter(|_|input.constraints.height.definite));
+        .or_else(||if matches!(root_style.height,Length::Auto){
+            input.constraints.height.value.filter(|_|input.constraints.height.definite)
+        }else{None});
     context.layout(0,width,height,None,None)?;
     let mut nodes=Vec::with_capacity(input.nodes.len());
     for (index,node) in input.nodes.iter().enumerate(){
@@ -836,4 +1373,65 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         }).collect(),diagnostics:vec![],
         measurement_error:None,engine_error:None,geometry_commit_error:None,
     })
+}
+
+
+#[cfg(test)]
+mod point3_saturation_tests {
+    use super::*;
+
+    #[test]
+    fn multiplied_gutter_count_is_never_truncated_to_i32() {
+        let max=LayoutUnit::from_raw(i32::MAX);
+        let count=(i32::MAX as usize)+4096;
+        assert_eq!(saturating_gutter_product(max,count).raw(),i32::MAX);
+        assert_eq!(
+            saturating_gutter_product(LayoutUnit::from_raw(1),count).raw(),
+            i32::MAX,
+        );
+        assert_eq!(
+            saturating_gutter_product(LayoutUnit::from_raw(1),3).raw(),3,
+        );
+    }
+
+    #[test]
+    fn signed_overflow_in_percentage_margin_saturates_at_i32_endpoints() {
+        let max=LayoutUnit::from_raw(i32::MAX).to_px();
+        let min=LayoutUnit::from_raw(i32::MIN).to_px();
+        assert_eq!(margin_value(Length::Percent(1e308),max),Some(max));
+        assert_eq!(margin_value(Length::Percent(-1e308),max),Some(min));
+    }
+
+    #[test]
+    fn finite_percentage_multiplication_overflow_saturates_without_panic() {
+        let max = LayoutUnit::from_raw(i32::MAX).to_px();
+        let min = LayoutUnit::from_raw(i32::MIN).to_px();
+        assert_eq!(percent_used_dimension(1e200, 1e200), max);
+        assert_eq!(percent_used_dimension(-1e200, 1e200), min);
+        assert_eq!(percent_flex_basis_used(1e200, 1e200), max);
+        assert_eq!(percent_flex_basis_used(-1e200, 1e200), min);
+        assert_eq!(used_gap(Length::Percent(1e200), 1e200, "child").unwrap(), max);
+    }
+
+    #[test]
+    fn signed_minimum_free_space_does_not_overflow_absolute_value() {
+        // Two MAX-sized bases saturate the negative initial free space at
+        // i32::MIN. A fractional flex shrink (sum 0.5) exercises the
+        // intermediate absolute-value comparison at precisely that bound.
+        // Previously i32::MIN.abs() panicked in debug builds.
+        let max = LayoutUnit::from_raw(i32::MAX).to_px();
+        let item = FlexBasis {
+            basis: max, hypothetical: max, min_size: 0.0,
+            max_size: None, grow: 0.0, shrink: 0.25,
+        };
+        let targets = blink_flex_targets(&[item, item], 0.0, 0.0, "saturation")
+            .expect("Saturating fractional shrink must never panic");
+        assert_eq!(targets.len(), 2);
+        for size in targets {
+            assert!(size.is_finite());
+            assert!(size >= 0.0);
+            assert!(size <= max);
+            assert_eq!(size * 64.0, (size * 64.0).trunc());
+        }
+    }
 }

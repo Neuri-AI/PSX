@@ -31,13 +31,14 @@ def item(name: str, *, start: float | None = 0,
     (JustifyContent.CENTER, (25, 55)),
     (JustifyContent.SPACE_BETWEEN, (0, 80)),
     (JustifyContent.SPACE_AROUND, (12.5, 67.5)),
-    (JustifyContent.SPACE_EVENLY, (16.671875, 63.34375)),
+    # Chromium 153 independent DOM oracle: floored leading, rounded inner gap.
+    (JustifyContent.SPACE_EVENLY, (16.65625, 63.328125)),
 ])
 def test_justify_controls_used_border_coordinates(justify, expected):
     result = compute_margin_flex_layout(
         (item("a"), item("b")), 100, 40, main_gap=10, justify=justify,
     )
-    assert tuple(box.border.x for box in result.boxes) == pytest.approx(expected)
+    assert tuple(box.border.x for box in result.boxes) == expected
 
 
 @pytest.mark.parametrize(("direction", "writing", "expected"), [

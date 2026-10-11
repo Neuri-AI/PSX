@@ -46,3 +46,21 @@ def test_B2_nested_positive_and_negative_translation_saturates():
         assert rect.y == MIN
         assert rect.width == 12.0
         assert rect.height == 13.0
+
+
+def test_B2_edge_pipeline_python_inset_saturates_physical_offsets():
+    from psx.sfle.box_geometry import used_box_rect, UsedBoxEdges, UsedEdges
+    from psx.sfle.model import Rect
+    from psx.sfle.fixed_point import I32_MIN, I32_MAX, SCALE
+    maximum=I32_MAX/SCALE
+    minimum=I32_MIN/SCALE
+    original=Rect(maximum, minimum, maximum, maximum)
+    edges=UsedBoxEdges(margin=UsedEdges(left=32.0,top=16.0))
+    box=used_box_rect(original, edges)
+    assert box.border.x==maximum
+    assert box.border.y==minimum+16.0
+    assert box.border.width==maximum-32.0
+    assert box.border.height==maximum-16.0
+    for value in (box.border.x,box.border.y,box.border.width,box.border.height):
+        assert minimum<=value<=maximum
+        assert value*SCALE==int(value*SCALE)

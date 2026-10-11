@@ -46,9 +46,10 @@ def test_grow_is_resolved_before_final_positioning():
         (node("a", 20, grow=1), node("b", 20, grow=2)), 100, 30, main_gap=10
     )
     assert geometry(result) == {
-        "a": (0, 0, pytest.approx(36.6666666667), 10, 0),
-        "b": (pytest.approx(46.6666666667), 0, pytest.approx(53.3333333333), 10, 0),
+        "a": (0, 0, 36.671875, 10, 0),
+        "b": (46.671875, 0, 53.328125, 10, 0),
     }
+    assert result.items[1].rect.x + result.items[1].rect.width == 100
 
 
 def test_shrink_is_weighted_by_base_size():
@@ -56,9 +57,10 @@ def test_shrink_is_weighted_by_base_size():
         (node("a", 100), node("b", 50)), 100, 30,
     )
     assert geometry(result) == {
-        "a": (0, 0, pytest.approx(66.6666666667), 10, 0),
-        "b": (pytest.approx(66.6666666667), 0, pytest.approx(33.3333333333), 10, 0),
+        "a": (0, 0, 66.671875, 10, 0),
+        "b": (66.671875, 0, 33.328125, 10, 0),
     }
+    assert result.items[1].rect.x + result.items[1].rect.width == 100
 
 
 def test_wrapping_uses_hypothetical_sizes_before_flex_distribution():

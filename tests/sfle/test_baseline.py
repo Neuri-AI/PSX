@@ -49,9 +49,22 @@ def test_missing_metric_is_rejected():
         compute_margin_flex_layout((item("a",20,None),),100,100)
 
 def test_column_baseline_requires_orthogonal_metric():
+    # The normalized item already carries a cross-axis baseline selected by
+    # the measurement adapter. An absent column metric must fail closed.
     with pytest.raises(SFLECapabilityError):
-        compute_margin_flex_layout((item("a",20,10),),100,100,
+        compute_margin_flex_layout((item("a",20,None),),100,100,
                                    direction=FlexDirection.COLUMN)
+
+
+def test_column_accepts_measured_orthogonal_cross_baselines():
+    # An explicitly supplied cross-axis metric is valid in either writing axis.
+    result = compute_margin_flex_layout(
+        (item("a",20,15), item("b",30,10)), 100,100,
+        direction=FlexDirection.COLUMN,
+    )
+    first, second = result.boxes
+    assert (first.border.x, second.border.x) == (0,5)
+    assert first.border.x + 15 == second.border.x + 10
 
 def test_auto_cross_margin_takes_precedence_without_metric():
     a=replace(item("a",20,None),cross_start=UsedMargin(None),

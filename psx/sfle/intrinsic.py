@@ -123,6 +123,9 @@ def resolve_intrinsic_flex_basis(request: IntrinsicFlexInput) -> float:
     or resolved cross-size suggestion transfers into the main axis.
     """
 
+    if (request.has_aspect_ratio_transfer and
+            (request.aspect_ratio is None or request.preferred_cross_size is None)):
+        _unsupported("Aspect-ratio transfer requires a typed ratio and explicit cross-size measurement.")
     minimum, maximum, _ = _metrics(request)
     basis = request.flex_basis
     transferred = _transferred_main_suggestion(request)

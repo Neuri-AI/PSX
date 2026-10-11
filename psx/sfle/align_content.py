@@ -97,7 +97,9 @@ def distribute_cross_lines(
             lead = free / (2 * count)
         elif mode == AlignContent.SPACE_EVENLY and free > 0:
             between = _sum(between, free / (count + 1))
-            lead = free / (count + 1)
+            # Blink floors the first space-evenly offset, independently of
+            # its rounded interior gap. Both values stay on the 1/64px grid.
+            lead = LayoutUnit.from_floor(free / (count + 1)).to_px()
         elif mode == AlignContent.STRETCH and free > 0:
             sizes = tuple(_sum(size, free / count) for size in sizes)
     cursor = _unit(lead if forward else _sub(extent, lead))

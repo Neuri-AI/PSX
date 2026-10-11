@@ -7,7 +7,7 @@ layout algorithm later. No unsupported cyclic percentage is coerced to AUTO.
 from __future__ import annotations
 from dataclasses import dataclass
 
-from .errors import DiagnosticCode, SFLEError
+from .errors import DiagnosticCode, SFLECapabilityError, SFLEError
 from .model import LayoutInput
 from .sizing import ResolutionKind
 from .used_size_tree import UsedSizeTree
@@ -68,13 +68,23 @@ def collect_leaf_intrinsic_suggestions(
             continue
         need_width = declaration.width_kind == ResolutionKind.AUTO and not constraints.width.definite
         need_height = declaration.height_kind == ResolutionKind.AUTO and not constraints.height.definite
-        # Containers and unresolved percentages are resolved by the recursive
-        # CSS dependency pass, not by native leaf measurement.
-        if node_id in parent_ids or (
-            declaration.width_kind == ResolutionKind.UNRESOLVED_PERCENT and not constraints.width.definite
-        ) or (
-            declaration.height_kind == ResolutionKind.UNRESOLVED_PERCENT and not constraints.height.definite
-        ):
+        # A leaf-only helper cannot silently treat a pending percentage
+        # dependency as AUTO, nor return no suggestion for an indefinite
+        # container declaration. The recursive caller must handle it explicitly.
+        if (declaration.width_kind == ResolutionKind.UNRESOLVED_PERCENT and
+                not constraints.width.definite) or (
+                declaration.height_kind == ResolutionKind.UNRESOLVED_PERCENT and
+                not constraints.height.definite):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unresolved percentage requires a dependency resolver.", node_id,
+            )
+        if node_id in parent_ids:
+            if need_width or need_height:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Container auto sizing requires recursive resolution.", node_id,
+                )
             continue
         measurement = measured.get(node_id)
         if (need_width or need_height) and measurement is None:

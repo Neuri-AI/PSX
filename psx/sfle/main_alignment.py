@@ -64,7 +64,10 @@ def resolve_main_alignment(
     if extent < 0 or fixed_gap < 0:
         raise ValueError("Container and gap must be nonnegative.")
     count = len(sizes)
-    gap_total = LayoutUnit.from_nearest(fixed_gap * max(0, count - 1))
+    # The gap is a *used* 1/64px length before repetition. Multiplying
+    # f64 CSS pixels first loses subpixel gutters and may overflow to inf.
+    # Multiply widened raw units and clamp to signed i32 exactly once.
+    gap_total = LayoutUnit.from_raw(_lu(fixed_gap).raw * max(0, count - 1))
     free_u = _lu(extent) - _sum(sizes) - gap_total
     free = free_u.to_px()
     if count == 0:
@@ -90,4 +93,10 @@ def resolve_main_alignment(
         else:
             extra = free / (count + 1)
             lead = extra
-    return MainAlignment(_lu(lead).to_px(), (_lu(fixed_gap) + _lu(extra)).to_px(), free)
+    # Chromium 153's fractional space-evenly *leading* offset is floored
+    # to LayoutUnit; its distributed interior gap is rounded separately.
+    # Rounding both nearest shifts the second item's x by 1/64px.
+    lead_unit = (LayoutUnit.from_floor(lead)
+                 if justify == JustifyContent.SPACE_EVENLY and free > 0
+                 else _lu(lead))
+    return MainAlignment(lead_unit.to_px(), (_lu(fixed_gap) + _lu(extra)).to_px(), free)

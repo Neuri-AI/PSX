@@ -30,6 +30,7 @@ pub fn fixture(id: &str) -> (Value, LayoutInput) {
             preferred_width: m["at_width"].as_f64().unwrap_or(100.0),
             preferred_height: m["height"].as_f64().unwrap_or(60.0),
             baseline: None,
+            orthogonal_baseline: None,
         };
         MeasuredBox {
             node_id: m["node"].as_str().unwrap().to_string(),

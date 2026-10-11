@@ -52,7 +52,53 @@ syntax-error recovery, frozen/production disable, snapshot validation and
 diagnostics tests. Native GUI smoke tests complement, but do not replace,
 deterministic headless tests.
 
-## Pending — portable Flexbox/Grid layout system (proposal)
+## Pending — SFLE CSS extensions after the F2 alpha scope
+
+**Recorded 2026-10-11. Decision status: DEFERRED — FORMALLY APPROVED.**
+The user explicitly approved both SFLE F2 point-5 deferrals on 2026-10-11.
+Neither full feature is advertised as supported in the frozen F2 alpha
+capability manifest or automatically assigned to F3. Previously certified
+bounded positive cases remain available while unsupported cases fail closed.
+See [F2 five-point closure tracker](architecture/sfle-f2-implementation.md)
+and [F2 point-5 final certification](architecture/sfle-f2-point5-final-certification.md).
+
+| ID | Deferred candidate / feature | User-visible value | Remaining implementation and certification | Planned timing / status |
+| --- | --- | --- | --- | --- |
+| **SFLE-CSS-01** | `aspect_ratio` and replaced-element transferred intrinsic sizing (images/media) | An image or other replaced element can infer its missing height from width and ratio (or vice versa), including native intrinsic sizing. | Define sizing rules and transferred size suggestions with min/max and box model constraints; implement in both Rust and Python; verify identical accepted/rejected classes and diagnostics, Chromium geometry ≤0.01 logical px and native projected geometry ≤1 px, including invalid ratios and fallback. | **DEFERRED — APPROVED IN WRITING 2026-10-11.** Post-F2 CSS milestone not yet scheduled; not part of F3. |
+| **SFLE-CSS-02** | Intrinsically `auto`-sized Flex container with `flex_wrap` / multi-line sizing | A wrapping Flex can determine its own dimensions from children instead of requiring definite width/height to form and size lines. | Implement intrinsic size contribution and wrapped line formation under indefinite constraints, dependencies and min/max constraints; match Chromium and Rust/Python geometry/diagnostics including pathological and recursive cases; certify supported bounds and fail-closed behavior. | **DEFERRED — APPROVED IN WRITING 2026-10-11.** Post-F2 CSS milestone not yet scheduled; not part of F3. |
+
+**Safeguards until implementation:** preserve previously certified
+definite-main-axis `flex_wrap` and bounded definite-axis `aspect_ratio`
+cases. A replaced element with `aspect_ratio`, two auto dimensions,
+missing native intrinsic measurement and no cross-axis stretch must reject
+with `SFLE_UNSUPPORTED_FEATURE`, not fabricate 0 × 0 geometry. An
+intrinsically auto-sized wrapped Flex whose main axis remains indefinite
+**without a definite max-size cap** must likewise reject rather than assume an intrinsic line width. Both
+Rust and Python must agree on code and source node ID; other unlisted CSS
+dependency graphs remain fail-closed. A partial supported case does not
+constitute full CSS capability advertisement.
+
+**How to retrieve this later:** ask for `SFLE-CSS-01` or
+`SFLE-CSS-02`, or the "SFLE pending CSS extensions" section of this
+roadmap. Implementation requires a separately approved future CSS
+enhancement with corresponding Rust/Python/Chromium certification.
+The seven normative F2 exit checks and same-commit CI must still pass
+before F2 is declared CLOSED. F3 remains renderer integration/migration,
+not a catch-all for unimplemented CSS features.
+
+## SFLE — official phase status (2026-10-11)
+
+**F1 CLOSED · F2 CLOSED (seven F1 §6 normative gates and all five workstreams certified; final documentation-only CI required) · F3 NOT STARTED.**
+
+- [Formal F2 final exit certificate](architecture/sfle-f2-final-certification.md)
+- [F2 current implementation and normative exit ledger](architecture/sfle-f2-implementation.md)
+- [F2 point-4 Scroll and adapter authority certificate](architecture/sfle-f2-point4-final-certification.md)
+
+**F3 implementation still ahead:** connect the tested SFLE geometry authority to production Qt/Kivy/Tkinter/Headless renderers, preserve native Scroll viewport/input/offsets while applying SFLE content geometry, remove Row/Column without compatibility aliases and retire redundant layout algorithms. The F2 port contract exists, but *production renderer migration is not claimed done*.
+
+**Future CSS additions NOT part of F3:** SFLE-CSS-01 (full replaced-element aspect-ratio intrinsic sizing) and SFLE-CSS-02 (intrinsically auto-sized wrapped Flex) remain separately deferred above, without a scheduled milestone. Previously certified bounded subset remains supported; unsupported dependencies fail explicitly.
+
+## Pending — portable Flexbox/Grid layout system (proposal) (historical design proposal)
 
 **Architecture document:** [SFLE — Shared Flex Layout Engine](architecture/sfle.md).
 **F1 decisions:** [Approved architecture and component contracts](architecture/sfle-f1-contracts.md).
@@ -60,8 +106,7 @@ deterministic headless tests.
 **D-F1.10 correction:** `Row`/`Column` will be removed, not preserved or
 translated; `Flex` becomes the single public Flexbox distribution component.
 This is an architectural decision only: no code removal or F2 start authorized.
-**Status:** all F1 decisions approved. **F2 is not authorized or started**; an
-explicit user go-ahead is required before implementation.
+**Historical F1 proposal only:** F2 was not yet authorized when this paragraph was written. Current official state: F2 CLOSED, F3 NOT STARTED. See the [F2 certificate](architecture/sfle-f2-final-certification.md).
 **Ratified F1.6/F1.7 contract:** [CSS box model and percentage resolution](architecture/sfle-f1-box-model.md).
 Approved: closed shared metadata validation with single-root components,
 metadata inert outside Flex, layout_width/layout_height namespace, and tagged
@@ -76,11 +121,9 @@ selective caching, and Rust-primary/Python-fallback computation.
 SFLE is the proposed backend-neutral CSS Flexbox geometry engine. The design
 prioritizes browser-like visual layout results across Qt, Kivy, Tkinter, and
 Headless, with renderer-specific intrinsic measurement and geometry application.
-The specification covers the algorithm, Mermaid diagrams, lifecycle, adapters,
-conformance strategy and outstanding decisions; SFLE remains unimplemented.
+The following is the historical architectural proposal; SFLE F2 is now certified and F3 renderer integration remains outstanding.
 
-**Status:** F1 architecture fully approved; formal close-out pending explicit
-user acceptance. F2 implementation is not yet authorized. Reference:
+**Historical F1-only status:** at the time of this initial design proposal F2 had not yet been authorized. The current F2 phase is CLOSED; see the [final certification](architecture/sfle-f2-final-certification.md). Reference:
 [Flexbox Grid](http://flexboxgrid.com/) (a responsive 12-column layout system
 built on CSS Flexbox). PSX should reproduce the *layout semantics* in native
 desktop renderers rather than embed CSS or assume a browser engine.

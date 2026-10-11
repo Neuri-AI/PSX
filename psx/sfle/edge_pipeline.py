@@ -16,6 +16,21 @@ from .line_layout import (
     FlexDirection, FlexWrap, ResolvedItem, form_flex_lines, place_resolved_lines,
 )
 from .model import BoxRect, WritingDirection
+from .fixed_point import LayoutUnit
+
+
+def _sum_units(values) -> float:
+    total=LayoutUnit.from_raw(0)
+    for value in values:
+        total+=LayoutUnit.from_nearest(value)
+    return total.to_px()
+
+
+def _subtract_units(value:float,deductions) -> float:
+    total=LayoutUnit.from_nearest(value)
+    for deduction in deductions:
+        total-=LayoutUnit.from_nearest(deduction)
+    return total.to_px()
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,35 +100,41 @@ def compute_edge_layout(
 
     def main_edges(i: ResolvedEdgeItem) -> float:
         e = i.edges
-        return (e.margin.horizontal + e.padding.horizontal + e.border.horizontal
-                if horizontal else e.margin.vertical + e.padding.vertical + e.border.vertical)
+        return _sum_units((
+            e.margin.horizontal, e.padding.horizontal, e.border.horizontal,
+        ) if horizontal else (
+            e.margin.vertical, e.padding.vertical, e.border.vertical,
+        ))
 
     def cross_edges(i: ResolvedEdgeItem) -> float:
         e = i.edges
-        return (e.margin.vertical + e.padding.vertical + e.border.vertical
-                if horizontal else e.margin.horizontal + e.padding.horizontal + e.border.horizontal)
+        return _sum_units((
+            e.margin.vertical, e.padding.vertical, e.border.vertical,
+        ) if horizontal else (
+            e.margin.horizontal, e.padding.horizontal, e.border.horizontal,
+        ))
 
     hypothetical = tuple(
-        ResolvedItem(i.node_id, i.flex.hypothetical + main_edges(i),
-                     i.cross_content_size + cross_edges(i), i.order)
+        ResolvedItem(i.node_id, _sum_units((i.flex.hypothetical,main_edges(i))),
+                     _sum_units((i.cross_content_size,cross_edges(i))), i.order)
         for i in items
     )
     lines = form_flex_lines(hypothetical, main_extent, mg, wrap)
     index = {i.node_id: i for i in items}
     sized: list[tuple[ResolvedItem, ...]] = []
     for line in lines:
-        fixed = sum(main_edges(index[i.node_id]) for i in line)
+        fixed = _sum_units(main_edges(index[i.node_id]) for i in line)
         if fixed > main_extent:
             # Overflow is legal CSS behavior: the available *content* main size
             # is zero rather than a negative value. No implicit clipping.
             free_for_content = 0.0
         else:
-            free_for_content = main_extent - fixed
+            free_for_content = _subtract_units(main_extent,(fixed,))
         targets = resolve_flexible_lengths(
             tuple(index[i.node_id].flex for i in line), free_for_content, mg
         )
         sized.append(tuple(
-            ResolvedItem(i.node_id, content + main_edges(index[i.node_id]),
+            ResolvedItem(i.node_id, _sum_units((content,main_edges(index[i.node_id]))),
                          i.cross_size, i.order)
             for i, content in zip(line, targets)
         ))

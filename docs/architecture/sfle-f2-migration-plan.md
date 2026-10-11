@@ -69,3 +69,29 @@ This is **source inventory only** for these exact identifiers at these immutable
 - **F3-G5**: Verify Windows/macOS/Linux wheels, PyO3 load and fallback when absent, source/frozen imports, Qt/Kivy/Tkinter/Headless parity, RTL/reverse, bounded sizing and complete Chromium oracle.
 
 **F2.4 acceptance state:** the documented current-repository and three pinned external-boilerplate source inventories, exact commands, and CI artifact are verified at their named commits. **F2.4 remains open** because the single-SFLE-authority adapter contract still needs executable enforcement tests and proof of no competing portable geometry; F3 executes the actual native/API migration. This is not grounds to defer F2.2/F2.3 pure Flex sizing/browser requirements to F3.
+
+## F2.4 executable single-authority pre-migration contract — 2026-10-11
+
+The F2 repair branch adds executable evidence without retiring any public Row,
+Column or Scroll API. `psx/sfle/adapter_contract.py` now rejects duplicate
+native Scroll hosts, duplicate SFLE content roots, missing/non-`Flex` roots,
+disposed nodes and obsolete geometry generations. `derive_scroll_content_metrics`
+derives scroll extent **exclusively** from the immutable engine-produced content
+subtree rectangles and clamps native offsets without modifying the rectangles.
+`tests/sfle/test_f2_adapter_authority_certification.py` verifies these rules
+using a real Python SFLE compute result. A separate adversarial lifecycle test
+detects and rolls back a native layout that overwrites the engine's width.
+
+The real [Qt/Tk/Kivy UI job #38123542899](https://github.com/Neuri-AI/PSX/actions/runs/38123542899)
+passed all 11 widget geometry/measurement tests without skips on Ubuntu/Xvfb.
+Those are **ports and native widgets**, not evidence that the current legacy
+Row/Column/Scroll renderers have stopped performing their own layouts.
+Production adapter rewiring and Row/Column removal remain explicitly F3-G1–G5.
+
+## Point 4 final executable certification — 2026-10-11
+
+The historical F2.4 open notes above describe the earlier inventory-only evidence. The independent [point-4 certificate](sfle-f2-point4-final-certification.md) supersedes their status, not the migration plan.
+
+Following RED commit [`73c0b6e`](https://github.com/Neuri-AI/PSX/commit/73c0b6e994b44721f38c39b5c870429de6c2fdf4), `adapter_contract.py` now rejects a crossed Scroll content-root binding supplied without reconciler authority; paired positive/adversarial tests prove nested viewport overflow separation, offset/resize immutability, reversible coordinates and worker-port rollback. [GREEN `33261d5`](https://github.com/Neuri-AI/PSX/commit/33261d50e6585a3c21c91e32664a90705e77b938) received 5/5 mandatory workflows passing on the same source SHA. The approved F2 point 4 is **CLOSED**.
+
+F3-G1–G5 remain unchanged and unexecuted: the F2 contract does not assert that legacy native Qt/Kivy/Tk/Headless production adapters already consume SFLE results, nor that `Row`/`Column` are removed.

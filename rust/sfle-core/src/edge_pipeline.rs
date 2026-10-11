@@ -9,13 +9,24 @@ use crate::line_layout::{
 };
 use crate::{resolve_flexible_lengths, FlexBasis, FlexMathError};
 use std::collections::HashMap;
+use crate::layout_unit::LayoutUnit;
+
+fn unit(value:f64)->LayoutUnit{
+    LayoutUnit::from_nearest(value).expect("validated finite resolved edge geometry")
+}
+fn sum_units(values:impl IntoIterator<Item=f64>)->f64{
+    values.into_iter().fold(LayoutUnit::from_raw(0),|total,v|total+unit(v)).to_px()
+}
+fn subtract_units(value:f64,deductions:impl IntoIterator<Item=f64>)->f64{
+    deductions.into_iter().fold(unit(value),|total,v|total-unit(v)).to_px()
+}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Edges { pub top: f64, pub right: f64, pub bottom: f64, pub left: f64 }
 
 impl Edges {
-    fn horizontal(self) -> f64 { self.left + self.right }
-    fn vertical(self) -> f64 { self.top + self.bottom }
+    fn horizontal(self) -> f64 { sum_units([self.left, self.right]) }
+    fn vertical(self) -> f64 { sum_units([self.top, self.bottom]) }
     fn finite(self) -> bool {
         [self.top, self.right, self.bottom, self.left].iter().all(|v| v.is_finite())
     }
@@ -54,13 +65,14 @@ fn inset(
     rect: crate::line_layout::Rect,
     edges: Edges,
 ) -> Result<crate::line_layout::Rect, FlexMathError> {
-    let width = rect.width - edges.horizontal();
-    let height = rect.height - edges.vertical();
+    let width = subtract_units(rect.width,[edges.horizontal()]);
+    let height = subtract_units(rect.height,[edges.vertical()]);
     if width < 0.0 || height < 0.0 {
         return Err(FlexMathError::InvalidInput("edges exceed box dimensions"));
     }
     Ok(crate::line_layout::Rect {
-        x: rect.x + edges.left, y: rect.y + edges.top, width, height,
+        x: sum_units([rect.x,edges.left]), y: sum_units([rect.y,edges.top]),
+        width, height,
     })
 }
 
@@ -80,18 +92,18 @@ impl EdgeItem {
     fn main_edges(&self, horizontal: bool) -> f64 {
         let e = self.edges;
         if horizontal {
-            e.margin.horizontal() + e.padding.horizontal() + e.border.horizontal()
+            sum_units([e.margin.horizontal(),e.padding.horizontal(),e.border.horizontal()])
         } else {
-            e.margin.vertical() + e.padding.vertical() + e.border.vertical()
+            sum_units([e.margin.vertical(),e.padding.vertical(),e.border.vertical()])
         }
     }
 
     fn cross_edges(&self, horizontal: bool) -> f64 {
         let e = self.edges;
         if horizontal {
-            e.margin.vertical() + e.padding.vertical() + e.border.vertical()
+            sum_units([e.margin.vertical(),e.padding.vertical(),e.border.vertical()])
         } else {
-            e.margin.horizontal() + e.padding.horizontal() + e.border.horizontal()
+            sum_units([e.margin.horizontal(),e.padding.horizontal(),e.border.horizontal()])
         }
     }
 }
@@ -119,17 +131,17 @@ pub fn compute_edge_layout(
             return Err(FlexMathError::InvalidInput("duplicate item ID"));
         }
         hypothetical.push(ResolvedItem {
-            id: item.id.clone(), main_size: item.flex.hypothetical + item.main_edges(horizontal),
-            cross_size: item.cross_content_size + item.cross_edges(horizontal), order: item.order,
+            id: item.id.clone(), main_size: sum_units([item.flex.hypothetical,item.main_edges(horizontal)]),
+            cross_size: sum_units([item.cross_content_size,item.cross_edges(horizontal)]), order: item.order,
         });
     }
     let lines = form_flex_lines(&hypothetical, main_extent, main_gap, wrap)?;
     let mut sized_lines = Vec::with_capacity(lines.len());
 
     for line in lines {
-        let fixed: f64 = line.iter().map(|i| items[*lookup.get(i.id.as_str()).unwrap()]
-            .main_edges(horizontal)).sum();
-        let available_content = (main_extent - fixed).max(0.0);
+        let fixed=sum_units(line.iter().map(|i|items[*lookup.get(i.id.as_str()).unwrap()]
+            .main_edges(horizontal)));
+        let available_content=subtract_units(main_extent,[fixed]).max(0.0);
         let bases: Vec<FlexBasis> = line.iter().map(|i| {
             items[*lookup.get(i.id.as_str()).unwrap()].flex
         }).collect();
@@ -137,7 +149,7 @@ pub fn compute_edge_layout(
         let sized: Vec<ResolvedItem> = line.into_iter().zip(target.into_iter())
             .map(|(mut item, content)| {
                 let edges = items[*lookup.get(item.id.as_str()).unwrap()].main_edges(horizontal);
-                item.main_size = content + edges;
+                item.main_size = sum_units([content,edges]);
                 item
             }).collect();
         sized_lines.push(sized);
@@ -160,6 +172,25 @@ pub fn compute_edge_layout(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extreme_inset_geometry_saturates_signed_layout_coordinates() {
+        let max=crate::layout_unit::LayoutUnit::from_raw(i32::MAX).to_px();
+        let min=crate::layout_unit::LayoutUnit::from_raw(i32::MIN).to_px();
+        let rect=crate::line_layout::Rect {
+            x:max,y:min,width:max,height:max,
+        };
+        let edges=Edges{left:32.0,top:16.0,..Edges::default()};
+        let inner=inset(rect,edges).unwrap();
+        assert_eq!(inner.x,max);
+        assert_eq!(inner.y,min+16.0);
+        assert_eq!(inner.width,max-32.0);
+        assert_eq!(inner.height,max-16.0);
+        for coordinate in [inner.x,inner.y,inner.width,inner.height] {
+            assert_eq!(coordinate*64.0,(coordinate*64.0).trunc());
+            assert!((min..=max).contains(&coordinate));
+        }
+    }
 
     #[test]
     fn edges_reduce_available_flex_content_and_preserve_geometry() {

@@ -107,8 +107,24 @@ pub fn resolve_flexible_lengths(
     if items.is_empty() {
         return Ok(vec![]);
     }
+    // This low-level resolved Flex kernel deliberately runs on f64; unlike
+    // used geometry it has no LayoutUnit storage to saturate into.
+    // Reject overflowing finite-input gutter products and basis sums.
     let free_main = container_inner_main_size - gap * (items.len() - 1) as f64;
-    let growing = items.iter().map(|i| i.hypothetical).sum::<f64>() < free_main;
+    let hypothetical_total=items.iter().map(|i| i.hypothetical).sum::<f64>();
+    if !free_main.is_finite() || !hypothetical_total.is_finite() {
+        return Err(FlexMathError::InvalidInput(
+            "resolved Flex prequantization arithmetic overflow",
+        ));
+    }
+    let finite_used=|value:f64|->Result<f64,FlexMathError>{
+        if value.is_finite(){Ok(value)}else{
+            Err(FlexMathError::InvalidInput(
+                "resolved Flex prequantization arithmetic overflow",
+            ))
+        }
+    };
+    let growing = hypothetical_total < free_main;
     let mut targets: Vec<f64> = items.iter().map(|i| i.basis).collect();
     let mut frozen = vec![false; items.len()];
 
@@ -123,24 +139,24 @@ pub fn resolve_flexible_lengths(
         }
     }
 
-    let initial_free = free_main - items.iter().enumerate().map(|(idx, item)| {
+    let initial_free = finite_used(free_main - items.iter().enumerate().map(|(idx, item)| {
         if frozen[idx] { item.hypothetical } else { item.basis }
-    }).sum::<f64>();
+    }).sum::<f64>())?;
 
     for _ in 0..=items.len() {
         let live: Vec<usize> = (0..items.len()).filter(|&idx| !frozen[idx]).collect();
         if live.is_empty() {
             return Ok(targets);
         }
-        let mut remaining = free_main - items.iter().enumerate().map(|(idx, item)| {
+        let mut remaining = finite_used(free_main - items.iter().enumerate().map(|(idx, item)| {
             if frozen[idx] { targets[idx] } else { item.basis }
-        }).sum::<f64>();
+        }).sum::<f64>())?;
         let factors: Vec<f64> = live.iter().map(|&idx| {
             if growing { items[idx].grow } else { items[idx].shrink }
         }).collect();
-        let total_factor: f64 = factors.iter().sum();
+        let total_factor=finite_used(factors.iter().sum::<f64>())?;
         if total_factor < 1.0 {
-            let scaled = initial_free * total_factor;
+            let scaled = finite_used(initial_free * total_factor)?;
             if scaled.abs() < remaining.abs() {
                 remaining = scaled;
             }
@@ -148,10 +164,17 @@ pub fn resolve_flexible_lengths(
         let weights: Vec<f64> = live.iter().map(|&idx| {
             if growing { items[idx].grow } else { items[idx].shrink * items[idx].basis }
         }).collect();
-        let weight_sum: f64 = weights.iter().sum();
+        if weights.iter().any(|w|!w.is_finite()){
+            return Err(FlexMathError::InvalidInput(
+                "resolved Flex prequantization arithmetic overflow",
+            ));
+        }
+        let weight_sum=finite_used(weights.iter().sum::<f64>())?;
         for (&idx, &weight) in live.iter().zip(weights.iter()) {
-            let contribution = if weight_sum > 0.0 { remaining * weight / weight_sum } else { 0.0 };
-            targets[idx] = items[idx].basis + contribution;
+            let contribution = if weight_sum > 0.0 {
+                finite_used(finite_used(remaining * weight)? / weight_sum)?
+            } else { 0.0 };
+            targets[idx] = finite_used(items[idx].basis + contribution)?;
         }
 
         let mut violations = vec![0.0_f64; items.len()];
@@ -160,8 +183,8 @@ pub fn resolve_flexible_lengths(
             let raw = targets[idx];
             let final_size = clamp(raw.max(0.0), items[idx].min_size, items[idx].max_size);
             targets[idx] = final_size;
-            violations[idx] = final_size - raw;
-            total_violation += violations[idx];
+            violations[idx] = finite_used(final_size - raw)?;
+            total_violation = finite_used(total_violation + violations[idx])?;
         }
         if total_violation.abs() <= 1e-12 {
             return Ok(targets);

@@ -89,8 +89,19 @@ def resolve_flexible_lengths(
     if not items:
         return ()
 
+    # This low-level *resolved f64* kernel does not use LayoutUnit storage.
+    # A finite CSS gutter/count or basis sum may nevertheless overflow f64.
+    # Refuse nonfinite intermediates instead of producing silent NaN geometry.
     free_main = available - gutter * (len(items) - 1)
-    growing = sum(item.hypothetical for item in items) < free_main
+    hypothetical_total = sum(item.hypothetical for item in items)
+    if not math.isfinite(free_main) or not math.isfinite(hypothetical_total):
+        raise ValueError("Resolved Flex prequantization arithmetic overflow.")
+    def finite_used(value: float) -> float:
+        if not math.isfinite(value):
+            raise ValueError("Resolved Flex prequantization arithmetic overflow.")
+        return value
+
+    growing = hypothetical_total < free_main
     targets = [item.basis for item in items]
     frozen = [False] * len(items)
 
@@ -106,10 +117,10 @@ def resolve_flexible_lengths(
             targets[idx] = item.hypothetical
             frozen[idx] = True
 
-    initial_free = free_main - sum(
+    initial_free = finite_used(free_main - sum(
         item.hypothetical if is_frozen else item.basis
         for item, is_frozen in zip(items, frozen)
-    )
+    ))
 
     # At least one previously-unfrozen item is frozen in every non-final
     # iteration; bound the loop to guarantee termination.
@@ -118,15 +129,15 @@ def resolve_flexible_lengths(
         if not live:
             return tuple(targets)
 
-        remaining = free_main - sum(
+        remaining = finite_used(free_main - sum(
             targets[idx] if frozen[idx] else items[idx].basis
             for idx in range(len(items))
-        )
+        ))
         factors = [items[idx].grow if growing else items[idx].shrink for idx in live]
-        total_factor = sum(factors)
+        total_factor = finite_used(sum(factors))
         # CSS §9.7 limits free space when total flex factor is below 1.
         if total_factor < 1:
-            scaled = initial_free * total_factor
+            scaled = finite_used(initial_free * total_factor)
             if abs(scaled) < abs(remaining):
                 remaining = scaled
 
@@ -134,11 +145,13 @@ def resolve_flexible_lengths(
             weights = factors
         else:
             weights = [items[idx].shrink * items[idx].basis for idx in live]
-        weight_sum = sum(weights)
+        if any(not math.isfinite(weight) for weight in weights):
+            raise ValueError("Resolved Flex prequantization arithmetic overflow.")
+        weight_sum = finite_used(sum(weights))
 
         for idx, weight in zip(live, weights):
-            contribution = (remaining * weight / weight_sum) if weight_sum > 0 else 0.0
-            targets[idx] = items[idx].basis + contribution
+            contribution = (finite_used(remaining * weight) / weight_sum) if weight_sum > 0 else 0.0
+            targets[idx] = finite_used(items[idx].basis + finite_used(contribution))
 
         # The Flexbox algorithm clamps target sizes before identifying
         # min/max violations. Compare against the *unclamped* target.
@@ -148,8 +161,8 @@ def resolve_flexible_lengths(
             unclamped = targets[idx]
             clamped = _clamp(max(0.0, unclamped), items[idx].min_size, items[idx].max_size)
             targets[idx] = clamped
-            violations[idx] = clamped - unclamped
-            total_violation += violations[idx]
+            violations[idx] = finite_used(clamped - unclamped)
+            total_violation = finite_used(total_violation + violations[idx])
 
         if math.isclose(total_violation, 0.0, abs_tol=1e-12):
             return tuple(targets)

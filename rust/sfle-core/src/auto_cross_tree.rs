@@ -42,7 +42,24 @@ pub fn compute_auto_cross_tree(
         if children[node.id.as_str()].is_empty() {
             return Err(FlexMathError::InvalidInput("auto cross requires nonempty container"));
         }
+        // The bounded helper cannot certify wrapped auto cross without
+        // recursive measurement. Do not synthesize a final used size here.
+        if node.wrap != Wrap::NoWrap {
+            return Err(FlexMathError::InvalidInput(
+                "wrapped auto cross requires recursive measurement",
+            ));
+        }
         let is_horizontal = horizontal(node.direction);
+        // A column's auto main height can be the cross contribution of
+        // its row parent (A01). Select the axis required by that parent,
+        // not unconditionally this container's own flex cross axis.
+        let auto_width=if let Some(parent)=node.parent.as_deref(){
+            let pidx=*indices.get(parent).ok_or(
+                FlexMathError::InvalidInput("missing auto cross parent"),
+            )?;
+            !horizontal(adapted[pidx].direction)
+        }else{!is_horizontal};
+        let resolves_own_cross=auto_width!=is_horizontal;
         let main_limit=lu(if is_horizontal {node.width}else{node.height});
         let mut lines:Vec<(LayoutUnit,LayoutUnit)>=Vec::new();
         let mut line_main=LayoutUnit::from_raw(0);
@@ -83,9 +100,15 @@ pub fn compute_auto_cross_tree(
         }
         lines.push((line_main,line_cross));
         let mut used_u=LayoutUnit::from_raw(0);
-        for (line,(_,cross)) in lines.iter().enumerate() {
-            if line>0 {used_u=used_u+lu(node.cross_gap);}
-            used_u=used_u+*cross;
+        if resolves_own_cross {
+            for (line,(_,cross)) in lines.iter().enumerate() {
+                if line>0 {used_u=used_u+lu(node.cross_gap);}
+                used_u=used_u+*cross;
+            }
+        } else {
+            // For an orthogonal nowrap descendant, auto main size is the
+            // intrinsic extent occupied by its children along that axis.
+            for (main,_) in &lines {used_u=used_u.max(*main);}
         }
         let used=used_u.to_px();
         let parent_id = node.parent.clone();
@@ -97,7 +120,6 @@ pub fn compute_auto_cross_tree(
             let item = adapted[index].item.as_mut().ok_or(
                 FlexMathError::InvalidInput("missing container flex item"),
             )?;
-            let auto_width=!is_horizontal;
             let parent_cross_width=!parent_horizontal;
             if auto_width==parent_cross_width {
                 item.cross_content_size = used;
