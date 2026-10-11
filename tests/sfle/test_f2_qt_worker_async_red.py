@@ -48,7 +48,8 @@ def test_qt_worker_compute_async_measurement_and_atomic_commit():
         result,error=outcomes[0]
         assert error is None
         assert result is not None
-        assert calls==pytest.approx([("text",100),("text",150)])
+        assert [name for name,_ in calls]==["text","text"]
+        assert [width for _,width in calls]==pytest.approx([100,150])
         assert len(commits)==1
         assert heartbeat, "Qt event loop must process unrelated GUI events"
         assert getattr(handle,"done",lambda:False)()
