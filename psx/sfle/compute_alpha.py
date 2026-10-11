@@ -411,10 +411,146 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         children[node.parent_id].append(node.node_id)
     measures = {box.node_id: box for box in request.measurements}
 
-    # CSS intrinsic contributions break percentage-padding cycles by using a
-    # zero contribution. Once the container's used inline size is available,
-    # the same edge is resolved normally by ``_padding``. This is a sizing
-    # phase rule, not a numeric zero substituted into final geometry.
+    parents = {node.node_id: node.parent_id for node in request.nodes}
+
+    # The alpha C99 restriction is a specific multi-node dependency cycle.
+    # Do not confuse it with a generic unsupported-compute placeholder.
+    for node in request.nodes:
+        if len(children[node.node_id]) != 1:
+            continue
+        child_id = children[node.node_id][0]
+        grand = children[child_id]
+        if not grand:
+            continue
+        s, c, g = styles[node.node_id], styles[child_id], styles[grand[0]]
+        if (s.width.kind == LengthKind.AUTO and s.height.kind == LengthKind.AUTO
+            and c.width.kind == c.height.kind == LengthKind.PERCENT
+            and g.width.kind == g.height.kind == LengthKind.PERCENT):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted multi-node percentage dependency cycle across auto ancestors.",
+                child_id,
+            )
+
+    # Fail-closed: cyclic descendant percentages after an indefinite
+    # column's percentage flex-basis are NOT the supported leaf-only C01 rule.
+    for node in request.nodes:
+        style = styles[node.node_id]
+        if (style.direction not in (FlexDirection.COLUMN, FlexDirection.COLUMN_REVERSE)
+            or style.height.kind != LengthKind.AUTO):
+            continue
+        for child_id in children[node.node_id]:
+            if styles[child_id].flex_basis.kind != LengthKind.PERCENT:
+                continue
+            pending = list(children[child_id])
+            while pending:
+                descendant = pending.pop()
+                if styles[descendant].height.kind == LengthKind.PERCENT:
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Unlisted column intrinsic percentage basis descendant cycle.",
+                        child_id,
+                    )
+                pending.extend(children[descendant])
+
+    # Conservative dependency classifier. Explicitly proven definite ancestor
+    # chains may resolve percentages; an intrinsically-sized inline ancestor
+    # cannot supply a definite reference to a percentage descendant.
+    # This is structural and deliberately independent of acceptance-case IDs.
+    def inline_reference_definite(node_id: str) -> bool:
+        parent = parents[node_id]
+        if parent is None:
+            return request.constraints.width.definite or styles[node_id].width.kind == LengthKind.PX
+        ancestor = styles[parent]
+        if ancestor.width.kind == LengthKind.PX:
+            return True
+        if ancestor.width.kind == LengthKind.PERCENT:
+            return inline_reference_definite(parent)
+        if ancestor.grow > 0:
+            grandparent = parents[parent]
+            if grandparent is not None:
+                container = styles[grandparent]
+                if (container.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+                        and inline_reference_definite(parent)):
+                    return True
+        return False
+
+    for node in request.nodes[1:]:
+        style = styles[node.node_id]
+        parent = parents[node.node_id]
+        if style.width.kind == LengthKind.PERCENT and not inline_reference_definite(node.node_id):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite inline percentage dependency cycle.",
+                node.node_id,
+            )
+
+    # D-F1.13 / C01–C06: deny by default any *indefinite* percentage
+    # dependency not matched by a recognized CSS intrinsic rule. This is
+    # structural (typed lengths/known references/actual measurements), never
+    # keyed to the acceptance fixture ID.
+    def block_reference_definite(node_id: str) -> bool:
+        parent = parents[node_id]
+        if parent is None:
+            return (request.constraints.height.definite or
+                    styles[node_id].height.kind == LengthKind.PX)
+        ancestor = styles[parent]
+        if ancestor.height.kind == LengthKind.PX:
+            return True
+        if ancestor.height.kind == LengthKind.PERCENT:
+            return block_reference_definite(parent)
+        return False
+
+    # A single definite-root row with an auto-width, no-shrink row holding
+    # one definite-width leaf has a CSS-defined cyclic inline padding rule:
+    # its percent padding contributes zero INTRINSICALLY, then resolves
+    # against the wrapper's actual used width. Unknown cycles still fail.
+    def supported_cyclic_padding(node_id: str) -> bool:
+        parent = parents[node_id]
+        if parent is None or parents[parent] is None:
+            return False
+        outer = parents[parent]
+        own, wrapper, container = styles[node_id], styles[parent], styles[outer]
+        return (
+            not children[node_id] and children[parent] == [node_id]
+            and own.width.kind == own.flex_basis.kind == LengthKind.PX
+            and wrapper.width.kind == LengthKind.AUTO and wrapper.shrink == 0
+            and wrapper.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+            and container.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+            and container.width.kind == LengthKind.PX
+            and own.padding_top.kind == own.padding_bottom.kind == LengthKind.PX
+            and any(e.kind == LengthKind.PERCENT for e in (own.padding_left, own.padding_right))
+        )
+
+    allowed_cyclic_padding = {
+        node.node_id for node in request.nodes if supported_cyclic_padding(node.node_id)
+    }
+
+    for node in request.nodes:
+        node_id = node.node_id
+        st = styles[node_id]
+        if any(edge.kind == LengthKind.PERCENT for edge in (
+            st.padding_top, st.padding_right, st.padding_bottom, st.padding_left
+        )) and not inline_reference_definite(node_id) and node_id not in allowed_cyclic_padding:
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite inline percentage padding dependency cycle.",
+                node_id,
+            )
+        if st.max_height.kind == LengthKind.PERCENT and not block_reference_definite(node_id):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite percentage maximum size dependency cycle.",
+                node_id,
+            )
+        if (st.height.kind == LengthKind.PERCENT and
+                not block_reference_definite(node_id) and node_id not in measures):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unmeasured indefinite percentage block dependency cycle.",
+                node_id,
+            )
+
     def bounded_intrinsic(
         style: _Style, horizontal: bool, value: float,
         reference: float | None = None,

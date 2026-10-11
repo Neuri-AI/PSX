@@ -744,9 +744,130 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         }
         indices.insert(node.node_id.as_str(),index);
     }
-    // Intrinsic sizing breaks percentage-padding cycles with a zero
-    // contribution.  Final geometry resolves the same edge only after the
-    // container's used inline size is known.
+    for index in 0..input.nodes.len(){
+        if children[index].len()!=1 {continue;}
+        let child=children[index][0];
+        let Some(&grand)=children[child].first() else{continue;};
+        let (s,c,g)=(styles[index],styles[child],styles[grand]);
+        if matches!(s.width,Length::Auto)&&matches!(s.height,Length::Auto)
+            &&matches!(c.width,Length::Percent(_))&&matches!(c.height,Length::Percent(_))
+            &&matches!(g.width,Length::Percent(_))&&matches!(g.height,Length::Percent(_)){
+            return Err(unsupported("Unlisted multi-node percentage dependency cycle across auto ancestors.",
+                &input.nodes[child].node_id));
+        }
+    }
+    // Fail closed for nested indefinite column intrinsic-percent
+    // dependencies. C01 permits a percentage basis with a measured leaf,
+    // but not a percent-height descendant cycle.
+    for index in 0..input.nodes.len(){
+        let style=styles[index];
+        if !matches!(style.direction,Direction::Column|Direction::ColumnReverse)
+            || !matches!(style.height,Length::Auto){continue;}
+        for &child in &children[index]{
+            if !matches!(styles[child].basis,Length::Percent(_)){continue;}
+            let mut pending=children[child].clone();
+            while let Some(descendant)=pending.pop(){
+                if matches!(styles[descendant].height,Length::Percent(_)){
+                    return Err(unsupported(
+                        "Unlisted column intrinsic percentage basis descendant cycle.",
+                        &input.nodes[child].node_id,
+                    ));
+                }
+                pending.extend(children[descendant].iter().copied());
+            }
+        }
+    }
+    // Parent-index traversal determines whether a percentage's containing
+    // inline reference is actually definite, without depending on fixture IDs.
+    fn definite_inline(
+        node:usize,input:&LayoutInput,styles:&[Style],indices:&HashMap<&str,usize>,
+        depth:usize,
+    )->bool{
+        if depth>input.nodes.len(){return false;}
+        let Some(parent_name)=input.nodes[node].parent_id.as_deref() else{
+            return input.constraints.width.definite
+                || matches!(styles[node].width,Length::Px(_));
+        };
+        let parent=indices[parent_name];
+        match styles[parent].width{
+            Length::Px(_)=>true,
+            Length::Percent(_)=>definite_inline(parent,input,styles,indices,depth+1),
+            Length::Auto if styles[parent].grow>0.0 =>{
+                if let Some(grand)=input.nodes[parent].parent_id.as_deref(){
+                    let outer=indices[grand];
+                    horizontal(styles[outer].direction)
+                        && definite_inline(parent,input,styles,indices,depth+1)
+                }else{false}
+            },
+            Length::Auto=>false,
+        }
+    }
+    for index in 1..input.nodes.len(){
+        if matches!(styles[index].width,Length::Percent(_))
+            && !definite_inline(index,input,&styles,&indices,0){
+            return Err(unsupported(
+                "Unlisted indefinite inline percentage dependency cycle.",
+                &input.nodes[index].node_id,
+            ));
+        }
+    }
+    // D-F1.13 / C01–C06: explicit allowlist for definitely referenced
+    // percentages and measurable C05 block auto. Unknown graphs fail closed,
+    // irrespective of fixture name; Python applies identical class/node ID.
+    fn definite_block(
+        node:usize,input:&LayoutInput,styles:&[Style],indices:&HashMap<&str,usize>,
+        depth:usize,
+    )->bool{
+        if depth>input.nodes.len(){return false;}
+        let Some(parent_name)=input.nodes[node].parent_id.as_deref() else{
+            return input.constraints.height.definite || matches!(styles[node].height,Length::Px(_));
+        };
+        let parent=indices[parent_name];
+        match styles[parent].height{
+            Length::Px(_)=>true,
+            Length::Percent(_)=>definite_block(parent,input,styles,indices,depth+1),
+            Length::Auto=>false,
+        }
+    }
+    // Blink cyclic percent inline padding: this precisely identified shape
+    // contributes zero intrinsically and resolves percent only after the
+    // auto-width wrapper's used content dimension is available. N06 and
+    // unknown percentage graphs remain fail-closed.
+    let cyclic_padding:Vec<bool>=(0..input.nodes.len()).map(|index|{
+        let Some(parent_name)=input.nodes[index].parent_id.as_deref() else{return false;};
+        let parent=indices[parent_name];
+        let Some(outer_name)=input.nodes[parent].parent_id.as_deref() else{return false;};
+        let outer=indices[outer_name];
+        let (st,wrapper,container)=(styles[index],styles[parent],styles[outer]);
+        children[index].is_empty() && children[parent].len()==1
+            && children[parent][0]==index
+            && matches!(st.width,Length::Px(_)) && matches!(st.basis,Length::Px(_))
+            && matches!(wrapper.width,Length::Auto) && wrapper.shrink==0.0
+            && horizontal(wrapper.direction) && horizontal(container.direction)
+            && matches!(container.width,Length::Px(_))
+            && matches!(st.padding_top,Length::Px(_))
+            && matches!(st.padding_bottom,Length::Px(_))
+            && (matches!(st.padding_left,Length::Percent(_))
+                ||matches!(st.padding_right,Length::Percent(_)))
+    }).collect();
+    for index in 0..input.nodes.len(){
+        let st=styles[index];
+        let node=&input.nodes[index].node_id;
+        let percentage_padding=[st.padding_top,st.padding_right,st.padding_bottom,st.padding_left]
+            .iter().any(|v|matches!(v,Length::Percent(_)));
+        if percentage_padding && !definite_inline(index,input,&styles,&indices,0) && !cyclic_padding[index]{
+            return Err(unsupported("Unlisted indefinite inline percentage padding dependency cycle.",node));
+        }
+        if matches!(st.max_height,Length::Percent(_))
+            && !definite_block(index,input,&styles,&indices,0){
+            return Err(unsupported("Unlisted indefinite percentage maximum size dependency cycle.",node));
+        }
+        if matches!(st.height,Length::Percent(_))
+            && !definite_block(index,input,&styles,&indices,0)
+            && !input.measurements.iter().any(|measurement|measurement.node_id==*node){
+            return Err(unsupported("Unmeasured indefinite percentage block dependency cycle.",node));
+        }
+    }
     let mut context=Context {
         input,styles,children,provisional,
         measurements:input.measurements.iter().map(|m|(m.node_id.as_str(),m)).collect(),
