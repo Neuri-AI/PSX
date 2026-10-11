@@ -1183,6 +1183,186 @@
         "chromium"
       ],
       "browser_case_index": 24
+    },
+    {
+      "id": "F04",
+      "name": "reverse-flex-layout-unit-fuzz-seed-75",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 200,
+        "height": 60
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "200px",
+            "height": "60px",
+            "column_gap": "4px",
+            "align_items": "flex-start"
+          }
+        },
+        {
+          "node_id": "n0",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "auto",
+            "height": "20px",
+            "flex_basis": "25%",
+            "flex_grow": 1,
+            "flex_shrink": 0,
+            "min_width": "0px",
+            "layout_padding_top": "4px"
+          }
+        },
+        {
+          "node_id": "n1",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "20px",
+            "height": "20px",
+            "flex_basis": "40%",
+            "flex_grow": 1,
+            "flex_shrink": 1,
+            "min_width": "0px",
+            "layout_padding_top": "10%"
+          }
+        },
+        {
+          "node_id": "n2",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "auto",
+            "height": "20px",
+            "flex_basis": "20px",
+            "flex_grow": 0,
+            "flex_shrink": 1,
+            "min_width": "0px",
+            "layout_padding_top": "5%"
+          }
+        },
+        {
+          "node_id": "n3",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "30px",
+            "height": "20px",
+            "flex_basis": "40%",
+            "flex_grow": 0,
+            "flex_shrink": 1,
+            "min_width": "0px",
+            "layout_padding_top": "10%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "n1.width": 61.34375,
+        "n2.x": 119.34375
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ],
+      "browser_case_index": 75
+    },
+    {
+      "id": "F05",
+      "name": "reverse-flex-layout-unit-fuzz-seed-76",
+      "writing_direction": "ltr",
+      "viewport": {
+        "width": 240,
+        "height": 60
+      },
+      "nodes": [
+        {
+          "node_id": "root",
+          "parent_id": null,
+          "component": "Flex",
+          "style": {
+            "direction": "row",
+            "width": "240px",
+            "height": "60px",
+            "column_gap": "5%",
+            "align_items": "flex-start"
+          }
+        },
+        {
+          "node_id": "n0",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "30px",
+            "height": "20px",
+            "flex_basis": "20px",
+            "flex_grow": 1,
+            "flex_shrink": 0,
+            "min_width": "0px",
+            "layout_padding_top": "5%"
+          }
+        },
+        {
+          "node_id": "n1",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "20px",
+            "height": "20px",
+            "flex_basis": "30px",
+            "flex_grow": 1,
+            "flex_shrink": 1,
+            "min_width": "0px",
+            "layout_padding_top": "0px"
+          }
+        },
+        {
+          "node_id": "n2",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "25%",
+            "height": "20px",
+            "flex_basis": "25%",
+            "flex_grow": 1,
+            "flex_shrink": 0,
+            "min_width": "0px",
+            "layout_padding_top": "5%"
+          }
+        },
+        {
+          "node_id": "n3",
+          "parent_id": "root",
+          "component": "Box",
+          "style": {
+            "width": "30px",
+            "height": "20px",
+            "flex_basis": "20px",
+            "flex_grow": 2,
+            "flex_shrink": 0,
+            "min_width": "0px",
+            "layout_padding_top": "5%"
+          }
+        }
+      ],
+      "measurements": [],
+      "expected": {
+        "n1.width": 44.8125,
+        "n2.x": 103.609375
+      },
+      "verification": [
+        "python",
+        "rust",
+        "chromium"
+      ],
+      "browser_case_index": 76
     }
   ]
 }
