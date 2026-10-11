@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (four opt-in backends; expanded native component coverage certified on `8e9df15`); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Qt/Kivy/Tk explicit Native/custom geometry ports certified at `63544c6`); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -460,3 +460,36 @@ Historical G1.2 incremental evidence is retained above.
 - **Kivy native SFLE coverage:** `Flex`, `Text`, `Button`, `Checkbox`, `Slider`, `Spacer`. `Checkbox`, `Slider` and `Spacer` do **not** expose valid native intrinsic content measurements; they are admitted only when **both** `layout_width` and `layout_height` are definite pixel dimensions. Their native widget's size/default `size_hint` is never substituted as CSS intrinsic width/height. The SFLE solver receives their explicit CSS sizes and no invented `MeasuredBox`; live Kivy readback verifies all three plus actual checkbox events and bottom-left coordinates. Auto, percentage, min/max-content or absent pixel dimensions fail closed for these controls.
 - **Code certificate SHA:** [`8e9df15`](https://github.com/Neuri-AI/PSX/commit/8e9df157b681149c8a37018fcd6dd2419838063b). [F3 selective run #38164507647](https://github.com/Neuri-AI/PSX/actions/runs/38164507647) **COMPLETED SUCCESS**: **167 Core tests**, **30 native Qt tests**, **20 native Tkinter tests**, **3 Kivy integration/regression tests**; platform SFLE Rust/Python/wheel and other selected jobs completed green. [G1 certification #38164507621](https://github.com/Neuri-AI/PSX/actions/runs/38164507621) **COMPLETED SUCCESS** on the same source SHA.
 - **Scope that still prevents G2 closure:** complete registry × toolkit × operation coverage, native/custom adapter port protocols, Qt binding family certification, unsupported widget/layout cases, content-width dependent intrinsic remeasurement, automatic resize/viewport/DPI lifecycle, and real native commit/readback under all relevant styles. Scroll offset/clipping remains G3. Historical sections above record earlier subsets at the time; this section and the document header describe the latest G2 coverage.
+
+## F3-G2 iteration — explicit Native/custom measurement + geometry port (2026-10-11)
+
+**Formal state: G2 IN PROGRESS, not CLOSED; overall F3 remains 1/5 CLOSED (20%).**
+
+- **Port contract:** `psx/sfle/f3_external.py` defines immutable `SFLEExternalPort(measure, apply, read)`. `measure(widget, LayoutConstraints)` must return a real `IntrinsicSizes` on the toolkit's owner thread; `apply(widget, Rect)` receives the already-projected **native-parent-relative** border rectangle (top-left in Qt/Tk, **bottom-left in Kivy**); `read(widget)` must return a `Rect` in that same native frame for the ≤1px readback check. Invalid ports/return types fail explicitly; they never cause implicit toolkit layout fallback.
+- **Native declaration API:** `Native(..., sfle_port=port)` and `NativeWidget(..., sfle_port=port)` are accepted by opted-in Qt (PySide6 proven), Kivy and Tkinter. Without a `SFLEExternalPort`, a `Native` leaf rejects mounting *before calling the native factory*. Props in the `layout_*` / flex metadata namespace never flow into the native widget-property adapter. Existing native ownership, borrowed widget detachment, event subscriptions, and reconciler identities remain toolkit-owned.
+- **Custom host adapter API:** `renderer.register_adapter("CustomBadge", CustomAdapter())`, where the adapter exposes `sfle_port = port` and implements normal native lifecycle methods. The external host is a **leaf** (no children needing layout). Builtin controls not yet migrated to G2 remain explicitly **not certified** even when they have older non-SFLE custom native adapters. All `Native` and registered custom-host leaves still participate in the same key-aware immutable SFLE snapshot; the provider does **not** calculate sibling layout.
+- **Geometry authority:** The F2 `NativeGeometryCommitter` accepts explicit `external_ports`, retains its signed 1/64px-grid preflight, computes all toolkit parent-relative placements from SFLE border boxes, and delegates only the actual native write. All three production bridges (`f3_qt.py`, `f3_kivy.py`, `f3_tk.py`) perform external measurement with generation checks, read back via the external port, and restore prior native geometry on commit/readback failures. F2's neutral engine and Chromium precision thresholds are unchanged.
+- **Minimal example (Qt):**
+  ```python
+  from PySide6.QtWidgets import QLabel
+  from psx import Flex
+  from psx.core.native import Native
+  from psx.sfle.f3_external import SFLEExternalPort
+  from psx.sfle.model import IntrinsicSizes, Rect
+
+  port = SFLEExternalPort(
+      measure=lambda w, c: IntrinsicSizes(12, 30, 10, 20, 30, 20),
+      apply=lambda w, r: w.setGeometry(round(r.x), round(r.y),
+                                       round(r.width), round(r.height)),
+      read=lambda w: Rect(w.x(), w.y(), w.width(), w.height()),
+  )
+  element = Flex(
+      Native(QLabel, renderer="pyside6", sfle_port=port,
+             layout_width="80px", layout_height="24px",
+             flex_basis="80px", flex_shrink=0),
+      width="160px", height="80px",
+  )
+  # Mount element using PySide6Renderer(sfle_constraints=...) and Reconciler.
+  ```
+- **Certification:** Code commit [`63544c6`](https://github.com/Neuri-AI/PSX/commit/63544c69b8879cd1081341520547628e9ba8b34c) passed [F3 selective #38166068973](https://github.com/Neuri-AI/PSX/actions/runs/38166068973) **COMPLETED SUCCESS** (**175 Core tests; 35 PySide6; 23 Tk native; 3 Kivy subprocess pytest functions covering real SDL2 scenarios**), and [G1 Python matrix #38166068974](https://github.com/Neuri-AI/PSX/actions/runs/38166068974) **COMPLETED SUCCESS** on that same SHA. Direct/native tests cover `Native` on all three GUI backends, custom registered leaves on all three, foreign/missing port preflight, invalid measurement/readback, F2 mixed builtin/external projection and Qt geometry restoration on bad readback. The first CI attempt exposed an import-order cycle in F2 and an incorrect unported-builtin diagnostic; both were corrected before this certified SHA.
+- **Open for G2 closure:** remaining custom lifecycle / borrowed widgets matrix, unsupported per-backend builtins and port variations, all Qt bindings, actual automatic viewport resize, width-dependent intrinsic remeasure and DPI, complete `registry × backend × operation` table, rollback under toolkit destruction, and remaining full cross-platform acceptance. **This port increment is GREEN but G2 is not formally closed.** G3 continues to own full Scroll offsets/events and clipping.
