@@ -8,8 +8,6 @@ import pytest
 from psx.sfle.fixed_point import I32_MAX, SCALE
 from psx.sfle.main_alignment import JustifyContent, resolve_main_alignment
 from psx.sfle.align_content import AlignContent, distribute_cross_lines
-from psx.sfle.main_margins import UsedMargin, MarginItem, position_main_margins
-from psx.sfle.line_layout import FlexDirection
 
 MAX=I32_MAX/SCALE
 
