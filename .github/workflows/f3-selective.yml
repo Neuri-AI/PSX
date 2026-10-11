@@ -299,9 +299,33 @@ jobs:
           python -c "from psx.sfle.backend import load_layout_engine; assert load_layout_engine().backend_name=='python'"
 
 
+  legacy:
+    name: F3 G4 no-Row-or-Column final API gate
+    needs: changes
+    if: needs.changes.outputs.legacy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - name: Reject any remaining public legacy layout API
+        run: |
+          python - <<'PY'
+          import psx
+          from psx.core.registry import builtin_component_registry
+          registry = builtin_component_registry()
+          for name in ("Row", "Column"):
+              assert not registry.contains(name), f"{name} still in public registry"
+              assert name not in psx.__all__, f"{name} still exported"
+              assert not hasattr(psx, name), f"{name} still exposed"
+          print("Legacy layout API absent as required for F3 G4/G5.")
+          PY
+
   summary:
     name: F3 required CI conclusion
-    needs: [changes, selector-tests, core, sfle, rust, chromium, qt, kivy, tkinter, headless, native]
+    needs: [changes, selector-tests, core, sfle, rust, chromium, qt, kivy, tkinter, headless, native, legacy]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -321,8 +345,6 @@ jobs:
           failures = []
           for suite in selected:
               job = aliases.get(suite, suite)
-              if job == "legacy":
-                  continue  # G4 audit remains an explicit gate, not daily job
               outcome = needs.get(job, {}).get("result")
               if outcome != "success":
                   failures.append(f"{job}={outcome}")
