@@ -1308,6 +1308,17 @@ mod point3_saturation_tests {
     use super::*;
 
     #[test]
+    fn finite_percentage_multiplication_overflow_saturates_without_panic() {
+        let max = LayoutUnit::from_raw(i32::MAX).to_px();
+        let min = LayoutUnit::from_raw(i32::MIN).to_px();
+        assert_eq!(percent_used_dimension(1e200, 1e200), max);
+        assert_eq!(percent_used_dimension(-1e200, 1e200), min);
+        assert_eq!(percent_flex_basis_used(1e200, 1e200), max);
+        assert_eq!(percent_flex_basis_used(-1e200, 1e200), min);
+        assert_eq!(used_gap(Length::Percent(1e200), 1e200, "child").unwrap(), max);
+    }
+
+    #[test]
     fn signed_minimum_free_space_does_not_overflow_absolute_value() {
         // Two MAX-sized bases saturate the negative initial free space at
         // i32::MIN. A fractional flex shrink (sum 0.5) exercises the
