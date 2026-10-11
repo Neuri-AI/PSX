@@ -210,6 +210,13 @@ impl Context<'_>{
         if self.children[index].is_empty(){
             if width.is_none(){width=Some(self.preferred(index,true)?);}
             if height.is_none(){
+                if matches!(style.height,Length::Percent(_))
+                    && !self.measurements.contains_key(id.as_str()){
+                    return Err(unsupported(
+                        "Unmeasured indefinite percentage block dependency cycle.",
+                        &id,
+                    ));
+                }
                 if let Some(m)=self.measurements.get(id.as_str()){
                     if !self.provisional && m.constraints.width.definite &&
                         (m.constraints.width.value.unwrap()-width.unwrap()).abs()>0.01{
