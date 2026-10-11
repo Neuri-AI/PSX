@@ -49,10 +49,13 @@ def compute_with_width_measurements(
         item.node_id: item for item in snapshot.measurements
         if item.node_id not in initial_widths
     }
+    # Every leaf stays in the convergence check; a sibling can change its
+    # allocation after another item's new intrinsic measurement.
+    measured_widths = dict(initial_widths)
     requested_widths = dict(initial_widths)
     seen: set[tuple[tuple[str, float], ...]] = set()
     for iteration in range(max_rounds):
-        signature = tuple(sorted(requested_widths.items()))
+        signature = tuple(sorted(measured_widths.items()))
         if signature in seen:
             raise SFLEError(
                 DiagnosticCode.UNSUPPORTED_MEASUREMENT,
@@ -83,7 +86,7 @@ def compute_with_width_measurements(
                             "Engine returned a stale generation.")
         used = dict(result.boxes)
         next_widths = {}
-        for node_id, width in requested_widths.items():
+        for node_id, width in measured_widths.items():
             if node_id not in used:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Measured leaf missing from layout output.",node_id)
@@ -93,6 +96,7 @@ def compute_with_width_measurements(
         if not next_widths:
             return result
         requested_widths = next_widths
+        measured_widths.update(next_widths)
     raise SFLEError(
         DiagnosticCode.UNSUPPORTED_MEASUREMENT,
         "Post-flex width measurement did not converge within the iteration budget.",
