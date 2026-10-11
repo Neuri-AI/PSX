@@ -4,6 +4,22 @@
 >
 > Authority: [F1 final architecture](sfle-f1-final-architecture.md) §6 **F2.4**, D-F1.1–D-F1.12 and F1-RUST; [SFLE F1 box model](sfle-f1-box-model.md); [F1 contracts](sfle-f1-contracts.md); [typed props](sfle-f1-props-lengths.md). This plan cannot override those requirements.
 
+## Verified F2.4 repository-wide tracked-source search
+
+Executed in [SFLE Core run 38104644634](https://github.com/Neuri-AI/PSX/actions/runs/38104644634), job **F2.4 tracked Row Column Scroll inventory**, at commit `f3028853909ee5dc7b8182147ab5e4337c9f5dfd`. The exact command, also captured with the complete matching-line list in the uploaded CI artifact, is:
+
+```bash
+git grep -n -I -E '(^|[^[:alnum:]_])(Row|Column|Scroll)([^[:alnum:]_]|$)' -- psx docs tests examples
+```
+
+**Observed: 390 distinct matching source lines** (a line containing multiple names is counted once in this total); separate **case-sensitive token occurrence** counts:
+
+- **Row:** **152 occurrences** / 145 matching lines / 48 distinct files. By scope: psx=38, docs=83, tests=18, examples=13.
+- **Column:** **246 occurrences** / 231 matching lines / 74 distinct files. By scope: psx=39, docs=106, tests=78, examples=23.
+- **Scroll:** **105 occurrences** / 98 matching lines / 25 distinct files. By scope: psx=36, docs=69, tests=0, examples=0.
+
+Scope is tracked text in `psx/`, `docs/`, `tests/`, and `examples/`; exact case-sensitive, whole identifier matching. It does **not** claim coverage of third-party boilerplate repositories, other branch references, or lowercase `row`/`column`/abbreviated imports. For an F3 removal gate, repeat the search with intentionally broader patterns and generated artifacts/external boilerplates. Counts are **audited at the named commit**, not a claim that the evolving documentation will never alter them. No Row/Column/Scroll implementation, public export or capability manifest was edited during this verification.
+
 ## Existing surface inventory
 
 | Surface | Existing implementation / registration | Migration impact in F3 |
@@ -38,4 +54,4 @@ The inventory above names the definitive **paths and ownership categories**; occ
 - **F3-G4**: Delete Row/Column public exports, registries, contract classes, adapters and old native layout algorithms. Migrate examples, boilerplates, tutorials and tests; add grep/no-alias gate. Keep Scroll.
 - **F3-G5**: Verify Windows/macOS/Linux wheels, PyO3 load and fallback when absent, source/frozen imports, Qt/Kivy/Tkinter/Headless parity, RTL/reverse, bounded sizing and complete Chromium oracle.
 
-**F2.4 acceptance state:** inventory and adapter boundaries are documented. **F2.4 remains open as a verified gate** until the inventory-completeness search and contract enforcement tests exist; F3 executes the native changes. This is not grounds to defer F2.2/F2.3 pure Flex sizing/browser requirements to F3.
+**F2.4 acceptance state:** the listed paths, concrete source-count command, source counts, and CI artifact are now verified. **F2.4 remains open** until adapter contract enforcement and external-boilerplate scope reconciliation are tested; F3 executes the native migration. This is not grounds to defer F2.2/F2.3 pure Flex sizing/browser requirements to F3.
