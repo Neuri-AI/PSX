@@ -81,7 +81,9 @@ def compute_with_width_measurements(
                 iteration,
             )
         request = replace(snapshot, measurements=tuple(measurements.values()))
-        result = compute_provisional(request) if iteration == 0 else compute(request)
+        # Intermediate allocations are provisional until every measured leaf
+        # stabilizes. Strict computation cannot precede UI remeasurement.
+        result = compute_provisional(request)
         if result.generation != snapshot.generation:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                             "Engine returned a stale generation.")
@@ -95,7 +97,21 @@ def compute_with_width_measurements(
             if abs(allocated_width-width) > 0.01:
                 next_widths[node_id] = allocated_width
         if not next_widths:
-            return result
+            # Only a converged snapshot may enter strict geometry compute.
+            # Reject an inconsistent strict result rather than committing it.
+            final = compute(request)
+            if final.generation != snapshot.generation:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                                "Engine returned a stale generation.")
+            final_used = dict(final.boxes)
+            for node_id, measured_width in measured_widths.items():
+                if node_id not in final_used:
+                    raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                                    "Measured leaf missing from strict layout output.", node_id)
+                if abs(final_used[node_id].content.width - measured_width) > 0.01:
+                    raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                                    "Strict layout changed converged measured width.", node_id)
+            return final
         requested_widths = next_widths
         measured_widths.update(next_widths)
     raise SFLEError(
