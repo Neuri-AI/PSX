@@ -1366,7 +1366,7 @@
     },
     {
       "id": "N05",
-      "name": "mixed-sign-frozen-flex-target-fails-closed",
+      "name": "mixed-sign-flex-freeze-minimum-constrained-geometry",
       "writing_direction": "ltr",
       "viewport": {
         "width": 100,
@@ -1412,14 +1412,17 @@
       ],
       "measurements": [],
       "expected": {
-        "diagnostic": "SFLE_UNSUPPORTED_FEATURE",
-        "node": "root",
-        "cycle_kind": "Mixed-sign flex target constraints need explicit freeze metadata"
+        "a.x": 0,
+        "a.width": 40,
+        "b.x": 40,
+        "b.width": 60
       },
       "verification": [
         "python",
-        "rust"
-      ]
+        "rust",
+        "chromium"
+      ],
+      "migration_note": "Superseded old SFLE_UNSUPPORTED_FEATURE by implemented Chromium 153 LineFlexer freezing. N05 is now POSITIVE CSS regression; original negative expectation from 4928c2fe remains in git history. No holdout fixture or tolerance changed."
     }
   ],
   "chromium_reference": {
