@@ -18,14 +18,15 @@ from test_f2_acceptance_contract_red import case_snapshot
 @pytest.mark.parametrize("case_id",[
     "A01","A02","A03","A04","A05","A06","A07",
     "C01","C02","C03","C04","C05","C06","C99",
-    "N01","N02","N03",
+    "N01","N02","N03","N04","N05","N06","N07","N08",
+    "F01","F02","F04","F05","A09-LTR","A09-RTL",
 ])
 def test_A08_installed_pyo3_wheel_parity(case_id):
     engine=load_layout_engine()
     assert engine.backend_name=="rust", "The installed native wheel must select Rust"
     fallback=PythonLayoutEngine()
     snapshot=case_snapshot(case_id)
-    if case_id in ("C99","N01","N02","N03"):
+    if case_id in ("C99","N01","N02","N03","N04","N06","N07","N08"):
         with pytest.raises(SFLEError) as native:
             engine.compute(snapshot)
         with pytest.raises(SFLEError) as py:
@@ -40,5 +41,8 @@ def test_A08_installed_pyo3_wheel_parity(case_id):
     for (_,box_a),(_,box_b) in zip(a.boxes,b.boxes):
         for name in ("content","padding","border","margin"):
             for axis in ("x","y","width","height"):
-                assert getattr(getattr(box_a,name),axis)==pytest.approx(
-                    getattr(getattr(box_b,name),axis),abs=0.01)
+                a_raw = getattr(getattr(box_a,name),axis)*64
+                b_raw = getattr(getattr(box_b,name),axis)*64
+                assert a_raw==b_raw and a_raw==int(a_raw), (
+                    f"{case_id} {name}.{axis} Python/Rust not bit identical: {a_raw} vs {b_raw}"
+                )
