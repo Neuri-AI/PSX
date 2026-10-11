@@ -21,7 +21,7 @@ def test_f2_corpus_has_valid_unique_preorder_tree(case):
         assert node["parent_id"] is None or node["parent_id"] in ids
         ids.add(node["node_id"])
     assert all(name in case for name in ("expected", "measurements", "viewport", "verification"))
-    assert set(case["verification"]) == ({"python","rust"} if case["id"].startswith("N") else {"python", "rust", "chromium"})
+    assert set(case["verification"]) == ({"python","rust"} if case["expected"].get("diagnostic") else {"python", "rust", "chromium"})
 
 
 def test_f2_corpus_complete_case_inventory():
