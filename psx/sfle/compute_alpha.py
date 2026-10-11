@@ -143,6 +143,9 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
         order = values.get("order", 0)
         if isinstance(order, bool) or not isinstance(order, int):
             raise SFLEError(DiagnosticCode.INVALID_LENGTH, "order must be a signed integer.", node.node_id)
+        if order < -(1 << 31) or order > (1 << 31) - 1:
+            raise SFLEError(DiagnosticCode.INVALID_LENGTH,
+                            "order is outside the supported signed range.", node.node_id)
         ratio = values.get("aspect_ratio")
         if ratio is not None:
             if isinstance(ratio, bool) or not isinstance(ratio, (int, float)) or not math.isfinite(ratio) or ratio <= 0:
