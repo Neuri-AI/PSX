@@ -143,8 +143,12 @@ LayoutResult
 
 **Coordinates:** logical top-left layout coordinates, independent of device
 pixel ratio. Adapt to toolkit-specific origins (notably Kivy's vertical axis)
-when applying geometry. Round at the renderer boundary, not during each
-intermediate flex calculation; document fractional-pixel behavior.
+when applying geometry. **Historical, superseded by D-F1.13:**
+~~Round at the renderer boundary, not during each intermediate flex calculation.~~
+In the **pure SFLE** geometry pipeline, use 1/64px signed, saturating
+LayoutUnits and callsite-specific Blink 153 rounding; keep the independent
+native toolkit pixel rounding at geometry commit. See
+[amendment D-F1.13](sfle-f1-final-architecture.md#d-f113--fixed-point-geometry-arithmetic-approved-2026-10-10-f1-amendment).
 
 ## 4. CSS-compatible concepts and defaults
 
@@ -476,8 +480,12 @@ flowchart TD
 - **Determinism:** establish one normative mathematical behavior and compare
   backends with browser conformance fixtures. An optional Python reference
   should not become a permanently divergent second layout specification.
-- **Precision:** agree on floating-point representation, rounding,
-  NaN/infinity rejection and stable geometry serialization at the boundary.
+- **Precision (historical open question; resolved by D-F1.13):**
+  ~~agree on floating-point representation, rounding, NaN/infinity rejection
+  and stable geometry serialization at the boundary.~~ Use identical signed
+  int32 1/64px raw geometry with saturation and function-specific Blink 153
+  rounding in Python/Rust, while retaining finite `f64` for factors and
+  prequantization fractions. Native rounding remains a separate commit stage.
 - **Safety:** Rust improves memory-safety properties but cannot remove GUI
   thread affinity requirements or guarantee higher performance by itself.
 

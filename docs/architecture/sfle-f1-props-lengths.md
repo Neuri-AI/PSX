@@ -2,6 +2,11 @@
 
 > **Status:** historical F1.6/F1.7 design exploration. Decisions now ratified.
 > **Canonical frozen architectural contracts:** [F1.6/F1.7 box model and percentages](sfle-f1-box-model.md).
+> **D-F1.13 (2026-10-10) supersession:** all unrounded-intermediate geometry
+> assumptions are historical; resolve/position definite CSS sizes using the
+> signed saturating 1/64px LayoutUnit policy in
+> [F1 final §D-F1.13](sfle-f1-final-architecture.md#d-f113--fixed-point-geometry-arithmetic-approved-2026-10-10-f1-amendment).
+> Typed unresolved `auto`/percent/intrinsic semantics are unchanged.
 > This document retains earlier alternatives for traceability; where it differs,
 > the ratified contract takes precedence.
 > **D-F1.10 supersession:** Row and Column are removed from the target public

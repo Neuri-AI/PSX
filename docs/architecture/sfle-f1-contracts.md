@@ -159,8 +159,11 @@ conceptually before choosing Python dataclasses or Rust-compatible structs.
 
 - Use logical top-left coordinates in SFLE; renderer adapters transform
   to native origins and device scaling.
-- Defer rounding until native geometry application. Keep fractional values
-  for diagnostics and conformance comparison.
+- **Historical assumption superseded by D-F1.13:** ~~Defer rounding until
+  native geometry application.~~ Pure geometry uses deterministic, saturated
+  signed 1/64px LayoutUnits at explicit Blink 153 conversion points. Convert
+  exact raw units to finite float px **only for stable result serialization**;
+  toolkit pixel rounding remains deferred until native application.
 - Keep `auto`, indefinite, min-content and max-content distinguishable;
   no implicit replacement of indefinite values with `0`.
 - Resolve percentages only using CSS-compatible definite containing sizes.
@@ -231,6 +234,10 @@ overflow and DPI/environment metadata.
 - **Proposed starting thresholds for review, not approved:** numerical
   `<= 0.01` logical px for pure computation on matched intrinsic inputs,
   and `<= 1.0` logical px for native geometry after coordinate rounding.
+  **D-F1.13 clarification:** the historical sentence refers to *native*
+  application rounding only, **not** to Blink's internal LayoutUnit precision.
+  D-F1.11's approved thresholds remain **0.01 logical px pure** and
+  **1.0 logical px native**; this amendment changes neither limit.
 - A difference in line membership, item order, identity or unsupported
   semantics is a failure even if screenshots look close.
 - Any mismatch due to native font metrics must be attributed to measurement
