@@ -59,12 +59,12 @@ def position_cross_margins(
     if type(cross_forward) is not bool:
         raise TypeError("cross_forward must be bool.")
 
-    start_fixed = 0.0 if start.value is None else start.value
-    end_fixed = 0.0 if end.value is None else end.value
+    start_fixed = 0.0 if start.value is None else _unit(start.value)
+    end_fixed = 0.0 if end.value is None else _unit(end.value)
     free = _sub(line, border, start_fixed, end_fixed)
     auto_count = int(start.value is None) + int(end.value is None)
     if auto_count and free > 0:
-        share = free / auto_count
+        share = _unit(free / auto_count)
         used_start = share if start.value is None else start_fixed
         used_end = share if end.value is None else end_fixed
     elif auto_count and free <= 0:

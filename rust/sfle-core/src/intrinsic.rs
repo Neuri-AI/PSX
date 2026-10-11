@@ -35,7 +35,7 @@ pub struct IntrinsicFlexInput {
     pub aspect_ratio: Option<f64>,
     pub preferred_cross_size: Option<f64>,
     pub replaced: bool,
-    /// Compatibility flag for callers that omit the typed transfer contract.
+    /// Compatibility hint; typed ratio and intrinsic metrics are authoritative.
     pub has_aspect_ratio_transfer: bool,
 }
 
@@ -75,15 +75,11 @@ impl IntrinsicFlexInput {
     }
 
     fn transferred_main_suggestion(self) -> Result<Option<f64>, FlexMathError> {
-        if self.has_aspect_ratio_transfer && self.aspect_ratio.is_none() {
-            return Err(FlexMathError::InvalidInput("aspect-ratio transfer lacks typed suggestions"));
-        }
         match (self.aspect_ratio, self.preferred_cross_size) {
             (None, _) => Ok(None),
-            (Some(_), None) => Err(FlexMathError::InvalidInput("aspect-ratio transfer lacks cross-size suggestion")),
-            (Some(ratio), Some(cross)) => Ok(Some(match self.axis {
-                MainAxis::Horizontal => cross * ratio,
-                MainAxis::Vertical => cross / ratio,
+            (Some(ratio), cross) => Ok(Some(match self.axis {
+                MainAxis::Horizontal => cross.unwrap_or(self.intrinsic.preferred_height) * ratio,
+                MainAxis::Vertical => cross.unwrap_or(self.intrinsic.preferred_width) / ratio,
             })),
         }
     }
@@ -107,15 +103,16 @@ pub fn resolve_automatic_main_minimum(req: IntrinsicFlexInput) -> Result<f64, Fl
     if let Some(minimum) = req.min_main_size { return Ok(minimum); }
     if req.scroll_container { return Ok(0.0); }
     let (min_content, _) = req.metrics();
-    let mut with_suggestion = req.preferred_main_size.map_or(
-        min_content, |suggestion| min_content.min(suggestion),
-    );
+    let mut with_suggestion = min_content;
     if let Some(transferred) = req.transferred_main_suggestion()? {
         with_suggestion = if req.replaced {
             with_suggestion.min(transferred)
         } else {
             with_suggestion.max(transferred)
         };
+    }
+    if let Some(specified) = req.preferred_main_size {
+        with_suggestion=with_suggestion.min(specified);
     }
     Ok(req.max_main_size.map_or(
         with_suggestion, |maximum| with_suggestion.min(maximum),

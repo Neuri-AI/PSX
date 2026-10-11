@@ -116,7 +116,8 @@ def position_main_margins(
         int(item.start.value is None) + int(item.end.value is None)
         for item in items
     )
-    share = max(0.0, _subtract_units(extent, fixed)) / auto_count if auto_count else 0.0
+    share = (_layout_unit(max(0.0, _subtract_units(extent, fixed)) / auto_count)
+             if auto_count else 0.0)
     used_outers = tuple(
         _sum_units(item.border_main_size,
                    share if item.start.value is None else item.start.value,
@@ -150,7 +151,7 @@ def position_main_margins(
             cursor = _subtract_units(border_start, end_margin)
             cursor = _subtract_units(cursor, alignment.between_space)
         out.append(MarginPosition(
-            item.node_id, border_start, item.border_main_size,
+            item.node_id, border_start, _layout_unit(item.border_main_size),
             start_margin, end_margin,
         ))
     return tuple(out)

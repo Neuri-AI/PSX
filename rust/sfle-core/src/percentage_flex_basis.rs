@@ -1,5 +1,4 @@
-//! Percentage flex-basis resolution with an explicit premeasured content fallback.
-//! No cyclic measurement or aspect-ratio transfer is inferred.
+//! Percentage flex-basis resolution with typed intrinsic and ratio fallback.
 
 use crate::intrinsic::{resolve_intrinsic_flex_basis, Basis, IntrinsicFlexInput};
 use crate::sizing::AvailableSize;

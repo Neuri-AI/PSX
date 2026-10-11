@@ -86,7 +86,7 @@ pub fn position_main_margins_justified(
     let fixed=sum_units(fixed_values);
     let extent=layout_unit(container_main_size);
     let share = if auto_count == 0 { 0.0 } else {
-        subtract_units(extent, [fixed]).max(0.0) / auto_count as f64
+        layout_unit(subtract_units(extent, [fixed]).max(0.0) / auto_count as f64)
     };
 
     let used_outer: Vec<f64> = items.iter().map(|item| {
@@ -125,7 +125,7 @@ pub fn position_main_margins_justified(
         }
         positions.push(MarginPosition {
             id: item.id.clone(), border_start,
-            border_main_size: item.border_main_size,
+            border_main_size: layout_unit(item.border_main_size),
             used_start_margin: start, used_end_margin: end,
         });
     }

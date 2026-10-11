@@ -51,7 +51,7 @@ class IntrinsicFlexInput:
     aspect_ratio: float | None = None
     preferred_cross_size: float | None = None
     replaced: bool = False
-    # Retained to reject callers using the former underspecified flag.
+    # Compatibility hint; typed ratio and intrinsic cross metrics are authoritative.
     has_aspect_ratio_transfer: bool = False
 
     def __post_init__(self) -> None:
@@ -103,15 +103,16 @@ def _unsupported(message: str) -> None:
 
 
 def _transferred_main_suggestion(request: IntrinsicFlexInput) -> float | None:
-    if request.has_aspect_ratio_transfer and request.aspect_ratio is None:
-        _unsupported("Aspect-ratio transfer requires ratio and cross-size suggestions.")
     if request.aspect_ratio is None:
         return None
-    if request.preferred_cross_size is None:
-        _unsupported("Aspect-ratio transfer requires a definite cross-size suggestion.")
+    cross = request.preferred_cross_size
+    if cross is None:
+        cross = (request.intrinsic.preferred_height
+                 if request.axis == MainAxis.HORIZONTAL
+                 else request.intrinsic.preferred_width)
     if request.axis == MainAxis.HORIZONTAL:
-        return request.preferred_cross_size * request.aspect_ratio
-    return request.preferred_cross_size / request.aspect_ratio
+        return cross * request.aspect_ratio
+    return cross / request.aspect_ratio
 
 
 def resolve_intrinsic_flex_basis(request: IntrinsicFlexInput) -> float:

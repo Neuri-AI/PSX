@@ -1,6 +1,4 @@
 //! Typed CSS percentage constraints -> resolved content-box FlexBasis.
-//! Indefinite min/max constraints remain explicitly unsupported, rather
-//! than silently rewritten as zero, auto or none.
 
 use crate::intrinsic::{
     Basis, IntrinsicFlexInput, MainAxis, resolve_automatic_main_minimum,

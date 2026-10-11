@@ -29,13 +29,13 @@ pub fn position_cross_margins(
     }
     let border_cross_size=unit(border_cross_size);
     let line_cross_size=unit(line_cross_size);
-    let start_fixed = start.unwrap_or(0.0);
-    let end_fixed = end.unwrap_or(0.0);
+    let start_fixed = start.map(unit).unwrap_or(0.0);
+    let end_fixed = end.map(unit).unwrap_or(0.0);
     let free = sub(line_cross_size,[border_cross_size,start_fixed,end_fixed]);
     let auto_count = usize::from(start.is_none()) + usize::from(end.is_none());
 
     let (used_start, used_end) = if auto_count > 0 && free > 0.0 {
-        let share = free / auto_count as f64;
+        let share = unit(free / auto_count as f64);
         (start.unwrap_or(share), end.unwrap_or(share))
     } else if auto_count > 0 {
         let used_start = start.unwrap_or(0.0);

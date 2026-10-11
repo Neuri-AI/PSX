@@ -2,8 +2,8 @@
 
 Percentage flex-basis uses the flex container's *definite main size*.
 When that size is indefinite, CSS computes the used flex basis from content.
-This restricted helper requires a premeasured non-replaced intrinsic snapshot;
-it does not perform cyclic measurement, aspect-ratio transfer or auto min size.
+The fallback consumes the same typed intrinsic, aspect-ratio and replaced-item
+snapshot as the general flex constraint resolver.
 """
 
 from __future__ import annotations

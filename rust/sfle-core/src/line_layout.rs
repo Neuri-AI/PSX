@@ -125,7 +125,7 @@ pub fn place_resolved_lines(
 
     for (index, line) in lines.iter().enumerate() {
         let line_cross = lu(line.iter().map(|item| item.cross_size).fold(0.0, f64::max));
-        if !cross_forward { cross_cursor -= line_cross; }
+        if !cross_forward { cross_cursor=cross_cursor-line_cross; }
         let mut main_cursor = if main_forward { LayoutUnit::from_raw(0) } else { main_extent };
         let mut members = Vec::new();
         for item in line {
@@ -146,7 +146,7 @@ pub fn place_resolved_lines(
         }
         memberships.push(members);
         if cross_forward {
-            cross_cursor += line_cross;
+            cross_cursor=cross_cursor+line_cross;
             if index + 1 < lines.len() { cross_cursor=cross_cursor+cross_gap; }
         } else if index + 1 < lines.len() {
             cross_cursor=cross_cursor-cross_gap;
