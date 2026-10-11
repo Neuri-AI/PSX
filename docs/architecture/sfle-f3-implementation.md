@@ -6,6 +6,22 @@
 > This document records the approved scope, **not** an implementation
 > certificate or a substitute for executable CI proof.
 
+## Related F3 documents — agent handoff
+
+- **[SFLE F3 — Intelligent CI Strategy](sfle-f3-ci-strategy.md):**
+  mandatory selective test execution, F2 workflow reuse, dependency-aware
+  change routing, documentation-only policy and full gate certification.
+- **[PSX Roadmap](../roadmap.md):**
+  overall phase status, F3-G1–G5 scope, F4's responsive grid and the
+  explicitly deferred CSS enhancements.
+- **[F2-to-F3 migration inventory](sfle-f2-migration-plan.md):**
+  legacy Row/Column/Scroll ownership, native renderer migration surfaces
+  and the F2-authorized ports carried into F3.
+
+Start here when handing F3 to another agent. These links are **normative
+references for scope and verification**, not proof that selective CI or
+production renderer integration has already been implemented.
+
 ## 1. Purpose and F2 boundary
 
 F2 certified a single renderer-neutral geometry source, Rust primary with
