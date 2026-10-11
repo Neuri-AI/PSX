@@ -1238,7 +1238,12 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         if value.kind == LengthKind.PX:
             return UsedMargin(_layout_unit(value.value))
         if value.kind == LengthKind.PERCENT:
-            return UsedMargin(_layout_unit(value.value * reference))
+            used = value.value * reference
+            if math.isinf(used):
+                return UsedMargin(LayoutUnit.from_raw(
+                    I32_MAX if used > 0 else I32_MIN,
+                ).to_px())
+            return UsedMargin(_layout_unit(used))
         raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
                                   "Unsupported margin length.", node_id)
 
