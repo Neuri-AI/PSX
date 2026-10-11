@@ -124,6 +124,35 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
     })
 }
 fn layout_unit(value:f64)->f64 {(value*64.0+0.5).floor()/64.0}
+fn percent_flex_basis_used(fraction:f64,reference:f64)->f64{
+    // Quantize the resolved basis before distribution, not output rectangles.
+    (fraction*reference*64.0).floor()/64.0
+}
+fn used_flex_target_units(targets:Vec<f64>,bases:&[FlexBasis])->Vec<f64>{
+    // Keep §9.7 f64 precision until targets are final; conserve their rounded
+    // sum when materializing CSS used lengths on the 1/64 px grid.
+    let mut units:Vec<i64>=targets.iter().map(|n|(n*64.0+0.5).floor() as i64).collect();
+    let total=(targets.iter().sum::<f64>()*64.0+0.5).floor() as i64;
+    let correction=total-units.iter().sum::<i64>();
+    if correction!=0 {
+        let mut candidates:Vec<usize>=(0..targets.len()).filter(|&idx|
+            (targets[idx]-bases[idx].basis).abs()>1e-12
+        ).collect();
+        candidates.sort_by(|&a,&b|{
+            let af=(targets[a]*64.0).fract();
+            let bf=(targets[b]*64.0).fract();
+            let cmp=if correction>0 {bf.total_cmp(&af)}else{af.total_cmp(&bf)};
+            cmp.then(a.cmp(&b))
+        });
+        if !candidates.is_empty() {
+            for step in 0..correction.unsigned_abs() as usize {
+                let idx=candidates[step%candidates.len()];
+                units[idx]+=if correction>0 {1}else{-1};
+            }
+        }
+    }
+    units.into_iter().map(|n|n as f64/64.0).collect()
+}
 fn resolved(v:Length, reference:Option<f64>, vertical:bool, id:&str)->Result<Option<f64>,ComputeError>{
     match v {
         Length::Auto=>Ok(None),
@@ -249,7 +278,7 @@ impl Context<'_>{
                     .unwrap_or(self.preferred(child,row)?),
                 Length::Px(n)=>n,
                 Length::Percent(p)=>match main_reference{
-                    Some(n)=>layout_unit(p*n),None=>self.preferred(child,row)?,
+                    Some(n)=>percent_flex_basis_used(p,n),None=>self.preferred(child,row)?,
                 },
             };
             let minimum=match if row{child_style.min_width}else{child_style.min_height}{
@@ -270,8 +299,11 @@ impl Context<'_>{
             padding(self.styles[child],width.unwrap(),&self.input.nodes[child].node_id)
         ).collect::<Result<Vec<_>,ComputeError>>()?;
         let fixed_edges:f64=edges.iter().map(|e|if row{e.left+e.right}else{e.top+e.bottom}).sum();
-        let targets=resolve_flexible_lengths(&bases,(main-fixed_edges).max(0.0),gap)
-            .map_err(|e|failure("SFLE_LAYOUT_CONSTRAINT_ERROR",format!("Flex allocation failed: {e:?}"),Some(&id)))?;
+        let targets=used_flex_target_units(
+            resolve_flexible_lengths(&bases,(main-fixed_edges).max(0.0),gap)
+                .map_err(|e|failure("SFLE_LAYOUT_CONSTRAINT_ERROR",format!("Flex allocation failed: {e:?}"),Some(&id)))?,
+            &bases,
+        );
         let mut cross_sizes=Vec::new();
         for ((&child,&target),padding_box) in child_indices.iter().zip(targets.iter()).zip(edges.iter()){
             let child_id=self.input.nodes[child].node_id.clone();
