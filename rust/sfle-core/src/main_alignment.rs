@@ -75,6 +75,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn point3_repeated_finite_gaps_saturate_without_float_overflow() {
+        let limit=LayoutUnit::from_raw(i32::MAX).to_px();
+        for count in [3_usize,4,12,128] {
+            for gap in [limit,1e308] {
+                let sizes=vec![0.0;count];
+                let value=resolve_main_alignment(
+                    JustifyContent::FlexStart,0.0,&sizes,gap,
+                ).expect("finite per-gap input must saturate signed LayoutUnits");
+                assert_eq!(value.remaining_free_space,-limit);
+                assert!(value.between_space>=0.0&&value.between_space<=limit);
+            }
+        }
+    }
+
+    #[test]
+    fn point3_fractional_gaps_round_individually_before_multiplication() {
+        for count in [3_usize,4,12,128] {
+            let sizes=vec![0.0;count];
+            let value=resolve_main_alignment(
+                JustifyContent::FlexStart,20.0,&sizes,0.008,
+            ).unwrap();
+            assert_eq!(value.remaining_free_space,20.0-(count-1) as f64/64.0);
+        }
+    }
+
+    #[test]
     fn positive_free_space_variants() {
         let sizes = [20.0, 20.0];
         assert_eq!(resolve_main_alignment(
