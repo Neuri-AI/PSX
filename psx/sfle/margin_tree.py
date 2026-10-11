@@ -7,6 +7,11 @@ used offsets: no fictitious nonnegative margin rectangle is created.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import math
+
+
+def _layout_unit(value: float) -> float:
+    return math.floor(value * 64.0 + 0.5) / 64.0
 
 from .align_content import AlignContent
 from .box_geometry import UsedBoxEdges, UsedEdges
@@ -46,7 +51,8 @@ class MarginTreeLayout:
 
 def _translate(box: MarginFlexBox, x: float, y: float) -> MarginFlexBox:
     def move(r: Rect) -> Rect:
-        return Rect(r.x + x, r.y + y, r.width, r.height)
+        return Rect(_layout_unit(_layout_unit(r.x) + x),
+                    _layout_unit(_layout_unit(r.y) + y), r.width, r.height)
     return MarginFlexBox(
         box.node_id, move(box.content), move(box.padding), move(box.border),
         box.used_main_start_margin, box.used_main_end_margin, box.line_index,
@@ -110,8 +116,9 @@ def compute_margin_tree(
     geometry: dict[str, MarginFlexBox] = {
         root.node_id: MarginFlexBox(
             root.node_id,
-            Rect(e.border.left + e.padding.left, e.border.top + e.padding.top, root.width, root.height),
-            Rect(e.border.left, e.border.top, root.width + e.padding.horizontal, root.height + e.padding.vertical),
+            Rect(_layout_unit(_layout_unit(e.border.left) + e.padding.left),
+                 _layout_unit(_layout_unit(e.border.top) + e.padding.top), root.width, root.height),
+            Rect(_layout_unit(e.border.left), _layout_unit(e.border.top), root.width + e.padding.horizontal, root.height + e.padding.vertical),
             Rect(0, 0, root.width + e.padding.horizontal + e.border.horizontal, root.height + e.padding.vertical + e.border.vertical),
             0, 0, 0,
         ),
