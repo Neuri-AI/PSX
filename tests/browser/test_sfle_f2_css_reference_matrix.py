@@ -46,6 +46,11 @@ _HTML={
           '<div id="n2" style="width:25%;height:20px;flex:1 0 25%;min-width:0;padding-top:5%;box-sizing:content-box"></div>'
           '<div id="n3" style="width:30px;height:20px;flex:2 0 20px;min-width:0;padding-top:5%;box-sizing:content-box"></div>'
           '</div>',
+    # N05: old fail-closed freeze metadata now has a direct Chromium oracle.
+    "N05":'<div id="root" style="display:flex;width:100px;height:60px">'
+          '<div id="a" style="width:20px;height:20px;flex:0 0 20px;min-width:40px"></div>'
+          '<div id="b" style="width:80px;height:20px;flex:0 1 80px;min-width:0"></div>'
+          '</div>',
     "F02":'<div id="root" style="display:flex;width:96px;height:60px;column-gap:10%;align-items:flex-start">'
           '<div id="n0" style="width:20px;height:20px;flex:2 1 20px;min-width:0;padding-top:10%;box-sizing:content-box"></div>'
           '<div id="n1" style="width:auto;height:20px;flex:2 1 30px;min-width:0;padding-top:10%;box-sizing:content-box"></div>'
