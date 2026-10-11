@@ -137,3 +137,47 @@ def test_malformed_style_is_never_accepted_by_only_one_backend(
     assert (python["error"]["code"],python["error"]["node_id"])==(
         rust["error"]["code"],rust["error"]["node_id"]
     )
+
+
+@pytest.mark.parametrize("flag,value,overflow",(
+    ("replaced",True,"visible"),
+    ("replaced",False,"visible"),
+    ("scroll_container",False,"visible"),
+    ("scroll_container",True,"auto"),
+))
+def test_boolean_normalized_style_flags_are_reachable_on_both_engines(
+    flag,value,overflow,rust_binary,
+):
+    """The public immutable snapshot must permit the only two boolean styles."""
+    child=LayoutNode("item","root","Box",(
+        ("width","25px"),("height","20px"),("flex_basis","25px"),
+        ("min_width","0px"),("overflow",overflow),(flag,value),
+    ))
+    snapshot=LayoutInput(
+        1,409,WritingDirection.LTR,
+        LayoutConstraints(AvailableSize(150,True),AvailableSize(70,True)),
+        (LayoutNode("root",None,"Flex",(
+            ("width","150px"),("height","70px"),
+            ("align_items","flex-start"),
+        )),child),(),
+    )
+    py=_python_compute(snapshot)
+    rs=_rust_compute(rust_binary,snapshot)
+    assert py["ok"] and rs["ok"],(flag,value,py.get("error"),rs.get("error"))
+    assert _rects(py["result"])==_rects(rs["result"])
+
+
+@pytest.mark.parametrize("invalid_key",("flex_grow","width","order","aspect_ratio"))
+def test_normalized_snapshot_rejects_boolean_coercion_for_numeric_css(invalid_key):
+    """Booleans are not CSS numbers; reject them before either computation."""
+    with pytest.raises(TypeError,match="Only scroll_container and replaced"):
+        LayoutNode("invalid",None,"Flex",((invalid_key,True),))
+
+
+@pytest.mark.parametrize("property_name",(
+    "direction","wrap","width","replaced","scroll_container",
+))
+def test_snapshot_rejects_non_normalized_null_before_engine_selection(property_name):
+    """None is an invalid style value in the immutable v1 snapshot contract."""
+    with pytest.raises(TypeError,match="normalized scalar or Length"):
+        LayoutNode("invalid",None,"Flex",((property_name,None),))
