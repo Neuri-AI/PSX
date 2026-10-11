@@ -783,41 +783,112 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         }
         indices.insert(node.node_id.as_str(),index);
     }
-    // Resolve measured intrinsic constraint keywords at the shared immutable
-    // leaf boundary, before the flex minimum/maximum freeze algorithm runs.
-    // Container intrinsic bounds stay explicitly unsupported until recursive
-    // Chromium geometry has been certified; never silently ignore a keyword.
-    for (index,node) in input.nodes.iter().enumerate(){
+    // Convert min/max-content constraint keywords bottom-up. Recursive
+    // intrinsic inline sizing is supported only for certified column cross
+    // contributions; unknown direction, percentage and relative-edge graphs
+    // fail closed with an explicit diagnostic.
+    fn column_intrinsic_width(
+        index:usize, minimum:bool, nodes:&[crate::compute::LayoutNode],
+        children:&[Vec<usize>], styles:&[Style],
+        measurements:&[crate::compute::MeasuredBox],
+    )->Result<f64,ComputeError>{
+        let id=&nodes[index].node_id;
+        if children[index].is_empty(){
+            if let Some(metric)=measurements.iter().find(|m|m.node_id==*id){
+                return Ok(layout_unit(if minimum {
+                    metric.intrinsic.min_content_width
+                } else {metric.intrinsic.max_content_width}));
+            }
+            if nodes[index].component=="Text" {
+                return Err(measurement("Intrinsic constraint requires measured text.",id));
+            }
+            return Ok(0.0);
+        }
+        if !matches!(styles[index].direction,Direction::Column|Direction::ColumnReverse){
+            return Err(unsupported(
+                "Recursive intrinsic constraint requires certified column cross sizing.",id,
+            ));
+        }
+        let mut greatest=0.0_f64;
+        for &child in &children[index] {
+            let style=styles[child];
+            let child_id=&nodes[child].node_id;
+            let mut width=match style.width {
+                Length::Px(v)=>layout_unit(v),
+                Length::Auto|Length::MinContent|Length::MaxContent=>
+                    column_intrinsic_width(child,minimum,nodes,children,styles,measurements)?,
+                _=>return Err(unsupported(
+                    "Uncertified percentage dependency in recursive intrinsic constraint.",child_id,
+                )),
+            };
+            match style.max_width {
+                Length::Px(n)=>width=width.min(layout_unit(n)),
+                Length::Auto=>{},
+                _=>return Err(unsupported(
+                    "Unresolved intrinsic maximum in recursive child.",child_id,
+                )),
+            }
+            match style.min_width {
+                Length::Px(n)=>width=width.max(layout_unit(n)),
+                Length::Auto=>{},
+                _=>return Err(unsupported(
+                    "Unresolved intrinsic minimum in recursive child.",child_id,
+                )),
+            }
+            let mut fixed=0.0_f64;
+            for edge in [style.padding_left,style.padding_right,
+                style.border_left,style.border_right,
+                style.margin_left,style.margin_right] {
+                match edge {
+                    Length::Px(n)=>fixed=sum_units([fixed,n]),
+                    Length::Auto=>{},
+                    _=>return Err(unsupported(
+                        "Uncertified relative edges in recursive intrinsic constraint.",
+                        child_id,
+                    )),
+                }
+            }
+            greatest=greatest.max(sum_units([width,fixed]));
+        }
+        Ok(greatest)
+    }
+    for index in (0..input.nodes.len()).rev() {
+        let id=&input.nodes[index].node_id;
         let has_bound=[
             styles[index].min_width,styles[index].max_width,
             styles[index].min_height,styles[index].max_height,
-        ].iter().any(|bound| matches!(bound,Length::MinContent|Length::MaxContent));
+        ].iter().any(|value| matches!(value,Length::MinContent|Length::MaxContent));
         if !has_bound {continue;}
-        if !children[index].is_empty(){
-            return Err(unsupported(
-                "Intrinsic min/max constraint on a container requires recursive certification.",
-                &node.node_id,
-            ));
-        }
-        let metric=input.measurements.iter().find(|m|m.node_id==node.node_id)
-            .ok_or_else(||measurement(
-                "Intrinsic min/max constraint requires measured leaf content.",
-                &node.node_id,
+        let metric=input.measurements.iter().find(|m|m.node_id==*id);
+        let bound=|value:Length,axis_width:bool|->Result<Length,ComputeError>{
+            let is_min=match value {
+                Length::MinContent=>true,Length::MaxContent=>false,
+                _=>return Ok(value),
+            };
+            if !children[index].is_empty(){
+                if !axis_width {
+                    return Err(unsupported(
+                        "Recursive intrinsic block-axis constraint not yet certified.",id,
+                    ));
+                }
+                return Ok(Length::Px(column_intrinsic_width(
+                    index,is_min,&input.nodes,&children,&styles,&input.measurements,
+                )?));
+            }
+            let metric=metric.ok_or_else(||measurement(
+                "Intrinsic min/max constraint requires measured leaf content.",id,
             ))?;
-        let intrinsic=&metric.intrinsic;
-        let resolve_bound=|value:Length,min:f64,max:f64|match value{
-            Length::MinContent=>Length::Px(min),
-            Length::MaxContent=>Length::Px(max),
-            other=>other,
+            Ok(Length::Px(match (axis_width,is_min){
+                (true,true)=>metric.intrinsic.min_content_width,
+                (true,false)=>metric.intrinsic.max_content_width,
+                (false,true)=>metric.intrinsic.min_content_height,
+                (false,false)=>metric.intrinsic.max_content_height,
+            }))
         };
-        styles[index].min_width=resolve_bound(styles[index].min_width,
-            intrinsic.min_content_width,intrinsic.max_content_width);
-        styles[index].max_width=resolve_bound(styles[index].max_width,
-            intrinsic.min_content_width,intrinsic.max_content_width);
-        styles[index].min_height=resolve_bound(styles[index].min_height,
-            intrinsic.min_content_height,intrinsic.max_content_height);
-        styles[index].max_height=resolve_bound(styles[index].max_height,
-            intrinsic.min_content_height,intrinsic.max_content_height);
+        styles[index].min_width=bound(styles[index].min_width,true)?;
+        styles[index].max_width=bound(styles[index].max_width,true)?;
+        styles[index].min_height=bound(styles[index].min_height,false)?;
+        styles[index].max_height=bound(styles[index].max_height,false)?;
     }
     for index in 0..input.nodes.len(){
         if children[index].len()!=1 {continue;}

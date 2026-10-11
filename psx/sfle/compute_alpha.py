@@ -433,38 +433,107 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         children[node.parent_id].append(node.node_id)
     measures = {box.node_id: box for box in request.measurements}
 
-    # Resolve explicit min/max-content *constraints* on measured intrinsic
-    # leaves before computing ancestor contributions. The fixed-point used
-    # constraint is then consumed by the identical normal flex min/max solver.
-    # Do not guess intrinsic metrics for unmeasured widgets or containers.
-    for node in request.nodes:
+    # Resolve intrinsic constraint keywords bottom-up before flex sizing.
+    # The certified recursive branch is COLUMN inline intrinsic width; its
+    # width equals the maximum definite/minmax-clamped outer child width.
+    # Other recursive dependency classes fail closed rather than pretending
+    # a guessed intrinsic size is authoritative.
+    def intrinsic_column_width(node_id: str, minimum: bool) -> float:
+        style = styles[node_id]
+        if not children[node_id]:
+            intrinsic = measures.get(node_id)
+            if intrinsic is None:
+                if components[node_id] == "Text":
+                    raise SFLEError(
+                        DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                        "Intrinsic constraint requires measured text.", node_id,
+                    )
+                return 0.0
+            return _layout_unit(
+                intrinsic.intrinsic.min_content_width if minimum
+                else intrinsic.intrinsic.max_content_width
+            )
+        if style.direction not in (FlexDirection.COLUMN, FlexDirection.COLUMN_REVERSE):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Recursive intrinsic constraint requires certified column cross sizing.",
+                node_id,
+            )
+        outer_sizes = []
+        for child_id in children[node_id]:
+            child = styles[child_id]
+            if child.width.kind == LengthKind.PX:
+                child_width = _layout_unit(child.width.value)
+            elif child.width.kind in (LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT):
+                child_width = intrinsic_column_width(child_id, minimum)
+            else:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Uncertified percentage dependency in recursive intrinsic constraint.",
+                    child_id,
+                )
+            if child.max_width.kind == LengthKind.PX:
+                child_width = min(child_width, _layout_unit(child.max_width.value))
+            elif child.max_width.kind != LengthKind.AUTO:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Unresolved intrinsic maximum in recursive child.", child_id,
+                )
+            if child.min_width.kind == LengthKind.PX:
+                child_width = max(child_width, _layout_unit(child.min_width.value))
+            elif child.min_width.kind != LengthKind.AUTO:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Unresolved intrinsic minimum in recursive child.", child_id,
+                )
+            fixed_edges = 0.0
+            for edge in (
+                child.padding_left, child.padding_right,
+                child.border_left, child.border_right,
+                child.margin_left, child.margin_right,
+            ):
+                if edge.kind == LengthKind.PX:
+                    fixed_edges = _sum_units((fixed_edges, edge.value))
+                elif edge.kind != LengthKind.AUTO:
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Uncertified relative edges in recursive intrinsic constraint.",
+                        child_id,
+                    )
+            outer_sizes.append(_sum_units((child_width, fixed_edges)))
+        return max(outer_sizes, default=0.0)
+
+    for node in reversed(request.nodes):
         node_id = node.node_id
         style = styles[node_id]
         intrinsic_bounds = {}
-        for prop, axis, minimum in (
-            ("min_width", "width", True), ("max_width", "width", False),
-            ("min_height", "height", True), ("max_height", "height", False),
+        for prop, axis in (
+            ("min_width", "width"), ("max_width", "width"),
+            ("min_height", "height"), ("max_height", "height"),
         ):
             length = getattr(style, prop)
             if length.kind not in (LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT):
                 continue
+            is_min = length.kind == LengthKind.MIN_CONTENT
             if children[node_id]:
-                raise SFLECapabilityError(
-                    DiagnosticCode.UNSUPPORTED_FEATURE,
-                    "Intrinsic min/max constraint on a container requires recursive certification.",
-                    node_id,
-                )
-            measured = measures.get(node_id)
-            if measured is None:
-                raise SFLEError(
-                    DiagnosticCode.UNSUPPORTED_MEASUREMENT,
-                    "Intrinsic min/max constraint requires measured leaf content.",
-                    node_id,
-                )
-            kind = "min_content" if length.kind == LengthKind.MIN_CONTENT else "max_content"
-            intrinsic_bounds[prop] = Length.px(
-                getattr(measured.intrinsic, f"{kind}_{axis}")
-            )
+                if axis != "width":
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Recursive intrinsic block-axis constraint not yet certified.",
+                        node_id,
+                    )
+                value = intrinsic_column_width(node_id, is_min)
+            else:
+                measured = measures.get(node_id)
+                if measured is None:
+                    raise SFLEError(
+                        DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                        "Intrinsic min/max constraint requires measured leaf content.",
+                        node_id,
+                    )
+                kind = "min_content" if is_min else "max_content"
+                value = getattr(measured.intrinsic, f"{kind}_{axis}")
+            intrinsic_bounds[prop] = Length.px(value)
         if intrinsic_bounds:
             styles[node_id] = replace(style, **intrinsic_bounds)
 
