@@ -63,6 +63,7 @@ class _Style:
     border_left: Length
     aspect_ratio: float | None
     overflow: OverflowMode
+    scroll_container: bool
 
 
 _ALLOWED = frozenset({
@@ -78,6 +79,7 @@ _ALLOWED = frozenset({
     "layout_border_top", "layout_border_right", "layout_border_bottom", "layout_border_left",
     "aspect_ratio",
     "overflow",
+    "scroll_container",
 })
 
 
@@ -126,6 +128,13 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
             if isinstance(ratio, bool) or not isinstance(ratio, (int, float)) or not math.isfinite(ratio) or ratio <= 0:
                 raise ValueError("aspect_ratio must be a positive finite number.")
             ratio = float(ratio)
+        scroll_container = values.get("scroll_container", overflow == OverflowMode.SCROLL)
+        if type(scroll_container) is not bool:
+            raise SFLEError(DiagnosticCode.INVALID_LENGTH,
+                            "scroll_container must be boolean.", node.node_id)
+        if scroll_container and overflow not in (OverflowMode.AUTO, OverflowMode.SCROLL):
+            raise SFLEError(DiagnosticCode.LAYOUT_CONSTRAINT,
+                            "scroll_container requires overflow auto or scroll.", node.node_id)
         result[node.node_id] = _Style(
             direction=direction,
             wrap=wrap,
@@ -159,6 +168,7 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
             border_left=parse_length(values.get('layout_border_left', 0)),
             aspect_ratio=ratio,
             overflow=overflow,
+            scroll_container=scroll_container,
         )
     return result
 
@@ -754,7 +764,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             if min_length.kind == LengthKind.PX:
                 minimum = min_length.value
             elif min_length.kind == LengthKind.AUTO:
-                minimum = 0.0 if child_style.overflow == OverflowMode.SCROLL else preferred(child_id, horizontal, True)
+                minimum = 0.0 if child_style.scroll_container else preferred(child_id, horizontal, True)
                 if transferred is not None:
                     minimum = (min(minimum, transferred) if components[child_id] == "Image"
                                else max(minimum, transferred))

@@ -53,6 +53,7 @@ struct Style {
     border_left:Length,
     aspect_ratio:Option<f64>,
     overflow:Overflow,
+    scroll_container:bool,
 }
 
 fn failure(code: &'static str, message: impl Into<String>, id: Option<&str>) -> ComputeError {
@@ -115,7 +116,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
             "layout_padding_top"|"layout_padding_right"|
             "layout_padding_bottom"|"layout_padding_left"|
             "layout_border_top"|"layout_border_right"|"layout_border_bottom"|"layout_border_left"|
-            "aspect_ratio"|"overflow"){
+            "aspect_ratio"|"overflow"|"scroll_container"){
             return Err(unsupported(format!("Unimplemented CSS style property: {key}."),&input.node_id));
         }
     }
@@ -172,6 +173,14 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         "auto"=>Overflow::Auto,"scroll"=>Overflow::Scroll,
         _=>return Err(unsupported("Unsupported overflow value.",&input.node_id)),
     };
+    let scroll_container=match map.get("scroll_container") {
+        None=>overflow==Overflow::Scroll,
+        Some(Value::Bool(value))=>*value,
+        _=>return Err(failure("SFLE_INVALID_LENGTH","scroll_container must be boolean.",Some(&input.node_id))),
+    };
+    if scroll_container && overflow!=Overflow::Auto && overflow!=Overflow::Scroll {
+        return Err(failure("SFLE_LAYOUT_CONSTRAINT","scroll_container requires overflow auto or scroll.",Some(&input.node_id)));
+    }
     let order=match map.get("order") {
         None=>0,
         Some(value)=>{
@@ -209,6 +218,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         min_height:length(value(map,&["layout_min_height","min_height"]),&input.node_id)?,
         aspect_ratio,
         overflow,
+        scroll_container,
     })
 }
 fn layout_unit(value:f64)->f64 {
@@ -574,7 +584,7 @@ impl Context<'_>{
             let mut minimum=match if row{child_style.min_width}else{child_style.min_height}{
                 Length::Px(n)=>n,
                 Length::Auto=>{
-                    let mut content=if child_style.overflow==Overflow::Scroll {0.0}
+                    let mut content=if child_style.scroll_container {0.0}
                         else {self.intrinsic_contribution(child,row,true)?};
                     if let Some(transferred)=transferred {
                         content=if self.input.nodes[child].component=="Image" {
