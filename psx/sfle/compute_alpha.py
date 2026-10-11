@@ -106,6 +106,46 @@ def _layout_unit(value: float) -> float:
     return math.floor(value * 64.0 + 0.5) / 64.0
 
 
+def _percent_flex_basis_used(value: float, reference: float) -> float:
+    """Blink uses an integer LayoutUnit for the resolved percentage basis.
+
+    This quantization occurs at the *basis resolution*, before available free
+    space and flex factors are computed, never on final output rectangles.
+    """
+    return math.floor(value * reference * 64.0) / 64.0
+
+
+def _used_flex_target_units(
+    targets: tuple[float, ...], bases: tuple[FlexBasis, ...],
+) -> tuple[float, ...]:
+    """Materialize final used flex sizes with deterministic subpixel diffusion.
+
+    CSS §9.7 keeps double precision throughout flex distribution. For the
+    final used child sizes, preserve the rounded *sum* of distributed targets,
+    rather than losing a LayoutUnit when separately rounding all children.
+    Do not force a line to fill its containing box when CSS leaves free space.
+    """
+    units = [math.floor(target * 64.0 + 0.5) for target in targets]
+    total = math.floor(sum(targets) * 64.0 + 0.5)
+    correction = total - sum(units)
+    if correction:
+        candidates = [
+            idx for idx, (target, base) in enumerate(zip(targets, bases))
+            if abs(target - base.basis) > 1e-12
+        ]
+        if candidates:
+            # Distribute the subpixel remainder by error magnitude, preserving
+            # stable input identity and never rewriting layout result boxes.
+            candidates.sort(
+                key=lambda idx: ((targets[idx] * 64.0) % 1.0),
+                reverse=correction > 0,
+            )
+            for step in range(abs(correction)):
+                idx = candidates[step % len(candidates)]
+                units[idx] += 1 if correction > 0 else -1
+    return tuple(value / 64.0 for value in units)
+
+
 def _axis_value(length: Length, reference: float | None, *,
                 axis: str, node_id: str) -> float | None:
     if length.kind == LengthKind.PX:
@@ -350,7 +390,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             elif basis.kind == LengthKind.PX:
                 desired = basis.value
             elif basis.kind == LengthKind.PERCENT:
-                desired = _layout_unit(basis.value * main_reference) if main_reference is not None else preferred(child_id, horizontal)
+                desired = _percent_flex_basis_used(basis.value, main_reference) if main_reference is not None else preferred(child_id, horizontal)
             else:
                 raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unsupported flex basis keyword.", child_id)
             assert desired is not None
@@ -374,8 +414,11 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             edge.horizontal if horizontal else edge.vertical
             for edge in edges.values()
         )
-        targets = resolve_flexible_lengths(
-            tuple(bases), max(0.0, main_size - fixed_main_edges), main_gap
+        targets = _used_flex_target_units(
+            resolve_flexible_lengths(
+                tuple(bases), max(0.0, main_size - fixed_main_edges), main_gap
+            ),
+            tuple(bases),
         )
         cross_sizes = []
         for child_id, target in zip(children[node_id], targets):
