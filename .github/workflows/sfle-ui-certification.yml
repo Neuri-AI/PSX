@@ -2,6 +2,7 @@ name: SFLE real native UI certification
 
 on:
   pull_request:
+    branches: [main]
     paths:
       - "psx/sfle/**"
       - "tests/ui/**"

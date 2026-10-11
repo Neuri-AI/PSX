@@ -1,7 +1,9 @@
 name: SFLE native wheels and frozen fallback
 
 on:
+  workflow_call:
   pull_request:
+    branches: [main]
     paths:
       - "psx/sfle/**"
       - "rust/sfle-core/**"

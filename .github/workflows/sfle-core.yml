@@ -2,6 +2,12 @@ name: SFLE core checks
 
 on:
   pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "**/*.md"
+  workflow_dispatch:
   push:
     branches:
       - main
