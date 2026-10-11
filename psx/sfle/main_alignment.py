@@ -90,4 +90,10 @@ def resolve_main_alignment(
         else:
             extra = free / (count + 1)
             lead = extra
-    return MainAlignment(_lu(lead).to_px(), (_lu(fixed_gap) + _lu(extra)).to_px(), free)
+    # Chromium 153's fractional space-evenly *leading* offset is floored
+    # to LayoutUnit; its distributed interior gap is rounded separately.
+    # Rounding both nearest shifts the second item's x by 1/64px.
+    lead_unit = (LayoutUnit.from_floor(lead)
+                 if justify == JustifyContent.SPACE_EVENLY and free > 0
+                 else _lu(lead))
+    return MainAlignment(lead_unit.to_px(), (_lu(fixed_gap) + _lu(extra)).to_px(), free)

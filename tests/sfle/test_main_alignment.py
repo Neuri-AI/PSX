@@ -14,7 +14,7 @@ from psx.sfle.main_alignment import JustifyContent, resolve_main_alignment
     (JustifyContent.SPACE_BETWEEN, 0, 60),
     (JustifyContent.SPACE_AROUND, 12.5, 35),
     # Fixed-point rounding applies to each CSS distribution expression.
-    (JustifyContent.SPACE_EVENLY, 16.671875, 26.671875),
+    (JustifyContent.SPACE_EVENLY, 16.65625, 26.671875),
 ])
 def test_main_alignment_positive_free_space(mode, leading, between):
     value = resolve_main_alignment(mode, 100, (20, 20), gap=10)

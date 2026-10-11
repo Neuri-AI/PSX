@@ -58,8 +58,13 @@ pub fn resolve_main_alignment(
             }
         }
     };
+    // Chromium 153 floors the fractional leading offset for
+    // space-evenly; distributed internal space is rounded separately.
+    let leading_unit = if justify == JustifyContent::SpaceEvenly && free > 0.0 {
+        LayoutUnit::from_floor(leading).expect("validated leading offset")
+    } else { lu(leading) };
     Ok(MainAlignment {
-        leading_space: lu(leading).to_px(),
+        leading_space: leading_unit.to_px(),
         between_space: (lu(gap) + lu(extra)).to_px(),
         remaining_free_space: free,
     })
@@ -81,7 +86,7 @@ mod tests {
         let evenly = resolve_main_alignment(
             JustifyContent::SpaceEvenly, 100.0, &sizes, 10.0
         ).unwrap();
-        assert_eq!(evenly.leading_space, 16.671875);
+        assert_eq!(evenly.leading_space, 16.65625);
         assert_eq!(evenly.between_space, 26.671875);
     }
 

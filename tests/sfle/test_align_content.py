@@ -22,7 +22,7 @@ def sample(name: str, *, cross: float = 20) -> MarginFlexItem:
     (AlignContent.SPACE_BETWEEN, (0, 80)),
     (AlignContent.SPACE_AROUND, (12.5, 67.5)),
     # Blink-sized gaps are snapped individually at 1/64px, then accumulated.
-    (AlignContent.SPACE_EVENLY, (16.671875, 63.34375)),
+    (AlignContent.SPACE_EVENLY, (16.65625, 63.328125)),
 ])
 def test_align_content_changes_multiline_positions(mode, positions):
     layout = compute_margin_flex_layout(
