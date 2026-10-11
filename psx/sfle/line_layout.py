@@ -13,6 +13,10 @@ from enum import Enum
 
 from .flex_math import _number
 from .model import Rect, WritingDirection
+from .fixed_point import LayoutUnit
+
+def _lu(value: float) -> LayoutUnit:
+    return LayoutUnit.from_nearest(value)
 
 
 class FlexDirection(str, Enum):
@@ -113,13 +117,14 @@ def form_flex_lines(
         return (ordered,)
     lines: list[tuple[ResolvedItem, ...]] = []
     current: list[ResolvedItem] = []
-    used = 0.0
+    used = LayoutUnit.from_raw(0)
+    available_u, gap_u = _lu(available), _lu(gap)
     for item in ordered:
-        candidate = used + (gap if current else 0.0) + item.main_size
-        if current and candidate > available:
+        candidate = used + (gap_u if current else LayoutUnit.from_raw(0)) + _lu(item.main_size)
+        if current and candidate.raw > available_u.raw:
             lines.append(tuple(current))
             current = [item]
-            used = item.main_size
+            used = _lu(item.main_size)
         else:
             current.append(item)
             used = candidate
@@ -168,35 +173,39 @@ def place_resolved_lines(
     horizontal, main_forward, cross_forward = _axes(direction, writing)
     if wrap == FlexWrap.WRAP_REVERSE:
         cross_forward = not cross_forward
-    main_extent = w if horizontal else h
-    cross_extent = h if horizontal else w
-    cross_cursor = 0.0 if cross_forward else cross_extent
+    main_extent = _lu(w if horizontal else h)
+    cross_extent = _lu(h if horizontal else w)
+    cross_cursor = LayoutUnit.from_raw(0) if cross_forward else cross_extent
+    mg_u, cg_u = _lu(mg), _lu(cg)
     output: list[PositionedItem] = []
     memberships: list[tuple[str, ...]] = []
 
     for line_idx, line in enumerate(lines):
-        line_cross = max((item.cross_size for item in line), default=0.0)
+        line_cross = _lu(max((item.cross_size for item in line), default=0.0))
         if not cross_forward:
             cross_cursor -= line_cross
-        cursor = 0.0 if main_forward else main_extent
+        cursor = LayoutUnit.from_raw(0) if main_forward else main_extent
         line_members: list[str] = []
         for item in line:
             if not main_forward:
-                cursor -= item.main_size
+                cursor -= _lu(item.main_size)
             if horizontal:
-                rect = Rect(cursor, cross_cursor, item.main_size, item.cross_size)
+                rect = Rect(cursor.to_px(), cross_cursor.to_px(), _lu(item.main_size).to_px(), _lu(item.cross_size).to_px())
             else:
-                rect = Rect(cross_cursor, cursor, item.cross_size, item.main_size)
+                rect = Rect(cross_cursor.to_px(), cursor.to_px(), _lu(item.cross_size).to_px(), _lu(item.main_size).to_px())
             output.append(PositionedItem(item.node_id, rect, line_idx))
             line_members.append(item.node_id)
-            cursor += (item.main_size if main_forward else 0.0)
-            cursor += mg if main_forward else -mg
+            if main_forward:
+                cursor += _lu(item.main_size)
+                cursor += mg_u
+            else:
+                cursor -= mg_u
         memberships.append(tuple(line_members))
         if cross_forward:
             cross_cursor += line_cross
             if line_idx < len(lines) - 1:
-                cross_cursor += cg
+                cross_cursor += cg_u
         elif line_idx < len(lines) - 1:
-            cross_cursor -= cg
+            cross_cursor -= cg_u
 
     return ResolvedLines(tuple(memberships), tuple(output))

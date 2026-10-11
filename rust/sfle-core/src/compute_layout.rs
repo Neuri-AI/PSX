@@ -72,16 +72,16 @@ fn value<'a>(map: &'a serde_json::Map<String,Value>, keys: &[&str]) -> Option<&'
 fn length(raw: Option<&Value>, id: &str) -> Result<Length, ComputeError> {
     let Some(v) = raw else { return Ok(Length::Auto) };
     if let Some(n)=v.as_f64() {
-        if !n.is_finite() || n<0.0 { return Err(failure("SFLE_INVALID_LENGTH","Nonfinite or negative length.",Some(id))); }
+        if !n.is_finite() { return Err(failure("SFLE_INVALID_LENGTH","Length payload must be finite.",Some(id))); }
         return Ok(Length::Px(n));
     }
     if let Some(s) = v.as_str() {
         if s=="auto" { return Ok(Length::Auto); }
         if let Some(n) = s.strip_suffix("px").and_then(|x|x.parse::<f64>().ok()) {
-            if n.is_finite()&&n>=0.0{return Ok(Length::Px(n));}
+            if n.is_finite(){return Ok(Length::Px(n));}
         }
         if let Some(n) = s.strip_suffix('%').and_then(|x|x.parse::<f64>().ok()) {
-            if n.is_finite()&&n>=0.0{return Ok(Length::Percent(n/100.0));}
+            if n.is_finite(){return Ok(Length::Percent(n/100.0));}
         }
     }
     if let Some(map) = v.as_object() {
@@ -89,22 +89,23 @@ fn length(raw: Option<&Value>, id: &str) -> Result<Length, ComputeError> {
         let number=map.get("value").and_then(Value::as_f64);
         match kind {
             Some("auto") if map.get("value").is_none_or(Value::is_null) => return Ok(Length::Auto),
-            Some("px") if number.is_some_and(|n|n.is_finite()&&n>=0.0) =>return Ok(Length::Px(number.unwrap())),
-            Some("percent") if number.is_some_and(|n|n.is_finite()&&n>=0.0) =>return Ok(Length::Percent(number.unwrap())),
+            Some("px") if number.is_some_and(f64::is_finite) =>return Ok(Length::Px(number.unwrap())),
+            Some("percent") if number.is_some_and(f64::is_finite) =>return Ok(Length::Percent(number.unwrap())),
             _=>{},
         }
     }
     Err(unsupported("Unsupported CSS length keyword or expression.", id))
 }
 fn factor(raw: Option<&Value>, default: f64, id:&str)->Result<f64,ComputeError>{
-    let n=raw.map(Value::as_f64).flatten().unwrap_or(default);
+    let n=match raw {None=>default,Some(value)=>value.as_f64().unwrap_or(f64::NAN)};
     if !n.is_finite()||n<0.0 {
-        return Err(failure("SFLE_INVALID_LENGTH","Invalid flex factor.",Some(id)));
+        return Err(failure("SFLE_INVALID_LENGTH","Invalid flex factors.",Some(id)));
     }
     Ok(n)
 }
 fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
     let map=&input.style;
+    let mut unknown=Vec::new();
     for key in map.keys(){
         if !matches!(key.as_str(),"direction"|"width"|"height"|"layout_width"|"layout_height"|
             "flex_basis"|"flex_grow"|"flex_shrink"|"min_width"|"min_height"|
@@ -118,17 +119,24 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
             "layout_padding_bottom"|"layout_padding_left"|
             "layout_border_top"|"layout_border_right"|"layout_border_bottom"|"layout_border_left"|
             "aspect_ratio"|"overflow"|"scroll_container"|"replaced"){
-            return Err(unsupported(format!("Unimplemented CSS style property: {key}."),&input.node_id));
+            unknown.push(key.as_str());
         }
     }
-    if (map.contains_key("width")&&map.contains_key("layout_width"))||
-       (map.contains_key("height")&&map.contains_key("layout_height")){
-        return Err(failure("SFLE_LAYOUT_CONSTRAINT_ERROR","Conflicting layout size aliases.",Some(&input.node_id)));
+    if !unknown.is_empty(){
+        unknown.sort_unstable();
+        let names=unknown.iter().map(|name|format!("'{name}'")).collect::<Vec<_>>().join(", ");
+        return Err(unsupported(format!("Unimplemented CSS style properties: [{names}]."),&input.node_id));
+    }
+    if map.contains_key("width")&&map.contains_key("layout_width") {
+        return Err(failure("SFLE_LAYOUT_CONSTRAINT_ERROR","Conflicting width declarations.",Some(&input.node_id)));
+    }
+    if map.contains_key("height")&&map.contains_key("layout_height") {
+        return Err(failure("SFLE_LAYOUT_CONSTRAINT_ERROR","Conflicting height declarations.",Some(&input.node_id)));
     }
     let direction=match map.get("direction").and_then(Value::as_str).unwrap_or("row"){
         "row"=>Direction::Row,"row-reverse"=>Direction::RowReverse,
         "column"=>Direction::Column,"column-reverse"=>Direction::ColumnReverse,
-        _=>return Err(unsupported("Unsupported flex direction.",&input.node_id)),
+        _=>return Err(unsupported("Unsupported direction value.",&input.node_id)),
     };
     let parse_align=|k:&str,default:&str| -> Result<CrossAlign,ComputeError> {
         match map.get(k).and_then(Value::as_str).unwrap_or(default) {
@@ -162,9 +170,9 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         None=>None,
         Some(value)=>{
             let ratio=value.as_f64().ok_or_else(||failure(
-                "SFLE_INVALID_LENGTH","aspect_ratio must be numeric.",Some(&input.node_id)))?;
+                "SFLE_INVALID_LENGTH","aspect_ratio must be a positive finite number.",Some(&input.node_id)))?;
             if !ratio.is_finite()||ratio<=0.0 {
-                return Err(failure("SFLE_INVALID_LENGTH","aspect_ratio must be positive and finite.",Some(&input.node_id)));
+                return Err(failure("SFLE_INVALID_LENGTH","aspect_ratio must be a positive finite number.",Some(&input.node_id)));
             }
             Some(ratio)
         },
@@ -180,7 +188,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         _=>return Err(failure("SFLE_INVALID_LENGTH","scroll_container must be boolean.",Some(&input.node_id))),
     };
     if scroll_container && overflow!=Overflow::Auto && overflow!=Overflow::Scroll {
-        return Err(failure("SFLE_LAYOUT_CONSTRAINT","scroll_container requires overflow auto or scroll.",Some(&input.node_id)));
+        return Err(failure("SFLE_LAYOUT_CONSTRAINT_ERROR","scroll_container requires overflow auto or scroll.",Some(&input.node_id)));
     }
     let replaced=match map.get("replaced") {
         None=>input.component=="Image",
@@ -402,7 +410,6 @@ struct Context<'a>{
     input:&'a LayoutInput,
     styles:Vec<Style>,
     children:Vec<Vec<usize>>,
-    cyclic_padding:Vec<bool>,
     measurements:HashMap<&'a str,&'a crate::compute::MeasuredBox>,
     used:Vec<Option<(f64,f64)>>,
 }
@@ -457,11 +464,9 @@ impl Context<'_>{
             for edge in edges {
                 match edge {
                     Length::Px(n) => padding_sum = sum_units([padding_sum,n]),
-                    Length::Percent(_) if self.cyclic_padding[child] => {},
-                    _ => return Err(unsupported(
-                        "Unresolved intrinsic percentage padding contribution.",
-                        &self.input.nodes[child].node_id,
-                    )),
+                    Length::Percent(_) => {},
+                    _ => return Err(unsupported("Invalid intrinsic padding length.",
+                        &self.input.nodes[child].node_id)),
                 }
             }
             let mut contribution = self.intrinsic_contribution(child,h,minimum)?;
@@ -541,19 +546,6 @@ impl Context<'_>{
         // (the same rule used by the margin geometry compositor).
         let mut child_indices=self.children[index].clone();
         child_indices.sort_by_key(|&child|(self.styles[child].order,child));
-        if width.is_none() {
-            for &child in &child_indices {
-                let s=self.styles[child];
-                if [s.padding_top,s.padding_right,s.padding_bottom,s.padding_left,
-                    s.margin_top,s.margin_right,s.margin_bottom,s.margin_left]
-                    .iter().any(|length|matches!(length,Length::Percent(_))) {
-                    return Err(unsupported(
-                        "Unlisted auto inline-size percentage dependency cycle.",
-                        &self.input.nodes[child].node_id,
-                    ));
-                }
-            }
-        }
         let mut bases=Vec::with_capacity(child_indices.len());
         for &child in &child_indices{
             let child_style=self.styles[child];
@@ -752,88 +744,11 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         }
         indices.insert(node.node_id.as_str(),index);
     }
-    for index in 0..input.nodes.len(){
-        if children[index].len()!=1 {continue;}
-        let child=children[index][0];
-        let Some(&grand)=children[child].first() else{continue;};
-        let (s,c,g)=(styles[index],styles[child],styles[grand]);
-        if matches!(s.width,Length::Auto)&&matches!(s.height,Length::Auto)
-            &&matches!(c.width,Length::Percent(_))&&matches!(c.height,Length::Percent(_))
-            &&matches!(g.width,Length::Percent(_))&&matches!(g.height,Length::Percent(_)){
-            return Err(unsupported("Unlisted multi-node percentage dependency cycle across auto ancestors.",
-                &input.nodes[child].node_id));
-        }
-    }
-    // Fail closed for nested indefinite column intrinsic-percent
-    // dependencies. C01 permits a percentage basis with a measured leaf,
-    // but not a percent-height descendant cycle.
-    for index in 0..input.nodes.len(){
-        let style=styles[index];
-        if !matches!(style.direction,Direction::Column|Direction::ColumnReverse)
-            || !matches!(style.height,Length::Auto){continue;}
-        for &child in &children[index]{
-            if !matches!(styles[child].basis,Length::Percent(_)){continue;}
-            let mut pending=children[child].clone();
-            while let Some(descendant)=pending.pop(){
-                if matches!(styles[descendant].height,Length::Percent(_)){
-                    return Err(unsupported(
-                        "Unlisted column intrinsic percentage basis descendant cycle.",
-                        &input.nodes[child].node_id,
-                    ));
-                }
-                pending.extend(children[descendant].iter().copied());
-            }
-        }
-    }
-    // Parent-index traversal determines whether a percentage's containing
-    // inline reference is actually definite, without depending on fixture IDs.
-    fn definite_inline(
-        node:usize,input:&LayoutInput,styles:&[Style],indices:&HashMap<&str,usize>,
-        depth:usize,
-    )->bool{
-        if depth>input.nodes.len(){return false;}
-        let Some(parent_name)=input.nodes[node].parent_id.as_deref() else{
-            return input.constraints.width.definite
-                || matches!(styles[node].width,Length::Px(_));
-        };
-        let parent=indices[parent_name];
-        match styles[parent].width{
-            Length::Px(_)=>true,
-            Length::Percent(_)=>definite_inline(parent,input,styles,indices,depth+1),
-            Length::Auto if styles[parent].grow>0.0 =>{
-                if let Some(grand)=input.nodes[parent].parent_id.as_deref(){
-                    let outer=indices[grand];
-                    horizontal(styles[outer].direction)
-                        && definite_inline(parent,input,styles,indices,depth+1)
-                }else{false}
-            },
-            Length::Auto=>false,
-        }
-    }
-    // D-F1.13 / C01–C06: explicit allowlist for definitely referenced
-    // percentages and measurable C05 block auto. Unknown graphs fail closed,
-    // irrespective of fixture name; Python applies identical class/node ID.
-    fn definite_block(
-        node:usize,input:&LayoutInput,styles:&[Style],indices:&HashMap<&str,usize>,
-        depth:usize,
-    )->bool{
-        if depth>input.nodes.len(){return false;}
-        let Some(parent_name)=input.nodes[node].parent_id.as_deref() else{
-            return input.constraints.height.definite || matches!(styles[node].height,Length::Px(_));
-        };
-        let parent=indices[parent_name];
-        match styles[parent].height{
-            Length::Px(_)=>true,
-            Length::Percent(_)=>definite_block(parent,input,styles,indices,depth+1),
-            Length::Auto=>false,
-        }
-    }
     // Intrinsic sizing breaks percentage-padding cycles with a zero
     // contribution.  Final geometry resolves the same edge only after the
     // container's used inline size is known.
-    let cyclic_padding=vec![true; input.nodes.len()];
     let mut context=Context {
-        input,styles,children,cyclic_padding,provisional,
+        input,styles,children,provisional,
         measurements:input.measurements.iter().map(|m|(m.node_id.as_str(),m)).collect(),
         used:vec![None;input.nodes.len()],
     };

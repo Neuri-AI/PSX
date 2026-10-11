@@ -1,6 +1,9 @@
 //! F2.2.3 resolved cross alignment without stretch or baseline measurement.
 
 use crate::FlexMathError;
+use crate::layout_unit::LayoutUnit;
+
+fn lu(value:f64)->LayoutUnit { LayoutUnit::from_nearest(value).expect("validated finite length") }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CrossAlign {
@@ -25,11 +28,13 @@ pub fn resolve_cross_alignment(
         return Err(FlexMathError::InvalidInput("invalid resolved cross alignment"));
     }
     let chosen = if align_self == CrossAlign::Auto { align_items } else { align_self };
-    let free = line_cross_size - border_cross_size - fixed_start_margin - fixed_end_margin;
+    let line=lu(line_cross_size); let border=lu(border_cross_size);
+    let start=lu(fixed_start_margin); let end=lu(fixed_end_margin);
+    let free = line - border - start - end;
     let logical = match chosen {
-        CrossAlign::FlexStart => fixed_start_margin,
-        CrossAlign::FlexEnd => fixed_start_margin + free,
-        CrossAlign::Center => fixed_start_margin + free / 2.0,
+        CrossAlign::FlexStart => start,
+        CrossAlign::FlexEnd => start + free,
+        CrossAlign::Center => start + lu(free.to_px() / 2.0),
         CrossAlign::Stretch | CrossAlign::Baseline => {
             return Err(FlexMathError::InvalidInput(
                 "stretch/baseline requires dedicated sizing/measurement",
@@ -37,7 +42,7 @@ pub fn resolve_cross_alignment(
         }
         CrossAlign::Auto => unreachable!("align-items auto was rejected"),
     };
-    Ok(if cross_forward { logical } else { line_cross_size - logical - border_cross_size })
+    Ok(if cross_forward { logical } else { line - logical - border }.to_px())
 }
 
 #[cfg(test)]

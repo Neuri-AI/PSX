@@ -106,19 +106,22 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
             raise SFLEError(DiagnosticCode.LAYOUT_CONSTRAINT, "Conflicting width declarations.", node.node_id)
         if "height" in values and "layout_height" in values:
             raise SFLEError(DiagnosticCode.LAYOUT_CONSTRAINT, "Conflicting height declarations.", node.node_id)
-        try:
-            direction = FlexDirection(values.get("direction", "row"))
-            alignment = CrossAlign(values.get("align_items", "stretch"))
-            self_alignment = CrossAlign(values.get("align_self", "auto"))
-            wrap = FlexWrap(values.get("wrap", "nowrap"))
-            justify = JustifyContent(values.get("justify_content", "flex-start"))
-            content_alignment = AlignContent(
-                "stretch" if values.get("align_content", "normal") == "normal"
-                else values["align_content"]
-            )
-            overflow = OverflowMode(values.get("overflow", "visible"))
-        except ValueError as exc:
-            raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, str(exc), node.node_id) from exc
+        def enum_value(kind: type, key: str, default: str, label: str):
+            raw = values.get(key, default)
+            if key == "align_content" and raw == "normal":
+                raw = "stretch"
+            try:
+                return kind(raw)
+            except (TypeError, ValueError) as exc:
+                raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
+                                          f"Unsupported {label} value.", node.node_id) from exc
+        direction = enum_value(FlexDirection, "direction", "row", "direction")
+        alignment = enum_value(CrossAlign, "align_items", "stretch", "align_items")
+        self_alignment = enum_value(CrossAlign, "align_self", "auto", "align_self")
+        wrap = enum_value(FlexWrap, "wrap", "nowrap", "wrap")
+        justify = enum_value(JustifyContent, "justify_content", "flex-start", "justify-content")
+        content_alignment = enum_value(AlignContent, "align_content", "normal", "align-content")
+        overflow = enum_value(OverflowMode, "overflow", "visible", "overflow")
         grow, shrink = values.get("flex_grow", 0), values.get("flex_shrink", 1)
         if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v < float("inf") for v in (grow, shrink)):
             raise SFLEError(DiagnosticCode.INVALID_LENGTH, "Invalid flex factors.", node.node_id)
@@ -128,7 +131,8 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
         ratio = values.get("aspect_ratio")
         if ratio is not None:
             if isinstance(ratio, bool) or not isinstance(ratio, (int, float)) or not math.isfinite(ratio) or ratio <= 0:
-                raise ValueError("aspect_ratio must be a positive finite number.")
+                raise SFLEError(DiagnosticCode.INVALID_LENGTH,
+                                "aspect_ratio must be a positive finite number.", node.node_id)
             ratio = float(ratio)
         scroll_container = values.get("scroll_container", overflow == OverflowMode.SCROLL)
         if type(scroll_container) is not bool:
@@ -391,7 +395,7 @@ def _border(style: _Style, node_id: str) -> UsedEdges:
 
 
 def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> LayoutResult:
-    """Compute accepted nowrap content-box snapshots or fail explicitly.
+    """Compute recursive wrapped content-box snapshots.
 
     Final height-for-width measurements must already be part of the immutable
     input; no callback, approximation or UI-thread measurement occurs here.
@@ -402,96 +406,15 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         return LayoutResult(1, request.generation, ())
     styles = _styles(request)
     children: dict[str, list[str]] = {node.node_id: [] for node in request.nodes}
-    parents = {node.node_id: node.parent_id for node in request.nodes}
     components = {node.node_id: node.component for node in request.nodes}
     for node in request.nodes[1:]:
         children[node.parent_id].append(node.node_id)
     measures = {box.node_id: box for box in request.measurements}
 
-    # The alpha C99 restriction is a specific multi-node dependency cycle.
-    # Do not confuse it with a generic unsupported-compute placeholder.
-    for node in request.nodes:
-        if len(children[node.node_id]) != 1:
-            continue
-        child_id = children[node.node_id][0]
-        grand = children[child_id]
-        if not grand:
-            continue
-        s, c, g = styles[node.node_id], styles[child_id], styles[grand[0]]
-        if (s.width.kind == LengthKind.AUTO and s.height.kind == LengthKind.AUTO
-            and c.width.kind == c.height.kind == LengthKind.PERCENT
-            and g.width.kind == g.height.kind == LengthKind.PERCENT):
-            raise SFLECapabilityError(
-                DiagnosticCode.UNSUPPORTED_FEATURE,
-                "Unlisted multi-node percentage dependency cycle across auto ancestors.",
-                child_id,
-            )
-
-    # Fail-closed: cyclic descendant percentages after an indefinite
-    # column's percentage flex-basis are NOT the supported leaf-only C01 rule.
-    for node in request.nodes:
-        style = styles[node.node_id]
-        if (style.direction not in (FlexDirection.COLUMN, FlexDirection.COLUMN_REVERSE)
-            or style.height.kind != LengthKind.AUTO):
-            continue
-        for child_id in children[node.node_id]:
-            if styles[child_id].flex_basis.kind != LengthKind.PERCENT:
-                continue
-            pending = list(children[child_id])
-            while pending:
-                descendant = pending.pop()
-                if styles[descendant].height.kind == LengthKind.PERCENT:
-                    raise SFLECapabilityError(
-                        DiagnosticCode.UNSUPPORTED_FEATURE,
-                        "Unlisted column intrinsic percentage basis descendant cycle.",
-                        child_id,
-                    )
-                pending.extend(children[descendant])
-
-    # Conservative dependency classifier. Explicitly proven definite ancestor
-    # chains may resolve percentages; an intrinsically-sized inline ancestor
-    # cannot supply a definite reference to a percentage descendant.
-    # This is structural and deliberately independent of acceptance-case IDs.
-    def inline_reference_definite(node_id: str) -> bool:
-        parent = parents[node_id]
-        if parent is None:
-            return request.constraints.width.definite or styles[node_id].width.kind == LengthKind.PX
-        ancestor = styles[parent]
-        if ancestor.width.kind == LengthKind.PX:
-            return True
-        if ancestor.width.kind == LengthKind.PERCENT:
-            return inline_reference_definite(parent)
-        if ancestor.grow > 0:
-            grandparent = parents[parent]
-            if grandparent is not None:
-                container = styles[grandparent]
-                if (container.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
-                        and inline_reference_definite(parent)):
-                    return True
-        return False
-
-    # D-F1.13 / C01–C06: deny by default any *indefinite* percentage
-    # dependency not matched by a recognized CSS intrinsic rule. This is
-    # structural (typed lengths/known references/actual measurements), never
-    # keyed to the acceptance fixture ID.
-    def block_reference_definite(node_id: str) -> bool:
-        parent = parents[node_id]
-        if parent is None:
-            return (request.constraints.height.definite or
-                    styles[node_id].height.kind == LengthKind.PX)
-        ancestor = styles[parent]
-        if ancestor.height.kind == LengthKind.PX:
-            return True
-        if ancestor.height.kind == LengthKind.PERCENT:
-            return block_reference_definite(parent)
-        return False
-
     # CSS intrinsic contributions break percentage-padding cycles by using a
     # zero contribution. Once the container's used inline size is available,
     # the same edge is resolved normally by ``_padding``. This is a sizing
     # phase rule, not a numeric zero substituted into final geometry.
-    allowed_cyclic_padding = set(styles)
-
     def bounded_intrinsic(
         style: _Style, horizontal: bool, value: float,
         reference: float | None = None,
@@ -542,8 +465,8 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             return bounded_intrinsic(style, horizontal, 0.0)
         is_row = style.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
         # CSS auto intrinsic contributions include the child's own padding.
-        # Percentage padding requiring a cyclic intrinsic reference stays
-        # unsupported, never silently mapped to numeric zero.
+        # Percentage padding contributes zero during intrinsic sizing and is
+        # resolved after the containing inline size reaches a fixed point.
         contributions = []
         for child in children[node_id]:
             child_style = styles[child]

@@ -2,6 +2,13 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from .flex_math import _number
+from .fixed_point import LayoutUnit
+
+def _sum(*values: float) -> float:
+    total = LayoutUnit.from_raw(0)
+    for value in values:
+        total += LayoutUnit.from_nearest(value)
+    return total.to_px()
 
 @dataclass(frozen=True, slots=True)
 class BaselineItem:
@@ -23,7 +30,7 @@ class BaselineGroup:
 
     @property
     def extent(self) -> float:
-        return self.ascent + self.descent
+        return _sum(self.ascent, self.descent)
 
 def measure_baseline_group(items: tuple[BaselineItem, ...]) -> BaselineGroup:
     if not isinstance(items, tuple) or not items or any(
@@ -31,8 +38,8 @@ def measure_baseline_group(items: tuple[BaselineItem, ...]) -> BaselineGroup:
     ):
         raise ValueError("A nonempty tuple of measured baseline items is required.")
     return BaselineGroup(
-        max(item.start_margin + item.baseline for item in items),
-        max(item.end_margin + item.border_cross_size - item.baseline for item in items),
+        max(_sum(item.start_margin, item.baseline) for item in items),
+        max(_sum(item.end_margin, item.border_cross_size, -item.baseline) for item in items),
     )
 
 def position_baseline_item(
@@ -46,5 +53,5 @@ def position_baseline_item(
     line = _number(line_cross_size, "line_cross_size")
     if line < 0:
         raise ValueError("Negative line cross size.")
-    logical = group.ascent - item.baseline
-    return logical if cross_forward else line - logical - item.border_cross_size
+    logical = _sum(group.ascent, -item.baseline)
+    return logical if cross_forward else _sum(line, -logical, -item.border_cross_size)

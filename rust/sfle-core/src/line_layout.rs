@@ -4,6 +4,9 @@
 //! already-resolved outer main/cross sizes. This is NOT full CSS layout.
 
 use crate::FlexMathError;
+use crate::layout_unit::LayoutUnit;
+
+fn lu(value:f64)->LayoutUnit { LayoutUnit::from_nearest(value).expect("validated finite geometry") }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction { Row, RowReverse, Column, ColumnReverse }
@@ -70,14 +73,15 @@ pub fn form_flex_lines(
     }
     let mut lines: Vec<Vec<ResolvedItem>> = Vec::new();
     let mut current: Vec<ResolvedItem> = Vec::new();
-    let mut used = 0.0;
+    let mut used = LayoutUnit::from_raw(0);
+    let available=lu(available_main); let gap=lu(gap);
     for idx in order {
         let item = &items[idx];
-        let candidate = used + if current.is_empty() { 0.0 } else { gap } + item.main_size;
-        if !current.is_empty() && candidate > available_main {
+        let candidate = used + if current.is_empty() { LayoutUnit::from_raw(0) } else { gap } + lu(item.main_size);
+        if !current.is_empty() && candidate > available {
             lines.push(current);
             current = vec![item.clone()];
-            used = item.main_size;
+            used = lu(item.main_size);
         } else {
             current.push(item.clone());
             used = candidate;
@@ -112,39 +116,40 @@ pub fn place_resolved_lines(
                        else { !reversed };
     let mut cross_forward = if horizontal { true } else { writing == WritingDirection::Ltr };
     if wrap == Wrap::WrapReverse { cross_forward = !cross_forward; }
-    let main_extent = if horizontal { width } else { height };
-    let cross_extent = if horizontal { height } else { width };
-    let mut cross_cursor = if cross_forward { 0.0 } else { cross_extent };
+    let main_extent = lu(if horizontal { width } else { height });
+    let cross_extent = lu(if horizontal { height } else { width });
+    let mut cross_cursor = if cross_forward { LayoutUnit::from_raw(0) } else { cross_extent };
+    let main_gap=lu(main_gap); let cross_gap=lu(cross_gap);
     let mut output = Vec::new();
     let mut memberships = Vec::new();
 
     for (index, line) in lines.iter().enumerate() {
-        let line_cross = line.iter().map(|item| item.cross_size).fold(0.0, f64::max);
+        let line_cross = lu(line.iter().map(|item| item.cross_size).fold(0.0, f64::max));
         if !cross_forward { cross_cursor -= line_cross; }
-        let mut main_cursor = if main_forward { 0.0 } else { main_extent };
+        let mut main_cursor = if main_forward { LayoutUnit::from_raw(0) } else { main_extent };
         let mut members = Vec::new();
         for item in line {
-            if !main_forward { main_cursor -= item.main_size; }
+            if !main_forward { main_cursor=main_cursor-lu(item.main_size); }
             let rect = if horizontal {
-                Rect { x: main_cursor, y: cross_cursor,
-                       width: item.main_size, height: item.cross_size }
+                Rect { x: main_cursor.to_px(), y: cross_cursor.to_px(),
+                       width: lu(item.main_size).to_px(), height: lu(item.cross_size).to_px() }
             } else {
-                Rect { x: cross_cursor, y: main_cursor,
-                       width: item.cross_size, height: item.main_size }
+                Rect { x: cross_cursor.to_px(), y: main_cursor.to_px(),
+                       width: lu(item.cross_size).to_px(), height: lu(item.main_size).to_px() }
             };
             output.push(PositionedItem {
                 id: item.id.clone(), rect, line_index: index,
             });
             members.push(item.id.clone());
-            if main_forward { main_cursor += item.main_size; }
-            main_cursor += if main_forward { main_gap } else { -main_gap };
+            if main_forward { main_cursor=main_cursor+lu(item.main_size)+main_gap; }
+            else {main_cursor=main_cursor-main_gap;}
         }
         memberships.push(members);
         if cross_forward {
             cross_cursor += line_cross;
-            if index + 1 < lines.len() { cross_cursor += cross_gap; }
+            if index + 1 < lines.len() { cross_cursor=cross_cursor+cross_gap; }
         } else if index + 1 < lines.len() {
-            cross_cursor -= cross_gap;
+            cross_cursor=cross_cursor-cross_gap;
         }
     }
     Ok(LinePlacement { lines: memberships, items: output })

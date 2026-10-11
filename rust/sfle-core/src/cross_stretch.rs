@@ -1,5 +1,8 @@
 //! Used CSS stretch cross-size for an explicitly auto-sized flex item.
 use crate::FlexMathError;
+use crate::layout_unit::LayoutUnit;
+
+fn lu(value:f64)->LayoutUnit { LayoutUnit::from_nearest(value).expect("validated finite length") }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UsedCrossStretch {
@@ -23,12 +26,14 @@ pub fn resolve_cross_stretch(
         return Err(FlexMathError::InvalidInput("invalid cross stretch inputs"));
     }
     let maximum = max_content_size.map(|n| n.max(min_content_size));
-    let mut content = (line_cross_size - padding_border - start_margin - end_margin)
-        .max(0.0).max(min_content_size);
+    let edges=lu(padding_border);
+    let mut content = (lu(line_cross_size)-edges-lu(start_margin)-lu(end_margin))
+        .to_px().max(0.0).max(lu(min_content_size).to_px());
     if let Some(maximum) = maximum {
-        content = content.min(maximum);
+        content = content.min(lu(maximum).to_px());
     }
-    Ok(UsedCrossStretch { content_size: content, border_size: content + padding_border })
+    let content=lu(content);
+    Ok(UsedCrossStretch { content_size: content.to_px(), border_size: (content+edges).to_px() })
 }
 
 #[cfg(test)]

@@ -1,14 +1,14 @@
-//! Restricted bottom-up nowrap auto cross sizing, matching Python's
-//! auto_cross_tree boundary. Unsupported wrapping and orthogonal dependent
-//! containers are explicit errors, never approximate CSS dimensions.
+//! Bottom-up wrapped auto cross sizing for recursive Flex containers.
 use crate::margin_tree::{compute_margin_tree, MarginTreeLayout, MarginTreeNode};
 use crate::line_layout::{Direction, Wrap, WritingDirection};
 use crate::FlexMathError;
+use crate::layout_unit::LayoutUnit;
 use std::collections::{HashMap, HashSet};
 
 fn horizontal(direction: Direction) -> bool {
     matches!(direction, Direction::Row | Direction::RowReverse)
 }
+fn lu(value:f64)->LayoutUnit { LayoutUnit::from_nearest(value).expect("validated finite length") }
 
 pub fn compute_auto_cross_tree(
     nodes: &[MarginTreeNode],
@@ -39,55 +39,74 @@ pub fn compute_auto_cross_tree(
     for index in (0..nodes.len()).rev() {
         let node = &adapted[index];
         if !selected.contains(node.id.as_str()) { continue; }
-        if node.wrap != Wrap::NoWrap || children[node.id.as_str()].is_empty() {
-            return Err(FlexMathError::InvalidInput("auto cross requires nonempty nowrap container"));
+        if children[node.id.as_str()].is_empty() {
+            return Err(FlexMathError::InvalidInput("auto cross requires nonempty container"));
         }
         let is_horizontal = horizontal(node.direction);
-        let mut used = 0.0_f64;
+        let main_limit=lu(if is_horizontal {node.width}else{node.height});
+        let mut lines:Vec<(LayoutUnit,LayoutUnit)>=Vec::new();
+        let mut line_main=LayoutUnit::from_raw(0);
+        let mut line_cross=LayoutUnit::from_raw(0);
         for &child_index in &children[node.id.as_str()] {
             let item = adapted[child_index].item.as_ref().ok_or(
                 FlexMathError::InvalidInput("auto cross child requires Flex item"),
             )?;
-            if item.cross_size_auto || item.cross_start.is_none() || item.cross_end.is_none() {
-                return Err(FlexMathError::InvalidInput("auto cross requires definite child cross sizes"));
+            if item.cross_size_auto || item.cross_start.is_none() || item.cross_end.is_none()
+                || item.main_start.is_none() || item.main_end.is_none() {
+                return Err(FlexMathError::InvalidInput("auto cross requires resolved child sizes and margins"));
             }
             let edges = item.edges;
-            let cross_edges = if is_horizontal {
-                edges.padding.top + edges.padding.bottom + edges.border.top + edges.border.bottom
+            let cross_values = if is_horizontal {
+                [edges.padding.top,edges.padding.bottom,edges.border.top,edges.border.bottom]
             } else {
-                edges.padding.left + edges.padding.right + edges.border.left + edges.border.right
+                [edges.padding.left,edges.padding.right,edges.border.left,edges.border.right]
             };
-            used = used.max(item.cross_content_size + cross_edges
-                + item.cross_start.expect("checked") + item.cross_end.expect("checked"));
-        }
-        if !is_horizontal {
-            used = 0.0;
-            for &child_index in &children[node.id.as_str()] {
-                let item = adapted[child_index].item.as_ref().ok_or(
-                    FlexMathError::InvalidInput("auto column requires flex child"),
-                )?;
-                used += item.flex.hypothetical + item.edges.padding.top
-                    + item.edges.padding.bottom + item.edges.border.top
-                    + item.edges.border.bottom
-                    + item.main_start.ok_or(FlexMathError::InvalidInput("auto main margin unsupported"))?
-                    + item.main_end.ok_or(FlexMathError::InvalidInput("auto main margin unsupported"))?;
+            let main_values=if is_horizontal {
+                [edges.padding.left,edges.padding.right,edges.border.left,edges.border.right]
+            } else {
+                [edges.padding.top,edges.padding.bottom,edges.border.top,edges.border.bottom]
+            };
+            let outer_main=main_values.into_iter()
+                .chain([item.main_start.expect("checked"),item.main_end.expect("checked")])
+                .fold(lu(item.flex.hypothetical),|a,v|a+lu(v));
+            let outer_cross=cross_values.into_iter()
+                .chain([item.cross_start.expect("checked"),item.cross_end.expect("checked")])
+                .fold(lu(item.cross_content_size),|a,v|a+lu(v));
+            let separator=if line_main.raw()!=0 {lu(node.main_gap)}else{LayoutUnit::from_raw(0)};
+            let candidate=line_main+separator+outer_main;
+            if node.wrap!=Wrap::NoWrap && line_main.raw()!=0 && candidate>main_limit {
+                lines.push((line_main,line_cross));
+                line_main=outer_main; line_cross=outer_cross;
+            } else {
+                line_main=candidate; line_cross=line_cross.max(outer_cross);
             }
-            used += node.main_gap * children[node.id.as_str()].len().saturating_sub(1) as f64;
         }
+        lines.push((line_main,line_cross));
+        let mut used_u=LayoutUnit::from_raw(0);
+        for (line,(_,cross)) in lines.iter().enumerate() {
+            if line>0 {used_u=used_u+lu(node.cross_gap);}
+            used_u=used_u+*cross;
+        }
+        let used=used_u.to_px();
         let parent_id = node.parent.clone();
         if let Some(parent) = parent_id {
             let parent_index = *indices.get(parent.as_str()).ok_or(
                 FlexMathError::InvalidInput("missing auto cross parent"),
             )?;
-            if horizontal(adapted[parent_index].direction) != is_horizontal
-                && !(horizontal(adapted[parent_index].direction) && !is_horizontal) {
-                return Err(FlexMathError::InvalidInput("orthogonal auto cross contribution unsupported"));
-            }
+            let parent_horizontal=horizontal(adapted[parent_index].direction);
             let item = adapted[index].item.as_mut().ok_or(
                 FlexMathError::InvalidInput("missing container flex item"),
             )?;
-            item.cross_content_size = used;
-            item.cross_size_auto = false;
+            let auto_width=!is_horizontal;
+            let parent_cross_width=!parent_horizontal;
+            if auto_width==parent_cross_width {
+                item.cross_content_size = used;
+                item.cross_size_auto = false;
+            } else {
+                item.flex.basis=used;
+                item.flex.hypothetical=used.max(item.flex.min_size)
+                    .min(item.flex.max_size.unwrap_or(f64::INFINITY));
+            }
         }
         if is_horizontal { adapted[index].height = used; }
         else { adapted[index].width = used; }

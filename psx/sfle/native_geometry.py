@@ -13,6 +13,7 @@ from .errors import DiagnosticCode, SFLEError
 from .margin_tree import MarginTreeNode
 from .recursive_measurement import RecursiveMeasurementResult
 from .model import LayoutResult
+from .fixed_point import LayoutUnit
 
 
 class GeometryBackend(str, Enum):
@@ -66,10 +67,11 @@ class NativeGeometryCommitter:
             if parent_id not in boxes:
                 raise SFLEError(DiagnosticCode.INVALID_TREE, "Missing geometry parent.")
             border, parent = boxes[node_id], boxes[parent_id]
-            x = border.x - parent.x
-            y = border.y - parent.y
+            x = (LayoutUnit.from_nearest(border.x) - LayoutUnit.from_nearest(parent.x)).to_px()
+            y = (LayoutUnit.from_nearest(border.y) - LayoutUnit.from_nearest(parent.y)).to_px()
             if self._backend == GeometryBackend.KIVY:
-                y = parent.height - y - border.height
+                y = (LayoutUnit.from_nearest(parent.height) - LayoutUnit.from_nearest(y)
+                     - LayoutUnit.from_nearest(border.height)).to_px()
             placements.append((self._widgets[node_id], x, y, border.width, border.height))
         for widget, x, y, width, height in placements:
             if self._backend == GeometryBackend.QT:

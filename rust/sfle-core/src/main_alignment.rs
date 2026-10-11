@@ -2,6 +2,9 @@
 //! Auto margins must be consumed upstream; this module only computes spacing.
 
 use crate::FlexMathError;
+use crate::layout_unit::LayoutUnit;
+
+fn lu(value:f64)->LayoutUnit { LayoutUnit::from_nearest(value).expect("validated finite length") }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum JustifyContent {
@@ -28,8 +31,8 @@ pub fn resolve_main_alignment(
         return Err(FlexMathError::InvalidInput("invalid resolved main alignment input"));
     }
     let count = outer_sizes.len();
-    let free = available_main - outer_sizes.iter().sum::<f64>()
-        - gap * count.saturating_sub(1) as f64;
+    let total=outer_sizes.iter().fold(LayoutUnit::from_raw(0),|a,v|a+lu(*v));
+    let free = (lu(available_main)-total-lu(gap*count.saturating_sub(1) as f64)).to_px();
     if count == 0 {
         return Ok(MainAlignment {
             leading_space: 0.0, between_space: gap, remaining_free_space: free,
@@ -56,8 +59,8 @@ pub fn resolve_main_alignment(
         }
     };
     Ok(MainAlignment {
-        leading_space: leading,
-        between_space: gap + extra,
+        leading_space: lu(leading).to_px(),
+        between_space: (lu(gap) + lu(extra)).to_px(),
         remaining_free_space: free,
     })
 }

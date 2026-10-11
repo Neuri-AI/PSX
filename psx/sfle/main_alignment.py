@@ -11,6 +11,16 @@ from dataclasses import dataclass
 from enum import Enum
 
 from .flex_math import _number
+from .fixed_point import LayoutUnit
+
+def _lu(value: float) -> LayoutUnit:
+    return LayoutUnit.from_nearest(value)
+
+def _sum(values: tuple[float, ...]) -> LayoutUnit:
+    total = LayoutUnit.from_raw(0)
+    for value in values:
+        total += _lu(value)
+    return total
 
 
 class JustifyContent(str, Enum):
@@ -54,7 +64,9 @@ def resolve_main_alignment(
     if extent < 0 or fixed_gap < 0:
         raise ValueError("Container and gap must be nonnegative.")
     count = len(sizes)
-    free = extent - sum(sizes) - fixed_gap * max(0, count - 1)
+    gap_total = LayoutUnit.from_nearest(fixed_gap * max(0, count - 1))
+    free_u = _lu(extent) - _sum(sizes) - gap_total
+    free = free_u.to_px()
     if count == 0:
         return MainAlignment(0.0, fixed_gap, free)
 
@@ -78,4 +90,4 @@ def resolve_main_alignment(
         else:
             extra = free / (count + 1)
             lead = extra
-    return MainAlignment(lead, fixed_gap + extra, free)
+    return MainAlignment(_lu(lead).to_px(), (_lu(fixed_gap) + _lu(extra)).to_px(), free)

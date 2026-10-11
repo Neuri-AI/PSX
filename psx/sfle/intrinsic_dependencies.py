@@ -7,7 +7,7 @@ layout algorithm later. No unsupported cyclic percentage is coerced to AUTO.
 from __future__ import annotations
 from dataclasses import dataclass
 
-from .errors import DiagnosticCode, SFLECapabilityError, SFLEError
+from .errors import DiagnosticCode, SFLEError
 from .model import LayoutInput
 from .sizing import ResolutionKind
 from .used_size_tree import UsedSizeTree
@@ -35,11 +35,7 @@ def collect_leaf_intrinsic_suggestions(
     declarations: tuple[LeafAutoSizing, ...],
     revisions: tuple[tuple[str, int], ...] = (),
 ) -> tuple[IntrinsicLeafSuggestion, ...]:
-    """Read current-revision native intrinsic contributions for AUTO leaves.
-
-    Fails closed on AUTO containers and indefinite percentages rather than
-    applying a preferred intrinsic size as if CSS Flex had allocated it.
-    """
+    """Read native leaf contributions; recursive CSS dependencies stay deferred."""
     if not isinstance(snapshot, LayoutInput) or not isinstance(used, UsedSizeTree):
         raise TypeError("Expected LayoutInput and UsedSizeTree.")
     if snapshot.generation != used.generation:
@@ -72,11 +68,14 @@ def collect_leaf_intrinsic_suggestions(
             continue
         need_width = declaration.width_kind == ResolutionKind.AUTO and not constraints.width.definite
         need_height = declaration.height_kind == ResolutionKind.AUTO and not constraints.height.definite
-        if (need_width or need_height) and node_id in parent_ids:
-            raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Auto container size requires CSS child contributions.", node_id)
-        if ((declaration.width_kind == ResolutionKind.UNRESOLVED_PERCENT and not constraints.width.definite)
-                or (declaration.height_kind == ResolutionKind.UNRESOLVED_PERCENT and not constraints.height.definite)):
-            raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Indefinite percentage requires CSS cyclic sizing phase.", node_id)
+        # Containers and unresolved percentages are resolved by the recursive
+        # CSS dependency pass, not by native leaf measurement.
+        if node_id in parent_ids or (
+            declaration.width_kind == ResolutionKind.UNRESOLVED_PERCENT and not constraints.width.definite
+        ) or (
+            declaration.height_kind == ResolutionKind.UNRESOLVED_PERCENT and not constraints.height.definite
+        ):
+            continue
         measurement = measured.get(node_id)
         if (need_width or need_height) and measurement is None:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Missing intrinsic measurement.", node_id)

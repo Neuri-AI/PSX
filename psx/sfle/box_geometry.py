@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .flex_math import _number
+from .fixed_point import LayoutUnit
 from .model import BoxRect, Rect
 
 
@@ -31,11 +32,11 @@ class UsedEdges:
 
     @property
     def horizontal(self) -> float:
-        return self.left + self.right
+        return (LayoutUnit.from_nearest(self.left) + LayoutUnit.from_nearest(self.right)).to_px()
 
     @property
     def vertical(self) -> float:
-        return self.top + self.bottom
+        return (LayoutUnit.from_nearest(self.top) + LayoutUnit.from_nearest(self.bottom)).to_px()
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,13 +57,17 @@ class UsedBoxEdges:
 
 
 def _inset(rect: Rect, edges: UsedEdges, name: str) -> Rect:
-    width = rect.width - edges.horizontal
-    height = rect.height - edges.vertical
+    width = (LayoutUnit.from_nearest(rect.width) - LayoutUnit.from_nearest(edges.horizontal)).to_px()
+    height = (LayoutUnit.from_nearest(rect.height) - LayoutUnit.from_nearest(edges.vertical)).to_px()
     # CSS min sizing/box-sizing must already have produced a feasible
     # border-box. Do not silently shrink positive borders or padding.
     if width < 0 or height < 0:
         raise ValueError(f"{name} edges exceed their containing rectangle.")
-    return Rect(rect.x + edges.left, rect.y + edges.top, width, height)
+    return Rect(
+        (LayoutUnit.from_nearest(rect.x) + LayoutUnit.from_nearest(edges.left)).to_px(),
+        (LayoutUnit.from_nearest(rect.y) + LayoutUnit.from_nearest(edges.top)).to_px(),
+        width, height,
+    )
 
 
 def used_box_rect(margin_box: Rect, edges: UsedBoxEdges) -> BoxRect:

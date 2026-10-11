@@ -1,5 +1,9 @@
 //! Baseline alignment using upstream measured border-box offsets.
 use crate::FlexMathError;
+use crate::layout_unit::LayoutUnit;
+
+fn lu(value:f64)->LayoutUnit { LayoutUnit::from_nearest(value).expect("validated finite length") }
+fn sum(values:&[f64])->f64 { values.iter().fold(LayoutUnit::from_raw(0),|a,v|a+lu(*v)).to_px() }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct BaselineItem {
@@ -27,7 +31,7 @@ pub struct BaselineGroup {
     pub descent: f64,
 }
 impl BaselineGroup {
-    pub fn extent(self) -> f64 { self.ascent + self.descent }
+    pub fn extent(self) -> f64 { sum(&[self.ascent,self.descent]) }
 }
 
 pub fn measure_baseline_group(items: &[BaselineItem]) -> Result<BaselineGroup,FlexMathError> {
@@ -38,8 +42,8 @@ pub fn measure_baseline_group(items: &[BaselineItem]) -> Result<BaselineGroup,Fl
     let mut descent=f64::NEG_INFINITY;
     for item in items {
         item.validate()?;
-        ascent=ascent.max(item.start_margin+item.baseline);
-        descent=descent.max(item.end_margin+item.border_cross_size-item.baseline);
+        ascent=ascent.max(sum(&[item.start_margin,item.baseline]));
+        descent=descent.max(sum(&[item.end_margin,item.border_cross_size,-item.baseline]));
     }
     Ok(BaselineGroup{ascent,descent})
 }
@@ -52,9 +56,9 @@ pub fn position_baseline_item(
         || !group.ascent.is_finite() || !group.descent.is_finite(){
         return Err(FlexMathError::InvalidInput("invalid baseline group size"));
     }
-    let logical=group.ascent-item.baseline;
+    let logical=sum(&[group.ascent,-item.baseline]);
     Ok(if cross_forward {logical}
-       else {line_cross_size-logical-item.border_cross_size})
+       else {sum(&[line_cross_size,-logical,-item.border_cross_size])})
 }
 
 #[cfg(test)]

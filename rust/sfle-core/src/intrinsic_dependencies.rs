@@ -1,5 +1,4 @@
-//! Restricted F2.2.4.5 auto leaf sizes from validated intrinsic snapshots.
-//! Indefinite percentage cycles and automatic Flex container sizes remain unsupported.
+//! Native leaf suggestions used by the recursive CSS dependency resolver.
 use crate::measurement_plan::{Constraints, Node};
 use crate::used_size_tree::UsedSizeTree;
 use crate::FlexMathError;
@@ -73,8 +72,10 @@ pub fn collect_leaf_intrinsic_suggestions(
         if let Some(style) = styles.get(id.as_str()) {
             let need_w = style.width_kind == AxisKind::Auto && !constraints.width.definite;
             let need_h = style.height_kind == AxisKind::Auto && !constraints.height.definite;
-            if (need_w || need_h) && parent_ids.contains(id.as_str()) {
-                return Err(FlexMathError::InvalidInput("auto container contributions not implemented"));
+            if parent_ids.contains(id.as_str())
+                || style.width_kind == AxisKind::UnresolvedPercent && !constraints.width.definite
+                || style.height_kind == AxisKind::UnresolvedPercent && !constraints.height.definite {
+                continue;
             }
             let item = measured.get(id.as_str());
             if (need_w || need_h) && item.is_none() {
@@ -85,10 +86,6 @@ pub fn collect_leaf_intrinsic_suggestions(
                     || item.revision != *versions.get(id.as_str()).unwrap_or(&0)) {
                     return Err(FlexMathError::InvalidInput("stale intrinsic measurement"));
                 }
-            }
-            if style.width_kind == AxisKind::UnresolvedPercent && !constraints.width.definite
-                || style.height_kind == AxisKind::UnresolvedPercent && !constraints.height.definite {
-                return Err(FlexMathError::InvalidInput("indefinite cyclic percentage unsupported"));
             }
             if need_w || need_h {
                 let m = item.expect("validated measurement");

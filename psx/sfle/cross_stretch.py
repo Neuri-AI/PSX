@@ -6,6 +6,7 @@ a definite item cross size as auto, nor invokes native measurement.
 from __future__ import annotations
 from dataclasses import dataclass
 from .flex_math import _number
+from .fixed_point import LayoutUnit
 
 @dataclass(frozen=True, slots=True)
 class UsedCrossStretch:
@@ -36,8 +37,12 @@ def resolve_cross_stretch(
         raise ValueError("Line, edges and definite constraints must be nonnegative.")
     if maximum is not None:
         maximum = max(maximum, minimum)
-    content = max(0.0, line - edges - start - end)
-    content = max(content, minimum)
+    line_u, edges_u, start_u, end_u = (
+        LayoutUnit.from_nearest(value) for value in (line, edges, start, end)
+    )
+    content = max(0.0, (line_u - edges_u - start_u - end_u).to_px())
+    content = max(content, LayoutUnit.from_nearest(minimum).to_px())
     if maximum is not None:
-        content = min(content, maximum)
-    return UsedCrossStretch(content, content + edges)
+        content = min(content, LayoutUnit.from_nearest(maximum).to_px())
+    content_u = LayoutUnit.from_nearest(content)
+    return UsedCrossStretch(content_u.to_px(), (content_u + edges_u).to_px())

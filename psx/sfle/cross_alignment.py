@@ -11,6 +11,11 @@ from enum import Enum
 
 from .errors import DiagnosticCode, SFLECapabilityError
 from .flex_math import _number
+from .fixed_point import LayoutUnit
+
+
+def _lu(value: float) -> LayoutUnit:
+    return LayoutUnit.from_nearest(value)
 
 
 class CrossAlign(str, Enum):
@@ -56,11 +61,13 @@ def resolve_cross_alignment(
             DiagnosticCode.UNSUPPORTED_FEATURE,
             f"{chosen.value} needs a dedicated sizing/baseline stage.",
         )
-    free = line - border - start - end
+    line_u, border_u, start_u, end_u = map(_lu, (line, border, start, end))
+    free = line_u - border_u - start_u - end_u
     if chosen == CrossAlign.FLEX_START:
-        logical = start
+        logical = start_u
     elif chosen == CrossAlign.FLEX_END:
-        logical = start + free
+        logical = start_u + free
     else:
-        logical = start + free / 2.0
-    return logical if cross_forward else line - logical - border
+        logical = start_u + LayoutUnit.from_nearest(free.to_px() / 2.0)
+    physical = logical if cross_forward else line_u - logical - border_u
+    return physical.to_px()
