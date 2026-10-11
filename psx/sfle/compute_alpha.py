@@ -537,6 +537,27 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 "Unlisted indefinite inline percentage padding dependency cycle.",
                 node_id,
             )
+        # An intrinsically auto-sized containing axis cannot supply a used
+        # reference for a percentage min/max. Keep these dependency classes
+        # fail-closed until independently certified by Chromium.
+        if (st.min_width.kind == LengthKind.PERCENT and
+                not inline_reference_definite(node_id)):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted percentage minimum size dependency cycle.", node_id,
+            )
+        if (st.min_height.kind == LengthKind.PERCENT and
+                not block_reference_definite(node_id)):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted percentage minimum size dependency cycle.", node_id,
+            )
+        if (st.max_width.kind == LengthKind.PERCENT and
+                not inline_reference_definite(node_id)):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite percentage maximum size dependency cycle.", node_id,
+            )
         if st.max_height.kind == LengthKind.PERCENT and not block_reference_definite(node_id):
             raise SFLECapabilityError(
                 DiagnosticCode.UNSUPPORTED_FEATURE,

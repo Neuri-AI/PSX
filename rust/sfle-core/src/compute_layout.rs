@@ -858,6 +858,18 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
         if percentage_padding && !definite_inline(index,input,&styles,&indices,0) && !cyclic_padding[index]{
             return Err(unsupported("Unlisted indefinite inline percentage padding dependency cycle.",node));
         }
+        // Indefinite containing axes do not authorize implicit min/max
+        // percentages: reject with the same error class/node as Python.
+        if (matches!(st.min_width,Length::Percent(_))
+            && !definite_inline(index,input,&styles,&indices,0))
+            || (matches!(st.min_height,Length::Percent(_))
+                && !definite_block(index,input,&styles,&indices,0)){
+            return Err(unsupported("Unlisted percentage minimum size dependency cycle.",node));
+        }
+        if matches!(st.max_width,Length::Percent(_))
+            && !definite_inline(index,input,&styles,&indices,0){
+            return Err(unsupported("Unlisted indefinite percentage maximum size dependency cycle.",node));
+        }
         if matches!(st.max_height,Length::Percent(_))
             && !definite_block(index,input,&styles,&indices,0){
             return Err(unsupported("Unlisted indefinite percentage maximum size dependency cycle.",node));
