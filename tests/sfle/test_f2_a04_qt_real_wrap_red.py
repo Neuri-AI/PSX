@@ -14,8 +14,10 @@ def test_A04_qt_real_wrap_measures_twice_and_commits_final_geometry():
     parent=QtWidgets.QWidget()
     label=QtWidgets.QLabel("wrap "*55,parent)
     label.setWordWrap(True)
-    label.setStyleSheet("font: 10px monospace")
-    label.setWordWrap(True)
+    font=QtWidgets.QApplication.font()
+    font.setFamily("DejaVu Sans Mono")
+    font.setPixelSize(10)
+    label.setFont(font)
     calls=[]
     commits=[]
     engine=PythonLayoutEngine()
@@ -47,7 +49,7 @@ def test_A04_qt_real_wrap_measures_twice_and_commits_final_geometry():
         assert calls[0][1]>calls[1][1]
         assert len(commits)==1
         assert label.geometry().height()==pytest.approx(calls[-1][1],abs=1)
-        assert result.geometry_commit_error==pytest.approx(0,abs=0.01)
+        assert result.geometry_commit_error==pytest.approx(0.0,abs=1.0), "Qt native integer pixel geometry tolerance"
     finally:
         label.deleteLater()
         parent.deleteLater()
