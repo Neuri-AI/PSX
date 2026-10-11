@@ -35,6 +35,7 @@ struct Style {
     basis: Length,
     grow: f64,
     shrink: f64,
+    order: i32,
     min_width: Length,
     min_height: Length,
     align: CrossAlign,
@@ -98,6 +99,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
     for key in map.keys(){
         if !matches!(key.as_str(),"direction"|"width"|"height"|"layout_width"|"layout_height"|
             "flex_basis"|"flex_grow"|"flex_shrink"|"min_width"|"min_height"|
+            "order"|
             "layout_min_width"|"layout_min_height"|"align_items"|
             "wrap"|"justify_content"|"align_content"|"align_self"|
             "max_width"|"max_height"|"layout_max_width"|"layout_max_height"|
@@ -156,6 +158,15 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
             Some(ratio)
         },
     };
+    let order=match map.get("order") {
+        None=>0,
+        Some(value)=>{
+            let raw=value.as_i64().ok_or_else(||failure(
+                "SFLE_INVALID_LENGTH","order must be a signed integer.",Some(&input.node_id)))?;
+            i32::try_from(raw).map_err(|_|failure(
+                "SFLE_INVALID_LENGTH","order is outside the supported signed range.",Some(&input.node_id)))?
+        },
+    };
     Ok(Style{
         direction,align,wrap,justify,align_content,align_self,
         margin_top:if map.contains_key("layout_margin_top"){length(map.get("layout_margin_top"),&input.node_id)?}else{Length::Px(0.0)},
@@ -175,6 +186,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         basis:length(map.get("flex_basis"),&input.node_id)?,
         grow:factor(map.get("flex_grow"),0.0,&input.node_id)?,
         shrink:factor(map.get("flex_shrink"),1.0,&input.node_id)?,
+        order,
         min_width:length(value(map,&["layout_min_width","min_width"]),&input.node_id)?,
         min_height:length(value(map,&["layout_min_height","min_height"]),&input.node_id)?,
         aspect_ratio,
@@ -827,7 +839,7 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
                 cross_content_size:cross,
                 edges:BoxEdges{padding:resolved_padding,..BoxEdges::default()},
                 main_start,main_end,cross_start,cross_end,
-                order:0,align_self:st.align_self,cross_size_auto:false,
+                order:st.order,align_self:st.align_self,cross_size_auto:false,
                 min_cross_content_size:0.0,max_cross_content_size:None,
                 baseline_from_cross_start:None,
             });

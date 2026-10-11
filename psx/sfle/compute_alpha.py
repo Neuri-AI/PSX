@@ -46,6 +46,7 @@ class _Style:
     flex_basis: Length
     grow: float
     shrink: float
+    order: int
     min_width: Length
     min_height: Length
     align_items: CrossAlign
@@ -61,6 +62,7 @@ class _Style:
 _ALLOWED = frozenset({
     "direction", "width", "height", "layout_width", "layout_height",
     "flex_basis", "flex_grow", "flex_shrink", "min_width", "min_height",
+    "order",
     "layout_min_width", "layout_min_height", "align_items",
     "wrap", "justify_content", "align_content", "align_self",
     "max_width", "max_height", "layout_max_width", "layout_max_height",
@@ -107,6 +109,9 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
         grow, shrink = values.get("flex_grow", 0), values.get("flex_shrink", 1)
         if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v < float("inf") for v in (grow, shrink)):
             raise SFLEError(DiagnosticCode.INVALID_LENGTH, "Invalid flex factors.", node.node_id)
+        order = values.get("order", 0)
+        if isinstance(order, bool) or not isinstance(order, int):
+            raise SFLEError(DiagnosticCode.INVALID_LENGTH, "order must be a signed integer.", node.node_id)
         ratio = values.get("aspect_ratio")
         if ratio is not None:
             if isinstance(ratio, bool) or not isinstance(ratio, (int, float)) or not math.isfinite(ratio) or ratio <= 0:
@@ -129,6 +134,7 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
             flex_basis=_length(values, "flex_basis"),
             grow=float(grow),
             shrink=float(shrink),
+            order=order,
             min_width=_length(values, "layout_min_width", "min_width"),
             min_height=_length(values, "layout_min_height", "min_height"),
             align_items=alignment,
@@ -870,6 +876,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             main_start=main_start,main_end=main_end,
             cross_start=cross_start,cross_end=cross_end,
             align_self=item_st.align_self,
+            order=item_st.order,
             cross_size_auto=False,
         )
         resolved.append(MarginTreeNode(node_id,parent_id,width,height,item=item,
