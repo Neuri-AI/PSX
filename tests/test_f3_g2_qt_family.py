@@ -214,6 +214,51 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertIn(("apply", Rect(0, 0, 30, 18)), calls)
         self.assertIn("read", calls)
 
+    def test_native_binding_is_inferred_for_selected_toolkit(self):
+        inferred = Native(
+            qtwidgets.QLabel,
+            sfle_port=SFLEExternalPort(
+                measure=lambda w, c: IntrinsicSizes(4, 12, 4, 14, 12, 14),
+                apply=lambda w, r: w.setGeometry(
+                    round(r.x), round(r.y), round(r.width), round(r.height),
+                ),
+                read=lambda w: Rect(w.x(), w.y(), w.width(), w.height()),
+            ),
+            layout_width="12px", layout_height="14px",
+            flex_basis="12px", flex_shrink=0,
+        )
+        self.assertEqual(inferred.type.renderer, BINDING)
+        root = self.reconciler.render(Flex(inferred, width=160, height=80))
+        self.assertEqual(geometry(root.children[0].handle.widget), (0, 0, 12, 14))
+
+    def test_additional_certified_controls_preserve_native_types_and_geometry(self):
+        from psx import Radio, Select
+        specs = [
+            (Radio("r", label="Pick", key="radio",
+                   layout_width="70px", layout_height="24px",
+                   flex_basis="70px", flex_shrink=0), qtwidgets.QRadioButton, 70),
+            (ProgressBar(value=40, key="progress",
+                         layout_width="110px", layout_height="24px",
+                         flex_basis="110px", flex_shrink=0), qtwidgets.QProgressBar, 110),
+            (Select(options=["Alpha", "Beta"], value="Beta", key="select",
+                    layout_width="100px", layout_height="24px",
+                    flex_basis="100px", flex_shrink=0), qtwidgets.QComboBox, 100),
+        ]
+        root = self.reconciler.render(Flex(
+            *(node for node, _, _ in specs),
+            width="300px", height="80px", gap=5, align_items="flex-start",
+        ))
+        x = 0
+        for (vnode, expected_class, width), instance in zip(specs, root.children):
+            widget = instance.handle.widget
+            self.assertIsInstance(widget, expected_class, vnode.type)
+            self.assertIs(widget.parentWidget(), root.handle.widget)
+            self.assertIsNone(widget.layout())
+            self.assertEqual(geometry(widget), (x, 0, width, 24))
+            x += width + 5
+        self.assertEqual(root.children[1].handle.widget.value(), 40)
+        self.assertEqual(root.children[2].handle.widget.currentText(), "Beta")
+
     def test_registered_custom_adapter_uses_sfles_native_port(self):
         from psx.core.vnode import create_element
         from psx.renderers.qt.pyqt import QtHandle
