@@ -1,11 +1,15 @@
 # SFLE F3 — Intelligent CI and test selection policy
 
-> **NORMATIVE F3 HANDOFF — 2026-10-11. Implementation status: POLICY ONLY.**
+> **NORMATIVE F3 HANDOFF — 2026-10-11. Implementation status: SELECTOR IMPLEMENTED, FIRST CI VERIFIED.**
 > Feature branch: [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters), forked from
 > `develop` at `979b6ed9e86c63b640d498439045910ed1a189aa`.
-> This document is part of the F3 acceptance criteria; it **does not assert**
-> that GitHub Actions has already been modified, that a new selective
-> dispatcher exists or that any tests executed for these documentation edits.
+> The change selector is now implemented in `scripts/ci/impact.py`,
+> verified by `tests/test_ci_impact.py`, and wired to
+> `.github/workflows/f3-selective.yml`; F2 workflows are retained on
+> `main` or explicit manual dispatch while F3 PRs into `develop` use
+> selective routing. [Verified run #38150107662](https://github.com/Neuri-AI/PSX/actions/runs/38150107662)
+> finished GREEN on SHA `41860ae5553ee9d8c398f0b28b9dc479be8a69e1`.
+> This is an incremental selector certification, **not** G5 full F3 closure.
 > Authority: [F3 implementation plan](sfle-f3-implementation.md),
 > [F2 certified contracts](sfle-f2-final-certification.md) and
 > [F2-to-F3 migration](sfle-f2-migration-plan.md).

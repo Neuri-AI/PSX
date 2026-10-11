@@ -15,6 +15,7 @@ from .contracts import (
     BUTTON_CONTRACT,
     CHECKBOX_CONTRACT,
     COLUMN_CONTRACT,
+    FLEX_CONTRACT,
     DIVIDER_CONTRACT,
     IMAGE_CONTRACT,
     INPUT_CONTRACT,
@@ -125,6 +126,7 @@ def builtin_component_registry() -> ComponentRegistry:
         Button,
         Checkbox,
         Column,
+        Flex,
         Divider,
         Fragment,
         Input,
@@ -147,6 +149,7 @@ def builtin_component_registry() -> ComponentRegistry:
     )
 
     registry = ComponentRegistry()
+    registry.register("Flex", Flex, contract=FLEX_CONTRACT)
     registry.register_definition(ComponentDefinition(
         "Column", Column, contract=COLUMN_CONTRACT,
         markup_integer_properties=frozenset({"spacing", "padding"})))

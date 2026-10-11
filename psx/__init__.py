@@ -31,6 +31,7 @@ from .core.vnode import (
     Button,
     Checkbox,
     Column,
+    Flex,
     Fragment,
     Input,
     Row,
@@ -59,6 +60,7 @@ __all__ = [
     # Components
     "Button",
     "Column",
+    "Flex",
     "Checkbox",
     "TextArea",
     "Slider",

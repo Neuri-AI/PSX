@@ -41,6 +41,7 @@ from psx.core.contracts import (
     TEXTAREA_PROPS,
     TEXTAREA_DEFAULTS,
 
+    FLEX_CONTRACT,
     COLUMN_CONTRACT,
     COLUMN_PROPS,
     COLUMN_DEFAULTS,
@@ -227,6 +228,27 @@ def _layout(name: str, children: tuple[object, ...], spacing: int, key: Key | No
     if isinstance(spacing, bool) or not isinstance(spacing, int) or spacing < 0:
         raise ValueError("spacing must be a non-negative integer.")
     return create_element(name, *children, key=key, spacing=spacing, **props)
+
+
+def Flex(
+    *children: object,
+    direction: str = "row",
+    wrap: str = "nowrap",
+    justify_content: str = "flex-start",
+    align_items: str = "stretch",
+    align_content: str = "normal",
+    gap: int | float | str = 0,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Create a validated SFLE Flex declaration (G1; native wiring is G2)."""
+    options = dict(
+        direction=direction, wrap=wrap, justify_content=justify_content,
+        align_items=align_items, align_content=align_content, gap=gap, **props,
+    )
+    FLEX_CONTRACT.validate_builder(options)
+    return create_element("Flex", *children, key=key, ref=ref, **options)
 
 
 def Row(

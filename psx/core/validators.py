@@ -18,6 +18,8 @@ from .contracts import (
     ROW_PROPS,
     ROW_DEFAULTS,
     COLUMN_PROPS,
+    FLEX_PROPS,
+    FLEX_DEFAULTS,
     COLUMN_DEFAULTS,
     SLIDER_PROPS,
     SLIDER_DEFAULTS,
@@ -330,6 +332,72 @@ def _validate_padding(value: object, name: str) -> None:
                 )
         return
     raise RendererCapabilityError(f"{name} must be int or tuple of ints.")
+
+
+def validate_flex_props(props: Mapping[str, object]) -> None:
+    """Validate portable Flex syntax; SFLE later validates semantic support."""
+    unknown = set(props) - FLEX_PROPS - {"ref", "key"}
+    if unknown:
+        raise RendererCapabilityError(
+            f"Unsupported Flex props: {', '.join(sorted(unknown))}")
+    enums = {
+        "direction": ("row", "row-reverse", "column", "column-reverse"),
+        "wrap": ("nowrap", "wrap", "wrap-reverse"),
+        "justify_content": ("flex-start", "flex-end", "center",
+                            "space-between", "space-around", "space-evenly"),
+        "align_items": ("stretch", "flex-start", "flex-end", "center", "baseline"),
+        "align_content": ("normal", "stretch", "flex-start", "flex-end",
+                          "center", "space-between", "space-around", "space-evenly"),
+        "align_self": ("auto", "stretch", "flex-start", "flex-end", "center", "baseline"),
+    }
+    for name, allowed in enums.items():
+        if name in props and props[name] not in allowed:
+            raise RendererCapabilityError(f"Invalid Flex.{name}: {props[name]!r}.")
+    from psx.sfle.lengths import parse_length, LengthKind
+    def check_length(name: str, value: object, *, allow_auto: bool = False,
+                     allow_none: bool = False, intrinsic: bool = False) -> None:
+        try:
+            parsed = parse_length(value)
+        except (TypeError, ValueError) as error:
+            raise RendererCapabilityError(f"Invalid Flex.{name} length.") from error
+        allowed = {LengthKind.PX, LengthKind.PERCENT}
+        if allow_auto:
+            allowed.add(LengthKind.AUTO)
+        if allow_none:
+            allowed.add(LengthKind.NONE)
+        if intrinsic:
+            allowed.update((LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT))
+        if parsed.kind not in allowed or (parsed.value is not None and parsed.value < 0):
+            raise RendererCapabilityError(f"Unsupported Flex.{name} length.")
+    for name in ("gap", "row_gap", "column_gap"):
+        if name in props:
+            check_length(name, props[name])
+    for name in ("width", "height", "flex_basis", "layout_width", "layout_height",
+                 "min_width", "min_height", "layout_min_width", "layout_min_height"):
+        if name in props:
+            check_length(name, props[name], allow_auto=True, intrinsic=True)
+    for name in ("max_width", "max_height", "layout_max_width", "layout_max_height"):
+        if name in props:
+            check_length(name, props[name], allow_none=True, intrinsic=True)
+    if "padding" in props:
+        edges = props["padding"]
+        if not isinstance(edges, (tuple, list)):
+            edges = (edges,)
+        if len(edges) not in (1, 2, 4):
+            raise RendererCapabilityError("Flex.padding requires 1, 2 or 4 lengths.")
+        for edge in edges:
+            check_length("padding", edge)
+    for name in ("flex_grow", "flex_shrink"):
+        if name in props:
+            value = props[name]
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) or value < 0):
+                raise RendererCapabilityError(f"Flex.{name} must be finite and >= 0.")
+    if "order" in props:
+        value = props["order"]
+        if (isinstance(value, bool) or not isinstance(value, int)
+                or not -(1 << 31) <= value < (1 << 31)):
+            raise RendererCapabilityError("Flex.order must be signed 32-bit.")
 
 
 def validate_column_props(props: Mapping[str, object]) -> None:

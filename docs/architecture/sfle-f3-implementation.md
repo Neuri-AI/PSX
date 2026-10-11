@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: PLANNED / IMPLEMENTATION NOT STARTED.** Created 2026-10-11
+> **STATUS: F3-G1 IN PROGRESS; G2–G5 NOT STARTED.** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation

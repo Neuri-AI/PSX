@@ -16,6 +16,7 @@ from .validators import (
     validate_button_props,
     validate_checkbox_props,
     validate_column_props,
+    validate_flex_props,
     validate_input_props,
     validate_row_props,
     validate_slider_props,
@@ -110,6 +111,11 @@ INPUT_CONTRACT = ComponentContract(
     "none",
     validate_input_props,
 )
+FLEX_CONTRACT = ComponentContract(
+    "Flex", FLEX_PROPS, FLEX_DEFAULTS,
+    frozenset(), "multiple", validate_flex_props,
+)
+
 COLUMN_CONTRACT = ComponentContract(
     "Column",
     COLUMN_PROPS,
