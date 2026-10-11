@@ -433,7 +433,9 @@ impl Context<'_>{
                 }
                 self.layout(child,cross,Some(target),width,height)?
             };
-            cross_sizes.push(if row{ch}else{cw});
+            // CSS auto cross contribution is the entire child padding box,
+            // not merely the content size returned by recursive layout.
+            cross_sizes.push(if row{ch+padding_box.top+padding_box.bottom}else{cw+padding_box.left+padding_box.right});
         }
         if height.is_none(){height=Some(cross_sizes.into_iter().fold(0.0_f64,f64::max));}
         let dims=(width.unwrap(),height.unwrap());
