@@ -1,6 +1,6 @@
 # SFLE F2 — consolidated implementation and acceptance register
 
-> **Single current status table** as of 2026-10-10. Verified code baseline: `2b65ee7f39a396804e2bcbff695ec70436664567` on `feat/sfle-f2-core`, PR #11.  
+> **Single current status table** as of 2026-10-10. Verified code baseline: `66421243b218c902f2ad0cf3ba14745efef82a06` on `feat/sfle-f2-core`, PR #11.  
 > **F2 is NOT complete and the public SFLE capability manifest remains CLOSED.** Numerical success of a restricted fixture is not evidence that the whole CSS feature is supported. No historical 4/8 or 5/8 progress counts are accepted.
 
 ## 1. Normative authority and scope
@@ -111,6 +111,13 @@ The Qt asynchronous worker dispatcher is covered by `test_f2_qt_worker_async_red
 - **Observed outcome contradicts the 80/20/0 expectation:** [Chromium run 38101986591](https://github.com/Neuri-AI/PSX/actions/runs/38101986591) reports **69 matched / 20 rejected / 11 silent discrepancies** on 100 deterministic cases with seed `0x5F1E2026`, threshold **0.01px** unchanged. The unresolved case IDs are **08, 15, 22, 24, 25, 33, 50, 68, 71, 75, 76**. Applying independent final-dimension rounding introduces new failures, because Chromium's flex rounding allocation also depends on the distribution and ordering of fractional remainders. **The fuzz gate is RED, not closed.** Do not claim 80/20/0 or hide these cases.
 - Qt worker **independent RED**: `tests/sfle/test_f2_qt_worker_cancel_red.py` commit `52fe9822` required explicit queued-transaction cancellation and **0 native commits**; [SFLE Core 38101986605](https://github.com/Neuri-AI/PSX/actions/runs/38101986605) shows **1 failed / 363 passed**, with the expected `AttributeError: 'QtLayoutHandle' object has no attribute 'cancel'`. Production cancel support followed in `2b65ee7f`: flagging requests before UI measurements and before final commit. [SFLE Core 38102046614](https://github.com/Neuri-AI/PSX/actions/runs/38102046614) subsequently shows **364 passed (Python 3.12), 0 skipped**, plus all eight SFLE jobs green. This restores visible RED/GREEN evidence, not by making a previously passing test fail artificially, but by requiring a real missing cancellation contract.
 - Qt cancellation, async positive dispatch and UI affinity are validated. Platform toolkit parity, generalized CSS dependency classification, wheel matrices, integrated A07 and A09 remain open. Public manifest CLOSED.
+
+### 2026-10-10 — stepwise margin positioning quantization (verified outcome)
+
+- Python `54533742` and Rust `4b5a975c` quantize **each** forward/reverse main-axis cursor increment: start margin, border width, end margin and between-item spacing, with `floor(value * 64.0 + 0.5) / 64.0`. Python `83793ede` and Rust `8e804f51` quantize root border/padding coordinate offsets and each recursive child translation in the margin tree, *before subsequent descendant placement*, not as a post-hoc `compute_snapshot` box rewrite.
+- The existing mathematical `space-evenly` position expectation in `test_justify_pipeline.py` was updated in `66421243` from exact irrational thirds to the explicit subpixel coordinates `(16.671875, 63.34375)`; the assertion remains exact to the existing default tolerance, with no test skipped.
+- **Chromium RED** [run 38102479927](https://github.com/Neuri-AI/PSX/actions/runs/38102479927), on the stepwise implementation: seed `0x5F1E2026`, **69 matched / 20 unsupported / 11 silent discrepancies**, exactly the same cases as before. The reported failures compare **border widths**, which are determined *before* main-axis cursor translation. Therefore position-only quantization cannot eliminate these target-width mismatches. Remnant allocation within `resolve_flexible_lengths` or its consumed used targets requires independent browser differential tests; do not claim closure or change 0.01px. Fuzz remains FAIL.
+- The user-required alpha manifest stays CLOSED and F2 remains OPEN.
 
 ## 5. Explicit deferred-feature register
 
