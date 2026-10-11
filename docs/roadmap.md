@@ -52,6 +52,35 @@ syntax-error recovery, frozen/production disable, snapshot validation and
 diagnostics tests. Native GUI smoke tests complement, but do not replace,
 deterministic headless tests.
 
+## Pending — SFLE CSS extensions after the F2 alpha scope
+
+**Recorded 2026-10-11. Decision status: PROPOSED DEFERRAL, NOT YET APPROVED.**
+The user requested that both features be kept in this durable roadmap **if
+they are deferred**. They are not silently implemented, not included in the
+current frozen F2 alpha capability subset, and neither deferral is formally
+authorized until the user confirms the corresponding point-5 selection.
+See [F2 five-point closure tracker](architecture/sfle-f2-implementation.md).
+
+| ID | Deferred candidate / feature | User-visible value | Remaining implementation and certification | Planned timing / status |
+| --- | --- | --- | --- | --- |
+| **SFLE-CSS-01** | `aspect_ratio` and replaced-element transferred intrinsic sizing (images/media) | An image or other replaced element can infer its missing height from width and ratio (or vice versa), including native intrinsic sizing. | Define sizing rules and transferred size suggestions with min/max and box model constraints; implement in both Rust and Python; verify identical accepted/rejected classes and diagnostics, Chromium geometry ≤0.01 logical px and native projected geometry ≤1 px, including invalid ratios and fallback. | **Post-F2 CSS enhancement if explicitly deferred at point 5**; milestone/iteration unassigned; not assumed part of F3. |
+| **SFLE-CSS-02** | Intrinsically `auto`-sized Flex container with `flex_wrap` / multi-line sizing | A wrapping Flex can determine its own dimensions from children instead of requiring definite width/height to form and size lines. | Implement intrinsic size contribution and wrapped line formation under indefinite constraints, dependencies and min/max constraints; match Chromium and Rust/Python geometry/diagnostics including pathological and recursive cases; certify supported bounds and fail-closed behavior. | **Post-F2 CSS enhancement if explicitly deferred at point 5**; milestone/iteration unassigned; not assumed part of F3. |
+
+**Safeguards until implementation:** retain existing supported fixed-size
+`flex_wrap` semantics; unsupported ratio/replaced and intrinsic auto-wrap
+cases must fail clearly and consistently in Rust/Python, without silent
+fallback, fabricated geometry or advertised support. Explicitly test these
+rejections during F2's final capability/diagnostic review.
+
+**How to retrieve this later:** ask for `SFLE-CSS-01` or `SFLE-CSS-02`,
+or the "SFLE pending CSS extensions" section of this roadmap. When the
+user approves deferral in the point-5 form, update both rows from
+`PROPOSED DEFERRAL` to `DEFERRED — APPROVED`, record the approval
+and exact frozen support limitations in the F2 tracker, then assess the
+seven normative exit checks and required same-commit CI **before** declaring
+F2 CLOSED. F3 remains the native renderer integration/migration phase,
+not a catch-all for unimplemented CSS features.
+
 ## Pending — portable Flexbox/Grid layout system (proposal)
 
 **Architecture document:** [SFLE — Shared Flex Layout Engine](architecture/sfle.md).
