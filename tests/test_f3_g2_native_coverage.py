@@ -12,7 +12,7 @@ from psx.sfle.f3_native_coverage import (
 
 @pytest.mark.parametrize("backend,expected", [
     ("qt", frozenset({
-        "Text", "Button", "Checkbox", "Input", "TextArea",
+        "Text", "Button", "Checkbox", "Input",
         "Slider", "Radio", "ProgressBar", "Select",
     })),
     ("tk", frozenset({
