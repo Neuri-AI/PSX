@@ -101,8 +101,10 @@ def resolve_percentage_flex_constraints(
 
     if maximum.kind == ResolutionKind.USED:
         maximum_value = maximum.value
-    elif maximum.kind in (ResolutionKind.NONE, ResolutionKind.UNRESOLVED_PERCENT):
+    elif maximum.kind == ResolutionKind.NONE:
         maximum_value = None
+    elif maximum.kind == ResolutionKind.UNRESOLVED_PERCENT:
+        _needs_used("Maximum main size", maximum.kind)
     elif maximum.kind == ResolutionKind.INTRINSIC and request.intrinsic is not None:
         metric = request.intrinsic.intrinsic
         if request.horizontal:

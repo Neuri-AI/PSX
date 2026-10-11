@@ -48,7 +48,11 @@ pub fn resolve_percentage_flex_constraints(
     };
     let maximum = match resolve(request.maximum, max_prop)? {
         ResolvedLength::Used(value) => Some(value),
-        ResolvedLength::None | ResolvedLength::UnresolvedPercent => None,
+        ResolvedLength::None => None,
+        ResolvedLength::UnresolvedPercent =>
+            return Err(FlexMathError::InvalidInput(
+                "maximum needs measurement/dependency phase",
+            )),
         ResolvedLength::Intrinsic if request.intrinsic.is_some() => {
             let intrinsic=request.intrinsic.expect("checked intrinsic");
             let min=matches!(request.maximum,Length::MinContent);
@@ -119,6 +123,14 @@ mod tests {
     fn indefinite_minimum_is_not_silently_zero() {
         let mut req = fixture();
         req.containing_main_axis_size.definite = false;
+        assert!(resolve_percentage_flex_constraints(req).is_err());
+    }
+
+    #[test]
+    fn indefinite_percent_maximum_fails_closed() {
+        let mut req = fixture();
+        req.minimum = Length::Px(0.0);
+        req.containing_main_axis_size = AvailableSize { value: None, definite: false };
         assert!(resolve_percentage_flex_constraints(req).is_err());
     }
 
