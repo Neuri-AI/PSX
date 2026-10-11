@@ -10,6 +10,25 @@ from dataclasses import dataclass
 from enum import Enum
 
 from .flex_math import _number
+from .fixed_point import LayoutUnit
+
+
+def _unit(value: float) -> float:
+    return LayoutUnit.from_nearest(value).to_px()
+
+
+def _sum(*values: float) -> float:
+    total = LayoutUnit.from_raw(0)
+    for value in values:
+        total = total + LayoutUnit.from_nearest(value)
+    return total.to_px()
+
+
+def _sub(value: float, *deductions: float) -> float:
+    total = LayoutUnit.from_nearest(value)
+    for deduction in deductions:
+        total = total - LayoutUnit.from_nearest(deduction)
+    return total.to_px()
 
 
 class AlignContent(str, Enum):
@@ -51,9 +70,9 @@ def distribute_cross_lines(
         raise TypeError("forward/nowrap must be bool.")
     if not isinstance(line_sizes, tuple):
         raise TypeError("line_sizes must be a tuple.")
-    extent = _number(container_cross_size, "container_cross_size")
-    fixed_gap = _number(gap, "gap")
-    sizes = tuple(_number(n, "line_cross_size") for n in line_sizes)
+    extent = _unit(_number(container_cross_size, "container_cross_size"))
+    fixed_gap = _unit(_number(gap, "gap"))
+    sizes = tuple(_unit(_number(n, "line_cross_size")) for n in line_sizes)
     if extent < 0 or fixed_gap < 0 or any(n < 0 for n in sizes):
         raise ValueError("Cross dimensions and gaps must be nonnegative.")
     count = len(sizes)
@@ -63,7 +82,7 @@ def distribute_cross_lines(
         return CrossLineDistribution((), (), extent)
     if nowrap:
         sizes = (extent,)
-    free = extent - sum(sizes) - fixed_gap * (count - 1)
+    free = _sub(extent, _sum(*sizes, *([fixed_gap] * (count - 1))))
     lead = 0.0
     between = fixed_gap
     if not nowrap:
@@ -72,23 +91,23 @@ def distribute_cross_lines(
         elif mode == AlignContent.CENTER:
             lead = free / 2
         elif mode == AlignContent.SPACE_BETWEEN and count > 1:
-            between += max(0.0, free) / (count - 1)
+            between = _sum(between, max(0.0, free) / (count - 1))
         elif mode == AlignContent.SPACE_AROUND and free > 0:
-            between += free / count
+            between = _sum(between, free / count)
             lead = free / (2 * count)
         elif mode == AlignContent.SPACE_EVENLY and free > 0:
-            between += free / (count + 1)
+            between = _sum(between, free / (count + 1))
             lead = free / (count + 1)
         elif mode == AlignContent.STRETCH and free > 0:
-            sizes = tuple(size + free / count for size in sizes)
-    cursor = lead if forward else extent - lead
+            sizes = tuple(_sum(size, free / count) for size in sizes)
+    cursor = _unit(lead if forward else _sub(extent, lead))
     positions: list[float] = []
     for size in sizes:
         if forward:
             positions.append(cursor)
-            cursor += size + between
+            cursor = _sum(cursor, size, between)
         else:
-            cursor -= size
+            cursor = _sub(cursor, size)
             positions.append(cursor)
-            cursor -= between
+            cursor = _sub(cursor, between)
     return CrossLineDistribution(tuple(positions), sizes, free)

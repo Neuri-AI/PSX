@@ -1,6 +1,11 @@
 //! F2.2.3 resolved align-content physical multi-line distribution.
 
 use crate::FlexMathError;
+use crate::layout_unit::LayoutUnit;
+
+fn unit(value:f64)->f64 { LayoutUnit::from_nearest(value).expect("validated geometry").to_px() }
+fn sum(values:impl IntoIterator<Item=f64>)->f64 { values.into_iter().fold(LayoutUnit::from_raw(0),|a,v|a+LayoutUnit::from_nearest(v).expect("validated geometry")).to_px() }
+fn sub(value:f64, values:impl IntoIterator<Item=f64>)->f64 { values.into_iter().fold(LayoutUnit::from_nearest(value).expect("validated geometry"),|a,v|a-LayoutUnit::from_nearest(v).expect("validated geometry")).to_px() }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AlignContent {
@@ -29,47 +34,48 @@ pub fn distribute_cross_lines(
     {
         return Err(FlexMathError::InvalidInput("invalid resolved cross-line input"));
     }
+    let extent=unit(container_cross_size);
+    let gap=unit(gap);
     let count = line_sizes.len();
     if count == 0 {
         return Ok(CrossLineDistribution {
-            starts: vec![], sizes: vec![], free_space: container_cross_size,
+            starts: vec![], sizes: vec![], free_space: extent,
         });
     }
-    let mut sizes = if nowrap { vec![container_cross_size] }
-                    else { line_sizes.to_vec() };
-    let free = container_cross_size - sizes.iter().sum::<f64>()
-        - gap * count.saturating_sub(1) as f64;
+    let mut sizes = if nowrap { vec![extent] }
+                    else { line_sizes.iter().map(|v|unit(*v)).collect() };
+    let free = sub(extent, sizes.iter().copied().chain(std::iter::repeat(gap).take(count.saturating_sub(1))));
     let mut leading = 0.0;
     let mut between = gap;
     if !nowrap {
         match mode {
             AlignContent::FlexEnd => leading = free,
             AlignContent::Center => leading = free / 2.0,
-            AlignContent::SpaceBetween if count > 1 => between += free.max(0.0) / (count - 1) as f64,
+            AlignContent::SpaceBetween if count > 1 => between = sum([between, free.max(0.0) / (count - 1) as f64]),
             AlignContent::SpaceAround if free > 0.0 => {
-                between += free / count as f64;
+                between = sum([between, free / count as f64]);
                 leading = free / (2 * count) as f64;
             }
             AlignContent::SpaceEvenly if free > 0.0 => {
-                between += free / (count + 1) as f64;
+                between = sum([between, free / (count + 1) as f64]);
                 leading = free / (count + 1) as f64;
             }
             AlignContent::Stretch if free > 0.0 => {
-                for size in &mut sizes { *size += free / count as f64; }
+                for size in &mut sizes { *size = sum([*size, free / count as f64]); }
             }
             _ => {}
         }
     }
-    let mut cursor = if forward { leading } else { container_cross_size - leading };
+    let mut cursor = unit(if forward { leading } else { sub(extent, [leading]) });
     let mut starts = Vec::with_capacity(count);
     for size in &sizes {
         if forward {
             starts.push(cursor);
-            cursor += size + between;
+            cursor = sum([cursor, *size, between]);
         } else {
-            cursor -= size;
+            cursor = sub(cursor, [*size]);
             starts.push(cursor);
-            cursor -= between;
+            cursor = sub(cursor, [between]);
         }
     }
     Ok(CrossLineDistribution { starts, sizes, free_space: free })
