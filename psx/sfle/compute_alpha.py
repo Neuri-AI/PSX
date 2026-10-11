@@ -7,6 +7,7 @@ layout-time native measurement may cross this boundary.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 
 from .errors import DiagnosticCode, SFLECapabilityError, SFLEError
 from .flex_math import FlexBasis, resolve_flexible_lengths
@@ -142,7 +143,10 @@ def _used_gap(length: Length, reference: float, node_id: str) -> float:
     _intrinsic_gap(length, node_id)
     if length.kind == LengthKind.PERCENT:
         assert length.value is not None
-        return length.value * reference
+        # Chromium exposes used flex gaps on a 1/64 CSS-pixel layout grid.
+        # Quantize each resolved gap before placement: rounding only the
+        # accumulated x-coordinate loses intermediate browser rounding.
+        return math.floor(length.value * reference * 64 + 0.5) / 64
     assert length.value is not None
     return length.value
 
