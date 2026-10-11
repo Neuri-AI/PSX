@@ -119,6 +119,9 @@ The Qt asynchronous worker dispatcher is covered by `test_f2_qt_worker_async_red
 - **Chromium RED** [run 38102479927](https://github.com/Neuri-AI/PSX/actions/runs/38102479927), on the stepwise implementation: seed `0x5F1E2026`, **69 matched / 20 unsupported / 11 silent discrepancies**, exactly the same cases as before. The reported failures compare **border widths**, which are determined *before* main-axis cursor translation. Therefore position-only quantization cannot eliminate these target-width mismatches. Remnant allocation within `resolve_flexible_lengths` or its consumed used targets requires independent browser differential tests; do not claim closure or change 0.01px. Fuzz remains FAIL.
 - The user-required alpha manifest stays CLOSED and F2 remains OPEN.
 
+
+Final documented verification on commit `b9a6e11d`: [SFLE core 38102572077](https://github.com/Neuri-AI/PSX/actions/runs/38102572077) PASS, [PSX Alpha 38102572010](https://github.com/Neuri-AI/PSX/actions/runs/38102572010) PASS, [Chromium 38102572022](https://github.com/Neuri-AI/PSX/actions/runs/38102572022) FAIL (**12 failed, 113 passed**), fuzz **69/20/11** unchanged. No fallback or test exclusion.
+
 ## 5. Explicit deferred-feature register
 
 | Feature | Why deferred | Required diagnostic on both engines | Normative placement |
