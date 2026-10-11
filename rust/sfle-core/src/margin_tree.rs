@@ -11,6 +11,7 @@ use crate::margin_flex_pipeline::{
 };
 use crate::intrinsic::{IntrinsicFlexInput, build_intrinsic_flex_basis};
 use crate::FlexMathError;
+use crate::layout_unit::LayoutUnit;
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -36,9 +37,16 @@ pub struct MarginTreeLayout {
     pub boxes: Vec<MarginFlexBox>,
 }
 
-fn layout_unit(value:f64)->f64 {(value*64.0+0.5).floor()/64.0}
+fn to_unit(value:f64)->LayoutUnit {
+    LayoutUnit::from_nearest(value).expect("validated finite margin-tree geometry")
+}
+fn layout_unit(value:f64)->f64 {to_unit(value).to_px()}
+fn unit_sum(values:&[f64])->f64 {
+    values.iter().fold(LayoutUnit::from_raw(0),|acc,value|acc+to_unit(*value)).to_px()
+}
 fn translate(r: Rect, x: f64, y: f64) -> Rect {
-    Rect { x: layout_unit(layout_unit(r.x)+x), y:layout_unit(layout_unit(r.y)+y), ..r }
+    Rect {x:unit_sum(&[r.x,x]),y:unit_sum(&[r.y,y]),
+          width:layout_unit(r.width),height:layout_unit(r.height)}
 }
 fn translate_box(mut b: MarginFlexBox, x: f64, y: f64) -> MarginFlexBox {
     b.content=translate(b.content,x,y);
@@ -82,23 +90,35 @@ pub fn compute_margin_tree(
         }
         children.insert(node.id.as_str(),vec![]);
     }
+    // Root physical edges are resolved inputs. Reject malformed nonfinite
+    // values before any infallible fixed-point accumulation.
+    let root_edges=&nodes[0].edges;
+    let root_values=[
+        root_edges.padding.top,root_edges.padding.right,
+        root_edges.padding.bottom,root_edges.padding.left,
+        root_edges.border.top,root_edges.border.right,
+        root_edges.border.bottom,root_edges.border.left,
+    ];
+    if root_values.iter().any(|v|!v.is_finite()||*v<0.0) {
+        return Err(FlexMathError::InvalidInput("nonfinite/negative root box edge"));
+    }
     let root=&nodes[0];
     let e=root.edges;
     let content=Rect {
-        x:layout_unit(layout_unit(e.border.left)+e.padding.left),
-        y:layout_unit(layout_unit(e.border.top)+e.padding.top),
-        width:root.width,
-        height:root.height,
+        x:unit_sum(&[e.border.left,e.padding.left]),
+        y:unit_sum(&[e.border.top,e.padding.top]),
+        width:layout_unit(root.width),
+        height:layout_unit(root.height),
     };
     let padding=Rect {
         x:layout_unit(e.border.left),y:layout_unit(e.border.top),
-        width:root.width+e.padding.left+e.padding.right,
-        height:root.height+e.padding.top+e.padding.bottom,
+        width:unit_sum(&[root.width,e.padding.left,e.padding.right]),
+        height:unit_sum(&[root.height,e.padding.top,e.padding.bottom]),
     };
     let border=Rect {
         x:0.0,y:0.0,
-        width:padding.width+e.border.left+e.border.right,
-        height:padding.height+e.border.top+e.border.bottom,
+        width:unit_sum(&[padding.width,e.border.left,e.border.right]),
+        height:unit_sum(&[padding.height,e.border.top,e.border.bottom]),
     };
     let mut geometry:HashMap<&str,MarginFlexBox>=HashMap::new();
     geometry.insert(root.id.as_str(),MarginFlexBox{
