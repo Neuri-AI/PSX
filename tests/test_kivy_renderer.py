@@ -73,3 +73,25 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         if "Unable to get a Window" in result.stderr or "Unable to get a Window" in result.stdout:
             self.skipTest("Kivy is installed but this test host has no usable native window provider.")
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_flex_has_explicit_g1_route_without_boxlayout_fallback(self) -> None:
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1"})
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        script = textwrap.dedent("""
+            from psx import Flex, Text
+            from psx.core.errors import RendererCapabilityError
+            from psx.renderers.kivy.kivy import KivyRenderer
+
+            renderer = KivyRenderer()
+            assert renderer.adapters.get("Flex") is not None
+            try:
+                renderer.create(Flex(Text("A")), None)
+            except RendererCapabilityError as exc:
+                assert "F3-G2 SFLE geometry" in str(exc)
+            else:
+                raise AssertionError("Flex silently delegated geometry to native Kivy")
+        """)
+        result = subprocess.run([sys.executable, "-c", script], env=environment,
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)

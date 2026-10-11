@@ -31,6 +31,15 @@ class TkinterRendererTests(unittest.TestCase):
         self.reconciler = Reconciler(self.renderer)
         self.addCleanup(self.reconciler.unmount)
 
+
+    def test_flex_has_explicit_g1_route_without_pack_layout_fallback(self) -> None:
+        from psx import Flex
+        from psx.core.errors import RendererCapabilityError
+
+        self.assertIsNotNone(self.renderer.adapters.get("Flex"))
+        with self.assertRaisesRegex(RendererCapabilityError, "F3-G2 SFLE geometry"):
+            self.renderer.create(Flex(Text("A")), None)
+
     def test_counter_reuses_ttk_widgets_and_updates_on_the_tk_scheduler(self) -> None:
         @component
         def Counter():

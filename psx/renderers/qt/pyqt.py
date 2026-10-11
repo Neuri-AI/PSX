@@ -322,7 +322,7 @@ class QtRenderer:
 
         self.adapters = RendererAdapterRegistry()
         self._default_adapter = DelegatingAdapter()
-        for component in (*_LAYOUTS, "Fragment", *_PRIMITIVES, "Native"):
+        for component in (*_LAYOUTS, "Fragment", "Flex", *_PRIMITIVES, "Native"):
             self.adapters.register(component, self._default_adapter)
 
         # Register built-in adapters for common components. 
@@ -370,6 +370,10 @@ class QtRenderer:
         return self._adapter_for(adapter_key(node)).create(self, node, parent)
 
     def _adapter_create(self, node: VNode, parent: object | None) -> QtHandle:
+        if node.kind is NodeKind.HOST and node.type == "Flex":
+            raise RendererCapabilityError(
+                "Flex requires the F3-G2 SFLE geometry adapter for Qt; "
+                "native fallback layout is forbidden.")
         _validate_props(node)
         if node.kind is NodeKind.NATIVE:
             native_parent = _handle(

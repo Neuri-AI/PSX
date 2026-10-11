@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from threading import RLock
 
+from psx.core.errors import RendererCapabilityError
 from psx.core.events import EventSlot
 from psx.core.vnode import NodeKind, VNode
 from psx.renderers.adapters import (
@@ -66,7 +67,7 @@ class HeadlessRenderer:
         self.adapters = RendererAdapterRegistry()
         self._default_adapter = DelegatingAdapter()
         for component in (
-            "Column", "Row", "Fragment",
+            "Column", "Row", "Fragment", "Flex",
             "Text", "Button", "Input", "TextArea", "Checkbox", "Slider",
             "Spacer", "Divider", "Image", "ProgressBar",
             "Radio", "RadioGroup", "Select", "Switch", "Link", "Badge", "SpinBox", "Scroll", "Box", "Native",
@@ -81,6 +82,10 @@ class HeadlessRenderer:
         return adapter.create(self, node, parent)  # type: ignore[return-value]
 
     def _adapter_create(self, node: VNode, parent: object | None) -> HeadlessHandle:
+        if node.kind is NodeKind.HOST and node.type == "Flex":
+            raise RendererCapabilityError(
+                "Flex requires the F3-G2 SFLE geometry adapter for Headless; "
+                "native fallback layout is forbidden.")
         if node.kind is NodeKind.HOST:
             if node.type == "Text":
                 validate_text_props(node.props)

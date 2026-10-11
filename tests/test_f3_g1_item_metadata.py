@@ -208,3 +208,23 @@ def test_fragments_and_keys_remain_unmodified_for_reorder_and_disposal() -> None
 def test_item_lengths_accept_typed_sfle_values() -> None:
     node = Text("A", layout_width=Length(LengthKind.PERCENT, 0.5))
     assert node.props["layout_width"].kind is LengthKind.PERCENT
+
+
+def test_headless_flex_router_fails_closed_without_g2_geometry() -> None:
+    from psx.renderers.headless import HeadlessRenderer
+
+    renderer = HeadlessRenderer()
+    assert renderer.adapters.get("Flex") is not None
+    with pytest.raises(RendererCapabilityError, match="F3-G2 SFLE geometry"):
+        renderer.create(Flex(Text("not yet rendered")), None)
+    assert renderer.operations == []  # No fake native box was allocated.
+
+
+def test_normalized_disposal_and_reorder_excludes_stale_participants() -> None:
+    original = normalize_flex_tree(Flex(Text("A", key="a"), Text("B", key="b")))
+    updated = normalize_flex_tree(Flex(Text("B", key="b"), Text("C", key="c")))
+    old_paths = {node.source.key: node.path for node in original.effective_children}
+    new_paths = {node.source.key: node.path for node in updated.effective_children}
+    assert new_paths["b"] == old_paths["b"]
+    assert "a" not in new_paths
+    assert "c" not in old_paths

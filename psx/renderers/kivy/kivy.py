@@ -306,7 +306,7 @@ class KivyRenderer:
         self.adapters = RendererAdapterRegistry()
         self._default_adapter = DelegatingAdapter()
         # "Input" stays reserved (unsupported in Kivy) so custom adapters still need replace=True.
-        for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Input", "Native")):
+        for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Flex", "Input", "Native")):
             self.adapters.register(component, self._default_adapter)
         from .column import KivyColumnAdapter
         from .row import KivyRowAdapter
@@ -348,6 +348,10 @@ class KivyRenderer:
         return self._adapter_for(adapter_key(node)).create(self, node, parent)
 
     def _adapter_create(self, node: VNode, parent: object | None) -> KivyHandle:
+        if node.kind is NodeKind.HOST and node.type == "Flex":
+            raise RendererCapabilityError(
+                "Flex requires the F3-G2 SFLE geometry adapter for Kivy; "
+                "native fallback layout is forbidden.")
         _validate_props(node)
         if node.kind is NodeKind.NATIVE:
             native_parent = _handle(

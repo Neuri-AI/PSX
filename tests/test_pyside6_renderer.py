@@ -32,6 +32,14 @@ class PySide6RendererTests(unittest.TestCase):
         self.reconciler.unmount()
         self.renderer.application.processEvents()
 
+
+    def test_flex_has_explicit_g1_route_without_legacy_qboxlayout_fallback(self) -> None:
+        from psx import Flex
+
+        self.assertIsNotNone(self.renderer.adapters.get("Flex"))
+        with self.assertRaisesRegex(RendererCapabilityError, "F3-G2 SFLE geometry"):
+            self.renderer.create(Flex(Text("A")), None)
+
     def test_counter_update_reuses_qwidgets(self) -> None:
         calls: list[str] = []
         root = self.reconciler.render(

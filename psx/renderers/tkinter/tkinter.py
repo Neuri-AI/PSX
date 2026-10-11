@@ -290,7 +290,7 @@ class TkinterRenderer:
         self.adapters = RendererAdapterRegistry()
         self._default_adapter = DelegatingAdapter()
         # "Input" stays reserved (unsupported in Tk) so custom adapters still need replace=True.
-        for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Input", "Native")):
+        for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Flex", "Input", "Native")):
             self.adapters.register(component, self._default_adapter)
         from .column import TkColumnAdapter
         from .row import TkRowAdapter
@@ -368,6 +368,10 @@ class TkinterRenderer:
         widget.bind("<Button-5>", on_wheel, add="+")
 
     def _adapter_create(self, node: VNode, parent: object | None) -> TkHandle:
+        if node.kind is NodeKind.HOST and node.type == "Flex":
+            raise RendererCapabilityError(
+                "Flex requires the F3-G2 SFLE geometry adapter for Tkinter; "
+                "native fallback layout is forbidden.")
         _validate_props(node)
         master = _as_handle(parent).widget if parent is not None else self.root
         if node.kind is NodeKind.NATIVE:
