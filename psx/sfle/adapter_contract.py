@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+import math
 
 from .errors import DiagnosticCode, SFLEError
 from .model import LayoutInput, LayoutResult
@@ -34,8 +35,9 @@ class ScrollViewport:
         if self.host_id == self.content_root_id:
             raise ValueError("Scroll host and content Flex root must differ.")
         for value in (self.viewport_width, self.viewport_height, self.offset_x, self.offset_y):
-            if isinstance(value, bool) or not isinstance(value, (int, float)):
-                raise TypeError("Scroll viewport values must be numeric.")
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value)):
+                raise ValueError("Scroll viewport values must be finite numbers.")
         if self.viewport_width < 0 or self.viewport_height < 0:
             raise ValueError("Scroll viewport dimensions must be nonnegative.")
 
@@ -89,6 +91,12 @@ def validate_adapter_commit(
         if viewport.host_id in seen_hosts:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Duplicate native scroll host.", viewport.host_id)
         seen_hosts.add(viewport.host_id)
+        if viewport.host_id in result_ids:
+            raise SFLEError(
+                DiagnosticCode.INVALID_SNAPSHOT,
+                "Native scroll host must not receive an SFLE geometry rectangle.",
+                viewport.host_id,
+            )
         if viewport.content_root_id not in result_ids:
             raise SFLEError(
                 DiagnosticCode.INVALID_SNAPSHOT,
