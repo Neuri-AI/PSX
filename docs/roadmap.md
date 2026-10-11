@@ -90,7 +90,7 @@ not a catch-all for unimplemented CSS features.
 
 **Base:** `develop` at `979b6ed9e86c63b640d498439045910ed1a189aa`.
 **Feature branch:** [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
-**State:** **G1 CLOSED**, **G2 IN PROGRESS** (opt-in SFLE native geometry implemented for Headless, PySide6 Qt, Kivy and Tkinter; native Qt/Kivy/Tk paths currently certify Flex/Text/Button only); G3–G5 NOT STARTED. Latest verified code [`85e1758`](https://github.com/Neuri-AI/PSX/commit/85e1758c8ba7feb771c8e753d526a25c8f7cdb3a), [F3 selective #38163393093 GREEN](https://github.com/Neuri-AI/PSX/actions/runs/38163393093), [G1 #38163393026 GREEN](https://github.com/Neuri-AI/PSX/actions/runs/38163393026). **1/5 official gates CLOSED (20%)**.
+**State:** **G1 CLOSED**, **G2 IN PROGRESS** (actual SFLE geometry for all four backends; expanded opt-in native control subsets defined by `psx/sfle/f3_native_coverage.py`); G3–G5 NOT STARTED. Latest verified code [`8e9df15`](https://github.com/Neuri-AI/PSX/commit/8e9df157b681149c8a37018fcd6dd2419838063b), [F3 selective #38164507647 GREEN](https://github.com/Neuri-AI/PSX/actions/runs/38164507647) and [G1 #38164507621 GREEN](https://github.com/Neuri-AI/PSX/actions/runs/38164507621). Native controls added: Qt Checkbox/Input/Slider/Radio/ProgressBar/Select; Tk Checkbox/Slider/Radio/ProgressBar; Kivy fixed-size Checkbox/Slider/Spacer. **1/5 official gates CLOSED (20%)**.
 [Read the full F3 implementation plan and mandatory G2 component matrix](architecture/sfle-f3-implementation.md).
 
 **G1:** public Flex contract + explicit Scroll content policy.
