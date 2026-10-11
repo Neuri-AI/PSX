@@ -404,6 +404,47 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 node.node_id,
             )
 
+    # D-F1.13 / C01–C06: deny by default any *indefinite* percentage
+    # dependency not matched by a recognized CSS intrinsic rule. This is
+    # structural (typed lengths/known references/actual measurements), never
+    # keyed to the acceptance fixture ID.
+    def block_reference_definite(node_id: str) -> bool:
+        parent = parents[node_id]
+        if parent is None:
+            return (request.constraints.height.definite or
+                    styles[node_id].height.kind == LengthKind.PX)
+        ancestor = styles[parent]
+        if ancestor.height.kind == LengthKind.PX:
+            return True
+        if ancestor.height.kind == LengthKind.PERCENT:
+            return block_reference_definite(parent)
+        return False
+
+    for node in request.nodes:
+        node_id = node.node_id
+        st = styles[node_id]
+        if any(edge.kind == LengthKind.PERCENT for edge in (
+            st.padding_top, st.padding_right, st.padding_bottom, st.padding_left
+        )) and not inline_reference_definite(node_id):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite inline percentage padding dependency cycle.",
+                node_id,
+            )
+        if st.max_height.kind == LengthKind.PERCENT and not block_reference_definite(node_id):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unlisted indefinite percentage maximum size dependency cycle.",
+                node_id,
+            )
+        if (st.height.kind == LengthKind.PERCENT and
+                not block_reference_definite(node_id) and node_id not in measures):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Unmeasured indefinite percentage block dependency cycle.",
+                node_id,
+            )
+
     def preferred(node_id: str, horizontal: bool) -> float:
         style = styles[node_id]
         length = style.width if horizontal else style.height
