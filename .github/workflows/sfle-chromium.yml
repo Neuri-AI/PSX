@@ -23,7 +23,7 @@ jobs:
   chromium-reference:
     name: Chromium SFLE border geometry
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,3 +36,12 @@ jobs:
         run: python -m playwright install --with-deps chromium
       - name: Compare SFLE rectangles to browser geometry
         run: python -m pytest -q tests/browser/test_sfle_chromium_version.py tests/browser/test_sfle_chromium.py tests/browser/test_sfle_f2_corpus.py tests/browser/test_sfle_f2_engine_chromium.py tests/browser/test_sfle_f2_live_text_chromium.py tests/browser/test_sfle_f2_css_reference_matrix.py tests/browser/test_sfle_f2_seeded_fuzz_red.py
+      - name: Verify five independent holdout seeds (200 each)
+        run: python -m pytest -q -s tests/browser/test_sfle_f2_holdout_red.py
+      - name: Preserve complete per-seed RED outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sfle-chromium-holdout-${{ github.run_id }}
+          path: /tmp/sfle-holdout-results/*.json
+          if-no-files-found: warn
