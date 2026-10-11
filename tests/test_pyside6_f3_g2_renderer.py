@@ -1,0 +1,158 @@
+"""F3-G2 Qt integration: SFLE is the *only* Flex geometry authority."""
+from __future__ import annotations
+
+import os
+import unittest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from PySide6.QtWidgets import QLabel, QPushButton
+
+from psx import Button, Flex, Text, component, use_state, psx
+from psx.core.errors import RendererCapabilityError
+from psx.core.reconcile import Reconciler
+from psx.renderers.qt.pyside import PySide6Renderer
+from psx.sfle.engine import PythonLayoutEngine
+from psx.sfle.errors import DiagnosticCode, SFLEError
+from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutResult
+
+
+def constraints(width=160, height=80):
+    return LayoutConstraints(AvailableSize(width, True), AvailableSize(height, True))
+
+
+def item(label, key, width):
+    return Button(label, key=key, layout_width=f"{width}px", layout_height="20px",
+                  flex_basis=f"{width}px", flex_shrink=0)
+
+
+class QtSFLEGeometryTests(unittest.TestCase):
+    def setUp(self):
+        self.renderer = PySide6Renderer(
+            argv=["psx-sfle-qt"], sfle_constraints=constraints(),
+            engine=PythonLayoutEngine(),
+        )
+        self.r = Reconciler(self.renderer)
+
+    def tearDown(self):
+        self.r.unmount()
+        self.renderer.application.processEvents()
+
+    def test_real_qwidgets_take_exact_sfle_geometry_without_qboxlayout(self):
+        root = self.r.render(
+            Flex(
+                Text("Left", key="left", layout_width="40px", layout_height="20px",
+                     flex_basis="40px", flex_shrink=0),
+                item("Right", "right", 30),
+                direction="row", gap=8, width="160px", height="80px",
+                align_items="flex-start",
+            )
+        )
+        assert root.handle.widget.layout() is None
+        label, button = (child.handle.widget for child in root.children)
+        assert isinstance(label, QLabel) and isinstance(button, QPushButton)
+        assert label.parentWidget() is root.handle.widget
+        assert button.parentWidget() is root.handle.widget
+        self.assertEqual((label.x(), label.y(), label.width(), label.height()), (0, 0, 40, 20))
+        self.assertEqual((button.x(), button.y(), button.width(), button.height()), (48, 0, 30, 20))
+        self.assertEqual(self.renderer.sfle_result.geometry_commit_error, 0.0)
+        self.assertEqual(len(self.renderer.sfle_result.boxes), 3)
+
+    def test_markup_builder_real_qt_and_nested_parent_relative_coordinates(self):
+        root = self.r.render(psx("""
+            <Flex direction="column" width="160px" height="80px"
+                  align_items="flex-start">
+                <Flex direction="row" width="120px" height="40px"
+                      gap={6} align_items="flex-start">
+                    <Button label="A" key="a" layout_width="30px"
+                            layout_height="15px" flex_basis="30px" flex_shrink={0} />
+                    <Button label="B" key="b" layout_width="20px"
+                            layout_height="15px" flex_basis="20px" flex_shrink={0} />
+                </Flex>
+            </Flex>
+        """))
+        inner = root.children[0].handle.widget
+        a, b = (child.handle.widget for child in root.children[0].children)
+        assert inner.layout() is None
+        assert a.parentWidget() is inner and b.parentWidget() is inner
+        self.assertEqual((a.x(), a.y(), a.width(), a.height()), (0, 0, 30, 15))
+        self.assertEqual((b.x(), b.y(), b.width(), b.height()), (36, 0, 20, 15))
+
+    def test_keyed_reorder_uses_existing_widgets_and_recomputes_only_sfle(self):
+        before = self.r.render(Flex(item("A", "a", 30), item("B", "b", 20),
+                                    width=160, height=80, gap=4,
+                                    align_items="flex-start"))
+        a, b = (child.handle.widget for child in before.children)
+        self.assertLess(a.x(), b.x())
+        after = self.r.render(Flex(item("B", "b", 20), item("A", "a", 30),
+                                   width=160, height=80, gap=9,
+                                   align_items="flex-start"))
+        self.assertIs(after.children[0].handle.widget, b)
+        self.assertIs(after.children[1].handle.widget, a)
+        self.assertEqual((b.x(), a.x()), (0, 29))
+        self.assertEqual(self.renderer.sfle_result.generation, 2)
+        self.assertIsNone(after.handle.widget.layout())
+
+    def test_live_state_and_event_subscription_survive_flex_relayout(self):
+        setters = []
+        events = []
+
+        @component
+        def Counter():
+            number, set_number = use_state(0)
+            setters.append(set_number)
+            return Flex(
+                Button("Tap", on_click=lambda: events.append(number), key="button",
+                       layout_width=f"{20 + number * 10}px", layout_height="20px",
+                       flex_basis=f"{20 + number * 10}px", flex_shrink=0),
+                width="160px", height="80px",
+            )
+
+        root = self.r.render(Counter())
+        handle = root.children[0].children[0].handle
+        button = handle.widget
+        button.click()
+        self.assertEqual(events, [0])
+        setters[-1](2)
+        self.renderer.application.processEvents()
+        self.assertIs(root.children[0].children[0].handle, handle)
+        self.assertEqual(button.width(), 40)
+        button.click()
+        self.assertEqual(events, [0, 2])
+
+    def test_viewport_resize_recommits_without_remount(self):
+        root = self.r.render(Flex(
+            item("A", "a", 30), width="100%", height="100%", gap=4,
+            align_items="flex-start",
+        ))
+        widget = root.children[0].handle.widget
+        first = self.renderer.sfle_result.generation
+        self.renderer.set_sfle_constraints(constraints(300, 120))
+        self.renderer.commit_layout(root)
+        self.assertIs(root.children[0].handle.widget, widget)
+        self.assertGreater(self.renderer.sfle_result.generation, first)
+        self.assertIsNone(root.handle.widget.layout())
+
+    def test_unported_component_is_explicitly_rejected(self):
+        from psx import Checkbox
+        with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
+            self.r.render(Flex(Checkbox(), width=160, height=80))
+
+    def test_engine_generation_forgery_never_commits_geometry(self):
+        class WrongEngine:
+            def compute(self, request):
+                output = PythonLayoutEngine().compute(request)
+                return LayoutResult(1, request.generation + 1, output.boxes)
+
+        self.renderer._sfle_engine = WrongEngine()
+        with self.assertRaises(SFLEError) as raised:
+            self.r.render(Flex(item("A", "a", 30), width=160, height=80))
+        self.assertEqual(raised.exception.code, DiagnosticCode.INVALID_SNAPSHOT)
+        self.assertIsNone(self.renderer.sfle_result)
+
+    def test_default_renderer_still_fails_closed_without_sfle_viewport(self):
+        regular = PySide6Renderer(argv=["psx-qt-no-fallback"])
+        r = Reconciler(regular)
+        with self.assertRaisesRegex(RendererCapabilityError, "F3-G2 SFLE geometry"):
+            r.render(Flex(width=160, height=80))
+        r.unmount()
