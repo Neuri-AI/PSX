@@ -72,6 +72,10 @@ def generate_dimension(dimension: str):
             "direction": direction, "width": f"{root_w}px", "height": "90px",
             "align_items": "flex-start", "column_gap": "4px", **extra,
         }
+        if direction in ("column", "column-reverse"):
+            # CSS gap:4px sets both axes; SFLE needs row_gap for a column's
+            # main axis. Without this, the test was comparing different CSS.
+            root_style["row_gap"] = "4px"
         if nested:
             # Root row -> nested column with two fixed children; verify its own
             # final height and each descendant, not just the top-level row.
