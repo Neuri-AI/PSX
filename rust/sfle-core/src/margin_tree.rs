@@ -180,14 +180,13 @@ mod tests {
     }
     #[test]
     fn b2_saturates_nested_signed_translation_in_both_directions() {
-        let mut item=flex(12.0);
-        item.id="leaf".into();
         let b=MarginFlexBox{
             id:"leaf".into(),
             content:Rect{x:100.0,y:-100.0,width:12.0,height:13.0},
             padding:Rect{x:100.0,y:-100.0,width:12.0,height:13.0},
             border:Rect{x:100.0,y:-100.0,width:12.0,height:13.0},
             used_main_start_margin:0.0,used_main_end_margin:0.0,line_index:0,
+            used_cross_start_margin:0.0,used_cross_end_margin:0.0,
         };
         let b=translate_box(b,i32::MAX as f64/64.0,i32::MIN as f64/64.0);
         for rect in [b.content,b.padding,b.border] {
