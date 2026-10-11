@@ -15,14 +15,17 @@ def test_A06_stale_during_real_qt_remeasurement_zero_commits():
     parent=QtWidgets.QWidget()
     label=QtWidgets.QLabel("x "*18,parent)
     label.setWordWrap(True)
+    probe=QtWidgets.QLabel("wrap "*55,parent)
+    probe.setWordWrap(True)
+    probe.setStyleSheet("font: 10px monospace")
+    original_geometry=label.geometry()
     generation=[17]
     calls=[]
     commits=[]
     engine=PythonLayoutEngine()
     def measure(node_id,width):
         assert QtCore.QThread.currentThread()==app.thread()
-        label.setFixedWidth(round(width))
-        value=label.heightForWidth(round(width))
+        value=probe.heightForWidth(round(width))
         calls.append(width)
         if len(calls)==2:
             generation[0]=18
@@ -42,8 +45,9 @@ def test_A06_stale_during_real_qt_remeasurement_zero_commits():
         assert error.value.code==DiagnosticCode.INVALID_SNAPSHOT
         assert calls==pytest.approx([100,150])
         assert commits==[]
-        assert label.geometry().width()!=150
+        assert label.geometry()==original_geometry
     finally:
+        probe.deleteLater()
         label.deleteLater()
         parent.deleteLater()
         app.processEvents()
