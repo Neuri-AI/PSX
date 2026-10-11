@@ -34,6 +34,8 @@ class LayoutEngine(Protocol):
 class PythonLayoutEngine:
     """Internal fail-closed experimental snapshot coordinator (not advertised)."""
 
+    backend_name = "python"
+
     @property
     def capabilities(self) -> EngineCapabilities:
         return CONTRACT_ONLY_CAPABILITIES
