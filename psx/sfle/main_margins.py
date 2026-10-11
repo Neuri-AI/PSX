@@ -13,11 +13,26 @@ wrapping, or CSS line breaking. It is deliberately not a complete layout.
 from __future__ import annotations
 
 from dataclasses import dataclass
-import math
+
+from .fixed_point import LayoutUnit
 
 
 def _layout_unit(value: float) -> float:
-    return math.floor(value * 64.0 + 0.5) / 64.0
+    return LayoutUnit.from_nearest(value).to_px()
+
+
+def _sum_units(*values: float) -> float:
+    total = LayoutUnit.from_raw(0)
+    for value in values:
+        total = total + LayoutUnit.from_nearest(value)
+    return total.to_px()
+
+
+def _subtract_units(value: float, *deductions: float) -> float:
+    total = LayoutUnit.from_nearest(value)
+    for deduction in deductions:
+        total = total - LayoutUnit.from_nearest(deduction)
+    return total.to_px()
 
 from .flex_math import _number
 from .main_alignment import JustifyContent, resolve_main_alignment
@@ -87,24 +102,25 @@ def position_main_margins(
         raise TypeError("justify must be JustifyContent.")
     if len({i.node_id for i in items}) != len(items):
         raise ValueError("Item IDs must be unique.")
-    extent = _number(container_main_size, "container_main_size")
-    gap = _number(main_gap, "main_gap")
+    extent = _layout_unit(_number(container_main_size, "container_main_size"))
+    gap = _layout_unit(_number(main_gap, "main_gap"))
     if extent < 0 or gap < 0:
         raise ValueError("Container and gap must be nonnegative.")
 
-    fixed = sum(
-        item.border_main_size + (item.start.value or 0.0) + (item.end.value or 0.0)
-        for item in items
-    ) + gap * max(0, len(items) - 1)
+    fixed = _sum_units(
+        *(_sum_units(item.border_main_size, item.start.value or 0.0,
+                     item.end.value or 0.0) for item in items),
+        *([gap] * max(0, len(items) - 1)),
+    )
     auto_count = sum(
         int(item.start.value is None) + int(item.end.value is None)
         for item in items
     )
-    share = max(0.0, extent - fixed) / auto_count if auto_count else 0.0
+    share = max(0.0, _subtract_units(extent, fixed)) / auto_count if auto_count else 0.0
     used_outers = tuple(
-        item.border_main_size
-        + (share if item.start.value is None else item.start.value)
-        + (share if item.end.value is None else item.end.value)
+        _sum_units(item.border_main_size,
+                   share if item.start.value is None else item.start.value,
+                   share if item.end.value is None else item.end.value)
         for item in items
     )
     # Auto margins consume positive free space before justify-content.
@@ -117,21 +133,22 @@ def position_main_margins(
     horizontal = direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
     reversed_axis = direction in (FlexDirection.ROW_REVERSE, FlexDirection.COLUMN_REVERSE)
     forward = ((writing == WritingDirection.LTR) != reversed_axis) if horizontal else not reversed_axis
-    cursor = _layout_unit(alignment.leading_space if forward else extent - alignment.leading_space)
+    cursor = _layout_unit(alignment.leading_space if forward else
+                          _subtract_units(extent, alignment.leading_space))
     out: list[MarginPosition] = []
     for item in items:
         start_margin = share if item.start.value is None else item.start.value
         end_margin = share if item.end.value is None else item.end.value
         if forward:
-            border_start = _layout_unit(cursor + start_margin)
-            cursor = _layout_unit(border_start + item.border_main_size)
-            cursor = _layout_unit(cursor + end_margin)
-            cursor = _layout_unit(cursor + alignment.between_space)
+            border_start = _sum_units(cursor, start_margin)
+            cursor = _sum_units(border_start, item.border_main_size)
+            cursor = _sum_units(cursor, end_margin)
+            cursor = _sum_units(cursor, alignment.between_space)
         else:
-            cursor = _layout_unit(cursor - start_margin)
-            border_start = _layout_unit(cursor - item.border_main_size)
-            cursor = _layout_unit(border_start - end_margin)
-            cursor = _layout_unit(cursor - alignment.between_space)
+            cursor = _subtract_units(cursor, start_margin)
+            border_start = _subtract_units(cursor, item.border_main_size)
+            cursor = _subtract_units(border_start, end_margin)
+            cursor = _subtract_units(cursor, alignment.between_space)
         out.append(MarginPosition(
             item.node_id, border_start, item.border_main_size,
             start_margin, end_margin,

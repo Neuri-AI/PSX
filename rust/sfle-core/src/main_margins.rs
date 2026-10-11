@@ -5,9 +5,24 @@
 use crate::line_layout::{Direction, WritingDirection};
 use crate::main_alignment::{resolve_main_alignment, JustifyContent};
 use crate::FlexMathError;
+use crate::layout_unit::LayoutUnit;
 use std::collections::HashSet;
 
-fn layout_unit(value: f64) -> f64 { (value * 64.0 + 0.5).floor() / 64.0 }
+fn layout_unit(value: f64) -> f64 {
+    LayoutUnit::from_nearest(value).expect("validated geometry is finite").to_px()
+}
+fn sum_units(values: impl IntoIterator<Item = f64>) -> f64 {
+    values.into_iter().fold(LayoutUnit::from_raw(0), |total, value|
+        total + LayoutUnit::from_nearest(value).expect("validated geometry is finite")
+    ).to_px()
+}
+fn subtract_units(value: f64, deductions: impl IntoIterator<Item = f64>) -> f64 {
+    deductions.into_iter().fold(
+        LayoutUnit::from_nearest(value).expect("validated geometry is finite"),
+        |total, deduction| total - LayoutUnit::from_nearest(deduction)
+            .expect("validated geometry is finite"),
+    ).to_px()
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct MarginItem {
@@ -53,7 +68,8 @@ pub fn position_main_margins_justified(
         return Err(FlexMathError::InvalidInput("invalid extent or gap"));
     }
     let mut ids = HashSet::new();
-    let mut fixed = main_gap * items.len().saturating_sub(1) as f64;
+    let main_gap=layout_unit(main_gap);
+    let mut fixed_values=vec![main_gap; items.len().saturating_sub(1)];
     let mut auto_count: usize = 0;
     for item in items {
         if item.id.is_empty() || !ids.insert(item.id.as_str())
@@ -63,46 +79,49 @@ pub fn position_main_margins_justified(
         {
             return Err(FlexMathError::InvalidInput("invalid margin item"));
         }
-        fixed += item.border_main_size + item.start.unwrap_or(0.0) + item.end.unwrap_or(0.0);
+        fixed_values.push(sum_units([item.border_main_size, item.start.unwrap_or(0.0),
+                                     item.end.unwrap_or(0.0)]));
         auto_count += usize::from(item.start.is_none()) + usize::from(item.end.is_none());
     }
+    let fixed=sum_units(fixed_values);
+    let extent=layout_unit(container_main_size);
     let share = if auto_count == 0 { 0.0 } else {
-        (container_main_size - fixed).max(0.0) / auto_count as f64
+        subtract_units(extent, [fixed]).max(0.0) / auto_count as f64
     };
 
     let used_outer: Vec<f64> = items.iter().map(|item| {
-        item.border_main_size + item.start.unwrap_or(share)
-            + item.end.unwrap_or(share)
+        sum_units([item.border_main_size, item.start.unwrap_or(share),
+                   item.end.unwrap_or(share)])
     }).collect();
-    let effective_justify = if auto_count > 0 && container_main_size > fixed {
+    let effective_justify = if auto_count > 0 && extent > fixed {
         JustifyContent::FlexStart
     } else {
         justify
     };
     let alignment = resolve_main_alignment(
-        effective_justify, container_main_size, &used_outer, main_gap,
+        effective_justify, extent, &used_outer, main_gap,
     )?;
     let horizontal = matches!(direction, Direction::Row | Direction::RowReverse);
     let reversed = matches!(direction, Direction::RowReverse | Direction::ColumnReverse);
     let forward = if horizontal { (writing == WritingDirection::Ltr) != reversed }
                   else { !reversed };
     let mut cursor = layout_unit(if forward { alignment.leading_space }
-        else { container_main_size - alignment.leading_space });
+        else { subtract_units(extent, [alignment.leading_space]) });
     let mut positions = Vec::with_capacity(items.len());
     for item in items {
         let start = item.start.unwrap_or(share);
         let end = item.end.unwrap_or(share);
         let border_start;
         if forward {
-            border_start = layout_unit(cursor + start);
-            cursor = layout_unit(border_start + item.border_main_size);
-            cursor = layout_unit(cursor + end);
-            cursor = layout_unit(cursor + alignment.between_space);
+            border_start = sum_units([cursor, start]);
+            cursor = sum_units([border_start, item.border_main_size]);
+            cursor = sum_units([cursor, end]);
+            cursor = sum_units([cursor, alignment.between_space]);
         } else {
-            cursor = layout_unit(cursor - start);
-            border_start = layout_unit(cursor - item.border_main_size);
-            cursor = layout_unit(border_start - end);
-            cursor = layout_unit(cursor - alignment.between_space);
+            cursor = subtract_units(cursor, [start]);
+            border_start = subtract_units(cursor, [item.border_main_size]);
+            cursor = subtract_units(border_start, [end]);
+            cursor = subtract_units(cursor, [alignment.between_space]);
         }
         positions.push(MarginPosition {
             id: item.id.clone(), border_start,
