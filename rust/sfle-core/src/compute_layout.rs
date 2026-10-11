@@ -123,7 +123,7 @@ fn style(input:&crate::compute::LayoutNode)->Result<Style,ComputeError>{
         min_height:length(value(map,&["layout_min_height","min_height"]),&input.node_id)?,
     })
 }
-fn layout_unit(value:f64)->f64 {(value*64.0).round()/64.0}
+fn layout_unit(value:f64)->f64 {(value*64.0).floor()/64.0}
 fn resolved(v:Length, reference:Option<f64>, vertical:bool, id:&str)->Result<Option<f64>,ComputeError>{
     match v {
         Length::Auto=>Ok(None),
