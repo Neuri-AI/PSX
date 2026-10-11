@@ -72,6 +72,15 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert button.size_hint == [None, None] or button.size_hint == (None, None)
             assert backend.sfle_result.geometry_commit_error == 0
             assert len(backend.sfle_result.boxes) == 3
+            # Exercise the actual SDL2 window parent, not just detached Widgets.
+            Window.add_widget(host)
+            try:
+                Clock.tick()
+                assert (label.x, label.y, label.width, label.height) == (0, 60, 40, 20)
+                assert (button.x, button.y, button.width, button.height) == (48, 60, 30, 20)
+                assert type(host) is Widget and host.parent is Window
+            finally:
+                Window.remove_widget(host)
             cleanup(backend, tree)
 
             # Multiple nested frames (not global/window flip).
