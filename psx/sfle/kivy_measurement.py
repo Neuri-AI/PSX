@@ -49,5 +49,36 @@ class KivyMeasurementSource:
         metrics = IntrinsicSizes(width, width, height, height, width, height)
         return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
 
+    def measure_width(self, node_id: str, width: float) -> IntrinsicSizes:
+        """Measure a Kivy leaf at the exact post-flex content width."""
+        if not self.is_ui_thread():
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Kivy measurement requires UI thread.")
+        widget = self._widgets.get(node_id)
+        if widget is None:
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Kivy measurement node.", node_id)
+        previous = getattr(widget, "text_size", None)
+        changed = hasattr(widget, "text_size")
+        try:
+            if changed:
+                widget.text_size = (float(width), None)
+            refresh = getattr(widget, "texture_update", None)
+            if callable(refresh):
+                refresh()
+            pair = (widget.texture_size if hasattr(widget, "texture_size")
+                    else widget.minimum_size if hasattr(widget, "minimum_size") else None)
+            if pair is None:
+                raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                                "Kivy widget has no width-dependent intrinsic measurement.", node_id)
+            measured_width, height = (float(value) for value in pair)
+            measured_width = min(float(width), measured_width)
+            return IntrinsicSizes(measured_width, measured_width, height, height,
+                                  measured_width, height)
+        finally:
+            if changed:
+                widget.text_size = previous
+                refresh = getattr(widget, "texture_update", None)
+                if callable(refresh):
+                    refresh()
+
     def port(self) -> NativeMeasurementPort:
         return NativeMeasurementPort(self.is_ui_thread, self.measure)

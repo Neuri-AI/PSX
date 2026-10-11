@@ -41,5 +41,30 @@ class TkMeasurementSource:
         )
         return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
 
+    def measure_width(self, node_id: str, width: float) -> IntrinsicSizes:
+        """Measure a Tk leaf after applying a temporary wrapping constraint."""
+        if not self.is_ui_thread():
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Tk measurement requires its owning thread.")
+        widget = self._widgets.get(node_id)
+        if widget is None:
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Tk measurement node.", node_id)
+        previous = None
+        wraps = False
+        try:
+            keys = widget.keys() if hasattr(widget, "keys") else ()
+            wraps = "wraplength" in keys
+            if wraps:
+                previous = widget.cget("wraplength")
+                widget.configure(wraplength=max(0, round(width)))
+            widget.update_idletasks()
+            measured_width = min(float(width), float(widget.winfo_reqwidth()))
+            height = float(widget.winfo_reqheight())
+            return IntrinsicSizes(measured_width, measured_width, height, height,
+                                  measured_width, height)
+        finally:
+            if wraps:
+                widget.configure(wraplength=previous)
+                widget.update_idletasks()
+
     def port(self) -> NativeMeasurementPort:
         return NativeMeasurementPort(self.is_ui_thread, self.measure)

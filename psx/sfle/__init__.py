@@ -31,6 +31,11 @@ from .model import (
     Rect,
     WritingDirection,
 )
+from .toolkit_worker import (
+    ToolkitWorkerAdapter,
+    start_kivy_worker_layout,
+    start_tk_worker_layout,
+)
 
 __all__ = [
     "AvailableSize",
@@ -64,4 +69,7 @@ __all__ = [
     "Rect",
     "WritingDirection",
     "parse_length",
+    "ToolkitWorkerAdapter",
+    "start_kivy_worker_layout",
+    "start_tk_worker_layout",
 ]
