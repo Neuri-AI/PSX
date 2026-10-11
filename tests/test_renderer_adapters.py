@@ -71,7 +71,7 @@ def test_registered_adapter_owns_component_lifecycle_without_reconciler_changes(
 def test_custom_host_adapter_can_mount_update_and_unmount() -> None:
     renderer = HeadlessRenderer()
     adapter = CountingAdapter()
-    renderer.register_adapter("Badge", adapter)
+    renderer.register_adapter("Badge", adapter, replace=True)
     reconciler = Reconciler(renderer)
 
     node = create_element("Badge", value="one", key="badge")

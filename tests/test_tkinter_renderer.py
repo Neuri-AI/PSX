@@ -48,7 +48,9 @@ class TkinterRendererTests(unittest.TestCase):
         label_widget = label.handle.widget
         button_widget = button.handle.widget
         self.assertEqual(label_widget.cget("text"), "Count: 0")
-        self.assertEqual(tuple(column.handle.widget.cget("padding")), (12,))
+        padding = tuple(int(value) for value in column.handle.widget.cget("padding"))
+        self.assertIn(len(padding), (1, 4))
+        self.assertTrue(all(value == 12 for value in padding))
         button_widget.invoke()
         self.renderer.flush()
         self.assertIs(label.handle.widget, label_widget)
@@ -75,8 +77,10 @@ class TkinterRendererTests(unittest.TestCase):
 
         self.assertIs(second.handle.widget, column_widget)
         self.assertIs(second.children[0].handle.widget, row_widget)
-        self.assertEqual(tuple(column_widget.cget("padding")), (0,))
-        self.assertEqual(tuple(row_widget.cget("padding")), (0,))
+        for widget in (column_widget, row_widget):
+            padding = tuple(int(value) for value in widget.cget("padding"))
+            self.assertIn(len(padding), (1, 4))
+            self.assertTrue(all(value == 0 for value in padding))
 
     def test_worker_state_update_waits_for_tk_ui_drain(self) -> None:
         holder: dict[str, object] = {}
