@@ -134,7 +134,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e . pytest
-      - run: python -m pytest -q tests/test_core.py tests/test_component_contracts.py tests/test_component_registry.py tests/test_markup_registry.py tests/test_markup.py tests/test_hooks_scheduler.py tests/test_renderer_adapters.py tests/test_f3_flex_contract.py
+      - run: python -m pytest -q tests/test_core.py tests/test_component_contracts.py tests/test_component_registry.py tests/test_markup_registry.py tests/test_markup.py tests/test_hooks_scheduler.py tests/test_renderer_adapters.py tests/test_f3_flex_contract.py tests/test_f3_g1_item_metadata.py
 
   sfle:
     name: F3 SFLE geometry contracts
