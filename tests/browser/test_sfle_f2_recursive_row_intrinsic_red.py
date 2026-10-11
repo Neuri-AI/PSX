@@ -112,3 +112,104 @@ def test_intrinsic_row_nowrap_multi_item_bound(index,page,rust_binary):
             assert abs(p-want)<=0.01,(index,name,axis,"python",p,"chrome",want)
             assert abs(r-want)<=0.01,(index,name,axis,"rust",r,"chrome",want)
             assert p==r,(index,name,axis,p,r)
+
+
+@pytest.mark.parametrize("index",range(32))
+def test_intrinsic_row_flexible_siblings_and_nested_bounds(index,page,rust_binary):
+    """CSS max-content intrinsic constraints must handle grow/shrink siblings.
+
+    Fixed PX bases and explicit 0px automatic minima allow shrink below the
+    flex bases; the intrinsic width bound is determined before flex layout.
+    """
+    upper=index%2==1
+    nested=(index//2)%2==1
+    grow=(index//4)%3
+    shrink=1+(index//8)%2
+    count=2+(index//16)%2
+    widths=tuple(23+index*2+17*i for i in range(count))
+    gap=3+(index%4)
+    root_width=420
+    requested="450px" if upper else "10px"
+    outer_style={
+        "direction":"row","width":requested,"height":"auto",
+        "flex_basis":"auto","flex_grow":0,"flex_shrink":0,
+        "min_width":"0px" if upper else "max-content",
+        "wrap":"nowrap","align_items":"flex-start",
+        "column_gap":f"{gap}px" if not nested else "0px",
+    }
+    if upper:outer_style["max_width"]="max-content"
+    nodes=[
+        LayoutNode("root",None,"Flex",_typed({
+            "direction":"row","width":f"{root_width}px","height":"100px",
+            "align_items":"flex-start",
+        })),
+        LayoutNode("outer","root","Flex",_typed(outer_style)),
+    ]
+    parent="outer"
+    prefix=suffix=""
+    if nested:
+        nodes.append(LayoutNode("inner","outer","Flex",_typed({
+            "direction":"row","width":"auto","height":"auto",
+            "flex_basis":"auto","flex_grow":0,"flex_shrink":0,
+            "min_width":"0px","wrap":"nowrap",
+            "column_gap":f"{gap}px","align_items":"flex-start",
+        })))
+        parent="inner"
+        prefix=(
+            f"<div id='inner' style='display:flex;flex-direction:row;"
+            f"width:auto;height:auto;flex:0 0 auto;min-width:0;"
+            f"column-gap:{gap}px;align-items:flex-start;box-sizing:content-box'>"
+        )
+        suffix="</div>"
+    html=[]
+    for i,width in enumerate(widths):
+        nodes.append(LayoutNode(f"n{i}",parent,"Box",_typed({
+            "width":f"{width}px","height":"20px",
+            "flex_basis":f"{width}px","flex_grow":grow,
+            "flex_shrink":shrink,"min_width":"0px",
+        })))
+        html.append(
+            f"<div id='n{i}' style='width:{width}px;height:20px;"
+            f"flex:{grow} {shrink} {width}px;min-width:0;"
+            f"box-sizing:content-box'></div>"
+        )
+    bounds="max-width:max-content;min-width:0;" if upper else "min-width:max-content;"
+    page.set_content(
+        "<!doctype html><html><body style='margin:0'>"
+        f"<div id='root' style='display:flex;width:{root_width}px;height:100px;"
+        "align-items:flex-start;box-sizing:content-box'>"
+        f"<div id='outer' style='display:flex;flex-direction:row;"
+        f"width:{requested};height:auto;flex:0 0 auto;flex-wrap:nowrap;"
+        f"column-gap:{gap if not nested else 0}px;align-items:flex-start;"
+        f"{bounds}box-sizing:content-box'>"
+        +prefix+"".join(html)+suffix+"</div></div></body></html>"
+    )
+    snapshot=LayoutInput(
+        1,120000+index,WritingDirection.LTR,
+        LayoutConstraints(AvailableSize(root_width,True),AvailableSize(100,True)),
+        tuple(nodes),(),
+    )
+    oracle=page.evaluate("""() => Object.fromEntries(
+        [...document.querySelectorAll('[id]')].map(el=>{
+            const r=el.getBoundingClientRect();
+            return [el.id,{x:r.x,y:r.y,width:r.width,height:r.height}];
+        })
+    )""")
+    python=dict(PythonLayoutEngine().compute(snapshot).boxes)
+    proc=subprocess.run([str(rust_binary)],input=serialize_snapshot(snapshot),
+        capture_output=True,text=True,check=True,timeout=30)
+    wire=json.loads(proc.stdout)
+    assert wire["ok"],(index,wire.get("error"))
+    rust={box["node_id"]:box["border"] for box in wire["result"]["boxes"]}
+    assert set(oracle)==set(python)==set(rust)
+    for node,rect in oracle.items():
+        for axis,want in rect.items():
+            p=getattr(python[node].border,axis)
+            r=rust[node][axis]
+            assert abs(p-want)<=0.01,(
+                f"Flexible row[{index}] {node}.{axis}: Python={p}, Chromium={want}"
+            )
+            assert abs(r-want)<=0.01,(
+                f"Flexible row[{index}] {node}.{axis}: Rust={r}, Chromium={want}"
+            )
+            assert p==r,(index,node,axis,p,r)
