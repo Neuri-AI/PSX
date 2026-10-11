@@ -15,6 +15,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 
 from .errors import DiagnosticCode, SFLEError
+from .adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from .model import IntrinsicSizes, LayoutInput, LayoutResult
 from .remeasure_session import compute_with_width_measurements
 
@@ -182,6 +183,15 @@ def start_native_worker_layout(
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Worker returned an obsolete SFLE generation.")
             ids = tuple(dict(result.boxes))
+            validate_adapter_commit(
+                snapshot, result,
+                SFLEAdapterPorts(
+                    current_generation=current_generation,
+                    nodes_alive=nodes_alive or (lambda _: True),
+                    apply_rectangles=apply_geometry,
+                    read_rectangles=observed_geometry,
+                ),
+            )
             if nodes_alive is not None and not nodes_alive(ids):
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Native SFLE geometry references disposed nodes.")
