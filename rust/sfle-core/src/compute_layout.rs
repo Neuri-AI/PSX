@@ -513,8 +513,10 @@ impl Context<'_>{
             return Ok(dims);
         }
         let row=horizontal(style.direction);
-        if width.is_none(){width=Some(self.preferred(index,true)?);}
-        if height.is_none()&&!row{height=Some(self.preferred(index,false)?);}
+        // Resolve the flex main axis first.  The auto cross axis must come
+        // from the completed lines, including wrapped column lines.
+        if row && width.is_none(){width=Some(self.preferred(index,true)?);}
+        if !row && height.is_none(){height=Some(self.preferred(index,false)?);}
         width=width.map(|v|bounded_intrinsic(style,true,v,pw));
         height=height.map(|v|bounded_intrinsic(style,false,v,ph));
         let main=if row{width.unwrap()}else{height.unwrap()};
@@ -522,7 +524,24 @@ impl Context<'_>{
                               (!row&&matches!(style.height,Length::Auto)&&forced_h.is_none()){
             None
         }else{Some(main)};
-        let child_indices=self.children[index].clone();
+        // CSS `order` establishes the flex order used for line formation as
+        // well as placement.  Keep the source index as the stable tie-breaker
+        // (the same rule used by the margin geometry compositor).
+        let mut child_indices=self.children[index].clone();
+        child_indices.sort_by_key(|&child|(self.styles[child].order,child));
+        if width.is_none() {
+            for &child in &child_indices {
+                let s=self.styles[child];
+                if [s.padding_top,s.padding_right,s.padding_bottom,s.padding_left,
+                    s.margin_top,s.margin_right,s.margin_bottom,s.margin_left]
+                    .iter().any(|length|matches!(length,Length::Percent(_))) {
+                    return Err(unsupported(
+                        "Unlisted auto inline-size percentage dependency cycle.",
+                        &self.input.nodes[child].node_id,
+                    ));
+                }
+            }
+        }
         let mut bases=Vec::with_capacity(child_indices.len());
         for &child in &child_indices{
             let child_style=self.styles[child];
@@ -586,14 +605,15 @@ impl Context<'_>{
             });
         }
         let main=layout_unit(main);
-        let gap=layout_unit(main_gap(style,width.unwrap(),height.unwrap_or(0.0),&id)?);
+        let inline_size=width.unwrap_or(0.0);
+        let gap=layout_unit(main_gap(style,inline_size,height.unwrap_or(0.0),&id)?);
         let edges=child_indices.iter().map(|&child| Ok(BoxEdges{
-            padding:padding(self.styles[child],width.unwrap(),&self.input.nodes[child].node_id)?,
+            padding:padding(self.styles[child],inline_size,&self.input.nodes[child].node_id)?,
             border:border(self.styles[child],&self.input.nodes[child].node_id)?,
             ..BoxEdges::default()
         })
         ).collect::<Result<Vec<_>,ComputeError>>()?;
-        let fixed_margin=|length|margin_value(length,width.unwrap()).unwrap_or(0.0);
+        let fixed_margin=|length|margin_value(length,inline_size).unwrap_or(0.0);
         let fixed_edges:Vec<f64>=child_indices.iter().zip(&edges).map(|(&child,e)|{
             let s=self.styles[child];
             if row {sum_units([e.padding.left,e.padding.right,e.border.left,e.border.right,fixed_margin(s.margin_left),fixed_margin(s.margin_right)])}
@@ -638,7 +658,7 @@ impl Context<'_>{
             }else{
                 let mut cross=resolved(child_style.width,width,false,&child_id)?;
                 let align=if child_style.align_self==CrossAlign::Auto{style.align}else{child_style.align_self};
-                if cross.is_none()&&align==CrossAlign::Stretch&&style.wrap==Wrap::NoWrap
+                if cross.is_none()&&width.is_some()&&align==CrossAlign::Stretch&&style.wrap==Wrap::NoWrap
                     &&!matches!(child_style.margin_left,Length::Auto)
                     &&!matches!(child_style.margin_right,Length::Auto){
                     cross=Some(subtract_units(width.unwrap(),[padding_box.padding.left,padding_box.padding.right,padding_box.border.left,padding_box.border.right,
@@ -653,16 +673,18 @@ impl Context<'_>{
                 else{sum_units([cw,padding_box.padding.left,padding_box.padding.right,padding_box.border.left,padding_box.border.right,
                     fixed_margin(child_style.margin_left),fixed_margin(child_style.margin_right)]).max(0.0)});
         }
-        if height.is_none(){
+        if (row && height.is_none()) || (!row && width.is_none()){
             // Apply cross min/max only after recursive auto sizing has used
-            // the children's outer contributions (matching Python + Blink).
-            let cross_gap=intrinsic_gap(style.row_gap,&id)?;
+            // every line's outer contribution.  This is symmetric for
+            // row-height and column-width auto cross sizing.
+            let cross_gap=intrinsic_gap(if row{style.row_gap}else{style.column_gap},&id)?;
             let mut auto_cross=0.0;
             for (i,line) in lines.iter().enumerate(){
                 let size=line.iter().map(|&i|cross_sizes[i]).fold(0.0_f64,f64::max);
                 auto_cross=sum_units([auto_cross,if i>0{cross_gap}else{0.0},size]);
             }
-            height=Some(bounded_intrinsic(style,false,auto_cross,ph));
+            if row {height=Some(bounded_intrinsic(style,false,auto_cross,ph));}
+            else {width=Some(bounded_intrinsic(style,true,auto_cross,pw));}
         }
         let dims=(layout_unit(width.unwrap()),layout_unit(height.unwrap()));
         self.used[index]=Some(dims);

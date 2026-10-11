@@ -669,11 +669,43 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             return width, height
 
         horizontal = style.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
-        if width is None:
+        # Flex order changes the sequence used for line collection and for
+        # each line's free-space calculation.  The geometry compositor also
+        # sorts items by this key, so using document order here would size a
+        # different set of items per wrapped line than the one it places.
+        # Python's stable sort preserves source order for equal CSS order.
+        child_ids = sorted(
+            children[node_id], key=lambda child: styles[child].order,
+        )
+        # Resolve only the main axis before flexing.  The auto cross axis is
+        # determined from the resulting flex lines below.  Eagerly replacing
+        # an auto column width with an intrinsic guess made wrapped columns
+        # use a different cross size than their actual children.
+        if horizontal and width is None:
             width = preferred(node_id, True)
-        if height is None and not horizontal:
+        if not horizontal and height is None:
             height = preferred(node_id, False)
-        width = bounded_intrinsic(style, True, width, parent_width)
+        # Percentage physical edges/margins reference this container's inline
+        # size.  A column with an auto inline size has no used reference until
+        # after its lines are built.  Pixel-only edges are safe to defer; a
+        # percentage here is an actual dependency cycle, never a zero default.
+        if width is None:
+            for child_id in child_ids:
+                child_style = styles[child_id]
+                inline_lengths = (
+                    child_style.padding_top, child_style.padding_right,
+                    child_style.padding_bottom, child_style.padding_left,
+                    child_style.margin_top, child_style.margin_right,
+                    child_style.margin_bottom, child_style.margin_left,
+                )
+                if any(length.kind == LengthKind.PERCENT for length in inline_lengths):
+                    raise SFLECapabilityError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Unlisted auto inline-size percentage dependency cycle.",
+                        child_id,
+                    )
+        if width is not None:
+            width = bounded_intrinsic(style, True, width, parent_width)
         if height is not None:
             height = bounded_intrinsic(style, False, height, parent_height)
         main_size = width if horizontal else height
@@ -687,7 +719,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             main_reference = None
 
         bases = []
-        for child_id in children[node_id]:
+        for child_id in child_ids:
             child_style = styles[child_id]
             basis = child_style.flex_basis
             basis_axis = child_style.width if horizontal else child_style.height
@@ -753,13 +785,14 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             bases.append(FlexBasis(desired, hypo,
                                     grow=child_style.grow,shrink=child_style.shrink,
                                     min_size=minimum,max_size=maximum))
-        main_gap = _main_gap(style,width,height if height is not None else 0.0,node_id)
+        inline_size = width if width is not None else 0.0
+        main_gap = _main_gap(style,inline_size,height if height is not None else 0.0,node_id)
         edges = {
             child: UsedBoxEdges(
-                padding=_padding(styles[child], width, child),
+                padding=_padding(styles[child], inline_size, child),
                 border=_border(styles[child], child),
             )
-            for child in children[node_id]
+            for child in child_ids
         }
         main_size, main_gap = _layout_unit(main_size), _layout_unit(main_gap)
         def fixed_margin(length: Length) -> float:
@@ -768,12 +801,12 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             if length.kind == LengthKind.PX:
                 return _layout_unit(length.value)
             if length.kind == LengthKind.PERCENT:
-                return _layout_unit(length.value * width)
+                return _layout_unit(length.value * inline_size)
             raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
                                       "Unsupported margin length.", node_id)
 
         fixed_edges = []
-        for child in children[node_id]:
+        for child in child_ids:
             e, s = edges[child], styles[child]
             fixed_edges.append(_sum_units((e.padding.left, e.padding.right, e.border.left, e.border.right, fixed_margin(s.margin_left),
                                           fixed_margin(s.margin_right))) if horizontal else
@@ -798,7 +831,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             )):
                 targets[index] = target
         cross_sizes = []
-        for child_id, target in zip(children[node_id], targets):
+        for child_id, target in zip(child_ids, targets):
             child_style = styles[child_id]
             if horizontal:
                 cross = _axis_value(child_style.height,height,axis="height",node_id=child_id)
@@ -819,7 +852,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             else:
                 cross = _axis_value(child_style.width,width,axis="width",node_id=child_id)
                 alignment = child_style.align_self if child_style.align_self != CrossAlign.AUTO else style.align_items
-                if (cross is None and alignment == CrossAlign.STRETCH
+                if (cross is None and width is not None and alignment == CrossAlign.STRETCH
                         and style.wrap == FlexWrap.NOWRAP
                         and child_style.margin_left.kind != LengthKind.AUTO
                         and child_style.margin_right.kind != LengthKind.AUTO):
@@ -830,14 +863,18 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 cross_sizes.append(max(0.0, _sum_units((child_width, edges[child_id].padding.left,
                     edges[child_id].padding.right, edges[child_id].border.left, edges[child_id].border.right, fixed_margin(child_style.margin_left),
                     fixed_margin(child_style.margin_right)))))
-        if height is None:
+        if (horizontal and height is None) or (not horizontal and width is None):
             # An auto cross-size is finalized after children are laid out;
-            # its own min/max constraints must still bound the used size.
+            # this is symmetric for rows (height) and columns (width), and
+            # includes every wrapped line's outer cross contribution.
             line_sizes = [max((cross_sizes[i] for i in line), default=0.0) for line in lines]
-            gap = _intrinsic_gap(style.row_gap, node_id)
+            gap = _intrinsic_gap(style.row_gap if horizontal else style.column_gap, node_id)
             auto_cross = _sum_units(v for i, size in enumerate(line_sizes)
                                     for v in ((gap, size) if i else (size,)))
-            height = bounded_intrinsic(style, False, auto_cross, parent_height)
+            if horizontal:
+                height = bounded_intrinsic(style, False, auto_cross, parent_height)
+            else:
+                width = bounded_intrinsic(style, True, auto_cross, parent_width)
         width, height = _layout_unit(width), _layout_unit(height)
         used[node_id] = (width,height)
         return width,height
