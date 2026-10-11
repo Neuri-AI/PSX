@@ -54,7 +54,7 @@ def load_layout_engine() -> RustLayoutEngine | PythonLayoutEngine:
     except Exception as exc:
         raise SFLEError(DiagnosticCode.BACKEND_MISMATCH,
                         "Unable to negotiate native SFLE ABI.") from exc
-    if version != 1:
+    if type(version) is not int or version != 1:
         raise SFLEError(DiagnosticCode.BACKEND_MISMATCH,
                         "Native SFLE ABI version differs from Python schema 1.")
     return RustLayoutEngine(native)
