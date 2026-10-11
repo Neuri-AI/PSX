@@ -32,7 +32,14 @@ IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
 
 
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, text=True, capture_output=True, check=False)
+    # Git emits repository text as UTF-8 independently of the Windows console
+    # code page. Replacing malformed source bytes keeps the token inventory
+    # deterministic and lets the audit report an actual Git failure instead of
+    # a locale-dependent decoder crash.
+    return subprocess.run(
+        command, text=True, encoding="utf-8", errors="replace",
+        capture_output=True, check=False,
+    )
 
 
 def _inventory(lines: list[str]) -> dict[str, object]:
