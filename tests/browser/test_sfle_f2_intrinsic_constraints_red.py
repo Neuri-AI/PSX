@@ -128,3 +128,104 @@ def test_browser_intrinsic_width_bounds_and_nested_contribution(
                 f"{mode} nested={nested} Rust {node}.{axis}: {right} vs Chrome {wanted}"
             )
             assert left==right,(mode,nested,node,axis,left,right)
+
+
+@pytest.mark.parametrize("index",range(32))
+def test_flex_shrink_and_intrinsic_text_constraints_against_chromium(
+    index,page,rust_binary,
+):
+    """Measured min/max-content Text bounds participate in nonlinear flex.
+
+    Independent Chromium supplies actual text intrinsic min/max widths.
+    Items can shrink, grow and hit conflicting minimum/maximum constraints.
+    """
+    word=("BBBBBBBB","abcdefghijkl","ABCDEFGHIJKLMN")[index%3]
+    text=f"AAA {word} CCCC DDDD EEEEE"
+    root_width=(125,180,230,310)[index%4]
+    basis=(70,110,150,205)[(index//2)%4]
+    grow=(index//4)%2
+    shrink=1+(index//8)%2
+    lower=("min-content","max-content")[index%2]
+    upper=(None,"max-content","80px","125px")[(index//3)%4]
+    bounds=f"min-width:{lower};"+(f"max-width:{upper};" if upper else "")
+    page.set_content(
+        "<!doctype html><html><body style='margin:0'>"
+        f"<div id='root' style='display:flex;width:{root_width}px;height:60px;"
+        "align-items:flex-start;box-sizing:content-box'>"
+        f"<div id='text' style='width:auto;height:20px;flex:{grow} {shrink} {basis}px;"
+        f"font:10px/20px monospace;white-space:normal;{bounds}"
+        f"box-sizing:content-box'>{text}</div>"
+        "<div id='fixed' style='width:40px;height:20px;"
+        "flex:0 0 40px;min-width:0;box-sizing:content-box'></div>"
+        "</div></body></html>"
+    )
+    observed=page.evaluate("""() => {
+        const leaf=document.getElementById('text');
+        const measure={};
+        for(const mode of ['min-content','max-content']){
+            const probe=leaf.cloneNode(true);
+            probe.removeAttribute('id');
+            probe.style.position='absolute';
+            probe.style.flex='none';
+            probe.style.width=mode;
+            probe.style.height='auto';
+            probe.style.minWidth='0';
+            probe.style.maxWidth='none';
+            document.body.appendChild(probe);
+            measure[mode]=probe.getBoundingClientRect().width;
+            probe.remove();
+        }
+        return {
+            measure,
+            rectangles:Object.fromEntries(
+                [...document.querySelectorAll('[id]')].map(el=>{
+                    const r=el.getBoundingClientRect();
+                    return [el.id,{x:r.x,y:r.y,width:r.width,height:r.height}];
+                })
+            )
+        };
+    }""")
+    low=observed["measure"]["min-content"]
+    high=observed["measure"]["max-content"]
+    assert 0<low<high,(index,observed["measure"])
+    style={
+        "width":"auto","height":"20px","flex_basis":f"{basis}px",
+        "flex_grow":grow,"flex_shrink":shrink,"min_width":lower,
+    }
+    if upper is not None:style["max_width"]=upper
+    snapshot=LayoutInput(
+        1,100000+index,WritingDirection.LTR,
+        LayoutConstraints(AvailableSize(root_width,True),AvailableSize(60,True)),
+        (
+            LayoutNode("root",None,"Flex",_typed({
+                "direction":"row","width":f"{root_width}px","height":"60px",
+                "align_items":"flex-start",
+            })),
+            LayoutNode("text","root","Text",_typed(style)),
+            LayoutNode("fixed","root","Box",_typed({
+                "width":"40px","height":"20px","flex_basis":"40px",
+                "flex_grow":0,"flex_shrink":0,"min_width":"0px",
+            })),
+        ),
+        (MeasuredBox("text",IntrinsicSizes(low,high,20,20,high,20),
+            LayoutConstraints(AvailableSize(None,False),AvailableSize(None,False)),0),),
+    )
+    py=dict(PythonLayoutEngine().compute(snapshot).boxes)
+    proc=subprocess.run([str(rust_binary)],input=serialize_snapshot(snapshot),
+        capture_output=True,text=True,check=True,timeout=30)
+    native=json.loads(proc.stdout)
+    assert native["ok"],(index,native.get("error"))
+    rs={entry["node_id"]:entry["border"] for entry in native["result"]["boxes"]}
+    for node,rect in observed["rectangles"].items():
+        for axis,want in rect.items():
+            pv=getattr(py[node].border,axis)
+            rv=rs[node][axis]
+            assert abs(pv-want)<=0.01,(
+                f"intrinsic text flex freeze case {index}: "
+                f"Python {node}.{axis}={pv} Chromium={want}"
+            )
+            assert abs(rv-want)<=0.01,(
+                f"intrinsic text flex freeze case {index}: "
+                f"Rust {node}.{axis}={rv} Chromium={want}"
+            )
+            assert pv==rv,(index,node,axis,pv,rv)
