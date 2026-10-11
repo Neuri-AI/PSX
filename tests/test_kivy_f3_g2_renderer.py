@@ -76,10 +76,9 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
 
             # Multiple nested frames (not global/window flip).
             backend, tree = create()
+            # CSS content-box 140x60 + 10px padding each side = 160x80 border-box.
             root = tree.render(psx('''
-                # Content-box dimensions 140x60 + 10px padding each side
-            # yield the exact 160x80 border-box viewport.
-            <Flex direction="column" width="140px" height="60px"
+                <Flex direction="column" width="140px" height="60px"
                       padding={10} align_items="flex-start">
                     <Flex direction="row" width="120px" height="40px"
                           gap={6} align_items="flex-start">
