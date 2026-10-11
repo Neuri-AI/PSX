@@ -24,7 +24,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from kivy.uix.label import Label
             from kivy.uix.button import Button as KivyButton
 
-            from psx import Flex, Text, Button, Checkbox, component, use_state, psx
+            from psx import Flex, Text, Button, Checkbox, Slider, Spacer, Image, component, use_state, psx
             from psx.core.reconcile import Reconciler
             from psx.core.errors import RendererCapabilityError
             from psx.renderers.kivy.kivy import KivyRenderer
@@ -164,10 +164,46 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert (native.x, native.y, native.width, native.height) == (0, 100, 30, 20)
             cleanup(backend, tree)
 
-            # Unported component: no fallback to Kivy BoxLayout.
+            # Size-hint native widgets cannot impersonate intrinsic measurements.
+            # Fixed px SFLE layout dimensions make Checkbox/Slider/Spacer safe.
             backend, tree = create()
             try:
                 tree.render(Flex(Checkbox(), width=160, height=80))
+            except RendererCapabilityError as error:
+                assert "explicit pixel layout_width" in str(error)
+            else:
+                raise AssertionError("Kivy Checkbox with auto size bypassed capability gate")
+            tree.unmount()
+
+            calls = []
+            backend, tree = create()
+            native_root = tree.render(Flex(
+                Checkbox(checked=False, key="checkbox",
+                         on_change=calls.append,
+                         layout_width="20px", layout_height="16px",
+                         flex_basis="20px", flex_shrink=0),
+                Slider(value=30, key="slider",
+                       layout_width="32px", layout_height="20px",
+                       flex_basis="32px", flex_shrink=0),
+                Spacer(key="spacer",
+                       layout_width="12px", layout_height="8px",
+                       flex_basis="12px", flex_shrink=0),
+                width=160, height=80, gap=5, align_items="flex-start",
+            ))
+            check, slider, spacer = [child.handle.widget for child in native_root.children]
+            assert tuple(check.pos) + tuple(check.size) == (0, 64, 20, 16)
+            assert tuple(slider.pos) + tuple(slider.size) == (25, 60, 32, 20)
+            assert tuple(spacer.pos) + tuple(spacer.size) == (62, 72, 12, 8)
+            assert not isinstance(native_root.handle.widget, BoxLayout)
+            check.active = True
+            assert calls == [True]
+            assert backend.sfle_result.geometry_commit_error <= 1.0
+            cleanup(backend, tree)
+
+            # Unported component: no fallback to Kivy BoxLayout.
+            backend, tree = create()
+            try:
+                tree.render(Flex(Image("unported.png"), width=160, height=80))
             except RendererCapabilityError as error:
                 assert "not certified" in str(error)
             else:

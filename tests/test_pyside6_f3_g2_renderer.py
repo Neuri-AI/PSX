@@ -134,9 +134,74 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertIsNone(root.handle.widget.layout())
 
     def test_unported_component_is_explicitly_rejected(self):
-        from psx import Checkbox
+        from psx import Image
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
-            self.r.render(Flex(Checkbox(), width=160, height=80))
+            self.r.render(Flex(Image("unported.png"), width=160, height=80))
+
+    def test_additional_qt_native_primitives_have_sfle_geometry_and_no_qboxlayout(self):
+        from psx import Checkbox, Input, Slider, ProgressBar, Radio, Select
+        from PySide6.QtWidgets import (
+            QCheckBox, QLineEdit, QSlider, QProgressBar, QRadioButton, QComboBox,
+        )
+        specs = [
+            (Checkbox(checked=True, key="cb", layout_width="24px",
+                      layout_height="30px", flex_basis="24px", flex_shrink=0), QCheckBox, 24),
+            (Input(value="hello", key="entry", layout_width="92px",
+                   layout_height="30px", flex_basis="92px", flex_shrink=0), QLineEdit, 92),
+            (Slider(value=25, key="slider", layout_width="100px",
+                    layout_height="30px", flex_basis="100px", flex_shrink=0), QSlider, 100),
+            (ProgressBar(value=40, key="progress", layout_width="110px",
+                         layout_height="30px", flex_basis="110px", flex_shrink=0), QProgressBar, 110),
+            (Radio("r", label="Pick", key="radio", layout_width="70px",
+                   layout_height="30px", flex_basis="70px", flex_shrink=0), QRadioButton, 70),
+            (Select(options=["Alpha", "Beta"], value="Beta", key="select",
+                    layout_width="100px", layout_height="30px",
+                    flex_basis="100px", flex_shrink=0), QComboBox, 100),
+        ]
+        root = self.r.render(Flex(
+            *(node for node, _, _ in specs),
+            width="700px", height="80px", direction="row", gap=6,
+            align_items="flex-start",
+        ))
+        x = 0
+        for (node, expected_type, width), instance in zip(specs, root.children):
+            widget = instance.handle.widget
+            self.assertIsInstance(widget, expected_type)
+            self.assertIs(widget.parentWidget(), root.handle.widget)
+            self.assertIsNone(widget.layout(), node.type)
+            self.assertEqual(
+                (widget.x(), widget.y(), widget.width(), widget.height()),
+                (x, 0, width, 30), node.type,
+            )
+            x += width + 6
+        self.assertEqual(len(self.renderer.sfle_result.boxes), 7)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+        self.assertTrue(root.children[0].handle.widget.isChecked())
+        self.assertEqual(root.children[1].handle.widget.text(), "hello")
+        self.assertEqual(root.children[5].handle.widget.currentText(), "Beta")
+
+    def test_qt_checkbox_event_and_state_reconciliation_in_sfle_tree(self):
+        from psx import Checkbox
+        calls = []
+        root = self.r.render(Flex(
+            Checkbox(checked=False, key="cb", on_change=calls.append,
+                     layout_width="40px", layout_height="24px",
+                     flex_basis="40px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        native = root.children[0].handle.widget
+        native.click()
+        self.assertEqual(calls, [True])
+        after = self.r.render(Flex(
+            Checkbox(checked=True, key="cb", on_change=calls.append,
+                     layout_width="60px", layout_height="24px",
+                     flex_basis="60px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        self.assertIs(after.children[0].handle.widget, native)
+        self.assertEqual(native.width(), 60)
+        self.assertTrue(native.isChecked())
+        self.assertEqual(calls, [True])
 
     def test_engine_generation_forgery_never_commits_geometry(self):
         class WrongEngine:

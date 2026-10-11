@@ -202,8 +202,59 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(errors[0].code, DiagnosticCode.UNSUPPORTED_MEASUREMENT)
 
     def test_unported_builtin_is_explicit_failure_not_native_layout_fallback(self):
+        from psx import Image
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
-            self.reconciler.render(Flex(Checkbox(), width=160, height=80))
+            self.reconciler.render(Flex(Image("unported.png"), width=160, height=80))
+
+    def test_additional_tk_native_primitives_have_sfle_geometry_no_pack(self):
+        from psx import Slider, ProgressBar, Radio
+        specs = [
+            (Checkbox(checked=True, key="cb", layout_width="24px",
+                      layout_height="30px", flex_basis="24px", flex_shrink=0), ttk.Checkbutton, 24),
+            (Slider(value=25, key="slider", layout_width="100px",
+                    layout_height="30px", flex_basis="100px", flex_shrink=0), ttk.Scale, 100),
+            (ProgressBar(value=40, key="progress", layout_width="110px",
+                         layout_height="30px", flex_basis="110px", flex_shrink=0), ttk.Progressbar, 110),
+            (Radio("r", label="Pick", key="radio", layout_width="70px",
+                   layout_height="30px", flex_basis="70px", flex_shrink=0), ttk.Radiobutton, 70),
+        ]
+        root = self.reconciler.render(Flex(
+            *(node for node, _, _ in specs),
+            width="440px", height="80px", direction="row", gap=6,
+            align_items="flex-start",
+        ))
+        x = 0
+        for (node, expected_class, width), instance in zip(specs, root.children):
+            widget = instance.handle.widget
+            self.assertIsInstance(widget, expected_class)
+            self.assertIs(widget.master, root.handle.widget)
+            self.assertEqual(widget.winfo_manager(), "place")
+            self.assertEqual(rect(widget), (x, 0, width, 30), node.type)
+            x += width + 6
+        self.assertEqual(len(self.renderer.sfle_result.boxes), 5)
+        self.assertTrue(root.children[0].handle.widget._psx_variable.get())
+
+    def test_tk_checkbox_event_and_state_reconciliation_in_sfle_tree(self):
+        calls = []
+        root = self.reconciler.render(Flex(
+            Checkbox(checked=False, key="cb", on_change=calls.append,
+                     layout_width="30px", layout_height="20px",
+                     flex_basis="30px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        native = root.children[0].handle.widget
+        native.invoke()
+        self.assertEqual(calls, [True])
+        after = self.reconciler.render(Flex(
+            Checkbox(checked=True, key="cb", on_change=calls.append,
+                     layout_width="55px", layout_height="20px",
+                     flex_basis="55px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        self.assertIs(after.children[0].handle.widget, native)
+        self.assertEqual(rect(native)[2], 55)
+        self.assertTrue(native._psx_variable.get())
+        self.assertEqual(calls, [True])
 
     def test_default_tk_renderer_preserves_g1_fail_closed_route(self):
         regular = TkinterRenderer(root=self.host)
