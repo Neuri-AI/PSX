@@ -156,7 +156,7 @@ fn intrinsic_gap(length:Length,id:&str)->Result<f64,ComputeError>{
 }
 fn used_gap(length:Length,reference:f64,id:&str)->Result<f64,ComputeError>{
     intrinsic_gap(length,id)?;
-    match length{Length::Px(n)=>Ok(n),Length::Percent(p)=>Ok(p*reference),
+    match length{Length::Px(n)=>Ok(n),Length::Percent(p)=>Ok((p*reference*64.0).round()/64.0),
         Length::Auto=>Err(failure("SFLE_INVALID_LENGTH","Invalid gap.",Some(id))),}
 }
 fn main_gap(style:Style,width:f64,height:f64,id:&str)->Result<f64,ComputeError>{
