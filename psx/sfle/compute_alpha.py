@@ -460,10 +460,10 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 "Recursive row intrinsic constraint requires no-wrap.",
                 node_id,
             )
-        if horizontal and any(styles[child].shrink != 0 for child in children[node_id]):
+        if horizontal and any(styles[c].shrink != 0 and (minimum or styles[c].width.kind != LengthKind.PX or styles[c].flex_basis.kind != LengthKind.PX or styles[c].min_width.kind != LengthKind.PX) for c in children[node_id]):
             raise SFLECapabilityError(
                 DiagnosticCode.UNSUPPORTED_FEATURE,
-                "Recursive row intrinsic constraint requires nonshrinking children.",
+                "Shrinking row max-content requires definite item width, basis and minimum.",
                 node_id,
             )
         outer_sizes = []
