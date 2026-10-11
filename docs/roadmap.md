@@ -90,7 +90,7 @@ not a catch-all for unimplemented CSS features.
 
 **Base:** `develop` at `979b6ed9e86c63b640d498439045910ed1a189aa`.
 **Feature branch:** [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
-**State:** G1 IN PROGRESS (G1.2 structural normalization GREEN on `3ac035b`); G2–G5 NOT STARTED; **0/5 official gates CLOSED**.
+**State:** **G1 CLOSED** on SHA [`df6fe1c`](https://github.com/Neuri-AI/PSX/commit/df6fe1c107c98d9506944d10ced923a45f5608d7), with both [G1 matrix #38155096426](https://github.com/Neuri-AI/PSX/actions/runs/38155096426) and [selective CI #38155096518](https://github.com/Neuri-AI/PSX/actions/runs/38155096518) GREEN. G2–G5 NOT STARTED; **1/5 official gates CLOSED (20%)**.
 [Read the full F3 implementation plan and mandatory G2 component matrix](architecture/sfle-f3-implementation.md).
 
 **G1:** public Flex contract + explicit Scroll content policy.
@@ -122,7 +122,7 @@ becomes F3 work.
 
 ## SFLE — official phase status (2026-10-11)
 
-**F1 CLOSED · F2 CLOSED (seven F1 §6 normative gates and all five workstreams certified; final documentation-only CI required) · F3 IN PROGRESS (G1, 0/5 CLOSED).**
+**F1 CLOSED · F2 CLOSED (seven F1 §6 normative gates and all five workstreams certified; final documentation-only CI required) · F3 IN PROGRESS (G1 CLOSED, 1/5 gates CLOSED = 20%).**
 
 - [Formal F2 final exit certificate](architecture/sfle-f2-final-certification.md)
 - [F2 current implementation and normative exit ledger](architecture/sfle-f2-implementation.md)

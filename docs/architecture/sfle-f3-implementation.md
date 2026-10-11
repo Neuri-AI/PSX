@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 IN PROGRESS; G2–G5 NOT STARTED.** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED (certified `df6fe1c`); G2–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -351,7 +351,7 @@ a compatibility alias for Row/Column, wrapper boxes added by normalization
 solely to make geometry pass, hidden 12-column system inserted in F3,
 or modifications to F2 precision/parity without independent RED evidence.
 
-**Current F3 progress: 0/5 gates CLOSED. G1 IN PROGRESS (G1.2 structurally implemented and selectively certified); G2–G5 NOT STARTED. F3 change-aware CI is implemented and verified. See the G1.2 evidence section below.** This document is the acceptance
+**Current F3 progress: 1/5 gates CLOSED (20%). G1 CLOSED: builder, Markup, shared item metadata, normalizer, explicit Scroll content policy, fail-closed renderer routing and adverse cases certified at `df6fe1c`. G2–G5 NOT STARTED. F3 change-aware CI is implemented and verified. See the G1 certification below.** This document is the acceptance
 specification only. Implementation and executable certification are separate.
 
 
@@ -360,4 +360,51 @@ specification only. Implementation and executable certification are separate.
 - **RED:** [`4468dba`](https://github.com/Neuri-AI/PSX/commit/4468dba644cdc22e38e4d11dc1e3d7a35330b177) added 12 intentionally failing normalization/Scroll cases while 58 prior Core cases passed; [RED CI #38153047652](https://github.com/Neuri-AI/PSX/actions/runs/38153047652).
 - **GREEN:** [`3ac035b`](https://github.com/Neuri-AI/PSX/commit/3ac035b58cc90a1f3f0f05223a881bb96ab0dc2a) added `psx/core/layout_tree.py` with immutable declarative normalization: transparent fragment and resolved-function-component boundaries, stable keyed paths, no synthetic visible boxes and a unique explicit `Flex` content root per Scroll viewport. Components are **not** invoked inside normalization; G2 will provide their already-rendered roots from the reconciler.
 - **Tests:** `tests/test_f3_flex_contract.py` now covers Markup/builder equivalence, nested Flex, preserved boundaries, reorder identity, unresolved components, Scroll roots, nested Scroll and duplicate-key errors. [GREEN CI #38153141925](https://github.com/Neuri-AI/PSX/actions/runs/38153141925) certified SHA `3ac035b` (70 Core tests, all selected CI jobs green; G4 legacy removal deliberately not selected).
-- **Remaining G1:** classify/enforce shared Flex item metadata on ordinary controls (not only Flex itself), complete negative markup/normalization cases and the full G1 gate. The normalizer is a preparatory contract, **not** evidence of production Qt/Kivy/Tk/Headless SFLE integration or completed Scroll migration; G2/G3 remain pending.
+- **Completion:** The remaining metadata and adversarial tests were implemented and separately certified in the final G1 evidence below. This is **not** evidence of production Qt/Kivy/Tk/Headless SFLE geometry integration or completed Scroll migration; those remain G2/G3 responsibilities.
+
+
+## F3-G1 closure certificate — 2026-10-11
+
+**Formal state: G1 CLOSED (1/5 F3 gates, 20%).** All executable evidence below
+refers to the **same source SHA**
+[`df6fe1c`](https://github.com/Neuri-AI/PSX/commit/df6fe1c107c98d9506944d10ced923a45f5608d7).
+Historical G1.2 incremental evidence is retained above.
+
+- **Public and normalization contract:** `Flex` available in builders, root API,
+  registry and PSX Markup; `psx/core/layout_tree.py` preserves component and
+  Fragment boundaries, keyed paths and refs without evaluating hooks or adding
+  physical layout wrappers. Unresolved/cyclic components, unknown tags,
+  duplicate sibling keys, boolean keys and invalid Scroll content roots reject
+  deterministically.
+- **Shared item metadata:** `FLEX_ITEM_PROPS` and
+  `psx/core/layout_item.py` validate factors, basis, alignment/order,
+  `layout_{width,height,min_*,max_*}`, margin, padding and border
+  longhands, including typed SFLE lengths, invalid values and forbidden
+  combinations. The closed metadata is kept separate from native widget
+  props such as `Image.width` and `Scroll.width`. A registry census asserts
+  coverage of all 18 existing applicable contracted components plus Flex.
+  Raw/native declarations receive the same validation during normalization.
+- **Scroll contract resolution:** historical `SCROLL_CONTRACT.child_policy`
+  remains `multiple` for existing pre-SFLE renderers; the *SFLE normalization
+  path* is **strictly exactly one effective explicit Flex content root**.
+  Fragments/resolved function components may expose this root but no synthetic
+  Flex, invisible adapter box or sibling reassignment is permitted. G3 will
+  finish the native Scroll migration.
+- **Routing and authority:** Qt, Kivy, Tkinter and Headless explicitly
+  register `Flex` as an adapter key. Before G2's actual geometry bridge,
+  default creation raises a stable F3-G2 capability error; it cannot silently
+  run a QBoxLayout, Kivy BoxLayout, Tk pack or dummy Headless Flex fallback.
+  These routes are covered by real backend tests. This **does not** imply
+  successful native Flex rendering, which G2 must implement and certify.
+- **G1 dedicated matrix GREEN:** [run #38155096426](https://github.com/Neuri-AI/PSX/actions/runs/38155096426),
+  same SHA `df6fe1c`. Python 3.10, 3.11, 3.12 and 3.13 all passed
+  **125 tests each**, with final certification verdict successful.
+  Python 3.14 is outside `pyproject.toml`'s published `<3.14` support.
+- **F3 selective CI GREEN:** [run #38155096518](https://github.com/Neuri-AI/PSX/actions/runs/38155096518),
+  same SHA `df6fe1c`; selected Core, Headless, Qt, Kivy and Tkinter
+  jobs passed, with the required aggregate GREEN. Rust, Chromium, SFLE
+  numerical recalibration, wheels and G4 removal were **correctly skipped**
+  by impact routing; they are not counted as executed G1 tests.
+- **F3 remaining:** G2 (full `registry × backend × operation` SFLE/native
+  bridge), G3 (Scroll native behavior), G4 (remove Row/Column), G5
+  (single-SHA cross-platform final acceptance) are all **NOT STARTED**.

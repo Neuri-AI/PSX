@@ -286,3 +286,28 @@ implementation is committed and tested.
 - The new `psx/core/layout_tree.py` and G1.2 cases in `tests/test_f3_flex_contract.py` are covered by the Core path classifier. RED case: [#38153047652](https://github.com/Neuri-AI/PSX/actions/runs/38153047652). GREEN: [#38153141925](https://github.com/Neuri-AI/PSX/actions/runs/38153141925) on source SHA `3ac035b58cc90a1f3f0f05223a881bb96ab0dc2a` (70 Core tests, aggregate successful).
 - G1.2 is an incremental structural contract, not full G1 acceptance; do not count G2/G3/G4/G5 as implemented.
 - The full-registry G2 census, per-backend operations matrix, all required Chromium/GUI/packaging subsets and single-SHA G5 certification are still formal future gates. The prior checklist is historical implementation guidance, not a claim that every checkbox is complete.
+
+
+## F3-G1 gate closeout — 2026-10-11
+
+The dedicated [F3-G1 contract certification](../../.github/workflows/f3-g1-certification.yml)
+is scoped to public builders, PSX Markup, normalization and negative diagnostics.
+It runs the same 125-test contract suite on Python 3.10–3.13 (the supported
+range in `pyproject.toml`). Backend fail-closed routing tests are checked by
+the impacted Qt, Kivy, Tkinter and Headless suites, *not* inferred from pure
+contract tests.
+
+**Exact source SHA:** [`df6fe1c`](https://github.com/Neuri-AI/PSX/commit/df6fe1c107c98d9506944d10ced923a45f5608d7).
+
+- [G1 matrix run #38155096426](https://github.com/Neuri-AI/PSX/actions/runs/38155096426):
+  successful across all four supported Python versions, 125 tests each,
+  final G1 verdict GREEN.
+- [F3 selective run #38155096518](https://github.com/Neuri-AI/PSX/actions/runs/38155096518):
+  selected Core, Headless, Qt, Kivy and Tkinter suites all GREEN with the
+  required aggregator GREEN. Skipped Rust, Chromium, wheel and G4 jobs are
+  **not** counted as executed or certified.
+- **Formal F3 progress: G1 CLOSED, 1/5 gates (20%); G2–G5 NOT STARTED.**
+  The G1 geometry adapters are intentionally fail-closed until G2, and
+  pre-SFLE Scroll's multi-child behavior is replaced only in its
+  normalization path (explicit single Flex root); G3 retains native Scroll
+  migration ownership. No CSS, grid, or F2 numerical capability expansion.
