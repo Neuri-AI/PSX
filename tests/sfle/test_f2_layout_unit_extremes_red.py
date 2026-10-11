@@ -52,3 +52,23 @@ def test_invalid_nonfinite_input_must_not_be_coerced_to_zero():
     for number in (float("nan"), float("inf"), -float("inf")):
         with pytest.raises(ValueError):
             LayoutUnit.from_nearest(number)
+
+
+@pytest.mark.parametrize("fraction,reference,expected", (
+    (1e200, 1e200, I32_MAX / 64),
+    (-1e200, 1e200, I32_MIN / 64),
+))
+def test_finite_percent_operands_overflow_to_saturated_layout_units(
+    fraction, reference, expected,
+):
+    # Finite CSS tokens can overflow f64 in percent * containing-block
+    # reference. Both engines must saturate the signed i32 raw result,
+    # never throw ValueError, yield infinity or panic.
+    from psx.sfle.compute_alpha import (
+        _percent_used_dimension, _percent_flex_basis_used, _used_gap,
+    )
+    from psx.sfle.lengths import Length
+    assert _percent_used_dimension(fraction, reference) == expected
+    assert _percent_flex_basis_used(fraction, reference) == expected
+    if fraction > 0:
+        assert _used_gap(Length.percent(fraction), reference, "child") == expected
