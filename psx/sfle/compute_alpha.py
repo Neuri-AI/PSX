@@ -20,12 +20,25 @@ from .model import (
     AvailableSize, BoxRect, LayoutInput, LayoutResult, MeasuredBox, Rect,
 )
 from .cross_alignment import CrossAlign
+from .align_content import AlignContent
+from .main_alignment import JustifyContent
+from .main_margins import UsedMargin
 from .fixed_point import LayoutUnit, I32_MAX, I32_MIN
 
 
 @dataclass(frozen=True)
 class _Style:
     direction: FlexDirection
+    wrap: FlexWrap
+    justify: JustifyContent
+    align_content: AlignContent
+    align_self: CrossAlign
+    margin_top: Length
+    margin_right: Length
+    margin_bottom: Length
+    margin_left: Length
+    max_width: Length
+    max_height: Length
     width: Length
     height: Length
     flex_basis: Length
@@ -46,7 +59,10 @@ _ALLOWED = frozenset({
     "direction", "width", "height", "layout_width", "layout_height",
     "flex_basis", "flex_grow", "flex_shrink", "min_width", "min_height",
     "layout_min_width", "layout_min_height", "align_items",
-    "row_gap", "column_gap",
+    "wrap", "justify_content", "align_content", "align_self",
+    "max_width", "max_height", "layout_max_width", "layout_max_height",
+    "layout_margin_top", "layout_margin_right", "layout_margin_bottom",
+    "layout_margin_left", "row_gap", "column_gap",
     "layout_padding_top", "layout_padding_right", "layout_padding_bottom", "layout_padding_left",
 })
 
@@ -75,15 +91,30 @@ def _styles(request: LayoutInput) -> dict[str, _Style]:
         try:
             direction = FlexDirection(values.get("direction", "row"))
             alignment = CrossAlign(values.get("align_items", "stretch"))
+            self_alignment = CrossAlign(values.get("align_self", "auto"))
+            wrap = FlexWrap(values.get("wrap", "nowrap"))
+            justify = JustifyContent(values.get("justify_content", "flex-start"))
+            content_alignment = AlignContent(
+                "stretch" if values.get("align_content", "normal") == "normal"
+                else values["align_content"]
+            )
         except ValueError as exc:
             raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, str(exc), node.node_id) from exc
-        if alignment not in (CrossAlign.STRETCH, CrossAlign.FLEX_START):
-            raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unsupported alignment in initial snapshot slice.", node.node_id)
         grow, shrink = values.get("flex_grow", 0), values.get("flex_shrink", 1)
         if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v < float("inf") for v in (grow, shrink)):
             raise SFLEError(DiagnosticCode.INVALID_LENGTH, "Invalid flex factors.", node.node_id)
         result[node.node_id] = _Style(
             direction=direction,
+            wrap=wrap,
+            justify=justify,
+            align_content=content_alignment,
+            align_self=self_alignment,
+            margin_top=parse_length(values.get("layout_margin_top", 0)),
+            margin_right=parse_length(values.get("layout_margin_right", 0)),
+            margin_bottom=parse_length(values.get("layout_margin_bottom", 0)),
+            margin_left=parse_length(values.get("layout_margin_left", 0)),
+            max_width=_length(values, "layout_max_width", "max_width"),
+            max_height=_length(values, "layout_max_height", "max_height"),
             width=_length(values, "layout_width", "width"),
             height=_length(values, "layout_height", "height"),
             flex_basis=_length(values, "flex_basis"),
@@ -468,9 +499,22 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             else:
                 raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE, "Unlisted percentage minimum size dependency cycle.", child_id)
             assert minimum is not None
-            bases.append(FlexBasis(desired, max(desired,minimum),
+            max_length = child_style.max_width if horizontal else child_style.max_height
+            if max_length.kind == LengthKind.PX:
+                maximum = max_length.value
+            elif max_length.kind == LengthKind.AUTO:
+                maximum = None
+            elif max_length.kind == LengthKind.PERCENT and main_reference is not None:
+                maximum = _layout_unit(max_length.value * main_reference)
+            else:
+                raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Unlisted indefinite percentage maximum size dependency cycle.", child_id)
+            if maximum is not None and maximum < minimum:
+                minimum = maximum
+            hypo = min(max(desired, minimum), maximum) if maximum is not None else max(desired,minimum)
+            bases.append(FlexBasis(desired, hypo,
                                     grow=child_style.grow,shrink=child_style.shrink,
-                                    min_size=minimum))
+                                    min_size=minimum,max_size=maximum))
         main_gap = _main_gap(style,width,height if height is not None else 0.0,node_id)
         edges = {child: _padding(styles[child], width, child) for child in children[node_id]}
         fixed_main_edges = sum(
@@ -517,25 +561,69 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
     layout(root,root_width,root_height,None,None)
 
     resolved = []
+    def margin_value(value: Length, reference: float, node_id: str) -> UsedMargin:
+        if value.kind == LengthKind.AUTO:
+            return UsedMargin(None)
+        if value.kind == LengthKind.PX:
+            return UsedMargin(_layout_unit(value.value))
+        if value.kind == LengthKind.PERCENT:
+            return UsedMargin(_layout_unit(value.value * reference))
+        raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
+                                  "Unsupported margin length.", node_id)
+
     for node in request.nodes:
         node_id, parent_id = node.node_id,node.parent_id
         width,height = used[node_id]
         if parent_id is None:
             resolved.append(MarginTreeNode(node_id,None,width,height,
-                direction=styles[node_id].direction,align_items=CrossAlign.FLEX_START,
-                main_gap=_main_gap(styles[node_id],width,height,node_id)))
+                direction=styles[node_id].direction,
+                wrap=styles[node_id].wrap,
+                justify=styles[node_id].justify,
+                align_items=styles[node_id].align_items,
+                align_content=styles[node_id].align_content,
+                main_gap=_main_gap(styles[node_id],width,height,node_id),
+                cross_gap=_used_gap(styles[node_id].row_gap if styles[node_id].direction in
+                    (FlexDirection.ROW,FlexDirection.ROW_REVERSE)
+                    else styles[node_id].column_gap,width,node_id)))
             continue
         horizontal = styles[parent_id].direction in (FlexDirection.ROW,FlexDirection.ROW_REVERSE)
         main = width if horizontal else height
         cross = height if horizontal else width
         item_edges = _padding(styles[node_id], used[parent_id][0], node_id)
+        parent_st = styles[parent_id]
+        item_st = styles[node_id]
+        parent_width = used[parent_id][0]
+        mt = margin_value(item_st.margin_top,parent_width,node_id)
+        mr = margin_value(item_st.margin_right,parent_width,node_id)
+        mb = margin_value(item_st.margin_bottom,parent_width,node_id)
+        ml = margin_value(item_st.margin_left,parent_width,node_id)
+        direction = parent_st.direction
+        main_horizontal = direction in (FlexDirection.ROW,FlexDirection.ROW_REVERSE)
+        reverse = direction in (FlexDirection.ROW_REVERSE,FlexDirection.COLUMN_REVERSE)
+        rtl = request.direction == WritingDirection.RTL
+        main_forwards = (not reverse) != rtl if main_horizontal else not reverse
+        cross_forwards = True if main_horizontal else not rtl
+        main_start = (ml if main_forwards else mr) if main_horizontal else (mt if main_forwards else mb)
+        main_end = (mr if main_forwards else ml) if main_horizontal else (mb if main_forwards else mt)
+        cross_start = (mt if cross_forwards else mb) if main_horizontal else (ml if cross_forwards else mr)
+        cross_end = (mb if cross_forwards else mt) if main_horizontal else (mr if cross_forwards else ml)
         item = MarginFlexItem(
             node_id, FlexBasis(main,main,grow=0,shrink=0,min_size=0),
-            cross, edges=UsedBoxEdges(padding=item_edges), cross_size_auto=False,
+            cross, edges=UsedBoxEdges(padding=item_edges),
+            main_start=main_start,main_end=main_end,
+            cross_start=cross_start,cross_end=cross_end,
+            align_self=item_st.align_self,
+            cross_size_auto=False,
         )
         resolved.append(MarginTreeNode(node_id,parent_id,width,height,item=item,
-            direction=styles[node_id].direction,align_items=CrossAlign.FLEX_START,
-            main_gap=_main_gap(styles[node_id],width,height,node_id)))
+            direction=styles[node_id].direction,
+            wrap=styles[node_id].wrap,justify=styles[node_id].justify,
+            align_items=styles[node_id].align_items,
+            align_content=styles[node_id].align_content,
+            main_gap=_main_gap(styles[node_id],width,height,node_id),
+            cross_gap=_used_gap(styles[node_id].row_gap if styles[node_id].direction in
+                (FlexDirection.ROW,FlexDirection.ROW_REVERSE)
+                else styles[node_id].column_gap,width,node_id)))
     result = compute_margin_tree(tuple(resolved),generation=request.generation,writing=request.direction)
     boxes = tuple((box.node_id,BoxRect(box.content,box.padding,box.border,box.border))
                   for box in result.boxes)
