@@ -1046,7 +1046,8 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
         # use a different cross size than their actual children.
         # Intrinsic main-axis wrap has no certified line-formation reference.
         if style.wrap != FlexWrap.NOWRAP and (
-            (horizontal and width is None) or (not horizontal and height is None)
+            (horizontal and width is None and style.max_width.kind != LengthKind.PX)
+            or (not horizontal and height is None and style.max_height.kind != LengthKind.PX)
         ):
             raise SFLECapabilityError(
                 DiagnosticCode.UNSUPPORTED_FEATURE,

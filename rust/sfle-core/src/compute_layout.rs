@@ -598,8 +598,10 @@ impl Context<'_>{
         let mut width=forced_w.or(resolved(style.width,pw,false,&id)?);
         let mut height=forced_h.or(resolved(style.height,ph,true,&id)?);
         if style.wrap!=Wrap::NoWrap && (
-            (horizontal(style.direction) && width.is_none())
-            || (!horizontal(style.direction) && height.is_none())
+            (horizontal(style.direction) && width.is_none()
+                && !matches!(style.max_width,Length::Px(_)))
+            || (!horizontal(style.direction) && height.is_none()
+                && !matches!(style.max_height,Length::Px(_)))
         ){
             return Err(unsupported(
                 "Intrinsically auto-sized Flex wrap without definite main axis is deferred.",

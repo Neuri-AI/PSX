@@ -116,3 +116,23 @@ def test_deferred_features_do_not_reject_previously_supported_subsets(
     python, rust = _python_compute(snapshot), _rust_compute(rust_binary, snapshot)
     assert python["ok"] and rust["ok"], (mode, python.get("error"), rust.get("error"))
     assert _rects(python["result"]) == _rects(rust["result"]), mode
+
+
+def test_certified_intrinsic_auto_wrap_with_definite_max_width_remains_supported(
+    rust_binary,
+):
+    # The pre-existing recursive sizing fixture proves that a definite max
+    # constraint can bound wrapped lines despite width:auto.
+    from pathlib import Path
+    import json
+
+    fixtures = json.loads((
+        Path(__file__).resolve().parents[1] /
+        "sfle" / "fixtures" / "f2_recursive_sizing.json"
+    ).read_text())
+    case = next(c for c in fixtures["cases"] if c["id"] == "auto-parent-max-width-wrap")
+    from test_f2_recursive_sizing_red import make_snapshot
+    snapshot = make_snapshot(case)
+    python, rust = _python_compute(snapshot), _rust_compute(rust_binary, snapshot)
+    assert python["ok"] and rust["ok"], (python.get("error"), rust.get("error"))
+    assert _rects(python["result"]) == _rects(rust["result"])

@@ -72,7 +72,7 @@ cases. A replaced element with `aspect_ratio`, two auto dimensions,
 missing native intrinsic measurement and no cross-axis stretch must reject
 with `SFLE_UNSUPPORTED_FEATURE`, not fabricate 0 × 0 geometry. An
 intrinsically auto-sized wrapped Flex whose main axis remains indefinite
-must likewise reject rather than assume an intrinsic line width. Both
+**without a definite max-size cap** must likewise reject rather than assume an intrinsic line width. Both
 Rust and Python must agree on code and source node ID; other unlisted CSS
 dependency graphs remain fail-closed. A partial supported case does not
 constitute full CSS capability advertisement.
