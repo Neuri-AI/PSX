@@ -14,7 +14,7 @@ This is a project-workstream tracker, **not** a replacement for the separate nor
 | --- | --- | --- | --- |
 | **1** | Alpha CSS scope: intrinsic and recursive sizing, percentages, cross-axis, flex min/max | **CLOSED — user approved 2026-10-11** | Frozen certified behavior; no more exploratory CSS feature expansion in F2. Existing validated geometries must continue to pass; unlisted features must fail explicitly. |
 | **2** | Rust/Python geometry, accepted/rejected CSS classes, stable diagnostics | **CLOSED — final certification 2026-10-11** | 521 mandatory differential tests GREEN, four box types bit-identical for accepted snapshots, matching supported/unsupported verdicts and error codes/node IDs. Strict enum typing and CSS length normalization parity corrected via independent RED evidence. |
-| **3** | Signed 32-bit LayoutUnit saturation, Chromium/Headless/native precision | **READY TO START — not certified** | Exact raw geometry audit and approved logical/native tolerances; retain all existing tests. |
+| **3** | Signed 32-bit LayoutUnit saturation, Chromium/Headless/native precision | **IN PROGRESS — signed overflow regressions implemented, final certification pending** | Rust minimum-signed Flex freeze, finite percentage products/margins, intermediate edge insets, paired extreme geometry and native 1px projections have executable tests. No blanket geometry certification until all workflows on the final SHA pass. |
 | **4** | SFLE sole portable layout authority and Scroll viewport/content boundary | **NOT STARTED in this sequence** | Executable adapter contract, F3 integration reserved for F3. |
 | **5** | Aspect-ratio/replaced intrinsic and auto-sized wrap scope decisions | **AWAITING DECISION** | Implement and certify or obtain explicit written deferral; point-1 closure **does not** authorize either deferral. |
 
@@ -35,6 +35,27 @@ This is a project-workstream tracker, **not** a replacement for the separate nor
 - [Windows + macOS wheels/frozen fallback #38129920071](https://github.com/Neuri-AI/PSX/actions/runs/38129920071) — cross-OS native and Python fallback execution; confirm this workflow is GREEN before final user handoff.
 
 **Scope of the certification:** complete the *explicitly frozen and executable alpha corpus*, not every arbitrary CSS declaration. Unknown unlisted or indefinite graphs still must produce explicit diagnostics. No skipped, xfailed, silent unsupported-feature branch or tolerance relaxation is newly authorized. The broader raw signed int32 saturation audit, multi-platform geometry tolerance certification, and Scroll adapter sole-authority enforcement remain respectively points 3–4; scope decisions remain point 5.
+
+## Point 3 — 32-bit LayoutUnit saturation and geometry precision audit (2026-10-11)
+
+**Current decision: IN PROGRESS.** Point 2 stays CLOSED. These are non-CSS-expansion precision and overflow fixes on the frozen alpha capability set; final F2 acceptance remains independent.
+
+**Verified RED and remediations:**
+1. [Rust RED `dc2e809`](https://github.com/Neuri-AI/PSX/commit/dc2e80915801b1b29c5eea047c1bdab6000618aa) / [Core #38130961204](https://github.com/Neuri-AI/PSX/actions/runs/38130961204): deterministic signed `i32::MIN` free-space branch panicked on `.abs()` during fractional flex freezing. [Fix `169d40a`](https://github.com/Neuri-AI/PSX/commit/169d40a5a092f4d98dab1750ac8ae29a3c37e330) widens raw comparisons to `i64` before taking absolute values.
+2. [Rust/Python RED `d25cc84`](https://github.com/Neuri-AI/PSX/commit/d25cc84df887432a39b83a04e3f880aac83aa262) / [Core #38131283113](https://github.com/Neuri-AI/PSX/actions/runs/38131283113): finite `fraction * reference` can exceed `f64` bounds. Rust panicked on a prevalidated-finite expectation; Python raised from the fixed-point conversion, and gaps could leak infinity. [Fix `137764e`](https://github.com/Neuri-AI/PSX/commit/137764e29081db8ad72b143e6f8f8ffcd18ab508) explicitly clamps finite-input arithmetic overflow to the nearest signed `i32` raw bound in both engines for percentage dimensions, flex-basis, padding and gaps; [margin follow-up `49a24d0`](https://github.com/Neuri-AI/PSX/commit/49a24d0efdac52387bb1e772221766e18d00f88a) adds both signs of overflowing percentage margins.
+3. [Edge inset RED `4f22133`](https://github.com/Neuri-AI/PSX/commit/4f22133b1e6c24b43b20a92065ea484f5796fd49) / [Core #38131532118](https://github.com/Neuri-AI/PSX/actions/runs/38131532118): the constrained Rust edge slice returned an unsaturated coordinate exceeding the signed max; source audit confirmed an unbounded `f64` sum. [Rust fix `d353d6b`](https://github.com/Neuri-AI/PSX/commit/d353d6ba2200d642355ebd916092bed6a7e38505) and [Python counterpart `e311b38`](https://github.com/Neuri-AI/PSX/commit/e311b384d290fc247e034c2d5a746fde07e05dbc) now apply saturating integer accumulation to edge sums and insets; [Python boundary test `932464b`](https://github.com/Neuri-AI/PSX/commit/932464b773d0d894901060cd5d73e86d3a3109b0) tests the same signed extent.
+
+**Production and stage-level callsite inventory (audited paths):**
+
+| Stage | Python | Rust | Evidence and allowed projection |
+| --- | --- | --- | --- |
+| Raw conversion, signed add/sub, MulDiv | `fixed_point.py` | `layout_unit.rs` | `test_f2_layout_unit_extremes_red.py`, `f2_layout_unit_extremes_red.rs`, new overflow regressions |
+| Intrinsic size, % references, flex freeze/min/max | `compute_alpha.py` | `compute_layout.rs` | Paired alpha differential, N01–N08/C99 fail-closed; signed-bound shrink and overflowing finite percentages |
+| Line formation, justification, cross/baseline, margins | `line_layout.py`, `margin_flex_pipeline.py`, `margin_tree.py` | `line_layout.rs`, `margin_flex_pipeline.rs`, `margin_tree.rs` | Existing fixed-point stage tests, plus `test_f2_b2_saturation_red.py` |
+| Physical border/padding insets and resolved edge slices | `box_geometry.py`, `edge_pipeline.py` | `edge_pipeline.rs` | Signed max/min inset regression; intermediate additions converted to saturating `LayoutUnit` |
+| Portable-to-native coordinates | `native_geometry.py`, `adapter_contract.py` | renderer-neutral output schema | `test_sfle_f2_point3_saturation_certification.py` tests exact geometry parity and <=1px Qt/Tk/Kivy projection; real widget suites are separately mandatory |
+
+**Certification gates that remain:** execute the final commit's complete [SFLE Core](https://github.com/Neuri-AI/PSX/actions), [Chromium 0.01px](https://github.com/Neuri-AI/PSX/actions), [real UI <=1px](https://github.com/Neuri-AI/PSX/actions), cross-platform native-wheel and alpha workflows **without skip/xfail or error-tolerance changes**. Headless intrinsic width remeasurement is part of the live Chromium/Headless oracle, not a substitute for the native readback. The independent signed-extreme scenarios are deliberately *not* browser visual comparisons at physically unrealistic 33-million-pixel coordinates. Public renderer wiring and single-authority contracts remain point 4/F3 boundaries.
 
 ## Normative authority
 
