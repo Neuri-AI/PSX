@@ -7,11 +7,19 @@ used offsets: no fictitious nonnegative margin rectangle is created.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-import math
+from .fixed_point import LayoutUnit
 
 
 def _layout_unit(value: float) -> float:
-    return math.floor(value * 64.0 + 0.5) / 64.0
+    return LayoutUnit.from_nearest(value).to_px()
+
+
+def _sum_units(*values: float) -> float:
+    """Round each source edge at its callsite and saturate *each* addition."""
+    total = LayoutUnit.from_raw(0)
+    for value in values:
+        total += LayoutUnit.from_nearest(value)
+    return total.to_px()
 
 from .align_content import AlignContent
 from .box_geometry import UsedBoxEdges, UsedEdges
@@ -51,8 +59,8 @@ class MarginTreeLayout:
 
 def _translate(box: MarginFlexBox, x: float, y: float) -> MarginFlexBox:
     def move(r: Rect) -> Rect:
-        return Rect(_layout_unit(_layout_unit(r.x) + x),
-                    _layout_unit(_layout_unit(r.y) + y), r.width, r.height)
+        return Rect(_sum_units(r.x, x), _sum_units(r.y, y),
+                    _layout_unit(r.width), _layout_unit(r.height))
     return MarginFlexBox(
         box.node_id, move(box.content), move(box.padding), move(box.border),
         box.used_main_start_margin, box.used_main_end_margin, box.line_index,
@@ -116,10 +124,17 @@ def compute_margin_tree(
     geometry: dict[str, MarginFlexBox] = {
         root.node_id: MarginFlexBox(
             root.node_id,
-            Rect(_layout_unit(_layout_unit(e.border.left) + e.padding.left),
-                 _layout_unit(_layout_unit(e.border.top) + e.padding.top), root.width, root.height),
-            Rect(_layout_unit(e.border.left), _layout_unit(e.border.top), root.width + e.padding.horizontal, root.height + e.padding.vertical),
-            Rect(0, 0, root.width + e.padding.horizontal + e.border.horizontal, root.height + e.padding.vertical + e.border.vertical),
+            Rect(_sum_units(e.border.left, e.padding.left),
+                 _sum_units(e.border.top, e.padding.top),
+                 _layout_unit(root.width), _layout_unit(root.height)),
+            Rect(_layout_unit(e.border.left), _layout_unit(e.border.top),
+                 _sum_units(root.width, e.padding.left, e.padding.right),
+                 _sum_units(root.height, e.padding.top, e.padding.bottom)),
+            Rect(0, 0,
+                 _sum_units(root.width, e.padding.left, e.padding.right,
+                            e.border.left, e.border.right),
+                 _sum_units(root.height, e.padding.top, e.padding.bottom,
+                            e.border.top, e.border.bottom)),
             0, 0, 0,
         ),
     }
