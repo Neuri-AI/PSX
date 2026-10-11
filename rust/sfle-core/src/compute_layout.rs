@@ -129,29 +129,35 @@ fn percent_flex_basis_used(fraction:f64,reference:f64)->f64{
     (fraction*reference*64.0).floor()/64.0
 }
 fn used_flex_target_units(targets:Vec<f64>,bases:&[FlexBasis])->Vec<f64>{
-    // Keep §9.7 f64 precision until targets are final; conserve their rounded
-    // sum when materializing CSS used lengths on the 1/64 px grid.
-    let mut units:Vec<i64>=targets.iter().map(|n|(n*64.0+0.5).floor() as i64).collect();
-    let total=(targets.iter().sum::<f64>()*64.0+0.5).floor() as i64;
-    let correction=total-units.iter().sum::<i64>();
-    if correction!=0 {
-        let mut candidates:Vec<usize>=(0..targets.len()).filter(|&idx|
-            (targets[idx]-bases[idx].basis).abs()>1e-12
-        ).collect();
-        candidates.sort_by(|&a,&b|{
-            let af=(targets[a]*64.0).fract();
-            let bf=(targets[b]*64.0).fract();
-            let cmp=if correction>0 {bf.total_cmp(&af)}else{af.total_cmp(&bf)};
-            cmp.then(a.cmp(&b))
-        });
-        if !candidates.is_empty() {
-            for step in 0..correction.unsigned_abs() as usize {
-                let idx=candidates[step%candidates.len()];
-                units[idx]+=if correction>0 {1}else{-1};
-            }
+    // Blink's LineFlexer distributes each LayoutUnit-rounded share in
+    // reverse child order, using the remaining free-space. This occurs
+    // after the pure CSS §9.7 double-precision target calculation, before
+    // recursive placement. Never patch output rectangles.
+    if targets.is_empty(){return vec![];}
+    let base_units:Vec<i64>=bases.iter()
+        .map(|item|(item.basis*64.0+0.5).floor() as i64).collect();
+    let deltas:Vec<f64>=targets.iter().zip(bases.iter())
+        .map(|(target,item)|target-item.basis).collect();
+    let active:Vec<usize>=(0..deltas.len())
+        .filter(|&i|deltas[i].abs()>1e-12).collect();
+    let mut units=base_units.clone();
+    if !active.is_empty(){
+        let mut remaining=(targets.iter().sum::<f64>()*64.0+0.5).floor() as i64
+            -base_units.iter().sum::<i64>();
+        let mut magnitude:f64=active.iter().map(|&i|deltas[i].abs()).sum();
+        for &idx in active.iter().rev(){
+            let share=deltas[idx].abs();
+            let allocated=if (magnitude-share).abs()<1e-12{
+                remaining
+            }else{
+                (remaining as f64*(share/magnitude)+0.5).floor() as i64
+            };
+            units[idx]+=allocated;
+            remaining-=allocated;
+            magnitude-=share;
         }
     }
-    units.into_iter().map(|n|n as f64/64.0).collect()
+    units.into_iter().map(|unit|unit as f64/64.0).collect()
 }
 fn resolved(v:Length, reference:Option<f64>, vertical:bool, id:&str)->Result<Option<f64>,ComputeError>{
     match v {
