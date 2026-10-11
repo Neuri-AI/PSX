@@ -46,3 +46,14 @@ def test_A08_installed_pyo3_wheel_parity(case_id):
                 assert a_raw==b_raw and a_raw==int(a_raw), (
                     f"{case_id} {name}.{axis} Python/Rust not bit identical: {a_raw} vs {b_raw}"
                 )
+
+
+def test_A08_native_wheel_real_multileaf_intrinsic_convergence():
+    """Rust's *actual* PyO3 engine must obey the multi-round UI measurement bridge."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sfle"))
+    from test_f2_b1_real_multi_leaf_convergence_red import (
+        assert_real_engine_remeasurement_converges,
+    )
+    engine = load_layout_engine()
+    assert engine.backend_name == "rust", "This native-wheel regression may not run on Python fallback."
+    assert_real_engine_remeasurement_converges(engine)
