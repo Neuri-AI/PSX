@@ -104,3 +104,83 @@ def test_auto_inline_parent_multiple_percentage_padding_siblings(index,page,rust
                 f"cyclic multi sibling[{index}] Rust {node_id}.{axis}={rv} Chromium={wanted}"
             )
             assert pv==rv,("Rust/Python raw geometry mismatch",index,node_id,axis,pv,rv)
+
+
+@pytest.mark.parametrize("seed",(0xC0A551,0xC0A552,0xC0A553))
+@pytest.mark.parametrize("index",range(16))
+def test_cyclic_padding_randomized_fixed_sibling_groups(
+    seed,index,page,rust_binary,
+):
+    """Positive CSS cycles beyond the original two-item special case."""
+    import random
+    rng=random.Random(seed+index*17)
+    n=rng.randint(3,6)
+    root_w=260+index*7
+    gap=rng.choice((0,2,4,8))
+    entries=[(rng.randint(16,48),rng.choice((5,10,15,20,30)),rng.choice((True,False)))
+             for _ in range(n)]
+    nodes=[
+        LayoutNode("root",None,"Flex",_typed({
+            "direction":"row","width":f"{root_w}px","height":"80px",
+            "align_items":"flex-start",
+        })),
+        LayoutNode("wrapper","root","Flex",_typed({
+            "direction":"row","width":"auto","height":"auto",
+            "flex_basis":"auto","flex_shrink":0,
+            "min_width":"0px","column_gap":f"{gap}px",
+            "align_items":"flex-start",
+        })),
+    ]
+    dom=[]
+    for i,(size,pct,on_left) in enumerate(entries):
+        edge="layout_padding_left" if on_left else "layout_padding_right"
+        css="padding-left" if on_left else "padding-right"
+        nodes.append(LayoutNode(f"n{i}","wrapper","Box",_typed({
+            "width":f"{size}px","height":"20px",
+            "flex_basis":f"{size}px","flex_shrink":0,
+            edge:f"{pct}%",
+        })))
+        dom.append(
+            f"<div id='n{i}' style='width:{size}px;height:20px;"
+            f"flex:0 0 {size}px;{css}:{pct}%;box-sizing:content-box'></div>"
+        )
+    snapshot=LayoutInput(
+        1,55000+index,WritingDirection.LTR,
+        LayoutConstraints(AvailableSize(root_w,True),AvailableSize(80,True)),
+        tuple(nodes),(),
+    )
+    page.set_content(
+        "<!doctype html><html><body style='margin:0'>"
+        f"<div id='root' style='display:flex;width:{root_w}px;height:80px;"
+        "align-items:flex-start;box-sizing:content-box'>"
+        f"<div id='wrapper' style='display:flex;flex-direction:row;"
+        f"width:auto;height:auto;flex:0 0 auto;min-width:0;"
+        f"column-gap:{gap}px;align-items:flex-start;box-sizing:content-box'>"
+        +"".join(dom)+"</div></div></body></html>"
+    )
+    observed=page.evaluate("""() => Object.fromEntries(
+        [...document.querySelectorAll('[id]')].map(el=>{
+            const r=el.getBoundingClientRect();
+            return [el.id,{x:r.x,y:r.y,width:r.width,height:r.height}];
+        })
+    )""")
+    py=dict(PythonLayoutEngine().compute(snapshot).boxes)
+    process=subprocess.run([str(rust_binary)],input=serialize_snapshot(snapshot),
+        text=True,capture_output=True,check=True,timeout=30)
+    result=json.loads(process.stdout)
+    assert result["ok"],result.get("error")
+    rs={item["node_id"]:item["border"] for item in result["result"]["boxes"]}
+    assert set(py)==set(rs)==set(observed)
+    for node,rect in observed.items():
+        for axis,wanted in rect.items():
+            pv=getattr(py[node].border,axis)
+            rv=rs[node][axis]
+            assert abs(pv-wanted)<=0.01,(
+                f"cycle {seed:x} index={index} {node}.{axis}: "
+                f"Python={pv}, Chromium={wanted}, siblings={entries}"
+            )
+            assert abs(rv-wanted)<=0.01,(
+                f"cycle {seed:x} index={index} {node}.{axis}: "
+                f"Rust={rv}, Chromium={wanted}, siblings={entries}"
+            )
+            assert pv==rv,(seed,index,node,axis,pv,rv)
