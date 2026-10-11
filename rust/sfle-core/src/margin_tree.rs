@@ -36,8 +36,9 @@ pub struct MarginTreeLayout {
     pub boxes: Vec<MarginFlexBox>,
 }
 
+fn layout_unit(value:f64)->f64 {(value*64.0+0.5).floor()/64.0}
 fn translate(r: Rect, x: f64, y: f64) -> Rect {
-    Rect { x: r.x+x, y:r.y+y, ..r }
+    Rect { x: layout_unit(layout_unit(r.x)+x), y:layout_unit(layout_unit(r.y)+y), ..r }
 }
 fn translate_box(mut b: MarginFlexBox, x: f64, y: f64) -> MarginFlexBox {
     b.content=translate(b.content,x,y);
@@ -84,13 +85,13 @@ pub fn compute_margin_tree(
     let root=&nodes[0];
     let e=root.edges;
     let content=Rect {
-        x:e.border.left+e.padding.left,
-        y:e.border.top+e.padding.top,
+        x:layout_unit(layout_unit(e.border.left)+e.padding.left),
+        y:layout_unit(layout_unit(e.border.top)+e.padding.top),
         width:root.width,
         height:root.height,
     };
     let padding=Rect {
-        x:e.border.left,y:e.border.top,
+        x:layout_unit(e.border.left),y:layout_unit(e.border.top),
         width:root.width+e.padding.left+e.padding.right,
         height:root.height+e.padding.top+e.padding.bottom,
     };
