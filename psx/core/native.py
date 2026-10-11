@@ -46,6 +46,7 @@ class NativeWidget:
     bind_event: NativeBindEvent | None = None
     ownership: NativeOwnership = NativeOwnership.OWNED
     name: str = "NativeWidget"
+    sfle_port: object | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.ownership, str):
@@ -71,6 +72,10 @@ class NativeWidget:
             raise TypeError("NativeWidget.update must be callable or None.")
         if self.bind_event is not None and not callable(self.bind_event):
             raise TypeError("NativeWidget.bind_event must be callable or None.")
+        if self.sfle_port is not None:
+            from psx.sfle.f3_external import SFLEExternalPort
+            if not isinstance(self.sfle_port, SFLEExternalPort):
+                raise TypeError("NativeWidget.sfle_port requires SFLEExternalPort.")
 
 
 def Native(
@@ -79,6 +84,7 @@ def Native(
     props: Mapping[str, object] | None = None,
     signals: Mapping[str, Callable[..., object] | None] | None = None,
     renderer: str | None = None,
+    sfle_port: object | None = None,
     key: str | int | None = None,
     ref: object | None = None,
     **attributes: object,
@@ -107,6 +113,7 @@ def Native(
             takes_parent=selected == "tkinter",
             update=_update_for(selected),
             bind_event=_bind_for(selected),
+            sfle_port=sfle_port,
             name=getattr(widget, "__name__", type(widget).__name__),
         )
     else:
@@ -116,6 +123,7 @@ def Native(
             ownership=NativeOwnership.BORROWED,
             update=_update_for(selected),
             bind_event=_bind_for(selected),
+            sfle_port=sfle_port,
             name=type(widget).__name__,
         )
     values = dict(props or {})
