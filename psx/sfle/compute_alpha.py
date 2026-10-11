@@ -438,7 +438,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
     # width equals the maximum definite/minmax-clamped outer child width.
     # Other recursive dependency classes fail closed rather than pretending
     # a guessed intrinsic size is authoritative.
-    def intrinsic_column_width(node_id: str, minimum: bool) -> float:
+    def intrinsic_flex_width(node_id: str, minimum: bool) -> float:
         style = styles[node_id]
         if not children[node_id]:
             intrinsic = measures.get(node_id)
@@ -453,10 +453,17 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 intrinsic.intrinsic.min_content_width if minimum
                 else intrinsic.intrinsic.max_content_width
             )
-        if style.direction not in (FlexDirection.COLUMN, FlexDirection.COLUMN_REVERSE):
+        horizontal = style.direction in (FlexDirection.ROW, FlexDirection.ROW_REVERSE)
+        if horizontal and style.wrap != FlexWrap.NOWRAP:
             raise SFLECapabilityError(
                 DiagnosticCode.UNSUPPORTED_FEATURE,
-                "Recursive intrinsic constraint requires certified column cross sizing.",
+                "Recursive row intrinsic constraint requires no-wrap.",
+                node_id,
+            )
+        if horizontal and any(styles[child].shrink != 0 for child in children[node_id]):
+            raise SFLECapabilityError(
+                DiagnosticCode.UNSUPPORTED_FEATURE,
+                "Recursive row intrinsic constraint requires nonshrinking children.",
                 node_id,
             )
         outer_sizes = []
@@ -465,7 +472,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
             if child.width.kind == LengthKind.PX:
                 child_width = _layout_unit(child.width.value)
             elif child.width.kind in (LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT):
-                child_width = intrinsic_column_width(child_id, minimum)
+                child_width = intrinsic_flex_width(child_id, minimum)
             else:
                 raise SFLECapabilityError(
                     DiagnosticCode.UNSUPPORTED_FEATURE,
@@ -501,6 +508,18 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                         child_id,
                     )
             outer_sizes.append(_sum_units((child_width, fixed_edges)))
+        if horizontal:
+            gap = style.column_gap
+            if gap.kind != LengthKind.PX:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Recursive row intrinsic gap must be definite.",
+                    node_id,
+                )
+            return _sum_units(
+                size for i, outer in enumerate(outer_sizes)
+                for size in ((gap.value, outer) if i else (outer,))
+            )
         return max(outer_sizes, default=0.0)
 
     for node in reversed(request.nodes):
@@ -522,7 +541,7 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                         "Recursive intrinsic block-axis constraint not yet certified.",
                         node_id,
                     )
-                value = intrinsic_column_width(node_id, is_min)
+                value = intrinsic_flex_width(node_id, is_min)
             else:
                 measured = measures.get(node_id)
                 if measured is None:

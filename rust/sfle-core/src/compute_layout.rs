@@ -787,7 +787,7 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
     // intrinsic inline sizing is supported only for certified column cross
     // contributions; unknown direction, percentage and relative-edge graphs
     // fail closed with an explicit diagnostic.
-    fn column_intrinsic_width(
+    fn intrinsic_flex_width(
         index:usize, minimum:bool, nodes:&[crate::compute::LayoutNode],
         children:&[Vec<usize>], styles:&[Style],
         measurements:&[crate::compute::MeasuredBox],
@@ -804,19 +804,26 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
             }
             return Ok(0.0);
         }
-        if !matches!(styles[index].direction,Direction::Column|Direction::ColumnReverse){
+        let row=horizontal(styles[index].direction);
+        if row && !matches!(styles[index].wrap,Wrap::NoWrap){
             return Err(unsupported(
-                "Recursive intrinsic constraint requires certified column cross sizing.",id,
+                "Recursive row intrinsic constraint requires no-wrap.",id,
+            ));
+        }
+        if row && children[index].iter().any(|&child|styles[child].shrink!=0.0){
+            return Err(unsupported(
+                "Recursive row intrinsic constraint requires nonshrinking children.",id,
             ));
         }
         let mut greatest=0.0_f64;
+        let mut total=0.0_f64;
         for &child in &children[index] {
             let style=styles[child];
             let child_id=&nodes[child].node_id;
             let mut width=match style.width {
                 Length::Px(v)=>layout_unit(v),
                 Length::Auto|Length::MinContent|Length::MaxContent=>
-                    column_intrinsic_width(child,minimum,nodes,children,styles,measurements)?,
+                    intrinsic_flex_width(child,minimum,nodes,children,styles,measurements)?,
                 _=>return Err(unsupported(
                     "Uncertified percentage dependency in recursive intrinsic constraint.",child_id,
                 )),
@@ -848,9 +855,19 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
                     )),
                 }
             }
-            greatest=greatest.max(sum_units([width,fixed]));
+            let outer=sum_units([width,fixed]);
+            greatest=greatest.max(outer);
+            if row {
+                let gap=match styles[index].column_gap {
+                    Length::Px(n)=>n,
+                    _=>return Err(unsupported(
+                        "Recursive row intrinsic gap must be definite.",id,
+                    )),
+                };
+                total=sum_units([total,if total==0.0 {0.0} else {gap},outer]);
+            }
         }
-        Ok(greatest)
+        Ok(if row{total}else{greatest})
     }
     for index in (0..input.nodes.len()).rev() {
         let id=&input.nodes[index].node_id;
@@ -871,7 +888,7 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
                         "Recursive intrinsic block-axis constraint not yet certified.",id,
                     ));
                 }
-                return Ok(Length::Px(column_intrinsic_width(
+                return Ok(Length::Px(intrinsic_flex_width(
                     index,is_min,&input.nodes,&children,&styles,&input.measurements,
                 )?));
             }
