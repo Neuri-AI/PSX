@@ -23,6 +23,8 @@ import importlib
 import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from psx.sfle.model import LayoutConstraints, LayoutResult
+from psx.core.props import FLEX_ITEM_PROPS
 
 
 from psx.core.errors import RendererCapabilityError
@@ -302,10 +304,28 @@ def _make_dispatcher(core):
 class QtRenderer:
     """Single Qt renderer shared by PyQt5/6 and PySide2/6 bindings."""
 
-    def __init__(self, binding: str, argv: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        binding: str,
+        argv: list[str] | None = None,
+        *,
+        sfle_constraints: LayoutConstraints | None = None,
+        engine: object | None = None,
+    ) -> None:
+        if sfle_constraints is not None and not isinstance(sfle_constraints, LayoutConstraints):
+            raise TypeError("Qt SFLE viewport requires LayoutConstraints.")
+        if sfle_constraints is None and engine is not None:
+            raise ValueError("Qt SFLE engine requires explicit viewport constraints.")
+        from psx.sfle.backend import load_layout_engine
+        self._sfle_constraints = sfle_constraints
+        self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
+        self._sfle_generation = 0
+        self._sfle_in_commit = False
+        self.sfle_result: LayoutResult | None = None
         self._binding = binding.lower()
         self._binding_package = binding
         core = importlib.import_module(f"{binding}.QtCore")
+        self._qtcore = core
         self._widgets = widgets = importlib.import_module(
             f"{binding}.QtWidgets")
 
@@ -349,9 +369,31 @@ class QtRenderer:
         self.adapters.register("Scroll", QtScrollAdapter())
         self.adapters.register("Box", make_qt_box_adapter(self))
         self.adapters.register("RadioGroup", make_qt_radiogroup_adapter(self))
+        if sfle_constraints is not None:
+            from .flex import QtSFLEFlexAdapter
+            self.adapters.register("Flex", QtSFLEFlexAdapter(), replace=True)
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
+
+    def set_sfle_constraints(self, constraints: LayoutConstraints) -> None:
+        """Update host viewport constraints; caller may re-commit mounted tree."""
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("Qt SFLE was not enabled for this renderer.")
+        if not isinstance(constraints, LayoutConstraints):
+            raise TypeError("Qt SFLE constraints must be LayoutConstraints.")
+        self._sfle_constraints = constraints
+        self._sfle_generation += 1
+
+    def commit_layout(self, root: object) -> None:
+        if self._sfle_constraints is not None:
+            from psx.sfle.f3_qt import commit_qt_sfle
+            commit_qt_sfle(self, root)
+
+    def invalidate_layout(self) -> None:
+        if self._sfle_constraints is not None:
+            self._sfle_generation += 1
+            self.sfle_result = None
 
     def _adapter_for(self, key: object):
         return self.adapters.get(key) or self._default_adapter
@@ -366,6 +408,16 @@ class QtRenderer:
     # -- create -----------------------------------------------------------
 
     def create(self, node: VNode, parent: object | None) -> QtHandle:
+        if self._sfle_constraints is not None:
+            # G2 incremental native coverage: don't silently delegate an unported
+            # layout or primitive to native Qt layout managers.
+            if node.kind is not NodeKind.HOST or node.type not in ("Flex", "Text", "Button"):
+                raise RendererCapabilityError(
+                    f"F3-G2 Qt SFLE geometry not certified for {node.type!r}.")
+            if node.type != "Flex":
+                node = VNode(node.kind, node.type, node.key,
+                             {k: v for k, v in node.props.items() if k not in FLEX_ITEM_PROPS},
+                             node.children)
         # type: ignore[return-value]
         return self._adapter_for(adapter_key(node)).create(self, node, parent)
 
@@ -397,6 +449,11 @@ class QtRenderer:
     # -- update -----------------------------------------------------------
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
+        if self._sfle_constraints is not None and _handle(handle).node_type != "Flex":
+            changed = {key: value for key, value in changed.items() if key not in FLEX_ITEM_PROPS}
+            removed = frozenset(key for key in removed if key not in FLEX_ITEM_PROPS)
+            if not changed and not removed:
+                return
         self._adapter_for(handle_adapter_key(handle)).update(
             self, handle, changed, removed)
 
@@ -558,13 +615,13 @@ class QtRenderer:
 
 
 class PyQt6Renderer(QtRenderer):
-    def __init__(self, argv: list[str] | None = None) -> None:
-        super().__init__("PyQt6", argv)
+    def __init__(self, argv: list[str] | None = None, *, sfle_constraints: LayoutConstraints | None = None, engine: object | None = None) -> None:
+        super().__init__("PyQt6", argv, sfle_constraints=sfle_constraints, engine=engine)
 
 
 class PyQt5Renderer(QtRenderer):
-    def __init__(self, argv: list[str] | None = None) -> None:
-        super().__init__("PyQt5", argv)
+    def __init__(self, argv: list[str] | None = None, *, sfle_constraints: LayoutConstraints | None = None, engine: object | None = None) -> None:
+        super().__init__("PyQt5", argv, sfle_constraints=sfle_constraints, engine=engine)
 
 
 # -- module helpers ---------------------------------------------------------
