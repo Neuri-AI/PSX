@@ -25,6 +25,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from psx.sfle.model import LayoutConstraints, LayoutResult
 from psx.core.props import FLEX_ITEM_PROPS
+from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
 
 
 from psx.core.errors import RendererCapabilityError
@@ -411,9 +412,9 @@ class QtRenderer:
         if self._sfle_constraints is not None:
             # G2 incremental native coverage: don't silently delegate an unported
             # layout or primitive to native Qt layout managers.
-            if node.kind is not NodeKind.HOST or node.type not in ("Flex", "Text", "Button"):
-                raise RendererCapabilityError(
-                    f"F3-G2 Qt SFLE geometry not certified for {node.type!r}.")
+            if node.kind is not NodeKind.HOST:
+                raise RendererCapabilityError("F3-G2 Qt SFLE geometry requires a certified host node.")
+            g2_native_leaf_needs_measurement(node, backend="qt")
             if node.type != "Flex":
                 node = VNode(node.kind, node.type, node.key,
                              {k: v for k, v in node.props.items() if k not in FLEX_ITEM_PROPS},

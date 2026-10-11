@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from threading import get_ident
 
 from psx.core.props import FLEX_ITEM_PROPS
+from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
 from psx.sfle.model import LayoutConstraints, LayoutResult
 
 from kivy.base import runTouchApp
@@ -396,9 +397,9 @@ class KivyRenderer:
         if self._sfle_constraints is not None:
             # Only certified widget types join the native SFLE tree until
             # the complete G2 registry/backend matrix is implemented.
-            if node.kind is not NodeKind.HOST or node.type not in ("Flex", "Text", "Button"):
-                raise RendererCapabilityError(
-                    f"F3-G2 Kivy SFLE geometry not certified for {node.type!r}.")
+            if node.kind is not NodeKind.HOST:
+                raise RendererCapabilityError("F3-G2 Kivy SFLE geometry requires a certified host node.")
+            g2_native_leaf_needs_measurement(node, backend="kivy")
             if node.type != "Flex":
                 node = VNode(node.kind, node.type, node.key,
                              {key: val for key, val in node.props.items()

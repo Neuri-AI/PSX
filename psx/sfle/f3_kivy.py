@@ -17,6 +17,7 @@ from psx.core.vnode import NodeKind
 from psx.sfle.adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from psx.sfle.errors import DiagnosticCode, SFLEError
 from psx.sfle.f3_snapshot import prepare_f3_snapshot
+from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
 from psx.sfle.fixed_point import LayoutUnit
 from psx.sfle.kivy_measurement import KivyMeasurementSource
 from psx.sfle.margin_tree import MarginTreeNode
@@ -87,6 +88,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             node_id: bindings[node_id].widget
             for node_id, source in prepared.identities
             if source.kind is NodeKind.HOST and source.type != "Flex"
+            and g2_native_leaf_needs_measurement(source, backend="kivy")
         }
         source = KivyMeasurementSource(leaf_widgets)
         readings = []

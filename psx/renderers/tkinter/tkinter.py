@@ -33,6 +33,7 @@ from psx.core.events import EventSlot
 from psx.core.native import NativeOwnership, NativeWidget
 from psx.core.vnode import NodeKind, VNode
 from psx.core.props import FLEX_ITEM_PROPS
+from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
 from psx.sfle.model import LayoutConstraints, LayoutResult
 from psx.renderers.adapters import (
     AdapterSubscription,
@@ -383,9 +384,9 @@ class TkinterRenderer:
         if self._sfle_constraints is not None:
             # G2 incremental native coverage: no silent native pack/grid
             # fallback for builtins or custom declarations not ported yet.
-            if node.kind is not NodeKind.HOST or node.type not in ("Flex", "Text", "Button"):
-                raise RendererCapabilityError(
-                    f"F3-G2 Tk SFLE geometry not certified for {node.type!r}.")
+            if node.kind is not NodeKind.HOST:
+                raise RendererCapabilityError("F3-G2 Tk SFLE geometry requires a certified host node.")
+            g2_native_leaf_needs_measurement(node, backend="tk")
             if node.type != "Flex":
                 node = VNode(node.kind, node.type, node.key,
                              {name: value for name, value in node.props.items()
