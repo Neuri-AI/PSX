@@ -171,9 +171,20 @@ def test_unseen_seed_200_cases(seed, page, rust_binary):
                 chrome = observed[node_id][kind]
                 a = getattr(actual_py[node_id].border, kind)
                 b = actual_rs[node_id]["border"][kind]
-                if abs(a - chrome) > TOLERANCE or abs(b - chrome) > TOLERANCE or abs(a - b) > TOLERANCE:
+                if abs(a - chrome) > TOLERANCE or abs(b - chrome) > TOLERANCE or a != b:
                     errors.append({"node": node_id, "axis": kind, "chromium": chrome,
                                    "python": a, "rust": b})
+        # D-F1.13 raw geometry parity, not merely the 0.01px allowance.
+        for node_id in expected_ids:
+            for rect_name in ("content", "padding", "border", "margin"):
+                left = getattr(actual_py[node_id], rect_name)
+                right = actual_rs[node_id][rect_name]
+                for axis in ("x", "y", "width", "height"):
+                    raw_py = getattr(left, axis) * 64
+                    raw_rs = right[axis] * 64
+                    if raw_py != raw_rs or raw_py != int(raw_py):
+                        errors.append({"node": node_id, "rect": rect_name, "axis": axis,
+                                       "python_raw": raw_py, "rust_raw": raw_rs})
         if errors:
             counts["divergent"] += 1
             failures.append({**details, "type": "geometry", "errors": errors})
