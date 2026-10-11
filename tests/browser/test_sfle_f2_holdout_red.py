@@ -196,6 +196,8 @@ def test_unseen_seed_200_cases(seed, page, rust_binary):
         json.dumps(results, indent=2) + "\n", encoding="utf-8"
     )
     print("SFLE HOLDOUT " + json.dumps({k: v for k, v in results.items() if k != "failures"}), flush=True)
+    for failure in failures:
+        print("SFLE_RED_FIXTURE " + json.dumps(failure, separators=(",", ":")), flush=True)
     assert sum(counts.values()) == COUNT
     assert not failures, (
         f"Seed 0x{seed:08x} has {len(failures)} new RED cases. "
