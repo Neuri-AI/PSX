@@ -29,6 +29,7 @@
 | D-F1.10 | **Remove `Row` and `Column` public APIs; `Flex` is the only public Flexbox layout container** | Remove aliases/wrappers and redundant algorithms; SFLE owns Flexbox geometry; `Scroll` remains independent |
 | D-F1.11 | **0.01** logical px pure / **1.0** logical px native, calibrable | Per-backend reporting and structural exactness |
 | D-F1.12 | UI-thread measurement, selective caching, immutable snapshots | Batched invalidation and lifecycle-safe commits |
+| **D-F1.13 (2026-10-10)** | **Fixed-point layout geometry; supersedes F1's unrounded-intermediate assumption** | Signed 32-bit 1/64px LayoutUnit, identical saturating Python/Rust semantics; Blink 153 rounding per operation, native pixel rounding remains separate |
 | F1-RUST | **Rust primary, Python fallback** | Same normative semantics, versioned compute contract, packaging policy |
 
 All decisions above are approvals of the *design*. Runtime behavior stays
@@ -182,10 +183,12 @@ equivalent layout tree within the pure tolerance.
   definiteness flags, min/max constraints, intrinsic data and content box
   dimensions. No GUI handles, callbacks, `VNode` objects or hook state in
   Rust; release the GIL for pure computation only when snapshots are isolated.
-- **Precision:** finite `f64` internal values; do not round intermediate
-  flex allocations. Percentages may be unresolved until applicable reference
-  sizes become definite. Preserve tagged `AUTO`, `NONE` and intrinsic
-  keywords rather than serializing them as zero.
+- **Precision (historical; superseded by D-F1.13):** ~~finite `f64` internal values; do not round intermediate flex allocations.~~
+  Retain finite `f64` **only for dimensionless flex factors, weighted fractions and pre-quantization expressions**;
+  represent used layout sizes, positions, gaps and edges as fixed-point
+  LayoutUnits under D-F1.13. Percentages remain tagged/unresolved until a
+  definite reference is available; never serialize `AUTO`, `NONE` or intrinsic
+  keywords as zero.
 - **Distribution:** define a CI/build matrix for supported Python versions,
   Windows/macOS/Linux architectures, PyO3 ABI strategy and maturin wheels;
   verify source installation and Qyro/PyInstaller-frozen builds. On a
@@ -212,6 +215,88 @@ top-level PSX import depend unconditionally on the native module.
 Feature parity means the two implementations must have the **same errors**
 for unsupported semantic combinations as well as the same successful
 results.
+
+### D-F1.13 — Fixed-point geometry arithmetic (approved 2026-10-10; F1 amendment)
+
+**Evidence and decision.** F1 assumed unrounded intermediate `f64` was sufficient.
+Against **Chromium 153.0.8010.12** (Playwright **1.63.0**, browser build 1243),
+the original seed `0x5F1E2026` improved to 80/100 accepted-matched and
+20 explicitly rejected; yet five independent 200-case holdouts
+`0x6A112026`, `0x6A222026`, `0x6A332026`, `0x6A442026`,
+`0x6A552026` found **921 matched / 60 N01 rejected / 19 divergent**.
+The geometry differences are **1/64 px = 0.015625 px**, exceeding the
+**unchanged** D-F1.11 threshold of **0.01 logical px**. This is a correction
+to the original *design assumption*, not an authorization to relax conformance
+or hide unsupported combinations.
+
+**Pinned source of truth, not memory-based rounding rules.** Reference exact
+Chromium source tag `153.0.8010.12` /
+commit `971a7443b0c9b0a9b2860529b33331b76077ec62`:
+- [`third_party/blink/renderer/platform/geometry/layout_unit.h`](https://github.com/chromium/chromium/blob/153.0.8010.12/third_party/blink/renderer/platform/geometry/layout_unit.h):
+  `using LayoutUnit = FixedPoint<6, int32_t>` (line ~473);
+  `FixedPoint::ClampRawValue` delegates to saturated cast;
+  `FixedPoint(double)` **truncates toward zero** after multiplying by 64;
+  `FromFloatFloor` uses `floorf`, `FromFloatCeil` uses `ceilf`;
+  `FromFloatRound` uses `roundf`, and `FromDoubleRound` uses
+  `round` (**half away from zero**, *not* Python's banker's `round`);
+  `Clamp(double)` delegates to `FromFloatFloor`;
+  `FixedPoint::MulDiv` rounds integer quotient **toward zero**.
+- [`third_party/blink/renderer/core/layout/flex/line_flexer.cc`](https://github.com/chromium/chromium/blob/153.0.8010.12/third_party/blink/renderer/core/layout/flex/line_flexer.cc):
+  `LineFlexer::FreezeItems` (lines ~43–86) computes used **LayoutUnit**
+  free space and maintains `double` flex-factor/weighted-shrink sums;
+  `LineFlexer::ResolveFlexibleLengths` (lines ~88–179) iterates items in
+  **reverse**, uses the remaining free space and `free_space_fraction`,
+  selects `FromDoubleRound(extra)` except when fraction == 1 (use exact
+  remaining LayoutUnit), clamps min/max per item, accumulates violations,
+  then freezes/repeats on the dominant violation sign. It **does not**
+  independently round every target and it does not patch output rectangles.
+- [`third_party/blink/renderer/core/layout/flex/flex_layout_algorithm.cc`](https://github.com/chromium/chromium/blob/153.0.8010.12/third_party/blink/renderer/core/layout/flex/flex_layout_algorithm.cc):
+  the flex placement, gaps, cross-axis alignment and nested layout algorithm
+  consume the quantized LayoutUnit dimensions. Before porting any *specific*
+  edge conversion or percent path, identify its callsite in this pinned tag
+  and lock an independently observed Chromium fixture; do **not** assert
+  that every gap, border or percentage uses the same rounding operation.
+
+**Normative numeric policy.** A LayoutUnit is a signed **int32 raw count** of
+1/64 logical CSS pixel: `MIN=-2147483648`, `MAX=2147483647`;
+conversion to human-readable px is `raw/64`. Python integers and Rust
+integers must **both saturate** into that interval on construction and
+arithmetic at the same stage. For intermediate multiplication/division,
+use wider checked arithmetic then *one* saturation; never rely on Rust
+debug overflow, wraparound or Python unbounded output. Fractional inputs
+and flexible factor sums may remain finite `f64`, but size references are
+already quantized LayoutUnits. The *callsite*, not a global catch-all
+rounder, determines whether conversion is truncation, floor, ceiling or
+half-away-from-zero. Negative values and boundary overflows require the
+same test vectors in both engines; reject NaN/infinity at the SFLE
+validated-input boundary (even though Blink's helper can map NaN to zero).
+CSS definiteness remains tagged and is never encoded as numeric 0.
+
+**Pipeline obligation.** Quantize reference dimensions when definite, then
+perform typed percentage resolution with its Blink-callsite conversion.
+Quantize flex bases/hypotheticals and min/max before freezing; maintain
+free-space in raw units through reverse fractional distribution, repeated
+clamp/freeze rounds and used sizes. Quantize each semantic gap, margin,
+padding and border edge at its specified operation; accumulate x/y as
+LayoutUnit additions with saturation so a 1-unit deviation never migrates
+into a later sibling. Return exact raw-integer geometry from both engines;
+serialization can convert `raw/64` losslessly to binary `f64` (powers of
+two). **Never** quantize only at final `LayoutResult`.
+
+**Renderer boundary stays distinct.** Qt/Kivy/Tkinter translate CSS
+logical coordinates and round applied native-pixel geometry *at commit*
+using toolkit-specific rules; **native tolerance remains 1.0 logical px**,
+reported separately from measurement and engine errors. D-F1.11 also
+continues to require exact line membership, order and stable node IDs.
+Any expanded capability must pass Chromium ≤0.01px and Python/Rust **bit-for-bit
+raw unit parity** with the *same* immutable snapshot corpus, including
+overflow tests and the 19 individually pinned RED regressions.
+
+**Compatibility and implementation status.** This records a **normative
+decision**, not a claim that existing alpha engines already implement it.
+No public capability manifest expansion, Row/Column retirement or Scroll
+migration is approved in this amendment. F2 must implement, prove and
+document this corrected arithmetic before declaring precision closed.
 
 ## 4. Measurement, scheduler and cache (D-F1.12)
 

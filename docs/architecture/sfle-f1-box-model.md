@@ -366,10 +366,18 @@ Contractual boundary:
 - **One engine semantics**, regardless of Python or Rust implementation.
 - Only tagged lengths, plain numeric constraints, stable IDs and intrinsic
   measurement snapshots cross into the pure computation core.
-- Prefer `f64` for numerical layout internals, with validated finite
-  values; do not quantize every intermediate step.
-- Numeric rounding and origin translation occur in backend geometry
-  application, not arbitrary points in the Flexbox algorithm.
+- **Historical assumption superseded by D-F1.13:** ~~Prefer `f64` for numerical
+  layout internals, with validated finite values; do not quantize every
+  intermediate step.~~ Use identical saturating 1/64px signed LayoutUnits for
+  used CSS sizes, free space, edges and accumulated placement; finite `f64`
+  is permitted only where Blink retains fractional flex factors or prequantized
+  calculations, converted according to the pinned callsite.
+- **Historical assumption superseded by D-F1.13:** ~~Numeric rounding and
+  origin translation occur in backend geometry application, not arbitrary
+  points in the Flexbox algorithm.~~ LayoutUnit rounding occurs **inside pure
+  sizing/placement** at specified Blink callsites; toolkit-native pixel
+  rounding and origin translation still occur only when applying geometry.
+  See [D-F1.13](sfle-f1-final-architecture.md#d-f113--fixed-point-geometry-arithmetic-approved-2026-10-10-f1-amendment).
 - No user Python callables, GUI handles, native widgets or OS APIs inside
   the pure math algorithm.
 - Percent unresolved values and explicit definiteness must survive the
