@@ -347,7 +347,12 @@ fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec
         if total_factor>0.0 && total_factor<1.0 {
             let fraction=LayoutUnit::from_trunc(initial_free.to_px()*total_factor)
                 .map_err(|e|unsupported(e,id))?;
-            if fraction.raw().abs()<remaining.raw().abs(){remaining=fraction;}
+            // i32::MIN.abs() overflows in debug and wraps in release.
+            // Widen before abs to preserve Python's unbounded signed
+            // comparison at the exact -2^31 LayoutUnit boundary.
+            if (fraction.raw() as i64).abs() < (remaining.raw() as i64).abs() {
+                remaining=fraction;
+            }
         }
         if (growing && remaining.raw()<=0) || (!growing && remaining.raw()>=0){
             return Ok(sizes.into_iter().map(|v|v.to_px()).collect());
