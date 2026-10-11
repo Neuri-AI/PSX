@@ -1,0 +1,250 @@
+# SFLE F3 — Intelligent CI and test selection policy
+
+> **NORMATIVE F3 HANDOFF — 2026-10-11. Implementation status: POLICY ONLY.**
+> Feature branch: [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters), forked from
+> `develop` at `979b6ed9e86c63b640d498439045910ed1a189aa`.
+> This document is part of the F3 acceptance criteria; it **does not assert**
+> that GitHub Actions has already been modified, that a new selective
+> dispatcher exists or that any tests executed for these documentation edits.
+> Authority: [F3 implementation plan](sfle-f3-implementation.md),
+> [F2 certified contracts](sfle-f2-final-certification.md) and
+> [F2-to-F3 migration](sfle-f2-migration-plan.md).
+
+## 1. User-approved rule and mandatory outcome
+
+**Every CI execution must be proportional to the changed behavior and its
+dependencies. Documentation-only commits/PRs must trigger ZERO unit,
+integration, Chromium, native GUI, Rust, wheel, frozen or benchmark tests.**
+
+The only permissible automated work for a docs-only PR, if branch protection
+requires a named check, is a lightweight change-classifier/status job that
+reports `docs_only=true` and `tests_selected=[]`; it must install no toolkits,
+Rust or Python dependencies and run no tests. Otherwise use
+`paths-ignore` to avoid launching a workflow at all. Markdown link/style
+validation can be separately requested later, but is **not** a unit-test
+dependency and must not be silently classified as product-code testing.
+
+Changes that can alter layout, component identity, public imports, native
+widget behavior, runtime selector or packaging MUST run all impacted suites,
+including transitive dependency consumers. **Fast selective verification is
+the default on each F3 iteration; full certification is an explicit gate,
+not an automatic penalty for every commit.**
+
+## 2. Existing F2 workflows — verified inventory and defects
+
+As inspected on the F3 base `979b6ed9e86c63b640d498439045910ed1a189aa`
+(the exact same workflow YAMLs were still present in the initial F3 commit):
+
+| Workflow (real file) | Current useful tests | Selection problem to fix in F3 |
+| --- | --- | --- |
+| `.github/workflows/ci.yml` — PSX alpha validation | Core/markup, hooks, Qt offscreen lifecycle, build/benchmark | `push` on `main` ignores docs, but **`pull_request` is unrestricted**. The `changes` job emits `code` yet **`core`, `pyside6`, `package` do not use `needs: changes` / `if:`**; a docs-only PR therefore starts expensive jobs. |
+| `.github/workflows/sfle-core.yml` — SFLE core checks | Python 3.10–3.13, Rust unit, Python/Rust differential, installed PyO3, historical Row/Column/Scroll inventory | Unrestricted `pull_request`; the `changes` job emits `sfle` but **no downstream job consumes it**. Core, Rust, differential, wheel and external-boilerplate inventory all run even for docs-only or unrelated code changes. |
+| `.github/workflows/sfle-chromium.yml` | Playwright Chromium vs SFLE, browser holds, seeded tests | `pull_request` is unrestricted; `push` path filter is partial and currently lists only one browser test path. Expensive browser install/tests must only follow layout-affecting changes or explicit release request. |
+| `.github/workflows/sfle-ui-certification.yml` | Real Qt/Tk/Kivy widget readback under Xvfb | PR paths are restricted to `psx/sfle/**`, `tests/ui/**` and its own YAML; **new F3 renderer edits in `psx/renderers/**` are not included**. Extend coverage to changed backend adapters and shared widget geometry ports. |
+| `.github/workflows/sfle-native-matrix.yml` | Windows/macOS Intel/ARM64 native wheel, ABI, frozen executable and no-Rust fallback | Already path-filtered on PR/push, which is good; add relevant F3 packaging/native loader triggers. Do not run this costly matrix for pure docs, ordinary widget labels/events or a single toolkit-only adjustment absent a native/build effect. |
+
+**Do not remove F2 tests or lower their assertions.** Reuse suites when
+relevant; convert the costly `f2-migration-inventory` job into a
+G4 migration audit invoked only by Row/Column/registry/export/legacy
+migration changes and the G4/G5 gates. Its pinned external Qyro
+repository checkout is NOT a mandatory side effect of every F3 patch.
+
+Workflows may be **refactored or reused**, not duplicated blindly. Existing
+test names with `f2` prefixes remain valid regression assets.
+
+## 3. Mandatory change categories and test dependencies
+
+The dispatcher must derive selected suites from the **union** of changed
+paths (including rename's old and new paths), matching categories and their
+transitive dependents. Run the **union** when multiple categories apply.
+Concrete initial map:
+
+| Change category and matching paths | Minimum selected validation for incremental PR | Explicit expensive-suite policy |
+| --- | --- | --- |
+| **Docs-only**: `docs/**`, `README.md`, `**/*.md` and approved docs-only assets | **No tests, no toolkit install, no benchmarks**. If needed, only `ci-routing` lightweight success status. | Chromium, native, Rust, wheels and full suite **OFF**. |
+| **Flex/core API**: `psx/core/**`, `psx/markup/**`, `psx/__init__.py`; registry, builders, props, contracts, validators | Core component registry/contract/markup tests; F3 G1 Flex negative/positive; G2 registry-to-test census; generic Headless and affected lifecycle unit tests. | Run every backend's focused bridge tests if shared layout metadata, node identity or normalized tree mapping changed; **no wheel build solely because a prop validator changed**. |
+| **Coordinator/geometry ports**: shared SFLE bridge/worker, `psx/sfle/adapter_contract.py`, `native_geometry.py`, scheduler, snapshot mapping | Focused `tests/sfle` authority/readback/worker tests, F3 coordinator + cross-backend G2 contract cases and Headless. | If layout numerical semantics changed: add **Rust/Python differential + Chromium**. If only UI commit/adapter wiring changed: add affected native UI suites; do not automatically rebuild Windows/macOS wheels. |
+| **Python/Rust layout algorithms and schemas**: `psx/sfle/compute_alpha.py`, `psx/sfle/model.py`, `psx/sfle/backend.py`, `rust/sfle-core/src/**`, cross-language normalization | Python SFLE contract tests + Rust tests + Rust/Python differential, supported/unsupported diagnostic parity and applicable pure Headless fixtures. | **Chromium oracle ON** for geometry/rounding/line-placement changes. **Native wheel/ABI** ON for Rust/PyO3/schema/build/loader changes; not for an unrelated Python-only test fixture. F2's fixed CSS scope and tolerances remain unchanged. |
+| **Specific native renderer**: `psx/renderers/qt/**`, `kivy/**`, `tkinter/**` and corresponding backend tests | Only the **affected toolkit's** existing regression, F3 G2 component/backend cases, widget geometry/readback/identity and relevant G3 Scroll cases. | Shared renderer base / generic adapter protocol modifications fan out to **all affected toolkits**. No Chromium unless SFLE outputs or coordinate/projection semantics change; no other toolkit just for a backend-local widget style fix. |
+| **Headless**: `psx/renderers/headless.py` or Headless-specific tests | Headless renderer, G2 registry/port tests, pure SFLE geometry and snapshot parity for impacted components. | No live Xvfb, other GUIs, Playwright or native wheel by default. |
+| **Scroll**: native `scroll.py`, shared `psx/renderers/components/scroll.py`, Scroll host/port code | Affected toolkit Scroll events/offset/clipping plus `tests/sfle/test_f2_point4_authority_red.py` and `test_f2_point4_cross_backend_contract.py`; verify nested Scroll and immutable SFLE content. | Shared Scroll semantics trigger all relevant Qt/Kivy/Tk/Headless Scroll contract tests and real GUI integration; browser only if SFLE content geometry/oracle changed. |
+| **Third-party / Native bridge**: `psx/core/native.py`, `register_primitive`/`register_adapter` code, generic adapter contract | G2 custom-primitive and Native positive/adversarial cases, ownership/readback/disposal, relevant backends and registry census. | Cross-toolkit when generic contract changes; one toolkit when backend-local. |
+| **Build/packaging**: `pyproject.toml`, `rust/sfle-core/Cargo.toml`, Rust FFI, extension selector/loading, distribution/frozen probe | Package/build check, import/source/frozen and native-vs-fallback tests; relevant Rust/ABI suites. | Windows/macOS wheels and frozen matrix ON for ABI/runtime/distribution-affecting changes; Python dependency-only changes get packaging + appropriate imports, expanding when platform semantics warrant it. |
+| **CI/router config**: `.github/workflows/**`, new `scripts/ci/**` or change classifier/tests | Validate dispatcher/unit routing fixtures and affected YAML/workflow syntax/paths; run the **workflow whose semantics changed**, where executable. | Do not force all workloads for a docs/comment-only YAML edit. Fail closed for classification uncertainty or disabled required coverage. |
+| **Legacy Row/Column removal**: public API, markup, adapters, migration scripts/examples | Focused G4 no-alias/unknown-tag/import rejection, registry census, legacy-geometry authority scan and affected renderer tests. | Full historical external boilerplate inventory only for the G4 release gate or when affected. Do not run external git clones on unrelated commits. |
+| **Broad/shared unclassified code changes** | Conservative full **relevant** core + backend integration suites; report the reason. | Unclear shared engine/platform impact must fan out, never quietly skip required suites. |
+
+`tests/sfle/**`, `tests/interop/**`, `tests/browser/**` and
+`tests/ui/**` should select their relevant test family when changed,
+even if production source is unchanged. For a test-only change execute
+its test plus indispensable fixtures; do not automatically rebuild all
+wheels/GUI toolkits. Distinguish `tests/interop/test_sfle_f2_native_wheel.py`
+(native packaging) from `tests/interop/test_sfle_f2_differential.py`
+(pure engine parity).
+
+**Concrete currently-existing examples for router validation:**
+
+- Core+Markup: `tests/test_component_contracts.py`,
+  `tests/test_component_registry.py`, `tests/test_markup_registry.py`,
+  `tests/test_markup.py`, `tests/test_markup_transform.py`.
+- Hooks/reconciliation: `tests/test_core.py`,
+  `tests/test_hooks_scheduler.py`, `tests/test_renderer_adapters.py`.
+- Native backend regressions: `tests/test_pyqt_renderer.py`,
+  `tests/test_pyside6_renderer.py`, `tests/test_kivy_renderer.py`,
+  `tests/test_tkinter_renderer.py` plus toolkit-targeted F3 tests.
+- F2 reusable SFLE contracts: `tests/sfle/test_f2_point4_authority_red.py`,
+  `tests/sfle/test_f2_point4_cross_backend_contract.py`,
+  `tests/sfle/test_qt_native_lifecycle.py`,
+  `tests/ui/test_sfle_real_toolkit_geometry.py`.
+- Rust/Python: `tests/interop/test_sfle_f2_differential.py`,
+  `tests/interop/test_sfle_f2_point5_deferral_boundaries.py`;
+  browser: `tests/browser/test_sfle_chromium.py` and F2 oracle suite.
+- Packaging: `tests/interop/test_sfle_f2_native_wheel.py`,
+  `tests/interop/sfle_frozen_probe.py`.
+
+**New F3 test modules are added to these groups when created**. Avoid
+coding every test path into every workflow independently; maintain
+one authoritative test-to-category map and use it from selectors.
+
+## 4. Architecture for an intelligent GitHub Actions dispatcher
+
+1. **One fast change classifier** (e.g. `ci-routing`): outputs boolean or
+   JSON flags `docs_only`, `core`, `sfle_engine`, `geometry_bridge`,
+   `qt`, `kivy`, `tkinter`, `headless`, `scroll`,
+   `chromium`, `native_abi`, `packaging`, `legacy_removal`,
+   `g2_registry_coverage`, `full_certification`.
+   Report the selected tests, workflows and **why** each was selected.
+2. **On PRs compare the full cumulative PR change set against the base
+   merge-base**, **not only the last `synchronize.before..after` push**:
+   the latter can miss older code changes still part of the PR and falsely
+   skip a necessary job. Paginate `pulls.listFiles`, include renames;
+   if the API returns incomplete/ambiguous/too-large diffs, **fail open
+   to tests**. Do not let a 300-file compare cap silently truncate paths.
+3. **On push** use the event's `before..after` where reliable; on branch
+   create, missing base, force push, ambiguous changes, classifier errors
+   or incomplete files, conservatively widen to relevant full testing.
+   For F3 development, prefer **one PR event path** over duplicate push
+   and PR pipelines on the same SHA; target `develop`, then include
+   `main` after merge when applicable.
+4. **All expensive jobs must consume classifier outputs** with
+   `needs: [changes]` and `if: ...`, or workflows must use
+   sufficient `paths`/`paths-ignore`. **A `changes` job without
+   dependent jobs is not optimization** (the current F2 anti-pattern).
+   A path filter alone must account for shared dependencies and test paths.
+5. Use job-level categories and matrix partitioning to install only
+   needed dependencies. Qt offscreen does not need Playwright; Headless
+   needs no GUI; Python unit tests should not build Rust wheels unless
+   Rust ABI/native loading is involved. Cache pip/Cargo/Playwright tools;
+   cache invalidation must include lock/dependency/toolchain versions.
+6. Preserve clear required-check semantics. If branch protection demands
+   a check on docs-only PRs, run **one tiny always-reporting router/summary
+   status**, with skipped suites recorded as **not required**. Do not
+   create permanently Pending required checks by suppressing workflows
+   without replacing their status contract. Required aggregate check
+   passes only when every *selected* job succeeded and every expected
+   job reported; a skipped applicable test must not count as success.
+7. Use `concurrency` with cancel-in-progress for obsolete incremental
+   PR updates; retain **immutable SHA-aware final certification** jobs
+   (never accept a canceled run as a pass). Record workflow name, exact
+   `head_sha`, conclusion, test counts and decision rationale.
+8. The selector itself must have tests. At minimum: docs-only, tests-only,
+   Qt-only, Kivy-only, Tk-only, Headless-only, shared SFLE compute,
+   Rust ABI, Scroll shared vs specific, metadata validator, new registry
+   component, renames, multiple-category change, deleted tests, missing
+   diff, >300 changed files and conflicting workflow edits. Assert no
+   false negatives for cross-backend dependencies.
+
+### Example selection (illustrative, not implemented)
+
+| PR changed files | Expected checks | Not expected |
+| --- | --- | --- |
+| `docs/architecture/sfle-f3-implementation.md`, `README.md` | No tests; optional tiny required-status router | Every Python/Rust/Chromium/GUI/wheel test |
+| `psx/renderers/qt/button.py` | Qt button/F3 G2, related Qt lifecycle | Kivy, Tk, Chromium, macOS/Windows wheels |
+| `psx/core/props.py` | Shared props/registry/markup + affected Headless and backend integration metadata cases | Native wheel/Chromium unless compute semantics affected |
+| `psx/sfle/compute_alpha.py` | Python SFLE, differential, Chromium, relevant engine holdout tests | All native wheels absent ABI/source packaging change |
+| `rust/sfle-core/src/compute_layout.rs` | Rust unit, Rust/Python differential, Chromium; ABI/build validation when the extension path changes | Unrelated display-only GUI tests |
+| `psx/renderers/kivy/scroll.py` | Kivy Scroll widget/geometry and SFLE Scroll authority contracts | Qt-only GUI suite and frozen wheel matrix |
+| `tests/ui/test_sfle_real_toolkit_geometry.py` | Native UI test family | Rust/wheels/browser unless shared engine changed |
+| `pyproject.toml` changing native extension build dependencies | Build and native ABI/fallback on affected platforms | Docs-only classification |
+| `psx/core/registry.py` registering a new built-in | Registry tests, G2 census and that component's supported/unsupported backend matrix | Unrelated browser oracle if engine unchanged |
+
+## 5. F3 G1–G5 scope gates and test policy
+
+- **G1:** builder/registry/markup positive and adversarial Flex plus
+  Scroll child-policy tests. Select core+markup+Headless; focused GUI
+  bridge only if edited. Complete G1 acceptance still requires all its
+  mandatory declared tests, not just those touched in the last commit.
+- **G2:** every built-in/backend support cell and `Native`/custom
+  primitive/adapters are part of the **required complete acceptance
+  matrix**. *Incremental commits* run impacted cells; **formal G2
+  closeout** runs the **entire** `registry × backend × operation`
+  matrix, including negative unsupported cells, identity/events,
+  remeasurement and readback, on one specified SHA. No `skip`/`xfail`
+  may hide an applicable supported cell.
+- **G3:** targeted toolkit Scroll cases while building; complete
+  horizontal/vertical/nested real-widget and Headless suite at G3
+  closure. Existing F2 point-4 authority tests remain mandatory.
+- **G4:** targeted deletion/API/doc migration tests while editing;
+  complete no-alias/grep, package import and external boilerplate
+  audit at G4 closure.
+- **G5:** **EXPLICIT FULL-CERTIFICATION OVERRIDE**:
+  all core/markup, SFLE Python/Rust/differential, Chromium, Qt/Kivy/Tk
+  real GUI, Headless, G2 registry census, Scroll, removals,
+  native wheels/frozen fallback and cross-OS evidence on **one final SHA**.
+  This is the only ordinary F3 stage that unconditionally schedules the
+  expensive complete matrix.
+
+**Important exception to docs-only behavior:** an explicit, authorized
+`workflow_dispatch`/**G5 release or formal phase certificate** must
+run full required CI on the chosen final SHA **even if its last commit
+modified only documentation**. That is a release/certification request,
+not ordinary docs-change CI. Do not repeat F2's documentation-only
+PR triggering all tests as the default daily development policy.
+
+## 6. Enforceability and migration checklist for the next agent
+
+**This document does not implement CI optimization.** Before claiming
+"intelligent CI enabled", the next agent must:
+
+- [ ] Introduce and unit-test a single source-of-truth change classifier
+      plus one shared impact-to-test map.
+- [ ] Correct `.github/workflows/ci.yml`: core/Qt/package jobs
+      must be conditioned on affected categories, including PR docs-only.
+- [ ] Correct `.github/workflows/sfle-core.yml`: Python SFLE, Rust,
+      differential, PyO3 and historical migration inventory must be
+      independently selected; eliminate unconditional unrelated work.
+- [ ] Restrict `sfle-chromium.yml` to engine/oracle relevant changes
+      (including F3 test/fixture paths); preserve explicit manual dispatch.
+- [ ] Expand `sfle-ui-certification.yml` triggers to relevant F3
+      renderer adapter changes, not only `psx/sfle/**`.
+- [ ] Preserve/extend `sfle-native-matrix.yml` for ABI and packaging
+      triggers; avoid cross-OS frozen work for docs/UI-only patches.
+- [ ] Add a fast, consistently named required status/aggregator if
+      branch protection requires status on skipped docs-only checks.
+- [ ] Add F3 G2 registry/backend impact metadata and complete G2
+      certification override so selectivity never conceals missing
+      component coverage.
+- [ ] Test routing on **docs-only PR → 0 tests** and on multi-category
+      PRs. Record costs/jobs and assert no applicable job was skipped.
+- [ ] Demonstrate one full manual G5 dry-run and exact SHA checks
+      before formal phase closeout.
+
+**CI optimization itself is a F3 foundational engineering task**, ideally
+started before high-volume G1/G2 iteration, **not** a sixth F3 gate.
+No shortcuts are allowed on phase gate closures or known safety,
+geometric precision, backend parity, identity or lifecycle guarantees.
+
+## 7. Handoff / response contract
+
+Each F3 change should report: change category, exact diff base and head
+SHA, selected suites and selection reason, skipped irrelevant suites,
+actual outcome of every selected CI run and affected F3 gate status.
+For a docs-only PR, say **"documentation only; no tests required by
+routing policy"**, not "all tests GREEN." For a code change, do not
+claim CI success before actual applicable workflows complete. For a
+G1–G5 gate closeout, name every required run on the **same SHA**.
+
+**Current status on document creation:** F3 implementation 0/5 gates
+closed. Existing F2 workflows are reused conceptually but retain the
+specific routing weaknesses documented in §2 until actual YAML/classifier
+implementation is committed and tested.

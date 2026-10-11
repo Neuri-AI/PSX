@@ -263,6 +263,40 @@ violation, borrowed child mishandling, change-triggered duplicate event
 registration, native layout overriding SFLE and mixed-tree reordering.
 All must fail closed or preserve unaffected state per the existing contract.
 
+## 5. Intelligent CI is mandatory (cost-aware selection)
+
+**F3 CI policy, handoff and exact implementation checklist:**
+[SFLE F3 intelligent CI and test routing](sfle-f3-ci-strategy.md).
+
+The F3 user requirement is **change-impact-based validation, not full
+test workflows on every commit**. A docs-only PR/commit requires
+**zero product tests** (at most a minimal status router if a required
+GitHub check needs to exist). Incremental code changes run affected
+tests and transitive consumers only; e.g. a Qt-only adapter change
+does not build Rust/macOS wheels, whereas shared SFLE layout math
+requires Rust/Python differential and Chromium verification.
+
+**Verified F2 inheritance and actual problem:** five workflows currently
+exist under `.github/workflows/`. The two change detector jobs in
+`ci.yml` and `sfle-core.yml` **do not gate the expensive test jobs**.
+Also, Chromium and SFLE core workflows are triggered for arbitrary PRs,
+and UI certification does not yet cover F3 renderer edits under
+`psx/renderers/**`. These are **unimplemented optimizations**,
+not claims that current CI is selective already.
+
+The [CI strategy](sfle-f3-ci-strategy.md) is normative for the next
+agent: full PR-base change classification, rename and dependency
+awareness, explicit conservative fallback on uncertainty, one
+registry/backend coverage census, workflow-specific triggers, and
+`if:` conditions on all expensive jobs. A documentation-only PR
+must be demonstrably 0 test runs. An explicit G1–G5 *gate
+certification* runs **its complete mandatory gate suite**;
+G5 is a deliberate complete cross-platform one-SHA override.
+
+Implementing smart CI is a **foundational F3 task**, not a sixth gate
+or permission to omit required G2 component coverage. Do not count
+a docs-only status as a passing test suite.
+
 ## 5. Acceptance evidence, dependencies and reporting
 
 - **G1**: Builder+Markup public Flex and Scroll normalization contract;
@@ -301,5 +335,5 @@ a compatibility alias for Row/Column, wrapper boxes added by normalization
 solely to make geometry pass, hidden 12-column system inserted in F3,
 or modifications to F2 precision/parity without independent RED evidence.
 
-**Current F3 progress: 0/5 gates closed.** This document is the acceptance
+**Current F3 progress: 0/5 gates closed. Smart CI policy is documented but workflow changes have not yet been implemented.** This document is the acceptance
 specification only. Implementation and executable certification are separate.

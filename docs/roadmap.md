@@ -105,6 +105,18 @@ offsets, clipping and scrollbars.
 portable layout duplication and stale examples without compatibility shims.
 **G5:** complete integration and cross-platform CI certification.
 
+**CI and test execution policy (F3, mandatory):**
+[Smart CI selective routing and F2 workflow reuse](architecture/sfle-f3-ci-strategy.md).
+Documentation-only edits run **no product tests**; regular code changes
+run only impacted test suites and dependency consumers. The
+existing F2 `ci.yml` / `sfle-core.yml` change detectors currently
+do not gate expensive downstream jobs, so workflows still need
+real updates before selective CI can be called implemented.
+Explicit G1–G5 closure requires each gate's complete criteria;
+G5's final certification intentionally runs all mandatory suites
+on a single immutable SHA. This improves routine CI efficiency
+without relaxing any test or full-registry G2 coverage gate.
+
 G2 **cannot** be closed using Flex + Button-only examples; all supported
 component/backend matrix entries, tests and custom-adapter gates must pass.
 **F4** remains the responsive twelve-column Flexbox Grid milestone.
