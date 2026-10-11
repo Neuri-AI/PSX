@@ -627,7 +627,9 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
                 child_width, child_height = layout(child_id,cross,target,width,height)
                 cross_sizes.append(child_width + edges[child_id].horizontal)
         if height is None:
-            height = max(cross_sizes, default=0.0)
+            # An auto cross-size is finalized after children are laid out;
+            # its own min/max constraints must still bound the used size.
+            height = bounded_intrinsic(style, False, max(cross_sizes, default=0.0))
         width, height = _layout_unit(width), _layout_unit(height)
         used[node_id] = (width,height)
         return width,height
