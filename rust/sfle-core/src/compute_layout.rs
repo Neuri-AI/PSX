@@ -291,10 +291,17 @@ fn percent_used_dimension(fraction:f64,reference:f64)->f64 {
     let stable=if value.is_finite()&&value>=0.0 {
         f64::from_bits(value.to_bits()+1)
     } else {value};
+    if stable.is_infinite(){
+        return LayoutUnit::from_raw(if stable.is_sign_positive(){i32::MAX}else{i32::MIN}).to_px();
+    }
     LayoutUnit::from_floor(stable).expect("prevalidated finite CSS percentage").to_px()
 }
 fn percent_flex_basis_used(fraction:f64,reference:f64)->f64 {
-    LayoutUnit::from_floor(fraction*reference)
+    let used=fraction*reference;
+    if used.is_infinite(){
+        return LayoutUnit::from_raw(if used.is_sign_positive(){i32::MAX}else{i32::MIN}).to_px();
+    }
+    LayoutUnit::from_floor(used)
         .expect("SFLE prevalidated finite percentage").to_px()
 }
 fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec<f64>,ComputeError>{
@@ -412,8 +419,12 @@ fn padding(style:Style,inline_reference:f64,id:&str)->Result<Edges,ComputeError>
                 let stable=if value.is_finite()&&value>=0.0{
                     f64::from_bits(value.to_bits()+1)
                 }else{value};
-                LayoutUnit::from_floor(stable).map(|n|n.to_px())
-                    .map_err(|e|unsupported(e,id))
+                if stable.is_infinite(){
+                    Ok(LayoutUnit::from_raw(if stable.is_sign_positive(){i32::MAX}else{i32::MIN}).to_px())
+                }else{
+                    LayoutUnit::from_floor(stable).map(|n|n.to_px())
+                        .map_err(|e|unsupported(e,id))
+                }
             },
             Length::Auto|Length::MinContent|Length::MaxContent=>Err(failure("SFLE_INVALID_LENGTH","Padding requires a valid numeric CSS length.",Some(id))),
         }
@@ -444,8 +455,19 @@ fn intrinsic_gap(length:Length,id:&str)->Result<f64,ComputeError>{
 }
 fn used_gap(length:Length,reference:f64,id:&str)->Result<f64,ComputeError>{
     intrinsic_gap(length,id)?;
-    match length{Length::Px(n)=>Ok(n),Length::Percent(p)=>Ok((p*reference*64.0).round()/64.0),
-        Length::Auto|Length::MinContent|Length::MaxContent=>Err(failure("SFLE_INVALID_LENGTH","Invalid gap.",Some(id))),}
+    match length{
+        Length::Px(n)=>Ok(n),
+        Length::Percent(p)=>{
+            let used=p*reference;
+            if used.is_infinite(){
+                Ok(LayoutUnit::from_raw(if used.is_sign_positive(){i32::MAX}else{i32::MIN}).to_px())
+            }else{
+                LayoutUnit::from_nearest(used).map(|unit|unit.to_px())
+                    .map_err(|e|unsupported(e,id))
+            }
+        },
+        Length::Auto|Length::MinContent|Length::MaxContent=>Err(failure("SFLE_INVALID_LENGTH","Invalid gap.",Some(id))),
+    }
 }
 fn main_gap(style:Style,width:f64,height:f64,id:&str)->Result<f64,ComputeError>{
     if horizontal(style.direction){used_gap(style.column_gap,width,id)}

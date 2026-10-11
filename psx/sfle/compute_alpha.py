@@ -236,12 +236,18 @@ def _subtract_units(value: float, deductions: Iterable[float]) -> float:
 
 def _percent_used_dimension(value: float, reference: float) -> float:
     """Floor CSS used percentage sizes to Chromium's 1/64px grid."""
-    return LayoutUnit.from_floor(math.nextafter(value * reference, math.inf)).to_px()
+    used = value * reference
+    if math.isinf(used):
+        return LayoutUnit.from_raw(I32_MAX if used > 0 else I32_MIN).to_px()
+    return LayoutUnit.from_floor(math.nextafter(used, math.inf)).to_px()
 
 
 def _percent_flex_basis_used(value: float, reference: float) -> float:
     """Percent flex base is floored when resolving the basis (Blink)."""
-    return LayoutUnit.from_floor(value * reference).to_px()
+    used = value * reference
+    if math.isinf(used):
+        return LayoutUnit.from_raw(I32_MAX if used > 0 else I32_MIN).to_px()
+    return LayoutUnit.from_floor(used).to_px()
 
 
 def _blink_flex_targets(
@@ -385,7 +391,10 @@ def _used_gap(length: Length, reference: float, node_id: str) -> float:
         # Chromium exposes used flex gaps on a 1/64 CSS-pixel layout grid.
         # Quantize each resolved gap before placement: rounding only the
         # accumulated x-coordinate loses intermediate browser rounding.
-        return math.floor(length.value * reference * 64 + 0.5) / 64
+        used = length.value * reference
+        if math.isinf(used):
+            return LayoutUnit.from_raw(I32_MAX if used > 0 else I32_MIN).to_px()
+        return LayoutUnit.from_nearest(used).to_px()
     assert length.value is not None
     return length.value
 
@@ -404,8 +413,11 @@ def _padding(style: _Style, inline_reference: float, node_id: str) -> UsedEdges:
             # Blink's used percentage padding follows LayoutUnit truncation,
             # not FromDoubleRound. Compensate a single f64 representational
             # ULP before flooring (e.g. 35% * 45 = 15.749999999999998).
-            used = math.nextafter(length.value * inline_reference, math.inf)
-            value = LayoutUnit.from_floor(used).to_px()
+            used = length.value * inline_reference
+            if math.isinf(used):
+                value = LayoutUnit.from_raw(I32_MAX if used > 0 else I32_MIN).to_px()
+            else:
+                value = LayoutUnit.from_floor(math.nextafter(used, math.inf)).to_px()
         else:
             raise SFLECapabilityError(DiagnosticCode.INVALID_LENGTH,
                                       "Padding requires a valid CSS numeric length.", node_id)
