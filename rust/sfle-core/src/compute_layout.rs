@@ -314,13 +314,15 @@ fn blink_flex_targets(bases:&[FlexBasis], inner:f64,gap:f64,id:&str)->Result<Vec
     }
     Err(measurement("Blink fractional freezing did not converge.",id))
 }
-fn resolved(v:Length, reference:Option<f64>, vertical:bool, id:&str)->Result<Option<f64>,ComputeError>{
+fn resolved(v:Length, reference:Option<f64>, _vertical:bool, _id:&str)->Result<Option<f64>,ComputeError>{
     match v {
         Length::Auto=>Ok(None),
         Length::Px(n)=>Ok(Some(n)),
         Length::Percent(p) if reference.is_some()=>Ok(Some(layout_unit(p*reference.unwrap()))),
-        Length::Percent(_) if vertical=>Ok(None), // CSS auto-block-size cyclic context
-        Length::Percent(_)=>Err(unsupported("Unlisted indefinite inline percentage dependency cycle.",id)),
+        // An intrinsically indefinite percentage has no used numeric value
+        // in this phase. Flex sizing uses the auto/content branch and calls
+        // this again after the containing axis becomes definite.
+        Length::Percent(_)=>Ok(None),
     }
 }
 fn padding(style:Style,inline_reference:f64,id:&str)->Result<Edges,ComputeError>{
@@ -493,13 +495,6 @@ impl Context<'_>{
             }
             if width.is_none(){width=Some(self.preferred(index,true)?);}
             if height.is_none(){
-                if matches!(style.height,Length::Percent(_))
-                    && !self.measurements.contains_key(id.as_str()){
-                    return Err(unsupported(
-                        "Unmeasured indefinite percentage block dependency cycle.",
-                        &id,
-                    ));
-                }
                 if let Some(m)=self.measurements.get(id.as_str()){
                     if !self.provisional && m.constraints.width.definite &&
                         (m.constraints.width.value.unwrap()-width.unwrap()).abs()>0.01{
@@ -584,12 +579,21 @@ impl Context<'_>{
                     resolved(axis,main_reference,!row,child_id)?.map_or(content,|n|content.min(n))
                 },
                 Length::Percent(p) if main_reference.is_some()=>layout_unit(p*main_reference.unwrap()),
-                Length::Percent(_)=>return Err(unsupported("Unlisted percentage minimum size dependency cycle.",child_id)),
+                Length::Percent(_)=>{
+                    let mut content=if child_style.overflow==Overflow::Scroll {0.0}
+                        else {self.intrinsic_contribution(child,row,true)?};
+                    if let Some(transferred)=transferred {
+                        content=if self.input.nodes[child].component=="Image" {
+                            content.min(transferred)
+                        } else {content.max(transferred)};
+                    }
+                    content
+                },
             };
             let mut maximum=match if row{child_style.max_width}else{child_style.max_height}{
                 Length::Px(n)=>Some(n),Length::Auto=>None,
                 Length::Percent(p) if main_reference.is_some()=>Some(layout_unit(p*main_reference.unwrap())),
-                Length::Percent(_)=>return Err(unsupported("Unlisted indefinite percentage maximum size dependency cycle.",child_id)),
+                Length::Percent(_)=>None,
             };
             if let Some(cap)=maximum{
                 if matches!(if row{child_style.min_width}else{child_style.min_height},Length::Auto){
@@ -778,15 +782,6 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
             Length::Auto=>false,
         }
     }
-    for index in 1..input.nodes.len(){
-        if matches!(styles[index].width,Length::Percent(_))
-            && !definite_inline(index,input,&styles,&indices,0){
-            return Err(unsupported(
-                "Unlisted indefinite inline percentage dependency cycle.",
-                &input.nodes[index].node_id,
-            ));
-        }
-    }
     // D-F1.13 / C01–C06: explicit allowlist for definitely referenced
     // percentages and measurable C05 block auto. Unknown graphs fail closed,
     // irrespective of fixture name; Python applies identical class/node ID.
@@ -833,15 +828,6 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
             .iter().any(|v|matches!(v,Length::Percent(_)));
         if percentage_padding && !definite_inline(index,input,&styles,&indices,0) && !cyclic_padding[index]{
             return Err(unsupported("Unlisted indefinite inline percentage padding dependency cycle.",node));
-        }
-        if matches!(st.max_height,Length::Percent(_))
-            && !definite_block(index,input,&styles,&indices,0){
-            return Err(unsupported("Unlisted indefinite percentage maximum size dependency cycle.",node));
-        }
-        if matches!(st.height,Length::Percent(_))
-            && !definite_block(index,input,&styles,&indices,0)
-            && !input.measurements.iter().any(|measurement|measurement.node_id==*node){
-            return Err(unsupported("Unmeasured indefinite percentage block dependency cycle.",node));
         }
     }
     let mut context=Context {
