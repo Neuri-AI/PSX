@@ -1,0 +1,120 @@
+"""F3-G2 certification census, derived from the actual built-in registry.
+
+A *declared* native port is not a certification for all lifecycle operations.
+Keep explicit unknown/pending outcomes rather than treating the leaf allowlist
+as proof of create/update/reorder/unmount/borrowed/rollback support.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from types import MappingProxyType
+
+from psx.core.registry import builtin_component_registry
+from .f3_native_coverage import G2_LEAF_TYPES
+
+BACKENDS = ("qt", "tk", "kivy", "headless")
+OPERATIONS = (
+    "create", "update", "reorder", "unmount", "event_rebind",
+    "borrowed_ownership", "rollback", "invalidation",
+)
+
+# Explicit exceptions to the host-native leaf policy. Not permitted as
+# silent unsupported additions: all new registry entries must be classified.
+TRANSPARENT = frozenset({"Fragment"})
+LEGACY = frozenset({"Row", "Column"})
+EXTERNAL = frozenset({"Native"})
+HEADLESS_PORTED = frozenset({"Flex", "Text", "Button"})
+# Full operation evidence must exist as tests (not only adapter method names).
+# Each entry names one test that actually exercises that operation on a real
+# backend, and is verified to exist in the repository by the test suite.
+EVIDENCE = MappingProxyType({
+    "qt": MappingProxyType({
+        "create": "test_binding_and_native_geometry_owner",
+        "update": "test_state_update_recommits_without_widget_remount",
+        "reorder": "test_keyed_reconciliation_and_button_event_rebind",
+        "unmount": "test_queued_resize_is_ignored_after_unmount",
+        "event_rebind": "test_keyed_reconciliation_and_button_event_rebind",
+        "rollback": "test_stale_layout_generation_fails_before_native_write",
+        "invalidation": "test_native_root_resize_automatically_recomputes_sfle",
+    }),
+    "tk": MappingProxyType({
+        "create": "test_real_ttk_widgets_use_sfle_place_not_pack_or_grid",
+        "update": "test_hooks_events_and_scheduler_commit_without_remounting",
+        "reorder": "test_keyed_reordering_retains_native_handles_and_updates_sfle_positions",
+        "unmount": "test_tk_configure_does_not_commit_after_unmount",
+        "event_rebind": "test_textarea_explicit_height_and_callback_rebind",
+        "rollback": "test_engine_generation_mismatch_rejects_without_native_mutation",
+        "invalidation": "test_real_tk_host_configure_automatically_reflows_sfle",
+    }),
+    "kivy": MappingProxyType({
+        "create": "test_real_kivy_native_bottom_left_geometry_and_reconciliation",
+        "update": "test_real_kivy_native_bottom_left_geometry_and_reconciliation",
+        "unmount": "test_scroll_basic_sfle_viewport_and_explicit_content_root",
+        "event_rebind": "test_switch_spinbox_select_native_interaction_and_sfle_geometry",
+        "invalidation": "test_native_root_and_sdl2_window_resize_automatically_reflow_sfle",
+    }),
+    "headless": MappingProxyType({
+        "create": "test_opt_in_headless_flex_is_real_sfle_geometry_not_a_dummy_layout",
+        "update": "test_hook_updates_commit_new_geometry_without_remounting_widgets",
+        "reorder": "test_keyed_reorder_and_resize_reuse_native_handle_without_remount",
+        "unmount": "test_bad_engine_generation_does_not_commit_any_rectangles",
+        "rollback": "test_bad_engine_generation_does_not_commit_any_rectangles",
+    }),
+})
+
+
+@dataclass(frozen=True, slots=True)
+class G2Cell:
+    component: str
+    backend: str
+    status: str
+    operations_with_evidence: tuple[str, ...]
+    pending_operations: tuple[str, ...]
+
+    @property
+    def fully_certified(self) -> bool:
+        return self.status == "native" and not self.pending_operations
+
+
+def g2_certification_matrix() -> tuple[G2Cell, ...]:
+    """Enumerate every registry × backend cell with no implicit green status."""
+    names = tuple(sorted(builtin_component_registry().snapshot()))
+    result: list[G2Cell] = []
+    for backend in BACKENDS:
+        allowed = G2_LEAF_TYPES.get(backend, HEADLESS_PORTED)
+        for name in names:
+            if name in TRANSPARENT:
+                status = "transparent"
+            elif name in LEGACY:
+                status = "legacy_deferred"
+            elif name in EXTERNAL:
+                status = "external_port_required"
+            elif name in allowed:
+                status = "native"
+            else:
+                status = "unported"
+            evidence = (
+                tuple(op for op in OPERATIONS if op in EVIDENCE[backend])
+                if status == "native" else ()
+            )
+            # Backend-level evidence does not prove *this specific control*
+            # has all of these operations. Keep all nontrivial operations
+            # pending until component-level operation evidence is added.
+            pending = (
+                tuple(op for op in OPERATIONS if op != "create")
+                if status == "native" else OPERATIONS
+            )
+            result.append(G2Cell(name, backend, status, evidence, pending))
+    return tuple(result)
+
+
+def g2_matrix_summary() -> dict[str, dict[str, int]]:
+    summary = {}
+    for backend in BACKENDS:
+        subset = [cell for cell in g2_certification_matrix() if cell.backend == backend]
+        summary[backend] = {
+            key: sum(cell.status == key for cell in subset)
+            for key in ("native", "unported", "legacy_deferred",
+                        "transparent", "external_port_required")
+        }
+    return summary
