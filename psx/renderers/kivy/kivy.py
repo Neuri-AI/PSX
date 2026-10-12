@@ -414,7 +414,7 @@ class KivyRenderer:
                 if callable(reload_image):
                     reload_image()
                 self._sfle_resource_error = None
-                self.request_sfle_invalidation("resource")
+                self.request_sfle_invalidation("resource", widget_id=id(widget))
             except Exception as error:
                 # Preserve the last committed geometry and keep watching;
                 # recreating a missing/invalid file can recover in place.
@@ -433,7 +433,7 @@ class KivyRenderer:
         Clock.schedule_once(
             lambda _dt: self._sfle_poll_image_resources(epoch), 0.6)
 
-    def request_sfle_invalidation(self, reason: str) -> None:
+    def request_sfle_invalidation(self, reason: str, *, widget_id: int | None = None) -> None:
         """Coalesce semantic measurement changes on the backend owner UI thread.
 
         The mounted instance is reused; the existing SFLE transaction remains
@@ -444,7 +444,7 @@ class KivyRenderer:
         if self._sfle_constraints is None:
             raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
         state = self._sfle_measurement_invalidations
-        state.request(reason)
+        state.request(reason, widget_id=widget_id)
         if self._sfle_invalidation_scheduled:
             return
         self._sfle_invalidation_scheduled = True
