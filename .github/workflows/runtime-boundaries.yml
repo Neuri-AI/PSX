@@ -27,3 +27,17 @@ jobs:
           python-version: "3.12"
       - name: Enforce certification ownership
         run: python scripts/check_runtime_boundaries.py
+      - name: Compile relocated certification modules
+        run: python -m compileall -q tests/certification psx/sfle/f3_g2_c4.py psx/sfle/f3_g2_c4_receipts.py psx/sfle/f3_g2_contracts.py psx/sfle/f3_g2_evidence.py psx/sfle/f3_g2_matrix.py psx/sfle/f3_g2_oracles.py psx/sfle/f3_g2_receipts.py
+      - name: Verify canonical imports and compatibility
+        run: |
+          python -m pip install -e .
+          python - <<'PY'
+          import importlib
+          for name in ("f3_g2_c4", "f3_g2_c4_receipts", "f3_g2_contracts", "f3_g2_evidence", "f3_g2_matrix", "f3_g2_oracles", "f3_g2_receipts"):
+              old = importlib.import_module(f"psx.sfle.{name}")
+              new = importlib.import_module(f"tests.certification.{name}")
+              for attr in dir(new):
+                  if not attr.startswith("_") and hasattr(old, attr):
+                      assert getattr(old, attr) is getattr(new, attr), (name, attr)
+          PY
