@@ -282,15 +282,33 @@ register_primitive(
 
 # -- renderer ---------------------------------------------------------------
 
-def _make_resize_filter(core, on_resize):
-    """A QObject tied to the root QWidget; no Qt layout owns geometry."""
-    event_type = getattr(getattr(core.QEvent, "Type", core.QEvent), "Resize")
+def _make_resize_filter(core, on_resize, on_invalidation=None):
+    """Observe root viewport and native style/DPI changes without owning layout."""
+    qevents = getattr(core.QEvent, "Type", core.QEvent)
+    event_type = getattr(qevents, "Resize")
+    semantic_types = {
+        value: reason
+        for name, reason in (
+            ("FontChange", "font"),
+            ("ApplicationFontChange", "font"),
+            ("PaletteChange", "theme"),
+            ("ApplicationPaletteChange", "theme"),
+            ("StyleChange", "theme"),
+            ("ScreenChangeInternal", "dpi"),
+            ("DevicePixelRatioChange", "dpi"),
+        )
+        if (value := getattr(qevents, name, None)) is not None
+    }
 
     class ResizeFilter(core.QObject):
         def eventFilter(self, watched, event):
             if event.type() == event_type:
                 size = event.size()
                 on_resize(watched, size.width(), size.height())
+            elif on_invalidation is not None:
+                reason = semantic_types.get(event.type())
+                if reason is not None:
+                    on_invalidation(watched, reason)
             return False
 
     return ResizeFilter()
@@ -449,6 +467,12 @@ class QtRenderer:
         self._sfle_constraints = constraints
         self._sfle_generation += 1
 
+    def _sfle_on_native_semantic_change(self, watched, reason: str) -> None:
+        if (watched is self._sfle_watched_widget
+                and self._sfle_mounted_root is not None
+                and self._sfle_constraints is not None):
+            self.request_sfle_invalidation(reason)
+
     def _sfle_on_viewport_resize(self, watched, width: int, height: int) -> None:
         if watched is not self._sfle_watched_widget or width <= 0 or height <= 0:
             return
@@ -547,6 +571,7 @@ class QtRenderer:
             self._sfle_resize_scheduled = False
             self._sfle_resize_filter = _make_resize_filter(
                 self._qtcore, self._sfle_on_viewport_resize,
+                self._sfle_on_native_semantic_change,
             )
             widget.installEventFilter(self._sfle_resize_filter)
             self._sfle_watched_widget = widget
