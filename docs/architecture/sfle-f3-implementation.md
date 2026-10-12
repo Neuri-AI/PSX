@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (DPR-aware physical pixel projection and native geometry readback GREEN at `b0f589f`; Qt 1.5× parity verified, Kivy/Tk no-double-scaling policy); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Qt TextArea width-aware native integration and edit-triggered reflow GREEN at `9de4ea1`; prior DPR/readback at `b0f589f`; G2 registry matrix still incomplete); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -549,3 +549,47 @@ Historical G1.2 incremental evidence is retained above.
 - **Transaction:** `f3_qt.py`, `f3_kivy.py`, `f3_tk.py` record both `geometry_commit_error` (in widget API coordinates, max 1) and `renderer._sfle_physical_commit_error` (physical-pixel difference, bounded by the physical counterpart of the 1-native-unit tolerance). Nonfinite/negative DPR, invalid backend geometry, stale generation and native parentage fail before committing; readback violations retain existing rollback. Logical output is unchanged by DPR. No new F2 solver/rounding was introduced.
 - **Certification:** Source [`b0f589f`](https://github.com/Neuri-AI/PSX/commit/b0f589ffcbc5f93f83fce1c1d7d6a3ccc143ec1a) passed [F3 selective #38203902046](https://github.com/Neuri-AI/PSX/actions/runs/38203902046) **COMPLETED SUCCESS** and [G1 Python matrix #38203902052](https://github.com/Neuri-AI/PSX/actions/runs/38203902052) **COMPLETED SUCCESS**, **same source SHA**. `tests/test_f3_g2_native_pixel_scale.py` exercises DPI ratios 1×, 1.25×, 1.5×, 2×, 2.5× and 3×, edge continuity, signed/invalid scale rejection and native-vs-physical error. All four isolated real Qt binding CI jobs now run **19 tests at normal scale + 19 tests at `QT_SCALE_FACTOR=1.5` each** (76 at normal + 76 at 1.5×), in addition to **35 PySide6 native tests**, **27 Tk native**, **5 SDL2 Kivy**, **206 Core** and the pre-existing browser/F2 geometry/native wheel checks.
 - **Still OPEN in G2:** Detect and invalidate text/measurement caches for live runtime **screen migration / DPI changes without a window resize**; verify portable font metrics and actual visual CSS-DP size equivalence across disparate hardware DPI configurations in Kivy/Tk; new multi-DPI screenshot/golden fixtures against Chromium; complete OS×toolkit and primitive×backend×operation matrix and owned/borrowed lifecycle. The current increment certifies **device-coordinate projection and no-double-scaling**, not all possible high-DPI rendering permutations.
+
+## F3-G2 increment — Qt native TextArea post-flex sizing and editing (2026-10-11)
+
+**G2 stays IN PROGRESS. F3 has 1/5 official gates closed (20%).**
+
+- **Qt backend coverage:** `TextArea` is admitted to the F3-G2 native leaf
+  capability policy for **PySide6, PyQt6, PyQt5 and PySide2**, retaining the
+  existing `QPlainTextEdit` native primitive, `on_change`, keyed identity,
+  focus, cursor/selection and native editing. Tk and Kivy `TextArea` remain
+  explicitly unported in the **SFLE path** and are not silently certified.
+- **Real constrained measurement:** `QtMeasurementSource` creates a detached
+  `QTextDocument` with the live edit's font, plain text, document margins and
+  wrap policy. Its height is measured at the **actual leaf content-box width**
+  delivered by the existing provisional SFLE pass. The live edit's document,
+  signals, focus, cursor and scrolling are untouched during measurement; no
+  alternative widget layout or fixed post-hoc geometry is introduced.
+- **CSS contract:** `layout_height` definite overrides intrinsic auto-height;
+  auto-height uses the existing bounded SFLE convergence, generation and
+  readback/rollback gates. `QPlainTextEdit` still handles text painting/input
+  and native internal scrollbars; no F3-G3 outer Scroll work is claimed.
+- **Live edits:** `QPlainTextEdit.textChanged` schedules at most one deferred
+  SFLE remeasurement per event-loop turn, never recursively inside Qt signal
+  emission. Explicit/reconciler commits supersede pending remeasurement;
+  unmount invalidates queued callbacks via an epoch. Diagnostic errors are
+  retained in `_sfle_textarea_error` rather than crossing C++ boundaries.
+- **Real Qt tests:** `tests/test_f3_g2_qt_family.py` checks the same editor
+  reflows at width 160 → 90 → 160, sibling geometry follows, text, selection,
+  focus and callback behavior survive, definite CSS height remains 36px,
+  callbacks rebind, native text editing triggers remeasurement without a
+  Reconciler remount, and no competing `QLayout` takes ownership. All four
+  Qt bindings certify the same assertions, including `QT_SCALE_FACTOR=1.5`.
+- **Proof:** Code commits
+  [`079b5f5`](https://github.com/Neuri-AI/PSX/commit/079b5f5631ff84788e9996226be839212bd4314b)
+  and [`9de4ea1`](https://github.com/Neuri-AI/PSX/commit/9de4ea1a1cd0ca72cc009a3d329c6a9244084150).
+  [F3 selected CI #38206256655](https://github.com/Neuri-AI/PSX/actions/runs/38206256655)
+  and [G1 contract CI #38206256646](https://github.com/Neuri-AI/PSX/actions/runs/38206256646)
+  **COMPLETED SUCCESS on the same source SHA**. Each of the four Qt
+  parity jobs passed **22 tests at standard DPI and 22 at 1.5×** (176
+  Qt parity executions total); the separate native Qt job was GREEN.
+- **Still open for G2:** complete registry × backend × operation and
+  owned/borrowed lifecycle coverage; native `TextArea` on applicable Tk/Kivy
+  combinations; live font/theme/screen DPI invalidation; complex image and
+  other intrinsic control support; complete OS/platform matrix. This
+  increment alone does **not** close G2.
