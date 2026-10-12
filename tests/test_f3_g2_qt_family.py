@@ -1071,6 +1071,10 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                     ORACLES["create"](None, before_observation)
                     updated = self.reconciler.render(view(name, 80, reverse=True))
                     current = updated.children[1]
+                    unchanged_peer = updated.children[0].handle.widget
+                    self.assertNotIn(id(unchanged_peer),
+                                     self.renderer._sfle_native_intrinsic_cache.last_measured,
+                                     name)
                     self.assertIs(current, instance, name)
                     self.assertIs(current.handle, handle, name)
                     self.assertIs(current.handle.widget, widget, name)
