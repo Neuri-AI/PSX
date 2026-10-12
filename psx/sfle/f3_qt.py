@@ -245,6 +245,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             GeometryBackend.QT, nodes,
             {node_id: handle.widget for node_id, handle in bindings.items()},
             external_ports=external,
+            skip_unchanged=True,
         )
         before = {
             node_id: (
