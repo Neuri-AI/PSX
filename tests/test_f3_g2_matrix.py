@@ -40,7 +40,7 @@ def test_declared_native_ports_match_the_actual_registry(backend):
     assert native <= registered
     assert "Row" not in native and "Column" not in native
     cells = [c for c in g2_certification_matrix() if c.backend == backend]
-    assert {c.component for c in cells if c.status == "native"} == native
+    assert {c.component for c in cells if c.status == "native"} == native | {"Flex"}
 
 
 @pytest.mark.parametrize("backend", BACKENDS)

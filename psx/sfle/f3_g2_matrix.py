@@ -21,6 +21,7 @@ OPERATIONS = (
 # Explicit exceptions to the host-native leaf policy. Not permitted as
 # silent unsupported additions: all new registry entries must be classified.
 TRANSPARENT = frozenset({"Fragment"})
+STRUCTURAL = frozenset({"Flex"})
 LEGACY = frozenset({"Row", "Column"})
 EXTERNAL = frozenset({"Native"})
 # Complete G2 backlog for built-ins not yet admitted. A new registry entry
@@ -96,7 +97,7 @@ def g2_certification_matrix() -> tuple[G2Cell, ...]:
     for backend in BACKENDS:
         classified = (
             set(G2_LEAF_TYPES.get(backend, HEADLESS_PORTED))
-            | TRANSPARENT | LEGACY | EXTERNAL
+            | STRUCTURAL | TRANSPARENT | LEGACY | EXTERNAL
             | set(UNPORTED_BY_BACKEND[backend])
         )
         unknown = set(names) - classified
@@ -114,6 +115,8 @@ def g2_certification_matrix() -> tuple[G2Cell, ...]:
                 status = "transparent"
             elif name in LEGACY:
                 status = "legacy_deferred"
+            elif name in STRUCTURAL:
+                status = "native"
             elif name in EXTERNAL:
                 status = "external_port_required"
             elif name in allowed:
