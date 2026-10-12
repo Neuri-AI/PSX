@@ -286,6 +286,11 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         original_selection = (
             editor.textCursor().anchor(), editor.textCursor().position(),
         )
+        root.handle.widget.show()
+        self.renderer.application.processEvents()
+        editor.setFocus()
+        self.renderer.application.processEvents()
+        self.assertTrue(editor.hasFocus())
 
         self.renderer.set_sfle_constraints(viewport(90, 300))
         root.handle.widget.resize(90, 300)
@@ -301,6 +306,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         )
         self.assertIs(root.children[0].handle.widget, editor)
         self.assertIs(root.children[1].handle.widget, below)
+        self.assertTrue(editor.hasFocus())
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
         self.renderer.set_sfle_constraints(viewport(160, 300))
@@ -316,6 +322,33 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertEqual(changes, [])
         editor.insertPlainText("!")
         self.assertEqual(changes, [editor.toPlainText()])
+
+    def test_textarea_native_edit_remeasures_without_reconciler_remount(self):
+        self.renderer.set_sfle_constraints(viewport(160, 500))
+        changes = []
+        root = self.reconciler.render(Flex(
+            TextArea(
+                value="Short", key="editor", on_change=changes.append,
+                layout_width="100%", flex_shrink=0,
+            ),
+            button("Below", "below", 45),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        editor = root.children[0].handle.widget
+        below = root.children[1].handle.widget
+        first_height = editor.height()
+        previous_generation = self.renderer.sfle_result.generation
+        editor.insertPlainText(" " + " ".join(["Multiline native editing"] * 14))
+        self.assertEqual(len(changes), 1)
+        self.renderer.application.processEvents()
+        self.renderer.application.processEvents()
+        self.assertIsNone(self.renderer._sfle_textarea_error)
+        self.assertGreater(self.renderer.sfle_result.generation, previous_generation)
+        self.assertGreater(editor.height(), first_height)
+        self.assertEqual(below.y(), editor.height())
+        self.assertIs(root.children[0].handle.widget, editor)
+        self.assertEqual(editor.toPlainText(), changes[-1])
 
     def test_textarea_fixed_height_keeps_css_authority_and_rebinds_events(self):
         previous, current = [], []

@@ -345,6 +345,9 @@ class QtRenderer:
         self._sfle_resize_scheduled = False
         self._sfle_resize_epoch = 0
         self._sfle_resize_error: Exception | None = None
+        self._sfle_textarea_pending = False
+        self._sfle_textarea_epoch = 0
+        self._sfle_textarea_error: Exception | None = None
         self.sfle_result: LayoutResult | None = None
         self._sfle_physical_commit_error: float | None = None
         self._sfle_backend = "qt"
@@ -455,11 +458,46 @@ class QtRenderer:
             import logging
             logging.getLogger(__name__).exception("Qt SFLE viewport resize failed")
 
+    def _sfle_on_textarea_content_changed(self) -> None:
+        """Coalesce native edits into one SFLE intrinsic remeasurement.
+
+        Signals are emitted on the Qt UI thread. Never perform a layout
+        transaction inside the QPlainTextEdit signal/paint call stack.
+        """
+        if (self._sfle_constraints is None or self._sfle_mounted_root is None
+                or self._sfle_in_commit or self._sfle_textarea_pending):
+            return
+        self._sfle_textarea_pending = True
+        epoch = self._sfle_textarea_epoch
+        self._qtcore.QTimer.singleShot(
+            0, lambda: self._sfle_flush_textarea_content(epoch),
+        )
+
+    def _sfle_flush_textarea_content(self, epoch: int) -> None:
+        if epoch != self._sfle_textarea_epoch:
+            return
+        self._sfle_textarea_pending = False
+        root = self._sfle_mounted_root
+        if root is None or root.disposed:
+            return
+        try:
+            self.commit_layout(root)
+            self._sfle_textarea_error = None
+        except Exception as exc:
+            self._sfle_textarea_error = exc
+            import logging
+            logging.getLogger(__name__).exception(
+                "Qt TextArea native SFLE remeasurement failed",
+            )
+
     def commit_layout(self, root: object) -> None:
         if self._sfle_constraints is None:
             return
         from psx.sfle.f3_qt import commit_qt_sfle
         commit_qt_sfle(self, root)
+        # An explicit/reconciler commit supersedes a pending native edit.
+        self._sfle_textarea_epoch += 1
+        self._sfle_textarea_pending = False
         # Subscribe only after the mounted SFLE root is fully certified.
         # The observer watches the real root QWidget, not a nested Flex.
         widget = root.native_handle().widget
@@ -483,6 +521,9 @@ class QtRenderer:
             self._sfle_resize_epoch += 1
             self._sfle_resize_pending = None
             self._sfle_resize_scheduled = False
+            self._sfle_textarea_epoch += 1
+            self._sfle_textarea_pending = False
+            self._sfle_textarea_error = None
             self._sfle_mounted_root = None
             if self._sfle_watched_widget is not None:
                 # Qt may already have destroyed a borrowed/owned widget.
@@ -553,6 +594,10 @@ class QtRenderer:
             # QLabel's real heightForWidth is enabled by wordWrap.
             # SFLE (not QLabel) still owns size and position.
             widget.setWordWrap(True)
+        if self._sfle_constraints is not None and node.type == "TextArea":
+            # Native Qt continues to paint/edit text; SFLE owns the outer
+            # rectangle. Native text edits invalidate width-sensitive height.
+            widget.textChanged.connect(self._sfle_on_textarea_content_changed)
         return QtHandle(node.type, widget, props=dict(node.props))
 
     # -- update -----------------------------------------------------------
