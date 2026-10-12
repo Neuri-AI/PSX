@@ -1191,6 +1191,107 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                 self.assertEqual(len(calls), 2, name)
 
 
+    def test_external_native_owned_borrowed_and_custom_resources(self):
+        """Native ownership is tested independently for every Qt binding."""
+        from psx.core.native import NativeWidget, NativeOwnership
+        from psx.core.vnode import native_widget, create_element
+        from psx.renderers.qt.pyqt import QtHandle
+        from psx.sfle.f3_g2_oracles import Observation, ORACLES
+
+        def port():
+            def measure(widget, limits):
+                return IntrinsicSizes(10, 45, 10, 20, 45, 20)
+            def apply(widget, rect):
+                widget.setGeometry(round(rect.x), round(rect.y),
+                                   round(rect.width), round(rect.height))
+            def read(widget):
+                rect = widget.geometry()
+                return Rect(rect.x(), rect.y(), rect.width(), rect.height())
+            return SFLEExternalPort(measure, apply, read)
+
+        owner = qtwidgets.QWidget()
+        borrowed = qtwidgets.QLabel("Borrowed", owner)
+        before_parent = borrowed.parentWidget()
+        disposed = []
+        borrowed.destroyed.connect(lambda *_: disposed.append(True))
+        declaration = NativeWidget(
+            renderer=BINDING, widget=borrowed,
+            ownership=NativeOwnership.BORROWED,
+            sfle_port=port(),
+        )
+        def borrowed_view(width):
+            return Flex(native_widget(
+                declaration, key="borrowed",
+                layout_width=f"{width}px", layout_height="20px",
+                flex_basis=f"{width}px", flex_shrink=0),
+                width=160, height=80, align_items="flex-start")
+        first = self.reconciler.render(borrowed_view(35))
+        self.assertIs(first.children[0].handle.widget, borrowed)
+        second = self.reconciler.render(borrowed_view(45))
+        self.assertIs(second.children[0].handle.widget, borrowed)
+        before = Observation(id(borrowed), True, (0, 0, 45, 20),
+                             owner="caller")
+        self.reconciler.unmount()
+        after = Observation(id(borrowed), False, (0, 0, 45, 20),
+                            owner="caller", disposed=bool(disposed))
+        ORACLES["borrowed_ownership"](before, after)
+        self.assertIs(borrowed.parentWidget(), before_parent)
+        self.assertFalse(disposed)
+
+        owned = []
+        def factory():
+            widget = qtwidgets.QLabel("Owned")
+            widget.destroyed.connect(lambda *_: owned.append(True))
+            return widget
+        owner_declaration = NativeWidget(
+            renderer=BINDING, factory=factory, sfle_port=port())
+        result = self.reconciler.render(Flex(
+            native_widget(owner_declaration, key="owned",
+                          layout_width="40px", layout_height="20px",
+                          flex_basis="40px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        widget = result.children[0].handle.widget
+        self.assertEqual(geometry(widget), (0, 0, 40, 20))
+        self.reconciler.unmount()
+        qtcore = importlib.import_module(f"{PACKAGE}.QtCore")
+        qtcore.QCoreApplication.sendPostedEvents(
+            None, qtcore.QEvent.Type.DeferredDelete)
+        self.assertTrue(owned)
+
+        calls = []
+        class Custom:
+            sfle_port = port()
+            def create(self, renderer, node, parent):
+                calls.append("create")
+                return QtHandle("ExternalBadge", qtwidgets.QLabel("Custom"))
+            def update(self, renderer, handle, changed, removed):
+                calls.append("update")
+            def destroy(self, renderer, handle):
+                calls.append("destroy")
+                handle.widget.deleteLater()
+            def bind_event(self, renderer, handle, event, slot):
+                raise RendererCapabilityError("Unsupported custom event")
+            def unbind_event(self, renderer, subscription):
+                calls.append("unbind")
+
+        self.renderer.register_adapter("ExternalBadge", Custom())
+        mounted = self.reconciler.render(Flex(
+            create_element("ExternalBadge", key="custom",
+                           layout_width="36px", layout_height="20px",
+                           flex_basis="36px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        self.assertEqual(geometry(mounted.children[0].handle.widget),
+                         (0, 0, 36, 20))
+        self.reconciler.unmount()
+        self.assertEqual(calls.count("create"), 1)
+        self.assertEqual(calls.count("destroy"), 1)
+        borrowed.setText("Survives PSX teardown")
+        self.assertEqual(borrowed.text(), "Survives PSX teardown")
+        owner.deleteLater()
+
+
 if __name__ == "__main__":
     unittest.main()
 
