@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Link, Badge, Divider leaf and Spacer native SFLE geometry certified on Qt, Tkinter and Kivy at `844d379`; Image/TextArea and DPI earlier certified; full registry × backend × operation G2 matrix still open); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Switch/SpinBox/Select intrinsic measurement, SFLE-controlled geometry and controlled events certified on Qt, Tkinter and Kivy at `5d50e95`; Link/Badge/Divider/Spacer, Image, TextArea and DPI previously certified; full registry/backend/operation matrix still open); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -757,3 +757,55 @@ Historical G1.2 incremental evidence is retained above.
   viewport/host binding; invalidation on content, theme, font and
   screen DPI. Full scroll behavior is G3, legacy Row/Column removal is G4,
   and full platform/matrix certification is G5.
+ 
+## F3-G2 increment — native Switch, SpinBox and Select on Qt/Kivy/Tk (2026-10-11)
+
+**State: INCREMENT CERTIFIED; G2 NOT CLOSED. F3 remains 1/5 gates closed (20%).**
+
+- **Existing portable controls:** No new host components or public props:
+  `Switch` (`checked`, `label`, `size`, `on_change`), `SpinBox`
+  (`value`, bounds, `step`, `decimals`, `on_change`) and `Select`
+  (typed `options`, `value`, `on_change`) now join the explicit
+  native F3-G2 leaf allowlists for Qt, Tkinter and Kivy.
+- **Single layout authority:** Qt `AnimatedSwitch` now reports
+  label-aware native `sizeHint`/`minimumSizeHint` and releases its
+  constructor's fixed-size bounds under SFLE. Qt composite SpinBox uses
+  `QHBoxLayout` for its **internal minus/editor/plus chrome only**,
+  with its outer `QWidget` width/height allocated by SFLE. The Qt
+  transaction still rejects `QLayout` for all other unapproved SFLE
+  participants and any declarative PSX tree's competing layout.
+- **Kivy intrinsic ports:** Native composite Switch measures from
+  its actual Kivy label texture and portable track size, and SpinBox
+  measures from its explicit internal-control natural size; neither
+  overwrites the outer BoxLayout size during SFLE-driven updates.
+  Spinner/Select uses native text texture measurement. All three
+  keep actual native widgets and parent-relative bottom-left projection.
+- **Tkinter:** Existing `ttk.Frame` Switch and SpinBox are measured
+  from actual requested native dimensions; Select is the real
+  `ttk.Combobox` with virtual event binding. Internal Tk `pack`
+  only arranges private Switch/SpinBox subcontrols, never PSX siblings.
+  SFLE still projects host rectangles using `place()`.
+- **Controls/events:** Qt, Kivy and Tk tests verify keyed identity,
+  parent ownership, exact SFLE/native rectangles, preserved
+  `checked`, numeric values, selected option and `on_change`
+  callbacks across controlled update/rebind. Prop synchronization
+  does not emit spurious changes.
+- **RED evidence and correction:** First CI exposed Qt falsely
+  rejecting SpinBox's internal QLayout and old unported-widget tests
+  treating now-supported Switch as unsupported. A second execution
+  exposed `Box` was not exported in the PSX public Python namespace;
+  stable negative tests now use public `RadioGroup`, genuinely
+  unsupported until the future container increment. The final source
+  commit passes all mandatory jobs; these were corrected, not skipped.
+- **Code certificate:** [`5d50e95`](https://github.com/Neuri-AI/PSX/commit/5d50e95a5896d4be1a9ce0e3049e58049ad62ea6).
+  [F3 selective #38211894255](https://github.com/Neuri-AI/PSX/actions/runs/38211894255)
+  **COMPLETED SUCCESS**; [G1 contract #38211894319](https://github.com/Neuri-AI/PSX/actions/runs/38211894319)
+  **COMPLETED SUCCESS** at the exact same code SHA. Qt **208 parity
+  executions**, Tk **33 native tests**, Kivy **10 SDL2 subprocess
+  tests** and required selected source/native-wheel jobs all passed.
+- **Open gate blockers:** Container-aware `Box`, `RadioGroup`, and
+  Divider-with-child geometry, G2 basic Scroll viewport binding,
+  complete built-in × backend × operation/lifecycle census, native/
+  borrowed/custom widget teardown and invalidations for changed
+  font/theme/DPI/image source. None is mislabeled G2 CLOSED;
+  full scrolling remains G3 and Row/Column removal remains G4.
