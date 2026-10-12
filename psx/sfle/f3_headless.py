@@ -157,6 +157,13 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
                 for node_id, rect in placements.items()
                 for axis in ("x", "y", "width", "height")
             ), default=0.0)
+            if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+                raise SFLEError(
+                    DiagnosticCode.INVALID_SNAPSHOT,
+                    "Stale semantic invalidation during native readback.",
+                )
+            if renderer._sfle_generation != generation:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
             if error > 1.0:
                 raise SFLEError(
                     DiagnosticCode.INVALID_SNAPSHOT,
