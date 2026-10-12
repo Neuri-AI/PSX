@@ -19,3 +19,7 @@ Put optional traceability labels (`Phase: F3`, `Gate: G2`, `Block: C3`) in the c
 ## Validation
 
 Retain selective CI and exact-SHA certification requirements. A docs-only update must not trigger product tests. Do not claim a workflow's skipped tests are executed evidence. Do not mark a gate CLOSED without its full evidence.
+
+## Runtime versus certification code
+
+Read [Runtime and certification module boundaries](docs/architecture/runtime-certification-boundaries.md) before adding or moving modules. Keep test-only contracts, evidence matrices, oracles and JUnit validators under `tests/certification/`, not `psx/`. Preserve actual runtime adapters. Never add new `f*_g*_...receipts`, `...matrix`, `...evidence` or `...contracts` modules to production. CI enforces a finite legacy exception list; do not extend it.
