@@ -328,6 +328,24 @@ def test_all_supported_headless_components_reconcile_without_remount() -> None:
             observe(order=("peer", "case")),
         )
         assert updated_root.handle.children[1] is handle
+        # Deliberately bypass constructor validation to test transactional
+        # rejection at the reconciliation boundary for every host family.
+        from dataclasses import replace
+        from types import MappingProxyType
+        candidate = view(60, reverse=True)
+        original = candidate.children[1]
+        corrupted = replace(original, props=MappingProxyType({
+            **dict(original.props), "on_invalid": 1,
+        }))
+        forged = replace(candidate, children=(candidate.children[0], corrupted))
+        baseline = observe()
+        with pytest.raises(TypeError, match="must be callable"):
+            reconciler.render(forged)
+        assert updated_root.children[1] is old
+        assert old.handle is handle
+        assert observe().rect == baseline.rect
+        assert observe().state == baseline.state
+        ORACLES["rollback"](baseline, replace(observe(), mutation_failed=True))
         prior = observe()
         reconciler.unmount()
         ORACLES["unmount"](prior, observe(mounted=False))
