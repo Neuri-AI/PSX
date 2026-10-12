@@ -127,7 +127,7 @@ def test_resolved_function_components_do_not_insert_phantom_layout_boxes() -> No
 
 def test_scroll_is_structural_only_with_explicit_flex_root() -> None:
     prepared = _prepare(Flex(Scroll(Flex())))
-    assert [n.type for n in prepared.snapshot.nodes] == ["Flex", "Flex", "Flex"]
+    assert [n.component for n in prepared.snapshot.nodes] == ["Flex", "Flex", "Flex"]
     # The Scroll host is retained as its own stable native identity.
     assert [vnode.type for _, vnode in prepared.identities] == [
         "Flex", "Scroll", "Flex",
