@@ -490,6 +490,9 @@ class TkinterRenderer:
             return
         from psx.sfle.f3_tk import commit_tk_sfle
         commit_tk_sfle(self, root)
+        self._sfle_measurement_invalidations.acknowledge(
+            self._sfle_measurement_invalidations.epoch)
+
         self._sfle_textarea_epoch += 1
         if self._sfle_textarea_after_id is not None:
             self.root.after_cancel(self._sfle_textarea_after_id)
