@@ -156,3 +156,29 @@ def g2_matrix_summary() -> dict[str, dict[str, int]]:
                         "transparent", "external_port_required")
         }
     return summary
+
+
+def g2_operation_coverage_summary() -> dict[str, dict[str, dict[str, int]]]:
+    """Machine-readable C2 evidence counts, by backend and operation.
+
+    Only native cells contribute: unported/legacy/external cells are recorded
+    in g2_matrix_summary() and never accidentally counted as passes here.
+    A pending operation is an explicit gap for C3–C6, not a C2 failure.
+    """
+    cells = g2_certification_matrix()
+    return {
+        backend: {
+            operation: {
+                "evidenced": sum(
+                    c.status == "native" and operation in c.operations_with_evidence
+                    for c in cells if c.backend == backend
+                ),
+                "pending": sum(
+                    c.status == "native" and operation in c.pending_operations
+                    for c in cells if c.backend == backend
+                ),
+            }
+            for operation in OPERATIONS
+        }
+        for backend in BACKENDS
+    }

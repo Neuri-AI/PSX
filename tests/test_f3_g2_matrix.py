@@ -144,3 +144,22 @@ def test_component_evidence_requires_reviewer_manifest_and_no_implicit_green():
     assert all("borrowed_ownership" in cell.pending_operations for cell in native)
     assert all("rollback" in cell.pending_operations for cell in native)
     assert all(not cell.fully_certified for cell in native)
+
+
+def test_c2_operation_summary_exposes_all_missing_component_specific_evidence():
+    from psx.sfle.f3_g2_matrix import g2_operation_coverage_summary
+    coverage = g2_operation_coverage_summary()
+    assert set(coverage) == set(BACKENDS)
+    for backend in BACKENDS:
+        native = sum(cell.backend == backend and cell.status == "native"
+                     for cell in g2_certification_matrix())
+        assert set(coverage[backend]) == set(OPERATIONS)
+        for operation in OPERATIONS:
+            amounts = coverage[backend][operation]
+            assert set(amounts) == {"evidenced", "pending"}
+            assert amounts["evidenced"] + amounts["pending"] == native
+            assert amounts["evidenced"] >= 0
+            assert amounts["pending"] >= 0
+    assert coverage["kivy"]["borrowed_ownership"]["evidenced"] == 0
+    assert coverage["qt"]["create"]["pending"] == 0
+    assert coverage["headless"]["create"]["pending"] >= 1
