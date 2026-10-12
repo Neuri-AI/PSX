@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (registry-backed 4-backend × component × operation inventory and CI evidence guards implemented at `5b93acd`; per-component lifecycle/borrowed/custom and invalidations remain pending; Scroll basic viewport, structural and native leaf increments previously certified); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS — C1 (native component SFLE geometry) CLOSED at `6b0dc78`; C2 registry inventory implemented; C3–C6 lifecycle/extensibility/invalidations/final acceptance pending. G3–G5 NOT STARTED — 1/5 official F3 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -948,3 +948,47 @@ G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
   theme/font/DPI/image source invalidation; complete regression
   and platform certification. G3 continues to own overflowing
   Scroll offset/chaining; G4 owns removal of Row/Column.
+
+## F3-G2-C1 — native component SFLE geometry coverage signoff (2026-10-12)
+
+**C1: CLOSED, native GUI geometry scope only. G2 overall IN PROGRESS.**
+
+- The registry-derived G2 audit now has **no unported built-in GUI geometry
+  cells** for Qt (PySide6, PySide2, PyQt5, PyQt6), Tkinter and Kivy.
+  `tests/test_f3_g2_matrix.py` enforces this invariant so a newly
+  registered GUI component cannot silently lack a declared geometry port.
+- The missing Tk native geometry cells `Input` and `ProgressBar` were
+  admitted; real Tk `ttk.Entry`/`ttk.Progressbar` tests verify
+  `place()`, parent ownership, SFLE rectangles, identity and controlled
+  updates. Tk Input's previous helper passed a nonexistent `placeholder`
+  option to ttk.Entry and required an extraneous positional argument.
+  The corrected adapter applies legal Tcl options and records the hint
+  declaration; **Tk placeholder visual rendering is still an explicit
+  portable UX gap**, not part of the C1 geometry signoff.
+- Kivy `Input`, `Checkbox`, and `ProgressBar` now participate
+  with real TextInput/CheckBox/ProgressBar native widgets. Because these
+  controls currently lack a certified intrinsic host measurement,
+  `layout_width` and `layout_height` **must both be definite px**.
+  The preflight rejects CSS `auto`, percentage and missing bounds,
+  rather than trusting an arbitrary Kivy `Widget.size` allocation.
+  Real SDL2 tests certify native rectangles, parent-relative inverted Y,
+  value/state reconciliation and precise commit/readback.
+- Qt GUI cells were already covered by native Qt-family parity, text
+  remeasurement and pixel scale suites and remained GREEN throughout C1.
+  `Native`/custom/borrowed widgets belong to C4 extensibility/lifecycle,
+  and `Row`/`Column` removal is G4. Headless is explicitly limited
+  to its implemented renderer capabilities; it does not fabricate Qt
+  or Kivy widget measurements.
+- Source verification: [`890ec54`](https://github.com/Neuri-AI/PSX/commit/890ec54bcf63851e19ca0cd578c2e9b1b918e3a3),
+  [F3 #38221740315](https://github.com/Neuri-AI/PSX/actions/runs/38221740315)
+  SUCCESS, [G1 #38221740302](https://github.com/Neuri-AI/PSX/actions/runs/38221740302)
+  SUCCESS, including selected native Qt/Tk/Kivy and platform wheel
+  jobs. Automated C1 acceptance: [`6b0dc78`](https://github.com/Neuri-AI/PSX/commit/6b0dc78936a9a02914b6f8fc3475981a06475c26),
+  [F3 #38221934245](https://github.com/Neuri-AI/PSX/actions/runs/38221934245)
+  SUCCESS, [G1 #38221934188](https://github.com/Neuri-AI/PSX/actions/runs/38221934188)
+  SUCCESS.
+- **Scope boundary:** C1 certifies available built-in geometry ownership,
+  not C2's detailed operation inventory, C3 per-component life cycle,
+  C4 borrowed/custom ownership, C5 font/theme/DPI/resource invalidation
+  or C6 independent precision and CI signoff. G2 remains OPEN until
+  all its criteria are satisfied; advanced Scroll offsets remain G3.
