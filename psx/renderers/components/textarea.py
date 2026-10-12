@@ -72,7 +72,7 @@ def apply_tk_textarea(widget, props):
             "normal"
         ),
     )
-    # read_only no es un estado nativo de tk.Text; se simula bloqueando edición
-    # mediante bind de teclas, o se ignora en esta implementación base.
+    # Keep synthetic property updates out of the real-edit <<Modified>> path.
+    widget.edit_modified(False)
 
     widget._psx_updating = False

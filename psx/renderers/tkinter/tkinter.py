@@ -107,6 +107,7 @@ class TkEventSubscription:
     event: str
     callback: Callable[[], object | None]
     option: str = "command"
+    binding_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -312,6 +313,9 @@ class TkinterRenderer:
         self._sfle_resize_bind_id = None
         self._sfle_resize_epoch = 0
         self._sfle_resize_error: Exception | None = None
+        self._sfle_textarea_epoch = 0
+        self._sfle_textarea_after_id: str | None = None
+        self._sfle_textarea_error: Exception | None = None
         self._sfle_root_widget: tk.Misc | None = None
         self.sfle_result: LayoutResult | None = None
         self._sfle_physical_commit_error: float | None = None
@@ -418,11 +422,44 @@ class TkinterRenderer:
             import logging
             logging.getLogger(__name__).exception("Tk SFLE viewport resize failed")
 
+    def _sfle_on_textarea_modified(self, event) -> None:
+        widget = event.widget
+        if (self._closed or self._sfle_constraints is None
+                or self._sfle_mounted_root is None or self._sfle_in_commit
+                or getattr(widget, "_psx_updating", False)
+                or not widget.edit_modified()):
+            return
+        if self._sfle_textarea_after_id is None:
+            epoch = self._sfle_textarea_epoch
+            self._sfle_textarea_after_id = self.root.after_idle(
+                lambda: self._sfle_flush_textarea_modified(epoch),
+            )
+
+    def _sfle_flush_textarea_modified(self, epoch: int) -> None:
+        self._sfle_textarea_after_id = None
+        if (self._closed or epoch != self._sfle_textarea_epoch
+                or self._sfle_mounted_root is None):
+            return
+        root = self._sfle_mounted_root
+        if root.disposed:
+            return
+        try:
+            self.commit_layout(root)
+            self._sfle_textarea_error = None
+        except Exception as exc:
+            self._sfle_textarea_error = exc
+            import logging
+            logging.getLogger(__name__).exception("Tk TextArea SFLE remeasurement failed")
+
     def commit_layout(self, root: object) -> None:
         if self._sfle_constraints is None:
             return
         from psx.sfle.f3_tk import commit_tk_sfle
         commit_tk_sfle(self, root)
+        self._sfle_textarea_epoch += 1
+        if self._sfle_textarea_after_id is not None:
+            self.root.after_cancel(self._sfle_textarea_after_id)
+            self._sfle_textarea_after_id = None
         if self._sfle_resize_bind_id is None:
             # Subscribe after the first successful commit: ignore native
             # initialization and changes of unrelated child Frames.
@@ -438,6 +475,14 @@ class TkinterRenderer:
         if self._sfle_constraints is not None:
             self._sfle_generation += 1
             self._sfle_resize_epoch += 1
+            self._sfle_textarea_epoch += 1
+            if self._sfle_textarea_after_id is not None:
+                try:
+                    self.root.after_cancel(self._sfle_textarea_after_id)
+                except tk.TclError:
+                    pass
+                self._sfle_textarea_after_id = None
+            self._sfle_textarea_error = None
             self._sfle_mounted_root = None
             self._sfle_resize_baseline = None
             self._sfle_resize_pending = None
@@ -536,6 +581,10 @@ class TkinterRenderer:
             raise RendererCapabilityError(f"Tkinter does not support host primitive {node.type!r}.")
         widget = spec.factory(master)
         spec.apply(widget, node.props)
+        if self._sfle_constraints is not None and node.type == "TextArea":
+            # Preserve the native editor's selection/cursor; only observe
+            # real <<Modified>> notifications, never reset the flag here.
+            widget.bind("<<Modified>>", self._sfle_on_textarea_modified, add="+")
         return TkHandle(node.type, widget, dict(node.props))
 
     # -- update -----------------------------------------------------------
@@ -664,6 +713,10 @@ class TkinterRenderer:
             raise RendererCapabilityError(f"{event} is not supported by {handle.node_type} in Tkinter.")
         option, make_callback = definition
         callback = make_callback(handle.widget, slot)  # only the requested event's closure is built
+        if handle.node_type == "TextArea" and event == "on_change":
+            # <<Modified>> is a virtual Tk event, not a widget configure key.
+            binding_id = handle.widget.bind(option, callback, add="+")
+            return TkEventSubscription(handle.widget, event, callback, option, binding_id)
         handle.widget.configure(**{option: callback})
         return TkEventSubscription(handle.widget, event, callback, option)
 
@@ -681,7 +734,10 @@ class TkinterRenderer:
                 pass
             return
         target = _as_subscription(subscription)
-        target.widget.configure(**{target.option: ""})
+        if target.binding_id is not None:
+            target.widget.unbind(target.option, target.binding_id)
+        else:
+            target.widget.configure(**{target.option: ""})
 
     # -- scheduling / lifecycle ------------------------------------------
 

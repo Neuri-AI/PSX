@@ -334,6 +334,9 @@ class KivyRenderer:
         self._sfle_resize_event = None
         self._sfle_resize_epoch = 0
         self._sfle_resize_error: Exception | None = None
+        self._sfle_textarea_event = None
+        self._sfle_textarea_epoch = 0
+        self._sfle_textarea_error: Exception | None = None
         self.sfle_result: LayoutResult | None = None
         self._sfle_physical_commit_error: float | None = None
         self._root: Widget | None = None
@@ -434,11 +437,40 @@ class KivyRenderer:
             import logging
             logging.getLogger(__name__).exception("Kivy SFLE viewport resize failed")
 
+    def _sfle_on_textarea_changed(self, widget: Widget, _text: str) -> None:
+        if (self._sfle_constraints is None or self._sfle_mounted_root is None
+                or self._sfle_in_commit or getattr(widget, "_psx_updating", False)
+                or self._sfle_textarea_event is not None):
+            return
+        epoch = self._sfle_textarea_epoch
+        self._sfle_textarea_event = Clock.schedule_once(
+            lambda _dt: self._sfle_flush_textarea_changed(epoch), 0,
+        )
+
+    def _sfle_flush_textarea_changed(self, epoch: int) -> None:
+        self._sfle_textarea_event = None
+        if epoch != self._sfle_textarea_epoch or self._sfle_mounted_root is None:
+            return
+        root = self._sfle_mounted_root
+        if root.disposed:
+            return
+        try:
+            self.commit_layout(root)
+            self._sfle_textarea_error = None
+        except Exception as exc:
+            self._sfle_textarea_error = exc
+            import logging
+            logging.getLogger(__name__).exception("Kivy TextArea SFLE remeasurement failed")
+
     def commit_layout(self, root: object) -> None:
         if self._sfle_constraints is None:
             return
         from psx.sfle.f3_kivy import commit_kivy_sfle
         commit_kivy_sfle(self, root)
+        self._sfle_textarea_epoch += 1
+        if self._sfle_textarea_event is not None:
+            self._sfle_textarea_event.cancel()
+            self._sfle_textarea_event = None
         widget = root.native_handle().widget
         if widget is not self._sfle_watched_widget:
             if self._sfle_watched_widget is not None:
@@ -460,6 +492,11 @@ class KivyRenderer:
         if self._sfle_constraints is not None:
             self._sfle_generation += 1
             self._sfle_resize_epoch += 1
+            self._sfle_textarea_epoch += 1
+            if self._sfle_textarea_event is not None:
+                self._sfle_textarea_event.cancel()
+                self._sfle_textarea_event = None
+            self._sfle_textarea_error = None
             self._sfle_mounted_root = None
             self._sfle_resize_pending = None
             if self._sfle_resize_event is not None:
@@ -514,6 +551,8 @@ class KivyRenderer:
             # Widget itself must not accept an external Kivy layout's size hints.
             handle.widget.size_hint = (None, None)
             handle.widget.pos_hint = {}
+            if handle.node_type == "TextArea":
+                handle.widget.bind(text=self._sfle_on_textarea_changed)
         if parent is None:
             self._root = handle.widget
         return handle
@@ -644,6 +683,8 @@ class KivyRenderer:
     def _adapter_destroy(self, handle: object) -> None:
         target = _handle(handle)
         widget = target.widget
+        if self._sfle_constraints is not None and target.node_type == "TextArea":
+            widget.unbind(text=self._sfle_on_textarea_changed)
         spec = _spec_for(target)
         if spec is not None and spec.on_destroy is not None:
             spec.on_destroy(widget)
