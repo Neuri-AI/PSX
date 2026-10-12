@@ -29,8 +29,8 @@ EXTERNAL = frozenset({"Native"})
 # or accidentally green when it is not part of the reviewed scope.
 UNPORTED_BY_BACKEND = MappingProxyType({
     "qt": frozenset(),
-    "tk": frozenset({"Input"}),
-    "kivy": frozenset({"Input"}),
+    "tk": frozenset(),
+    "kivy": frozenset(),
     "headless": frozenset({
         "Checkbox", "Input", "TextArea", "Slider", "Spacer", "Divider",
         "Image", "ProgressBar", "Radio", "RadioGroup", "Select", "Switch",

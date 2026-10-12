@@ -59,7 +59,9 @@ def test_matrix_does_not_mistake_backend_evidence_for_per_component_closure():
     assert all(not c.fully_certified for c in cells)
     assert all(c.pending_operations for c in cells if c.status == "native")
     assert any(c.component == "Input" and c.backend == "tk"
-               and c.status == "unported" for c in cells)
+               and c.status == "native" for c in cells)
+    assert any(c.component == "Input" and c.backend == "kivy"
+               and c.status == "native" for c in cells)
     assert any(c.component == "ProgressBar" and c.backend == "kivy"
                and c.status == "native" for c in cells)
     assert any(c.component == "Checkbox" and c.backend == "kivy"

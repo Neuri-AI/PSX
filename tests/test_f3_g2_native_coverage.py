@@ -18,11 +18,11 @@ from psx.sfle.f3_native_coverage import (
     })),
     ("tk", frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar", "Image",
-        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "Select", "RadioGroup", "Box", "Scroll", "ProgressBar",
+        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "Select", "RadioGroup", "Box", "Scroll", "ProgressBar", "Input",
     })),
     ("kivy", frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer", "Image",
-        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select", "Radio", "RadioGroup", "Box", "Scroll", "Checkbox", "ProgressBar",
+        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select", "Radio", "RadioGroup", "Box", "Scroll", "Checkbox", "ProgressBar", "Input",
     })),
 ])
 def test_capability_surface_explicit_and_not_all_native_widgets(backend, expected):
@@ -38,9 +38,9 @@ def test_flex_root_never_needs_intrinsic_measurement(backend):
     assert not g2_native_leaf_needs_measurement(Flex(), backend=backend)
 
 
-@pytest.mark.parametrize("kind", ["Checkbox", "Slider", "ProgressBar"])
+@pytest.mark.parametrize("kind", ["Checkbox", "Slider", "ProgressBar", "Input"])
 def test_kivy_nontextured_controls_require_both_pixel_dimensions(kind):
-    constructors = {"Checkbox": Checkbox, "Slider": Slider, "ProgressBar": ProgressBar, "Spacer": Spacer}
+    constructors = {"Checkbox": Checkbox, "Slider": Slider, "ProgressBar": ProgressBar, "Input": Input, "Spacer": Spacer}
     builder = constructors[kind]
     for props in (
         {},
@@ -128,6 +128,5 @@ def test_policy_does_not_contaminate_native_control_props():
     assert source.props["layout_width"] == "110px"
 
 
-def test_tk_input_requires_separate_native_port_not_a_fake_certification():
-    with pytest.raises(RendererCapabilityError, match="not certified"):
-        g2_native_leaf_needs_measurement(Input(value="test"), backend="tk")
+def test_tk_input_uses_actual_native_entry_measurement():
+    assert g2_native_leaf_needs_measurement(Input(value="test"), backend="tk")
