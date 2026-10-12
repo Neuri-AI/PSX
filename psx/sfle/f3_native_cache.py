@@ -20,8 +20,10 @@ class NativeIntrinsicCache:
     width_entries: dict[tuple[int, float], tuple[object, object, object]] = field(default_factory=dict)
     last_width_measured: set[tuple[int, float]] = field(default_factory=set)
 
-    def begin(self, *, invalidate_all: bool = False) -> "NativeMeasurementRound":
-        return NativeMeasurementRound(self, invalidate_all=invalidate_all)
+    def begin(self, *, invalidate_all: bool = False,
+              dirty_widgets: frozenset[int] = frozenset()) -> "NativeMeasurementRound":
+        return NativeMeasurementRound(self, invalidate_all=invalidate_all,
+                                      dirty_widgets=dirty_widgets)
 
     def clear(self) -> None:
         self.entries.clear()
@@ -34,6 +36,7 @@ class NativeIntrinsicCache:
 class NativeMeasurementRound:
     cache: NativeIntrinsicCache
     invalidate_all: bool = False
+    dirty_widgets: frozenset[int] = frozenset()
     updated: dict[int, tuple[object, object, object]] = field(default_factory=dict)
     measured: set[int] = field(default_factory=set)
     updated_width: dict[tuple[int, float], tuple[object, object, object]] = field(default_factory=dict)
@@ -51,7 +54,8 @@ class NativeMeasurementRound:
     ) -> MeasuredBox:
         identity = id(widget)
         old = self.cache.entries.get(identity)
-        if (not self.invalidate_all and old is not None
+        if (not self.invalidate_all and identity not in self.dirty_widgets
+                and old is not None
                 and old[0] == props and old[1] == constraints):
             intrinsic = old[2]
         else:
@@ -71,7 +75,8 @@ class NativeMeasurementRound:
     ) -> object:
         key = (id(widget), width)
         previous = self.cache.width_entries.get(key)
-        if (not self.invalidate_all and previous is not None
+        if (not self.invalidate_all and key[0] not in self.dirty_widgets
+                and previous is not None
                 and previous[0] == props and previous[1] == constraints):
             intrinsic = previous[2]
         else:
