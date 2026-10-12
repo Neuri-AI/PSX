@@ -1285,6 +1285,28 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                         assert current.handle.widget is native_widget, name
                         assert (native_widget.width == 80 if name != "Box" else native_widget.width > 0), (name, native_widget.size)
                         assert native_widget.x > second.children[0].handle.widget.x, name
+                        attempted = view(name, 80, True)
+                        current_node = attempted.children[1]
+                        invalid = create_element(
+                            current_node.type, *current_node.children,
+                            key=current_node.key,
+                            **{**dict(current_node.props), "on_invalid": 1},
+                        )
+                        forged = create_element(
+                            attempted.type, attempted.children[0], invalid,
+                            **dict(attempted.props),
+                        )
+                        before_pos = tuple(native_widget.pos)
+                        before_size = tuple(native_widget.size)
+                        try:
+                            tree.render(forged)
+                        except TypeError:
+                            pass
+                        else:
+                            raise AssertionError("Malformed native callback was accepted")
+                        assert current.handle.widget is native_widget, name
+                        assert tuple(native_widget.pos) == before_pos, name
+                        assert tuple(native_widget.size) == before_size, name
                         tree.render(Flex(
                             Button("Peer", key="peer", layout_width="20px",
                                    layout_height="24px"),
