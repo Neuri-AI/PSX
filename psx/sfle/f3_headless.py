@@ -80,11 +80,21 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             for node_id, source in prepared.identities
         }
         metrics: list[MeasuredBox] = []
+        next_cache = {}
+        fresh_invalidations = renderer._sfle_measurement_invalidations.needs_commit()
         if renderer._sfle_measure is not None:
             for node_id, source in prepared.identities:
                 if source.kind is NodeKind.HOST and source.type == "Flex":
                     continue
-                intrinsic = renderer._sfle_measure(source)
+                handle_id = id(node_handles[node_id])
+                signature = (dict(source.props), constraints)
+                previous = renderer._sfle_intrinsic_cache.get(handle_id)
+                if (not fresh_invalidations and previous is not None
+                        and previous[0] == signature):
+                    intrinsic = previous[1]
+                else:
+                    intrinsic = renderer._sfle_measure(source)
+                next_cache[handle_id] = (signature, intrinsic)
                 if intrinsic is not None:
                     metrics.append(MeasuredBox(node_id, intrinsic, constraints, generation))
                 if renderer._sfle_generation != generation:
@@ -147,5 +157,7 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
                 node_handles[node_id].geometry = old
             raise
         renderer.sfle_result = replace(result, geometry_commit_error=error)
+        # Publish the cache only after the layout and native readback pass.
+        renderer._sfle_intrinsic_cache = next_cache
     finally:
         renderer._sfle_in_commit = False
