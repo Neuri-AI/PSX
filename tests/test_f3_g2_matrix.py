@@ -143,9 +143,10 @@ def test_component_evidence_requires_reviewer_manifest_and_no_implicit_green():
     # operations stay pending until their own behavioral tests exist.
     button = next(cell for cell in native if cell.backend == "headless" and cell.component == "Button")
     assert {"create", "update", "reorder", "unmount", "event_rebind"} <= set(button.operations_with_evidence)
-    assert {"rollback", "invalidation"} <= set(button.pending_operations)
+    assert "rollback" in button.operations_with_evidence
+    assert "invalidation" in button.pending_operations
     assert all("borrowed_ownership" in cell.pending_operations for cell in native)
-    assert all("rollback" in cell.pending_operations for cell in native)
+    assert all("rollback" in cell.operations_with_evidence for cell in native)
     assert all(not cell.fully_certified for cell in native)
 
 
@@ -166,4 +167,4 @@ def test_c2_operation_summary_exposes_all_missing_component_specific_evidence():
     assert coverage["kivy"]["borrowed_ownership"]["evidenced"] == 0
     assert coverage["qt"]["create"]["pending"] == 0
     assert coverage["headless"]["create"]["pending"] == 0
-    assert coverage["headless"]["rollback"]["pending"] >= 1
+    assert coverage["headless"]["rollback"]["pending"] == 0
