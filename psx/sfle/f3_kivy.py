@@ -174,7 +174,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             node_id: (lambda width, node_id=node_id: source.measure_width(node_id, width))
             for node_id, vnode in prepared.identities
             if node_id in automatic and vnode.kind is NodeKind.HOST
-            and vnode.type in ("Text", "TextArea")
+            and vnode.type in ("Text", "TextArea", "Input", "Checkbox", "ProgressBar")
         }
         for node_id, port in external.items():
             if node_id in automatic:

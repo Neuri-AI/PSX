@@ -265,6 +265,11 @@ class KivyMeasurementSource:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Kivy measurement node.", node_id)
         if node_id in self._textarea_ids:
             return self._textarea_metrics(widget, width)
+        control_kind = getattr(widget, "_psx_sfle_intrinsic_kind", None)
+        if control_kind in ("Input", "Checkbox", "ProgressBar"):
+            # Single-line native controls do not reflow text into a taller
+            # control. Their intrinsic height is stable at an assigned width.
+            return self._control_metrics(widget, control_kind)
         previous = getattr(widget, "text_size", None)
         changed = hasattr(widget, "text_size")
         try:
