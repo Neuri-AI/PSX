@@ -1146,6 +1146,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
             apply = original_committer(*args, **kwargs)
             def fail_after_application(result):
                 apply(result)
+                widgets[0].place(x=7, y=9, width=13, height=15)
                 raise RuntimeError("injected Tk native application failure")
             return fail_after_application
 
