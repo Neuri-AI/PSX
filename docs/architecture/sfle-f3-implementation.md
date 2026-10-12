@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (basic Scroll viewport and explicit Flex content geometry integrated in Qt/Tk/Kivy at `8e7e9e1`; overflow offset projection and scroll chaining pending G3; structural Box, RadioGroup, Divider with Text, interactive controls, image/text/DPI earlier certified; full registry/backend/operation matrix remains open); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (registry-backed 4-backend × component × operation inventory and CI evidence guards implemented at `5b93acd`; per-component lifecycle/borrowed/custom and invalidations remain pending; Scroll basic viewport, structural and native leaf increments previously certified); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -913,3 +913,34 @@ G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
   Tk still use existing native scrolling mechanisms, but these are not
   a cross-platform 1:1 scroll equivalence certification. G2 remains open
   for full component/backend/operation and lifecycle matrix.
+
+## F3-G2 increment — registered component × backend × operation audit (2026-10-12)
+
+**Increment: census and fail-closed CI evidence indexing implemented. Not a G2 closure.**
+
+- New `psx/sfle/f3_g2_matrix.py` obtains the *live*
+  `builtin_component_registry()` snapshot rather than copying a
+  misleading manually maintained list of names.
+- Enumerates every builtin across `qt`, `tk`, `kivy`, and `headless`,
+  with statuses `native`, `unported`, `transparent`,
+  `external_port_required` and `legacy_deferred`. Strict reviewed
+  `UNPORTED_BY_BACKEND` sets mean any added/removed registry builtin
+  or undeclared backend cell **fails** the test rather than silently
+  becoming certified.
+- The eight audit operation dimensions are create, update, reorder,
+  unmount, event rebind, borrowed ownership, rollback and invalidation.
+  `EVIDENCE` references actual executable test methods and CI verifies
+  they still exist. **Existing backend-level tests are not considered
+  proof of every operation on every individual component**: pending
+  operations remain explicit for every native cell, with borrowed
+  ownership deliberately unclaimed.
+- Added `tests/test_f3_g2_matrix.py` and required its execution in
+  the F3 core/registry CI job. The tests assert inventory exactness,
+  backend coverage consistency, live evidence references and that
+  G2 may not be marked complete from this aggregate evidence.
+- **Remaining G2 gate blockers:** per-component operation matrix with
+  actual create/update/move/remove/rebind probes on all applicable
+  GUI backends; borrowed/native/custom ownership and destruction;
+  theme/font/DPI/image source invalidation; complete regression
+  and platform certification. G3 continues to own overflowing
+  Scroll offset/chaining; G4 owns removal of Row/Column.
