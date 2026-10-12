@@ -722,6 +722,74 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertEqual(clicks, ["READY", "DONE"])
         self.assertEqual(badge._psx_props["label"], "DONE")
 
+    def test_interactive_switch_spinbox_select_preserve_geometry_state_events(self):
+        from psx import Switch, SpinBox, Select
+        calls = []
+
+        def view(tag, checked=False, value=2, selected="a"):
+            return Flex(
+                Switch(
+                    key="sw", label="Network", checked=checked,
+                    on_change=lambda v: calls.append(("switch", tag, v)),
+                    layout_width="80px", layout_height="32px",
+                    flex_basis="80px", flex_shrink=0,
+                ),
+                SpinBox(
+                    key="spin", value=value, min=0, max=9,
+                    on_change=lambda v: calls.append(("spin", tag, v)),
+                    layout_width="130px", layout_height="36px",
+                    flex_basis="130px", flex_shrink=0,
+                ),
+                Select(
+                    key="select", options=(
+                        {"label": "Alpha", "value": "a"},
+                        {"label": "Beta", "value": "b"},
+                    ), value=selected,
+                    on_change=lambda v: calls.append(("select", tag, v)),
+                    layout_width="110px", layout_height="34px",
+                    flex_basis="110px", flex_shrink=0,
+                ),
+                width="380px", height="80px", gap=6,
+                align_items="flex-start",
+            )
+
+        root = self.reconciler.render(view("before"))
+        sw, spin, select = widgets = [child.handle.widget for child in root.children]
+        self.assertIsInstance(sw, qtwidgets.QAbstractButton)
+        self.assertIsInstance(select, qtwidgets.QComboBox)
+        self.assertIsNone(root.handle.widget.layout())
+        self.assertEqual([geometry(w) for w in widgets], [
+            (0, 0, 80, 32), (86, 0, 130, 36), (222, 0, 110, 34),
+        ])
+        self.assertTrue(all(w.parentWidget() is root.handle.widget for w in widgets))
+        self.assertGreater(sw.maximumWidth(), 80)
+        self.assertGreater(spin.maximumWidth(), 130)
+        sw.click()
+        spin._psx_parts[2].click()
+        select.setCurrentIndex(2)
+        self.assertEqual(calls, [
+            ("switch", "before", True),
+            ("spin", "before", 3),
+            ("select", "before", "b"),
+        ])
+
+        updated = self.reconciler.render(view("after", True, 3, "b"))
+        self.assertTrue(all(updated.children[i].handle.widget is w
+                            for i, w in enumerate(widgets)))
+        self.assertTrue(sw.isChecked())
+        self.assertEqual(spin._psx_parts[1].text(), "3")
+        self.assertEqual(select.currentData(), "b")
+        self.assertEqual(len(calls), 3)
+        sw.click()
+        spin._psx_parts[2].click()
+        select.setCurrentIndex(1)
+        self.assertEqual(calls[3:], [
+            ("switch", "after", False),
+            ("spin", "after", 4),
+            ("select", "after", "a"),
+        ])
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
     def test_unported_widget_still_rejected_and_default_flex_fail_closed(self):
         from psx import Switch
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
