@@ -78,7 +78,16 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         }
         # A Qt layout must never be allowed to override SFLE rectangles.
         for node_id, handle in bindings.items():
-            if handle.layout is not None or handle.widget.layout() is not None:
+            # An SFLE leaf may use a toolkit layout for its own internal
+            # chrome (SpinBox minus/editor/plus), never for declarative
+            # PSX child placement. Container layouts still fail closed.
+            internal_chrome = (
+                handle.node_type == "SpinBox"
+                and getattr(handle.widget, "_psx_sfle_internal_layout", False)
+            )
+            if handle.layout is not None or (
+                handle.widget.layout() is not None and not internal_chrome
+            ):
                 raise SFLEError(DiagnosticCode.UNSUPPORTED_FEATURE,
                                 "Qt SFLE participant is owned by a competing QLayout.", node_id)
         for node in prepared.snapshot.nodes:

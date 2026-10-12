@@ -18,6 +18,7 @@ class QtSpinBoxAdapter:
         core = importlib.import_module(f"{renderer._binding_package}.QtCore")
         widgets = renderer._widgets
         frame = widgets.QWidget()
+        frame._psx_sfle_internal_layout = renderer._sfle_constraints is not None
         layout = widgets.QHBoxLayout(frame)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
