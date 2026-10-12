@@ -1034,3 +1034,22 @@ class TkSFLEGeometryTests(unittest.TestCase):
                 slot.invoke(*args)
                 self.assertEqual(len(calls), 2, name)
 
+    def test_semantic_invalidations_preserve_native_tk_widget_identity(self):
+        for reason in ("content", "font", "theme", "resource", "dpi", "viewport"):
+            with self.subTest(reason=reason):
+                self.reconciler.unmount()
+                root = self.reconciler.render(Flex(
+                    Text("Stable", key="fixed", layout_width="50px",
+                         layout_height="20px"),
+                    width=160, height=80, align_items="flex-start",
+                ))
+                widget = root.children[0].handle.widget
+                generation = self.renderer.sfle_result.generation
+                self.renderer.request_sfle_invalidation(reason)
+                self.renderer.request_sfle_invalidation(reason)
+                self.renderer.flush()
+                self.assertIs(root.children[0].handle.widget, widget)
+                self.assertEqual(self.renderer.sfle_result.generation, generation + 1)
+                self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, set())
+                self.reconciler.unmount()
+
