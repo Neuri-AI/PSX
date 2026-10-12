@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS — C1 CLOSED; C2 CLOSED after executable contract/pytest-receipt re-certification at `9e071a1`; C3 CLOSED (built-in lifecycle operations with executable per-component receipts at `8f35bb8`); C4–C6 external ownership, invalidations and final precision certification remain pending. G3–G5 NOT STARTED — 1/5 official F3 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS — C1 CLOSED; C2 CLOSED after executable contract/pytest-receipt re-certification at `9e071a1`; C3 CLOSED (built-in lifecycle); C4 CLOSED (Native/custom/borrowed ownership and resource receipts at `9df902d`); C5–C6 invalidation and final precision certification remain pending. G3–G5 NOT STARTED — 1/5 official F3 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -1226,3 +1226,54 @@ G2 remains OPEN; no scope from G3/G4/G5 is silently absorbed.
 - **Mandatory guardrail:** `test_all_required_builtin_lifecycle_operations_have_component_drivers` fails the required core job if a required create/update/reorder/unmount/event_rebind/rollback operation is left at `oracle_pending_driver`, including for a newly registered native host.
 
 **Transfer to C4:** native/custom/borrowed widget ports, ownership, reparenting, and resource semantics remain separately unproven. C5 remains responsible for runtime invalidation and remeasurement; C6 remains responsible for final cross-platform precision and complete G2 closure. The C3 status never converts these other operations to PASS.
+
+
+## F3-G2-C4 — external/native ownership and resource certification CLOSED (2026-10-12)
+
+**C4: CLOSED; C5 and C6 remain OPEN.** C4 certifies the documented
+admissible `Native` and custom adapter ownership contracts, not every
+unbounded third-party toolkit widget or an unsupported capability.
+
+- **Source SHA:** [`9df902d`](https://github.com/Neuri-AI/PSX/commit/9df902dad699d4572ba871ee4882b3219bab1194).
+- **Required full selective CI:** [F3 #38240211598](https://github.com/Neuri-AI/PSX/actions/runs/38240211598)
+  **COMPLETED SUCCESS** at that exact code SHA. C4 tests executed in real
+  Qt (PySide6, PyQt6, PyQt5 and PySide2), Tk (Xvfb), and Kivy (SDL2) jobs.
+  Headless has no native-object ownership API; it is not reported as a
+  successful borrowed-native backend.
+- **Native owned:** factories allocate an instance managed by PSX; teardown
+  deletes Qt widgets, destroys Tk widgets, or detaches Kivy widgets. The
+  tests inspect the actual native instance, not just a recorded API call.
+- **Native borrowed:** Qt preserves the instance and restores its caller
+  parent without deleting it. Kivy transfers the caller-owned instance
+  safely into the SFLE Flex container, restores the original parent, and
+  restores original size/position hints after release. Tkinter cannot
+  safely reparent a caller widget or guarantee its survival if its fixed
+  native master is destroyed; borrowed Tk is **explicitly unsupported**,
+  fails before mutation, and preserves the caller's instance.
+- **Custom registered hosts:** custom Qt/Tk/Kivy adapters supply explicit
+  SFLE measure/apply/read ports; adapters own their own resource cleanup.
+  Tests assert a native widget is created and the registered destroy hook
+  executes exactly once. An adapter without a usable geometry port is
+  rejected before resource creation.
+- **Events:** Qt and Kivy borrowed `Native` signal subscriptions are
+  replaced on reconciliation and disconnected on teardown; subsequent
+  native events cannot invoke disposed PSX callbacks. Tk's borrowed
+  signal case is N/A because the borrowed host itself is unsupported.
+- **Behavioral guardrail:** `psx/sfle/f3_g2_c4.py` enumerates ownership,
+  custom adapter and signal-subscription scenarios. The independent
+  `f3_g2_c4_receipts.py` validates executed JUnit cases, rejecting
+  absent, failed, errored and skipped tests. Its JSON artifacts are
+  published by the same mandatory Qt/Tk/Kivy workflows, including Qt
+  scaling runs. `tests/test_f3_g2_c4_contracts.py` validates the census
+  and negative receipt behavior in required core CI.
+- **Safety:** invalid ownership declarations, mismatched backends,
+  missing SFLE geometry ports and borrowed Tk are explicit errors rather
+  than silent fallback. The resource contract does not authorize
+  borrowing arbitrary incompatible host widgets.
+
+**Out of scope:** C5 owns live font/theme/DPI/resource invalidation and
+remesurement; C6 owns full numerical/native readback certification, and
+G3 owns Scroll interaction. C4 passing does not imply those gates are
+closed, or that G5's per-property/method/event functional audit passed.
+
+**Next block: F3-G2-C5.**
