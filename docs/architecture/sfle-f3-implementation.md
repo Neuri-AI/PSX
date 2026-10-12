@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS — C1 CLOSED; C2 CLOSED after executable contract/pytest-receipt re-certification at `9e071a1`; C3–C6 per-component native lifecycles, external ownership, invalidations and independent final certification remain pending. G3–G5 NOT STARTED — 1/5 official F3 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS — C1 CLOSED; C2 CLOSED after executable contract/pytest-receipt re-certification at `9e071a1`; C3 CLOSED (built-in lifecycle operations with executable per-component receipts at `8f35bb8`); C4–C6 external ownership, invalidations and final precision certification remain pending. G3–G5 NOT STARTED — 1/5 official F3 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -1140,3 +1140,18 @@ native lifecycle drivers in C3, external-widget semantics in C4 and
 resource/font/theme/DPI invalidation drivers in C5. The C3 iteration must
 begin directly with those pending operations rather than redesigning C2.
 G2 remains OPEN; no scope from G3/G4/G5 is silently absorbed.
+
+
+## F3-G2 built-in lifecycle certification — C3 CLOSED (2026-10-12)
+
+**Status:** C3 CLOSED. This closure does **not** certify C4 external/custom/borrowed ownership, C5 invalidation, C6 final precision/CI, or full G2.
+
+- **Implementation certificate SHA:** [`8f35bb8`](https://github.com/Neuri-AI/PSX/commit/8f35bb88f90880ea51059a0b4d7896811c27ade0).
+- **Full selective workflow:** [F3 selective #38236676505](https://github.com/Neuri-AI/PSX/actions/runs/38236676505) — **COMPLETED SUCCESS** on that exact code SHA.
+- **Scope:** Every `native` cell in the registered built-in inventory for Qt, Tkinter, Kivy and Headless. Tests dynamically assert that the native factory set matches the registered adapter allowlist; newly admitted hosts cannot silently inherit evidence.
+- **Operations:** Create (actual mounting), update (same native handle and changed geometry/props), keyed reorder (same identity and new placement), unmount (native disposal/detachment), event rebinding (same live slot, replacement handler, no stale callback after teardown) for controls defining events, and rollback (injected invalid callback rejected before native mutation, preserving geometry and widget state). Eventless hosts receive a justified `not_applicable`, not a fabricated PASS. Rejection before mutation is the certified rollback case; compensating recovery from partially applied native mutations remains an independent risk, not implied by this evidence.
+- **Behavioral drivers:** `test_registered_builtin_lifecycle_keeps_real_native_identity` and `test_all_callback_controls_keep_one_live_slot_after_reconciliation` for Qt/Tkinter, `test_all_ported_builtin_lifecycles_keep_native_widget_handles` and `test_all_callback_controls_rebind_without_native_remount` for Kivy/SDL2, and `test_all_supported_headless_components_reconcile_without_remount` for Headless.
+- **Execution evidence:** Every component × operation reference is resolved by `f3_g2_receipts.py` against successful executed JUnit cases for the corresponding backend. Qt is certified separately on PySide6, PyQt6, PyQt5 and PySide2 and at DPR scaling test conditions; Tk and Kivy use real native widgets, not mocked geometry.
+- **Mandatory guardrail:** `test_all_required_builtin_lifecycle_operations_have_component_drivers` fails the required core job if a required create/update/reorder/unmount/event_rebind/rollback operation is left at `oracle_pending_driver`, including for a newly registered native host.
+
+**Transfer to C4:** native/custom/borrowed widget ports, ownership, reparenting, and resource semantics remain separately unproven. C5 remains responsible for runtime invalidation and remeasurement; C6 remains responsible for final cross-platform precision and complete G2 closure. The C3 status never converts these other operations to PASS.
