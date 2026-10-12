@@ -1589,6 +1589,24 @@ class QtFamilySFLEParityTests(unittest.TestCase):
             self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
             self.assertFalse(self.renderer._sfle_image_resource_watch.changed())
 
+
+    def test_targeted_resource_remeasurement_does_not_measure_unaffected_qt_peer(self):
+        root = self.reconciler.render(Flex(
+            button("First", "first", 40), button("Second", "second", 30),
+            width=160, height=80, gap=8, align_items="flex-start",
+        ))
+        first, second = (child.handle.widget for child in root.children)
+        baseline = tuple(geometry(widget) for widget in (first, second))
+        self.renderer.request_sfle_invalidation("resource", widget_id=id(first))
+        self.renderer.application.processEvents()
+        self.renderer.application.processEvents()
+        cache = self.renderer._sfle_native_intrinsic_cache
+        self.assertIn(id(first), cache.last_measured)
+        self.assertNotIn(id(second), cache.last_measured)
+        self.assertEqual(tuple(geometry(widget) for widget in (first, second)), baseline)
+        self.assertIs(root.children[0].handle.widget, first)
+        self.assertIs(root.children[1].handle.widget, second)
+
 if __name__ == "__main__":
     unittest.main()
 
