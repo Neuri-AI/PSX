@@ -1280,3 +1280,53 @@ G3 owns Scroll interaction. C4 passing does not imply those gates are
 closed, or that G5's per-property/method/event functional audit passed.
 
 **Next block: F3-G2-C5.**
+
+
+## F3-G2-C5 — semantic invalidation and remeasurement (IN PROGRESS, 2026-10-12)
+
+**Status: OPEN.** The first C5 increment establishes an explicit,
+backend-portable invalidation coordinator, not full native automatic
+invalidation coverage. G2 remains open and C6 must not begin under the
+assumption that C5 is complete.
+
+**Implemented:** `MeasurementInvalidations` tracks six reasons
+(`content`, `font`, `theme`, `resource`, `dpi`, `viewport`),
+pending coalesced reasons, epochs and a teardown lifetime fence. All
+four renderers expose `request_sfle_invalidation(reason)` and schedule
+one UI-thread re-commit of the existing mounted instance, without
+re-running the reconciler or remounting its widgets. The normal SFLE
+transaction validates generation and native geometry before applying.
+Manual successful commits acknowledge pending invalidations to avoid
+duplicate queued work. A queued task is canceled by root teardown.
+Qt's mounted root observes native `FontChange`, `PaletteChange`,
+`StyleChange`, `ScreenChangeInternal` and
+`DevicePixelRatioChange` where the binding exposes those event
+types; prior native viewport resize and TextArea hooks continue to run.
+
+**New regression drivers:** the semantic invalidation/epoch unit suite,
+parameterized Headless measured content and teardown tests, Qt-family
+native style/font event tests, and native Tk/Kivy identity-preserving
+explicit re-commit tests. The synthetic Headless measurement driver
+proves measurement callbacks are re-executed; fixed CSS widths are
+intentionally unchanged even when intrinsic width changes.
+
+**Still mandatory before C5 CLOSED:**
+
+1. Real native resource and image-source updates **without** a PSX prop
+   change, on all backends that support live resources; accurate fallback
+   for resource failures.
+2. Live font/theme/screen migration/DPR changes with automatic source
+   observers where available (or explicit, documented host notifications
+   where the backend cannot observe them), plus child-level changes.
+3. A dependency-aware measurement cache/dirty-subtree plan which
+   remeasures **only invalidated nodes and their layout dependents**,
+   with before/after counters proving unrelated widgets are not
+   remeasured or repositioned; mere coalescing does not prove this.
+4. Multi-trigger race, generation/teardown, failure-and-retry, off-thread
+   scheduling, native readback and device-space assertions.
+5. Component × backend × applicable invalidation operation evidence
+   and executed JUnit receipts, enforced by CI with zero required C5
+   gaps. A generic test reference may not certify untested components.
+
+The implementation **must not be labeled C5 CLOSED** until each item
+is supported by specific executed evidence on an immutable CI SHA.
