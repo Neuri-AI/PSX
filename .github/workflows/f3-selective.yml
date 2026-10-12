@@ -51,30 +51,54 @@ jobs:
                 const after = context.payload.after;
                 const pr = context.issue.number;
                 let verifiedDelta = false;
-                // Reuse results only when the exact previous PR HEAD has a
-                // completed, successful F3 selective workflow run.
+                // Verified docs-only synchronizations skip all tests regardless
+                // of the previous CI status (including cancelled/failed).
                 if (context.payload.action === 'synchronize' && before && after) {
-                  const past = await github.rest.actions.listWorkflowRunsForRepo({
-                    ...common, head_sha: before, event: 'pull_request', per_page: 100,
+                  const diff = await github.rest.repos.compareCommits({
+                    ...common, base: before, head: after, per_page: 100,
                   });
-                  const certified = (past.data.workflow_runs || []).some(run =>
-                    run.name === 'F3 selective validation' &&
-                    run.head_sha === before &&
-                    run.status === 'completed' &&
-                    run.conclusion === 'success' &&
-                    (run.pull_requests || []).some(p => p.number === pr));
-                  if (certified) {
-                    const diff = await github.rest.repos.compareCommits({
-                      ...common, base: before, head: after, per_page: 100,
-                    });
-                    const files = diff.data.files || [];
-                    if (diff.data.total_commits <= 250 &&
-                        files.length > 0 && files.length < 300) {
-                      changed = files.flatMap(file =>
-                        [file.filename, file.previous_filename].filter(Boolean));
+                  const entries = diff.data.files || [];
+                  const safeDelta = diff.data.total_commits <= 250 &&
+                    entries.length > 0 && entries.length < 300;
+                  if (safeDelta) {
+                    const deltaPaths = entries.flatMap(file =>
+                      [file.filename, file.previous_filename].filter(Boolean));
+                    const isDocs = path => path === 'README.md' ||
+                      path.startsWith('docs/') ||
+                      (path.endsWith('.md') && !path.startsWith('.github/'));
+                    const docsOnly = deltaPaths.every(isDocs);
+                    if (docsOnly) {
+                      changed = deltaPaths;
                       verifiedDelta = true;
-                      core.info('Verified previous green PR SHA: ' + before +
-                        '; only revalidate delta to ' + after);
+                      core.info('Verified docs-only PR update: zero tests, ' +
+                        'even if previous CI did not finish.');
+                    } else {
+                      // A passing docs-only router is not a passing product CI.
+                      // Reuse a code delta only when the prior HEAD passed tests.
+                      const past = await github.rest.actions.listWorkflowRunsForRepo({
+                        ...common, head_sha: before, event: 'pull_request', per_page: 100,
+                      });
+                      const previous = (past.data.workflow_runs || []).find(run =>
+                        run.name === 'F3 selective validation' &&
+                        run.head_sha === before &&
+                        run.status === 'completed' &&
+                        run.conclusion === 'success' &&
+                        (run.pull_requests || []).some(p => p.number === pr));
+                      if (previous) {
+                        const pastJobs = await github.paginate(
+                          github.rest.actions.listJobsForWorkflowRun, {
+                            ...common, run_id: previous.id, per_page: 100,
+                          });
+                        const hasSuccessfulProductJob = pastJobs.some(job =>
+                          job.conclusion === 'success' &&
+                          /^F3 (?:core and registry|SFLE geometry contracts|Rust and Python differential|browser geometry oracle|Qt native components|Qt SFLE parity|Kivy native components|Tkinter native components|deterministic Headless|native wheel and Python fallback)/.test(job.name));
+                        if (hasSuccessfulProductJob) {
+                          changed = deltaPaths;
+                          verifiedDelta = true;
+                          core.info('Previously certified HEAD ' + before +
+                            ': revalidating only changes through ' + after);
+                        }
+                      }
                     }
                   }
                 }

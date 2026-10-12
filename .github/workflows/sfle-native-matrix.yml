@@ -28,7 +28,12 @@ permissions:
   contents: read
 
 jobs:
+  docs-impact:
+    uses: ./.github/workflows/docs-delta.yml
+
   wheel-and-frozen:
+    needs: docs-impact
+    if: needs.docs-impact.outputs.run_checks == 'true'
     name: "SFLE wheel/frozen ${{ matrix.os }} Python 3.12"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 50

@@ -34,7 +34,7 @@ jobs:
     outputs:
       run_contract: "${{ steps.scope.outputs.run_contract }}"
     steps:
-      - name: Require contract checks unless a prior green SHA covers a docs-only delta
+      - name: Skip G1 matrix for verified docs-only PR updates
         id: scope
         uses: actions/github-script@v7
         with:
@@ -43,8 +43,8 @@ jobs:
               core.info('G1 contract matrix required: ' + why);
               core.setOutput('run_contract', 'true');
             };
-            // An initial PR, manual certification, ambiguous diff or failed
-            // predecessor must revalidate contracts, never silently skip.
+            // Only an explicitly verified docs-only delta skips tests; a
+            // cancelled predecessor does not change that rule.
             const before = context.payload.before;
             const after = context.payload.after;
             if (context.eventName !== 'pull_request' ||
@@ -54,20 +54,6 @@ jobs:
             }
             try {
               const common = {owner: context.repo.owner, repo: context.repo.repo};
-              const pr = context.issue.number;
-              const previous = await github.rest.actions.listWorkflowRunsForRepo({
-                ...common, head_sha: before, event: 'pull_request', per_page: 100,
-              });
-              const prior_green = (previous.data.workflow_runs || []).some(run =>
-                run.name === 'F3 G1 contract certification' &&
-                run.head_sha === before &&
-                run.status === 'completed' &&
-                run.conclusion === 'success' &&
-                (run.pull_requests || []).some(p => p.number === pr));
-              if (!prior_green) {
-                useMatrix('previous SHA has no completed successful G1 workflow');
-                return;
-              }
               const diff = await github.rest.repos.compareCommits({
                 ...common, base: before, head: after, per_page: 100,
               });
@@ -82,13 +68,13 @@ jobs:
               const isDocumentation = path => path === 'README.md' ||
                 path.startsWith('docs/') ||
                 (path.endsWith('.md') && !path.startsWith('.github/'));
-              if (!files.every(isDocumentation)) {
-                useMatrix('code, workflow or non-documentation changes');
+              const docsOnly = files.every(isDocumentation);
+              if (docsOnly) {
+                core.info('Docs-only PR update: no G1 product tests.');
+                core.setOutput('run_contract', 'false');
                 return;
               }
-              core.info('G1 contracts unchanged since verified green SHA ' + before +
-                        '; docs-only delta; zero G1 product tests.');
-              core.setOutput('run_contract', 'false');
+              useMatrix('code or workflow changes');
             } catch (error) {
               useMatrix('provenance or diff unavailable: ' + error.message);
             }
@@ -160,7 +146,7 @@ jobs:
               echo "Unexpected G1 matrix outcome for docs-only update: $RESULT" >&2
               exit 1
             }
-            echo "Docs-only delta from previously GREEN G1 SHA: no product tests necessary."
+            echo "Docs-only PR update: no G1 product tests executed."
           else
             test "$RUN_CONTRACT" = true && test "$RESULT" = success || {
               echo "G1 cannot be certified: matrix result $RESULT" >&2

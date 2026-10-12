@@ -38,12 +38,9 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const affectsSFLE = path =>
-              path.startsWith('psx/sfle/') ||
-              path.startsWith('rust/sfle-core/') ||
-              path.startsWith('tests/sfle/') ||
-              path === 'pyproject.toml' ||
-              path === '.github/workflows/sfle-core.yml';
+            const isDocs = path => path === 'README.md' ||
+              path.startsWith('docs/') ||
+              (path.endsWith('.md') && !path.startsWith('.github/'));
             let files;
             if (context.eventName === 'pull_request' &&
                 context.payload.action === 'synchronize') {
@@ -73,14 +70,15 @@ jobs:
               core.setOutput('sfle', 'true');
               return;
             }
-            const changed = files.some(
-              file => affectsSFLE(file.filename) ||
-                      (file.previous_filename && affectsSFLE(file.previous_filename))
-            );
-            core.info(`Relevant SFLE changes: ${changed}`);
+            const changed = files.some(file =>
+              !isDocs(file.filename) ||
+              (file.previous_filename && !isDocs(file.previous_filename)));
+            core.info(`Non-documentation PR update: ${changed}`);
             core.setOutput('sfle', String(changed));
 
   python-contracts:
+    needs: changes
+    if: needs.changes.outputs.sfle == 'true'
     name: Python SFLE / ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
@@ -111,6 +109,8 @@ jobs:
           fi
 
   rust-core:
+    needs: changes
+    if: needs.changes.outputs.sfle == 'true'
     name: Rust SFLE core
     runs-on: ubuntu-latest
     defaults:
@@ -123,6 +123,8 @@ jobs:
         run: cargo test --all-targets --no-fail-fast
 
   differential:
+    needs: changes
+    if: needs.changes.outputs.sfle == 'true'
     name: SFLE Rust/Python alpha corpus differential
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -138,6 +140,8 @@ jobs:
         run: python -m pytest -q tests/interop/test_sfle_f2_differential.py tests/interop/test_f2_a01_active_remeasure_red.py tests/interop/test_f2_a04_active_remeasure_red.py tests/interop/test_f2_a05_active_remeasure_red.py tests/interop/test_sfle_f2_negative_fuzz_red.py tests/interop/test_sfle_f2_unsupported_taxonomy.py tests/interop/test_sfle_f2_point2_capability_parity.py tests/interop/test_sfle_f2_point2_final_certification.py tests/interop/test_sfle_f2_point3_saturation_certification.py tests/interop/test_sfle_f2_point5_deferral_boundaries.py
 
   native-wheel:
+    needs: changes
+    if: needs.changes.outputs.sfle == 'true'
     name: SFLE PyO3 native wheel ABI and parity
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -169,6 +173,8 @@ jobs:
           python -m pytest -q "$GITHUB_WORKSPACE/tests/interop/test_sfle_f2_native_wheel.py"
 
   f2-migration-inventory:
+    needs: changes
+    if: needs.changes.outputs.sfle == 'true'
     name: F2.4 tracked Row Column Scroll inventory
     runs-on: ubuntu-latest
     steps:

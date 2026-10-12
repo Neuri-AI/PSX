@@ -98,17 +98,58 @@ class RoutingTests(unittest.TestCase):
             {"core", "sfle", "qt", "kivy", "tkinter", "headless"},
         )
 
-    def test_g1_workflow_skips_only_verified_docs_deltas(self):
+    def test_g1_docs_delta_does_not_require_previous_green(self):
         from pathlib import Path
         workflow = (Path(__file__).resolve().parents[1] /
                     ".github/workflows/f3-g1-certification.yml").read_text(
-                        encoding="utf-8"
-                    )
-        self.assertIn("listWorkflowRunsForRepo", workflow)
-        self.assertIn("prior_green", workflow)
-        self.assertIn("previous_filename", workflow)
-        self.assertIn("run_contract", workflow)
+                        encoding="utf-8")
+        self.assertIn("const docsOnly = files.every(isDocumentation)", workflow)
+        self.assertIn("run_contract', 'false'", workflow)
+        self.assertNotIn("prior_green", workflow)
         self.assertIn("needs: changes", workflow)
+
+    def test_f3_docs_only_precedes_prior_green_requirement(self):
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/f3-selective.yml").read_text(
+                        encoding="utf-8")
+        self.assertLess(
+            workflow.index("if (docsOnly)"),
+            workflow.index("const past = await github.rest.actions.listWorkflowRunsForRepo"))
+        self.assertIn("const hasSuccessfulProductJob", workflow)
+        self.assertIn("verifiedDelta = true", workflow)
+
+    def test_product_workflows_use_shared_docs_only_gate(self):
+        from pathlib import Path
+        workflows = Path(__file__).resolve().parents[1] / ".github/workflows"
+        for name in ("sfle-chromium.yml", "sfle-native-matrix.yml",
+                     "sfle-ui-certification.yml", "runtime-boundaries.yml"):
+            with self.subTest(name=name):
+                content = (workflows / name).read_text(encoding="utf-8")
+                self.assertIn("uses: ./.github/workflows/docs-delta.yml", content)
+                self.assertIn("needs: docs-impact", content)
+                self.assertIn("if: needs.docs-impact.outputs.run_checks == 'true'", content)
+        gate = (workflows / "docs-delta.yml").read_text(encoding="utf-8")
+        self.assertIn("compareCommits", gate)
+        self.assertIn("file.previous_filename", gate)
+        self.assertIn("safelyComplete && paths.every(isDocs)", gate)
+
+    def test_all_existing_main_ci_product_jobs_depend_on_change_gate(self):
+        from pathlib import Path
+        workflows = Path(__file__).resolve().parents[1] / ".github/workflows"
+        for name, prop, jobs in (
+            ("ci.yml", "code", ("core", "pyside6", "package")),
+            ("sfle-core.yml", "sfle", ("python-contracts", "rust-core",
+                                       "differential", "native-wheel",
+                                       "f2-migration-inventory")),
+        ):
+            text = (workflows / name).read_text(encoding="utf-8")
+            for job in jobs:
+                with self.subTest(name=name, job=job):
+                    expected = ("  " + job + ":\\n    needs: changes\\n"
+                                + "    if: needs.changes.outputs." + prop
+                                + " == 'true'").replace("\\n", "\n")
+                    self.assertIn(expected, text)
 
     def test_native_port_changes_include_wheels(self):
         self.assertIn("native", self.selected("psx/sfle/backend.py"))

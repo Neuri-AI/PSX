@@ -18,7 +18,12 @@ permissions:
   contents: read
 
 jobs:
+  docs-impact:
+    uses: ./.github/workflows/docs-delta.yml
+
   boundaries:
+    needs: docs-impact
+    if: needs.docs-impact.outputs.run_checks == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
