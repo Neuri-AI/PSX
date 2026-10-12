@@ -385,3 +385,33 @@ contract tests.
 - **Four Qt binding cells:** PySide6/PyQt6/PyQt5 on Python 3.12 and PySide2 on 3.10 run `tests/test_f3_g2_qt_family.py` in **two independent processes per binding**: **19 passing tests at default Qt scale and 19 passing at `QT_SCALE_FACTOR=1.5`**, no skips, with actual native QWidget geometry and a DPI-specific assertion that Qt's physical DPR is greater than 1.4 at 1.5×. Existing PySide6 native suite remains **35 passing tests**.
 - **Toolkit native suites:** `tests/test_tkinter_f3_g2_renderer.py` tests real Tcl/Tk `tk scaling` versus `place` geometry and physical commit diagnostics (**27 passing**); Kivy SDL2 native suite checks physical commit readback and size/position (**5 passing**). Full F2 geometry and browser oracle jobs remain GREEN.
 - **Guardrails:** never multiply native Qt DIPs by DPR, Kivy pixel coordinates by density or Tk placement coordinates by `tk scaling`; calculate physical framebuffer bounds separately by **edge rounding**; check source generations and preserve rollback. These guardrails do **not** prove per-display font measurement invalidation or entire cross-DPI visual parity. G2 overall **IN PROGRESS**, F3 **1/5 closed (20%)**.
+
+## F3-G2 bridge-routing regression — 2026-10-11
+
+The next code increment addresses missed downstream consumer jobs for F3's
+renderer-specific SFLE bridges and prevents the independent G1 contract matrix
+from rerunning product tests on a *verified* documentation-only PR delta.
+
+- Source [`c31226d`](https://github.com/Neuri-AI/PSX/commit/c31226db50f5eeebdf7d17d86e4130541d4a3a50):
+  `scripts/ci/impact.py` selects the actual Qt, Kivy, Tkinter or Headless
+  consumer when its F3 bridge changes. Shared snapshots, external ports,
+  width remeasurement, DPI/physical projection and capability policy select
+  their native consumers and relevant Core tests. Native measurement sources
+  retain their SFLE tests. No change is made to the Rust/Chromium oracle policy
+  for actual engine computation changes.
+- Regression tests: `tests/test_ci_impact.py` guards the concrete F3 bridge
+  paths, shared consumers, measurements and G1's predecessor-based docs guard.
+- [F3 selective #38205155544](https://github.com/Neuri-AI/PSX/actions/runs/38205155544):
+  required selector regression and aggregate **SUCCESS** at `c31226d`;
+  unrelated product jobs were intentionally **skipped**, not executed.
+- [G1 #38205155772](https://github.com/Neuri-AI/PSX/actions/runs/38205155772):
+  the 3.10–3.13 contract matrix and verdict **SUCCESS** at the same code SHA.
+- G1's scope classifier checks a completed successful G1 predecessor run for
+  the same PR and a complete, strictly documentation-only `before..after`
+  comparison before reusing that certification. Missing provenance or any
+  source/workflow changes force the full contract matrix. The independent
+  required verdict continues to report a successful no-product-tests decision
+  when the contract matrix is correctly skipped.
+
+**This incremental routing repair does not close G2.** Full
+`registry × backend × operation` certification and G3–G5 remain outstanding.
