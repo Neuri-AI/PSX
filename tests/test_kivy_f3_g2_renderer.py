@@ -1190,7 +1190,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                              Spacer, Divider, Image, ProgressBar, Radio,
                              RadioGroup, Select, Switch, Link, Badge, SpinBox,
                              Scroll, Flex)
-            from psx.core.vnode import Box)
+            from psx.core.vnode import Box
             from psx.core.vnode import create_element
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
