@@ -368,6 +368,7 @@ class QtRenderer:
         self._sfle_mounted_root = None
         self._sfle_watched_widget = None
         self._sfle_resize_filter = None
+        self._sfle_style_watched_widgets = {}
         self._sfle_resize_pending = None
         self._sfle_resize_baseline = None
         self._sfle_resize_scheduled = False
@@ -508,8 +509,30 @@ class QtRenderer:
         self._sfle_constraints = constraints
         self._sfle_generation += 1
 
+    def _sfle_watch_child_style_events(self, root: object) -> None:
+        """Track live child widgets for font, palette and DPR changes."""
+        watched = {}
+        def walk(instance: object) -> None:
+            handle = getattr(instance, "handle", None)
+            if handle is not None and getattr(handle, "widget", None) is not None:
+                widget = handle.widget
+                watched[id(widget)] = widget
+            for child in instance.children:
+                walk(child)
+        walk(root)
+        for identity, widget in tuple(self._sfle_style_watched_widgets.items()):
+            if identity not in watched:
+                try:
+                    widget.removeEventFilter(self._sfle_resize_filter)
+                except RuntimeError:
+                    pass
+        for identity, widget in watched.items():
+            if identity not in self._sfle_style_watched_widgets:
+                widget.installEventFilter(self._sfle_resize_filter)
+        self._sfle_style_watched_widgets = watched
+
     def _sfle_on_native_semantic_change(self, watched, reason: str) -> None:
-        if (watched is self._sfle_watched_widget
+        if (id(watched) in self._sfle_style_watched_widgets
                 and self._sfle_mounted_root is not None
                 and self._sfle_constraints is not None):
             self.request_sfle_invalidation(reason)
@@ -618,6 +641,7 @@ class QtRenderer:
             self._sfle_watched_widget = widget
             self._sfle_resize_baseline = (widget.width(), widget.height())
         self._sfle_mounted_root = root
+        self._sfle_watch_child_style_events(root)
         self._sfle_schedule_image_poll()
 
     def invalidate_layout(self) -> None:
@@ -643,6 +667,12 @@ class QtRenderer:
                     self._sfle_watched_widget.removeEventFilter(self._sfle_resize_filter)
                 except RuntimeError:
                     pass
+            for widget in self._sfle_style_watched_widgets.values():
+                try:
+                    widget.removeEventFilter(self._sfle_resize_filter)
+                except (RuntimeError, TypeError):
+                    pass
+            self._sfle_style_watched_widgets.clear()
             self._sfle_watched_widget = None
             self._sfle_resize_filter = None
             self._sfle_resize_baseline = None
