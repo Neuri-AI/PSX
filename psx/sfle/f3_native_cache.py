@@ -17,6 +17,8 @@ from psx.sfle.model import MeasuredBox
 class NativeIntrinsicCache:
     entries: dict[int, tuple[object, object, object]] = field(default_factory=dict)
     last_measured: set[int] = field(default_factory=set)
+    width_entries: dict[tuple[int, float], tuple[object, object, object]] = field(default_factory=dict)
+    last_width_measured: set[tuple[int, float]] = field(default_factory=set)
 
     def begin(self, *, invalidate_all: bool = False) -> "NativeMeasurementRound":
         return NativeMeasurementRound(self, invalidate_all=invalidate_all)
@@ -24,6 +26,8 @@ class NativeIntrinsicCache:
     def clear(self) -> None:
         self.entries.clear()
         self.last_measured.clear()
+        self.width_entries.clear()
+        self.last_width_measured.clear()
 
 
 @dataclass(slots=True)
@@ -32,6 +36,8 @@ class NativeMeasurementRound:
     invalidate_all: bool = False
     updated: dict[int, tuple[object, object, object]] = field(default_factory=dict)
     measured: set[int] = field(default_factory=set)
+    updated_width: dict[tuple[int, float], tuple[object, object, object]] = field(default_factory=dict)
+    measured_width: set[tuple[int, float]] = field(default_factory=set)
 
     def read(
         self,
@@ -54,6 +60,28 @@ class NativeMeasurementRound:
         self.updated[identity] = (props, constraints, intrinsic)
         return MeasuredBox(node_id, intrinsic, constraints, generation)
 
+    def read_width(
+        self,
+        *,
+        widget: object,
+        props: object,
+        constraints: object,
+        width: float,
+        measure: Callable[[], object],
+    ) -> object:
+        key = (id(widget), width)
+        previous = self.cache.width_entries.get(key)
+        if (not self.invalidate_all and previous is not None
+                and previous[0] == props and previous[1] == constraints):
+            intrinsic = previous[2]
+        else:
+            intrinsic = measure()
+            self.measured_width.add(key)
+        self.updated_width[key] = (props, constraints, intrinsic)
+        return intrinsic
+
     def publish(self) -> None:
         self.cache.entries = self.updated
         self.cache.last_measured = self.measured
+        self.cache.width_entries = self.updated_width
+        self.cache.last_width_measured = self.measured_width
