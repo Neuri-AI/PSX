@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Switch/SpinBox/Select intrinsic measurement, SFLE-controlled geometry and controlled events certified on Qt, Tkinter and Kivy at `5d50e95`; Link/Badge/Divider/Spacer, Image, TextArea and DPI previously certified; full registry/backend/operation matrix still open); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Box, RadioGroup and Divider with Text child use SFLE-owned structural/native child geometry in Qt, Tkinter and Kivy at `b02e8b5`; Switch/SpinBox/Select, Link/Badge/Divider leaf/Spacer, Image, TextArea and DPI earlier certified; full registry/backend/operation matrix still open); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -809,3 +809,56 @@ Historical G1.2 incremental evidence is retained above.
   borrowed/custom widget teardown and invalidations for changed
   font/theme/DPI/image source. None is mislabeled G2 CLOSED;
   full scrolling remains G3 and Row/Column removal remains G4.
+ 
+## F3-G2 increment — SFLE structural Box, RadioGroup, Divider with Text child (2026-10-12)
+
+**Increment IMPLEMENTED with native Qt/Tk/Kivy certification; G2 overall IN PROGRESS, official F3 closure 1/5 (20%).**
+
+- **Structural engine contract:** The existing normalized/mounted tree is
+  preserved. `prepare_f3_snapshot` maps the three *structural* nodes to
+  SFLE Flex container semantics while retaining stable source VNode
+  identities/handles and parent-relative projection. `Box` uses a
+  single-child full-size passthrough, `RadioGroup` maps orientation,
+  spacing and padding to SFLE properties, and `Divider` with child
+  centers its child in the separator rectangle. This does not introduce
+  or use another sizing engine.
+- **Box is internal:** Its existing `psx.core.vnode.Box` implementation
+  remains used by framework integration and is **not exported as a new
+  public portable component**. Native hosts in Qt, Tk and Kivy no
+  longer use QBoxLayout/pack/BoxLayout for its child in SFLE mode;
+  all have explicit SFLE parent/child geometry, preserving legacy
+  behavior when SFLE is not opted into.
+- **RadioGroup:** Qt uses QButtonGroup only for native selection events
+  (no layout), Tk uses its shared typed Radio variable and `place()`
+  (not pack), and Kivy uses a plain Widget host instead of an owning
+  BoxLayout. Kivy Radio obtains an intrinsic size from its real
+  checkbox and measured Label texture. SFLE alone allocates child
+  rectangles. Values remain controlled and the group retains
+  on_change semantics. Invalid child node types fail explicitly.
+- **Divider with Text:** The SFLE container determines the child's
+  allocation; native adapters draw the decorative line *around* the
+  child's final rectangle. Qt uses a QFrame subclass with painter,
+  Tk Canvas uses `place_info` and never `create_window()`, and Kivy
+  canvas consumes `child.pos/size` without mutating either.
+  A post-commit paint refresh is necessary because native widgets
+  may be positioned after their parent. Removing the child restores
+  the full separator line in all three adapters. The certified
+  child policy is exactly one native Text; arbitrary Divider children
+  remain deliberately unsupported.
+- **No double layout:** The Qt transaction still rejects competing
+  QLayouts on structural PSX descendants; G2's special internal
+  SpinBox chrome remains the only established exception. Tk and Kivy
+  retain SFLE border-box/native readback and generation checks.
+- **Evidence:** [source `b02e8b5`](https://github.com/Neuri-AI/PSX/commit/b02e8b525a33b96d0ef99c651c53b960592d2666).
+  [F3 selective #38215003694](https://github.com/Neuri-AI/PSX/actions/runs/38215003694);
+  [G1 #38215003715](https://github.com/Neuri-AI/PSX/actions/runs/38215003715).
+  Real-toolkit tests verify nested native ancestry, lack of competing
+  Qt layout/Tk pack, Kivy size_hint disabling, RadioGroup controlled
+  selection and on_change, and native geometry ≤1px. Qt: **216
+  passed** across 4 bindings and 2 DPI scales; Tk: **34**; SDL2
+  Kivy: **11**.
+- **Remaining:** complete component/backend/operation matrices and
+  lifecycle/rollback/borrowed ownership coverage, targeted dynamic
+  structural re-ordering and removals, font/theme/source/DPI
+  invalidations and Scroll native viewport binding. Advanced CSS
+  replaced-element sizing remains outside F3.
