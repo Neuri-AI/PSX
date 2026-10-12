@@ -212,6 +212,8 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertEqual(self.renderer._sfle_constraints.width.value, 160)
         outer.resize(210, 100)
         outer.resize(260, 120)
+        from time import sleep
+        sleep(0.035)  # allow one 16ms native-frame debounce window
         self.renderer.application.processEvents()
         self.renderer.application.processEvents()
         self.assertIsNone(self.renderer._sfle_resize_error)
@@ -235,6 +237,8 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.renderer.application.processEvents()
         outer.resize(230, 110)
         self.reconciler.unmount()
+        from time import sleep
+        sleep(0.035)
         self.renderer.application.processEvents()
         self.assertIsNone(self.renderer.sfle_result)
         self.assertIsNone(self.renderer._sfle_mounted_root)
