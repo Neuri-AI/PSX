@@ -13,6 +13,56 @@ import unittest
 
 
 class KivySFLEGeometrySubprocessTests(unittest.TestCase):
+    def test_kivy_input_explicit_pixel_bounds_preserve_native_widget(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.textinput import TextInput
+            from psx import Flex, Input
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(160, True), AvailableSize(80, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            def view(text, width):
+                return Flex(
+                    Input(
+                        value=text, key="input",
+                        layout_width=f"{width}px",
+                        layout_height="28px",
+                        flex_basis=f"{width}px", flex_shrink=0,
+                    ),
+                    direction="row", width="160px", height="80px",
+                    align_items="flex-start",
+                )
+            root = tree.render(view("Alpha", 120))
+            native = root.children[0].handle.widget
+            assert isinstance(native, TextInput)
+            assert tuple(native.pos) + tuple(native.size) == (0, 52, 120, 28)
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            root = tree.render(view("Beta", 90))
+            assert root.children[0].handle.widget is native
+            assert tuple(native.pos) + tuple(native.size) == (0, 52, 90, 28)
+            assert native.text == "Beta"
+            tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_explicit_bounds_checkbox_and_progressbar_sfle_geometry(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config

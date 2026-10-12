@@ -682,6 +682,34 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertTrue(native._psx_variable.get())
         self.assertEqual(calls, [True])
 
+    def test_input_native_geometry_comes_from_sfle_and_reuses_entry(self):
+        from psx import Input
+        root = self.reconciler.render(Flex(
+            Input(
+                value="Alpha", key="input", layout_width="120px",
+                layout_height="25px", flex_basis="120px", flex_shrink=0,
+            ),
+            direction="row", width="160px", height="80px",
+            align_items="flex-start",
+        ))
+        entry = root.children[0].handle.widget
+        self.assertIsInstance(entry, (ttk.Entry, tk.Entry))
+        self.assertEqual(rect(entry), (0, 0, 120, 25))
+        self.assertEqual(entry.winfo_manager(), "place")
+        self.assertIs(entry.master, root.handle.widget)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        updated = self.reconciler.render(Flex(
+            Input(
+                value="Beta", key="input", layout_width="90px",
+                layout_height="25px", flex_basis="90px", flex_shrink=0,
+            ),
+            direction="row", width="160px", height="80px",
+            align_items="flex-start",
+        ))
+        self.assertIs(updated.children[0].handle.widget, entry)
+        self.assertEqual(rect(entry), (0, 0, 90, 25))
+        self.assertEqual(entry.get(), "Beta")
+
     def test_progressbar_native_sfle_geometry_without_pack(self):
         from psx import ProgressBar
         root = self.reconciler.render(Flex(
