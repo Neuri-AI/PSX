@@ -1013,11 +1013,11 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             # Fixed px SFLE layout dimensions make Checkbox/Slider/Spacer safe.
             backend, tree = create()
             try:
-                tree.render(Flex(Checkbox(), width=160, height=80))
+                tree.render(Flex(Slider(), width=160, height=80))
             except RendererCapabilityError as error:
                 assert "explicit pixel layout_width" in str(error)
             else:
-                raise AssertionError("Kivy Checkbox with auto size bypassed capability gate")
+                raise AssertionError("Kivy Slider with auto size bypassed capability gate")
             tree.unmount()
 
             calls = []
