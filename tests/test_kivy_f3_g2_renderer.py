@@ -1981,3 +1981,46 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         result = subprocess.run([sys.executable, "-c", script],
                                 env=env, capture_output=True, text=True, timeout=150)
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
+
+    def test_targeted_kivy_resource_remeasurement_skips_native_peer(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.clock import Clock
+            from psx import Button, Flex
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(160, True), AvailableSize(80, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(Flex(
+                Button("First", key="first", layout_width="40px", layout_height="20px"),
+                Button("Second", key="second", layout_width="30px", layout_height="20px"),
+                width=160, height=80, gap=8, align_items="flex-start",
+            ))
+            first, second = (child.handle.widget for child in root.children)
+            baseline = tuple((tuple(widget.pos), tuple(widget.size)) for widget in (first, second))
+            renderer.request_sfle_invalidation("resource", widget_id=id(first))
+            Clock.tick()
+            cache = renderer._sfle_native_intrinsic_cache
+            assert id(first) in cache.last_measured
+            assert id(second) not in cache.last_measured
+            assert tuple((tuple(widget.pos), tuple(widget.size)) for widget in (first, second)) == baseline
+            assert root.children[0].handle.widget is first
+            assert root.children[1].handle.widget is second
+            tree.unmount()
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_ARGS"] = "1"
+        env["KIVY_NO_FILELOG"] = "1"
+        env.pop("KIVY_NO_CONSOLELOG", None)
+        result = subprocess.run([sys.executable, "-c", script],
+                                env=env, capture_output=True, text=True, timeout=150)
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
