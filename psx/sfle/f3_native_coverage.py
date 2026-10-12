@@ -21,15 +21,15 @@ G2_LEAF_TYPES = MappingProxyType({
     "qt": frozenset({
         "Text", "Button", "Checkbox", "Input", "TextArea",
         "Slider", "Radio", "ProgressBar", "Select", "Image",
-        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox",
+        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "RadioGroup", "Box",
     }),
     "tk": frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar", "Image",
-        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "Select",
+        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "RadioGroup", "Box", "Select",
     }),
     "kivy": frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer", "Image",
-        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select",
+        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select", "Radio", "RadioGroup", "Box",
     }),
 })
 KIVY_EXPLICIT_BOUNDS = frozenset({"Checkbox", "Slider"})
