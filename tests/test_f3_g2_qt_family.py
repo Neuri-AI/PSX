@@ -1404,6 +1404,15 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                 self.renderer.application.processEvents()
                 self.assertIs(root.children[0].handle.widget, native)
                 self.assertGreaterEqual(self.renderer.sfle_result.generation, generation + 1)
+                child_generation = self.renderer.sfle_result.generation
+                qtcore.QCoreApplication.sendEvent(
+                    native, qtcore.QEvent(getattr(event_type, name)),
+                )
+                self.renderer.application.processEvents()
+                self.renderer.application.processEvents()
+                self.assertGreater(self.renderer.sfle_result.generation,
+                                   child_generation)
+                self.assertIs(root.children[0].handle.widget, native)
                 self.reconciler.unmount()
 
 
