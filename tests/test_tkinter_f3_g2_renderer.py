@@ -770,3 +770,58 @@ class TkSFLEGeometryTests(unittest.TestCase):
                 Reconciler(regular).render(Flex(width=160, height=80))
         finally:
             regular.close()
+
+    def test_button_native_lifecycle_is_observed_through_reconciliation(self):
+        from psx.sfle.f3_g2_oracles import Observation, ORACLES
+
+        calls = []
+        original = lambda: calls.append("old")
+        replacement = lambda: calls.append("new")
+        first = self.reconciler.render(Flex(
+            Button("Old", key="action", on_click=original,
+                   layout_width="40px", layout_height="20px"),
+            item("Peer", "peer", 20),
+            width=160, height=80, gap=4, align_items="flex-start",
+        ))
+        widget = first.children[0].handle.widget
+
+        def observe(*, mounted=True, disposed=False, state=None, order=(),
+                    callback=None, events=()):
+            return Observation(
+                native_identity=id(widget), mounted=mounted, rect=rect(widget)
+                if mounted else None, state=state, order=order,
+                callback_identity=callback, events=events, disposed=disposed,
+            )
+
+        created = observe(state=widget.cget("text"))
+        ORACLES["create"](None, created)
+        widget.invoke()
+        self.assertEqual(calls, ["old"])
+
+        after = self.reconciler.render(Flex(
+            item("Peer", "peer", 20),
+            Button("New", key="action", on_click=replacement,
+                   layout_width="40px", layout_height="20px"),
+            width=160, height=80, gap=4, align_items="flex-start",
+        ))
+        self.assertIs(after.children[1].handle.widget, widget)
+        ORACLES["update"](created, observe(state=widget.cget("text")))
+        self.assertEqual(widget.cget("text"), "New")
+        self.assertLess(rect(after.children[0].handle.widget)[0], rect(widget)[0])
+        ORACLES["reorder"](
+            observe(order=("action", "peer")),
+            observe(order=("peer", "action")),
+        )
+        widget.invoke()
+        self.assertEqual(calls, ["old", "new"])
+        ORACLES["event_rebind"](
+            observe(callback=id(original)),
+            observe(callback=id(replacement), events=(id(replacement),)),
+        )
+        before_unmount = observe()
+        self.reconciler.unmount()
+        self.assertFalse(widget.winfo_exists())
+        ORACLES["unmount"](
+            before_unmount, observe(mounted=False, disposed=True),
+        )
+
