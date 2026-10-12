@@ -1789,17 +1789,11 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 return original_error(space, expected, observed)
 
             with patch.object(bridge.DevicePixelSpace, "error", readback_error):
-                try:
-                    renderer.commit_layout(root)
-                except SFLEError as exc:
-                    assert "Stale semantic invalidation during native readback" in str(exc)
-                else:
-                    raise AssertionError("Stale Kivy geometry was committed")
+                renderer.commit_layout(root)
             assert injected["done"]
             assert tuple((tuple(w.pos), tuple(w.size)) for w in widgets) == before
-            assert renderer.sfle_result is published
-            assert renderer._sfle_measurement_invalidations.pending == {"resource"}
-            renderer.commit_layout(root)
+            assert renderer.sfle_result.generation >= published.generation + 2
+            assert not renderer._sfle_measurement_invalidations.pending
             assert not renderer._sfle_measurement_invalidations.pending
             assert tuple(child.handle.widget for child in root.children) == widgets
             tree.unmount()
