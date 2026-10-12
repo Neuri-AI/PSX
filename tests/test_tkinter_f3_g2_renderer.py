@@ -598,6 +598,33 @@ class TkSFLEGeometryTests(unittest.TestCase):
         radio_b.invoke()
         self.assertEqual(events, ["b"])
 
+    def test_scroll_basic_sfle_viewport_and_explicit_flex_content(self):
+        from psx import Scroll
+        self.renderer.set_sfle_constraints(constraints(300, 100))
+        root = self.reconciler.render(Flex(
+            Scroll(
+                Flex(item("Inside", "inside", 40),
+                     direction="row", width="100%", height="100%",
+                     align_items="flex-start", key="content"),
+                direction="vertical", width=120, height=80,
+                key="scroll", layout_width="120px", layout_height="80px",
+                flex_basis="120px", flex_shrink=0,
+            ),
+            direction="row", width="300px", height="100px",
+            align_items="flex-start",
+        ))
+        scroll = root.children[0].handle.widget
+        content = root.children[0].children[0].handle.widget
+        child = root.children[0].children[0].children[0].handle.widget
+        self.assertIs(content.master, scroll._psx_content)
+        self.assertIs(child.master, content)
+        self.assertEqual(scroll.winfo_manager(), "place")
+        self.assertEqual(content.winfo_manager(), "place")
+        self.assertEqual(rect(scroll), (0, 0, 120, 80))
+        self.assertEqual(rect(content), (0, 0, 120, 80))
+        self.assertEqual(rect(child), (0, 0, 40, 20))
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
     def test_unported_builtin_is_explicit_failure_not_native_layout_fallback(self):
         from psx import Row
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
