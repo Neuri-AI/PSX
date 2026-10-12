@@ -554,3 +554,38 @@ def test_c5_invalidated_during_measurement_rejects_stale_geometry_and_recovers()
     assert not renderer._sfle_measurement_invalidations.needs_commit()
     assert root.children[0].handle is widget
     reconciler.unmount()
+
+
+def test_c5_failed_queued_measurement_retains_request_until_successful_retry() -> None:
+    from psx.sfle.errors import SFLEError
+
+    fail = {"active": False}
+    def measure(node):
+        if node.type == "Text":
+            if fail["active"]:
+                raise RuntimeError("transient native resource failure")
+            return IntrinsicSizes(12, 12, 14, 14, 12, 14)
+        return None
+
+    renderer = new_renderer(measure_intrinsic=measure)
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Flex(
+        Text("Retry", layout_width="40px", layout_height="20px"),
+        width=120, height=60,
+    ))
+    native = root.children[0].handle
+    initial = native.geometry
+    fail["active"] = True
+    renderer.request_sfle_invalidation("resource")
+    with pytest.raises(RuntimeError, match="transient native resource failure"):
+        renderer.flush()
+    assert renderer._sfle_measurement_invalidations.needs_commit()
+    assert native.geometry == initial
+    assert renderer._sfle_last_invalidation_error
+    fail["active"] = False
+    renderer.request_sfle_invalidation("resource")
+    renderer.flush()
+    assert not renderer._sfle_measurement_invalidations.needs_commit()
+    assert not renderer._sfle_last_invalidation_error
+    assert root.children[0].handle is native
+    reconciler.unmount()
