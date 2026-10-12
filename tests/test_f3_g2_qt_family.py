@@ -839,6 +839,32 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertGreaterEqual(divider.width(), label.width())
         self.assertLessEqual(self.renderer._sfle_physical_commit_error, 1)
 
+    def test_scroll_basic_sfle_viewport_hosts_explicit_content_flex(self):
+        from psx import Scroll
+        root = self.reconciler.render(Flex(
+            Scroll(
+                Flex(button("Inside", "inner", 40),
+                     direction="row", width="100%", height="100%",
+                     align_items="flex-start", key="content"),
+                direction="vertical", width=120, height=80,
+                key="scroll", layout_width="120px", layout_height="80px",
+                flex_basis="120px", flex_shrink=0,
+            ),
+            direction="row", width="300px", height="100px",
+            align_items="flex-start",
+        ))
+        scroll = root.children[0].handle.widget
+        content = root.children[0].children[0].handle.widget
+        child = root.children[0].children[0].children[0].handle.widget
+        self.assertIsInstance(scroll, qtwidgets.QScrollArea)
+        self.assertIsNone(content.layout())
+        self.assertIs(content.parentWidget(), scroll._psx_content)
+        self.assertIs(child.parentWidget(), content)
+        self.assertEqual(geometry(scroll), (0, 0, 120, 80))
+        self.assertEqual(geometry(content), (0, 0, 120, 80))
+        self.assertEqual(geometry(child), (0, 0, 40, 20))
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
     def test_unported_widget_still_rejected_and_default_flex_fail_closed(self):
         from psx import Row
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
