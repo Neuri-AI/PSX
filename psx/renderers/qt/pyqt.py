@@ -551,7 +551,15 @@ class QtRenderer:
         if (id(watched) in self._sfle_style_watched_widgets
                 and self._sfle_mounted_root is not None
                 and self._sfle_constraints is not None):
-            self.request_sfle_invalidation(reason)
+            # Screen/DPR migration changes the entire logical-to-device
+            # projection; root-level style changes likewise affect all
+            # descendants. A leaf font/style change only dirties that
+            # native widget's intrinsic result; SFLE still computes the
+            # authoritative geometry for the complete tree.
+            global_change = (reason == "dpi" or watched is self._sfle_watched_widget)
+            self.request_sfle_invalidation(
+                reason, widget_id=None if global_change else id(watched),
+            )
 
     def _sfle_on_viewport_resize(self, watched, width: int, height: int) -> None:
         if watched is not self._sfle_watched_widget or width <= 0 or height <= 0:
