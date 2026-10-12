@@ -960,7 +960,8 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         ORACLES["unmount"](
             before_unmount, observe(mounted=False, disposed=True),
         )
-        self.assertNotIn(widget, [h.widget for h in after.handle.children])
+        self.assertEqual(len(after.children), 2)
+        self.assertIs(after.children[1].handle.widget, widget)
         self.renderer.application.processEvents()
 
 
