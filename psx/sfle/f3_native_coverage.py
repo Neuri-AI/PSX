@@ -55,6 +55,25 @@ def g2_native_leaf_needs_measurement(node: VNode, *, backend: str) -> bool:
         raise RendererCapabilityError(
             f"F3-G2 {backend} SFLE geometry not certified for {node.type!r}."
         )
+    if node.type == "Box" and len(node.children) != 1:
+        raise RendererCapabilityError(
+            "F3-G2 internal Box requires exactly one child."
+        )
+    if node.type == "RadioGroup" and any(
+        child.kind is not NodeKind.HOST or child.type != "Radio"
+        for child in node.children
+    ):
+        raise RendererCapabilityError(
+            "F3-G2 RadioGroup children must be Radio nodes."
+        )
+    if node.type == "Divider" and node.children and (
+        len(node.children) != 1
+        or node.children[0].kind is not NodeKind.HOST
+        or node.children[0].type != "Text"
+    ):
+        raise RendererCapabilityError(
+            "F3-G2 labeled Divider requires exactly one Text child."
+        )
     if node.type in ("Box", "RadioGroup") or (
         node.type == "Divider" and node.children
     ):
