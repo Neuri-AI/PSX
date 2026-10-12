@@ -142,16 +142,28 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                             "Qt intrinsic measurement requires widget owner thread.")
         measurements = []
+        native_round = renderer._sfle_native_intrinsic_cache.begin(
+            invalidate_all=renderer._sfle_measurement_invalidations.needs_commit())
+        declared_props = {node_id: dict(vnode.props)
+                          for node_id, vnode in prepared.identities}
         for node_id in leaf_widgets:
-            measurements.append(source.measure(MeasurementRequest(
-                node_id, renderer._sfle_constraints, generation, generation,
-            )))
+            measurements.append(native_round.read(
+                widget=bindings[node_id].widget, props=declared_props[node_id],
+                constraints=renderer._sfle_constraints,
+                node_id=node_id, generation=generation,
+                measure=lambda node_id=node_id: source.measure(MeasurementRequest(
+                    node_id, renderer._sfle_constraints, generation, generation)),
+            ))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Qt measurement generation.")
         for node_id, port in external.items():
-            measurements.append(measure_external(
-                port, bindings[node_id].widget, renderer._sfle_constraints,
-                node_id, generation,
+            measurements.append(native_round.read(
+                widget=bindings[node_id].widget, props=declared_props[node_id],
+                constraints=renderer._sfle_constraints,
+                node_id=node_id, generation=generation,
+                measure=lambda port=port, node_id=node_id: measure_external(
+                    port, bindings[node_id].widget, renderer._sfle_constraints,
+                    node_id, generation),
             ))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external qt measurement.")
@@ -289,5 +301,6 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             raise
         renderer._sfle_physical_commit_error = physical_maximum
         renderer.sfle_result = replace(result, geometry_commit_error=maximum)
+        native_round.publish()
     finally:
         renderer._sfle_in_commit = False
