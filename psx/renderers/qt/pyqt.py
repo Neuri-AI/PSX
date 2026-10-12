@@ -604,6 +604,7 @@ class QtRenderer:
         if root is None or root.disposed:
             return
         try:
+            self._sfle_measurement_invalidations.request("content")
             self.commit_layout(root)
             self._sfle_textarea_error = None
         except Exception as exc:
