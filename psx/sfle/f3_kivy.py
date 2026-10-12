@@ -111,15 +111,17 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             if (bindings[node_id].node_type == "Text"
                     and hasattr(widget, "text_size")):
                 original_text_size = widget.text_size
-                widget.text_size = (None, None)
-                if callable(refresh):
-                    refresh()
-                readings.append(source.measure(MeasurementRequest(
-                    node_id, renderer._sfle_constraints, generation, generation,
-                )))
-                widget.text_size = original_text_size
-                if callable(refresh):
-                    refresh()
+                try:
+                    widget.text_size = (None, None)
+                    if callable(refresh):
+                        refresh()
+                    readings.append(source.measure(MeasurementRequest(
+                        node_id, renderer._sfle_constraints, generation, generation,
+                    )))
+                finally:
+                    widget.text_size = original_text_size
+                    if callable(refresh):
+                        refresh()
                 if renderer._sfle_generation != generation:
                     raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Kivy measurement became stale.")
                 continue

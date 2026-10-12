@@ -51,8 +51,6 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert label.text_size[0] == 160
             wide_button_y = button.y
             # Native geometry must reproduce SFLE's parent-relative projection.
-            boxes = dict(renderer.sfle_result.boxes)
-            by_width = {node_id: entry.border for node_id, entry in boxes.items()}
             assert renderer.sfle_result.geometry_commit_error <= 1
 
             renderer.set_sfle_constraints(constraints(90))
