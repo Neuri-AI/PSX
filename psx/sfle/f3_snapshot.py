@@ -87,6 +87,14 @@ def _style(node: VNode) -> tuple[tuple[str, object], ...]:
         if "padding" in props:
             for side, value in zip(_SIDE_NAMES, _edges(props["padding"])):
                 result.setdefault(f"layout_padding_{side}", value)
+    if node.kind is NodeKind.HOST and node.type == "Scroll":
+        result["direction"] = (
+            "row" if props["content_direction"] == "horizontal" else "column"
+        )
+        for axis in ("width", "height"):
+            if props[axis] is not None:
+                result[axis] = f"{props[axis]}px"
+        result["align_items"] = "flex-start"
     if node.kind is NodeKind.HOST and node.type in ("Box", "RadioGroup", "Divider"):
         if node.type == "Box":
             result.setdefault("direction", "column")
@@ -143,15 +151,13 @@ def prepare_f3_snapshot(
         if node.kind not in (NodeKind.HOST, NodeKind.NATIVE):
             raise SFLEError(DiagnosticCode.INVALID_TREE, "Unresolved structural layout boundary.", identifier)
         if node.kind is NodeKind.HOST and node.type == "Scroll":
-            raise SFLECapabilityError(
-                DiagnosticCode.UNSUPPORTED_FEATURE,
-                "Native Scroll viewport projection is pending F3-G2/G3.", identifier,
-            )
+            from psx.sfle.f3_scroll_viewport import require_scroll_content_root
+            require_scroll_content_root(node)
         seen.add(identifier)
         name = str(node.type) if node.kind is NodeKind.HOST else "Native"
         # These hosts now participate as SFLE containers. Their native
         # adapters retain painting/selection, never place PSX children.
-        if name in ("Box", "RadioGroup") or (
+        if name in ("Box", "RadioGroup", "Scroll") or (
             name == "Divider" and node.effective_children
         ):
             name = "Flex"

@@ -21,15 +21,15 @@ G2_LEAF_TYPES = MappingProxyType({
     "qt": frozenset({
         "Text", "Button", "Checkbox", "Input", "TextArea",
         "Slider", "Radio", "ProgressBar", "Select", "Image",
-        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "RadioGroup", "Box",
+        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "RadioGroup", "Box", "Scroll",
     }),
     "tk": frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar", "Image",
-        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "RadioGroup", "Box", "Select",
+        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "RadioGroup", "Box", "Select", "Scroll",
     }),
     "kivy": frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer", "Image",
-        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select", "Radio", "RadioGroup", "Box",
+        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select", "Radio", "RadioGroup", "Box", "Scroll",
     }),
 })
 KIVY_EXPLICIT_BOUNDS = frozenset({"Checkbox", "Slider"})
@@ -55,6 +55,15 @@ def g2_native_leaf_needs_measurement(node: VNode, *, backend: str) -> bool:
         raise RendererCapabilityError(
             f"F3-G2 {backend} SFLE geometry not certified for {node.type!r}."
         )
+    if node.type == "Scroll":
+        if len(node.children) != 1 or (
+            node.children[0].kind is not NodeKind.HOST
+            or node.children[0].type != "Flex"
+        ):
+            raise RendererCapabilityError(
+                "F3-G2 Scroll requires exactly one explicit Flex content root."
+            )
+        return False
     if node.type == "Box" and len(node.children) != 1:
         raise RendererCapabilityError(
             "F3-G2 internal Box requires exactly one child."

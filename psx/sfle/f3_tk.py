@@ -111,7 +111,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             node_id: widgets[node_id]
             for node_id, source in prepared.identities
             if source.kind is NodeKind.HOST
-            and source.type not in ("Flex", "Box", "RadioGroup")
+            and source.type not in ("Flex", "Box", "RadioGroup", "Scroll")
             and not (source.type == "Divider" and source.children)
             and node_id not in external
         }

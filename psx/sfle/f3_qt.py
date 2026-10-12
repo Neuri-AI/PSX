@@ -102,7 +102,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             node_id: bindings[node_id].widget
             for node_id, source in prepared.identities
             if source.kind is NodeKind.HOST
-            and source.type not in ("Flex", "Box", "RadioGroup")
+            and source.type not in ("Flex", "Box", "RadioGroup", "Scroll")
             and not (source.type == "Divider" and source.children)
             and node_id not in external
         }
