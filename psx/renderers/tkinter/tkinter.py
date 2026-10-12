@@ -305,6 +305,13 @@ class TkinterRenderer:
         self._sfle_generation = 0
         self._sfle_in_commit = False
         self._sfle_owner_thread = get_ident()
+        self._sfle_mounted_root = None
+        self._sfle_resize_baseline = None
+        self._sfle_resize_pending = None
+        self._sfle_resize_after_id = None
+        self._sfle_resize_bind_id = None
+        self._sfle_resize_epoch = 0
+        self._sfle_resize_error: Exception | None = None
         self._sfle_root_widget: tk.Misc | None = None
         self.sfle_result: LayoutResult | None = None
         self.root = root if root is not None else tk.Tk()
@@ -366,14 +373,85 @@ class TkinterRenderer:
                 height=round(constraints.height.value),
             )
 
+    def _sfle_on_configure(self, event) -> None:
+        if (self._closed or event.widget is not self.root
+                or self._sfle_mounted_root is None):
+            return
+        width, height = event.width, event.height
+        if width <= 0 or height <= 0:
+            return
+        if self._sfle_resize_baseline == (width, height):
+            return
+        self._sfle_resize_baseline = (width, height)
+        constraints = self._sfle_constraints
+        if constraints is None or (constraints.width.value, constraints.height.value) == (width, height):
+            return
+        self._sfle_resize_pending = (width, height)
+        if self._sfle_resize_after_id is None:
+            epoch = self._sfle_resize_epoch
+            self._sfle_resize_after_id = self.root.after_idle(
+                lambda: self._sfle_flush_viewport_resize(epoch),
+            )
+
+    def _sfle_flush_viewport_resize(self, epoch: int) -> None:
+        self._sfle_resize_after_id = None
+        if (self._closed or epoch != self._sfle_resize_epoch
+                or self._sfle_mounted_root is None):
+            return
+        size = self._sfle_resize_pending
+        self._sfle_resize_pending = None
+        if size is None:
+            return
+        root = self._sfle_mounted_root
+        if root.disposed:
+            return
+        from psx.sfle.model import AvailableSize
+        try:
+            self.set_sfle_constraints(LayoutConstraints(
+                AvailableSize(size[0], True), AvailableSize(size[1], True),
+            ))
+            self.commit_layout(root)
+            self._sfle_resize_error = None
+        except Exception as exc:
+            self._sfle_resize_error = exc
+            import logging
+            logging.getLogger(__name__).exception("Tk SFLE viewport resize failed")
+
     def commit_layout(self, root: object) -> None:
-        if self._sfle_constraints is not None:
-            from psx.sfle.f3_tk import commit_tk_sfle
-            commit_tk_sfle(self, root)
+        if self._sfle_constraints is None:
+            return
+        from psx.sfle.f3_tk import commit_tk_sfle
+        commit_tk_sfle(self, root)
+        if self._sfle_resize_bind_id is None:
+            # Subscribe after the first successful commit: ignore native
+            # initialization and changes of unrelated child Frames.
+            self._sfle_resize_baseline = (
+                self.root.winfo_width(), self.root.winfo_height(),
+            )
+            self._sfle_resize_bind_id = self.root.bind(
+                "<Configure>", self._sfle_on_configure, add="+",
+            )
+        self._sfle_mounted_root = root
 
     def invalidate_layout(self) -> None:
         if self._sfle_constraints is not None:
             self._sfle_generation += 1
+            self._sfle_resize_epoch += 1
+            self._sfle_mounted_root = None
+            self._sfle_resize_baseline = None
+            self._sfle_resize_pending = None
+            if self._sfle_resize_after_id is not None:
+                try:
+                    self.root.after_cancel(self._sfle_resize_after_id)
+                except tk.TclError:
+                    pass
+                self._sfle_resize_after_id = None
+            if self._sfle_resize_bind_id is not None:
+                try:
+                    self.root.unbind("<Configure>", self._sfle_resize_bind_id)
+                except tk.TclError:
+                    pass
+                self._sfle_resize_bind_id = None
             self.sfle_result = None
             self._sfle_root_widget = None
 
@@ -618,6 +696,8 @@ class TkinterRenderer:
         return 0
 
     def close(self) -> None:
+        if self._sfle_constraints is not None:
+            self.invalidate_layout()
         self._closed = True
         if self._after_id is not None:
             try:
