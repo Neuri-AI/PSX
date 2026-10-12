@@ -335,6 +335,7 @@ class KivyRenderer:
         self._sfle_resize_epoch = 0
         self._sfle_resize_error: Exception | None = None
         self.sfle_result: LayoutResult | None = None
+        self._sfle_physical_commit_error: float | None = None
         self._root: Widget | None = None
         self.adapters = RendererAdapterRegistry()
         self._default_adapter = DelegatingAdapter()
@@ -472,6 +473,7 @@ class KivyRenderer:
                 Window.unbind(on_resize=self._sfle_on_window_resize)
                 self._sfle_window_bound = False
             self.sfle_result = None
+            self._sfle_physical_commit_error = None
 
     def _adapter_for(self, key: object):
         return self.adapters.get(key) or self._default_adapter

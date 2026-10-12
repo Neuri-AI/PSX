@@ -346,6 +346,7 @@ class QtRenderer:
         self._sfle_resize_epoch = 0
         self._sfle_resize_error: Exception | None = None
         self.sfle_result: LayoutResult | None = None
+        self._sfle_physical_commit_error: float | None = None
         self._sfle_backend = "qt"
         self._binding = binding.lower()
         self._binding_package = binding
@@ -493,6 +494,7 @@ class QtRenderer:
             self._sfle_resize_filter = None
             self._sfle_resize_baseline = None
             self.sfle_result = None
+            self._sfle_physical_commit_error = None
 
     def _adapter_for(self, key: object):
         return self.adapters.get(key) or self._default_adapter

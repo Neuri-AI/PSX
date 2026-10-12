@@ -314,6 +314,7 @@ class TkinterRenderer:
         self._sfle_resize_error: Exception | None = None
         self._sfle_root_widget: tk.Misc | None = None
         self.sfle_result: LayoutResult | None = None
+        self._sfle_physical_commit_error: float | None = None
         self.root = root if root is not None else tk.Tk()
         self._owns_root = root is None
         self._pending: SimpleQueue[Callable[[], None]] = SimpleQueue()
@@ -453,6 +454,7 @@ class TkinterRenderer:
                     pass
                 self._sfle_resize_bind_id = None
             self.sfle_result = None
+            self._sfle_physical_commit_error = None
             self._sfle_root_widget = None
 
     def _adapter_for(self, key: object):

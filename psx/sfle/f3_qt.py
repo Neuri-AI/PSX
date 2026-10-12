@@ -19,6 +19,8 @@ from psx.sfle.f3_external import external_port_for, measure_external, read_exter
 from psx.sfle.margin_tree import MarginTreeNode
 from psx.sfle.measurement_plan import MeasurementRequest
 from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
+from psx.sfle.native_pixel_space import DevicePixelSpace
+from psx.sfle.model import Rect
 from psx.sfle.qt_measurement import QtMeasurementSource
 from psx.sfle.model import AvailableSize, LayoutConstraints
 from psx.sfle.f3_width_remeasurement import (
@@ -164,6 +166,9 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         if renderer._sfle_generation != generation:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Qt geometry result.")
 
+        pixel_space = DevicePixelSpace.from_widget(
+            "qt", bindings[snapshot.nodes[0].node_id].widget,
+        )
         # F2 projection explicitly skips the root/window (host owned).
         # Parent IDs/rectangles are supplied verbatim from the SFLE snapshot.
         nodes = tuple(
@@ -189,6 +194,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Qt commit.")
             rects = dict(result.boxes)
             maximum = 0.0
+            physical_maximum = 0.0
             observed = ports.read_rectangles()
             for node in snapshot.nodes:
                 if node.parent_id is None:
@@ -196,9 +202,13 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                 rect, parent = rects[node.node_id].border, rects[node.parent_id].border
                 expected = (rect.x - parent.x, rect.y - parent.y, rect.width, rect.height)
                 actual = observed[node.node_id]
-                for axis, value in zip(("x", "y", "width", "height"), expected):
-                    maximum = max(maximum, abs(actual[axis] - value))
-            if maximum > 1.0:
+                logical_error, physical_error = pixel_space.error(
+                    Rect(*expected),
+                    Rect(*(actual[axis] for axis in ("x", "y", "width", "height"))),
+                )
+                maximum = max(maximum, logical_error)
+                physical_maximum = max(physical_maximum, physical_error)
+            if maximum > 1.0 or physical_maximum > pixel_space.allowed_physical_error:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Qt widget geometry readback exceeds 1px tolerance.")
         except BaseException:
@@ -209,6 +219,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                 else:
                     bindings[node_id].widget.setGeometry(*values)
             raise
+        renderer._sfle_physical_commit_error = physical_maximum
         renderer.sfle_result = replace(result, geometry_commit_error=maximum)
     finally:
         renderer._sfle_in_commit = False

@@ -29,6 +29,8 @@ from psx.sfle.f3_width_remeasurement import (
 from psx.sfle.margin_tree import MarginTreeNode
 from psx.sfle.measurement_plan import MeasurementRequest
 from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
+from psx.sfle.native_pixel_space import DevicePixelSpace
+from psx.sfle.model import Rect
 
 if TYPE_CHECKING:
     from psx.core.instance import MountedInstance
@@ -188,6 +190,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         if renderer._sfle_generation != generation:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Kivy SFLE computation became stale.")
 
+        pixel_space = DevicePixelSpace.from_widget("kivy", renderer._root)
         boxes = dict(result.boxes)
         root_id = snapshot.nodes[0].node_id
         root_rect = boxes[root_id].border
@@ -232,6 +235,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Kivy geometry commit.")
             observed = ports.read_rectangles()
             maximum = 0.0
+            physical_maximum = 0.0
             for node in snapshot.nodes:
                 if node.parent_id is None:
                     continue
@@ -244,12 +248,12 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                                LayoutUnit.from_nearest(local_y) -
                                LayoutUnit.from_nearest(border.height)).to_px()
                 actual = observed[node.node_id]
-                for axis, expected in zip(
-                    ("x", "y", "width", "height"),
-                    (local_x, projected_y, border.width, border.height),
-                ):
-                    maximum = max(maximum, abs(expected - actual[axis]))
-            if maximum > 1.0:
+                expected_native = Rect(local_x, projected_y, border.width, border.height)
+                actual_native = Rect(*(actual[axis] for axis in ("x", "y", "width", "height")))
+                logical_error, physical_error = pixel_space.error(expected_native, actual_native)
+                maximum = max(maximum, logical_error)
+                physical_maximum = max(physical_maximum, physical_error)
+            if maximum > 1.0 or physical_maximum > pixel_space.allowed_physical_error:
                 raise SFLEError(
                     DiagnosticCode.INVALID_SNAPSHOT,
                     "Kivy native readback differs from SFLE projection by more than 1px.",
@@ -269,6 +273,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     bindings[node_id].widget.pos = pos
                     bindings[node_id].widget.size = size
             raise
+        renderer._sfle_physical_commit_error = physical_maximum
         renderer.sfle_result = replace(result, geometry_commit_error=maximum)
     finally:
         renderer._sfle_in_commit = False

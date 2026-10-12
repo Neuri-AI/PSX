@@ -20,6 +20,8 @@ from psx.sfle.f3_external import external_port_for, measure_external, read_exter
 from psx.sfle.margin_tree import MarginTreeNode
 from psx.sfle.measurement_plan import MeasurementRequest
 from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
+from psx.sfle.native_pixel_space import DevicePixelSpace
+from psx.sfle.model import Rect
 from psx.sfle.tk_measurement import TkMeasurementSource
 from psx.sfle.model import LayoutConstraints, AvailableSize
 from psx.sfle.f3_width_remeasurement import (
@@ -175,6 +177,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         if renderer._sfle_generation != generation:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Tk geometry result.")
 
+        pixel_space = DevicePixelSpace.from_widget("tk", renderer.root)
         rectangles = dict(result.boxes)
         border_root = rectangles[root_id].border
         host_box = _geometry(widgets[root_id])
@@ -218,6 +221,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             renderer.root.update_idletasks()
             observed = ports.read_rectangles()
             error = 0.0
+            physical_error_maximum = 0.0
             for node in snapshot.nodes:
                 if node.parent_id is None:
                     continue
@@ -226,9 +230,13 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 expected = (child.x - parent.x, child.y - parent.y,
                             child.width, child.height)
                 readback = observed[node.node_id]
-                for axis, value in zip(("x", "y", "width", "height"), expected):
-                    error = max(error, abs(readback[axis] - value))
-            if error > 1.0:
+                logical_error, physical_error = pixel_space.error(
+                    Rect(*expected),
+                    Rect(*(readback[axis] for axis in ("x", "y", "width", "height"))),
+                )
+                error = max(error, logical_error)
+                physical_error_maximum = max(physical_error_maximum, physical_error)
+            if error > 1.0 or physical_error_maximum > pixel_space.allowed_physical_error:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Tk native placement exceeds SFLE's 1px tolerance.")
         except BaseException:
@@ -251,6 +259,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 else:
                     widget.place_forget()
             raise
+        renderer._sfle_physical_commit_error = physical_error_maximum
         renderer.sfle_result = replace(result, geometry_commit_error=error)
     finally:
         renderer._sfle_in_commit = False
