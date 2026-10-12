@@ -1188,3 +1188,34 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
         self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
 
+
+
+    def test_native_local_image_revision_remeasures_without_props_or_remount(self):
+        from psx import Image
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "revision.png"
+            write_png(path, 24, 12)
+            root = self.reconciler.render(Flex(
+                Image(str(path), key="img", fit="contain"),
+                item("Peer", "peer", 30),
+                direction="column", width=160, height=80,
+                align_items="flex-start",
+            ))
+            native = root.children[0].handle.widget
+            peer = root.children[1].handle.widget
+            first_generation = self.renderer.sfle_result.generation
+            self.assertEqual(rect(native)[3], 12)
+            self.assertEqual(rect(peer)[1], 12)
+
+            write_png(path, 24, 24)
+            self.renderer._sfle_poll_image_resources(
+                self.renderer._sfle_invalidation_lifetime,
+            )
+            self.renderer.flush()
+            self.assertIs(root.children[0].handle.widget, native)
+            self.assertIs(root.children[1].handle.widget, peer)
+            self.assertGreater(self.renderer.sfle_result.generation, first_generation)
+            self.assertEqual(rect(native)[3], 24)
+            self.assertEqual(rect(peer)[1], 24)
+            self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
+            self.assertFalse(self.renderer._sfle_image_resource_watch.changed())
