@@ -28,6 +28,7 @@ def _scroll_area_class(binding: str):
             self.setHorizontalScrollBarPolicy(policy.ScrollBarAlwaysOff)
             self.setVerticalScrollBarPolicy(policy.ScrollBarAlwaysOff)
             self._psx_props = None
+            self._psx_sfle_scroll = False
             self._indicators = {}
             self._fade = core.QTimer(self)
             self._fade.setSingleShot(True)
@@ -88,10 +89,18 @@ def _scroll_area_class(binding: str):
         def configure(self, props):
             self._psx_props = props
             self.setEnabled(props["enabled"])
-            self.setFixedWidth(round(props["width"])) if props["width"] is not None else self.setMinimumWidth(0)
+            if self._psx_sfle_scroll:
+                self.setMinimumWidth(0)
+                self.setMaximumWidth(16777215)
+            else:
+                self.setFixedWidth(round(props["width"])) if props["width"] is not None else self.setMinimumWidth(0)
             if props["width"] is None:
                 self.setMaximumWidth(16777215)
-            self.setFixedHeight(round(props["height"])) if props["height"] is not None else self.setMinimumHeight(0)
+            if self._psx_sfle_scroll:
+                self.setMinimumHeight(0)
+                self.setMaximumHeight(16777215)
+            else:
+                self.setFixedHeight(round(props["height"])) if props["height"] is not None else self.setMinimumHeight(0)
             if props["height"] is None:
                 self.setMaximumHeight(16777215)
             self._refresh_indicators()
@@ -137,9 +146,13 @@ class QtScrollAdapter:
             cls = self._classes[binding] = _scroll_area_class(binding)
         area = cls()
         content = renderer._widgets.QWidget()
-        layout_type = renderer._hbox if props["content_direction"] == "horizontal" else renderer._vbox
-        layout = layout_type(content)
+        sfle = renderer._sfle_constraints is not None
+        layout = None
+        if not sfle:
+            layout_type = renderer._hbox if props["content_direction"] == "horizontal" else renderer._vbox
+            layout = layout_type(content)
         area.setWidget(content)
+        area._psx_sfle_scroll = sfle
         area._psx_binding = binding
         area._psx_content = content
         area._psx_layout = layout
@@ -154,15 +167,17 @@ class QtScrollAdapter:
         ).QBoxLayout, "Direction", importlib.import_module(
             f"{area._psx_binding}.QtWidgets"
         ).QBoxLayout)
-        layout.setDirection(
-            direction_type.LeftToRight if props["content_direction"] == "horizontal"
-            else direction_type.TopToBottom
-        )
-        left, top, right, bottom = scroll_padding(props)
-        layout.setContentsMargins(left, top, right, bottom)
-        layout.setSpacing(props["spacing"])
+        if layout is not None:
+            layout.setDirection(
+                direction_type.LeftToRight if props["content_direction"] == "horizontal"
+                else direction_type.TopToBottom
+            )
+            left, top, right, bottom = scroll_padding(props)
+            layout.setContentsMargins(left, top, right, bottom)
+            layout.setSpacing(props["spacing"])
         area.configure(props)
-        area._psx_content.adjustSize()
+        if not area._psx_sfle_scroll:
+            area._psx_content.adjustSize()
         area._refresh_indicators()
 
     def update(self, renderer, handle, changed, removed):
@@ -172,11 +187,18 @@ class QtScrollAdapter:
         handle.props = props
 
     def insert(self, renderer, parent, child, index):
+        if parent.widget._psx_sfle_scroll:
+            if child.widget.parentWidget() is not parent.widget._psx_content:
+                child.widget.setParent(parent.widget._psx_content)
+            child.widget.show()
+            return True
         parent.layout.insertWidget(index, child.widget)
         parent.widget._psx_content.adjustSize()
         return True
 
     def move(self, renderer, parent, child, index):
+        if parent.widget._psx_sfle_scroll:
+            return True
         parent.layout.removeWidget(child.widget)
         parent.layout.insertWidget(index, child.widget)
         parent.widget._psx_content.adjustSize()
@@ -184,6 +206,9 @@ class QtScrollAdapter:
 
     def remove(self, renderer, parent, child):
         from psx.renderers.qt.pyqt import _release
+        if parent.widget._psx_sfle_scroll:
+            _release(child)
+            return True
         parent.layout.removeWidget(child.widget)
         _release(child)
         parent.widget._psx_content.adjustSize()
