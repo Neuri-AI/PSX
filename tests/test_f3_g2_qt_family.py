@@ -1086,11 +1086,16 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                         self.reconciler.render(forged)
                     self.assertIs(updated.children[1].handle.widget, widget, name)
                     self.assertEqual(geometry(widget), after, name)
+                    destroyed = []
+                    widget.destroyed.connect(lambda *_: destroyed.append(True))
                     self.reconciler.render(Flex(
                         button("Peer", "peer", 20), width=260, height=90,
                         align_items="flex-start",
                     ))
                     self.assertTrue(instance.disposed, name)
+                    qtcore = importlib.import_module(f"{PACKAGE}.QtCore")
+                    qtcore.QCoreApplication.sendPostedEvents(None, qtcore.QEvent.Type.DeferredDelete)
+                    self.assertTrue(destroyed, name)
             self.reconciler.unmount()
 
 
