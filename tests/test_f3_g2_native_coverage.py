@@ -14,16 +14,13 @@ from psx.sfle.f3_native_coverage import (
     ("qt", frozenset({
         "Text", "Button", "Checkbox", "Input", "TextArea",
         "Slider", "Radio", "ProgressBar", "Select", "Image",
-        "Link", "Badge", "Divider", "Spacer",
-    })),
+        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox",    })),
     ("tk", frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar", "Image",
-        "Link", "Badge", "Divider", "Spacer",
-    })),
+        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "Select",    })),
     ("kivy", frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer", "Image",
-        "Link", "Badge", "Divider",
-    })),
+        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select",    })),
 ])
 def test_capability_surface_explicit_and_not_all_native_widgets(backend, expected):
     assert G2_LEAF_TYPES[backend] == expected
@@ -82,6 +79,17 @@ def test_image_is_admitted_for_real_intrinsic_measurement(backend):
     # Admission is not proof of source decoding: each toolkit rejects invalid
     # image bytes during native measurement, never assumes a 100px QWidget.
     assert g2_native_leaf_needs_measurement(Image("missing.png"), backend=backend)
+
+
+@pytest.mark.parametrize("backend", ["qt", "tk", "kivy"])
+def test_switch_spinbox_select_have_native_measurement_ports(backend):
+    from psx import Switch, SpinBox, Select
+    for node in (
+        Switch(checked=False),
+        SpinBox(value=2, min=0, max=9),
+        Select(options=("Alpha", "Beta"), value="Alpha"),
+    ):
+        assert g2_native_leaf_needs_measurement(node, backend=backend)
 
 
 def test_backend_unknown_is_a_configuration_error():
