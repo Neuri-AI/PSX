@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS — C1 (native SFLE geometry) CLOSED, C2 (component × backend × operation inventory and evidence certification) CLOSED at `be7bec5`; C3–C6 lifecycle/extensibility/invalidations/final acceptance pending. G3–G5 NOT STARTED — 1/5 official F3 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS — C1 CLOSED; C2 CLOSED after executable contract/pytest-receipt re-certification at `9e071a1`; C3–C6 per-component native lifecycles, external ownership, invalidations and independent final certification remain pending. G3–G5 NOT STARTED — 1/5 official F3 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -1085,3 +1085,58 @@ G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
   font/theme/DPI/resource invalidation; C6 independently audits geometry
   tolerances and full green CI. C2 closure makes **no** claim of C3–C6
   closure or G2 final certification.
+
+## F3-G2-C2 hardening — executable operation certification contracts (2026-10-12)
+
+**C2: CLOSED following second-stage hardening. C3 begins in the next increment.**
+
+The original C2 matrix verified that an existing test *mentioned* a component.
+That was insufficient to prove runtime execution or the actual operation.
+The strengthened contract now has all five acceptance properties:
+
+1. **Exhaustive component registration:** Every builtin in
+   `builtin_component_registry()` is classified explicitly for Qt, Tkinter,
+   Kivy and Headless. Unknown, stale or unreviewed cells fail CI.
+2. **Explicit applicability:** `psx/sfle/f3_g2_contracts.py` emits one
+   contract for **every component × backend × operation** (eight defined
+   operations), with `required` or justified `not_applicable`.
+   Operation ownership is routed to C3 (lifecycle/rollback), C4
+   (external/borrowed ownership) or C5 (invalidation). Builtin-owned
+   controls cannot silently claim borrowed Native behavior. Exclusions
+   never count as successes.
+3. **Executable behavioral mechanisms:** `psx/sfle/f3_g2_oracles.py`
+   contains real positive/negative assertions for create, update,
+   reorder, unmount, event rebind, borrowed ownership, rollback and
+   invalidation. Every required operation points to its oracle.
+   Existing component-specific pytest tests are linked as references;
+   operations without native-driver coverage carry the explicit
+   `oracle_pending_driver` mechanism, not false PASS status.
+   C3/C4/C5 will capture real native before/after observations and
+   invoke these reusable oracles.
+4. **Actual execution receipts:** `psx/sfle/f3_g2_receipts.py` reads
+   pytest JUnit XML and marks a referenced test `executed_pass` **only
+   when every parametrized case was executed and passed**. Missing,
+   failed, errored or skipped references fail certification; merely
+   mentioning a component in a test source is not runtime proof.
+   `pending` and `not_applicable` remain distinct in JSON results.
+5. **Fail-closed CI:** `tests/test_f3_g2_contracts.py` verifies exact
+   cardinality, unique component-backend-operation identities,
+   justified exclusions, oracle availability and synthetic
+   positive/negative oracle behavior. It also verifies failed,
+   skipped and missing pytest receipts are rejected. The core job
+   runs these checks; native Headless/Qt/Tk/Kivy jobs run the receipt
+   verifier against real pytest output and publish JSON reports as
+   GitHub Actions artifacts, including separate **Qt DPI=1 and DPI=1.5**
+   reports. Source [`9e071a1`](https://github.com/Neuri-AI/PSX/commit/9e071a1722841fdaf737360c291b17811a38fc6e):
+   [F3 selective #38227744199](https://github.com/Neuri-AI/PSX/actions/runs/38227744199)
+   **SUCCESS**;
+   [G1 #38227744082](https://github.com/Neuri-AI/PSX/actions/runs/38227744082)
+   **SUCCESS**.
+
+**Interpretation:** C2 certifies the registry, applicability policy, test
+mechanisms, runtime provenance and CI guardrails. It does **not** claim all
+component-specific operations passed: these are explicitly pending real
+native lifecycle drivers in C3, external-widget semantics in C4 and
+resource/font/theme/DPI invalidation drivers in C5. The C3 iteration must
+begin directly with those pending operations rather than redesigning C2.
+G2 remains OPEN; no scope from G3/G4/G5 is silently absorbed.
