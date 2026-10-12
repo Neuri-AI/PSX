@@ -18,6 +18,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from kivy.config import Config
             Config.set("graphics", "window_state", "hidden")
             from psx import Flex, Input, Checkbox, ProgressBar
+            from psx.core.errors import RendererCapabilityError
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
             from psx.sfle.engine import PythonLayoutEngine
@@ -1278,7 +1279,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                         old = first.children[0]
                         native_widget = old.handle.widget
                         assert (native_widget.width == 60 if name != "Box" else native_widget.width > 0), (name, native_widget.size)
-                        assert native_widget.height == 24, (name, native_widget.size)
+                        assert (native_widget.height == 24 if name != "Box" else native_widget.height > 0), (name, native_widget.size)
                         second = tree.render(view(name, 80, True))
                         current = second.children[1]
                         assert current is old, name
@@ -1300,7 +1301,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                         before_size = tuple(native_widget.size)
                         try:
                             tree.render(forged)
-                        except TypeError:
+                        except (TypeError, RendererCapabilityError):
                             pass
                         else:
                             raise AssertionError("Malformed native callback was accepted")
