@@ -790,6 +790,55 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         ])
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
 
+    def test_structural_box_radiogroup_and_divider_children_are_sfle_owned(self):
+        from psx import Radio, RadioGroup, Divider
+        from psx.core.vnode import Box
+        events = []
+        root = self.reconciler.render(Flex(
+            Box(Flex(
+                button("Child", "child", 40),
+                direction="row", width="100%", height="100%",
+                align_items="flex-start",
+            ), key="box"),
+            RadioGroup(
+                Radio("a", label="Alpha", key="a", layout_width="70px",
+                      layout_height="24px", flex_basis="24px", flex_shrink=0),
+                Radio("b", label="Beta", key="b", layout_width="70px",
+                      layout_height="24px", flex_basis="24px", flex_shrink=0),
+                key="group", value="a", spacing=4, padding=3,
+                layout_width="140px", layout_height="70px",
+                on_change=events.append,
+            ),
+            Divider(
+                Text("Section", key="label", layout_width="65px",
+                     layout_height="20px", flex_basis="65px", flex_shrink=0),
+                key="divider", layout_width="140px",
+                layout_height="30px",
+            ),
+            direction="column", width="340px", height="300px",
+            align_items="flex-start",
+        ))
+        box, group, divider = [x.handle.widget for x in root.children]
+        inner = root.children[0].children[0].handle.widget
+        radio_a, radio_b = [x.handle.widget for x in root.children[1].children]
+        label = root.children[2].children[0].handle.widget
+        self.assertIsNone(box.layout())
+        self.assertIsNone(group.layout())
+        self.assertIsNone(divider.layout())
+        self.assertIs(inner.parentWidget(), box)
+        self.assertIs(radio_a.parentWidget(), group)
+        self.assertIs(radio_b.parentWidget(), group)
+        self.assertIs(label.parentWidget(), divider)
+        self.assertEqual(group._psx_button_group.buttons().__len__(), 2)
+        self.assertTrue(radio_a.isChecked())
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        radio_b.click()
+        self.assertEqual(events, ["b"])
+        self.assertTrue(radio_b.isChecked())
+        self.assertGreater(label.width(), 0)
+        self.assertGreaterEqual(divider.width(), label.width())
+        self.assertLessEqual(self.renderer._sfle_physical_commit_error, 1)
+
     def test_unported_widget_still_rejected_and_default_flex_fail_closed(self):
         from psx import Row
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
