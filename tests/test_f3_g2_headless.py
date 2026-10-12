@@ -468,3 +468,41 @@ def test_c5_invalidation_rejects_unrecognized_reasons() -> None:
     renderer = new_renderer()
     with pytest.raises(ValueError, match="Unsupported SFLE measurement invalidation"):
         renderer.request_sfle_invalidation("unknown")
+
+
+def test_c5_headless_intrinsic_cache_skips_unaffected_siblings() -> None:
+    measured = []
+
+    def measure(node):
+        if node.type == "Text":
+            measured.append(node.props.get("text"))
+            return IntrinsicSizes(20, 20, 14, 14, 20, 14)
+        return None
+
+    renderer = new_renderer(measure_intrinsic=measure)
+    reconciler = Reconciler(renderer)
+
+    def view(first="Alpha"):
+        return Flex(
+            Text(first, key="a", layout_width="40px", layout_height="18px"),
+            Text("Beta", key="b", layout_width="40px", layout_height="18px"),
+            width=120, height=60, align_items="flex-start",
+        )
+
+    root = reconciler.render(view())
+    assert len(measured) == 2
+    original_handles = [child.handle for child in root.children]
+
+    renderer.commit_layout(root)
+    assert len(measured) == 2, "Unchanged measurements must be reused"
+    new_root = reconciler.render(view("Changed"))
+    assert new_root is root
+    assert len(measured) == 3, measured
+    assert [child.handle for child in root.children] == original_handles
+
+    renderer.request_sfle_invalidation("font")
+    renderer.flush()
+    assert len(measured) == 5, measured
+    assert all(not handle.destroyed for handle in original_handles)
+    reconciler.unmount()
+    assert not renderer._sfle_intrinsic_cache
