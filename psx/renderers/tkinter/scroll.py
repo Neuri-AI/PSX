@@ -175,6 +175,7 @@ class TkScrollAdapter:
         outer._psx_content = content
         outer._psx_window = canvas.create_window(0, 0, window=content, anchor=tk.NW)
         outer._psx_props = props
+        outer._psx_sfle_scroll = renderer._sfle_constraints is not None
         content.bind("<Configure>", outer._refresh, add="+")
         canvas.bind("<Configure>", outer._refresh, add="+")
         self._apply(outer, props)
@@ -185,34 +186,44 @@ class TkScrollAdapter:
     @staticmethod
     def _apply(outer, props):
         outer._psx_props = props
-        if props["width"] is not None:
-            outer._psx_canvas.configure(width=round(props["width"]))
-        if props["height"] is not None:
-            outer._psx_canvas.configure(height=round(props["height"]))
-        outer._refresh()
+        if not outer._psx_sfle_scroll:
+            if props["width"] is not None:
+                outer._psx_canvas.configure(width=round(props["width"]))
+            if props["height"] is not None:
+                outer._psx_canvas.configure(height=round(props["height"]))
+            outer._refresh()
 
     def update(self, renderer, handle, changed, removed):
         props = updated_scroll_props(handle.props, changed, removed)
         self._apply(handle.widget, props)
         handle.props = props
-        self._repack(handle)
+        if not handle.widget._psx_sfle_scroll:
+            self._repack(handle)
 
     def insert(self, renderer, parent, child, index):
         if child in parent.children:
             parent.children.remove(child)
         parent.children.insert(index, child)
+        if parent.widget._psx_sfle_scroll:
+            if child.widget.master is not parent.widget._psx_content:
+                raise RendererCapabilityError("Tk SFLE Scroll child requires content viewport master.")
+            return True
         self._repack(parent)
         return True
 
     def move(self, renderer, parent, child, index):
         parent.children.remove(child)
         parent.children.insert(index, child)
-        self._repack(parent)
+        if not parent.widget._psx_sfle_scroll:
+            self._repack(parent)
         return True
 
     def remove(self, renderer, parent, child):
         if child in parent.children:
             parent.children.remove(child)
+        if parent.widget._psx_sfle_scroll:
+            child.widget.place_forget()
+            return True
         child.widget.pack_forget()
         if (
             child.native is not None
