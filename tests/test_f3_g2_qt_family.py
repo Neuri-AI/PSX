@@ -185,6 +185,46 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertGreater(self.renderer.sfle_result.generation, previous)
         self.assertIsNone(root.handle.widget.layout())
 
+    def test_multiline_text_remeasures_actual_post_flex_width(self):
+        content = (
+            "One two three four five six seven eight nine ten "
+            "eleven twelve thirteen fourteen fifteen sixteen."
+        )
+        tree = self.reconciler.render(Flex(
+            Text(content, key="copy", layout_width="100%", flex_shrink=0),
+            button("Below", "below", 30),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        label = tree.children[0].handle.widget
+        next_button = tree.children[1].handle.widget
+        self.assertTrue(label.wordWrap())
+        self.assertEqual(label.width(), 160)
+        wide_height = label.height()
+        wide_y = next_button.y()
+        self.assertGreater(wide_height, 0)
+        self.assertEqual(wide_y, wide_height)
+
+        # Deliberately use the explicit live-viewport API to isolate the
+        # measurement pass from any Qt platform window-manager resize event.
+        self.renderer.set_sfle_constraints(viewport(90, 80))
+        tree.handle.widget.resize(90, 80)
+        self.renderer.commit_layout(tree)
+        narrow_height = label.height()
+        self.assertGreater(narrow_height, wide_height)
+        self.assertEqual(label.width(), 90)
+        self.assertEqual(next_button.y(), narrow_height)
+        self.assertIs(tree.children[0].handle.widget, label)
+        self.assertIs(tree.children[1].handle.widget, next_button)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
+        self.renderer.set_sfle_constraints(viewport(160, 80))
+        tree.handle.widget.resize(160, 80)
+        self.renderer.commit_layout(tree)
+        self.assertEqual(label.height(), wide_height)
+        self.assertEqual(next_button.y(), wide_y)
+        self.assertIs(tree.children[0].handle.widget, label)
+
     def test_native_root_resize_automatically_recomputes_sfle(self):
         class CountingEngine:
             def __init__(self):
