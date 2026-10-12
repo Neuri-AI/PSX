@@ -159,6 +159,103 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_switch_spinbox_select_native_interaction_and_sfle_geometry(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.boxlayout import BoxLayout
+            from kivy.uix.spinner import Spinner
+            from psx import Flex, Switch, SpinBox, Select
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(380, True), AvailableSize(80, True),
+                ),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            calls = []
+
+            def view(tag, checked=False, value=2, selected="a"):
+                return Flex(
+                    Switch(
+                        key="sw", label="Network", checked=checked,
+                        on_change=lambda v: calls.append(("switch", tag, v)),
+                        layout_width="80px", layout_height="32px",
+                        flex_basis="80px", flex_shrink=0,
+                    ),
+                    SpinBox(
+                        key="spin", value=value, min=0, max=9,
+                        on_change=lambda v: calls.append(("spin", tag, v)),
+                        layout_width="130px", layout_height="36px",
+                        flex_basis="130px", flex_shrink=0,
+                    ),
+                    Select(
+                        key="select", options=(
+                            {"label": "Alpha", "value": "a"},
+                            {"label": "Beta", "value": "b"},
+                        ), value=selected,
+                        on_change=lambda v: calls.append(("select", tag, v)),
+                        layout_width="110px", layout_height="34px",
+                        flex_basis="110px", flex_shrink=0,
+                    ),
+                    direction="row", width="380px", height="80px", gap=6,
+                    align_items="flex-start",
+                )
+
+            root = tree.render(view("before"))
+            sw, spin, select = widgets = [item.handle.widget for item in root.children]
+            assert isinstance(sw, BoxLayout)
+            assert isinstance(spin, BoxLayout)
+            assert isinstance(select, Spinner)
+            actual = tuple(tuple(w.pos) + tuple(w.size) for w in widgets)
+            expected = ((0, 48, 80, 32), (86, 44, 130, 36), (222, 46, 110, 34))
+            assert actual == expected, (actual, expected)
+            assert all(w.parent is root.handle.widget for w in widgets)
+            assert all(tuple(w.size_hint) == (None, None) for w in widgets)
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            sw._psx_control.dispatch("on_release")
+            spin._psx_parts[2].dispatch("on_release")
+            select.text = "Beta"
+            assert calls == [
+                ("switch", "before", True),
+                ("spin", "before", 3),
+                ("select", "before", "b"),
+            ], calls
+
+            updated = tree.render(view("after", True, 3, "b"))
+            assert all(updated.children[i].handle.widget is w
+                       for i, w in enumerate(widgets))
+            assert spin._psx_parts[1].text == "3"
+            assert select.text == "Beta"
+            assert len(calls) == 3, calls
+            sw._psx_control.dispatch("on_release")
+            spin._psx_parts[2].dispatch("on_release")
+            select.text = "Alpha"
+            assert calls[3:] == [
+                ("switch", "after", False),
+                ("spin", "after", 4),
+                ("select", "after", "a"),
+            ], calls
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            tree.unmount()
+            assert renderer.sfle_result is None
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_image_intrinsic_source_and_native_sfle_geometry(self):
         script = textwrap.dedent(r"""
             import struct
