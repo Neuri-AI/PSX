@@ -674,6 +674,54 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                 Image("this-file-must-not-exist.png"), width=160, height=80,
             ))
 
+    def test_portable_link_badge_divider_spacer_use_only_sfle_rectangles(self):
+        from psx import Link, Badge, Divider, Spacer
+        clicks = []
+
+        def declare(label, thickness):
+            return Flex(
+                Link(label="Guide", key="link", on_click=lambda: clicks.append(label),
+                     layout_width="72px", layout_height="24px",
+                     flex_basis="72px", flex_shrink=0),
+                Badge(label=label, key="badge", layout_width="78px",
+                      layout_height="24px", flex_basis="78px", flex_shrink=0),
+                Divider(thickness=thickness, key="divider",
+                        layout_width="34px", layout_height=f"{thickness}px",
+                        flex_basis="34px", flex_shrink=0),
+                Spacer(key="spacer", flex_grow=1, flex_basis="0px",
+                       layout_height="10px"),
+                button("End", "end", 30),
+                direction="row", gap=6, width="340px", height="80px",
+                align_items="flex-start",
+            )
+
+        root = self.reconciler.render(declare("READY", 3))
+        link, badge, divider, spacer, end = [
+            child.handle.widget for child in root.children
+        ]
+        self.assertIsInstance(link, qtwidgets.QPushButton)
+        self.assertIsInstance(divider, qtwidgets.QFrame)
+        self.assertIsNone(divider.layout())
+        self.assertEqual(geometry(link), (0, 0, 72, 24))
+        self.assertEqual(geometry(badge), (78, 0, 78, 24))
+        self.assertEqual(geometry(divider), (162, 0, 34, 3))
+        self.assertEqual(geometry(spacer), (202, 0, 102, 10))
+        self.assertEqual(geometry(end), (310, 0, 30, 20))
+        self.assertFalse(badge.minimumSize().width() == badge.maximumSize().width())
+        self.assertEqual(len(self.renderer.sfle_result.boxes), 6)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        link.click()
+        self.assertEqual(clicks, ["READY"])
+
+        updated = self.reconciler.render(declare("DONE", 5))
+        for index, native in enumerate((link, badge, divider, spacer, end)):
+            self.assertIs(updated.children[index].handle.widget, native)
+        self.assertEqual(geometry(divider), (162, 0, 34, 5))
+        self.assertEqual(geometry(spacer), (202, 0, 102, 10))
+        link.click()
+        self.assertEqual(clicks, ["READY", "DONE"])
+        self.assertEqual(badge._psx_props["label"], "DONE")
+
     def test_unported_widget_still_rejected_and_default_flex_fail_closed(self):
         from psx import Switch
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):

@@ -83,6 +83,82 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_link_badge_divider_and_spacer_native_geometry(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.button import Button as KivyButton
+            from kivy.uix.widget import Widget
+            from psx import Flex, Link, Badge, Divider, Spacer, Button
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(340, True), AvailableSize(80, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            events = []
+            def declaration(text, thickness):
+                return Flex(
+                    Link(label="Guide", key="link",
+                         on_click=lambda: events.append(text),
+                         layout_width="72px", layout_height="24px",
+                         flex_basis="72px", flex_shrink=0),
+                    Badge(label=text, key="badge", layout_width="78px",
+                          layout_height="24px", flex_basis="78px", flex_shrink=0),
+                    Divider(thickness=thickness, key="divider",
+                            layout_width="34px", layout_height=f"{thickness}px",
+                            flex_basis="34px", flex_shrink=0),
+                    Spacer(key="spacer", flex_grow=1, flex_basis="0px",
+                           layout_height="10px"),
+                    Button("End", key="end", layout_width="30px",
+                           layout_height="20px", flex_basis="30px", flex_shrink=0),
+                    width="340px", height="80px", direction="row", gap=6,
+                    align_items="flex-start",
+                )
+            root = tree.render(declaration("READY", 3))
+            widgets = [item.handle.widget for item in root.children]
+            link, badge, divider, spacer, end = widgets
+            assert isinstance(link, KivyButton)
+            assert isinstance(divider, Widget)
+            assert all(w.parent is root.handle.widget for w in widgets)
+            assert all(tuple(w.size_hint) == (None, None) for w in widgets)
+            expected = (
+                (0, 56, 72, 24), (78, 56, 78, 24),
+                (162, 77, 34, 3), (202, 70, 102, 10),
+                (310, 60, 30, 20),
+            )
+            actual = tuple(tuple(w.pos) + tuple(w.size) for w in widgets)
+            assert actual == expected, (actual, expected)
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            link.dispatch("on_release")
+            assert events == ["READY"], events
+            root = tree.render(declaration("DONE", 5))
+            assert all(root.children[i].handle.widget is w
+                       for i, w in enumerate(widgets))
+            assert tuple(divider.pos) + tuple(divider.size) == (162, 75, 34, 5)
+            assert tuple(spacer.pos) + tuple(spacer.size) == (202, 70, 102, 10)
+            link.dispatch("on_release")
+            assert events == ["READY", "DONE"], events
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            tree.unmount()
+            assert renderer.sfle_result is None
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_image_intrinsic_source_and_native_sfle_geometry(self):
         script = textwrap.dedent(r"""
             import struct

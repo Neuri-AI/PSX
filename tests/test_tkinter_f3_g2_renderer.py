@@ -441,6 +441,48 @@ class TkSFLEGeometryTests(unittest.TestCase):
                 Image("this-source-does-not-exist.png"), width=160, height=80,
             ))
 
+    def test_portable_link_badge_divider_spacer_are_sfle_owned(self):
+        from psx import Link, Badge, Divider, Spacer
+
+        def declaration(label, thickness):
+            return Flex(
+                Link(label="Guide", key="link", layout_width="72px",
+                     layout_height="24px", flex_basis="72px", flex_shrink=0),
+                Badge(label=label, key="badge", layout_width="78px",
+                      layout_height="24px", flex_basis="78px", flex_shrink=0),
+                Divider(thickness=thickness, key="divider",
+                        layout_width="34px", layout_height=f"{thickness}px",
+                        flex_basis="34px", flex_shrink=0),
+                Spacer(key="spacer", flex_grow=1, flex_basis="0px",
+                       layout_height="10px"),
+                item("End", "end", 30),
+                direction="row", gap=6, width="340px", height="80px",
+                align_items="flex-start",
+            )
+        self.renderer.set_sfle_constraints(constraints(340, 80))
+        root = self.reconciler.render(declaration("READY", 3))
+        widgets = [child.handle.widget for child in root.children]
+        link, badge, divider, spacer, end = widgets
+        self.assertIsInstance(link, tk.Label)
+        self.assertIsInstance(badge, tk.Canvas)
+        self.assertIsInstance(divider, tk.Canvas)
+        self.assertIsInstance(spacer, ttk.Frame)
+        self.assertEqual([rect(w) for w in widgets], [
+            (0, 0, 72, 24), (78, 0, 78, 24), (162, 0, 34, 3),
+            (202, 0, 102, 10), (310, 0, 30, 20),
+        ])
+        self.assertTrue(all(w.winfo_manager() == "place" for w in widgets))
+        self.assertTrue(all(w.master is root.handle.widget for w in widgets))
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
+        updated = self.reconciler.render(declaration("DONE", 5))
+        self.assertTrue(all(updated.children[i].handle.widget is w
+                            for i, w in enumerate(widgets)))
+        self.assertEqual(rect(divider), (162, 0, 34, 5))
+        self.assertEqual(rect(spacer), (202, 0, 102, 10))
+        self.assertEqual(badge._psx_badge_font.metrics("linespace") > 0, True)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
     def test_unported_builtin_is_explicit_failure_not_native_layout_fallback(self):
         from psx import Switch
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
