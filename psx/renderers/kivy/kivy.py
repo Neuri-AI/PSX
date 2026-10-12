@@ -415,6 +415,7 @@ class KivyRenderer:
                     reload_image()
                 self._sfle_resource_error = None
                 self.request_sfle_invalidation("resource", widget_id=id(widget))
+                self._sfle_image_resource_watch.acknowledge(instance)
             except Exception as error:
                 # Preserve the last committed geometry and keep watching;
                 # recreating a missing/invalid file can recover in place.
