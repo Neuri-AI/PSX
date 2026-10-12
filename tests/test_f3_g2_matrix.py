@@ -144,7 +144,7 @@ def test_component_evidence_requires_reviewer_manifest_and_no_implicit_green():
     button = next(cell for cell in native if cell.backend == "headless" and cell.component == "Button")
     assert {"create", "update", "reorder", "unmount", "event_rebind"} <= set(button.operations_with_evidence)
     assert "rollback" in button.operations_with_evidence
-    assert "invalidation" in button.pending_operations
+    assert "invalidation" in button.operations_with_evidence
     assert all("borrowed_ownership" in cell.pending_operations for cell in native)
     assert all("rollback" in cell.operations_with_evidence for cell in native)
     assert all(not cell.fully_certified for cell in native)
