@@ -483,6 +483,75 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(badge._psx_badge_font.metrics("linespace") > 0, True)
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
 
+    def test_switch_spinbox_select_sfle_geometry_and_state_preservation(self):
+        from psx import Switch, SpinBox, Select
+        calls = []
+
+        def view(tag, checked=False, value=2, selected="a"):
+            return Flex(
+                Switch(
+                    key="sw", checked=checked, label="Network",
+                    on_change=lambda v: calls.append(("switch", tag, v)),
+                    layout_width="80px", layout_height="32px",
+                    flex_basis="80px", flex_shrink=0,
+                ),
+                SpinBox(
+                    key="spin", value=value, min=0, max=9,
+                    on_change=lambda v: calls.append(("spin", tag, v)),
+                    layout_width="130px", layout_height="36px",
+                    flex_basis="130px", flex_shrink=0,
+                ),
+                Select(
+                    key="select", options=(
+                        {"label": "Alpha", "value": "a"},
+                        {"label": "Beta", "value": "b"},
+                    ), value=selected,
+                    on_change=lambda v: calls.append(("select", tag, v)),
+                    layout_width="110px", layout_height="34px",
+                    flex_basis="110px", flex_shrink=0,
+                ),
+                width="380px", height="80px", gap=6,
+                align_items="flex-start",
+            )
+
+        self.renderer.set_sfle_constraints(constraints(380, 80))
+        root = self.reconciler.render(view("before"))
+        sw, spin, select = widgets = [item.handle.widget for item in root.children]
+        self.assertIsInstance(sw, ttk.Frame)
+        self.assertIsInstance(spin, ttk.Frame)
+        self.assertIsInstance(select, ttk.Combobox)
+        self.assertEqual([rect(w) for w in widgets], [
+            (0, 0, 80, 32), (86, 0, 130, 36), (222, 0, 110, 34),
+        ])
+        self.assertTrue(all(w.winfo_manager() == "place" for w in widgets))
+        self.assertTrue(all(w.master is root.handle.widget for w in widgets))
+        sw._psx_canvas.event_generate("<ButtonRelease-1>")
+        spin._psx_parts[2].invoke()
+        select.current(1)
+        select.event_generate("<<ComboboxSelected>>")
+        self.assertEqual(calls, [
+            ("switch", "before", True),
+            ("spin", "before", 3),
+            ("select", "before", "b"),
+        ])
+
+        updated = self.reconciler.render(view("after", True, 3, "b"))
+        self.assertTrue(all(updated.children[i].handle.widget is w
+                            for i, w in enumerate(widgets)))
+        self.assertEqual(spin._psx_var.get(), "3")
+        self.assertEqual(select.get(), "Beta")
+        self.assertEqual(len(calls), 3)
+        sw._psx_canvas.event_generate("<ButtonRelease-1>")
+        spin._psx_parts[2].invoke()
+        select.current(0)
+        select.event_generate("<<ComboboxSelected>>")
+        self.assertEqual(calls[3:], [
+            ("switch", "after", False),
+            ("spin", "after", 4),
+            ("select", "after", "a"),
+        ])
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
     def test_unported_builtin_is_explicit_failure_not_native_layout_fallback(self):
         from psx import Switch
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
