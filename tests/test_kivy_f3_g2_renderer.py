@@ -83,6 +83,145 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_textarea_native_width_reflow_and_editing(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.clock import Clock
+            from kivy.core.window import Window
+            from kivy.uix.textinput import TextInput
+            from psx import Flex, TextArea, Button
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            def constraints(w=160, h=500):
+                return LayoutConstraints(AvailableSize(w, True),
+                                         AvailableSize(h, True))
+            def below():
+                return Button("Below", key="below", layout_width="50px",
+                              layout_height="20px", flex_basis="50px",
+                              flex_shrink=0)
+
+            words = (
+                "Alpha bravo charlie delta echo foxtrot golf hotel india "
+                "juliet kilo lima mike november oscar papa quebec romeo sierra tango."
+            )
+            renderer = KivyRenderer(
+                sfle_constraints=constraints(), engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            events = []
+            root = tree.render(Flex(
+                TextArea(value=words, key="edit", on_change=events.append,
+                         layout_width="100%", flex_shrink=0),
+                below(), direction="column", width="100%", height="100%",
+                align_items="flex-start",
+            ))
+            edit, button = [node.handle.widget for node in root.children]
+            assert isinstance(edit, TextInput) and edit.multiline
+            assert edit.parent is root.handle.widget
+            assert edit.size_hint == [None, None] or edit.size_hint == (None, None)
+            assert edit.text == words
+            assert edit.width == 160
+            wide_height = edit.height
+            assert wide_height > 0
+            assert button.y == 500 - wide_height - 20
+            edit.select_text(1, 6)
+            selection = edit.selection_text
+            assert selection
+            renderer.set_sfle_constraints(constraints(90))
+            renderer.commit_layout(root)
+            assert edit.width == 90
+            assert edit.height > wide_height, (wide_height, edit.height)
+            assert button.y == 500 - edit.height - 20
+            assert edit.text == words
+            assert edit.selection_text == selection
+            assert root.children[0].handle.widget is edit
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            renderer.set_sfle_constraints(constraints())
+            renderer.commit_layout(root)
+            assert edit.height == wide_height
+            assert button.y == 500 - wide_height - 20
+            assert events == []
+
+            previous_generation = renderer.sfle_result.generation
+            edit.text = words + " " + " ".join(["Native typing"] * 16)
+            Clock.tick()
+            Clock.tick()
+            assert renderer._sfle_textarea_error is None
+            assert renderer.sfle_result.generation > previous_generation
+            assert edit.height > wide_height
+            assert button.y == 500 - edit.height - 20
+            assert edit.parent is root.handle.widget
+            assert events == [edit.text], events
+            tree.unmount()
+            assert renderer.sfle_result is None
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
+    def test_textarea_css_height_remains_fixed_when_width_changes(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.clock import Clock
+            from kivy.uix.textinput import TextInput
+            from psx import Flex, TextArea, Button
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            def limits(w):
+                return LayoutConstraints(AvailableSize(w, True),
+                                         AvailableSize(100, True))
+            renderer = KivyRenderer(
+                sfle_constraints=limits(160), engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(Flex(
+                TextArea(value="One two three four five six seven eight nine",
+                         key="edit", layout_width="100%", layout_height="36px"),
+                Button("B", key="below", layout_width="40px", layout_height="20px"),
+                direction="column", width="100%", height="100%",
+                align_items="flex-start",
+            ))
+            editor, below = (node.handle.widget for node in root.children)
+            assert isinstance(editor, TextInput)
+            assert editor.height == 36
+            assert below.y == 100 - 36 - 20
+            renderer.set_sfle_constraints(limits(90))
+            renderer.commit_layout(root)
+            assert editor.width == 90 and editor.height == 36
+            assert below.y == 100 - 36 - 20
+            editor.text += " additional words repeated repeatedly"
+            Clock.tick()
+            Clock.tick()
+            assert editor.height == 36
+            assert below.y == 100 - 36 - 20
+            tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_native_root_and_sdl2_window_resize_automatically_reflow_sfle(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config

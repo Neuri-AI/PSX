@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 import unittest
 
-from psx import Button, Checkbox, Flex, Text, component, psx, use_state
+from psx import Button, Checkbox, Flex, Text, TextArea, component, psx, use_state
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.renderers.tkinter.tkinter import TkinterRenderer
@@ -192,6 +192,83 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(following)[1], wide_height)
         self.assertEqual(round(float(label.cget("wraplength"))), 160)
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
+    def test_textarea_wraps_at_real_sfle_width_and_preserves_edit_state(self):
+        words = ("Alpha bravo charlie delta echo foxtrot golf hotel india "
+                 "juliet kilo lima mike november oscar papa quebec romeo sierra tango.")
+        events = []
+        root = self.reconciler.render(Flex(
+            TextArea(value=words, key="edit", on_change=events.append,
+                     layout_width="100%", flex_shrink=0),
+            item("Below", "below", 30),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        editor, below = (child.handle.widget for child in root.children)
+        self.assertIsInstance(editor, tk.Text)
+        self.assertEqual(editor.winfo_manager(), "place")
+        self.assertEqual(editor.get("1.0", "end-1c"), words)
+        wide_height = rect(editor)[3]
+        self.assertGreater(wide_height, 0)
+        self.assertEqual(rect(below)[1], wide_height)
+        editor.mark_set("insert", "1.4")
+        editor.tag_add("sel", "1.1", "1.4")
+        initial_cursor = editor.index("insert")
+        initial_selection = editor.tag_ranges("sel")
+
+        self.renderer.set_sfle_constraints(constraints(90, 500))
+        self.renderer.commit_layout(root)
+        narrow_height = rect(editor)[3]
+        self.assertGreater(narrow_height, wide_height)
+        self.assertEqual(rect(editor)[2], 90)
+        self.assertEqual(rect(below)[1], narrow_height)
+        self.assertEqual(editor.index("insert"), initial_cursor)
+        self.assertEqual(editor.tag_ranges("sel"), initial_selection)
+        self.assertIs(root.children[0].handle.widget, editor)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        self.renderer.set_sfle_constraints(constraints(160, 500))
+        self.renderer.commit_layout(root)
+        self.assertEqual(rect(editor)[3], wide_height)
+        self.assertEqual(rect(below)[1], wide_height)
+        self.assertEqual(editor.get("1.0", "end-1c"), words)
+        self.assertEqual(events, [])
+
+        editor.insert("end-1c", " " + " ".join(["additional native text"] * 18))
+        self.host.update()
+        self.assertEqual(events, [editor.get("1.0", "end-1c")])
+        self.assertIsNone(self.renderer._sfle_textarea_error)
+        self.assertGreater(rect(editor)[3], wide_height)
+        self.assertEqual(rect(below)[1], rect(editor)[3])
+        self.assertIs(root.children[0].handle.widget, editor)
+
+    def test_textarea_explicit_height_and_callback_rebind(self):
+        old, new = [], []
+        root = self.reconciler.render(Flex(
+            TextArea(value="before", key="editor", on_change=old.append,
+                     layout_width="100%", layout_height="36px"),
+            item("Below", "below", 30),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        editor = root.children[0].handle.widget
+        self.assertEqual(rect(editor)[3], 36)
+        after = self.reconciler.render(Flex(
+            TextArea(value="before", key="editor", on_change=new.append,
+                     layout_width="100%", layout_height="36px"),
+            item("Below", "below", 30),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        self.assertIs(after.children[0].handle.widget, editor)
+        self.renderer.set_sfle_constraints(constraints(90, 100))
+        self.renderer.commit_layout(after)
+        self.assertEqual(rect(editor)[3], 36)
+        self.assertEqual(rect(after.children[1].handle.widget)[1], 36)
+        editor.insert("end-1c", "!")
+        self.host.update()
+        self.assertEqual(old, [])
+        self.assertEqual(new, [editor.get("1.0", "end-1c")])
+        self.assertEqual(rect(editor)[3], 36)
 
     def test_tk_scaling_does_not_multiply_native_place_rectangles(self):
         from psx.sfle.native_pixel_space import DevicePixelSpace
