@@ -335,6 +335,7 @@ class KivyRenderer:
         from psx.sfle.f3_resource_watch import ImageResourceWatch
         self._sfle_image_resource_watch = ImageResourceWatch()
         self._sfle_resource_poll_scheduled = False
+        self._sfle_resource_error: Exception | None = None
         self._sfle_invalidation_scheduled = False
         self._sfle_invalidation_lifetime = 0
         self._sfle_mounted_root = None
@@ -407,11 +408,17 @@ class KivyRenderer:
             widget._psx_pixmap_cache = None
             widget._psx_image_cache = None
             source = instance.node.props["source"]
-            self.update(instance.handle, {"source": source}, frozenset())
-            reload_image = getattr(widget, "reload", None)
-            if callable(reload_image):
-                reload_image()
-            self.request_sfle_invalidation("resource")
+            try:
+                self.update(instance.handle, {"source": source}, frozenset())
+                reload_image = getattr(widget, "reload", None)
+                if callable(reload_image):
+                    reload_image()
+                self._sfle_resource_error = None
+                self.request_sfle_invalidation("resource")
+            except Exception as error:
+                # Preserve the last committed geometry and keep watching;
+                # recreating a missing/invalid file can recover in place.
+                self._sfle_resource_error = error
         self._sfle_schedule_image_poll()
 
     def _sfle_schedule_image_poll(self) -> None:
