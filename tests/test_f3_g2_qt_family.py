@@ -1430,6 +1430,42 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                 self.reconciler.unmount()
 
 
+
+    def test_readback_race_restores_native_geometry_and_preserves_identity(self):
+        from unittest.mock import patch
+        import psx.sfle.f3_qt as bridge
+
+        root = self.reconciler.render(Flex(
+            button("First", "first", 40), button("Second", "second", 30),
+            width=160, height=80, gap=8, align_items="flex-start",
+        ))
+        widgets = tuple(child.handle.widget for child in root.children)
+        before = tuple(geometry(widget) for widget in widgets)
+        published = self.renderer.sfle_result
+        original_ports = bridge.SFLEAdapterPorts
+        injected = {"pending": True}
+
+        def race_ports(**kwargs):
+            read = kwargs["read_rectangles"]
+            def read_with_race():
+                data = read()
+                if injected["pending"]:
+                    injected["pending"] = False
+                    self.renderer._sfle_measurement_invalidations.request("resource")
+                return data
+            kwargs["read_rectangles"] = read_with_race
+            return original_ports(**kwargs)
+
+        with patch.object(bridge, "SFLEAdapterPorts", side_effect=race_ports):
+            with self.assertRaisesRegex(SFLEError, "Stale semantic invalidation during native readback"):
+                self.renderer.commit_layout(root)
+        self.assertEqual(tuple(geometry(widget) for widget in widgets), before)
+        self.assertIs(self.renderer.sfle_result, published)
+        self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, {"resource"})
+        self.renderer.commit_layout(root)
+        self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
+        self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
+
 if __name__ == "__main__":
     unittest.main()
 
