@@ -14,6 +14,10 @@
 - **[PSX Roadmap](../roadmap.md):**
   overall phase status, F3-G1–G5 scope, F4's responsive grid and the
   explicitly deferred CSS enhancements.
+  Its **Commit convention** section is the approved, binding agreement for
+  all remaining F3–F5 and subsequent PSX work: use English Conventional
+  Commits with subsystem scopes, reserve `sfle` for actual core changes,
+  and do not rewrite historical commit messages.
 - **[F2-to-F3 migration inventory](sfle-f2-migration-plan.md):**
   legacy Row/Column/Scroll ownership, native renderer migration surfaces
   and the F2-authorized ports carried into F3.
