@@ -23,6 +23,20 @@ OPERATIONS = (
 TRANSPARENT = frozenset({"Fragment"})
 LEGACY = frozenset({"Row", "Column"})
 EXTERNAL = frozenset({"Native"})
+# Complete G2 backlog for built-ins not yet admitted. A new registry entry
+# MUST be classified, otherwise CI fails rather than silently turning it red
+# or accidentally green when it is not part of the reviewed scope.
+UNPORTED_BY_BACKEND = MappingProxyType({
+    "qt": frozenset(),
+    "tk": frozenset({"Input", "ProgressBar"}),
+    "kivy": frozenset({"Input", "ProgressBar", "Checkbox"}),
+    "headless": frozenset({
+        "Checkbox", "Input", "TextArea", "Slider", "Spacer", "Divider",
+        "Image", "ProgressBar", "Radio", "RadioGroup", "Select", "Switch",
+        "Link", "Badge", "SpinBox", "Scroll", "Box",
+    }),
+})
+
 HEADLESS_PORTED = frozenset({"Flex", "Text", "Button"})
 # Full operation evidence must exist as tests (not only adapter method names).
 # Each entry names one test that actually exercises that operation on a real
@@ -79,6 +93,19 @@ class G2Cell:
 def g2_certification_matrix() -> tuple[G2Cell, ...]:
     """Enumerate every registry × backend cell with no implicit green status."""
     names = tuple(sorted(builtin_component_registry().snapshot()))
+    for backend in BACKENDS:
+        classified = (
+            set(G2_LEAF_TYPES.get(backend, HEADLESS_PORTED))
+            | TRANSPARENT | LEGACY | EXTERNAL
+            | set(UNPORTED_BY_BACKEND[backend])
+        )
+        unknown = set(names) - classified
+        stale = classified - set(names)
+        if unknown or stale:
+            raise ValueError(
+                f"G2 {backend} registry classification out of sync: "
+                f"unclassified={sorted(unknown)}, absent={sorted(stale)}."
+            )
     result: list[G2Cell] = []
     for backend in BACKENDS:
         allowed = G2_LEAF_TYPES.get(backend, HEADLESS_PORTED)
