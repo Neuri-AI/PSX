@@ -831,7 +831,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
                          Spacer, Divider, Image, ProgressBar, Radio,
                          RadioGroup, Select, Switch, Link, Badge, SpinBox,
                          Scroll)
-        from psx.core.vnode import Box)
+        from psx.core.vnode import Box
         from psx.core.vnode import create_element
         from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
         from pathlib import Path
