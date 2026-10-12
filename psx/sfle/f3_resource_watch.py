@@ -44,7 +44,9 @@ class ImageResourceWatch:
                     and instance.handle is not None
                     and not instance.disposed):
                 source = instance.node.props.get("source")
-                if file_signature(source) is not None:
+                if (isinstance(source, (str, Path)) and str(source)
+                        and "://" not in str(source)
+                        and not str(source).startswith(("qrc:", "atlas:"))):
                     identity = id(instance.handle)
                     prior = self._tracked.get(identity)
                     previous = (
