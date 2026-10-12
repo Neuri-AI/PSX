@@ -125,11 +125,13 @@ def test_resolved_function_components_do_not_insert_phantom_layout_boxes() -> No
     assert all(node.component != "Fragment" for node in prepared.snapshot.nodes)
 
 
-def test_scroll_is_fail_closed_until_explicit_native_viewport_binding() -> None:
-    with pytest.raises(SFLECapabilityError, match="Scroll viewport"):
-        _prepare(Flex(Scroll(Flex())))
-    # Core G1 accepts Scroll's explicit Flex, but the F3 bridge MUST NOT
-    # silently invent native scroll extents/layout until G2/G3 binds them.
+def test_scroll_is_structural_only_with_explicit_flex_root() -> None:
+    prepared = _prepare(Flex(Scroll(Flex())))
+    assert [n.type for n in prepared.snapshot.nodes] == ["Flex", "Flex", "Flex"]
+    # The Scroll host is retained as its own stable native identity.
+    assert [vnode.type for _, vnode in prepared.identities] == [
+        "Flex", "Scroll", "Flex",
+    ]
 
 
 def test_no_implicit_flex_root_is_created_for_nonflex_tree() -> None:

@@ -14,20 +14,20 @@ from psx.sfle.f3_native_coverage import (
     ("qt", frozenset({
         "Text", "Button", "Checkbox", "Input", "TextArea",
         "Slider", "Radio", "ProgressBar", "Select", "Image",
-        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "RadioGroup", "Box",
+        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "RadioGroup", "Box", "Scroll",
     })),
     ("tk", frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar", "Image",
-        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "Select", "RadioGroup", "Box",
+        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "Select", "RadioGroup", "Box", "Scroll",
     })),
     ("kivy", frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer", "Image",
-        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select", "Radio", "RadioGroup", "Box",
+        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select", "Radio", "RadioGroup", "Box", "Scroll",
     })),
 ])
 def test_capability_surface_explicit_and_not_all_native_widgets(backend, expected):
     assert G2_LEAF_TYPES[backend] == expected
-    assert "Scroll" not in expected
+    assert "Scroll" in expected
     assert "Row" not in expected
     assert "Column" not in expected
     assert "Native" not in expected

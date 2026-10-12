@@ -92,7 +92,7 @@ def _style(node: VNode) -> tuple[tuple[str, object], ...]:
             "row" if props["content_direction"] == "horizontal" else "column"
         )
         for axis in ("width", "height"):
-            if props[axis] is not None:
+            if props[axis] is not None and f"layout_{axis}" not in result:
                 result[axis] = f"{props[axis]}px"
         result["align_items"] = "flex-start"
     if node.kind is NodeKind.HOST and node.type in ("Box", "RadioGroup", "Divider"):
