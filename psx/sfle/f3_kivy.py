@@ -104,7 +104,11 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             and node_id not in external
             and g2_native_leaf_needs_measurement(source, backend="kivy")
         }
-        source = KivyMeasurementSource(leaf_widgets)
+        textarea_ids = frozenset(
+            node_id for node_id, vnode in prepared.identities
+            if vnode.kind is NodeKind.HOST and vnode.type == "TextArea"
+        )
+        source = KivyMeasurementSource(leaf_widgets, textarea_ids=textarea_ids)
         readings = []
         for node_id, widget in leaf_widgets.items():
             # Kivy computes texture_size lazily; force only intrinsic texture
@@ -147,7 +151,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             node_id: (lambda width, node_id=node_id: source.measure_width(node_id, width))
             for node_id, vnode in prepared.identities
             if node_id in automatic and vnode.kind is NodeKind.HOST
-            and vnode.type == "Text"
+            and vnode.type in ("Text", "TextArea")
         }
         for node_id, port in external.items():
             if node_id in automatic:

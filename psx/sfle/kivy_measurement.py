@@ -6,6 +6,7 @@ have completed before requesting a measurement.
 """
 from __future__ import annotations
 
+import math
 import threading
 from collections.abc import Mapping
 
@@ -16,9 +17,54 @@ from .native_measurement import NativeMeasurementPort
 
 
 class KivyMeasurementSource:
-    def __init__(self, widgets: Mapping[str, object]) -> None:
+    def __init__(
+        self, widgets: Mapping[str, object],
+        *, textarea_ids: frozenset[str] = frozenset(),
+    ) -> None:
         self._widgets = dict(widgets)
+        if not textarea_ids <= self._widgets.keys():
+            raise ValueError("TextArea measurement IDs must map to mounted Kivy controls.")
+        self._textarea_ids = textarea_ids
         self._owner_thread = threading.get_ident()
+
+    @staticmethod
+    def _textarea_metrics(widget: object, width: float | None) -> IntrinsicSizes:
+        """Measure multiline reflow using an isolated native Kivy TextInput.
+
+        TextInput has no label texture_size. Its own minimum_height is based
+        on real font glyphs, padding and the wrapped native _lines list.
+        The probe is never mounted, so measurement cannot change the live
+        editor's cursor, keyboard focus, selection or scroll position.
+        """
+        if width is not None and (
+            isinstance(width, bool) or not isinstance(width, (int, float))
+            or not math.isfinite(width) or width < 0
+        ):
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                            "Kivy TextArea needs a finite nonnegative content width.")
+        from kivy.uix.textinput import TextInput
+        kwargs = dict(
+            text=widget.text, multiline=True, font_name=widget.font_name,
+            font_size=widget.font_size, padding=list(widget.padding),
+            line_spacing=widget.line_spacing,
+            tab_width=widget.tab_width, do_wrap=widget.do_wrap,
+            password=widget.password, size_hint=(None, None),
+        )
+        # Reflow the probe's text using its own native glyph splitter. The
+        # explicit refresh is required because Kivy schedules text updates
+        # for a later Clock iteration, while SFLE needs a synchronous port.
+        probe = TextInput(**kwargs)
+        probe.width = float(width) if width is not None else 32768.0
+        probe._refresh_text_from_property()
+        height = float(probe.minimum_height)
+        natural = max(
+            (float(label.width) for label in probe._lines_labels),
+            default=0.0,
+        ) + float(probe.padding[0]) + float(probe.padding[2])
+        if not math.isfinite(height) or not math.isfinite(natural):
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                            "Kivy TextArea returned nonfinite intrinsic metrics.")
+        return IntrinsicSizes(natural, natural, height, height, natural, height)
 
     def is_ui_thread(self) -> bool:
         return threading.get_ident() == self._owner_thread
@@ -31,6 +77,9 @@ class KivyMeasurementSource:
         widget = self._widgets.get(request.node_id)
         if widget is None:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Kivy measurement node.")
+        if request.node_id in self._textarea_ids:
+            metrics = self._textarea_metrics(widget, None)
+            return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
         # texture_size is the measured pixel content for Kivy Label.
         # minimum_size is available on some Kivy layouts. A generic Widget's
         # size is a negotiated allocation, not a valid intrinsic measurement.
@@ -56,6 +105,8 @@ class KivyMeasurementSource:
         widget = self._widgets.get(node_id)
         if widget is None:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Kivy measurement node.", node_id)
+        if node_id in self._textarea_ids:
+            return self._textarea_metrics(widget, width)
         previous = getattr(widget, "text_size", None)
         changed = hasattr(widget, "text_size")
         try:

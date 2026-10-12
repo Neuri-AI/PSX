@@ -16,10 +16,10 @@ from psx.sfle.f3_native_coverage import (
         "Slider", "Radio", "ProgressBar", "Select",
     })),
     ("tk", frozenset({
-        "Text", "Button", "Checkbox", "Slider", "Radio", "ProgressBar",
+        "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar",
     })),
     ("kivy", frozenset({
-        "Text", "Button", "Checkbox", "Slider", "Spacer",
+        "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer",
     })),
 ])
 def test_capability_surface_explicit_and_not_all_native_widgets(backend, expected):

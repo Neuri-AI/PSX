@@ -115,7 +115,11 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         }
         # Let Tcl calculate requested sizes without giving it layout authority.
         renderer.root.update_idletasks()
-        source = TkMeasurementSource(leaf_widgets)
+        textarea_ids = frozenset(
+            node_id for node_id, vnode in prepared.identities
+            if vnode.kind is NodeKind.HOST and vnode.type == "TextArea"
+        )
+        source = TkMeasurementSource(leaf_widgets, textarea_ids=textarea_ids)
         readings = []
         for node_id in leaf_widgets:
             readings.append(source.measure(MeasurementRequest(
@@ -135,7 +139,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         dependent = {
             node_id: (lambda width, node_id=node_id: source.measure_width(node_id, width))
             for node_id, vnode in prepared.identities
-            if node_id in automatic and vnode.kind is NodeKind.HOST and vnode.type == "Text"
+            if node_id in automatic and vnode.kind is NodeKind.HOST
+            and vnode.type in ("Text", "TextArea")
         }
         for node_id, port in external.items():
             if node_id in automatic:
