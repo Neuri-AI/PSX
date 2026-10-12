@@ -344,6 +344,13 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     DiagnosticCode.INVALID_SNAPSHOT,
                     "Kivy native readback differs from SFLE projection by more than 1px.",
                 )
+            if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+                raise SFLEError(
+                    DiagnosticCode.INVALID_SNAPSHOT,
+                    "Stale semantic invalidation during native readback.",
+                )
+            if renderer._sfle_generation != generation:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
         except BaseException:
             for node_id, previous in previous_text_sizes.items():
                 widget = bindings[node_id].widget
