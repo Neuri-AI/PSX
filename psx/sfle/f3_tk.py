@@ -246,6 +246,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         )
         committer = NativeGeometryCommitter(
             GeometryBackend.TK, nodes, widgets, external_ports=external,
+            skip_unchanged=True,
         )
         before = {
             node_id: dict(widget.place_info())
