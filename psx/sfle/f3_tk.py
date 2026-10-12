@@ -321,6 +321,13 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             if error > 1.0 or physical_error_maximum > pixel_space.allowed_physical_error:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Tk native placement exceeds SFLE's 1px tolerance.")
+            if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+                raise SFLEError(
+                    DiagnosticCode.INVALID_SNAPSHOT,
+                    "Stale semantic invalidation during native readback.",
+                )
+            if renderer._sfle_generation != generation:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
         except BaseException:
             for node_id, old_wrap in previous_wraps.items():
                 if widgets[node_id].winfo_exists():
