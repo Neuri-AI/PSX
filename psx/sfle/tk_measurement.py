@@ -28,6 +28,7 @@ class TkMeasurementSource:
         if not image_ids <= self._widgets.keys():
             raise ValueError("Image measurement IDs must refer to mounted Tk controls.")
         self._image_ids = image_ids
+        self._owner_thread = threading.get_ident()
 
     @staticmethod
     def _image_metrics(widget: object) -> IntrinsicSizes:
@@ -48,7 +49,6 @@ class TkMeasurementSource:
             float(width), float(width), float(height), float(height),
             float(width), float(height),
         )
-        self._owner_thread = threading.get_ident()
 
     @staticmethod
     def _textarea_metrics(widget: object, width: float | None) -> IntrinsicSizes:
