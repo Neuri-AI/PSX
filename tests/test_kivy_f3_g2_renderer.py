@@ -1323,6 +1323,18 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                         assert renderer.sfle_result.generation > measured_generation, name
                         assert current.handle.widget is native_widget, name
                         assert not renderer._sfle_measurement_invalidations.pending, name
+                        if name == "Image":
+                            import os
+                            original_stamp = path.stat().st_mtime_ns
+                            os.utime(path, ns=(
+                                original_stamp + 1_000_000_000,
+                                original_stamp + 1_000_000_000))
+                            previous = renderer.sfle_result.generation
+                            renderer._sfle_poll_image_resources(
+                                renderer._sfle_invalidation_lifetime)
+                            Clock.tick()
+                            assert renderer.sfle_result.generation > previous, name
+                            assert current.handle.widget is native_widget, name
                         attempted = view(name, 80, True)
                         current_node = attempted.children[1]
                         from dataclasses import replace
