@@ -1750,3 +1750,68 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                                 timeout=150)
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+
+
+    def test_kivy_readback_race_rolls_back_real_widget_geometry(self):
+        script = textwrap.dedent(r"""
+            from unittest.mock import patch
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import Button, Flex
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.errors import SFLEError
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            import psx.sfle.f3_kivy as bridge
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(160, True), AvailableSize(80, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(Flex(
+                Button("First", key="first", layout_width="40px", layout_height="20px"),
+                Button("Second", key="second", layout_width="30px", layout_height="20px"),
+                width=160, height=80, gap=8, align_items="flex-start",
+            ))
+            widgets = tuple(child.handle.widget for child in root.children)
+            before = tuple((tuple(w.pos), tuple(w.size)) for w in widgets)
+            published = renderer.sfle_result
+            original_ports = bridge.SFLEAdapterPorts
+            injected = {"pending": True}
+
+            def race_ports(**kwargs):
+                read = kwargs["read_rectangles"]
+                def read_with_race():
+                    data = read()
+                    if injected["pending"]:
+                        injected["pending"] = False
+                        renderer._sfle_measurement_invalidations.request("resource")
+                    return data
+                kwargs["read_rectangles"] = read_with_race
+                return original_ports(**kwargs)
+
+            with patch.object(bridge, "SFLEAdapterPorts", side_effect=race_ports):
+                try:
+                    renderer.commit_layout(root)
+                except SFLEError as exc:
+                    assert "Stale semantic invalidation during native readback" in str(exc)
+                else:
+                    raise AssertionError("Stale Kivy geometry was committed")
+            assert tuple((tuple(w.pos), tuple(w.size)) for w in widgets) == before
+            assert renderer.sfle_result is published
+            assert renderer._sfle_measurement_invalidations.pending == {"resource"}
+            renderer.commit_layout(root)
+            assert not renderer._sfle_measurement_invalidations.pending
+            assert tuple(child.handle.widget for child in root.children) == widgets
+            tree.unmount()
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_ARGS"] = "1"
+        env["KIVY_NO_FILELOG"] = "1"
+        env.pop("KIVY_NO_CONSOLELOG", None)
+        result = subprocess.run([sys.executable, "-c", script],
+                                env=env, capture_output=True, text=True, timeout=150)
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
