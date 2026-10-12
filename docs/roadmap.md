@@ -147,7 +147,7 @@ component/backend pair; unsupported pairs produce explicit errors.
 offsets, clipping and scrollbars.
 **G4:** remove Row/Column builders, exports, registries, adapters, native
 portable layout duplication and stale examples without compatibility shims.
-**G5:** complete integration and cross-platform CI certification.
+**G5:** complete integration, cross-platform CI and **mandatory public functional behavior certification**. Audit the code-derived registry × backend × every advertised property, event, exposed method and meaningful interaction/edge-case scenario; require executed, behavior-specific native evidence with reviewed applicability and fail-closed receipts. No required gaps, skipped tests or false PASS statuses; certify the final immutable SHA. [Full G5 functional acceptance specification](architecture/sfle-f3-implementation.md#g5-functional--mandatory-exhaustive-public-behavior-audit).
 
 **CI and test execution policy (F3, mandatory):**
 [Smart CI selective routing and F2 workflow reuse](architecture/sfle-f3-ci-strategy.md).
