@@ -30,7 +30,7 @@ class QtImageAdapter:
         core = importlib.import_module(f"{binding}.QtCore")
 
         widget = widgets.QLabel()
-        widget.setAlignment(core.Qt.AlignCenter)
+        widget.setAlignment(getattr(core.Qt, 'AlignmentFlag', core.Qt).AlignCenter)
         widget.setAccessibleName(props["alt"])
         widget._psx_source = None
         widget._psx_pixmap_cache = None
@@ -92,8 +92,8 @@ class QtImageAdapter:
 
         scaled = pixmap.scaled(
             max(1, int(round(w))), max(1, int(round(h))),
-            core.Qt.IgnoreAspectRatio,
-            core.Qt.SmoothTransformation,
+            getattr(core.Qt, "AspectRatioMode", core.Qt).IgnoreAspectRatio,
+            getattr(core.Qt, "TransformationMode", core.Qt).SmoothTransformation,
         )
         canvas = gui.QPixmap(int(target_w), int(target_h))
         canvas.fill(gui.QColor(0, 0, 0, 0))
@@ -128,7 +128,8 @@ class QtImageAdapter:
         try:
             painted = pixmap.scaled(
                 max(1, round(w)), max(1, round(h)),
-                core.Qt.IgnoreAspectRatio, core.Qt.SmoothTransformation,
+                getattr(core.Qt, "AspectRatioMode", core.Qt).IgnoreAspectRatio,
+                getattr(core.Qt, "TransformationMode", core.Qt).SmoothTransformation,
             )
             painter.drawPixmap(round(x), round(y), painted)
         finally:
