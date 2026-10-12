@@ -918,3 +918,60 @@ class TkSFLEGeometryTests(unittest.TestCase):
                     self.assertFalse(widget.winfo_exists(), name)
             self.reconciler.unmount()
 
+
+    def test_all_callback_controls_keep_one_live_slot_after_reconciliation(self):
+        """Exercise per-control callback replacement against real mounted widgets."""
+        from psx import (Button, Input, TextArea, Checkbox, Slider, RadioGroup,
+                         Radio, Select, Switch, Link, SpinBox)
+        from psx.core.vnode import create_element
+        from psx.sfle.f3_g2_contracts import EVENTLESS
+
+        factories = {
+            "Button": (Button("Action"), "on_click", ()),
+            "Input": (Input(value="a"), "on_change", ("new",)),
+            "TextArea": (TextArea("a"), "on_change", ("new",)),
+            "Checkbox": (Checkbox(), "on_change", (True,)),
+            "Slider": (Slider(value=2), "on_change", (3.0,)),
+            "RadioGroup": (RadioGroup(Radio("a")), "on_change", ("a",)),
+            "Select": (Select(options=(
+                {"label": "A", "value": "a"},
+                {"label": "B", "value": "b"}), value="a"), "on_change", ("b",)),
+            "Switch": (Switch(), "on_change", (True,)),
+            "Link": (Link(label="Action"), "on_click", ()),
+            "SpinBox": (SpinBox(value=2), "on_change", (3,)),
+        }
+        from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+        native = set(G2_LEAF_TYPES["tk"]) | {"Flex"}
+        self.assertEqual(set(factories), native - set(EVENTLESS))
+        for name, (base, event, args) in factories.items():
+            with self.subTest(component=name):
+                calls = []
+                self.reconciler.unmount()
+                def view(callback):
+                    target = create_element(
+                        base.type, *base.children, key="case",
+                        **{**dict(base.props), event: callback,
+                           "layout_width": "70px", "layout_height": "28px",
+                           "flex_basis": "70px", "flex_shrink": 0},
+                    )
+                    return Flex(target, width=180, height=70,
+                                align_items="flex-start")
+                initial = self.reconciler.render(
+                    view(lambda *values: calls.append(("old", values))))
+                instance = initial.children[0]
+                native_handle = instance.handle.widget
+                slot = instance.event_slots[event][0]
+                slot.invoke(*args)
+                self.assertEqual(calls, [("old", args)], name)
+                updated = self.reconciler.render(
+                    view(lambda *values: calls.append(("new", values))))
+                self.assertIs(updated.children[0], instance)
+                self.assertIs(instance.handle.widget, native_handle)
+                self.assertIs(instance.event_slots[event][0], slot)
+                self.assertEqual(len(instance.event_slots), 1, name)
+                slot.invoke(*args)
+                self.assertEqual(calls, [("old", args), ("new", args)], name)
+                self.reconciler.unmount()
+                slot.invoke(*args)
+                self.assertEqual(len(calls), 2, name)
+
