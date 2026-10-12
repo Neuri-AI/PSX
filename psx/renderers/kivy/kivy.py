@@ -532,8 +532,14 @@ class KivyRenderer:
                 node = VNode(node.kind, node.type, node.key,
                              {key: val for key, val in node.props.items()
                               if key not in FLEX_ITEM_PROPS}, node.children)
-        # type: ignore[return-value]
-        return self._adapter_for(adapter_key(node)).create(self, node, parent)
+        # All adapter kinds, including custom ProgressBar adapters, must
+        # advertise the same intrinsic port before native measurement.
+        handle = self._adapter_for(adapter_key(node)).create(self, node, parent)
+        if self._sfle_constraints is not None and node.type in (
+            "Input", "Checkbox", "ProgressBar",
+        ):
+            handle.widget._psx_sfle_intrinsic_kind = node.type
+        return handle
 
     def _adapter_create(self, node: VNode, parent: object | None) -> KivyHandle:
         if node.kind is NodeKind.HOST and node.type == "Flex":
