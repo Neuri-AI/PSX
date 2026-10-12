@@ -675,9 +675,9 @@ class QtFamilySFLEParityTests(unittest.TestCase):
             ))
 
     def test_unported_widget_still_rejected_and_default_flex_fail_closed(self):
-        from psx import Divider
+        from psx import Switch
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
-            self.reconciler.render(Flex(Divider(), width=160, height=80))
+            self.reconciler.render(Flex(Switch(), width=160, height=80))
         legacy = RENDERER_CLASS(argv=["psx-qt-no-sfle"])
         second = Reconciler(legacy)
         with self.assertRaisesRegex(RendererCapabilityError, "F3-G2 SFLE geometry"):

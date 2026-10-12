@@ -14,12 +14,15 @@ from psx.sfle.f3_native_coverage import (
     ("qt", frozenset({
         "Text", "Button", "Checkbox", "Input", "TextArea",
         "Slider", "Radio", "ProgressBar", "Select", "Image",
+        "Link", "Badge", "Divider", "Spacer",
     })),
     ("tk", frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar", "Image",
+        "Link", "Badge", "Divider", "Spacer",
     })),
     ("kivy", frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer", "Image",
+        "Link", "Badge", "Divider",
     })),
 ])
 def test_capability_surface_explicit_and_not_all_native_widgets(backend, expected):
@@ -35,7 +38,7 @@ def test_flex_root_never_needs_intrinsic_measurement(backend):
     assert not g2_native_leaf_needs_measurement(Flex(), backend=backend)
 
 
-@pytest.mark.parametrize("kind", ["Checkbox", "Slider", "Spacer"])
+@pytest.mark.parametrize("kind", ["Checkbox", "Slider"])
 def test_kivy_nontextured_controls_require_both_pixel_dimensions(kind):
     constructors = {"Checkbox": Checkbox, "Slider": Slider, "Spacer": Spacer}
     builder = constructors[kind]
@@ -53,6 +56,19 @@ def test_kivy_nontextured_controls_require_both_pixel_dimensions(kind):
         builder(layout_width="20px", layout_height="12px"),
         backend="kivy",
     )
+
+
+def test_kivy_spacer_is_true_zero_intrinsic_not_native_default():
+    assert g2_native_leaf_needs_measurement(Spacer(), backend="kivy")
+
+
+@pytest.mark.parametrize("backend", ["qt", "tk", "kivy"])
+def test_divider_children_fail_closed_while_native_child_port_is_pending(backend):
+    from psx import Divider, Text
+    with pytest.raises(RendererCapabilityError, match="SFLE child-geometry port"):
+        g2_native_leaf_needs_measurement(
+            Divider(Text("Section")), backend=backend,
+        )
 
 
 def test_kivy_textured_and_measurable_items_require_real_measurement():
