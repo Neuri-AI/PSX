@@ -24,6 +24,8 @@ def test_c5_image_resource_revision_detected_without_vnode_or_handle_change(tmp_
     path.write_bytes(b"new-image-bytes")
     os.utime(path, ns=(first + 1_000_000_000, first + 1_000_000_000))
     assert watcher.changed() == (instance,)
+    assert watcher.changed() == (instance,), "Unacknowledged failed reload must retry"
+    watcher.acknowledge(instance)
     assert watcher.changed() == ()
     assert watcher.sync(root)
     assert watcher.changed() == ()
@@ -50,8 +52,28 @@ def test_c5_deleted_image_is_detected_and_recreation_retries(tmp_path):
     assert watcher.sync(root)
     path.unlink()
     assert watcher.changed() == (instance,)
+    watcher.acknowledge(instance)
     assert watcher.sync(root), "Keep watching a temporarily absent file"
     assert watcher.changed() == ()
     path.write_bytes(b"restored")
     assert watcher.changed() == (instance,)
+    watcher.acknowledge(instance)
     assert watcher.changed() == ()
+
+
+def test_c5_failed_image_decode_is_retried_without_another_file_change(tmp_path):
+    path = tmp_path / "decode.png"
+    path.write_bytes(b"version-1")
+    instance = SimpleNamespace(node=Image(str(path)), handle=object(),
+                               children=(), disposed=False)
+    root = SimpleNamespace(node=Flex(), handle=object(),
+                           children=(instance,), disposed=False)
+    watch = ImageResourceWatch()
+    assert watch.sync(root)
+    path.write_bytes(b"version-2-longer")
+    assert watch.changed() == (instance,)
+    # Simulate an exception from a toolkit's native image decoding path.
+    assert watch.sync(root)
+    assert watch.changed() == (instance,)
+    watch.acknowledge(instance)
+    assert watch.changed() == ()
