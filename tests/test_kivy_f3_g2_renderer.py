@@ -1467,6 +1467,10 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
 
             caller_parent = Widget()
             widget = Widget()
+            widget.size_hint = (0.5, 0.75)
+            widget.pos_hint = {"center_x": 0.5}
+            original_size_hint = tuple(widget.size_hint)
+            original_pos_hint = dict(widget.pos_hint)
             caller_parent.add_widget(widget)
             calls = []
             def measure(w, c):
@@ -1509,6 +1513,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             ORACLES["borrowed_ownership"](before, after)
             assert widget.parent is caller_parent
             assert widget in caller_parent.children
+            assert tuple(widget.size_hint) == original_size_hint
+            assert dict(widget.pos_hint) == original_pos_hint
             assert {"measure", "apply", "read"} <= set(calls)
             caller_parent.remove_widget(widget)
         """)
