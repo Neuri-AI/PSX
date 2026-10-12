@@ -55,7 +55,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert (tuple(bar.pos), tuple(bar.size)) == ((32, 60), (100, 20))
             assert backend.sfle_result.geometry_commit_error <= 1
             assert cb.size_hint == [None, None] or tuple(cb.size_hint) == (None, None)
-            cb.dispatch("on_release")
+            cb.active = True
             assert calls == [True], calls
             root = tree.render(view(True, 75, 110))
             assert root.children[0].handle.widget is cb
