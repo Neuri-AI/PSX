@@ -1290,3 +1290,83 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_all_callback_controls_rebind_without_native_remount(self):
+        """Actual SDL2 widgets retain their identity and stable callback slot."""
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import (Button, Input, TextArea, Checkbox, Slider, RadioGroup,
+                             Radio, Select, Switch, Link, SpinBox, Flex)
+            from psx.core.vnode import create_element
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+            from psx.sfle.f3_g2_contracts import EVENTLESS
+
+            callbacks = {
+                "Button": (Button("Action"), "on_click", ()),
+                "Input": (Input(value="a"), "on_change", ("new",)),
+                "TextArea": (TextArea("a"), "on_change", ("new",)),
+                "Checkbox": (Checkbox(), "on_change", (True,)),
+                "Slider": (Slider(value=2), "on_change", (3.0,)),
+                "RadioGroup": (RadioGroup(Radio("a")), "on_change", ("a",)),
+                "Select": (Select(options=(
+                    {"label": "A", "value": "a"},
+                    {"label": "B", "value": "b"}), value="a"), "on_change", ("b",)),
+                "Switch": (Switch(), "on_change", (True,)),
+                "Link": (Link(label="Action"), "on_click", ()),
+                "SpinBox": (SpinBox(value=2), "on_change", (3,)),
+            }
+            assert set(callbacks) == (set(G2_LEAF_TYPES["kivy"]) | {"Flex"}) - EVENTLESS
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(180, True), AvailableSize(70, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            for name, (base, event, args) in callbacks.items():
+                calls = []
+                tree.unmount()
+                def view(callback):
+                    item = create_element(
+                        base.type, *base.children, key="control",
+                        **{**dict(base.props), event: callback,
+                           "layout_width": "70px", "layout_height": "28px",
+                           "flex_basis": "70px", "flex_shrink": 0},
+                    )
+                    return Flex(item, width=180, height=70,
+                                align_items="flex-start")
+                try:
+                    first = tree.render(
+                        view(lambda *values: calls.append(("old", values))))
+                    instance = first.children[0]
+                    native_widget = instance.handle.widget
+                    slot = instance.event_slots[event][0]
+                    slot.invoke(*args)
+                    assert calls == [("old", args)], (name, calls)
+                    second = tree.render(
+                        view(lambda *values: calls.append(("new", values))))
+                    assert second.children[0] is instance, name
+                    assert instance.handle.widget is native_widget, name
+                    assert instance.event_slots[event][0] is slot, name
+                    assert len(instance.event_slots) == 1, name
+                    slot.invoke(*args)
+                    assert calls == [("old", args), ("new", args)], (name, calls)
+                    tree.unmount()
+                    slot.invoke(*args)
+                    assert len(calls) == 2, name
+                except Exception as error:
+                    raise AssertionError(f"Kivy event rebinding for {name}: {error}") from error
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_FILELOG"] = "1"
+        env["KIVY_NO_ARGS"] = "1"
+        env.pop("KIVY_NO_CONSOLELOG", None)
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            env=env, capture_output=True, text=True, timeout=150,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
