@@ -282,6 +282,20 @@ register_primitive(
 
 # -- renderer ---------------------------------------------------------------
 
+def _make_resize_filter(core, on_resize):
+    """A QObject tied to the root QWidget; no Qt layout owns geometry."""
+    event_type = getattr(getattr(core.QEvent, "Type", core.QEvent), "Resize")
+
+    class ResizeFilter(core.QObject):
+        def eventFilter(self, watched, event):
+            if event.type() == event_type:
+                size = event.size()
+                on_resize(watched, size.width(), size.height())
+            return False
+
+    return ResizeFilter()
+
+
 def _make_dispatcher(core):
     """Build a QObject bridge that queues work from any Python thread onto the Qt loop."""
     queued = getattr(getattr(core.Qt, "ConnectionType",
@@ -323,6 +337,13 @@ class QtRenderer:
         self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
         self._sfle_generation = 0
         self._sfle_in_commit = False
+        self._sfle_mounted_root = None
+        self._sfle_watched_widget = None
+        self._sfle_resize_filter = None
+        self._sfle_resize_pending = None
+        self._sfle_resize_scheduled = False
+        self._sfle_resize_epoch = 0
+        self._sfle_resize_error: Exception | None = None
         self.sfle_result: LayoutResult | None = None
         self._sfle_backend = "qt"
         self._binding = binding.lower()
@@ -388,14 +409,81 @@ class QtRenderer:
         self._sfle_constraints = constraints
         self._sfle_generation += 1
 
+    def _sfle_on_viewport_resize(self, watched, width: int, height: int) -> None:
+        if watched is not self._sfle_watched_widget or width <= 0 or height <= 0:
+            return
+        constraints = self._sfle_constraints
+        if constraints is None or self._sfle_mounted_root is None:
+            return
+        if (constraints.width.value, constraints.height.value) == (width, height):
+            return
+        self._sfle_resize_pending = (width, height)
+        if self._sfle_resize_scheduled:
+            return
+        self._sfle_resize_scheduled = True
+        epoch = self._sfle_resize_epoch
+        self._qtcore.QTimer.singleShot(0, lambda: self._sfle_flush_viewport_resize(epoch))
+
+    def _sfle_flush_viewport_resize(self, epoch: int) -> None:
+        self._sfle_resize_scheduled = False
+        if epoch != self._sfle_resize_epoch or self._sfle_mounted_root is None:
+            return
+        size = self._sfle_resize_pending
+        self._sfle_resize_pending = None
+        if size is None:
+            return
+        root = self._sfle_mounted_root
+        if root.disposed:
+            return
+        from psx.sfle.model import AvailableSize
+        try:
+            self.set_sfle_constraints(LayoutConstraints(
+                AvailableSize(size[0], True), AvailableSize(size[1], True),
+            ))
+            self.commit_layout(root)
+            self._sfle_resize_error = None
+        except Exception as exc:
+            # Exceptions must not cross Qt's C++ event callback boundary.
+            self._sfle_resize_error = exc
+            import logging
+            logging.getLogger(__name__).exception("Qt SFLE viewport resize failed")
+
     def commit_layout(self, root: object) -> None:
-        if self._sfle_constraints is not None:
-            from psx.sfle.f3_qt import commit_qt_sfle
-            commit_qt_sfle(self, root)
+        if self._sfle_constraints is None:
+            return
+        from psx.sfle.f3_qt import commit_qt_sfle
+        commit_qt_sfle(self, root)
+        # Subscribe only after the mounted SFLE root is fully certified.
+        # The observer watches the real root QWidget, not a nested Flex.
+        widget = root.native_handle().widget
+        if widget is not self._sfle_watched_widget:
+            if self._sfle_watched_widget is not None:
+                self._sfle_watched_widget.removeEventFilter(self._sfle_resize_filter)
+            self._sfle_resize_epoch += 1
+            self._sfle_resize_pending = None
+            self._sfle_resize_scheduled = False
+            self._sfle_resize_filter = _make_resize_filter(
+                self._qtcore, self._sfle_on_viewport_resize,
+            )
+            widget.installEventFilter(self._sfle_resize_filter)
+            self._sfle_watched_widget = widget
+        self._sfle_mounted_root = root
 
     def invalidate_layout(self) -> None:
         if self._sfle_constraints is not None:
             self._sfle_generation += 1
+            self._sfle_resize_epoch += 1
+            self._sfle_resize_pending = None
+            self._sfle_resize_scheduled = False
+            self._sfle_mounted_root = None
+            if self._sfle_watched_widget is not None:
+                # Qt may already have destroyed a borrowed/owned widget.
+                try:
+                    self._sfle_watched_widget.removeEventFilter(self._sfle_resize_filter)
+                except RuntimeError:
+                    pass
+            self._sfle_watched_widget = None
+            self._sfle_resize_filter = None
             self.sfle_result = None
 
     def _adapter_for(self, key: object):
