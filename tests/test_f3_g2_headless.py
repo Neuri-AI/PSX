@@ -333,3 +333,42 @@ def test_all_supported_headless_components_reconcile_without_remount() -> None:
         reconciler.unmount()
         ORACLES["unmount"](prior, observe(mounted=False))
         assert handle.destroyed, name
+
+
+def test_failed_headless_component_update_keeps_last_committed_node() -> None:
+    """A rejected native update must not poison the next reconciliation delta."""
+    from psx.core.vnode import create_element
+
+    renderer = new_renderer()
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Flex(
+        Button("Original", key="button", layout_width="70px",
+               layout_height="24px", on_click=lambda: None),
+        width=120, height=60,
+    ))
+    child = root.children[0]
+    handle = child.handle
+    previous = child.node
+    previous_rect = handle.geometry
+    callback_slot = child.event_slots["on_click"][0]
+
+    invalid = create_element(
+        "Button", key="button", label="Mutated", font_size=-1,
+        enabled=True, layout_width="70px", layout_height="24px",
+        on_click=lambda: None,
+    )
+    with pytest.raises(RendererCapabilityError):
+        reconciler.render(Flex(invalid, width=120, height=60))
+    assert child.node is previous
+    assert handle.props["label"] == "Original"
+    assert handle.geometry == previous_rect
+    assert child.event_slots["on_click"][0] is callback_slot
+
+    rendered = reconciler.render(Flex(
+        Button("Recovered", key="button", layout_width="70px",
+               layout_height="24px", on_click=lambda: None),
+        width=120, height=60,
+    ))
+    assert rendered.children[0].handle is handle
+    assert handle.props["label"] == "Recovered"
+    reconciler.unmount()
