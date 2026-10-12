@@ -165,4 +165,5 @@ def test_c2_operation_summary_exposes_all_missing_component_specific_evidence():
             assert amounts["pending"] >= 0
     assert coverage["kivy"]["borrowed_ownership"]["evidenced"] == 0
     assert coverage["qt"]["create"]["pending"] == 0
-    assert coverage["headless"]["create"]["pending"] == 0\n    assert coverage["headless"]["rollback"]["pending"] >= 1
+    assert coverage["headless"]["create"]["pending"] == 0
+    assert coverage["headless"]["rollback"]["pending"] >= 1
