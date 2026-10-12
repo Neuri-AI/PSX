@@ -1335,3 +1335,14 @@ intentionally unchanged even when intrinsic width changes.
 
 The implementation **must not be labeled C5 CLOSED** until each item
 is supported by specific executed evidence on an immutable CI SHA.
+
+### C5 execution checkpoint — 2026-10-12
+
+**Verified code revision:** [`487b724`](https://github.com/Neuri-AI/PSX/commit/487b72444067e7a7626d0b6189725f699faf6010), [required F3 selective workflow #38249572032 — SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38249572032).
+
+- **Native measurement selection:** `f3_native_cache.py` uses stable native widget identities plus declarative props, viewport constraints and measured width. Qt/Tk/Kivy bridge transactions preserve unchanged intrinsic results; a failed geometry commit never publishes partially updated cache entries. Specific native-loop assertions and the independent width-cache suite verify the behavior.
+- **External resource changes:** `f3_resource_watch.py` detects local file timestamp/size revisions, including deletion and recreation, without a VNode prop update; the Qt/Tk/Kivy owners poll/reload in the GUI thread, with safe lifetime fencing and last resource error tracking. Kivy also listens for texture replacement. Remote URLs, virtual resources and non-file resources require explicit host invalidation; the watcher deliberately does not pretend to monitor them.
+- **Platform events:** native Qt root and child font/palette/style/screen events, Tk theme event, and Kivy intrinsic texture and host notifications can trigger a coalesced layout transaction. Explicit `request_sfle_invalidation` is still the portable interface for changes not observable by a renderer.
+- **Per-component evidence:** every registered native component has an explicit `invalidation` contract and a component-iterating native-driver JUnit reference. The required core contract test rejects any missing coverage, and the existing backend receipt verification rejects failed/skipped/missing cases.
+
+**Outstanding for an unconditional C5 closure:** the contract must still demonstrate targeted **geometry application** (not merely selective intrinsic *measurement*) for unaffected subtrees, automatic coverage for other resource families where public contracts promise it, and explicit failure/retry and multitrigger races across all applicable backends. The CI success above does not independently prove these untested claims. C5 remains OPEN until they have native executed receipts.
