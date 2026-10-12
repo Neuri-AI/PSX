@@ -1219,3 +1219,20 @@ class TkSFLEGeometryTests(unittest.TestCase):
             self.assertEqual(rect(peer)[1], 24)
             self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
             self.assertFalse(self.renderer._sfle_image_resource_watch.changed())
+
+
+    def test_targeted_resource_remeasurement_does_not_measure_unaffected_tk_peer(self):
+        root = self.reconciler.render(Flex(
+            item("First", "first", 40), item("Second", "second", 30),
+            width=160, height=80, gap=8, align_items="flex-start",
+        ))
+        first, second = (child.handle.widget for child in root.children)
+        baseline = tuple(rect(widget) for widget in (first, second))
+        self.renderer.request_sfle_invalidation("resource", widget_id=id(first))
+        self.renderer.flush()
+        cache = self.renderer._sfle_native_intrinsic_cache
+        self.assertIn(id(first), cache.last_measured)
+        self.assertNotIn(id(second), cache.last_measured)
+        self.assertEqual(tuple(rect(widget) for widget in (first, second)), baseline)
+        self.assertIs(root.children[0].handle.widget, first)
+        self.assertIs(root.children[1].handle.widget, second)
