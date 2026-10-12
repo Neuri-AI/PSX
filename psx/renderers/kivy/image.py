@@ -39,6 +39,11 @@ class KivyImageAdapter:
         widget.disabled = not props["enabled"]
         widget._psx_props = props
         widget._psx_sfle_image = renderer._sfle_constraints is not None
+        widget._psx_sfle_invalidate = (
+            lambda: renderer.request_sfle_invalidation("resource")
+            if renderer._sfle_mounted_root is not None
+            and not renderer._sfle_in_commit else None
+        )
         widget.bind(texture=KivyImageAdapter._on_texture)
 
         # If the texture is already cached, apply the target size right away.
@@ -60,6 +65,9 @@ class KivyImageAdapter:
             widget.size = (target_w, target_h)
         # Under SFLE Image paints within the externally committed size.
         widget.fit_mode = _FIT_MODE[props["fit"]]
+        invalidate = getattr(widget, "_psx_sfle_invalidate", None)
+        if widget._psx_sfle_image and callable(invalidate):
+            invalidate()
 
     def update(self, renderer, handle, changed, removed):
         props = updated_image_props(handle.props, changed, removed)
@@ -82,5 +90,7 @@ class KivyImageAdapter:
 
     def destroy(self, renderer, handle):
         widget = handle.widget
+        widget.unbind(texture=KivyImageAdapter._on_texture)
+        widget._psx_sfle_invalidate = None
         if widget.parent is not None:
             widget.parent.remove_widget(widget)
