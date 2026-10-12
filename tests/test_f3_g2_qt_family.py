@@ -966,6 +966,98 @@ class QtFamilySFLEParityTests(unittest.TestCase):
 
 
 
+    def test_registered_builtin_lifecycle_keeps_real_native_identity(self):
+        """Exercise every native built-in family, not only Button."""
+        from psx import (Text, Button, Input, Checkbox, TextArea, Slider,
+                         Spacer, Divider, Image, ProgressBar, Radio,
+                         RadioGroup, Select, Switch, Link, Badge, SpinBox,
+                         Scroll, Box)
+        from psx.core.vnode import create_element
+        from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        import base64
+
+        png = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC"
+               "AAAAC0lEQVR42mP8/x8AAusB9Y9WdmkAAAAASUVORK5CYII=")
+        with TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "pixel.png"
+            image_path.write_bytes(base64.b64decode(png))
+
+            factories = {
+                "Text": lambda: Text("Before"),
+                "Button": lambda: Button("Before"),
+                "Input": lambda: Input(value="Before"),
+                "Checkbox": lambda: Checkbox(checked=False),
+                "TextArea": lambda: TextArea("Before"),
+                "Slider": lambda: Slider(value=30),
+                "Spacer": lambda: Spacer(),
+                "Divider": lambda: Divider(),
+                "Image": lambda: Image(str(image_path)),
+                "ProgressBar": lambda: ProgressBar(value=30),
+                "Radio": lambda: Radio("a", label="Before"),
+                "RadioGroup": lambda: RadioGroup(Radio("a", label="Before")),
+                "Select": lambda: Select(options=[("a", "A"), ("b", "B")]),
+                "Switch": lambda: Switch(checked=False),
+                "Link": lambda: Link(label="Before"),
+                "Badge": lambda: Badge(label="Before"),
+                "SpinBox": lambda: SpinBox(value=30),
+                "Scroll": lambda: Scroll(
+                    Flex(Text("Content", layout_width="30px",
+                              layout_height="15px"), width="40px", height="24px")
+                ),
+                "Box": lambda: Box(Text("Inside", layout_width="30px",
+                                       layout_height="15px")),
+                "Flex": lambda: Flex(Text("Inside", layout_width="30px",
+                                         layout_height="15px")),
+            }
+            native = set(G2_LEAF_TYPES["qt"]) | {"Flex"}
+            self.assertEqual(set(factories), native)
+
+            def built(name, width):
+                base = factories[name]()
+                return create_element(
+                    base.type, *base.children, key="item",
+                    **{**dict(base.props), "layout_width": f"{width}px",
+                       "layout_height": "24px", "flex_basis": f"{width}px",
+                       "flex_shrink": 0},
+                )
+
+            def view(name, width, reverse=False):
+                item = built(name, width)
+                peer = button("Peer", "peer", 20)
+                return Flex(*( (peer, item) if reverse else (item, peer) ),
+                            width=260, height=90, gap=8,
+                            align_items="flex-start")
+
+            for name in sorted(native):
+                with self.subTest(component=name):
+                    self.reconciler.unmount()
+                    root = self.reconciler.render(view(name, 60))
+                    instance = root.children[0]
+                    handle = instance.handle
+                    widget = handle.widget
+                    before = geometry(widget)
+                    self.assertEqual(before[2], 60, name)
+                    self.assertEqual(before[3], 24, name)
+                    updated = self.reconciler.render(view(name, 80, reverse=True))
+                    current = updated.children[1]
+                    self.assertIs(current, instance, name)
+                    self.assertIs(current.handle, handle, name)
+                    self.assertIs(current.handle.widget, widget, name)
+                    after = geometry(widget)
+                    self.assertEqual(after[2], 80, name)
+                    self.assertGreater(after[0], 0, name)
+                    self.assertLess(geometry(updated.children[0].handle.widget)[0],
+                                    after[0], name)
+                    self.reconciler.render(Flex(
+                        button("Peer", "peer", 20), width=260, height=90,
+                        align_items="flex-start",
+                    ))
+                    self.assertTrue(instance.disposed, name)
+            self.reconciler.unmount()
+
+
 if __name__ == "__main__":
     unittest.main()
 
