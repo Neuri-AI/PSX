@@ -1522,6 +1522,33 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
 
 
+
+    def test_child_style_invalidation_targets_native_intrinsic_without_global_dirty(self):
+        root = self.reconciler.render(Flex(
+            Text("First", key="first", layout_width="40px", layout_height="20px"),
+            Text("Second", key="second", layout_width="40px", layout_height="20px"),
+            width=160, height=80, gap=8, align_items="flex-start",
+        ))
+        first = root.children[0].handle.widget
+        second = root.children[1].handle.widget
+        state = self.renderer._sfle_measurement_invalidations
+
+        self.renderer._sfle_on_native_semantic_change(first, "font")
+        self.assertEqual(state.dirty_widgets, {id(first)})
+        self.assertFalse(state.invalidate_all)
+        self.renderer.application.processEvents()
+        self.renderer.application.processEvents()
+        self.assertIs(root.children[0].handle.widget, first)
+        self.assertIs(root.children[1].handle.widget, second)
+        self.assertFalse(state.needs_commit())
+
+        # Screen migration / device scale invalidates the whole projection.
+        self.renderer._sfle_on_native_semantic_change(second, "dpi")
+        self.assertTrue(state.invalidate_all)
+        self.renderer.application.processEvents()
+        self.renderer.application.processEvents()
+        self.assertFalse(state.needs_commit())
+
 if __name__ == "__main__":
     unittest.main()
 
