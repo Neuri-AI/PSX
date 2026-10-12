@@ -890,9 +890,9 @@ class TkSFLEGeometryTests(unittest.TestCase):
                                       key="item", **props)
 
             def view(name, width, reverse=False):
-                item = built(name, width)
+                target = built(name, width)
                 peer = item("Peer", "peer", 20)
-                return Flex(*( (peer, item) if reverse else (item, peer) ),
+                return Flex(*( (peer, target) if reverse else (target, peer) ),
                             width=160, height=80, gap=8,
                             align_items="flex-start")
 
@@ -920,13 +920,15 @@ class TkSFLEGeometryTests(unittest.TestCase):
                     # actual native widget or its last committed rectangle.
                     attempted = view(name, 80, reverse=True)
                     original = attempted.children[1]
-                    invalid = create_element(
-                        original.type, *original.children, key=original.key,
-                        **{**dict(original.props), "on_invalid": 1},
+                    from dataclasses import replace
+                    from types import MappingProxyType
+                    invalid = replace(
+                        original, props=MappingProxyType({
+                            **dict(original.props), "on_invalid": 1,
+                        }),
                     )
-                    forged = create_element(
-                        attempted.type, attempted.children[0], invalid,
-                        **dict(attempted.props),
+                    forged = replace(
+                        attempted, children=(attempted.children[0], invalid),
                     )
                     with self.assertRaises((TypeError, RendererCapabilityError)):
                         self.reconciler.render(forged)
