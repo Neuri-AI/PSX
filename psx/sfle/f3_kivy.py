@@ -52,6 +52,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
     try:
         generation = renderer._sfle_generation + 1
         renderer._sfle_generation = generation
+        invalidation_epoch = renderer._sfle_measurement_invalidations.epoch
         component_roots: dict[int, object] = {}
         handles: dict[int, object] = {}
 
@@ -293,6 +294,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                         "Kivy Scroll overflow offsets require F3-G3 viewport projection.",
                         node.node_id,
                     )
+        if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
         try:
             # F2 already validates the fixed-point grid and applies a pure
             # parent-relative bottom-left transform in precomputed order.
@@ -311,6 +314,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 widget = bindings[node_id].widget
                 widget.text_size = (boxes[node_id].content.width, None)
                 widget.texture_update()
+            if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation after native geometry.")
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Kivy geometry commit.")
             observed = ports.read_rectangles()
