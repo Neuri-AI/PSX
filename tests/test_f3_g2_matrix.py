@@ -85,14 +85,12 @@ def test_c1_all_registered_native_builtins_have_explicit_sfle_geometry_port(back
     )
 
 
-def test_c1_intrinsically_unmeasurable_kivy_widgets_fail_closed():
+def test_c1_kivy_controls_have_intrinsic_port_without_pixel_bounds():
     from psx import Input, Checkbox, ProgressBar
-    from psx.core.errors import RendererCapabilityError
     from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
     for constructor in (Input, Checkbox, ProgressBar):
-        with pytest.raises(RendererCapabilityError, match="explicit pixel"):
-            g2_native_leaf_needs_measurement(constructor(), backend="kivy")
-        assert not g2_native_leaf_needs_measurement(
+        assert g2_native_leaf_needs_measurement(constructor(), backend="kivy")
+        assert g2_native_leaf_needs_measurement(
             constructor(layout_width="84px", layout_height="24px"),
             backend="kivy",
         )

@@ -548,6 +548,8 @@ class KivyRenderer:
         else:
             handle = self._create_local(node)
         if self._sfle_constraints is not None:
+            if handle.node_type in ("Input", "Checkbox", "ProgressBar"):
+                handle.widget._psx_sfle_intrinsic_kind = handle.node_type
             # Widget itself must not accept an external Kivy layout's size hints.
             handle.widget.size_hint = (None, None)
             handle.widget.pos_hint = {}

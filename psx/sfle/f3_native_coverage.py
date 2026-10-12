@@ -32,7 +32,7 @@ G2_LEAF_TYPES = MappingProxyType({
         "Link", "Badge", "Divider", "Switch", "SpinBox", "Select", "Radio", "RadioGroup", "Box", "Scroll", "Checkbox", "ProgressBar", "Input",
     }),
 })
-KIVY_EXPLICIT_BOUNDS = frozenset({"Checkbox", "Slider", "ProgressBar", "Input"})
+KIVY_EXPLICIT_BOUNDS = frozenset({"Slider"})
 
 
 def g2_native_leaf_needs_measurement(node: VNode, *, backend: str) -> bool:

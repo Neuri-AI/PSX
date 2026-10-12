@@ -38,8 +38,8 @@ def test_flex_root_never_needs_intrinsic_measurement(backend):
     assert not g2_native_leaf_needs_measurement(Flex(), backend=backend)
 
 
-@pytest.mark.parametrize("kind", ["Checkbox", "Slider", "ProgressBar", "Input"])
-def test_kivy_nontextured_controls_require_both_pixel_dimensions(kind):
+@pytest.mark.parametrize("kind", ["Slider"])
+def test_kivy_slider_requires_both_pixel_dimensions(kind):
     constructors = {"Checkbox": Checkbox, "Slider": Slider, "ProgressBar": ProgressBar, "Input": Input, "Spacer": Spacer}
     builder = constructors[kind]
     for props in (
@@ -56,6 +56,13 @@ def test_kivy_nontextured_controls_require_both_pixel_dimensions(kind):
         builder(layout_width="20px", layout_height="12px"),
         backend="kivy",
     )
+
+
+@pytest.mark.parametrize("component", [Checkbox, Input, ProgressBar])
+def test_kivy_intrinsic_controls_allow_auto_and_percentage_layout(component):
+    for props in ({}, {"layout_width": "auto"},
+                  {"layout_width": "60%", "layout_height": "auto"}):
+        assert g2_native_leaf_needs_measurement(component(**props), backend="kivy")
 
 
 def test_kivy_spacer_is_true_zero_intrinsic_not_native_default():

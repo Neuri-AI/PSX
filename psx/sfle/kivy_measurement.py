@@ -118,6 +118,60 @@ class KivyMeasurementSource:
                             "Kivy TextArea returned nonfinite intrinsic metrics.")
         return IntrinsicSizes(natural, natural, height, height, natural, height)
 
+    @staticmethod
+    def _control_metrics(widget: object, kind: str) -> IntrinsicSizes:
+        """Get native glyph and theme metrics, never an assigned Widget.size.
+
+        Kivy Checkbox and ProgressBar have graphical skins without a CSS
+        intrinsic-width API. Their portable auto preference uses density-
+        scaled design minima; Checkbox's theme art is measured if available.
+        Input is measured from native CoreLabel glyph textures and padding.
+        """
+        from kivy.metrics import dp
+        if kind == "Input":
+            from kivy.core.text import Label as CoreLabel
+            candidates = (widget.text or "", widget.hint_text or "", "M")
+            text_width = 0.0
+            line_height = 0.0
+            for text in candidates:
+                label = CoreLabel(text=text, font_name=widget.font_name,
+                                  font_size=widget.font_size)
+                label.refresh()
+                text_width = max(text_width, float(label.texture.size[0]))
+                line_height = max(line_height, float(label.texture.size[1]))
+            left, top, right, bottom = [float(v) for v in widget.padding]
+            width = max(float(dp(72)), text_width + left + right + float(dp(12)))
+            height = max(float(dp(32)), line_height + top + bottom)
+        elif kind == "Checkbox":
+            # Graphic artwork is the closest native intrinsic hint.
+            # For themes that do not expose an image, adopt the platform's
+            # explicit density-scaled minimum interactive target.
+            from kivy.core.image import Image as CoreImage
+            sizes = []
+            for attribute in ("background_checkbox_normal", "background_checkbox_down"):
+                uri = getattr(widget, attribute, None)
+                if uri:
+                    try:
+                        texture = CoreImage(uri).texture
+                        if texture is not None:
+                            sizes.append(tuple(float(x) for x in texture.size))
+                    except (OSError, ValueError):
+                        pass
+            width = max([float(dp(32))] + [x for x, _ in sizes])
+            height = max([float(dp(32))] + [y for _, y in sizes])
+        elif kind == "ProgressBar":
+            # No content/text and no theme intrinsic-size interface in
+            # Kivy ProgressBar: use a named portable design minimum instead
+            # of the mutable default Widget.size (100, 100).
+            width, height = float(dp(120)), float(dp(20))
+        else:
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                            f"Unrecognized native control {kind!r}.")
+        if not math.isfinite(width) or not math.isfinite(height) or min(width, height) <= 0:
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                            "Non-finite Kivy control intrinsic size.")
+        return IntrinsicSizes(width, width, height, height, width, height)
+
     def is_ui_thread(self) -> bool:
         return threading.get_ident() == self._owner_thread
 
@@ -148,6 +202,12 @@ class KivyMeasurementSource:
         if request.node_id in self._textarea_ids:
             metrics = self._textarea_metrics(widget, None)
             return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
+        control_kind = getattr(widget, "_psx_sfle_intrinsic_kind", None)
+        if control_kind is not None:
+            return MeasuredBox(
+                request.node_id, self._control_metrics(widget, control_kind),
+                request.constraints, request.revision,
+            )
         if getattr(widget, "_psx_sfle_badge", False):
             width, height = widget._psx_natural_size
             metrics = IntrinsicSizes(width, width, height, height, width, height)
