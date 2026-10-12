@@ -875,19 +875,27 @@ class TkSFLEGeometryTests(unittest.TestCase):
             self.assertEqual(set(factories), native)
 
             def built(name, width):
+                if name == "Box":
+                    return create_element(
+                        "Box", Text("Inside", layout_width=f"{width}px",
+                                    layout_height="15px"), key="item",
+                    )
                 base = factories[name]()
-                return create_element(
-                    base.type, *base.children, key="item",
-                    **{**dict(base.props), "layout_width": f"{width}px",
-                       "layout_height": "24px", "flex_basis": f"{width}px",
-                       "flex_shrink": 0},
-                )
+                props = {**dict(base.props), "flex_basis": f"{width}px",
+                         "flex_shrink": 0}
+                if name == "Flex":
+                    props.update(width=f"{width}px", height="24px")
+                else:
+                    props.update(layout_width=f"{width}px",
+                                 layout_height="24px")
+                return create_element(base.type, *base.children,
+                                      key="item", **props)
 
             def view(name, width, reverse=False):
                 item = built(name, width)
-                peer = button("Peer", "peer", 20)
+                peer = item("Peer", "peer", 20)
                 return Flex(*( (peer, item) if reverse else (item, peer) ),
-                            width=260, height=90, gap=8,
+                            width=160, height=80, gap=8,
                             align_items="flex-start")
 
             for name in sorted(native):
@@ -911,7 +919,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
                     self.assertLess(rect(updated.children[0].handle.widget)[0],
                                     after[0], name)
                     self.reconciler.render(Flex(
-                        button("Peer", "peer", 20), width=260, height=90,
+                        item("Peer", "peer", 20), width=160, height=80,
                         align_items="flex-start",
                     ))
                     self.assertTrue(instance.disposed, name)
@@ -954,7 +962,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
                            "layout_width": "70px", "layout_height": "28px",
                            "flex_basis": "70px", "flex_shrink": 0},
                     )
-                    return Flex(target, width=180, height=70,
+                    return Flex(target, width=160, height=80,
                                 align_items="flex-start")
                 initial = self.reconciler.render(
                     view(lambda *values: calls.append(("old", values))))
