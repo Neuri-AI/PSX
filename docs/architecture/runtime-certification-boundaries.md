@@ -22,7 +22,7 @@ This document is normative for contributors, agents and CI.
 
 ## Existing technical debt
 
-The F3-G2 work introduced production-package modules containing certification-only concerns: `f3_g2_c4.py`, `f3_g2_c4_receipts.py`, `f3_g2_contracts.py`, `f3_g2_evidence.py`, `f3_g2_matrix.py`, `f3_g2_oracles.py` and `f3_g2_receipts.py`. These need an import- and CI-preserving migration to `tests/certification/`. Their existence is **not** permission to add new peers. `f3_native_coverage.py` may be consumed by runtime adapters; inspect its actual consumers and split mixed runtime/certification responsibilities rather than relocating it wholesale.
+The F3-G2 work introduced production-package modules containing certification-only concerns: `f3_g2_c4.py`, `f3_g2_c4_receipts.py`, `f3_g2_contracts.py`, `f3_g2_evidence.py`, `f3_g2_matrix.py`, `f3_g2_oracles.py` and `f3_g2_receipts.py`. The implementation of these seven modules was relocated to `tests/certification/`. The old paths currently contain only compatibility re-export shims so existing imports and `python -m` commands continue to work. Migrate remaining callers and CLI invocations to the canonical paths, then delete the shims and reduce the guard allowlist. Their existence is **not** permission to add new peers. `f3_native_coverage.py` may be consumed by runtime adapters; inspect its actual consumers and split mixed runtime/certification responsibilities rather than relocating it wholesale.
 
 ## Architectural guard
 
