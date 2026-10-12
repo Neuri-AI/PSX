@@ -812,14 +812,13 @@ class TkinterRenderer:
             raise RendererCapabilityError(
                 f"Native widget {declaration.name!r} received props but has no update adapter."
             )
-        # Tk widget masters are immutable: unlike Qt/Kivy, an existing
-        # borrowed child cannot be reparented into a different PSX Flex.
-        # Reject before applying props, binding events or moving geometry.
-        if (declaration.ownership is NativeOwnership.BORROWED
-                and declaration.widget.master is not master):
+        # Tk widget masters are immutable. Even a widget already parented to
+        # the PSX Flex would be destroyed together with that Flex; therefore
+        # borrowed ownership cannot be guaranteed. Fail closed BEFORE writes.
+        if declaration.ownership is NativeOwnership.BORROWED:
             raise RendererCapabilityError(
-                "Borrowed Tk widgets must already belong to the exact PSX "
-                "native parent; Tkinter does not support reparenting."
+                "Borrowed Tk widgets are unsupported: Tkinter cannot "
+                "reparent them or preserve their lifetime on PSX teardown."
             )
         widget = _build_native_widget(declaration, master)
         if not isinstance(widget, tk.Misc):
