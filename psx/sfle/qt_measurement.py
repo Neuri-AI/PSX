@@ -7,6 +7,9 @@ the widget's own runtime; mixing bindings is unsupported.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
+from importlib import import_module
+import math
 
 from .errors import DiagnosticCode, SFLEError
 from .measurement_plan import MeasurementRequest
@@ -17,9 +20,15 @@ from .native_measurement import NativeMeasurementPort
 class QtMeasurementSource:
     """Wrap live Qt widget size hints without transferring them across threads."""
 
-    def __init__(self, widgets: Mapping[str, object], *, qtcore: object) -> None:
+    def __init__(
+        self, widgets: Mapping[str, object], *, qtcore: object,
+        textarea_ids: frozenset[str] = frozenset(),
+    ) -> None:
         self._widgets = dict(widgets)
         self._qtcore = qtcore
+        if not textarea_ids <= self._widgets.keys():
+            raise ValueError("TextArea measurement IDs must refer to mounted widgets.")
+        self._textarea_ids = textarea_ids
 
     def is_ui_thread(self) -> bool:
         qthread = getattr(self._qtcore, "QThread", None)
@@ -64,13 +73,52 @@ class QtMeasurementSource:
         return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
 
     def measure_width(self, node_id: str, width: float) -> IntrinsicSizes:
-        """Re-evaluate heightForWidth after SFLE resolves leaf content width."""
+        """Remeasure wrapped native content at the *actual* SFLE leaf width.
+
+        QLabel exposes heightForWidth. QPlainTextEdit does not: its default
+        sizeHint is a scrolling viewport, not the height of its text. For a
+        TextArea with CSS auto-height, measure a detached QTextDocument using
+        its current text/font, leaving the live edit's cursor, focus, signals,
+        scrolling and document completely untouched.
+        """
         from .model import AvailableSize, LayoutConstraints
-        return self.measure(MeasurementRequest(
+        if not isinstance(width, (int, float)) or isinstance(width, bool) or (
+            not math.isfinite(width) or width < 0
+        ):
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                            "Qt width-dependent measurement requires a finite nonnegative width.")
+        baseline = self.measure(MeasurementRequest(
             node_id,
             LayoutConstraints(AvailableSize(width, True), AvailableSize(None, False)),
             0, 0,
         )).intrinsic
+        if node_id not in self._textarea_ids:
+            return baseline
+        widget = self._widgets[node_id]
+        gui = import_module(self._qtcore.__name__.rsplit(".", 1)[0] + ".QtGui")
+        document = gui.QTextDocument()
+        document.setDefaultFont(widget.font())
+        document.setDocumentMargin(widget.document().documentMargin())
+        option = widget.document().defaultTextOption()
+        wrap = getattr(gui.QTextOption, "WrapMode", gui.QTextOption)
+        edit_wrap = getattr(type(widget), "LineWrapMode", type(widget))
+        if widget.lineWrapMode() == edit_wrap.NoWrap:
+            option.setWrapMode(wrap.NoWrap)
+        else:
+            option.setWrapMode(wrap.WrapAtWordBoundaryOrAnywhere)
+        document.setDefaultTextOption(option)
+        document.setPlainText(widget.toPlainText())
+        frame = max(0, widget.frameWidth())
+        document.setTextWidth(max(1.0, float(width) - 2.0 * frame))
+        measured_height = float(document.size().height()) + 2.0 * frame
+        if not math.isfinite(measured_height) or measured_height < 0:
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                            "Qt TextArea returned invalid wrapped document height.")
+        height = float(math.ceil(measured_height))
+        return replace(
+            baseline, min_content_height=height,
+            max_content_height=height, preferred_height=height,
+        )
 
     def port(self) -> NativeMeasurementPort:
         return NativeMeasurementPort(self.is_ui_thread, self.measure)

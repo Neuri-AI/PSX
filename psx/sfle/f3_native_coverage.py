@@ -19,7 +19,7 @@ from psx.sfle.lengths import LengthKind, parse_length
 
 G2_LEAF_TYPES = MappingProxyType({
     "qt": frozenset({
-        "Text", "Button", "Checkbox", "Input",
+        "Text", "Button", "Checkbox", "Input", "TextArea",
         "Slider", "Radio", "ProgressBar", "Select",
     }),
     "tk": frozenset({

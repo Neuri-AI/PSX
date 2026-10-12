@@ -13,7 +13,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from psx import Button, Checkbox, Flex, Input, Native, ProgressBar, Text, component, psx, use_state
+from psx import Button, Checkbox, Flex, Input, Native, ProgressBar, Text, TextArea, component, psx, use_state
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.sfle.engine import PythonLayoutEngine
@@ -249,6 +249,107 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertEqual(label.height(), wide_height)
         self.assertEqual(next_button.y(), wide_y)
         self.assertIs(tree.children[0].handle.widget, label)
+
+    def test_textarea_auto_height_wraps_at_post_flex_width_without_remount(self):
+        content = (
+            "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
+            "kilo lima mike november oscar papa quebec romeo sierra tango "
+            "uniform victor whiskey xray yankee zulu."
+        )
+        changes = []
+        root = self.reconciler.render(Flex(
+            TextArea(
+                value=content, key="editor", on_change=changes.append,
+                layout_width="100%", flex_shrink=0,
+            ),
+            button("Below", "below", 45),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        editor = root.children[0].handle.widget
+        below = root.children[1].handle.widget
+        self.assertIsInstance(editor, qtwidgets.QPlainTextEdit)
+        self.assertIsNone(editor.layout())
+        self.assertIs(editor.parentWidget(), root.handle.widget)
+        self.assertEqual(editor.toPlainText(), content)
+        wide_height = editor.height()
+        self.assertEqual(editor.width(), 160)
+        self.assertEqual(below.y(), wide_height)
+
+        gui = importlib.import_module(f"{PACKAGE}.QtGui")
+        cursor = editor.textCursor()
+        cursor.setPosition(3)
+        cursor.setPosition(
+            12, getattr(gui.QTextCursor, "MoveMode", gui.QTextCursor).KeepAnchor,
+        )
+        editor.setTextCursor(cursor)
+        original_selection = (
+            editor.textCursor().anchor(), editor.textCursor().position(),
+        )
+
+        self.renderer.set_sfle_constraints(viewport(90, 300))
+        root.handle.widget.resize(90, 300)
+        self.renderer.commit_layout(root)
+        narrow_height = editor.height()
+        self.assertGreater(narrow_height, wide_height)
+        self.assertEqual(editor.width(), 90)
+        self.assertEqual(below.y(), narrow_height)
+        self.assertEqual(editor.toPlainText(), content)
+        self.assertEqual(
+            (editor.textCursor().anchor(), editor.textCursor().position()),
+            original_selection,
+        )
+        self.assertIs(root.children[0].handle.widget, editor)
+        self.assertIs(root.children[1].handle.widget, below)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
+        self.renderer.set_sfle_constraints(viewport(160, 300))
+        root.handle.widget.resize(160, 300)
+        self.renderer.commit_layout(root)
+        self.assertEqual(editor.height(), wide_height)
+        self.assertEqual(below.y(), wide_height)
+        self.assertEqual(editor.toPlainText(), content)
+        self.assertEqual(
+            (editor.textCursor().anchor(), editor.textCursor().position()),
+            original_selection,
+        )
+        self.assertEqual(changes, [])
+        editor.insertPlainText("!")
+        self.assertEqual(changes, [editor.toPlainText()])
+
+    def test_textarea_fixed_height_keeps_css_authority_and_rebinds_events(self):
+        previous, current = [], []
+        root = self.reconciler.render(Flex(
+            TextArea(
+                value="First value", key="editor", on_change=previous.append,
+                layout_width="100%", layout_height="36px",
+            ),
+            button("Below", "below", 45),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        editor = root.children[0].handle.widget
+        below = root.children[1].handle.widget
+        self.assertEqual((editor.height(), below.y()), (36, 36))
+        self.assertIsInstance(editor, qtwidgets.QPlainTextEdit)
+        self.reconciler.render(Flex(
+            TextArea(
+                value="First value", key="editor", on_change=current.append,
+                layout_width="100%", layout_height="36px",
+            ),
+            button("Below", "below", 45),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        self.assertIs(root.children[0].handle.widget, editor)
+        self.renderer.set_sfle_constraints(viewport(90, 80))
+        root.handle.widget.resize(90, 80)
+        self.renderer.commit_layout(root)
+        self.assertEqual((editor.width(), editor.height(), below.y()), (90, 36, 36))
+        self.assertEqual((previous, current), ([], []))
+        editor.insertPlainText("!")
+        self.assertEqual(previous, [])
+        self.assertEqual(current, [editor.toPlainText()])
 
     def test_native_root_resize_automatically_recomputes_sfle(self):
         class CountingEngine:

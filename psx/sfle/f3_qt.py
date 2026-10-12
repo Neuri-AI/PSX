@@ -95,7 +95,13 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             if source.kind is NodeKind.HOST and source.type != "Flex"
             and node_id not in external
         }
-        source = QtMeasurementSource(leaf_widgets, qtcore=renderer._qtcore)
+        textarea_ids = frozenset(
+            node_id for node_id, vnode in prepared.identities
+            if vnode.kind is NodeKind.HOST and vnode.type == "TextArea"
+        )
+        source = QtMeasurementSource(
+            leaf_widgets, qtcore=renderer._qtcore, textarea_ids=textarea_ids,
+        )
         if not source.is_ui_thread():
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                             "Qt intrinsic measurement requires widget owner thread.")
@@ -119,8 +125,10 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             node_id: (lambda width, node_id=node_id: source.measure_width(node_id, width))
             for node_id, vnode in prepared.identities
             if node_id in automatic and vnode.kind is NodeKind.HOST
-            and vnode.type == "Text"
-            and bindings[node_id].widget.hasHeightForWidth()
+            and (
+                (vnode.type == "Text" and bindings[node_id].widget.hasHeightForWidth())
+                or vnode.type == "TextArea"
+            )
         }
         for node_id, port in external.items():
             if node_id in automatic:
