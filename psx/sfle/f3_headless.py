@@ -82,7 +82,12 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
         }
         metrics: list[MeasuredBox] = []
         next_cache = {}
-        fresh_invalidations = renderer._sfle_measurement_invalidations.needs_commit()
+        invalidations = renderer._sfle_measurement_invalidations
+        # Global notifications invalidate every intrinsic entry. A targeted
+        # resource/content notification affects only its mounted native leaf;
+        # other cached siblings remain valid throughout this transaction.
+        invalidate_all = invalidations.invalidate_all
+        dirty_widgets = frozenset(invalidations.dirty_widgets)
         if renderer._sfle_measure is not None:
             for node_id, source in prepared.identities:
                 if source.kind is NodeKind.HOST and source.type == "Flex":
@@ -90,8 +95,8 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
                 handle_id = id(node_handles[node_id])
                 signature = (dict(source.props), constraints)
                 previous = renderer._sfle_intrinsic_cache.get(handle_id)
-                if (not fresh_invalidations and previous is not None
-                        and previous[0] == signature):
+                if (not invalidate_all and handle_id not in dirty_widgets
+                        and previous is not None and previous[0] == signature):
                     intrinsic = previous[1]
                 else:
                     intrinsic = renderer._sfle_measure(source)
