@@ -1779,27 +1779,23 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             widgets = tuple(child.handle.widget for child in root.children)
             before = tuple((tuple(w.pos), tuple(w.size)) for w in widgets)
             published = renderer.sfle_result
-            original_ports = bridge.SFLEAdapterPorts
-            injected = {"reads": 0}
+            original_error = bridge.DevicePixelSpace.error
+            injected = {"done": False}
 
-            def race_ports(**kwargs):
-                read = kwargs["read_rectangles"]
-                def read_with_race():
-                    data = read()
-                    injected["reads"] += 1
-                    if injected["reads"] == 2:
-                        renderer._sfle_measurement_invalidations.request("resource")
-                    return data
-                kwargs["read_rectangles"] = read_with_race
-                return original_ports(**kwargs)
+            def readback_error(space, expected, observed):
+                if not injected["done"]:
+                    injected["done"] = True
+                    renderer._sfle_measurement_invalidations.request("resource")
+                return original_error(space, expected, observed)
 
-            with patch.object(bridge, "SFLEAdapterPorts", side_effect=race_ports):
+            with patch.object(bridge.DevicePixelSpace, "error", readback_error):
                 try:
                     renderer.commit_layout(root)
                 except SFLEError as exc:
                     assert "Stale semantic invalidation during native readback" in str(exc)
                 else:
                     raise AssertionError("Stale Kivy geometry was committed")
+            assert injected["done"]
             assert tuple((tuple(w.pos), tuple(w.size)) for w in widgets) == before
             assert renderer.sfle_result is published
             assert renderer._sfle_measurement_invalidations.pending == {"resource"}
