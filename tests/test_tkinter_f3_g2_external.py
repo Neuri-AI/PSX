@@ -134,7 +134,7 @@ class TkExternalPortTests(unittest.TestCase):
             ownership=NativeOwnership.BORROWED,
             sfle_port=port([]),
         )
-        with self.assertRaisesRegex(RendererCapabilityError, "does not support reparenting"):
+        with self.assertRaisesRegex(RendererCapabilityError, "Borrowed Tk widgets are unsupported"):
             self.tree.render(Flex(
                 native_widget(declaration, key="borrowed",
                               layout_width="32px", layout_height="18px",
