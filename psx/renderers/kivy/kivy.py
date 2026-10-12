@@ -683,7 +683,20 @@ class KivyRenderer:
         # When the spacer sits at index 0, visible children start at index 1.
         offset = 1 if (spacer is not None and spacer.parent is layout) else 0
         for position in range(shared, len(desired)):
-            layout.add_widget(desired[position], index=position + offset)
+            widget = desired[position]
+            # An existing borrowed Native widget is still attached to its
+            # caller's parent when first mounted. Kivy refuses to add a widget
+            # that already has a parent, so transfer only the borrowed handle;
+            # its original parent is restored on remove/unmount.
+            if widget.parent is not None and widget.parent is not layout:
+                borrowed = next(
+                    (item for item in parent.children
+                     if item.widget is widget and _is_borrowed(item)), None)
+                if borrowed is None:
+                    raise RendererCapabilityError(
+                        "Cannot move an owned Kivy widget from a foreign parent.")
+                widget.parent.remove_widget(widget)
+            layout.add_widget(widget, index=position + offset)
 
     def destroy(self, handle: object) -> None:
         self._adapter_for(handle_adapter_key(handle)).destroy(self, handle)
