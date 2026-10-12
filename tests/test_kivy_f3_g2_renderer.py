@@ -1297,6 +1297,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                         ORACLES["create"](None, before_observation)
                         second = tree.render(view(name, 80, True))
                         current = second.children[1]
+                        unchanged_peer = second.children[0].handle.widget
+                        assert id(unchanged_peer) not in renderer._sfle_native_intrinsic_cache.last_measured, name
                         assert current is old, name
                         assert current.handle.widget is native_widget, name
                         assert (native_widget.width == 80 if name != "Box" else native_widget.width > 0), (name, native_widget.size)
