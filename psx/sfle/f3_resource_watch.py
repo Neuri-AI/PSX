@@ -68,6 +68,19 @@ class ImageResourceWatch:
                 continue
             current = file_signature(source)
             if current != previous:
-                self._tracked[identity] = (instance, source, current)
+                # Do not consume the revision until the native reload succeeds.
+                # A failed decode, missing resource or transient toolkit error
+                # must be retried on the next owner-thread poll.
                 modified.append(instance)
         return tuple(modified)
+
+    def acknowledge(self, instance: object) -> None:
+        """Commit a resource revision only after native reload and invalidation."""
+        handle = getattr(instance, "handle", None)
+        if handle is None or getattr(instance, "disposed", False):
+            return
+        identity = id(handle)
+        prior = self._tracked.get(identity)
+        if prior is None or prior[0] is not instance:
+            return
+        self._tracked[identity] = (instance, prior[1], file_signature(prior[1]))
