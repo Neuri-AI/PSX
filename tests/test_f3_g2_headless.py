@@ -589,3 +589,110 @@ def test_c5_failed_queued_measurement_retains_request_until_successful_retry() -
     assert not renderer._sfle_last_invalidation_error
     assert root.children[0].handle is native
     reconciler.unmount()
+
+
+def test_c5_targeted_invalidations_remeasure_only_dirty_native_handles() -> None:
+    """Resource events should not remeasure independent mounted siblings."""
+    calls: list[str] = []
+    widths = {"Alpha": 20, "Beta": 25, "Gamma": 30}
+
+    def measure(node):
+        if node.type != "Text":
+            return None
+        label = node.props["text"]
+        calls.append(label)
+        width = widths[label]
+        return IntrinsicSizes(width, width, 14, 14, width, 14)
+
+    renderer = new_renderer(measure_intrinsic=measure)
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Flex(
+        Text("Alpha", key="a", layout_width="40px", layout_height="18px"),
+        Text("Beta", key="b", layout_width="40px", layout_height="18px"),
+        Text("Gamma", key="c", layout_width="40px", layout_height="18px"),
+        width=120, height=60, align_items="flex-start",
+    ))
+    handles = tuple(child.handle for child in root.children)
+    assert calls == ["Alpha", "Beta", "Gamma"]
+    baseline = tuple(handle.geometry for handle in handles)
+    calls.clear()
+
+    renderer.request_sfle_invalidation("resource", widget_id=id(handles[1]))
+    renderer.request_sfle_invalidation("content", widget_id=id(handles[1]))
+    renderer.flush()
+    assert calls == ["Beta"], calls
+    assert tuple(child.handle for child in root.children) == handles
+    assert tuple(handle.geometry for handle in handles) == baseline
+    assert not renderer._sfle_measurement_invalidations.needs_commit()
+
+    calls.clear()
+    renderer.request_sfle_invalidation("dpi")
+    renderer.flush()
+    assert calls == ["Alpha", "Beta", "Gamma"]
+    reconciler.unmount()
+
+
+def test_c5_multi_trigger_invalidation_during_measurement_preserves_cache_and_retries() -> None:
+    """An invalidation racing a provisional measure cannot publish its cache."""
+    calls: list[str] = []
+    race = {"enabled": False, "fail": False}
+    holder: dict[str, HeadlessRenderer] = {}
+
+    def measure(node):
+        if node.type != "Text":
+            return None
+        label = node.props["text"]
+        calls.append(label)
+        if label == "Beta" and race["enabled"]:
+            race["enabled"] = False
+            state = holder["renderer"]._sfle_measurement_invalidations
+            state.request("font", widget_id=id(handles[0]))
+            state.request("dpi")
+        if label == "Beta" and race["fail"]:
+            raise RuntimeError("native measurement temporarily unavailable")
+        return IntrinsicSizes(22, 22, 14, 14, 22, 14)
+
+    renderer = new_renderer(measure_intrinsic=measure)
+    holder["renderer"] = renderer
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Flex(
+        Text("Alpha", key="a", layout_width="40px", layout_height="18px"),
+        Text("Beta", key="b", layout_width="40px", layout_height="18px"),
+        width=120, height=60, align_items="flex-start",
+    ))
+    handles = tuple(child.handle for child in root.children)
+    baseline = tuple(handle.geometry for handle in handles)
+    previous_cache = dict(renderer._sfle_intrinsic_cache)
+    previous_result = renderer.sfle_result
+    calls.clear()
+
+    race["enabled"] = True
+    renderer._sfle_measurement_invalidations.request(
+        "resource", widget_id=id(handles[1]),
+    )
+    with pytest.raises(SFLEError, match="Stale semantic invalidation"):
+        renderer.commit_layout(root)
+    assert calls == ["Beta"]
+    assert renderer._sfle_intrinsic_cache == previous_cache
+    assert renderer.sfle_result is previous_result
+    assert tuple(handle.geometry for handle in handles) == baseline
+    assert renderer._sfle_measurement_invalidations.pending == {
+        "resource", "font", "dpi",
+    }
+
+    race["fail"] = True
+    with pytest.raises(RuntimeError, match="temporarily unavailable"):
+        renderer.commit_layout(root)
+    assert renderer._sfle_intrinsic_cache == previous_cache
+    assert renderer.sfle_result is previous_result
+    assert renderer._sfle_measurement_invalidations.needs_commit()
+
+    race["fail"] = False
+    calls.clear()
+    renderer.commit_layout(root)
+    assert calls == ["Alpha", "Beta"]
+    assert not renderer._sfle_measurement_invalidations.needs_commit()
+    assert renderer.sfle_result.generation > previous_result.generation
+    assert tuple(child.handle for child in root.children) == handles
+    assert tuple(handle.geometry for handle in handles) == baseline
+    reconciler.unmount()
