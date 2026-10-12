@@ -1193,6 +1193,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                              Scroll, Flex)
             from psx.core.vnode import Box
             from psx.core.vnode import create_element
+            from psx.core.errors import RendererCapabilityError
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
             from psx.sfle.engine import PythonLayoutEngine
