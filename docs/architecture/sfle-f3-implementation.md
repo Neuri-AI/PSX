@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Qt TextArea width-aware native integration and edit-triggered reflow GREEN at `9de4ea1`; prior DPR/readback at `b0f589f`; G2 registry matrix still incomplete); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Qt, Tkinter and Kivy native TextArea width-aware sizing and edit-triggered reflow GREEN at `44888af`; prior DPI/readback at `b0f589f`; full G2 registry matrix still incomplete); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -593,3 +593,61 @@ Historical G1.2 incremental evidence is retained above.
   combinations; live font/theme/screen DPI invalidation; complex image and
   other intrinsic control support; complete OS/platform matrix. This
   increment alone does **not** close G2.
+ 
+## F3-G2 increment — Tkinter + Kivy TextArea native width reflow (2026-10-11)
+
+**State: G2 IN PROGRESS; F3 1/5 gates closed (20%).** This is one
+**combined** backend increment, not two independent certifications.
+
+- **G2 capabilities:** `psx/sfle/f3_native_coverage.py` admits
+  `TextArea` alongside the existing toolkit-native leaf controls in **both
+  Tkinter and Kivy**. Legacy `Input` remains explicitly unported in those
+  particular SFLE paths. Qt TextArea was previously certified on all four
+  bindings; neither Row/Column cleanup nor the G3 Scroll migration is
+  claimed here.
+- **Tk intrinsic size:** `TkMeasurementSource` asks a temporary real
+  `tk.Text` for the native `displaylines` count with the source widget's
+  text, font, wrap and paragraph spacing/padding. It uses Tk's native font
+  metrics for natural inline width and a new **post-flex leaf content-box
+  width** for wrapped block height. An empty Tcl display-line count is
+  correctly treated as zero transitions (one line). The measurement probe
+  is destroyed after each reading: the live editor's selection, insertion
+  cursor, content and native parent-relative `place()` are untouched.
+  The Tk GUI import remains lazy to preserve G1 backend isolation.
+- **Kivy intrinsic size:** `KivyMeasurementSource` uses a detached
+  native `TextInput(multiline=True)` with the real font, text, padding,
+  wrap and line spacing. Its synchronous native wrapped-line refresh and
+  `minimum_height` feed the existing immutable SFLE width-dependent
+  measurement path. No fake Label texture or Kivy `BoxLayout` sizing
+  substitutes for SFLE; the mounted editor remains intact.
+- **Live editing/lifecycle:** real Tk `<<Modified>>` events now use
+  `bind()`/`unbind()` instead of treating a virtual event as a Tk
+  `configure` option; they update the existing portable `on_change`
+  subscription. Tk and Kivy schedule coalesced deferred SFLE commits
+  after native edits, retain keyed widget identity and existing editor
+  state, and invalidate pending callbacks on explicit commit/disposal.
+  Programmatic TextArea updates do not fake user typing callbacks.
+- **Sizing and coordinate authority:** CSS fixed `layout_height` still
+  overrides auto height, as verified by real controls. The shared
+  `compute_width_dependent` coordinator retains bounded iterations,
+  current-generation checks, cross-backend geometry projection,
+  ≤1 native-pixel readback tolerance, and rollback on failures.
+  Tk uses top-left `place()`; Kivy retains its parent-relative bottom-left
+  projection.
+- **RED → GREEN evidence:** Initial executions uncovered Tk's valid
+  zero-transition display-line response and a Kivy test that incorrectly
+  set a **horizontal** flex basis in a **vertical** stack. Both were
+  corrected, rather than removing supported behaviors or bypassing tests.
+- **Certified source SHA:** [`44888af`](https://github.com/Neuri-AI/PSX/commit/44888af9a127d518f4d2ebe22ed4473d0a04e157).
+  [F3 selective #38207227555](https://github.com/Neuri-AI/PSX/actions/runs/38207227555)
+  **COMPLETED SUCCESS**, including **29 real Tk tests**, **7 real
+  SDL2 Kivy subprocess tests**, Qt bindings, SFLE core, Chromium oracle,
+  Rust/Python differential and native wheels on Windows/macOS/Linux where
+  selected. [G1 matrix #38207227565](https://github.com/Neuri-AI/PSX/actions/runs/38207227565)
+  **COMPLETED SUCCESS** on the same exact SHA (Python 3.10–3.13).
+- **Remaining G2 work:** certify the rest of the builtin
+  registry × backend × operation matrix, measured native image and
+  complex-control dimensions where admitted, borrowed/custom lifecycle
+  and failure modes, dynamic fonts/theme/screen DPI invalidation, plus
+  the required platform matrix. G2 remains open; F3 global progress
+  remains 1/5 official gates.
