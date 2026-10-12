@@ -1292,6 +1292,64 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         owner.deleteLater()
 
 
+    def test_external_native_signal_binding_is_removed_on_unmount(self):
+        from psx.core.native import NativeWidget, NativeOwnership
+        from psx.core.vnode import native_widget
+
+        widget = qtwidgets.QPushButton("Fire")
+        fired = []
+        declaration = NativeWidget(
+            renderer=BINDING, widget=widget,
+            ownership=NativeOwnership.BORROWED,
+            bind_event=lambda w, event, slot: self._native_clicked_subscription(
+                w, event, slot,
+            ),
+            sfle_port=SFLEExternalPort(
+                lambda w, c: IntrinsicSizes(10, 40, 10, 20, 40, 20),
+                lambda w, rect: w.setGeometry(
+                    round(rect.x), round(rect.y), round(rect.width),
+                    round(rect.height)),
+                lambda w: Rect(w.x(), w.y(), w.width(), w.height()),
+            ),
+        )
+        def view(callback):
+            return Flex(native_widget(
+                declaration, key="external", on_native_signal_clicked=callback,
+                layout_width="40px", layout_height="20px",
+                flex_basis="40px", flex_shrink=0,
+            ), width=160, height=80, align_items="flex-start")
+        # Native signal declarations use an exact event key (including ':').
+        def mount(callback):
+            return Flex(native_widget(
+                declaration, key="external", **{
+                    "on_native_signal:clicked": callback,
+                    "layout_width": "40px", "layout_height": "20px",
+                    "flex_basis": "40px", "flex_shrink": 0,
+                }),
+                width=160, height=80, align_items="flex-start",
+            )
+        root = self.reconciler.render(mount(lambda *a: fired.append("old")))
+        self.assertIs(root.children[0].handle.widget, widget)
+        widget.click()
+        self.assertEqual(fired, ["old"])
+        updated = self.reconciler.render(mount(lambda *a: fired.append("new")))
+        self.assertIs(updated.children[0].handle.widget, widget)
+        widget.click()
+        self.assertEqual(fired, ["old", "new"])
+        self.reconciler.unmount()
+        widget.click()
+        self.assertEqual(fired, ["old", "new"])
+
+    @staticmethod
+    def _native_clicked_subscription(widget, event, slot):
+        assert event == "on_native_signal:clicked"
+        callback = lambda *_: slot.invoke()
+        widget.clicked.connect(callback)
+        def dispose():
+            widget.clicked.disconnect(callback)
+        return dispose
+
+
 if __name__ == "__main__":
     unittest.main()
 
