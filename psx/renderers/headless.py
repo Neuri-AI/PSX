@@ -147,6 +147,9 @@ class HeadlessRenderer:
         if self._sfle_constraints is not None:
             from psx.sfle.f3_headless import commit_headless_sfle
             commit_headless_sfle(self, root)
+        self._sfle_measurement_invalidations.acknowledge(
+            self._sfle_measurement_invalidations.epoch)
+
             self._sfle_mounted_root = root
 
     def invalidate_layout(self) -> None:
