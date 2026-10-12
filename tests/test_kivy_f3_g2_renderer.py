@@ -1288,14 +1288,15 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                         assert native_widget.x > second.children[0].handle.widget.x, name
                         attempted = view(name, 80, True)
                         current_node = attempted.children[1]
-                        invalid = create_element(
-                            current_node.type, *current_node.children,
-                            key=current_node.key,
-                            **{**dict(current_node.props), "on_invalid": 1},
+                        from dataclasses import replace
+                        from types import MappingProxyType
+                        invalid = replace(
+                            current_node, props=MappingProxyType({
+                                **dict(current_node.props), "on_invalid": 1,
+                            }),
                         )
-                        forged = create_element(
-                            attempted.type, attempted.children[0], invalid,
-                            **dict(attempted.props),
+                        forged = replace(
+                            attempted, children=(attempted.children[0], invalid),
                         )
                         before_pos = tuple(native_widget.pos)
                         before_size = tuple(native_widget.size)
