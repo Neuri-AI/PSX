@@ -176,6 +176,59 @@ becomes F3 work.
 
 **Future CSS additions NOT part of F3:** SFLE-CSS-01 (full replaced-element aspect-ratio intrinsic sizing) and SFLE-CSS-02 (intrinsically auto-sized wrapped Flex) remain separately deferred above, without a scheduled milestone. Previously certified bounded subset remains supported; unsupported dependencies fail explicitly.
 
+## Pending — SFLE incremental mathematical layout solver (future optimization)
+
+**Status: PROPOSED / NOT STARTED.** Implement **after F3-G2-C5 closure** and
+separately from the G2-C6 native precision and G3/G4/G5 acceptance contracts.
+Assign a milestone when the current F3/F4 work is stabilized; this entry
+does not change the F3 exit criteria or assert that mathematical incrementality
+has already shipped.
+
+**Motivation:** PSX Core's Reconciler already performs incremental VNode/widget
+updates, and SFLE's native adapters can reuse unaffected intrinsic measurements
+and avoid identical native geometry writes. However, both Rust-primary and
+Python-fallback SFLE currently recompute the immutable **full mathematical
+layout snapshot** on a layout commit. The proposed work is to reuse valid
+subtree math where its inputs and dependencies are unchanged, while retaining
+SFLE as the sole authority for Flexbox geometry.
+
+**Proposed design:**
+
+1. Propagate precise dirty-node/layout-input revision information from PSX
+   reconciliation and native measurement invalidation into SFLE, without moving
+   Flexbox layout decisions into the Reconciler.
+2. Build a dependency graph for the mathematical solver (ancestors, sibling
+   flex-line interactions, intrinsic sizes, constraints, percentages, wrap,
+   min/max, root viewport, font/theme/DPI effects) and compute a conservative
+   invalidation closure. Reuse results only when all dependent inputs remain
+   valid; otherwise fall back to a full solve.
+3. Add deterministic reusable layout-subtree/line results with explicit cache
+   keys and transactional publication: no stale geometry on concurrent
+   invalidations, generation changes, exceptions or disposed VNodes.
+4. Implement the **same observable semantics in Rust and Python**. Do not
+   weaken browser parity, fixed-point saturation, 0.01px logical precision,
+   1px native tolerance, or Qt/Kivy/Tkinter/Headless readback contracts.
+5. Add complexity and performance baselines on representative large nested
+   trees (e.g., 1,000 nodes with one changed leaf). Instrument nodes/lines
+   recomputed, cache hits, solver time and memory; compare against the current
+   full-snapshot baseline and detect regressions.
+
+**Exit criteria:** unchanged tree with no relevant invalidation reuses
+mathematical results; localized updates recompute only a proven dependency
+closure; updates that affect siblings/ancestors correctly propagate and produce
+byte/precision-equivalent results to a fresh full solve in both engines;
+viewport/theme/DPI changes conservatively invalidate applicable dependencies;
+stale or failed rounds never publish caches; cross-backend and Chromium
+differential tests are GREEN on one immutable SHA; measurements demonstrate
+a meaningful performance gain without unacceptable memory/regression cost.
+Document fallback cases and maintain a full-compute reference implementation
+for certification.
+
+**Not this proposal:** PSX VDOM reconciliation, already-certified selective
+native intrinsic measurement, identical-rectangle write suppression, and
+C5's three increments remain separate, existing responsibilities. This is
+an **optional post-C5 SFLE solver optimization**, not a missing C5 guarantee.
+
 ## Pending — portable Flexbox/Grid layout system (proposal) (historical design proposal)
 
 **Architecture document:** [SFLE — Shared Flex Layout Engine](architecture/sfle.md).
