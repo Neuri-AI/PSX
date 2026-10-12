@@ -415,3 +415,37 @@ from rerunning product tests on a *verified* documentation-only PR delta.
 
 **This incremental routing repair does not close G2.** Full
 `registry × backend × operation` certification and G3–G5 remain outstanding.
+
+## G5 functional behavior audit — compulsory final CI gate
+
+This is the full **public behavior** certification specified in
+[the G5 implementation plan](sfle-f3-implementation.md). It is a
+*future required implementation*, not evidence that current CI already
+runs these checks.
+
+- Discover builtin component contracts, props/defaults, event signatures,
+  child policies and public methods from the source/registry. Produce
+  independently reviewed supported, unsupported and N/A backend matrices.
+- Require behavior-specific native execution for each applicable
+  `component × backend × property/event/method × scenario` cell; test
+  default, boundary, update, rejection, interaction, payload and teardown
+  as appropriate. Add interaction/pairwise cases and reproducible fuzz seeds.
+- Create JUnit-backed feature receipts and a published machine-readable
+  coverage artifact. Neither old C3 lifecycle receipts nor AST name
+  matches alone authorize a functional PASS.
+- Fail CI for an unclassified new component/prop/event/method, orphaned
+  manifest entry, missing required scenario, skipped or unsuccessful test,
+  missing artifact, incorrect N/A, or unverified native behavior. Every
+  `pending` applicable row blocks formal G5 closure.
+- Normal commits retain selective routing; explicit G5 release/certification
+  runs every functional suite and the entire cross-OS/Qt-binding/GUI/
+  Headless/Chromium/Rust/Python/Scroll/G4/wheel matrix on **one immutable
+  SHA**, even if the last commit touched only documentation.
+- Gate conclusion must check counts, artifact provenance, required job
+  completion and exact SHA rather than merely aggregating whichever jobs
+  happened to be scheduled. Never silently downgrade required failures.
+
+**Acceptance:** zero applicable functional feature gaps, zero failing or
+skipped mandatory behavior tests, reviewed exclusions and a complete
+reproducible final artifact. G5 remains NOT STARTED until its implementation
+and evidence exist.
