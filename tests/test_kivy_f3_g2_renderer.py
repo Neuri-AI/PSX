@@ -1919,3 +1919,65 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         result = subprocess.run([sys.executable, "-c", script],
                                 env=env, capture_output=True, text=True, timeout=150)
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
+
+    def test_live_kivy_image_file_revision_reflows_native_siblings(self):
+        script = textwrap.dedent(r"""
+            import struct
+            import tempfile
+            import zlib
+            from pathlib import Path
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.clock import Clock
+            from psx import Flex, Image, Button
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            def write_png(path, width, height):
+                def chunk(kind, value):
+                    return (struct.pack(">I", len(value)) + kind + value
+                            + struct.pack(">I", zlib.crc32(kind + value) & 0xffffffff))
+                row = b"\x00" + b"\xff\x33\x66\xff" * width
+                Path(path).write_bytes(
+                    b"\x89PNG\r\n\x1a\n"
+                    + chunk(b"IHDR", struct.pack(">2I5B", width, height, 8, 6, 0, 0, 0))
+                    + chunk(b"IDAT", zlib.compress(row * height))
+                    + chunk(b"IEND", b"")
+                )
+
+            limits = LayoutConstraints(AvailableSize(160, True), AvailableSize(80, True))
+            with tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / "revision.png"
+                write_png(path, 24, 12)
+                renderer = KivyRenderer(sfle_constraints=limits, engine=PythonLayoutEngine())
+                reconciler = Reconciler(renderer)
+                root = reconciler.render(Flex(
+                    Image(str(path), key="picture", fit="contain"),
+                    Button("Peer", key="peer", layout_width="30px", layout_height="20px"),
+                    direction="column", width=160, height=80, align_items="flex-start",
+                ))
+                image = root.children[0].handle.widget
+                peer = root.children[1].handle.widget
+                before = renderer.sfle_result.generation
+                assert image.height == 12
+                write_png(path, 24, 24)
+                renderer._sfle_poll_image_resources(renderer._sfle_invalidation_lifetime)
+                Clock.tick()
+                assert root.children[0].handle.widget is image
+                assert root.children[1].handle.widget is peer
+                assert renderer.sfle_result.generation > before
+                assert abs(image.height - 24) <= 1, image.height
+                assert not renderer._sfle_measurement_invalidations.pending
+                assert not renderer._sfle_image_resource_watch.changed()
+                reconciler.unmount()
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_ARGS"] = "1"
+        env["KIVY_NO_FILELOG"] = "1"
+        env.pop("KIVY_NO_CONSOLELOG", None)
+        result = subprocess.run([sys.executable, "-c", script],
+                                env=env, capture_output=True, text=True, timeout=150)
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
