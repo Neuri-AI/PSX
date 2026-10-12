@@ -102,6 +102,16 @@ def compute_width_dependent(
             final = engine.compute(current)
             if final.generation != snapshot.generation or current_generation() != snapshot.generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale SFLE final width-dependent result.")
+            boxes = dict(final.boxes)
+            for node_id in measure_width:
+                measured = next_measurements[node_id].constraints.width
+                if (node_id not in boxes or measured.value is None or
+                        abs(boxes[node_id].content.width - measured.value) > _TOLERANCE):
+                    raise SFLEError(
+                        DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                        "Final SFLE width differs from the certified native width measurement.",
+                        node_id,
+                    )
             return final
         current = replace(current, measurements=tuple(
             next_measurements[item.node_id] for item in current.measurements
@@ -110,6 +120,21 @@ def compute_width_dependent(
         DiagnosticCode.UNSUPPORTED_MEASUREMENT,
         "Width-dependent intrinsic sizes failed to converge within five SFLE passes.",
     )
+
+
+def seed_unconstrained_width_measurements(
+    snapshot: LayoutInput, ids: frozenset[str],
+) -> LayoutInput:
+    """Prevent placeholder root-width hints being mistaken for leaf measures."""
+    return replace(snapshot, measurements=tuple(
+        replace(
+            measured,
+            constraints=LayoutConstraints(
+                AvailableSize(None, False), AvailableSize(None, False),
+            ),
+        ) if measured.node_id in ids else measured
+        for measured in snapshot.measurements
+    ))
 
 
 def auto_height_measurement_ids(snapshot: LayoutInput) -> frozenset[str]:

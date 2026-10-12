@@ -63,5 +63,14 @@ class QtMeasurementSource:
         # text metrics instead; this port only provides a native size hint.
         return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
 
+    def measure_width(self, node_id: str, width: float) -> IntrinsicSizes:
+        """Re-evaluate heightForWidth after SFLE resolves leaf content width."""
+        from .model import AvailableSize, LayoutConstraints
+        return self.measure(MeasurementRequest(
+            node_id,
+            LayoutConstraints(AvailableSize(width, True), AvailableSize(None, False)),
+            0, 0,
+        )).intrinsic
+
     def port(self) -> NativeMeasurementPort:
         return NativeMeasurementPort(self.is_ui_thread, self.measure)
