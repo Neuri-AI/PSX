@@ -1312,6 +1312,14 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                         )
                         ORACLES["update"](before_observation, after_observation)
                         ORACLES["reorder"](before_observation, after_observation)
+                        # C5: each registered native family must re-commit
+                        # without replacing its Kivy widget.
+                        measured_generation = renderer.sfle_result.generation
+                        renderer.request_sfle_invalidation("font")
+                        Clock.tick()
+                        assert renderer.sfle_result.generation > measured_generation, name
+                        assert current.handle.widget is native_widget, name
+                        assert not renderer._sfle_measurement_invalidations.pending, name
                         attempted = view(name, 80, True)
                         current_node = attempted.children[1]
                         from dataclasses import replace
