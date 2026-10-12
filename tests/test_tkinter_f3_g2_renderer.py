@@ -1162,7 +1162,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
 
 
-def test_native_tk_geometry_invalidation_during_application_rolls_back(self):
+    def test_native_tk_geometry_invalidation_during_application_rolls_back(self):
         from unittest.mock import patch
         import psx.sfle.f3_tk as bridge
 
