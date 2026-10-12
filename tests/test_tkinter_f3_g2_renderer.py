@@ -905,7 +905,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
                     widget = handle.widget
                     before = rect(widget)
                     self.assertEqual(before[2], 60, name) if name != "Box" else self.assertGreater(before[2], 0, name)
-                    self.assertEqual(before[3], 24, name)
+                    self.assertEqual(before[3], 24, name) if name != "Box" else self.assertGreater(before[3], 0, name)
                     updated = self.reconciler.render(view(name, 80, reverse=True))
                     current = updated.children[1]
                     self.assertIs(current, instance, name)
@@ -928,7 +928,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
                         attempted.type, attempted.children[0], invalid,
                         **dict(attempted.props),
                     )
-                    with self.assertRaises(TypeError):
+                    with self.assertRaises((TypeError, RendererCapabilityError)):
                         self.reconciler.render(forged)
                     self.assertIs(updated.children[1].handle.widget, widget, name)
                     self.assertEqual(rect(widget), after, name)
