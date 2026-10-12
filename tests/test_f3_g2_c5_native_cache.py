@@ -61,3 +61,27 @@ def test_failed_native_measurement_transaction_never_publishes_partial_cache():
                            constraints=constraints, node_id="leaf", generation=2,
                            measure=lambda: (_ for _ in ()).throw(RuntimeError("host failed")))
     assert not cache.entries
+
+
+def test_c5_width_specific_measurements_cache_only_matching_width_and_props():
+    cache = NativeIntrinsicCache()
+    widget = object()
+    viewport = LayoutConstraints(AvailableSize(160, True), AvailableSize(90, True))
+    calls = []
+    def roundtrip(props, width, invalidated=False):
+        tx = cache.begin(invalidate_all=invalidated)
+        value = tx.read_width(
+            widget=widget, props=props, constraints=viewport, width=width,
+            measure=lambda: (calls.append(width), (width, 24))[1],
+        )
+        tx.publish()
+        return value
+    assert roundtrip({"text": "same"}, 80) == (80, 24)
+    assert roundtrip({"text": "same"}, 80) == (80, 24)
+    assert calls == [80]
+    assert roundtrip({"text": "same"}, 40) == (40, 24)
+    assert calls == [80, 40]
+    assert roundtrip({"text": "changed"}, 40) == (40, 24)
+    assert calls == [80, 40, 40]
+    assert roundtrip({"text": "changed"}, 40, invalidated=True) == (40, 24)
+    assert calls == [80, 40, 40, 40]
