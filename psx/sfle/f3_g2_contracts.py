@@ -14,7 +14,7 @@ from .f3_g2_oracles import ORACLES
 # Reviewer-approved semantic exclusions, not a blanket skip on failures.
 EVENTLESS = frozenset({
     "Text", "Spacer", "Divider", "ProgressBar", "Badge", "Image", "Box",
-    "Flex", "RadioGroup",
+    "Flex", "Radio", "Scroll", "RadioGroup",
 })
 # Component-owned callbacks are not defined on these decoration hosts.
 # RadioGroup has on_change and is therefore NOT eventless.
