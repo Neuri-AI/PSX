@@ -101,7 +101,9 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         leaf_widgets = {
             node_id: bindings[node_id].widget
             for node_id, source in prepared.identities
-            if source.kind is NodeKind.HOST and source.type != "Flex"
+            if source.kind is NodeKind.HOST
+            and source.type not in ("Flex", "Box", "RadioGroup")
+            and not (source.type == "Divider" and source.children)
             and node_id not in external
         }
         textarea_ids = frozenset(
@@ -120,6 +122,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             node_id: dict(vnode.props)
             for node_id, vnode in prepared.identities
             if vnode.kind is NodeKind.HOST and vnode.type == "Divider"
+            and not vnode.children
         }
         source = QtMeasurementSource(
             leaf_widgets, qtcore=renderer._qtcore,

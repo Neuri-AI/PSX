@@ -55,12 +55,11 @@ def g2_native_leaf_needs_measurement(node: VNode, *, backend: str) -> bool:
         raise RendererCapabilityError(
             f"F3-G2 {backend} SFLE geometry not certified for {node.type!r}."
         )
-    if node.type == "Divider" and node.children:
-        # Legacy Divider positions children independently of SFLE. It cannot
-        # participate in F3 until its full child-geometry port is available.
-        raise RendererCapabilityError(
-            "F3-G2 Divider with children requires the SFLE child-geometry port."
-        )
+    if node.type in ("Box", "RadioGroup") or (
+        node.type == "Divider" and node.children
+    ):
+        # A structural node is measured by SFLE as a container, not as a leaf.
+        return False
     if backend == "kivy" and node.type in KIVY_EXPLICIT_BOUNDS:
         for axis in ("layout_width", "layout_height"):
             raw = node.props.get(axis)

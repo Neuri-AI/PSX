@@ -110,7 +110,9 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         leaf_widgets = {
             node_id: widgets[node_id]
             for node_id, source in prepared.identities
-            if source.kind is NodeKind.HOST and source.type != "Flex"
+            if source.kind is NodeKind.HOST
+            and source.type not in ("Flex", "Box", "RadioGroup")
+            and not (source.type == "Divider" and source.children)
             and node_id not in external
         }
         # Let Tcl calculate requested sizes without giving it layout authority.
@@ -131,6 +133,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             node_id: dict(vnode.props)
             for node_id, vnode in prepared.identities
             if vnode.kind is NodeKind.HOST and vnode.type == "Divider"
+            and not vnode.children
         }
         source = TkMeasurementSource(
             leaf_widgets, textarea_ids=textarea_ids, image_ids=image_ids,

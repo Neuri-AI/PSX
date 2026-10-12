@@ -87,6 +87,25 @@ def _style(node: VNode) -> tuple[tuple[str, object], ...]:
         if "padding" in props:
             for side, value in zip(_SIDE_NAMES, _edges(props["padding"])):
                 result.setdefault(f"layout_padding_{side}", value)
+    if node.kind is NodeKind.HOST and node.type in ("Box", "RadioGroup", "Divider"):
+        if node.type == "Box":
+            result.setdefault("direction", "column")
+            result.setdefault("width", "100%")
+            result.setdefault("height", "100%")
+        elif node.type == "RadioGroup":
+            result["direction"] = (
+                "row" if props["orientation"] == "horizontal" else "column"
+            )
+            result["row_gap"] = props["spacing"]
+            result["column_gap"] = props["spacing"]
+            for side, value in zip(_SIDE_NAMES, _edges(props["padding"])):
+                result[f"layout_padding_{side}"] = value
+        else:
+            result["direction"] = (
+                "row" if props["orientation"] == "horizontal" else "column"
+            )
+            result["justify_content"] = "center"
+            result["align_items"] = "center"
     return tuple(sorted(result.items()))
 
 
@@ -130,6 +149,12 @@ def prepare_f3_snapshot(
             )
         seen.add(identifier)
         name = str(node.type) if node.kind is NodeKind.HOST else "Native"
+        # These hosts now participate as SFLE containers. Their native
+        # adapters retain painting/selection, never place PSX children.
+        if name in ("Box", "RadioGroup") or (
+            name == "Divider" and node.effective_children
+        ):
+            name = "Flex"
         nodes.append(LayoutNode(identifier, parent_id, name, _style(node.source)))
         origins.append((identifier, node.source))
         for child in node.effective_children:
