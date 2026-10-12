@@ -103,9 +103,19 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             node_id for node_id, vnode in prepared.identities
             if vnode.kind is NodeKind.HOST and vnode.type == "Image"
         )
+        spacer_ids = frozenset(
+            node_id for node_id, vnode in prepared.identities
+            if vnode.kind is NodeKind.HOST and vnode.type == "Spacer"
+        )
+        divider_nodes = {
+            node_id: dict(vnode.props)
+            for node_id, vnode in prepared.identities
+            if vnode.kind is NodeKind.HOST and vnode.type == "Divider"
+        }
         source = QtMeasurementSource(
             leaf_widgets, qtcore=renderer._qtcore,
             textarea_ids=textarea_ids, image_ids=image_ids,
+            spacer_ids=spacer_ids, divider_nodes=divider_nodes,
         )
         if not source.is_ui_thread():
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
