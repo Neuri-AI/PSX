@@ -336,6 +336,11 @@ class QtRenderer:
         self._sfle_constraints = sfle_constraints
         self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
         self._sfle_generation = 0
+        from psx.sfle.f3_g2_invalidation import MeasurementInvalidations
+        self._sfle_measurement_invalidations = MeasurementInvalidations()
+        self._sfle_invalidation_scheduled = False
+        self._sfle_invalidation_lifetime = 0
+        self._sfle_mounted_root = None
         self._sfle_in_commit = False
         self._sfle_mounted_root = None
         self._sfle_watched_widget = None
@@ -404,6 +409,36 @@ class QtRenderer:
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
+
+    def request_sfle_invalidation(self, reason: str) -> None:
+        """Coalesce semantic measurement changes on the backend owner UI thread.
+
+        The mounted instance is reused; the existing SFLE transaction remains
+        the only writer. Teardown invalidates queued work by epoch.
+        """
+        from psx.sfle.f3_g2_invalidation import MeasurementInvalidations
+
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
+        state = self._sfle_measurement_invalidations
+        state.request(reason)
+        if self._sfle_invalidation_scheduled:
+            return
+        self._sfle_invalidation_scheduled = True
+        scheduled_epoch = self._sfle_invalidation_lifetime
+
+        def flush() -> None:
+            if scheduled_epoch != self._sfle_invalidation_lifetime:
+                return
+            self._sfle_invalidation_scheduled = False
+            root = self._sfle_mounted_root
+            if root is None or root.disposed or not state.needs_commit():
+                return
+            epoch = state.epoch
+            self.commit_layout(root)
+            state.acknowledge(epoch)
+
+        self.schedule_ui(flush)
 
     def set_sfle_constraints(self, constraints: LayoutConstraints) -> None:
         """Update host viewport constraints; caller may re-commit mounted tree."""
@@ -516,6 +551,10 @@ class QtRenderer:
         self._sfle_mounted_root = root
 
     def invalidate_layout(self) -> None:
+        self._sfle_invalidation_lifetime += 1
+        self._sfle_invalidation_scheduled = False
+        self._sfle_measurement_invalidations.cancel()
+        self._sfle_mounted_root = None
         if self._sfle_constraints is not None:
             self._sfle_generation += 1
             self._sfle_resize_epoch += 1
