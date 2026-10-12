@@ -833,6 +833,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
                          Scroll)
         from psx.core.vnode import Box
         from psx.core.vnode import create_element
+        from psx.sfle.f3_g2_oracles import Observation, ORACLES
         from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
         from pathlib import Path
         from tempfile import TemporaryDirectory
@@ -906,6 +907,16 @@ class TkSFLEGeometryTests(unittest.TestCase):
                     before = rect(widget)
                     self.assertEqual(before[2], 60, name) if name != "Box" else self.assertGreater(before[2], 0, name)
                     self.assertEqual(before[3], 24, name) if name != "Box" else self.assertGreater(before[3], 0, name)
+                    previous_order = tuple(child.node.key for child in root.children)
+                    previous_state = (
+                        before,
+                        tuple(dict(child.node.props) for child in instance.children),
+                    )
+                    before_observation = Observation(
+                        native_identity=id(widget), mounted=True, rect=before,
+                        state=previous_state, order=previous_order,
+                    )
+                    ORACLES["create"](None, before_observation)
                     updated = self.reconciler.render(view(name, 80, reverse=True))
                     current = updated.children[1]
                     self.assertIs(current, instance, name)
@@ -916,6 +927,17 @@ class TkSFLEGeometryTests(unittest.TestCase):
                     self.assertGreater(after[0], 0, name)
                     self.assertLess(rect(updated.children[0].handle.widget)[0],
                                     after[0], name)
+                    current_state = (
+                        after,
+                        tuple(dict(child.node.props) for child in instance.children),
+                    )
+                    after_observation = Observation(
+                        native_identity=id(widget), mounted=True, rect=after,
+                        state=current_state,
+                        order=tuple(child.node.key for child in updated.children),
+                    )
+                    ORACLES["update"](before_observation, after_observation)
+                    ORACLES["reorder"](before_observation, after_observation)
                     # Invalid callback changes must fail before touching the
                     # actual native widget or its last committed rectangle.
                     attempted = view(name, 80, reverse=True)
@@ -934,12 +956,25 @@ class TkSFLEGeometryTests(unittest.TestCase):
                         self.reconciler.render(forged)
                     self.assertIs(updated.children[1].handle.widget, widget, name)
                     self.assertEqual(rect(widget), after, name)
+                    ORACLES["rollback"](
+                        after_observation, Observation(
+                            native_identity=id(widget), mounted=True,
+                            rect=after, state=current_state,
+                            order=after_observation.order, mutation_failed=True,
+                        ),
+                    )
                     self.reconciler.render(Flex(
                         item("Peer", "peer", 20), width=160, height=80,
                         align_items="flex-start",
                     ))
                     self.assertTrue(instance.disposed, name)
                     self.assertFalse(widget.winfo_exists(), name)
+                    ORACLES["unmount"](
+                        after_observation, Observation(
+                            native_identity=id(widget), mounted=False,
+                            rect=after, state=current_state, disposed=True,
+                        ),
+                    )
             self.reconciler.unmount()
 
 
