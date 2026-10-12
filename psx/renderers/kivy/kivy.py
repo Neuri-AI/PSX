@@ -697,8 +697,13 @@ class KivyRenderer:
         if spec is not None and spec.on_destroy is not None:
             spec.on_destroy(widget)
         if _is_borrowed(target):
-            if target.original_parent is not None and widget.parent is not target.original_parent:
-                target.original_parent.add_widget(widget)
+            if widget.parent is not target.original_parent:
+                # Kivy disallows adding a widget which still has a parent.
+                # PSX owns only the temporary placement, never the instance.
+                if widget.parent is not None:
+                    widget.parent.remove_widget(widget)
+                if target.original_parent is not None:
+                    target.original_parent.add_widget(widget)
             return
         if widget.parent is not None:
             widget.parent.remove_widget(widget)
