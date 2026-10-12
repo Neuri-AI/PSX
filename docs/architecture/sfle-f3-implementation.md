@@ -1230,6 +1230,9 @@ G2 remains OPEN; no scope from G3/G4/G5 is silently absorbed.
 
 ## F3-G2-C4 — external/native ownership and resource certification CLOSED (2026-10-12)
 
+Developer-facing explanation and examples: [Native widget ownership and borrowing](../guides/native-widget-ownership.md).
+
+
 **C4: CLOSED; C5 and C6 remain OPEN.** C4 certifies the documented
 admissible `Native` and custom adapter ownership contracts, not every
 unbounded third-party toolkit widget or an unsupported capability.
