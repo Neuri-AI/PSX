@@ -1,0 +1,39 @@
+name: Commit subject clarity
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  subject:
+    name: Validate latest commit subject
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reject milestone-only and generic commit subjects
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const sha = context.payload.pull_request?.head?.sha || context.sha;
+            const {data: commit} = await github.rest.repos.getCommit({owner, repo, ref: sha});
+            const subject = commit.commit.message.split(/\r?\n/, 1)[0];
+            const conventional = /^(feat|fix|test|refactor|perf|docs|ci|chore|build|style|revert)(\([a-z][a-z0-9-]*\))?!?:\s+\S.+$/;
+            if (!conventional.test(subject)) {
+              core.setFailed('Expected an English Conventional Commit with a specific subject: ' + subject);
+              return;
+            }
+            const description = subject.replace(/^[^:]+:\s+/, '').trim();
+            const milestone = /\b(?:F[1-9]\d*|G[1-9]\d*|C[1-9]\d*)(?:[-./](?:F[1-9]\d*|G[1-9]\d*|C[1-9]\d*))*\b/gi;
+            const semantic = description.replace(milestone, '').replace(/[\s:—,()[\]-]+/g, ' ').trim().toLowerCase();
+            const generic = /^(?:(?:complete|finish|close|certify|implement|update|document|add)\s+)*(?:phase|gate|block|milestone|work|implementation|progress|documentation|docs|tests?|certification|evidence|matrix)?$/;
+            const milestoneScope = /\((?:f\d+|g\d+|c\d+|(?:f\d+-)?g\d+-c\d+)\)/i;
+            if (milestoneScope.test(subject) || !semantic || generic.test(semantic)) {
+              core.setFailed('Describe the actual behavior or artifact, not a phase/gate/block: ' + subject);
+              return;
+            }
+            core.info('Descriptive Conventional Commit subject: ' + subject);
