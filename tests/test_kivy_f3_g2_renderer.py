@@ -1241,13 +1241,19 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 )
                 tree = Reconciler(renderer)
                 def item(name, width):
+                    if name == "Box":
+                        return create_element(
+                            "Box", Text("Inside", layout_width=f"{width}px",
+                                        layout_height="15px"), key="item")
                     base = factories[name]()
-                    return create_element(
-                        base.type, *base.children, key="item",
-                        **{**dict(base.props), "layout_width": f"{width}px",
-                           "layout_height": "24px",
-                           "flex_basis": f"{width}px", "flex_shrink": 0},
-                    )
+                    props = {**dict(base.props), "flex_basis": f"{width}px",
+                             "flex_shrink": 0}
+                    if name == "Flex":
+                        props.update(width=f"{width}px", height="24px")
+                    else:
+                        props.update(layout_width=f"{width}px", layout_height="24px")
+                    return create_element(base.type, *base.children,
+                                          key="item", **props)
                 def view(name, width, reverse=False):
                     target = item(name, width)
                     peer = Button("Peer", key="peer", layout_width="20px",
