@@ -1892,12 +1892,16 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             before = tuple((tuple(w.pos), tuple(w.size)) for w in widgets)
             published = renderer.sfle_result
             original_committer = bridge.NativeGeometryCommitter
+            injected = {"done": False}
+        injected = {"done": False}
 
             def interrupted_committer(*args, **kwargs):
                 apply = original_committer(*args, **kwargs)
                 def fail_after_application(result):
                     apply(result)
-                    renderer._sfle_measurement_invalidations.request("dpi")
+                    if not injected["done"]:
+                        injected["done"] = True
+                        renderer._sfle_measurement_invalidations.request("dpi")
                 return fail_after_application
 
             with patch.object(bridge, "NativeGeometryCommitter", side_effect=interrupted_committer):
