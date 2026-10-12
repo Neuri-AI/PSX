@@ -190,9 +190,10 @@ def test_external_port_never_changes_widget_ownership_during_measure_and_read():
     decl = NativeWidget(renderer="pyside6", widget=host,
                         ownership=NativeOwnership.BORROWED, sfle_port=port())
     before = Observation(id(host), True, (2, 3, 15, 10), owner="caller")
-    measured = measure_external(port(), host, constraints())
+    measured = measure_external(port(), host, constraints(), "native", 1)
     assert measured is not None
-    assert read_external(port(), host) == Rect(2, 3, 15, 10)
+    assert measured.node_id == "native"
+    assert read_external(port(), host, "native") == Rect(2, 3, 15, 10)
     after = Observation(id(host), False, (2, 3, 15, 10),
                         owner="caller", disposed=host.destroyed)
     ORACLES["borrowed_ownership"](before, after)
