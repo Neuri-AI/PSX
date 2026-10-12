@@ -266,6 +266,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             GeometryBackend.KIVY, nodes,
             {node_id: handle.widget for node_id, handle in bindings.items()},
             external_ports=external,
+            skip_unchanged=True,
         )
         before = {
             node_id: (tuple(handle.widget.pos), tuple(handle.widget.size))
