@@ -58,24 +58,54 @@ def apply_kivy_input(widget, props):
     widget._psx_updating = False
 
 def apply_tk_input(widget, props, binding=None):
-    """Apply supported native ttk.Entry options without another layout.
+    """Update the real ttk.Entry value, with a non-value hint overlay.
 
-    Tk 8.6 Entry has no placeholder option. Preserve the declaration for
-    a future dedicated hint-rendering port instead of passing invalid Tcl.
+    The hint is a child of the Entry, never inserted into StringVar and
+    therefore never sent through on_change or password-mode state.
     """
+    import tkinter as tk
+
     widget._psx_updating = True
     try:
         if widget.var.get() != props["value"]:
             widget.var.set(props["value"])
         widget._psx_placeholder = props["placeholder"]
+        size = int(round(props["font_size"]))
+        font = ("TkDefaultFont", size)
         widget.configure(
-            font=("TkDefaultFont", int(round(props["font_size"]))),
+            font=font,
             show="*" if props["password"] else "",
             state=(
                 "disabled" if not props["enabled"] else
-                "readonly" if props["read_only"] else
-                "normal"
+                "readonly" if props["read_only"] else "normal"
             ),
         )
+        if not hasattr(widget, "_psx_hint_label"):
+            hint = tk.Label(widget, borderwidth=0, padx=0, pady=0,
+                            anchor="w", takefocus=0)
+            widget._psx_hint_label = hint
+            def sync_hint(*_args):
+                if not widget.winfo_exists():
+                    return
+                show = (
+                    bool(getattr(widget, "_psx_placeholder", ""))
+                    and not widget.var.get()
+                    and widget.focus_get() is not widget
+                    and str(widget.cget("state")) != "disabled"
+                )
+                if show:
+                    hint.configure(text=widget._psx_placeholder)
+                    hint.place(x=4, rely=0.5, anchor="w")
+                else:
+                    hint.place_forget()
+            widget._psx_sync_hint = sync_hint
+            widget.var.trace_add("write", sync_hint)
+            widget.bind("<FocusIn>", sync_hint, add="+")
+            widget.bind("<FocusOut>", sync_hint, add="+")
+            hint.bind("<Button-1>", lambda _event: widget.focus_set())
+        hint = widget._psx_hint_label
+        hint.configure(font=font, fg="#777777",
+                       bg=widget.winfo_toplevel().cget("background"))
+        widget._psx_sync_hint()
     finally:
         widget._psx_updating = False
