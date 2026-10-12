@@ -131,8 +131,7 @@ def emit_tk_input(widget, slot):
         if getattr(widget, "_psx_updating", False):
             return
         slot.invoke(widget.var.get())
-    widget.var.trace_add("write", _trace)
-    return _trace   # el trace no se puede “desconectar” fácilmente; se ignora si el slot ya no existe
+    return _trace
 
 def emit_tk_submit(widget, slot):
     return lambda event: slot.invoke()
@@ -713,8 +712,17 @@ class TkinterRenderer:
             raise RendererCapabilityError(f"{event} is not supported by {handle.node_type} in Tkinter.")
         option, make_callback = definition
         callback = make_callback(handle.widget, slot)  # only the requested event's closure is built
-        if handle.node_type == "TextArea" and event == "on_change":
-            # <<Modified>> is a virtual Tk event, not a widget configure key.
+        if handle.node_type == "Input" and event == "on_change":
+            variable = handle.widget.var
+            token = variable.trace_add("write", callback)
+            def unsubscribe() -> None:
+                try:
+                    variable.trace_remove("write", token)
+                except tk.TclError:
+                    pass
+            return TkNativeEventSubscription(unsubscribe)
+        if option.startswith("<"):
+            # Tk virtual and keyboard events must use bind, not configure.
             binding_id = handle.widget.bind(option, callback, add="+")
             return TkEventSubscription(handle.widget, event, callback, option, binding_id)
         handle.widget.configure(**{option: callback})
