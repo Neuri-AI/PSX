@@ -1,0 +1,29 @@
+name: Runtime package boundaries
+
+on:
+  push:
+    branches: [main, feature/f3-sfle-native-adapters]
+    paths:
+      - "psx/**"
+      - "scripts/check_runtime_boundaries.py"
+      - ".github/workflows/runtime-boundaries.yml"
+  pull_request:
+    paths:
+      - "psx/**"
+      - "scripts/check_runtime_boundaries.py"
+      - ".github/workflows/runtime-boundaries.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  boundaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Enforce certification ownership
+        run: python scripts/check_runtime_boundaries.py
