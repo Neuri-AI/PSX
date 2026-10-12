@@ -908,3 +908,62 @@ class QtFamilySFLEParityTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_button_native_lifecycle_is_observed_through_reconciliation(self):
+        from psx.sfle.f3_g2_oracles import Observation, ORACLES
+
+        calls = []
+        original = lambda: calls.append("old")
+        replacement = lambda: calls.append("new")
+        first = self.reconciler.render(Flex(
+            Button("Old", key="action", layout_width="40px",
+                   layout_height="20px", on_click=original),
+            button("Peer", "peer", 20),
+            width=160, height=80, gap=4, align_items="flex-start",
+        ))
+        widget = first.children[0].handle.widget
+
+        def observe(*, mounted=True, disposed=False, state=None, order=(),
+                    callback=None, events=()):
+            return Observation(
+                native_identity=id(widget), mounted=mounted,
+                rect=geometry(widget), state=state, order=order,
+                callback_identity=callback, events=events, disposed=disposed,
+            )
+
+        created = observe(state=widget.text())
+        ORACLES["create"](None, created)
+        widget.click()
+        self.assertEqual(calls, ["old"])
+
+        after = self.reconciler.render(Flex(
+            button("Peer", "peer", 20),
+            Button("New", key="action", layout_width="40px",
+                   layout_height="20px", on_click=replacement),
+            width=160, height=80, gap=4, align_items="flex-start",
+        ))
+        self.assertIs(after.children[1].handle.widget, widget)
+        updated = observe(state=widget.text())
+        ORACLES["update"](created, updated)
+        self.assertEqual(widget.text(), "New")
+
+        before_order = observe(order=("action", "peer"))
+        new_order = observe(order=("peer", "action"))
+        self.assertIs(after.children[1].handle.widget, widget)
+        self.assertLess(after.children[0].handle.widget.x(), widget.x())
+        ORACLES["reorder"](before_order, new_order)
+
+        widget.click()
+        self.assertEqual(calls, ["old", "new"])
+        ORACLES["event_rebind"](
+            observe(callback=id(original)),
+            observe(callback=id(replacement), events=(id(replacement),)),
+        )
+        before_unmount = observe()
+        self.reconciler.unmount()
+        ORACLES["unmount"](
+            before_unmount, observe(mounted=False, disposed=True),
+        )
+        self.assertNotIn(widget, [h.widget for h in after.handle.children])
+        self.renderer.application.processEvents()
+
