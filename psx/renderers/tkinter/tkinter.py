@@ -552,7 +552,18 @@ class TkinterRenderer:
         if self._sfle_constraints is None:
             return
         from psx.sfle.f3_tk import commit_tk_sfle
-        commit_tk_sfle(self, root)
+        # Native style/texture signals can arrive while measuring. Retry a
+        # bounded number of times using the latest semantic epoch; never
+        # publish a transaction rejected for stale measurements.
+        from psx.sfle.errors import SFLEError
+        for attempt in range(3):
+            try:
+                commit_tk_sfle(self, root)
+                break
+            except SFLEError as error:
+                if ("Stale semantic invalidation" not in str(error)
+                        or attempt == 2):
+                    raise
         self._sfle_measurement_invalidations.acknowledge(
             self._sfle_measurement_invalidations.epoch)
 
