@@ -17,6 +17,7 @@ from psx.sfle.f3_g2_contracts import (
 from psx.sfle.f3_g2_evidence import COMPONENT_OPERATION_TESTS
 from psx.sfle.f3_g2_matrix import BACKENDS, OPERATIONS, g2_certification_matrix
 from psx.sfle.f3_g2_receipts import certify_junit
+from psx.sfle.f3_g2_oracles import ORACLES, Observation
 
 
 def test_every_registry_backend_operation_has_a_unique_runnable_contract():
@@ -28,17 +29,21 @@ def test_every_registry_backend_operation_has_a_unique_runnable_contract():
     for contract in contracts:
         assert contract.operation in OPERATIONS
         assert contract.applicability in {"required", "not_applicable"}
-        assert contract.mechanism in {"pytest_reference", "pending_probe", "exclusion"}
+        assert contract.mechanism in {"pytest_reference", "oracle_pending_driver", "exclusion"}
         assert contract.reason
         if contract.applicability == "not_applicable":
             assert contract.mechanism == "exclusion"
             assert contract.reference is None
+            assert contract.oracle is None
         elif contract.mechanism == "pytest_reference":
             assert contract.reference == COMPONENT_OPERATION_TESTS[contract.key]
         else:
-            assert contract.mechanism == "pending_probe"
+            assert contract.mechanism == "oracle_pending_driver"
             assert contract.reference is None
             assert OWNER_BLOCK[contract.operation] in contract.reason
+        if contract.applicability == "required":
+            assert contract.oracle == contract.operation
+            assert callable(ORACLES[contract.oracle])
     counts = g2_contract_summary()
     for backend in BACKENDS:
         assert sum(counts[backend].values()) == (
@@ -100,3 +105,41 @@ def test_parametrized_receipt_needs_all_parameter_cases_green(tmp_path):
     rows.append((references[0] + "[variant]", "failure"))
     with pytest.raises(ValueError, match="Missing or failing"):
         certify_junit("headless", _xml(tmp_path, tuple(rows)))
+
+
+@pytest.mark.parametrize("operation", ("create", "update", "reorder", "unmount",
+                                      "event_rebind", "borrowed_ownership",
+                                      "rollback", "invalidation"))
+def test_every_operation_oracle_has_positive_and_negative_behavior(operation):
+    old = Observation(
+        native_identity="native-1", mounted=True, rect=(0, 0, 20, 10),
+        state="before", order=("a", "b"), events=(),
+        callback_identity="old", owner="caller", revision=1,
+        remeasure_count=1,
+    )
+    changed = {
+        "create": (None, old),
+        "update": (old, Observation(**{**vars_for(old), "state": "after"})),
+        "reorder": (old, Observation(**{**vars_for(old), "order": ("b", "a")})),
+        "unmount": (old, Observation(**{**vars_for(old), "mounted": False, "disposed": True})),
+        "event_rebind": (old, Observation(**{
+            **vars_for(old), "callback_identity": "new", "events": ("new",),
+        })),
+        "borrowed_ownership": (old, old),
+        "rollback": (old, Observation(**{**vars_for(old), "mutation_failed": True})),
+        "invalidation": (old, Observation(**{
+            **vars_for(old), "revision": 2, "remeasure_count": 2,
+        })),
+    }
+    before, after = changed[operation]
+    ORACLES[operation](before, after)
+    with pytest.raises(AssertionError):
+        ORACLES[operation](old, Observation(**{
+            **vars_for(old), "native_identity": None,
+            "owner": "psx", "rect": None, "mounted": False,
+        }))
+
+
+def vars_for(observation):
+    from dataclasses import asdict
+    return asdict(observation)
