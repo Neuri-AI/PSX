@@ -250,6 +250,11 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             # F2 already validates the fixed-point grid and applies a pure
             # parent-relative bottom-left transform in precomputed order.
             committer(result)
+            for node_id, vnode in prepared.identities:
+                if vnode.kind is NodeKind.HOST and vnode.type == "Divider" and vnode.children:
+                    from psx.renderers.kivy.divider import KivyDividerAdapter
+                    widget = bindings[node_id].widget
+                    KivyDividerAdapter._redraw(widget, widget._psx_props)
             for node_id in previous_text_sizes:
                 widget = bindings[node_id].widget
                 widget.text_size = (boxes[node_id].content.width, None)

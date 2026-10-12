@@ -251,6 +251,10 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Tk geometry commit.")
             renderer.root.update_idletasks()
+            for node_id, vnode in prepared.identities:
+                if vnode.kind is NodeKind.HOST and vnode.type == "Divider" and vnode.children:
+                    from psx.renderers.tkinter.divider import TkDividerAdapter
+                    TkDividerAdapter()._redraw(widgets[node_id], widgets[node_id]._psx_props)
             observed = ports.read_rectangles()
             error = 0.0
             physical_error_maximum = 0.0

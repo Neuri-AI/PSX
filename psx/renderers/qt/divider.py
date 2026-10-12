@@ -99,6 +99,7 @@ class QtDividerAdapter:
         if getattr(widget, "_psx_sfle_divider", False):
             from psx.renderers.qt.flex import QtSFLEFlexAdapter
             widget._psx_child_widget = child.widget
+            self._apply_sfle_line(widget, parent.props, renderer._binding_package)
             return QtSFLEFlexAdapter().insert(renderer, parent, child, index)
         target = 1 if widget._psx_line_after is not None else 0
         parent.layout.insertWidget(target, child.widget)

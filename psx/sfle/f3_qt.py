@@ -225,6 +225,11 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         }
         try:
             committer(result)
+            # A labeled Divider paints two line segments around its child's
+            # *committed* native rectangle, never a speculative sizeHint.
+            for node_id, vnode in prepared.identities:
+                if vnode.kind is NodeKind.HOST and vnode.type == "Divider" and vnode.children:
+                    bindings[node_id].widget.update()
             # Repaint inside SFLE's committed rectangle, never QPixmap's
             # natural dimensions or a competing QLabel.setFixedSize().
             if image_ids:
