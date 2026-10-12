@@ -1346,3 +1346,32 @@ is supported by specific executed evidence on an immutable CI SHA.
 - **Per-component evidence:** every registered native component has an explicit `invalidation` contract and a component-iterating native-driver JUnit reference. The required core contract test rejects any missing coverage, and the existing backend receipt verification rejects failed/skipped/missing cases.
 
 **Outstanding for an unconditional C5 closure:** the contract must still demonstrate targeted **geometry application** (not merely selective intrinsic *measurement*) for unaffected subtrees, automatic coverage for other resource families where public contracts promise it, and explicit failure/retry and multitrigger races across all applicable backends. The CI success above does not independently prove these untested claims. C5 remains OPEN until they have native executed receipts.
+
+
+### C5 selective native geometry application increment — 2026-10-12
+
+The existing native intrinsic cache only avoids redundant **measurements**.
+`NativeGeometryCommitter(skip_unchanged=True)` now also suppresses
+redundant geometry **writes**, independently for each actual native leaf
+in Qt, Tkinter and Kivy. It compares the next SFLE parent-relative
+projection with the actual native geometry (or external port readback)
+before writing. Root geometry remains backend-owned. Updated rectangles
+still apply normally, and the bridges continue verifying post-commit
+native readback under existing CSS-to-device-pixel tolerances.
+
+The required core regression
+`tests/test_f3_g2_c5_geometry_writes.py` verifies each toolkit backend
+applies an initial rectangle, makes **zero** additional position/size
+writes for an identical subsequent result, and does apply a changed
+rectangle. For external Tk widgets the first placement is deliberately
+not inspected through a port that requires existing `place_info()`;
+this fixes initial-mount safety without silently skipping its placement.
+
+Code source revision: [`d5ae5d8`](https://github.com/Neuri-AI/PSX/commit/d5ae5d81eaefbcd3516fb609875f3e7da4e364a5).
+[Required selective CI run #38250924680](https://github.com/Neuri-AI/PSX/actions/runs/38250924680).
+
+**Boundary:** This verifies selective native geometry writes and changed
+readback, **not** a claim that the entire SFLE mathematical layout tree is
+incrementally recomputed. Dynamic paint/texture updates can still occur
+with an unchanged rectangle, as they should. C5 final signoff requires
+all remaining owner-thread race/resource/DPI scenarios to be certified.
