@@ -26,11 +26,11 @@ class MeasurementInvalidations:
     def request(self, reason: str, *, widget_id: int | None = None) -> int:
         if reason not in REASONS:
             raise ValueError(f"Unsupported SFLE measurement invalidation: {reason!r}")
+        if widget_id is not None and (type(widget_id) is not int or widget_id <= 0):
+            raise ValueError("Widget invalidation identity must be a positive integer.")
         self.pending.add(reason)
         if widget_id is None:
             self.invalidate_all = True
-        elif type(widget_id) is not int or widget_id <= 0:
-            raise ValueError("Widget invalidation identity must be a positive integer.")
         else:
             self.dirty_widgets.add(widget_id)
         self.epoch += 1
