@@ -1103,6 +1103,20 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                                        previous_generation, name)
                     self.assertIs(current.handle.widget, widget, name)
                     self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
+                    if name == "Image":
+                        import os
+                        original_stamp = image_path.stat().st_mtime_ns
+                        os.utime(image_path, ns=(
+                            original_stamp + 1_000_000_000,
+                            original_stamp + 1_000_000_000))
+                        prior_resource_generation = self.renderer.sfle_result.generation
+                        self.renderer._sfle_poll_image_resources(
+                            self.renderer._sfle_invalidation_lifetime)
+                        self.renderer.application.processEvents()
+                        self.renderer.application.processEvents()
+                        self.assertGreater(self.renderer.sfle_result.generation,
+                                           prior_resource_generation, name)
+                        self.assertIs(current.handle.widget, widget, name)
                     # Invalid callback changes must fail before touching the
                     # actual native widget or its last committed rectangle.
                     attempted = view(name, 80, reverse=True)
