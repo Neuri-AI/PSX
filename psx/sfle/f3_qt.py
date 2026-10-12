@@ -20,6 +20,11 @@ from psx.sfle.margin_tree import MarginTreeNode
 from psx.sfle.measurement_plan import MeasurementRequest
 from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
 from psx.sfle.qt_measurement import QtMeasurementSource
+from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.sfle.f3_width_remeasurement import (
+    compute_width_dependent, auto_height_measurement_ids,
+    seed_unconstrained_width_measurements,
+)
 
 if TYPE_CHECKING:
     from psx.core.instance import MountedInstance
@@ -107,7 +112,31 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external qt measurement.")
         snapshot = replace(prepared.snapshot, measurements=tuple(measurements))
-        result = renderer._sfle_engine.compute(snapshot)
+        automatic = auto_height_measurement_ids(snapshot)
+        dependent = {
+            node_id: (lambda width, node_id=node_id: source.measure_width(node_id, width))
+            for node_id, vnode in prepared.identities
+            if node_id in automatic and vnode.kind is NodeKind.HOST
+            and vnode.type == "Text"
+            and bindings[node_id].widget.hasHeightForWidth()
+        }
+        for node_id, port in external.items():
+            if node_id in automatic:
+                dependent[node_id] = (
+                    lambda width, port=port, node_id=node_id:
+                    measure_external(
+                        port, bindings[node_id].widget,
+                        LayoutConstraints(
+                            AvailableSize(width, True), AvailableSize(None, False),
+                        ),
+                        node_id, generation,
+                    ).intrinsic
+                )
+        snapshot = seed_unconstrained_width_measurements(snapshot, frozenset(dependent))
+        result = compute_width_dependent(
+            renderer._sfle_engine, snapshot, dependent,
+            current_generation=lambda: renderer._sfle_generation,
+        )
 
         def read_widget(node_id, handle):
             port = external.get(node_id)

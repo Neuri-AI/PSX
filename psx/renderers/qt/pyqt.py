@@ -547,6 +547,10 @@ class QtRenderer:
                 f"PyQt does not support host primitive {node.type!r}.")
         widget = self._widget_class(node.type)()
         spec.apply(widget, node.props, self._binding_package)
+        if self._sfle_constraints is not None and node.type == "Text":
+            # QLabel's real heightForWidth is enabled by wordWrap.
+            # SFLE (not QLabel) still owns size and position.
+            widget.setWordWrap(True)
         return QtHandle(node.type, widget, props=dict(node.props))
 
     # -- update -----------------------------------------------------------
