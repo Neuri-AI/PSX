@@ -61,7 +61,9 @@ def test_matrix_does_not_mistake_backend_evidence_for_per_component_closure():
     assert any(c.component == "Input" and c.backend == "tk"
                and c.status == "unported" for c in cells)
     assert any(c.component == "ProgressBar" and c.backend == "kivy"
-               and c.status == "unported" for c in cells)
+               and c.status == "native" for c in cells)
+    assert any(c.component == "Checkbox" and c.backend == "kivy"
+               and c.status == "native" for c in cells)
     summary = g2_matrix_summary()
     assert set(summary) == set(BACKENDS)
     assert sum(summary["qt"].values()) == len(builtin_component_registry().snapshot())

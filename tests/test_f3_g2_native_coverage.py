@@ -18,11 +18,11 @@ from psx.sfle.f3_native_coverage import (
     })),
     ("tk", frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar", "Image",
-        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "Select", "RadioGroup", "Box", "Scroll",
+        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "Select", "RadioGroup", "Box", "Scroll", "ProgressBar",
     })),
     ("kivy", frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer", "Image",
-        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select", "Radio", "RadioGroup", "Box", "Scroll",
+        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select", "Radio", "RadioGroup", "Box", "Scroll", "Checkbox", "ProgressBar",
     })),
 ])
 def test_capability_surface_explicit_and_not_all_native_widgets(backend, expected):
@@ -38,9 +38,9 @@ def test_flex_root_never_needs_intrinsic_measurement(backend):
     assert not g2_native_leaf_needs_measurement(Flex(), backend=backend)
 
 
-@pytest.mark.parametrize("kind", ["Checkbox", "Slider"])
+@pytest.mark.parametrize("kind", ["Checkbox", "Slider", "ProgressBar"])
 def test_kivy_nontextured_controls_require_both_pixel_dimensions(kind):
-    constructors = {"Checkbox": Checkbox, "Slider": Slider, "Spacer": Spacer}
+    constructors = {"Checkbox": Checkbox, "Slider": Slider, "ProgressBar": ProgressBar, "Spacer": Spacer}
     builder = constructors[kind]
     for props in (
         {},
