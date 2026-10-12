@@ -81,7 +81,10 @@ class KivyDividerAdapter:
 
         is_h = props["orientation"] == "horizontal"
 
-        widget = Widget()
+        widget = Widget(
+            size_hint=(None, None) if renderer._sfle_constraints is not None
+            else (1, 1),
+        )
         widget._psx_orientation = "horizontal" if is_h else "vertical"
         widget._psx_child = None
         widget._psx_line_before = None
@@ -126,6 +129,10 @@ class KivyDividerAdapter:
     def insert(self, renderer, parent, child, index):
         widget = parent.widget
         child_widget = child.widget
+        if widget._psx_sfle_divider:
+            widget._psx_child = child_widget
+            from psx.renderers.kivy.flex import KivySFLEFlexAdapter
+            return KivySFLEFlexAdapter().insert(renderer, parent, child, index)
         self._prepare_child(child_widget)
         widget._psx_child = child_widget
         widget.add_widget(child_widget)
@@ -147,11 +154,18 @@ class KivyDividerAdapter:
         return True
 
     def move(self, renderer, parent, child, index):
+        if parent.widget._psx_sfle_divider:
+            from psx.renderers.kivy.flex import KivySFLEFlexAdapter
+            return KivySFLEFlexAdapter().move(renderer, parent, child, index)
         return True
 
     def remove(self, renderer, parent, child):
         widget = parent.widget
         if widget._psx_child is child.widget:
+            if widget._psx_sfle_divider:
+                widget._psx_child = None
+                from psx.renderers.kivy.flex import KivySFLEFlexAdapter
+                return KivySFLEFlexAdapter().remove(renderer, parent, child)
             widget.remove_widget(child.widget)
             widget._psx_child = None
             self._apply_size_hint(widget, parent.props)
@@ -228,6 +242,23 @@ class KivyDividerAdapter:
         x, y = widget.pos
         w, h = widget.size
         child = widget._psx_child
+
+        if widget._psx_sfle_divider and child is not None:
+            # SFLE projects child.pos and child.size independently. Only
+            # the decorative canvas segments depend on that final box.
+            if is_h:
+                cy = y + h / 2
+                line_before.points = [x, cy, max(x, child.x - 8), cy]
+                line_after.points = [
+                    min(x + w, child.right + 8), cy, x + w, cy,
+                ]
+            else:
+                cx = x + w / 2
+                line_before.points = [cx, y, cx, max(y, child.y - 8)]
+                line_after.points = [
+                    cx, min(y + h, child.top + 8), cx, y + h,
+                ]
+            return
 
         if is_h:
             cy = y + h / 2
