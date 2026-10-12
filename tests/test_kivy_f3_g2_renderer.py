@@ -52,6 +52,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             wide_button_y = button.y
             # Native geometry must reproduce SFLE's parent-relative projection.
             assert renderer.sfle_result.geometry_commit_error <= 1
+            assert renderer._sfle_physical_commit_error <= 1
 
             renderer.set_sfle_constraints(constraints(90))
             renderer.commit_layout(root)

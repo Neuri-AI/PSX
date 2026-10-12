@@ -20,6 +20,7 @@ from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.errors import DiagnosticCode, SFLEError
 from psx.sfle.f3_external import SFLEExternalPort
 from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints, Rect, LayoutResult
+from psx.sfle.native_pixel_space import DevicePixelSpace
 
 BINDING = os.environ.get("PSX_QT_BINDING")
 VALID = {"pyside6", "pyqt6", "pyqt5", "pyside2"}
@@ -111,6 +112,30 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertEqual(geometry(inner), (10, 10, 120, 40))
         self.assertEqual(geometry(a), (0, 0, 30, 15))
         self.assertEqual(geometry(b), (36, 0, 20, 15))
+
+    def test_qt_live_dpi_is_physical_only_not_double_applied_to_qwidget(self):
+        root = self.reconciler.render(Flex(
+            button("One", "one", 33),
+            button("Two", "two", 25),
+            direction="row", width="160px", height="80px",
+            gap=7, align_items="flex-start",
+        ))
+        widget = root.handle.widget
+        physical = DevicePixelSpace.from_widget("qt", widget)
+        first, second = (n.handle.widget for n in root.children)
+        self.assertEqual(geometry(first), (0, 0, 33, 20))
+        self.assertEqual(geometry(second), (40, 0, 25, 20))
+        # Qt 5 and Qt 6 still accept *logical QWidget units* at higher DPR.
+        # QT_SCALE_FACTOR is set before importing Qt in a fresh CI process.
+        if "QT_SCALE_FACTOR" in os.environ:
+            self.assertGreaterEqual(physical.scale, 1.4)
+        self.assertEqual(
+            physical.to_physical(Rect(40, 0, 25, 20)).x,
+            round(40 * physical.scale),
+        )
+        self.assertLessEqual(self.renderer._sfle_physical_commit_error,
+                             physical.allowed_physical_error)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
     def test_native_controls_have_identical_sfle_rectangles(self):
         from psx import Slider, Select

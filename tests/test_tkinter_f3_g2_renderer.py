@@ -193,6 +193,20 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(round(float(label.cget("wraplength"))), 160)
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
 
+    def test_tk_scaling_does_not_multiply_native_place_rectangles(self):
+        from psx.sfle.native_pixel_space import DevicePixelSpace
+        root = self.reconciler.render(Flex(
+            item("B", "b", 36),
+            width=160, height=80,
+        ))
+        widget = root.children[0].handle.widget
+        native_scaling = float(self.host.tk.call("tk", "scaling"))
+        pixel_space = DevicePixelSpace.from_widget("tk", self.host)
+        self.assertGreater(native_scaling, 0)
+        self.assertEqual(pixel_space.scale, 1.0)
+        self.assertEqual(rect(widget), (0, 0, 36, 20))
+        self.assertLessEqual(self.renderer._sfle_physical_commit_error, 1.0)
+
     def test_real_tk_host_configure_automatically_reflows_sfle(self):
         class CountingEngine:
             def __init__(self):
