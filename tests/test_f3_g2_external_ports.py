@@ -153,3 +153,47 @@ def test_f2_native_geometry_projection_calls_external_port_only_for_its_node():
     assert measurements == [Rect(10, 15, 30, 20)]
     assert native.rect == Rect(10, 15, 30, 20)
     assert builtin.geometry == Rect(50, 30, 12, 16)
+
+
+def test_native_declaration_rejects_invalid_ownership_and_ports_before_mount():
+    from psx.core.native import NativeOwnership
+
+    cases = (
+        {"renderer": "kivy", "factory": lambda: object(),
+         "ownership": NativeOwnership.BORROWED},
+        {"renderer": "kivy", "widget": object(),
+         "ownership": NativeOwnership.OWNED},
+        {"renderer": "kivy", "factory": lambda: object(), "widget": object()},
+        {"renderer": "kivy"},
+        {"renderer": "kivy", "widget": object(), "takes_parent": True,
+         "ownership": NativeOwnership.BORROWED},
+    )
+    for case in cases:
+        with pytest.raises((ValueError, TypeError)):
+            NativeWidget(**case)
+
+    with pytest.raises(TypeError, match="sfle_port"):
+        NativeWidget(renderer="kivy", widget=object(),
+                     ownership="borrowed", sfle_port=object())
+    for backend in ("pyside6", "pyqt6", "pyqt5", "pyside2", "kivy", "tkinter"):
+        assert NativeWidget(renderer=backend, factory=lambda: object(),
+                            sfle_port=port()).ownership is NativeOwnership.OWNED
+        assert NativeWidget(renderer=backend, widget=object(),
+                            ownership="borrowed", sfle_port=port()).ownership is NativeOwnership.BORROWED
+
+
+def test_external_port_never_changes_widget_ownership_during_measure_and_read():
+    from psx.core.native import NativeOwnership
+    from psx.sfle.f3_g2_oracles import Observation, ORACLES
+
+    host = SimpleNamespace(rect=Rect(2, 3, 15, 10), destroyed=False)
+    decl = NativeWidget(renderer="pyside6", widget=host,
+                        ownership=NativeOwnership.BORROWED, sfle_port=port())
+    before = Observation(id(host), True, (2, 3, 15, 10), owner="caller")
+    measured = measure_external(port(), host, constraints())
+    assert measured is not None
+    assert read_external(port(), host) == Rect(2, 3, 15, 10)
+    after = Observation(id(host), False, (2, 3, 15, 10),
+                        owner="caller", disposed=host.destroyed)
+    ORACLES["borrowed_ownership"](before, after)
+    assert decl.widget is host
