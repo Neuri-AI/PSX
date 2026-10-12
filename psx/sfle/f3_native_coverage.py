@@ -21,15 +21,18 @@ G2_LEAF_TYPES = MappingProxyType({
     "qt": frozenset({
         "Text", "Button", "Checkbox", "Input", "TextArea",
         "Slider", "Radio", "ProgressBar", "Select", "Image",
+        "Link", "Badge", "Divider", "Spacer",
     }),
     "tk": frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar", "Image",
+        "Link", "Badge", "Divider", "Spacer",
     }),
     "kivy": frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer", "Image",
+        "Link", "Badge", "Divider",
     }),
 })
-KIVY_EXPLICIT_BOUNDS = frozenset({"Checkbox", "Slider", "Spacer"})
+KIVY_EXPLICIT_BOUNDS = frozenset({"Checkbox", "Slider"})
 
 
 def g2_native_leaf_needs_measurement(node: VNode, *, backend: str) -> bool:
@@ -51,6 +54,12 @@ def g2_native_leaf_needs_measurement(node: VNode, *, backend: str) -> bool:
     if node.type not in supported:
         raise RendererCapabilityError(
             f"F3-G2 {backend} SFLE geometry not certified for {node.type!r}."
+        )
+    if node.type == "Divider" and node.children:
+        # Legacy Divider positions children independently of SFLE. It cannot
+        # participate in F3 until its full child-geometry port is available.
+        raise RendererCapabilityError(
+            "F3-G2 Divider with children requires the SFLE child-geometry port."
         )
     if backend == "kivy" and node.type in KIVY_EXPLICIT_BOUNDS:
         for axis in ("layout_width", "layout_height"):

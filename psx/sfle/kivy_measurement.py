@@ -21,6 +21,8 @@ class KivyMeasurementSource:
         self, widgets: Mapping[str, object],
         *, textarea_ids: frozenset[str] = frozenset(),
         image_ids: frozenset[str] = frozenset(),
+        spacer_ids: frozenset[str] = frozenset(),
+        divider_nodes: Mapping[str, object] | None = None,
     ) -> None:
         self._widgets = dict(widgets)
         if not textarea_ids <= self._widgets.keys():
@@ -29,7 +31,24 @@ class KivyMeasurementSource:
         if not image_ids <= self._widgets.keys():
             raise ValueError("Image measurement IDs must refer to mounted Kivy controls.")
         self._image_ids = image_ids
+        if not spacer_ids <= self._widgets.keys():
+            raise ValueError("Spacer measurement IDs must refer to native widgets.")
+        self._spacer_ids = spacer_ids
+        self._divider_nodes = dict(divider_nodes or {})
+        if not self._divider_nodes.keys() <= self._widgets.keys():
+            raise ValueError("Divider IDs must refer to native widgets.")
         self._owner_thread = threading.get_ident()
+
+    @staticmethod
+    def _structural_metrics(kind: str, props: Mapping[str, object]) -> IntrinsicSizes:
+        if kind == "Spacer":
+            return IntrinsicSizes(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        thickness = float(props["thickness"])
+        width, height = ((0.0, thickness) if props["orientation"] == "horizontal"
+                         else (thickness, 0.0))
+        return IntrinsicSizes(
+            width, width, height, height, width, height,
+        )
 
     @staticmethod
     def _image_metrics(widget: object) -> IntrinsicSizes:
@@ -110,6 +129,17 @@ class KivyMeasurementSource:
         widget = self._widgets.get(request.node_id)
         if widget is None:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Kivy measurement node.")
+        if request.node_id in self._spacer_ids:
+            return MeasuredBox(
+                request.node_id, self._structural_metrics("Spacer", {}),
+                request.constraints, request.revision,
+            )
+        if request.node_id in self._divider_nodes:
+            return MeasuredBox(
+                request.node_id,
+                self._structural_metrics("Divider", self._divider_nodes[request.node_id]),
+                request.constraints, request.revision,
+            )
         if request.node_id in self._image_ids:
             return MeasuredBox(
                 request.node_id, self._image_metrics(widget),
@@ -118,6 +148,19 @@ class KivyMeasurementSource:
         if request.node_id in self._textarea_ids:
             metrics = self._textarea_metrics(widget, None)
             return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
+        if getattr(widget, "_psx_sfle_badge", False):
+            width, height = widget._psx_natural_size
+            metrics = IntrinsicSizes(width, width, height, height, width, height)
+            return MeasuredBox(
+                request.node_id, metrics, request.constraints, request.revision,
+            )
+        if getattr(widget, "_psx_sfle_link", False):
+            width = max(1.0, float(widget.texture_size[0]) + 4.0)
+            height = max(24.0, float(widget.texture_size[1]) + 4.0)
+            metrics = IntrinsicSizes(width, width, height, height, width, height)
+            return MeasuredBox(
+                request.node_id, metrics, request.constraints, request.revision,
+            )
         # texture_size is the measured pixel content for Kivy Label.
         # minimum_size is available on some Kivy layouts. A generic Widget's
         # size is a negotiated allocation, not a valid intrinsic measurement.

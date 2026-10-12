@@ -20,6 +20,8 @@ class TkMeasurementSource:
         self, widgets: Mapping[str, object],
         *, textarea_ids: frozenset[str] = frozenset(),
         image_ids: frozenset[str] = frozenset(),
+        spacer_ids: frozenset[str] = frozenset(),
+        divider_nodes: Mapping[str, object] | None = None,
     ) -> None:
         self._widgets = dict(widgets)
         if not textarea_ids <= self._widgets.keys():
@@ -28,7 +30,24 @@ class TkMeasurementSource:
         if not image_ids <= self._widgets.keys():
             raise ValueError("Image measurement IDs must refer to mounted Tk controls.")
         self._image_ids = image_ids
+        if not spacer_ids <= self._widgets.keys():
+            raise ValueError("Spacer measurement IDs must refer to native widgets.")
+        self._spacer_ids = spacer_ids
+        self._divider_nodes = dict(divider_nodes or {})
+        if not self._divider_nodes.keys() <= self._widgets.keys():
+            raise ValueError("Divider IDs must refer to native widgets.")
         self._owner_thread = threading.get_ident()
+
+    @staticmethod
+    def _structural_metrics(kind: str, props: Mapping[str, object]) -> IntrinsicSizes:
+        if kind == "Spacer":
+            return IntrinsicSizes(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        thickness = float(props["thickness"])
+        width, height = ((0.0, thickness) if props["orientation"] == "horizontal"
+                         else (thickness, 0.0))
+        return IntrinsicSizes(
+            width, width, height, height, width, height,
+        )
 
     @staticmethod
     def _image_metrics(widget: object) -> IntrinsicSizes:
@@ -124,6 +143,17 @@ class TkMeasurementSource:
         widget = self._widgets.get(request.node_id)
         if widget is None:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Tk measurement node.")
+        if request.node_id in self._spacer_ids:
+            return MeasuredBox(
+                request.node_id, self._structural_metrics("Spacer", {}),
+                request.constraints, request.revision,
+            )
+        if request.node_id in self._divider_nodes:
+            return MeasuredBox(
+                request.node_id,
+                self._structural_metrics("Divider", self._divider_nodes[request.node_id]),
+                request.constraints, request.revision,
+            )
         if request.node_id in self._image_ids:
             return MeasuredBox(
                 request.node_id, self._image_metrics(widget),
