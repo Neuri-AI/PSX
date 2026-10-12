@@ -1495,6 +1495,37 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.renderer.commit_layout(root)
         self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
 
+def test_native_qt_geometry_invalidation_during_application_rolls_back(self):
+        from unittest.mock import patch
+        import psx.sfle.f3_qt as bridge
+
+        root = self.reconciler.render(Flex(
+            button("First", "first", 40), button("Second", "second", 30),
+            width=160, height=80, gap=8, align_items="flex-start",
+        ))
+        widgets = tuple(child.handle.widget for child in root.children)
+        before = tuple(geometry(widget) for widget in widgets)
+        published = self.renderer.sfle_result
+        original_committer = bridge.NativeGeometryCommitter
+
+        def interrupted_committer(*args, **kwargs):
+            apply = original_committer(*args, **kwargs)
+            def fail_after_application(result):
+                apply(result)
+                self.renderer._sfle_measurement_invalidations.request("dpi")
+            return fail_after_application
+
+        with patch.object(bridge, "NativeGeometryCommitter", side_effect=interrupted_committer):
+            with self.assertRaisesRegex(SFLEError, "Stale semantic invalidation after native geometry"):
+                self.renderer.commit_layout(root)
+        self.assertEqual(tuple(geometry(widget) for widget in widgets), before)
+        self.assertIs(self.renderer.sfle_result, published)
+        self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, {"dpi"})
+        self.renderer.commit_layout(root)
+        self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
+        self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
+
+
 if __name__ == "__main__":
     unittest.main()
 
