@@ -214,7 +214,6 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         except BaseException:
             for node_id, values in before.items():
                 if node_id in external:
-                    from psx.sfle.model import Rect
                     external[node_id].apply(bindings[node_id].widget, Rect(*values))
                 else:
                     bindings[node_id].widget.setGeometry(*values)

@@ -265,7 +265,6 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 widget.texture_update()
             for node_id, (pos, size) in before.items():
                 if node_id in external:
-                    from psx.sfle.model import Rect
                     external[node_id].apply(bindings[node_id].widget, Rect(
                         pos[0], pos[1], size[0], size[1],
                     ))
