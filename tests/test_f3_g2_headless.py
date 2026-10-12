@@ -742,3 +742,36 @@ def test_c5_invalidation_during_native_readback_rolls_back_and_recovers(monkeypa
     assert renderer.sfle_result.generation > published.generation
     assert tuple(child.handle for child in root.children) == widgets
     reconciler.unmount()
+
+
+def test_c5_solver_invalidation_rejects_provisional_result_and_recovers() -> None:
+    """A synchronous resource event during SFLE compute must fence native writes."""
+    renderer = new_renderer()
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Flex(
+        fixed("a", 30), fixed("b", 20), width=120, height=60, gap=5,
+    ))
+    widgets = tuple(child.handle for child in root.children)
+    geometry_before = tuple(widget.geometry for widget in widgets)
+    previous = renderer.sfle_result
+    engine = renderer._sfle_engine
+
+    class InjectDuringCompute:
+        def compute(self, request):
+            result = engine.compute(request)
+            renderer._sfle_measurement_invalidations.request("resource")
+            return result
+
+    renderer._sfle_engine = InjectDuringCompute()
+    with pytest.raises(SFLEError, match="Stale semantic invalidation before geometry"):
+        renderer.commit_layout(root)
+    assert tuple(widget.geometry for widget in widgets) == geometry_before
+    assert renderer.sfle_result is previous
+    assert renderer._sfle_measurement_invalidations.needs_commit()
+
+    renderer._sfle_engine = engine
+    renderer.commit_layout(root)
+    assert not renderer._sfle_measurement_invalidations.needs_commit()
+    assert renderer.sfle_result.generation > previous.generation
+    assert tuple(child.handle for child in root.children) == widgets
+    reconciler.unmount()
