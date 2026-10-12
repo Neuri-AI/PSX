@@ -162,6 +162,65 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(child), (0, 0, 30, 20))
         self.assertGreater(self.renderer.sfle_result.generation, initial)
 
+    def test_real_tk_host_configure_automatically_reflows_sfle(self):
+        class CountingEngine:
+            def __init__(self):
+                self.calls = 0
+            def compute(self, snapshot):
+                self.calls += 1
+                return PythonLayoutEngine().compute(snapshot)
+
+        engine = CountingEngine()
+        self.renderer._sfle_engine = engine
+        root = self.reconciler.render(Flex(
+            item("Left", "left", 30), item("Right", "right", 20),
+            width="100%", height="100%", direction="row",
+            justify_content="space-between", align_items="flex-start",
+        ))
+        frame = root.handle.widget
+        left, right = (child.handle.widget for child in root.children)
+        self.assertEqual(engine.calls, 1)
+        self.assertEqual(rect(right), (140, 0, 20, 20))
+        self.assertEqual(rect(frame), (0, 0, 160, 80))
+        try:
+            # A real Tk window Configure event, not set_sfle_constraints().
+            self.host.geometry("210x100+0+0")
+            self.host.geometry("260x120+0+0")
+            self.host.update()
+            self.assertIsNone(self.renderer._sfle_resize_error)
+            self.assertEqual(
+                (self.renderer._sfle_constraints.width.value,
+                 self.renderer._sfle_constraints.height.value), (260, 120),
+            )
+            self.assertEqual(engine.calls, 2)
+            self.assertIs(root.children[0].handle.widget, left)
+            self.assertIs(root.children[1].handle.widget, right)
+            self.assertEqual(rect(frame), (0, 0, 260, 120))
+            self.assertEqual(rect(right), (240, 0, 20, 20))
+            self.assertEqual(frame.pack_slaves(), [])
+            self.assertEqual(frame.grid_slaves(), [])
+            self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+        finally:
+            self.reconciler.unmount()
+            self.host.geometry("400x240+0+0")
+            self.host.update()
+
+    def test_tk_configure_does_not_commit_after_unmount(self):
+        root = self.reconciler.render(Flex(
+            item("A", "a", 30), width="100%", height="100%",
+        ))
+        self.assertIsNotNone(self.renderer._sfle_resize_bind_id)
+        self.reconciler.unmount()
+        self.assertIsNone(self.renderer._sfle_resize_bind_id)
+        try:
+            self.host.geometry("280x140+0+0")
+            self.host.update()
+            self.assertIsNone(self.renderer.sfle_result)
+            self.assertIsNone(self.renderer._sfle_mounted_root)
+        finally:
+            self.host.geometry("400x240+0+0")
+            self.host.update()
+
     def test_rejects_non_sfle_native_geometry_manager(self):
         root = self.reconciler.render(Flex(item("A", "a", 30), width=160, height=80))
         widget = root.children[0].handle.widget
