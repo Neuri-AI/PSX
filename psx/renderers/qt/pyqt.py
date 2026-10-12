@@ -502,8 +502,16 @@ class QtRenderer:
             if root is None or root.disposed or not state.needs_commit():
                 return
             epoch = state.epoch
-            self.commit_layout(root)
-            state.acknowledge(epoch)
+            try:
+                self.commit_layout(root)
+            except Exception:
+                # Preserve all invalidations for explicit retry. A failed
+                # native transaction must never acknowledge its epoch.
+                self._sfle_last_invalidation_error = True
+                raise
+            else:
+                self._sfle_last_invalidation_error = False
+                state.acknowledge(epoch)
 
         self.schedule_ui(flush)
 
