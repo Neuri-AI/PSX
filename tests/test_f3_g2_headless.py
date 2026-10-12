@@ -599,7 +599,7 @@ def test_c5_targeted_invalidations_remeasure_only_dirty_native_handles() -> None
     def measure(node):
         if node.type != "Text":
             return None
-        label = node.props["text"]
+        label = node.props["value"]
         calls.append(label)
         width = widths[label]
         return IntrinsicSizes(width, width, 14, 14, width, 14)
@@ -641,7 +641,7 @@ def test_c5_multi_trigger_invalidation_during_measurement_preserves_cache_and_re
     def measure(node):
         if node.type != "Text":
             return None
-        label = node.props["text"]
+        label = node.props["value"]
         calls.append(label)
         if label == "Beta" and race["enabled"]:
             race["enabled"] = False
