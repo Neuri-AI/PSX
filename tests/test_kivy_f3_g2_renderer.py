@@ -1845,6 +1845,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 apply = original_committer(*args, **kwargs)
                 def fail_after_application(result):
                     apply(result)
+                    widgets[0].pos = (7, 9)
+                    widgets[0].size = (13, 15)
                     raise RuntimeError("injected Kivy native application failure")
                 return fail_after_application
 
