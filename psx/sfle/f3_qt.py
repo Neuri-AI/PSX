@@ -170,7 +170,11 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         snapshot = replace(prepared.snapshot, measurements=tuple(measurements))
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
-            node_id: (lambda width, node_id=node_id: source.measure_width(node_id, width))
+            node_id: (lambda width, node_id=node_id: native_round.read_width(
+                widget=bindings[node_id].widget, props=declared_props[node_id],
+                constraints=renderer._sfle_constraints, width=width,
+                measure=lambda: source.measure_width(node_id, width),
+            ))
             for node_id, vnode in prepared.identities
             if node_id in automatic and vnode.kind is NodeKind.HOST
             and (
@@ -182,13 +186,19 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             if node_id in automatic:
                 dependent[node_id] = (
                     lambda width, port=port, node_id=node_id:
-                    measure_external(
+                    native_round.read_width(
+                        widget=bindings[node_id].widget,
+                        props=declared_props[node_id],
+                        constraints=renderer._sfle_constraints,
+                        width=width,
+                        measure=lambda: measure_external(
                         port, bindings[node_id].widget,
                         LayoutConstraints(
                             AvailableSize(width, True), AvailableSize(None, False),
                         ),
                         node_id, generation,
-                    ).intrinsic
+                    ).intrinsic,
+                    )
                 )
         snapshot = seed_unconstrained_width_measurements(snapshot, frozenset(dependent))
         result = compute_width_dependent(
