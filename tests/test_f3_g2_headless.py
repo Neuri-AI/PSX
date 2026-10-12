@@ -388,3 +388,83 @@ def test_failed_headless_component_update_keeps_last_committed_node() -> None:
     assert rendered.children[0].handle is handle
     assert handle.props["label"] == "Recovered"
     reconciler.unmount()
+
+
+@pytest.mark.parametrize("reason", ("content", "font", "theme", "resource", "dpi", "viewport"))
+def test_c5_explicit_invalidation_remeasures_without_remount(reason: str) -> None:
+    """C5 observable Headless remeasurement, not merely a queued callback."""
+    from psx.sfle.f3_g2_oracles import Observation, ORACLES
+
+    calls = []
+    measurement = {"width": 20}
+
+    def measure(node):
+        if node.type == "Text":
+            calls.append(measurement["width"])
+            return IntrinsicSizes(
+                measurement["width"], measurement["width"], 16, 16,
+                measurement["width"], 16,
+            )
+        return None
+
+    renderer = new_renderer(measure_intrinsic=measure)
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Flex(
+        Text("Measured", key="content"),
+        width=120, height=60, align_items="flex-start",
+    ))
+    handle = root.children[0].handle
+    original_width = handle.geometry.width
+    initial_generation = renderer.sfle_result.generation
+    original_calls = len(calls)
+    assert original_calls > 0
+    measurement["width"] = 38
+    renderer.request_sfle_invalidation(reason)
+    renderer.request_sfle_invalidation(reason)
+    assert renderer._sfle_measurement_invalidations.pending == {reason}
+    renderer.flush()
+    assert root.children[0].handle is handle
+    assert not handle.destroyed
+    assert renderer.sfle_result.generation == initial_generation + 1
+    assert len(calls) > original_calls
+    assert renderer._sfle_measurement_invalidations.pending == set()
+    assert renderer._sfle_measurement_invalidations.committed_epoch > 0
+    assert handle.geometry.width != original_width
+    before = Observation(
+        id(handle), True, (0, 0, original_width, 16),
+        revision=initial_generation, remeasure_count=original_calls,
+    )
+    after = Observation(
+        id(handle), True, (0, 0, handle.geometry.width, 16),
+        revision=renderer.sfle_result.generation, remeasure_count=len(calls),
+    )
+    ORACLES["invalidation"](before, after)
+    reconciler.unmount()
+
+
+def test_c5_stale_remeasurement_is_canceled_after_unmount() -> None:
+    calls = []
+    def measure(node):
+        if node.type == "Text":
+            calls.append(node)
+            return IntrinsicSizes(15, 15, 16, 16, 15, 16)
+        return None
+    renderer = new_renderer(measure_intrinsic=measure)
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Flex(
+        Text("Data"), width=120, height=60, align_items="flex-start",
+    ))
+    before = len(calls)
+    renderer.request_sfle_invalidation("resource")
+    reconciler.unmount()
+    renderer.flush()
+    assert len(calls) == before
+    assert renderer.sfle_result is None
+    assert root.handle.destroyed
+    assert not renderer._sfle_measurement_invalidations.pending
+
+
+def test_c5_invalidation_rejects_unrecognized_reasons() -> None:
+    renderer = new_renderer()
+    with pytest.raises(ValueError, match="Unsupported SFLE measurement invalidation"):
+        renderer.request_sfle_invalidation("unknown")
