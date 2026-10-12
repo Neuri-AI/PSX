@@ -127,7 +127,12 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert edit.width == 160
             wide_height = edit.height
             assert wide_height > 0
-            assert abs(button.y - (500 - wide_height - 20)) <= 1
+            assert abs(button.y - (500 - wide_height - 20)) <= 1, (
+                "initial native y", button.y, "wide height", wide_height,
+                "root height", root.handle.widget.height,
+                "button height", button.height,
+                "SFLE boxes", renderer.sfle_result.boxes,
+            )
             edit.select_text(1, 6)
             selection = edit.selection_text
             assert selection
