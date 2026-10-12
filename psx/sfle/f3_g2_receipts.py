@@ -23,9 +23,10 @@ def certify_junit(backend: str, xml_path: str | Path) -> dict:
             continue
         failed = any(case.find(tag) is not None
                      for tag in ("error", "failure", "skipped"))
-        if name in methods:
-            raise ValueError(f"Ambiguous duplicate test receipt {name!r}")
-        methods[name] = "fail" if failed else "pass"
+        # Parametrized pytest cases have distinct raw names but the same
+        # referenced test method. Every parameter case must pass.
+        previous = methods.get(name)
+        methods[name] = ("fail" if failed or previous == "fail" else "pass")
     if not methods:
         raise ValueError("No pytest testcase receipts found")
     contracts = [c for c in g2_operation_contracts() if c.backend == backend]
