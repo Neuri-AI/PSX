@@ -35,16 +35,25 @@ class KivySFLEFlexAdapter:
 
     @staticmethod
     def _sync(handle):
+        from psx.renderers.kivy.kivy import _is_borrowed
+
         container = handle.widget
-        desired = [item.widget for item in reversed(handle.children)]
+        desired_handles = list(reversed(handle.children))
+        desired = [item.widget for item in desired_handles]
         # Kivy's Widget.children list is reverse declaration order.
         for item in tuple(container.children):
             if item not in desired:
                 container.remove_widget(item)
-        for index, widget in enumerate(desired):
+        for index, item in enumerate(desired_handles):
+            widget = item.widget
             widget.size_hint = (None, None)
             widget.pos_hint = {}
             if widget.parent is not container:
+                if widget.parent is not None:
+                    if not _is_borrowed(item):
+                        raise RendererCapabilityError(
+                            "Cannot move an owned widget from a foreign Kivy parent.")
+                    widget.parent.remove_widget(widget)
                 container.add_widget(widget, index=index)
             elif container.children.index(widget) != index:
                 container.remove_widget(widget)
