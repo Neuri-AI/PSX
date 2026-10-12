@@ -90,8 +90,10 @@ class KivyDividerAdapter:
 
         self._install_line(widget, props)
 
+        widget._psx_sfle_divider = renderer._sfle_constraints is not None
         handle = KivyHandle("Divider", widget, props)
-        self._apply_size_hint(widget, props)
+        if not widget._psx_sfle_divider:
+            self._apply_size_hint(widget, props)
         return handle
 
     def update(self, renderer, handle, changed, removed):
@@ -103,7 +105,8 @@ class KivyDividerAdapter:
         )
         # Actualiza las instrucciones sin recrear el canvas.
         self._update_line(widget, props)
-        self._apply_size_hint(widget, props)
+        if not widget._psx_sfle_divider:
+            self._apply_size_hint(widget, props)
         self._redraw(widget, props)
 
     def bind_event(self, renderer, handle, event, slot):

@@ -67,6 +67,7 @@ class KivyBadgeAdapter:
 
         props = badge_props(node.props)
         widget = _BadgeLabel(size_hint=(None, None), halign="center", valign="middle")
+        widget._psx_sfle_badge = renderer._sfle_constraints is not None
         self._apply(widget, props)
         return KivyHandle("Badge", widget, props)
 
@@ -84,7 +85,8 @@ class KivyBadgeAdapter:
         width = max(1.0, widget.texture_size[0] + px * 2 * KIVY_BADGE_SCALE + 2)
         height = max(1.0, widget.texture_size[1] + py * 2 * KIVY_BADGE_SCALE + 2)
         widget._psx_natural_size = (width, height)
-        widget.size = (width, height)
+        if not widget._psx_sfle_badge:
+            widget.size = (width, height)
         # Keep center-aligned label text in its allocated slot. Unlike sizing
         # the texture to the badge skin, this also works when Row stretches it.
         widget.text_size = widget.size
