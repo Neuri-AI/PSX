@@ -39,3 +39,19 @@ def test_c5_unknown_invalidation_kind_fails_closed(reason):
     with pytest.raises(ValueError, match="Unsupported SFLE measurement invalidation"):
         state.request(reason)
     assert not state.needs_commit()
+
+
+def test_every_supported_native_component_has_c5_invalidation_evidence():
+    from psx.sfle.f3_g2_matrix import g2_certification_matrix
+    from psx.sfle.f3_g2_contracts import g2_operation_contracts
+    native = [c for c in g2_certification_matrix() if c.status == "native"]
+    assert native
+    assert all("invalidation" in c.operations_with_evidence for c in native)
+    gaps = [
+        (contract.backend, contract.component, contract.mechanism)
+        for contract in g2_operation_contracts()
+        if contract.operation == "invalidation"
+        and contract.applicability == "required"
+        and contract.mechanism != "pytest_reference"
+    ]
+    assert not gaps, f"C5 per-component invalidation coverage gaps: {gaps}"
