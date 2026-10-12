@@ -992,3 +992,46 @@ G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
   C4 borrowed/custom ownership, C5 font/theme/DPI/resource invalidation
   or C6 independent precision and CI signoff. G2 remains OPEN until
   all its criteria are satisfied; advanced Scroll offsets remain G3.
+
+## Post-C1 pre-C2 fixes — Tk Input placeholder and Kivy intrinsic controls (2026-10-12)
+
+**State: Implemented; does not begin C2 or close G2.**
+
+- **Tk `Input` placeholder:** `ttk.Entry` lacks a native Tk 8.6
+  placeholder option. Its portable `placeholder` prop now renders
+  through a child `tk.Label` inside the real Entry, rather than inserting
+  hint text into the `StringVar`. It hides when focused or whenever the
+  actual value is nonempty, and reappears after the controlled value is
+  cleared. It uses the configured native theme Entry field background,
+  preserves password/readonly/value state and does not emit `on_change`
+  merely because the hint changes. The overlay is **not** a competing SFLE
+  layout participant; the `ttk.Entry` outer box remains SFLE-owned.
+- **Kivy `Input`:** UI-thread measurement uses isolated native CoreLabel
+  glyph texture sizes, current text/hint, native TextInput font and padding;
+  it never reads the committed widget width as a natural measurement.
+  An automatic single-line `height` participates in the post-flex width
+  measurement callback pipeline, with value changes remeasured on commit.
+- **Kivy `Checkbox`:** native theme check artwork sizes are probed when
+  available. Its fallback 32dp tap-target minimum is explicit design
+  policy, independent of the previous `Widget.size`, not a fabricated
+  measurement. `ProgressBar`, which has no content intrinsic-size API in
+  Kivy, declares portable 120dp × 20dp preferred minima. Both controls
+  support CSS auto/percentage sizing through SFLE and DPI-scaled design
+  preferences, rather than requiring hard-coded pixel bounds.
+  Kivy `Slider` still fails closed when either pixel dimension is
+  unspecified, because its intrinsic sizing has not been separately ported.
+- **Width-aware correctness:** Kivy Input, Checkbox and ProgressBar now
+  participate in the post-flex height measurement callback registry,
+  preventing the engine's `UNSUPPORTED_MEASUREMENT` error on `auto`
+  heights. No private Kivy BoxLayout gets authority over host geometry.
+- **Regression tests:** real Tk event-loop tests exercise hint/value/update
+  visibility and retained native widget identity. Real Kivy SDL2 tests
+  exercise auto-sized Input/Checkbox/ProgressBar, changed input text width,
+  controlled values and native SFLE readback. The explicit-bounds Slider
+  failure remains tested; original geometry tests remain intact.
+- **Evidence:** [source `483cb6c`](https://github.com/Neuri-AI/PSX/commit/483cb6c951183587e4260a855d06acd41974077c);
+  [F3 selective #38224056162](https://github.com/Neuri-AI/PSX/actions/runs/38224056162),
+  [G1 contract #38224055984](https://github.com/Neuri-AI/PSX/actions/runs/38224055984).
+  Acceptance is the linked workflow's completed SUCCESS status. This
+  note does not extend C1's original signature into an untested claim
+  of full C3 component lifecycle or C5 theme re-invalidation.
