@@ -1521,3 +1521,88 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_c4_owned_native_and_custom_adapter_cleanup(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.widget import Widget
+            from psx import Flex
+            from psx.core.native import NativeWidget
+            from psx.core.vnode import native_widget, create_element
+            from psx.core.reconcile import Reconciler
+            from psx.core.errors import RendererCapabilityError
+            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
+            from psx.sfle.f3_external import SFLEExternalPort
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes, Rect
+
+            def port():
+                def measure(w, c):
+                    return IntrinsicSizes(10, 40, 10, 18, 40, 18)
+                def apply(w, r):
+                    w.pos = (r.x, r.y)
+                    w.size = (r.width, r.height)
+                def read(w):
+                    return Rect(w.x, w.y, w.width, w.height)
+                return SFLEExternalPort(measure, apply, read)
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(160, True), AvailableSize(80, True)),
+                engine=PythonLayoutEngine())
+            tree = Reconciler(renderer)
+            created = []
+            def factory():
+                w = Widget(size_hint=(None, None))
+                created.append(w)
+                return w
+            owned = NativeWidget(renderer="kivy", factory=factory,
+                                 sfle_port=port())
+            root = tree.render(Flex(
+                native_widget(owned, key="owned",
+                              layout_width="40px", layout_height="18px",
+                              flex_basis="40px", flex_shrink=0),
+                width=160, height=80,
+            ))
+            assert root.children[0].handle.widget is created[0]
+            assert created[0].parent is root.handle.widget
+            tree.unmount()
+            assert created[0].parent is None
+
+            released = []
+            class CustomAdapter:
+                sfle_port = port()
+                def create(self, backend, node, parent):
+                    return KivyHandle("ExternalTile",
+                                      Widget(size_hint=(None, None)), {})
+                def update(self, backend, handle, changed, removed):
+                    pass
+                def destroy(self, backend, handle):
+                    released.append(handle.widget)
+                    if handle.widget.parent is not None:
+                        handle.widget.parent.remove_widget(handle.widget)
+                def bind_event(self, backend, handle, event, slot):
+                    raise RendererCapabilityError("Unsupported custom event")
+                def unbind_event(self, backend, subscription):
+                    pass
+            renderer.register_adapter("ExternalTile", CustomAdapter())
+            root = tree.render(Flex(
+                create_element("ExternalTile", key="custom",
+                               layout_width="35px", layout_height="18px",
+                               flex_basis="35px", flex_shrink=0),
+                width=160, height=80,
+            ))
+            custom = root.children[0].handle.widget
+            assert custom.parent is root.handle.widget
+            tree.unmount()
+            assert released == [custom]
+            assert custom.parent is None
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_ARGS"] = "1"
+        env["KIVY_NO_FILELOG"] = "1"
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=env,
+            capture_output=True, text=True, timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
