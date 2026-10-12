@@ -146,7 +146,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         )
         readings = []
         native_round = renderer._sfle_native_intrinsic_cache.begin(
-            invalidate_all=renderer._sfle_measurement_invalidations.needs_commit())
+            invalidate_all=renderer._sfle_measurement_invalidations.invalidate_all,
+            dirty_widgets=frozenset(renderer._sfle_measurement_invalidations.dirty_widgets))
         declared_props = {node_id: dict(vnode.props)
                           for node_id, vnode in prepared.identities}
         for node_id in leaf_widgets:
