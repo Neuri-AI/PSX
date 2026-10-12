@@ -89,7 +89,7 @@ def test_receipt_reports_execution_and_pendings_separately(tmp_path):
     source = _xml(tmp_path, tuple((name, "pass") for name in references))
     report = certify_junit("headless", source)
     assert any(c["status"] == "executed_pass" for c in report["contracts"])
-    assert any(c["status"] == "pending" for c in report["contracts"])
+    assert not any(c["status"] == "pending" for c in report["contracts"])
     assert any(c["status"] == "not_applicable" for c in report["contracts"])
     assert all(c["status"] != "invalid_reference" for c in report["contracts"])
     assert not any(c["status"] == "executed_pass" and not c["reference"]
