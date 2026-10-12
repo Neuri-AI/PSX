@@ -13,6 +13,72 @@ import unittest
 
 
 class KivySFLEGeometrySubprocessTests(unittest.TestCase):
+    def test_multiline_text_remeasured_at_real_content_width(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.core.window import Window
+            from psx import Flex, Text, Button
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            def constraints(w):
+                return LayoutConstraints(AvailableSize(w, True), AvailableSize(80, True))
+
+            renderer = KivyRenderer(
+                sfle_constraints=constraints(160), engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(Flex(
+                Text(
+                    "One two three four five six seven eight nine ten "
+                    "eleven twelve thirteen fourteen fifteen sixteen.",
+                    key="text", layout_width="100%", flex_shrink=0,
+                ),
+                Button("Below", key="below", layout_width="50px",
+                       layout_height="20px", flex_basis="50px",
+                       flex_shrink=0),
+                direction="column", width="100%", height="100%",
+                align_items="flex-start",
+            ))
+            label = root.children[0].handle.widget
+            button = root.children[1].handle.widget
+            wide_height = label.height
+            assert wide_height > 0, wide_height
+            assert label.width == 160
+            assert label.text_size[0] == 160
+            assert button.y == 80 - wide_height - 20, (button.y, wide_height)
+
+            renderer.set_sfle_constraints(constraints(90))
+            renderer.commit_layout(root)
+            narrow_height = label.height
+            assert narrow_height > wide_height, (wide_height, narrow_height)
+            assert label.width == 90
+            assert label.text_size[0] == 90
+            assert button.y == 80 - narrow_height - 20, (button.y, narrow_height)
+            assert root.children[0].handle.widget is label
+            assert renderer.sfle_result.geometry_commit_error <= 1
+
+            renderer.set_sfle_constraints(constraints(160))
+            renderer.commit_layout(root)
+            assert label.height == wide_height, (label.height, wide_height)
+            assert label.text_size[0] == 160
+            assert root.children[1].handle.widget is button
+            tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_native_root_and_sdl2_window_resize_automatically_reflow_sfle(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
