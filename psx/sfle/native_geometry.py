@@ -106,10 +106,17 @@ class NativeGeometryCommitter:
             port = self._external_ports.get(node_id)
             if self._skip_unchanged:
                 if port is not None:
-                    actual = port.read(widget)
-                    if (actual.x, actual.y, actual.width, actual.height) == (
-                            x, y, width, height):
-                        continue
+                    # External Tk read ports may require an initial place()
+                    # call before any position attributes exist.
+                    already_placed = (
+                        self._backend != GeometryBackend.TK
+                        or bool(widget.place_info())
+                    )
+                    if already_placed:
+                        actual = port.read(widget)
+                        if (actual.x, actual.y, actual.width, actual.height) == (
+                                x, y, width, height):
+                            continue
                 elif self._backend == GeometryBackend.QT:
                     rect = widget.geometry()
                     if (rect.x(), rect.y(), rect.width(), rect.height()) == (
