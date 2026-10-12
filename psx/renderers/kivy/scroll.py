@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.widget import Widget
 from kivy.uix.scrollview import ScrollView
 
 from psx.core.errors import RendererCapabilityError
@@ -26,15 +27,21 @@ class KivyScrollAdapter:
         from psx.renderers.kivy.kivy import KivyHandle
 
         props = scroll_props(node.props)
+        sfle = renderer._sfle_constraints is not None
         view = _PSXScrollView(
-            do_scroll_x=True, do_scroll_y=True, size_hint=(1, 1),
+            do_scroll_x=True, do_scroll_y=True,
+            size_hint=(None, None) if sfle else (1, 1),
             bar_width=6, scroll_type=["bars", "content"],
             scroll_wheel_distance=48,
         )
-        content = BoxLayout(
-            orientation=props["content_direction"],
-            size_hint=(None, None),
+        content = (
+            Widget(size_hint=(None, None)) if sfle else
+            BoxLayout(
+                orientation=props["content_direction"],
+                size_hint=(None, None),
+            )
         )
+        view._psx_sfle_scroll = sfle
         view.add_widget(content)
         view._psx_content = content
         self._apply(view, props)
@@ -48,15 +55,16 @@ class KivyScrollAdapter:
         view.do_scroll_x = x and props["enabled"]
         view.do_scroll_y = y and props["enabled"]
         content = view._psx_content
-        content.orientation = props["content_direction"]
-        content.padding = scroll_padding(props)
-        content.spacing = props["spacing"]
-        view.size_hint_x = None if props["width"] is not None else 1
-        view.size_hint_y = None if props["height"] is not None else 1
-        if props["width"] is not None:
-            view.width = float(props["width"])
-        if props["height"] is not None:
-            view.height = float(props["height"])
+        if not view._psx_sfle_scroll:
+            content.orientation = props["content_direction"]
+            content.padding = scroll_padding(props)
+            content.spacing = props["spacing"]
+            view.size_hint_x = None if props["width"] is not None else 1
+            view.size_hint_y = None if props["height"] is not None else 1
+            if props["width"] is not None:
+                view.width = float(props["width"])
+            if props["height"] is not None:
+                view.height = float(props["height"])
         view.bar_width = 6 if props["scrollbar"] != "hidden" else 0
         view.bar_color = (0.62, 0.62, 0.62, 0.78) if props["scrollbar"] != "hidden" else (0, 0, 0, 0)
         view.bar_inactive_color = (
@@ -65,7 +73,8 @@ class KivyScrollAdapter:
         )
         view.scroll_type = ["bars", "content"] if props["scrollbar"] != "hidden" else ["content"]
         view.disabled = not props["enabled"]
-        KivyScrollAdapter._resize_content(view)
+        if not view._psx_sfle_scroll:
+            KivyScrollAdapter._resize_content(view)
 
     @staticmethod
     def _resize_content(view):
@@ -79,6 +88,8 @@ class KivyScrollAdapter:
     @staticmethod
     def _connect(view):
         content = view._psx_content
+        if view._psx_sfle_scroll:
+            return
         view.bind(size=lambda *_: KivyScrollAdapter._resize_content(view))
         content.bind(minimum_size=lambda *_: KivyScrollAdapter._resize_content(view))
 
@@ -88,19 +99,28 @@ class KivyScrollAdapter:
         self._apply(handle.widget, props)
         handle.widget.scroll_x, handle.widget.scroll_y = position
         handle.props = props
-        self._layout_children(handle)
+        if not handle.widget._psx_sfle_scroll:
+            self._layout_children(handle)
 
     def insert(self, renderer, parent, child, index):
         if child in parent.children:
             parent.children.remove(child)
         parent.children.insert(index, child)
+        if parent.widget._psx_sfle_scroll:
+            content = parent.widget._psx_content
+            child.widget.size_hint = (None, None)
+            child.widget.pos_hint = {}
+            if child.widget.parent is not content:
+                content.add_widget(child.widget)
+            return True
         self._layout_children(parent)
         return True
 
     def move(self, renderer, parent, child, index):
         parent.children.remove(child)
         parent.children.insert(index, child)
-        self._layout_children(parent)
+        if not parent.widget._psx_sfle_scroll:
+            self._layout_children(parent)
         return True
 
     def remove(self, renderer, parent, child):
