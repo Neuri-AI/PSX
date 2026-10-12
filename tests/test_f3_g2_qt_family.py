@@ -1090,6 +1090,15 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                     )
                     ORACLES["update"](before_observation, after_observation)
                     ORACLES["reorder"](before_observation, after_observation)
+                    # C5: validate invalidation for every native family.
+                    previous_generation = self.renderer.sfle_result.generation
+                    self.renderer.request_sfle_invalidation("font")
+                    self.renderer.application.processEvents()
+                    self.renderer.application.processEvents()
+                    self.assertGreater(self.renderer.sfle_result.generation,
+                                       previous_generation, name)
+                    self.assertIs(current.handle.widget, widget, name)
+                    self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
                     # Invalid callback changes must fail before touching the
                     # actual native widget or its last committed rectangle.
                     attempted = view(name, 80, reverse=True)
