@@ -144,3 +144,22 @@ def test_every_operation_oracle_has_positive_and_negative_behavior(operation):
 def vars_for(observation):
     from dataclasses import asdict
     return asdict(observation)
+
+
+def test_all_required_builtin_lifecycle_operations_have_component_drivers():
+    """Fail closed before C4 if any native component lacks a C3 driver."""
+    required = {"create", "update", "reorder", "unmount", "event_rebind", "rollback"}
+    open_contracts = [
+        (c.backend, c.component, c.operation)
+        for c in g2_operation_contracts()
+        if c.operation in required and c.applicability == "required"
+        and (c.mechanism != "pytest_reference" or not c.reference)
+    ]
+    assert not open_contracts, (
+        "C3 lifecycle operations without executable component-specific "
+        f"evidence: {open_contracts}"
+    )
+    for backend in BACKENDS:
+        assert any(c.backend == backend and c.operation == "rollback"
+                   and c.mechanism == "pytest_reference"
+                   for c in g2_operation_contracts())
