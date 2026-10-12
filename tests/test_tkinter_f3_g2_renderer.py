@@ -682,6 +682,29 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertTrue(native._psx_variable.get())
         self.assertEqual(calls, [True])
 
+    def test_input_placeholder_overlay_is_not_user_value_and_hides_on_update(self):
+        from psx import Input
+        def view(value, hint):
+            return Flex(
+                Input(value=value, placeholder=hint, key="input",
+                      layout_width="180px", layout_height="32px",
+                      flex_basis="180px", flex_shrink=0),
+                direction="row", width="200px", height="80px",
+                align_items="flex-start",
+            )
+        root = self.reconciler.render(view("", "Name"))
+        entry = root.children[0].handle.widget
+        self.assertEqual(entry.get(), "")
+        self.assertEqual(entry._psx_hint_label.cget("text"), "Name")
+        self.assertEqual(entry._psx_hint_label.winfo_manager(), "place")
+        updated = self.reconciler.render(view("Alice", "Your name"))
+        self.assertIs(updated.children[0].handle.widget, entry)
+        self.assertEqual(entry.get(), "Alice")
+        self.assertEqual(entry._psx_hint_label.winfo_manager(), "")
+        self.reconciler.render(view("", "Your name"))
+        self.assertEqual(entry._psx_hint_label.cget("text"), "Your name")
+        self.assertEqual(entry._psx_hint_label.winfo_manager(), "place")
+
     def test_input_native_geometry_comes_from_sfle_and_reuses_entry(self):
         from psx import Input
         root = self.reconciler.render(Flex(

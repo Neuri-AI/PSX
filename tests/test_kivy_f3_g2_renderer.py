@@ -13,6 +13,55 @@ import unittest
 
 
 class KivySFLEGeometrySubprocessTests(unittest.TestCase):
+    def test_kivy_intrinsic_controls_without_pixel_bounds(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import Flex, Input, Checkbox, ProgressBar
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(450, True), AvailableSize(90, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            def view(value, hint):
+                return Flex(
+                    Input(value=value, placeholder=hint, key="input"),
+                    Checkbox(checked=False, key="checkbox"),
+                    ProgressBar(value=55, key="bar"),
+                    direction="row", width="450px", height="90px",
+                    gap=8, align_items="flex-start",
+                )
+            root = tree.render(view("", "Account"))
+            widgets = [child.handle.widget for child in root.children]
+            initial = [tuple(w.size) for w in widgets]
+            assert all(0 < w < 400 and 0 < h < 90 for w, h in initial), initial
+            assert widgets[0].text == ""
+            assert widgets[0].hint_text == "Account"
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            updated = tree.render(view("A longer account value", "Account"))
+            assert [child.handle.widget for child in updated.children] == widgets
+            assert widgets[0].text == "A longer account value"
+            assert widgets[0].width > initial[0][0], (initial, widgets[0].size)
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_kivy_input_explicit_pixel_bounds_preserve_native_widget(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
