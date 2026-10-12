@@ -1108,14 +1108,14 @@ class TkSFLEGeometryTests(unittest.TestCase):
         before = tuple(rect(widget) for widget in widgets)
         published = self.renderer.sfle_result
         original_ports = bridge.SFLEAdapterPorts
-        injected = {"pending": True}
+        injected = {"reads": 0}
 
         def race_ports(**kwargs):
             read = kwargs["read_rectangles"]
             def read_with_race():
                 data = read()
-                if injected["pending"]:
-                    injected["pending"] = False
+                injected["reads"] += 1
+                if injected["reads"] == 2:
                     self.renderer._sfle_measurement_invalidations.request("resource")
                 return data
             kwargs["read_rectangles"] = read_with_race
