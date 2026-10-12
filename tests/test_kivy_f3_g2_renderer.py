@@ -1177,3 +1177,115 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             capture_output=True, text=True, timeout=90,
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
+    def test_all_ported_builtin_lifecycles_keep_native_widget_handles(self):
+        """Real SDL2 runtime; each native family gets keyed update and removal."""
+        script = textwrap.dedent(r"""
+            from pathlib import Path
+            from tempfile import TemporaryDirectory
+            import base64
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import (Text, Button, Input, Checkbox, TextArea, Slider,
+                             Spacer, Divider, Image, ProgressBar, Radio,
+                             RadioGroup, Select, Switch, Link, Badge, SpinBox,
+                             Scroll, Box, Flex)
+            from psx.core.vnode import create_element
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+
+            with TemporaryDirectory() as tmp:
+                png = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC"
+                       "AAAAC0lEQVR42mP8/x8AAusB9Y9WdmkAAAAASUVORK5CYII=")
+                path = Path(tmp) / "pixel.png"
+                path.write_bytes(base64.b64decode(png))
+                factories = {
+                    "Text": lambda: Text("Before"),
+                    "Button": lambda: Button("Before"),
+                    "Input": lambda: Input(value="Before"),
+                    "Checkbox": lambda: Checkbox(),
+                    "TextArea": lambda: TextArea("Before"),
+                    "Slider": lambda: Slider(value=30),
+                    "Spacer": lambda: Spacer(),
+                    "Divider": lambda: Divider(),
+                    "Image": lambda: Image(str(path)),
+                    "ProgressBar": lambda: ProgressBar(value=30),
+                    "Radio": lambda: Radio("a", label="Before"),
+                    "RadioGroup": lambda: RadioGroup(Radio("a", label="Before")),
+                    "Select": lambda: Select(
+                        options=[{"label": "A", "value": "a"},
+                                 {"label": "B", "value": "b"}], value="a"),
+                    "Switch": lambda: Switch(checked=False),
+                    "Link": lambda: Link(label="Before"),
+                    "Badge": lambda: Badge(label="Before"),
+                    "SpinBox": lambda: SpinBox(value=30),
+                    "Scroll": lambda: Scroll(Flex(
+                        Text("Content", layout_width="30px",
+                             layout_height="15px"), width="40px", height="24px")),
+                    "Box": lambda: Box(Text("Inside", layout_width="30px",
+                                           layout_height="15px")),
+                    "Flex": lambda: Flex(Text("Inside", layout_width="30px",
+                                             layout_height="15px")),
+                }
+                native = set(G2_LEAF_TYPES["kivy"]) | {"Flex"}
+                assert set(factories) == native, sorted(native ^ set(factories))
+
+                renderer = KivyRenderer(
+                    sfle_constraints=LayoutConstraints(
+                        AvailableSize(260, True), AvailableSize(90, True)),
+                    engine=PythonLayoutEngine(),
+                )
+                tree = Reconciler(renderer)
+                def item(name, width):
+                    base = factories[name]()
+                    return create_element(
+                        base.type, *base.children, key="item",
+                        **{**dict(base.props), "layout_width": f"{width}px",
+                           "layout_height": "24px",
+                           "flex_basis": f"{width}px", "flex_shrink": 0},
+                    )
+                def view(name, width, reverse=False):
+                    target = item(name, width)
+                    peer = Button("Peer", key="peer", layout_width="20px",
+                                  layout_height="24px", flex_basis="20px",
+                                  flex_shrink=0)
+                    return Flex(*((peer, target) if reverse else (target, peer)),
+                                width=260, height=90, gap=8,
+                                align_items="flex-start")
+                for name in sorted(native):
+                    tree.unmount()
+                    try:
+                        first = tree.render(view(name, 60))
+                        old = first.children[0]
+                        native_widget = old.handle.widget
+                        assert native_widget.width == 60, (name, native_widget.size)
+                        assert native_widget.height == 24, (name, native_widget.size)
+                        second = tree.render(view(name, 80, True))
+                        current = second.children[1]
+                        assert current is old, name
+                        assert current.handle.widget is native_widget, name
+                        assert native_widget.width == 80, (name, native_widget.size)
+                        assert native_widget.x > second.children[0].handle.widget.x, name
+                        tree.render(Flex(
+                            Button("Peer", key="peer", layout_width="20px",
+                                   layout_height="24px"),
+                            width=260, height=90, align_items="flex-start"))
+                        assert old.disposed, name
+                        assert native_widget.parent is None, name
+                    except Exception as error:
+                        raise AssertionError(f"Native Kivy lifecycle for {name}: {error}") from error
+                tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            env=environment, capture_output=True, text=True, timeout=150,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
