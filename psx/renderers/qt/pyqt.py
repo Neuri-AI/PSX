@@ -341,6 +341,7 @@ class QtRenderer:
         self._sfle_watched_widget = None
         self._sfle_resize_filter = None
         self._sfle_resize_pending = None
+        self._sfle_resize_baseline = None
         self._sfle_resize_scheduled = False
         self._sfle_resize_epoch = 0
         self._sfle_resize_error: Exception | None = None
@@ -415,6 +416,9 @@ class QtRenderer:
         constraints = self._sfle_constraints
         if constraints is None or self._sfle_mounted_root is None:
             return
+        if self._sfle_resize_baseline == (width, height):
+            return
+        self._sfle_resize_baseline = (width, height)
         if (constraints.width.value, constraints.height.value) == (width, height):
             return
         self._sfle_resize_pending = (width, height)
@@ -467,6 +471,7 @@ class QtRenderer:
             )
             widget.installEventFilter(self._sfle_resize_filter)
             self._sfle_watched_widget = widget
+            self._sfle_resize_baseline = (widget.width(), widget.height())
         self._sfle_mounted_root = root
 
     def invalidate_layout(self) -> None:
@@ -484,6 +489,7 @@ class QtRenderer:
                     pass
             self._sfle_watched_widget = None
             self._sfle_resize_filter = None
+            self._sfle_resize_baseline = None
             self.sfle_result = None
 
     def _adapter_for(self, key: object):
