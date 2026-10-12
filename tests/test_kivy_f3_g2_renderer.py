@@ -1686,3 +1686,44 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                                 capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_semantic_measurement_invalidations_do_not_remount_kivy(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.clock import Clock
+            from psx import Flex, Text
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(160, True), AvailableSize(80, True)),
+                engine=PythonLayoutEngine())
+            reconciler = Reconciler(renderer)
+            for reason in ("content", "font", "theme", "resource", "dpi", "viewport"):
+                reconciler.unmount()
+                root = reconciler.render(Flex(
+                    Text("Stable", key="fixed", layout_width="50px",
+                         layout_height="20px"),
+                    width=160, height=80, align_items="flex-start"))
+                native = root.children[0].handle.widget
+                generation = renderer.sfle_result.generation
+                renderer.request_sfle_invalidation(reason)
+                renderer.request_sfle_invalidation(reason)
+                Clock.tick()
+                assert root.children[0].handle.widget is native, reason
+                assert renderer.sfle_result.generation == generation + 1, reason
+                assert not renderer._sfle_measurement_invalidations.pending, reason
+            reconciler.unmount()
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_ARGS"] = "1"
+        env["KIVY_NO_FILELOG"] = "1"
+        env.pop("KIVY_NO_CONSOLELOG", None)
+        result = subprocess.run([sys.executable, "-c", script],
+                                env=env, capture_output=True, text=True,
+                                timeout=150)
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
