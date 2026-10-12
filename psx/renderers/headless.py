@@ -85,6 +85,9 @@ class HeadlessRenderer:
         self._sfle_invalidation_lifetime = 0
         self._sfle_mounted_root = None
         self._sfle_in_commit = False
+        # Stable native handle identity + immutable prop snapshot index.
+        # Published only after a successful geometry transaction.
+        self._sfle_intrinsic_cache = {}
         self._sfle_owner_thread = get_ident()
         self.sfle_result: LayoutResult | None = None
         self.operations: list[tuple[object, ...]] = []
@@ -155,6 +158,7 @@ class HeadlessRenderer:
         self._sfle_invalidation_lifetime += 1
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
+        self._sfle_intrinsic_cache.clear()
         self._sfle_mounted_root = None
         if self._sfle_constraints is not None:
             self._sfle_generation += 1
