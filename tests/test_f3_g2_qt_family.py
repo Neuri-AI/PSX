@@ -284,6 +284,50 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertIsNone(self.renderer._sfle_mounted_root)
         self.assertIsNone(self.renderer._sfle_watched_widget)
 
+    def test_external_native_auto_height_uses_actual_assigned_width(self):
+        widths = []
+
+        def measure(widget, limits):
+            width = limits.width.value
+            widths.append(width)
+            actual_height = 42 if width is not None and width <= 100 else 20
+            return IntrinsicSizes(10, 240, actual_height, actual_height,
+                                  240, actual_height)
+
+        def apply(widget, rect):
+            widget.setGeometry(
+                round(rect.x), round(rect.y),
+                round(rect.width), round(rect.height),
+            )
+
+        def read(widget):
+            r = widget.geometry()
+            return Rect(r.x(), r.y(), r.width(), r.height())
+
+        root = self.reconciler.render(Flex(
+            Native(
+                qtwidgets.QLabel, renderer=BINDING,
+                sfle_port=SFLEExternalPort(measure, apply, read),
+                key="width-dependency", layout_width="100%", flex_shrink=0,
+            ),
+            button("After", "after", 35),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        leaf = root.children[0].handle.widget
+        after = root.children[1].handle.widget
+        self.assertEqual(geometry(leaf), (0, 0, 160, 20))
+        self.assertEqual(after.y(), 20)
+        self.assertIn(160, widths)
+
+        self.renderer.set_sfle_constraints(viewport(90, 80))
+        root.handle.widget.resize(90, 80)
+        self.renderer.commit_layout(root)
+        self.assertEqual(geometry(leaf), (0, 0, 90, 42))
+        self.assertEqual(after.y(), 42)
+        self.assertIn(90, widths)
+        self.assertIs(root.children[0].handle.widget, leaf)
+
     def test_native_owned_geometry_port_and_readback(self):
         calls = []
         def measure(widget, c):
