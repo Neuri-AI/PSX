@@ -330,6 +330,8 @@ class KivyRenderer:
         self._sfle_generation = 0
         from psx.sfle.f3_g2_invalidation import MeasurementInvalidations
         self._sfle_measurement_invalidations = MeasurementInvalidations()
+        from psx.sfle.f3_native_cache import NativeIntrinsicCache
+        self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
         self._sfle_invalidation_scheduled = False
         self._sfle_invalidation_lifetime = 0
         self._sfle_mounted_root = None
@@ -532,6 +534,7 @@ class KivyRenderer:
         self._sfle_invalidation_lifetime += 1
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
+        self._sfle_native_intrinsic_cache.clear()
         self._sfle_mounted_root = None
         if self._sfle_constraints is not None:
             self._sfle_generation += 1
