@@ -1410,3 +1410,40 @@ capability that has **not yet been implemented**. A dependency plan
 alone must not be advertised as an incremental solver. Full CI for
 the code revision must also pass before treating its runtime race
 and targeted invalidation behavior as certified.
+
+
+### C5 increment 1 — readback-phase concurrency fence (implementation under certification)
+
+**Scope:** concurrency/rollback native transactional hardening only; this is
+not a C5 closure certificate. Previous checks rejected semantic changes
+before and immediately after rectangle application but could miss
+notifications emitted synchronously by native geometry readback. All four
+SFLE bridges now revalidate semantic epoch and layout generation **after
+native readback** and before the transaction is published.
+
+- Qt, Tkinter and Kivy: a failed readback-phase fence raises a typed
+  `INVALID_SNAPSHOT` inside the native rollback boundary. Previous
+  rectangles are restored; completed snapshot and native measurement
+  cache are not published. This is a UI-thread synchronous race, not
+  permission to mutate toolkit objects from worker threads.
+- Headless: an injected semantic invalidation during geometry readback
+  raises before its geometry/cache publication and restores prior
+  rectangles. A later explicit commit recovers without remount.
+- Regression drivers: `tests/test_f3_g2_headless.py`,
+  `tests/test_f3_g2_qt_family.py`,
+  `tests/test_tkinter_f3_g2_renderer.py`,
+  and `tests/test_kivy_f3_g2_renderer.py` inject an invalidation from
+  the actual readback callback and assert rejection, rollback, pending
+  invalidation, stable native identity and retry.
+- **Certification requirement:** record the final SHA, executed tests and
+  mandatory completed SUCCESS jobs (including all Qt binding cells and
+  native Kivy/Tk) before calling this increment complete. Existing
+  successful earlier SHAs cannot certify these new tests.
+
+**Additional scenarios remaining within increment 1:** injected
+invalidation during native geometry application (not only readback),
+mid-solver invalidation, recoverable native application exceptions,
+rollback of affected non-geometric widget paint/scroll state, teardown
+during queued work, and targeted per-backend evidence. Do not label
+increment 1 complete until those cases are either proven or explicitly
+rejected as inapplicable by the accepted native transaction contract.
