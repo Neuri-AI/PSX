@@ -504,6 +504,9 @@ class KivyRenderer:
             return
         from psx.sfle.f3_kivy import commit_kivy_sfle
         commit_kivy_sfle(self, root)
+        self._sfle_measurement_invalidations.acknowledge(
+            self._sfle_measurement_invalidations.epoch)
+
         self._sfle_textarea_epoch += 1
         if self._sfle_textarea_event is not None:
             self._sfle_textarea_event.cancel()
