@@ -1447,3 +1447,60 @@ rollback of affected non-geometric widget paint/scroll state, teardown
 during queued work, and targeted per-backend evidence. Do not label
 increment 1 complete until those cases are either proven or explicitly
 rejected as inapplicable by the accepted native transaction contract.
+
+
+### C5 increment 1 — native concurrency and rollback certificate (CLOSED, 2026-10-12)
+
+**Certified code SHA:** [`f0c98bf42f57bbf89d1344ea600e6f94630aec56`](https://github.com/Neuri-AI/PSX/commit/f0c98bf42f57bbf89d1344ea600e6f94630aec56).
+**Required selective CI:** [run #38261691396 — completed SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38261691396).
+Independent required G1 contract, runtime package boundaries and commit-subject
+workflows also completed SUCCESS at the same code SHA.
+
+**Implemented behavior:** Headless, Qt, Tkinter and Kivy fence semantic epoch
+and generation before native geometry mutation, after native application,
+and after readback validation, *before publishing* the new SFLE result and
+intrinsic measurement cache. Stale transactions discard provisional caches
+and restore the previous native geometry. Qt/Tk/Kivy retry a native
+semantic invalidation a maximum of three times on the owning UI thread;
+persistent invalidation fails closed rather than publishing a stale result.
+Native application failures retain the old committed SFLE snapshot.
+The previous Headless incremental measurement cache improvement also
+reuses unaffected sibling measurements for targeted invalidations.
+
+**Executed behavior-specific evidence:**
+
+- `tests/test_f3_g2_headless.py`: injected measurement-phase invalidation,
+  solver-phase invalidation, invalidation during readback, selective
+  dirty-widget caching, transient measurement failure and retry, unmount
+  cancellation, preserved mounted identities and unchanged published
+  result on rejection.
+- `tests/test_f3_g2_qt_family.py`: real Qt-widget readback race,
+  invalidation during geometry application with automatically successful
+  bounded retry, and injected *actual native rectangle mutation* followed
+  by an application exception and complete geometry rollback. All four
+  supported Qt binding CI cells executed.
+- `tests/test_tkinter_f3_g2_renderer.py`: equivalent real Tk place-geometry
+  race, bounded native retry and rollback after a deliberately changed
+  native placement.
+- `tests/test_kivy_f3_g2_renderer.py`: real SDL2 Kivy subprocess tests
+  exercising native position/size rollback, invalidation during geometry
+  application and readback, mounted identity and bounded retry.
+- The mandatory selective run also passed the chosen SFLE, Rust/Python
+  differential, Chromium, native platform/wheel, Core and Headless
+  consumer jobs. G4 removal was deliberately skipped: it belongs to G4
+  and is not evidence for C5.
+
+**Scope and safety boundary:** These are synchronous events processed by
+the toolkit owner thread, not permission to call native widgets off-thread.
+Resource/paint-side changes whose state is owned by the backend still obey
+its own lifetime and repaint contracts; this certificate guarantees
+SFLE-controlled geometry, cache and mounted identity, not atomic rollback
+of every external device or side-effecting third-party widget. The
+required application/readback cases and error recovery are certified for
+increment 1; C5 as a whole is **still OPEN**.
+
+**Next increment (2/3):** exhaustively exercise observable image and
+resource changes, font/theme/DPI migration, per-widget dependency
+propagation and selectivity counters in native backends. Increment 3
+performs the full component/backend/operation certificate. Neither
+increment belongs to C6 or G3.
