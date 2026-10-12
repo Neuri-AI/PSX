@@ -28,11 +28,15 @@ CERTIFICATION = re.compile(
 
 
 def check() -> list[str]:
-    return sorted(
-        item.name
-        for item in SFLE.glob("*.py")
-        if CERTIFICATION.fullmatch(item.name) and item.name not in LEGACY
-    )
+    violations = []
+    for item in SFLE.glob("*.py"):
+        if not CERTIFICATION.fullmatch(item.name):
+            continue
+        if item.name not in LEGACY:
+            violations.append(item.name)
+        elif f"from tests.certification.{item.stem} import *" not in item.read_text(encoding="utf-8"):
+            violations.append(f"{item.name}: legacy module must remain a thin compatibility shim")
+    return sorted(violations)
 
 
 if __name__ == "__main__":
