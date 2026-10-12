@@ -42,6 +42,7 @@ class TkImageAdapter:
         widget._psx_image_cache = None
         widget._psx_photo = None  # keep the PhotoImage alive
         widget._psx_props = props
+        widget._psx_sfle_image = renderer._sfle_constraints is not None
 
         self._load_and_apply(widget, props)
         return TkHandle("Image", widget, props)
@@ -115,6 +116,38 @@ class TkImageAdapter:
             "RGBA", (int(target_w), int(target_h)), (0, 0, 0, 0),
         )
         canvas.paste(scaled, (int(round(x)), int(round(y))), scaled)
+        photo = ImageTk.PhotoImage(canvas)
+        widget._psx_photo = photo
+        widget.configure(image=photo, text="")
+    @staticmethod
+    def paint_sfle(widget, width: int, height: int) -> None:
+        """Recompose a loaded image inside the final SFLE native place rectangle."""
+        source = widget._psx_image_cache
+        if source is None:
+            raise RendererCapabilityError("Tk Image has no decoded source for SFLE painting.")
+        props = widget._psx_props
+        if width <= 0 or height <= 0:
+            widget.configure(image="", text="")
+            return
+        if not _HAS_PIL:
+            # Tk's built-in PhotoImage has no arbitrary fractional resize.
+            # A source without Pillow is still usable at native dimensions,
+            # otherwise fail explicitly rather than paint a wrong fit.
+            if (width, height) != (source.width(), source.height()) or props["fit"] not in ("none", "contain"):
+                raise RendererCapabilityError(
+                    "Tk SFLE Image requires Pillow for scaling/cropping; "
+                    "install Pillow or use the source's intrinsic dimensions."
+                )
+            widget._psx_photo = source
+            widget.configure(image=source, text="")
+            return
+        sw, sh = source.size
+        x, y, w, h = compute_fit_rect(sw, sh, width, height, props["fit"])
+        painted = source.resize(
+            (max(1, round(w)), max(1, round(h))), PILImage.LANCZOS,
+        )
+        canvas = PILImage.new("RGBA", (width, height), (0, 0, 0, 0))
+        canvas.paste(painted, (round(x), round(y)), painted)
         photo = ImageTk.PhotoImage(canvas)
         widget._psx_photo = photo
         widget.configure(image=photo, text="")

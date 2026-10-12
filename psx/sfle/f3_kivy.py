@@ -108,7 +108,13 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             node_id for node_id, vnode in prepared.identities
             if vnode.kind is NodeKind.HOST and vnode.type == "TextArea"
         )
-        source = KivyMeasurementSource(leaf_widgets, textarea_ids=textarea_ids)
+        image_ids = frozenset(
+            node_id for node_id, vnode in prepared.identities
+            if vnode.kind is NodeKind.HOST and vnode.type == "Image"
+        )
+        source = KivyMeasurementSource(
+            leaf_widgets, textarea_ids=textarea_ids, image_ids=image_ids,
+        )
         readings = []
         for node_id, widget in leaf_widgets.items():
             # Kivy computes texture_size lazily; force only intrinsic texture

@@ -20,13 +20,13 @@ from psx.sfle.lengths import LengthKind, parse_length
 G2_LEAF_TYPES = MappingProxyType({
     "qt": frozenset({
         "Text", "Button", "Checkbox", "Input", "TextArea",
-        "Slider", "Radio", "ProgressBar", "Select",
+        "Slider", "Radio", "ProgressBar", "Select", "Image",
     }),
     "tk": frozenset({
-        "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar",
+        "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar", "Image",
     }),
     "kivy": frozenset({
-        "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer",
+        "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer", "Image",
     }),
 })
 KIVY_EXPLICIT_BOUNDS = frozenset({"Checkbox", "Slider", "Spacer"})

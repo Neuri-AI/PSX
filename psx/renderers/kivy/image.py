@@ -38,6 +38,7 @@ class KivyImageAdapter:
         widget.size_hint = (None, None)
         widget.disabled = not props["enabled"]
         widget._psx_props = props
+        widget._psx_sfle_image = renderer._sfle_constraints is not None
         widget.bind(texture=KivyImageAdapter._on_texture)
 
         # If the texture is already cached, apply the target size right away.
@@ -55,7 +56,9 @@ class KivyImageAdapter:
         target_w, target_h = compute_target_size(
             src_w, src_h, props["width"], props["height"],
         )
-        widget.size = (target_w, target_h)
+        if not widget._psx_sfle_image:
+            widget.size = (target_w, target_h)
+        # Under SFLE Image paints within the externally committed size.
         widget.fit_mode = _FIT_MODE[props["fit"]]
 
     def update(self, renderer, handle, changed, removed):

@@ -20,11 +20,44 @@ class KivyMeasurementSource:
     def __init__(
         self, widgets: Mapping[str, object],
         *, textarea_ids: frozenset[str] = frozenset(),
+        image_ids: frozenset[str] = frozenset(),
     ) -> None:
         self._widgets = dict(widgets)
         if not textarea_ids <= self._widgets.keys():
             raise ValueError("TextArea measurement IDs must map to mounted Kivy controls.")
         self._textarea_ids = textarea_ids
+        if not image_ids <= self._widgets.keys():
+            raise ValueError("Image measurement IDs must refer to mounted Kivy controls.")
+        self._image_ids = image_ids
+
+    @staticmethod
+    def _image_metrics(widget: object) -> IntrinsicSizes:
+        from psx.renderers.components.image import compute_target_size
+        texture = widget.texture
+        if texture is None:
+            # kivy.uix.image.Image normally loads local sources immediately.
+            # On providers deferring the widget texture, force a synchronous
+            # *source* decode, never fall back to Widget.size=(100,100).
+            from kivy.core.image import Image as CoreImage
+            try:
+                texture = CoreImage(widget.source).texture
+            except Exception as exc:
+                raise SFLEError(
+                    DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                    "Kivy Image source cannot be synchronously decoded.",
+                ) from exc
+        if texture is None:
+            raise SFLEError(
+                DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                "Kivy Image texture has no intrinsic dimensions.",
+            )
+        props = widget._psx_props
+        sw, sh = texture.size
+        width, height = compute_target_size(sw, sh, props["width"], props["height"])
+        return IntrinsicSizes(
+            float(width), float(width), float(height), float(height),
+            float(width), float(height),
+        )
         self._owner_thread = threading.get_ident()
 
     @staticmethod
@@ -77,6 +110,11 @@ class KivyMeasurementSource:
         widget = self._widgets.get(request.node_id)
         if widget is None:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Kivy measurement node.")
+        if request.node_id in self._image_ids:
+            return MeasuredBox(
+                request.node_id, self._image_metrics(widget),
+                request.constraints, request.revision,
+            )
         if request.node_id in self._textarea_ids:
             metrics = self._textarea_metrics(widget, None)
             return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)

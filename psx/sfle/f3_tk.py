@@ -119,7 +119,13 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             node_id for node_id, vnode in prepared.identities
             if vnode.kind is NodeKind.HOST and vnode.type == "TextArea"
         )
-        source = TkMeasurementSource(leaf_widgets, textarea_ids=textarea_ids)
+        image_ids = frozenset(
+            node_id for node_id, vnode in prepared.identities
+            if vnode.kind is NodeKind.HOST and vnode.type == "Image"
+        )
+        source = TkMeasurementSource(
+            leaf_widgets, textarea_ids=textarea_ids, image_ids=image_ids,
+        )
         readings = []
         for node_id in leaf_widgets:
             readings.append(source.measure(MeasurementRequest(
@@ -214,6 +220,14 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         try:
             # F2 checks signed 1/64px precision before mutating a single child.
             committer(result)
+            if image_ids:
+                from psx.renderers.tkinter.image import TkImageAdapter
+                for node_id in image_ids:
+                    widget = widgets[node_id]
+                    rect = rectangles[node_id].border
+                    TkImageAdapter.paint_sfle(
+                        widget, round(rect.width), round(rect.height),
+                    )
             # Apply the SAME measured content width to actual native text
             # painting, otherwise Tk could show a single-line clipped label
             # even though SFLE correctly reserved multiline block height.

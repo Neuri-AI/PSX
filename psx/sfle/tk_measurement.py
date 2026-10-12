@@ -19,11 +19,35 @@ class TkMeasurementSource:
     def __init__(
         self, widgets: Mapping[str, object],
         *, textarea_ids: frozenset[str] = frozenset(),
+        image_ids: frozenset[str] = frozenset(),
     ) -> None:
         self._widgets = dict(widgets)
         if not textarea_ids <= self._widgets.keys():
             raise ValueError("TextArea measurement IDs must map to mounted Tk controls.")
         self._textarea_ids = textarea_ids
+        if not image_ids <= self._widgets.keys():
+            raise ValueError("Image measurement IDs must refer to mounted Tk controls.")
+        self._image_ids = image_ids
+
+    @staticmethod
+    def _image_metrics(widget: object) -> IntrinsicSizes:
+        from psx.renderers.components.image import compute_target_size
+        source = getattr(widget, "_psx_image_cache", None)
+        if source is None:
+            raise SFLEError(
+                DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                "Tk Image source has no decodable intrinsic dimensions.",
+            )
+        if hasattr(source, "size"):
+            sw, sh = source.size
+        else:
+            sw, sh = source.width(), source.height()
+        props = widget._psx_props
+        width, height = compute_target_size(sw, sh, props["width"], props["height"])
+        return IntrinsicSizes(
+            float(width), float(width), float(height), float(height),
+            float(width), float(height),
+        )
         self._owner_thread = threading.get_ident()
 
     @staticmethod
@@ -100,6 +124,11 @@ class TkMeasurementSource:
         widget = self._widgets.get(request.node_id)
         if widget is None:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Tk measurement node.")
+        if request.node_id in self._image_ids:
+            return MeasuredBox(
+                request.node_id, self._image_metrics(widget),
+                request.constraints, request.revision,
+            )
         if request.node_id in self._textarea_ids:
             metrics = self._textarea_metrics(widget, None)
             return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)

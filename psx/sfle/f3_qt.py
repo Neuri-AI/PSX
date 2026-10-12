@@ -99,8 +99,13 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             node_id for node_id, vnode in prepared.identities
             if vnode.kind is NodeKind.HOST and vnode.type == "TextArea"
         )
+        image_ids = frozenset(
+            node_id for node_id, vnode in prepared.identities
+            if vnode.kind is NodeKind.HOST and vnode.type == "Image"
+        )
         source = QtMeasurementSource(
-            leaf_widgets, qtcore=renderer._qtcore, textarea_ids=textarea_ids,
+            leaf_widgets, qtcore=renderer._qtcore,
+            textarea_ids=textarea_ids, image_ids=image_ids,
         )
         if not source.is_ui_thread():
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
@@ -198,6 +203,16 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         }
         try:
             committer(result)
+            # Repaint inside SFLE's committed rectangle, never QPixmap's
+            # natural dimensions or a competing QLabel.setFixedSize().
+            if image_ids:
+                from psx.renderers.qt.image import QtImageAdapter
+                for node_id in image_ids:
+                    widget = bindings[node_id].widget
+                    QtImageAdapter.paint_sfle(
+                        widget, widget.width(), widget.height(),
+                        renderer._binding_package,
+                    )
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Qt commit.")
             rects = dict(result.boxes)

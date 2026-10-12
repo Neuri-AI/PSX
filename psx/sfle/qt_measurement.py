@@ -23,12 +23,34 @@ class QtMeasurementSource:
     def __init__(
         self, widgets: Mapping[str, object], *, qtcore: object,
         textarea_ids: frozenset[str] = frozenset(),
+        image_ids: frozenset[str] = frozenset(),
     ) -> None:
         self._widgets = dict(widgets)
         self._qtcore = qtcore
         if not textarea_ids <= self._widgets.keys():
             raise ValueError("TextArea measurement IDs must refer to mounted widgets.")
         self._textarea_ids = textarea_ids
+        if not image_ids <= self._widgets.keys():
+            raise ValueError("Image measurement IDs must refer to mounted Qt widgets.")
+        self._image_ids = image_ids
+
+    @staticmethod
+    def _image_metrics(widget: object) -> IntrinsicSizes:
+        from psx.renderers.components.image import compute_target_size
+        pixmap = getattr(widget, "_psx_pixmap_cache", None)
+        if pixmap is None or pixmap.isNull():
+            raise SFLEError(
+                DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                "Qt Image source has no decodable intrinsic dimensions.",
+            )
+        props = widget._psx_props
+        width, height = compute_target_size(
+            pixmap.width(), pixmap.height(), props["width"], props["height"],
+        )
+        return IntrinsicSizes(
+            float(width), float(width), float(height), float(height),
+            float(width), float(height),
+        )
 
     def is_ui_thread(self) -> bool:
         qthread = getattr(self._qtcore, "QThread", None)
@@ -46,6 +68,11 @@ class QtMeasurementSource:
         widget = self._widgets.get(request.node_id)
         if widget is None:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Qt measurement node.")
+        if request.node_id in self._image_ids:
+            return MeasuredBox(
+                request.node_id, self._image_metrics(widget),
+                request.constraints, request.revision,
+            )
         hint = widget.sizeHint()
         minimum = widget.minimumSizeHint()
         if not hint.isValid():
