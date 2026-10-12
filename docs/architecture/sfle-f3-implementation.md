@@ -1504,3 +1504,92 @@ resource changes, font/theme/DPI migration, per-widget dependency
 propagation and selectivity counters in native backends. Increment 3
 performs the full component/backend/operation certificate. Neither
 increment belongs to C6 or G3.
+
+
+### C5 increment 2 — resource revisions, native DPI/style and selective dependents (CLOSED, 2026-10-12)
+
+**Certified implementation SHA:** [`bfca6746a187cb2b37e782fdc4bba501f5fe4ebe`](https://github.com/Neuri-AI/PSX/commit/bfca6746a187cb2b37e782fdc4bba501f5fe4ebe).
+**Full required F3 selective workflow:** [run #38263527111 — completed SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38263527111).
+G1 contract, runtime package-boundary and commit-subject workflows also
+completed SUCCESS for this same code SHA. Documentation-only commits
+use the selective classifier to skip product-test jobs.
+
+**What changed:**
+
+- `psx/sfle/f3_resource_watch.py`: a detected local image revision
+  remains pending until an explicit success acknowledgement. Failed
+  native decoding/reloading does **not** consume the change: a
+  subsequent owner-thread poll retries the same version even when no
+  further file modification occurs. Deletion, re-creation, changing
+  image dimensions and disposal remain observable.
+- Qt, Tkinter and Kivy resource-poll bridges acknowledge the watched
+  revision **only after** their backend native update/reload and SFLE
+  invalidation request return successfully. Exceptions preserve the
+  pending revision, the mounted instance and the last committed
+  geometry; resource errors remain inspectable on the renderer.
+- Qt native font/style/palette events from a mounted *child* now
+  invalidate that child's native intrinsic measurement by widget
+  identity, instead of invalidating every native leaf. Root-wide
+  events and DPR/screen changes still globally invalidate intrinsic
+  measurements and device-space projection, as required.
+- Existing `NativeIntrinsicCache` native-width and ordinary caches,
+  `NativeGeometryCommitter(skip_unchanged=True)`, and
+  `plan_layout_dependents` continue separating layout-dependent
+  recomputation planning from actual native measurement and geometry
+  writes. The Rust and Python mathematical SFLE engines still compute
+  immutable full snapshots; this does not claim an incremental solver.
+
+**Executed native evidence at the implementation SHA:**
+
+- `tests/test_f3_g2_c5_resources.py`: changed file signatures,
+  missing/recreated sources, unsupported virtual/URL paths, and
+  *retry without additional file changes* when a native reload fails.
+- `tests/test_f3_g2_qt_family.py`: live local-file image revision
+  reflows real Qt geometry without changing props or remounting;
+  child-targeted style versus global DPI invalidation; native cache
+  last-measured counters show an unaffected sibling was not remeasured.
+  Qt parity was run in PySide6, PyQt6, PyQt5 and PySide2 CI cells.
+- `tests/test_tkinter_f3_g2_renderer.py`: real Tk image revision
+  reflows a mounted peer in-place, per-widget measurement counters
+  exclude the unaffected peer, and native theme notifications remain
+  covered by the existing renderer suite.
+- `tests/test_kivy_f3_g2_renderer.py`: real SDL2 Kivy subprocess
+  validates live image file revision without remount, followed by
+  native readback; targeted measurement invalidation excludes an
+  unaffected sibling. The existing Kivy texture and explicit host
+  notification pathways remain in force.
+- Existing native DPI/pixel-space, width-specific measurement,
+  unchanged rectangle-write, resource observers and readback suites
+  were selected and passed by the same required F3 workflow. The
+  terminal G4 API-removal gate was intentionally skipped because it
+  is outside the increment's scope.
+
+**Portability contract and explicit limits:**
+
+- File polling applies only to supported local file paths. Remote
+  URLs, toolkit virtual resource systems, packed assets and
+  third-party-managed resources require documented host-supplied
+  `request_sfle_invalidation` when their native platform does not
+  expose a reliable event. A callback can use `widget_id` to target
+  one native leaf; a global invalidation omits that ID.
+- Qt observes native root/child style/font and available screen/DPR
+  event classes. Tk's `<<ThemeChanged>>` root event and Kivy's
+  texture-change/host notifications supplement explicit invalidation.
+  Native events not exposed by a toolkit are **not** falsely claimed
+  to be observable. DPR remains a coordinate projection property,
+  not a second geometry layout authority.
+- Dirty-leaf dependency closure is conservative: sibling boxes in
+  an affected Flex line may move, so geometry must still be computed
+  by SFLE. Only unchanged native intrinsic measurements and identical
+  geometry writes are suppressed; this is separate from mathematical
+  solver incrementality.
+- Native image reload is not itself a transactional file decoder for
+  arbitrary external resources: failure/retry and lifetime fences
+  safeguard SFLE's committed geometry and prevent lost file revisions.
+  The following C5 increment certifies the complete
+  component × backend × invalidation-operation matrix and JUnit
+  receipts for the closure gate.
+
+**Status:** increment 2/3 CLOSED at the exact implementation SHA above.
+C5 remains OPEN until increment 3's exhaustive operation-specific
+evidence is complete; no C6 precision or G3 Scroll claims are inferred.
