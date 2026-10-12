@@ -1375,3 +1375,38 @@ readback, **not** a claim that the entire SFLE mathematical layout tree is
 incrementally recomputed. Dynamic paint/texture updates can still occur
 with an unchanged rectangle, as they should. C5 final signoff requires
 all remaining owner-thread race/resource/DPI scenarios to be certified.
+
+
+### C5 concurrent transactions and dependency tracking — further implementation (2026-10-12)
+
+- `f3_g2_invalidation.py` now tracks **global vs widget-targeted**
+  invalidations, including dirty native widget identities and semantic
+  epochs. Local file-resource watchers mark only their affected Image
+  widget. The native intrinsic cache uses those identities to avoid
+  remeasuring unchanged siblings during targeted resource updates.
+- All four SFLE bridges fence semantic invalidation epochs before
+  geometry mutation and after geometry application. A stale transaction
+  cannot publish an intrinsic-cache transaction as successful. Qt,
+  Tkinter and Kivy support bounded restart (three attempts maximum)
+  when native style/texture events arrive during measurement. A
+  persistent changing environment fails closed.
+- `request_sfle_invalidation` retains pending reasons when native
+  measurement or geometry raises; a later retry can recover without
+  remounting widgets. Headless has explicit injected-mid-measurement
+  and transient-failure regression tests.
+- `f3_dirty_dependencies.py` identifies dirty leaves, their ancestor
+  chain, and siblings of affected Flex containers. It is a conservative
+  dependency graph **planner**; it does *not* assert or implement
+  incremental Rust/Python Flex calculation by itself. Both SFLE
+  engines still compute full immutable snapshots on normal commits.
+- Real native geometry adapters suppress writes when native readback
+  already equals the committed SFLE projection, including unchanged
+  sibling widgets. This is selective native **application**, not
+  incremental mathematical layout execution.
+
+**Explicit remaining boundary for formal C5 closure:** incremental
+Rust/Python engine subtree computation is a separate engine-level
+capability that has **not yet been implemented**. A dependency plan
+alone must not be advertised as an incremental solver. Full CI for
+the code revision must also pass before treating its runtime race
+and targeted invalidation behavior as certified.
