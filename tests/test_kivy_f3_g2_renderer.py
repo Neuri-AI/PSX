@@ -1449,3 +1449,75 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_borrowed_native_widget_restores_parent_and_disposes_only_own_bindings(self):
+        """Borrowed Kivy Native preserves caller ownership and parent."""
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.widget import Widget
+            from psx import Flex
+            from psx.core.native import NativeWidget, NativeOwnership
+            from psx.core.vnode import native_widget
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.f3_external import SFLEExternalPort
+            from psx.sfle.f3_g2_oracles import Observation, ORACLES
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes, Rect
+
+            caller_parent = Widget()
+            widget = Widget()
+            caller_parent.add_widget(widget)
+            calls = []
+            def measure(w, c):
+                calls.append("measure")
+                return IntrinsicSizes(10, 45, 10, 20, 45, 20)
+            def apply(w, rect):
+                calls.append("apply")
+                w.pos = (rect.x, rect.y)
+                w.size = (rect.width, rect.height)
+            def read(w):
+                calls.append("read")
+                return Rect(w.x, w.y, w.width, w.height)
+            declaration = NativeWidget(
+                renderer="kivy", widget=widget,
+                ownership=NativeOwnership.BORROWED,
+                sfle_port=SFLEExternalPort(measure, apply, read),
+            )
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(160, True), AvailableSize(80, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            def view(width):
+                return Flex(native_widget(
+                    declaration, key="borrowed",
+                    layout_width=f"{width}px", layout_height="20px",
+                    flex_basis=f"{width}px", flex_shrink=0),
+                    width=160, height=80, align_items="flex-start")
+            first = tree.render(view(35))
+            assert first.children[0].handle.widget is widget
+            assert widget.parent is not caller_parent
+            second = tree.render(view(45))
+            assert second.children[0].handle.widget is widget
+            before = Observation(id(widget), True, (widget.x, widget.y, 45, 20),
+                                 owner="caller")
+            tree.unmount()
+            after = Observation(id(widget), False, (widget.x, widget.y, 45, 20),
+                                owner="caller", disposed=False)
+            ORACLES["borrowed_ownership"](before, after)
+            assert widget.parent is caller_parent
+            assert widget in caller_parent.children
+            assert {"measure", "apply", "read"} <= set(calls)
+            caller_parent.remove_widget(widget)
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_ARGS"] = "1"
+        env["KIVY_NO_FILELOG"] = "1"
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=env,
+            capture_output=True, text=True, timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
