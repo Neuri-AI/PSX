@@ -328,6 +328,12 @@ class KivyRenderer:
         self._sfle_generation = 0
         self._sfle_in_commit = False
         self._sfle_owner_thread = get_ident()
+        self._sfle_mounted_root = None
+        self._sfle_watched_widget = None
+        self._sfle_resize_pending = None
+        self._sfle_resize_event = None
+        self._sfle_resize_epoch = 0
+        self._sfle_resize_error: Exception | None = None
         self.sfle_result: LayoutResult | None = None
         self._root: Widget | None = None
         self.adapters = RendererAdapterRegistry()
@@ -380,14 +386,91 @@ class KivyRenderer:
         if self._root is not None:
             self._root.size = (constraints.width.value, constraints.height.value)
 
+    def _sfle_on_root_size(self, widget: Widget, size: object) -> None:
+        if widget is not self._sfle_watched_widget:
+            return
+        width, height = size
+        constraints = self._sfle_constraints
+        if (width <= 0 or height <= 0 or constraints is None
+                or self._sfle_mounted_root is None):
+            return
+        if (constraints.width.value, constraints.height.value) == (width, height):
+            return
+        self._sfle_resize_pending = (width, height)
+        if self._sfle_resize_event is None:
+            epoch = self._sfle_resize_epoch
+            self._sfle_resize_event = Clock.schedule_once(
+                lambda _dt: self._sfle_flush_viewport_resize(epoch), 0,
+            )
+
+    def _sfle_on_window_resize(self, window, width: float, height: float) -> None:
+        # A free-standing preview root must not follow a different Kivy window.
+        if (self._sfle_watched_widget is not None
+                and self._sfle_watched_widget.parent is window
+                and width > 0 and height > 0):
+            self._sfle_watched_widget.size = (width, height)
+
+    def _sfle_flush_viewport_resize(self, epoch: int) -> None:
+        self._sfle_resize_event = None
+        if epoch != self._sfle_resize_epoch or self._sfle_mounted_root is None:
+            return
+        size = self._sfle_resize_pending
+        self._sfle_resize_pending = None
+        if size is None:
+            return
+        root = self._sfle_mounted_root
+        if root.disposed:
+            return
+        from psx.sfle.model import AvailableSize
+        try:
+            self.set_sfle_constraints(LayoutConstraints(
+                AvailableSize(size[0], True), AvailableSize(size[1], True),
+            ))
+            self.commit_layout(root)
+            self._sfle_resize_error = None
+        except Exception as exc:
+            self._sfle_resize_error = exc
+            import logging
+            logging.getLogger(__name__).exception("Kivy SFLE viewport resize failed")
+
     def commit_layout(self, root: object) -> None:
-        if self._sfle_constraints is not None:
-            from psx.sfle.f3_kivy import commit_kivy_sfle
-            commit_kivy_sfle(self, root)
+        if self._sfle_constraints is None:
+            return
+        from psx.sfle.f3_kivy import commit_kivy_sfle
+        commit_kivy_sfle(self, root)
+        widget = root.native_handle().widget
+        if widget is not self._sfle_watched_widget:
+            if self._sfle_watched_widget is not None:
+                self._sfle_watched_widget.unbind(size=self._sfle_on_root_size)
+            self._sfle_resize_epoch += 1
+            self._sfle_resize_pending = None
+            if self._sfle_resize_event is not None:
+                self._sfle_resize_event.cancel()
+                self._sfle_resize_event = None
+            widget.bind(size=self._sfle_on_root_size)
+            self._sfle_watched_widget = widget
+        from kivy.core.window import Window
+        if not getattr(self, "_sfle_window_bound", False):
+            Window.bind(on_resize=self._sfle_on_window_resize)
+            self._sfle_window_bound = True
+        self._sfle_mounted_root = root
 
     def invalidate_layout(self) -> None:
         if self._sfle_constraints is not None:
             self._sfle_generation += 1
+            self._sfle_resize_epoch += 1
+            self._sfle_mounted_root = None
+            self._sfle_resize_pending = None
+            if self._sfle_resize_event is not None:
+                self._sfle_resize_event.cancel()
+                self._sfle_resize_event = None
+            if self._sfle_watched_widget is not None:
+                self._sfle_watched_widget.unbind(size=self._sfle_on_root_size)
+                self._sfle_watched_widget = None
+            if getattr(self, "_sfle_window_bound", False):
+                from kivy.core.window import Window
+                Window.unbind(on_resize=self._sfle_on_window_resize)
+                self._sfle_window_bound = False
             self.sfle_result = None
 
     def _adapter_for(self, key: object):
