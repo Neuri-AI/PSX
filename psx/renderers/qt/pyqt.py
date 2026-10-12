@@ -530,6 +530,9 @@ class QtRenderer:
             return
         from psx.sfle.f3_qt import commit_qt_sfle
         commit_qt_sfle(self, root)
+        self._sfle_measurement_invalidations.acknowledge(
+            self._sfle_measurement_invalidations.epoch)
+
         # An explicit/reconciler commit supersedes a pending native edit.
         self._sfle_textarea_epoch += 1
         self._sfle_textarea_pending = False
