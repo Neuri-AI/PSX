@@ -31,7 +31,7 @@ def test_native_measurements_skip_unaffected_widget_and_rebind_new_node_ids():
                     node_id="reassigned-b", generation=generation,
                     measure=measure("beta", "reassigned-b", generation))
         tx.publish()
-        assert a.generation == generation and b.generation == generation
+        assert a.revision == generation and b.revision == generation
 
     run({"label": "first"}, {"label": "same"}, 1)
     assert calls == ["alpha", "beta"]
