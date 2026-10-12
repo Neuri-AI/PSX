@@ -13,6 +13,94 @@ import unittest
 
 
 class KivySFLEGeometrySubprocessTests(unittest.TestCase):
+    def test_native_root_and_sdl2_window_resize_automatically_reflow_sfle(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.core.window import Window
+            from kivy.clock import Clock
+            from psx import Flex, Button
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            def bounds(w, h):
+                return LayoutConstraints(AvailableSize(w, True), AvailableSize(h, True))
+
+            class CountingEngine:
+                def __init__(self):
+                    self.calls = 0
+                def compute(self, snapshot):
+                    self.calls += 1
+                    return PythonLayoutEngine().compute(snapshot)
+
+            def item(name, width):
+                return Button(name, key=name, layout_width=f"{width}px",
+                              layout_height="20px", flex_basis=f"{width}px",
+                              flex_shrink=0)
+
+            engine = CountingEngine()
+            renderer = KivyRenderer(sfle_constraints=bounds(160, 80), engine=engine)
+            tree = Reconciler(renderer)
+            mounted = tree.render(Flex(
+                item("Left", 30), item("Right", 20),
+                width="100%", height="100%",
+                direction="row", justify_content="space-between",
+                align_items="flex-start",
+            ))
+            host = mounted.handle.widget
+            left, right = [child.handle.widget for child in mounted.children]
+            assert engine.calls == 1
+            assert (right.x, right.y, right.width, right.height) == (140, 60, 20, 20)
+
+            # Actual native Kivy size dispatch, coalesced on the toolkit Clock.
+            host.size = (210, 100)
+            host.size = (260, 120)
+            assert engine.calls == 1
+            Clock.tick()
+            assert renderer._sfle_resize_error is None
+            assert engine.calls == 2, engine.calls
+            assert (renderer._sfle_constraints.width.value,
+                    renderer._sfle_constraints.height.value) == (260, 120)
+            assert (right.x, right.y, right.width, right.height) == (240, 100, 20, 20)
+            assert mounted.children[0].handle.widget is left
+            assert mounted.children[1].handle.widget is right
+
+            # Mount into the real SDL2 Window; Kivy's Window resize
+            # notification now controls this SFLE-owned root widget.
+            Window.add_widget(host)
+            try:
+                assert host.parent is Window
+                Window.dispatch("on_resize", 280, 140)
+                Clock.tick()
+                assert renderer._sfle_resize_error is None
+                assert engine.calls == 3, engine.calls
+                assert tuple(host.size) == (280, 140)
+                assert (right.x, right.y, right.width, right.height) == (260, 120, 20, 20)
+                assert renderer.sfle_result.geometry_commit_error <= 1
+            finally:
+                Window.remove_widget(host)
+
+            tree.unmount()
+            assert renderer._sfle_mounted_root is None
+            assert not renderer._sfle_window_bound
+            host.size = (310, 170)
+            Clock.tick()
+            assert engine.calls == 3
+            assert renderer.sfle_result is None
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_real_kivy_native_bottom_left_geometry_and_reconciliation(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
