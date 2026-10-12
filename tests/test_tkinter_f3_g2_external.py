@@ -147,3 +147,54 @@ class TkExternalPortTests(unittest.TestCase):
         widget.destroy()
         parent.destroy()
 
+    def test_owned_native_and_custom_tk_resources_are_released_once(self):
+        from psx.core.native import NativeWidget
+        from psx.core.vnode import native_widget
+
+        owned = []
+        def factory(master):
+            widget = ttk.Label(master, text="Owned")
+            owned.append(widget)
+            return widget
+        declaration = NativeWidget(
+            renderer="tkinter", factory=factory, takes_parent=True,
+            sfle_port=port([]),
+        )
+        root = self.tree.render(Flex(
+            native_widget(declaration, key="owned",
+                          layout_width="35px", layout_height="18px",
+                          flex_basis="35px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        self.assertIs(root.children[0].handle.widget, owned[0])
+        self.tree.unmount()
+        self.assertFalse(owned[0].winfo_exists())
+
+        destroyed = []
+        class CustomAdapter:
+            sfle_port = port([])
+            def create(self, renderer, node, parent):
+                return TkHandle("ExternalTile",
+                                ttk.Label(parent.widget, text="External"), {})
+            def update(self, renderer, handle, changed, removed):
+                pass
+            def destroy(self, renderer, handle):
+                destroyed.append(handle.widget)
+                handle.widget.destroy()
+            def bind_event(self, renderer, handle, event, slot):
+                raise RendererCapabilityError("Unsupported custom event")
+            def unbind_event(self, renderer, subscription):
+                pass
+
+        self.renderer.register_adapter("ExternalTile", CustomAdapter())
+        second = self.tree.render(Flex(
+            create_element("ExternalTile", key="custom",
+                           layout_width="35px", layout_height="18px",
+                           flex_basis="35px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        custom = second.children[0].handle.widget
+        self.tree.unmount()
+        self.assertEqual(destroyed, [custom])
+        self.assertFalse(custom.winfo_exists())
+
