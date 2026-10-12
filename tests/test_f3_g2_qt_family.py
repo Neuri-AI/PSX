@@ -1072,13 +1072,15 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                     # actual native widget or its last committed rectangle.
                     attempted = view(name, 80, reverse=True)
                     original = attempted.children[1]
-                    invalid = create_element(
-                        original.type, *original.children, key=original.key,
-                        **{**dict(original.props), "on_invalid": 1},
+                    from dataclasses import replace
+                    from types import MappingProxyType
+                    invalid = replace(
+                        original, props=MappingProxyType({
+                            **dict(original.props), "on_invalid": 1,
+                        }),
                     )
-                    forged = create_element(
-                        attempted.type, attempted.children[0], invalid,
-                        **dict(attempted.props),
+                    forged = replace(
+                        attempted, children=(attempted.children[0], invalid),
                     )
                     with self.assertRaises((TypeError, RendererCapabilityError)):
                         self.reconciler.render(forged)
