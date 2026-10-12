@@ -13,7 +13,9 @@ def test_c4_inventory_has_explicit_external_variants_for_each_backend():
     assert set(C4_BY_BACKEND) == {"qt", "tk", "kivy"}
     required = {"native_owned", "native_borrowed", "custom_adapter"}
     for backend, cases in C4_BY_BACKEND.items():
-        assert {item.variant for item in cases} == required
+        assert required <= {item.variant for item in cases}
+        if backend in ("qt", "kivy"):
+            assert "signal_subscription" in {item.variant for item in cases}
         assert all(item.test_name.startswith("test_") for item in cases)
         assert all(item.expectation for item in cases)
         assert len({item.variant for item in cases}) == len(cases)
