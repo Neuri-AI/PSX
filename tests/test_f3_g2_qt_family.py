@@ -1068,6 +1068,22 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                     self.assertGreater(after[0], 0, name)
                     self.assertLess(geometry(updated.children[0].handle.widget)[0],
                                     after[0], name)
+                    # Invalid callback changes must fail before touching the
+                    # actual native widget or its last committed rectangle.
+                    attempted = view(name, 80, reverse=True)
+                    original = attempted.children[1]
+                    invalid = create_element(
+                        original.type, *original.children, key=original.key,
+                        **{**dict(original.props), "on_invalid": 1},
+                    )
+                    forged = create_element(
+                        attempted.type, attempted.children[0], invalid,
+                        **dict(attempted.props),
+                    )
+                    with self.assertRaises(TypeError):
+                        self.reconciler.render(forged)
+                    self.assertIs(updated.children[1].handle.widget, widget, name)
+                    self.assertEqual(geometry(widget), after, name)
                     self.reconciler.render(Flex(
                         button("Peer", "peer", 20), width=260, height=90,
                         align_items="flex-start",
