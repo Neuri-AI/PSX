@@ -133,6 +133,10 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             spacer_ids=spacer_ids, divider_nodes=divider_nodes,
         )
         readings = []
+        native_round = renderer._sfle_native_intrinsic_cache.begin(
+            invalidate_all=renderer._sfle_measurement_invalidations.needs_commit())
+        declared_props = {node_id: dict(vnode.props)
+                          for node_id, vnode in prepared.identities}
         for node_id, widget in leaf_widgets.items():
             # Kivy computes texture_size lazily; force only intrinsic texture
             # update, never a parent/BoxLayout placement pass.
@@ -144,9 +148,13 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     widget.text_size = (None, None)
                     if callable(refresh):
                         refresh()
-                    readings.append(source.measure(MeasurementRequest(
-                        node_id, renderer._sfle_constraints, generation, generation,
-                    )))
+                    readings.append(native_round.read(
+                        widget=widget, props=declared_props[node_id],
+                        constraints=renderer._sfle_constraints,
+                        node_id=node_id, generation=generation,
+                        measure=lambda node_id=node_id: source.measure(MeasurementRequest(
+                            node_id, renderer._sfle_constraints, generation, generation)),
+                    ))
                 finally:
                     widget.text_size = original_text_size
                     if callable(refresh):
@@ -156,15 +164,23 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 continue
             if callable(refresh):
                 refresh()
-            readings.append(source.measure(MeasurementRequest(
-                node_id, renderer._sfle_constraints, generation, generation,
-            )))
+            readings.append(native_round.read(
+                widget=widget, props=declared_props[node_id],
+                constraints=renderer._sfle_constraints,
+                node_id=node_id, generation=generation,
+                measure=lambda node_id=node_id: source.measure(MeasurementRequest(
+                    node_id, renderer._sfle_constraints, generation, generation)),
+            ))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Kivy measurement became stale.")
         for node_id, port in external.items():
-            readings.append(measure_external(
-                port, bindings[node_id].widget, renderer._sfle_constraints,
-                node_id, generation,
+            readings.append(native_round.read(
+                widget=bindings[node_id].widget, props=declared_props[node_id],
+                constraints=renderer._sfle_constraints,
+                node_id=node_id, generation=generation,
+                measure=lambda port=port, node_id=node_id: measure_external(
+                    port, bindings[node_id].widget,
+                    renderer._sfle_constraints, node_id, generation),
             ))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external kivy measurement.")
@@ -327,5 +343,6 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             raise
         renderer._sfle_physical_commit_error = physical_maximum
         renderer.sfle_result = replace(result, geometry_commit_error=maximum)
+        native_round.publish()
     finally:
         renderer._sfle_in_commit = False
