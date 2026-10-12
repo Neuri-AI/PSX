@@ -75,7 +75,7 @@ def test_c5_targeted_invalidation_coalesces_without_marking_global():
 
 def test_c5_dependency_closure_retains_flex_siblings():
     from psx.sfle.f3_dirty_dependencies import plan_layout_dependents
-    from psx.sfle.model import LayoutInput, LayoutNode, LayoutConstraints, AvailableSize
+    from psx.sfle.model import LayoutInput, LayoutNode, LayoutConstraints, AvailableSize, WritingDirection
 
     viewport = LayoutConstraints(AvailableSize(300, True), AvailableSize(200, True))
     nodes = (
@@ -86,7 +86,7 @@ def test_c5_dependency_closure_retains_flex_siblings():
         LayoutNode("right", "root", "Flex", ()),
         LayoutNode("c", "right", "Text", ()),
     )
-    request = LayoutInput(1, 1, "ltr", viewport, nodes)
+    request = LayoutInput(1, 1, WritingDirection.LTR, viewport, nodes, ())
     closure = plan_layout_dependents(request, frozenset({"a"}))
     assert closure.dirty == {"a"}
     assert closure.ancestors == {"left", "root"}
