@@ -1,7 +1,11 @@
 """G2 native Tkinter SFLE: real ttk geometry and no pack/grid fallbacks."""
 from __future__ import annotations
 
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from threading import Thread
+import struct
+import zlib
 import tkinter as tk
 from tkinter import ttk
 import unittest
@@ -13,6 +17,21 @@ from psx.renderers.tkinter.tkinter import TkinterRenderer
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.errors import DiagnosticCode, SFLEError
 from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutResult
+
+
+def write_png(path, width, height):
+    """Generate deterministic truecolor RGBA pixels without requiring Pillow."""
+    def chunk(kind, data):
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(
+            ">I", zlib.crc32(kind + data) & 0xffffffff,
+        )
+    rows = (b"\x00" + b"\xff\x33\x66\xff" * width) * height
+    Path(path).write_bytes(
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">2I5B", width, height, 8, 6, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(rows))
+        + chunk(b"IEND", b"")
+    )
 
 
 def constraints(width=160, height=80):
@@ -382,10 +401,50 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertEqual(errors[0].code, DiagnosticCode.UNSUPPORTED_MEASUREMENT)
 
-    def test_unported_builtin_is_explicit_failure_not_native_layout_fallback(self):
+    def test_image_intrinsic_source_resize_and_keyed_native_reuse(self):
         from psx import Image
+        with TemporaryDirectory() as directory:
+            source = str(Path(directory) / "native.png")
+            write_png(source, 24, 12)
+            root = self.reconciler.render(Flex(
+                Image(source, key="img", fit="contain"),
+                item("Below", "below", 30),
+                direction="column", width="100%", height="100%",
+                align_items="flex-start",
+            ))
+            img, button = [child.handle.widget for child in root.children]
+            self.assertIsInstance(img, ttk.Label)
+            self.assertEqual(rect(img), (0, 0, 24, 12))
+            self.assertEqual(rect(button)[1], 12)
+            self.assertIs(img.master, root.handle.widget)
+            self.assertEqual(img.winfo_manager(), "place")
+            self.assertIsNotNone(img._psx_photo)
+            self.assertIsNone(self.renderer._sfle_resize_error)
+            updated = self.reconciler.render(Flex(
+                Image(source, key="img", fit="cover",
+                      layout_width="60px", layout_height="30px"),
+                item("Below", "below", 30),
+                direction="column", width="100%", height="100%",
+                align_items="flex-start",
+            ))
+            self.assertIs(updated.children[0].handle.widget, img)
+            self.assertEqual(rect(img), (0, 0, 60, 30))
+            self.assertEqual(rect(button)[1], 30)
+            self.assertGreater(img._psx_photo.width(), 0)
+            self.assertEqual((img._psx_photo.width(), img._psx_photo.height()), (60, 30))
+            self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
+    def test_image_invalid_source_requires_actual_native_intrinsic_measurement(self):
+        from psx import Image
+        with self.assertRaisesRegex(SFLEError, "intrinsic dimensions"):
+            self.reconciler.render(Flex(
+                Image("this-source-does-not-exist.png"), width=160, height=80,
+            ))
+
+    def test_unported_builtin_is_explicit_failure_not_native_layout_fallback(self):
+        from psx import Divider
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
-            self.reconciler.render(Flex(Image("unported.png"), width=160, height=80))
+            self.reconciler.render(Flex(Divider(), width=160, height=80))
 
     def test_additional_tk_native_primitives_have_sfle_geometry_no_pack(self):
         from psx import Slider, ProgressBar, Radio

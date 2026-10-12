@@ -83,6 +83,83 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_image_intrinsic_source_and_native_sfle_geometry(self):
+        script = textwrap.dedent(r"""
+            import struct
+            import tempfile
+            import zlib
+            from pathlib import Path
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.image import Image as KivyImage
+            from psx import Flex, Image, Button
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.errors import SFLEError
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            def png(path, width, height):
+                def chunk(kind, data):
+                    return (struct.pack(">I", len(data)) + kind + data
+                            + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
+                row = b"\x00" + b"\xff\x33\x66\xff" * width
+                Path(path).write_bytes(
+                    b"\x89PNG\r\n\x1a\n"
+                    + chunk(b"IHDR", struct.pack(">2I5B", width, height, 8, 6, 0, 0, 0))
+                    + chunk(b"IDAT", zlib.compress(row * height))
+                    + chunk(b"IEND", b"")
+                )
+
+            limits = LayoutConstraints(
+                AvailableSize(160, True), AvailableSize(100, True),
+            )
+            with tempfile.TemporaryDirectory() as directory:
+                path = str(Path(directory) / "native.png")
+                png(path, 24, 12)
+                renderer = KivyRenderer(sfle_constraints=limits, engine=PythonLayoutEngine())
+                reconcile = Reconciler(renderer)
+                def below():
+                    return Button("Below", key="below", layout_width="40px",
+                                  layout_height="20px", flex_basis="20px",
+                                  flex_shrink=0)
+                root = reconcile.render(Flex(
+                    Image(path, key="img", fit="contain"),
+                    below(), direction="column", width="100%", height="100%",
+                    align_items="flex-start",
+                ))
+                widget = root.children[0].handle.widget
+                button = root.children[1].handle.widget
+                assert isinstance(widget, KivyImage)
+                assert widget.parent is root.handle.widget
+                assert (widget.width, widget.height) == (24, 12)
+                assert abs(button.y - 68) <= 1, button.y
+                assert tuple(widget.size_hint) == (None, None)
+                assert renderer.sfle_result.geometry_commit_error <= 1
+                root = reconcile.render(Flex(
+                    Image(path, key="img", fit="cover",
+                          layout_width="60px", layout_height="30px"),
+                    below(), direction="column", width="100%", height="100%",
+                    align_items="flex-start",
+                ))
+                assert root.children[0].handle.widget is widget
+                assert tuple(widget.size) == (60, 30)
+                assert abs(button.y - 50) <= 1, button.y
+                assert widget.fit_mode == "cover"
+                assert renderer.sfle_result.geometry_commit_error <= 1
+                reconcile.unmount()
+                assert renderer.sfle_result is None
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_textarea_native_width_reflow_and_editing(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
@@ -323,7 +400,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from kivy.uix.label import Label
             from kivy.uix.button import Button as KivyButton
 
-            from psx import Flex, Text, Button, Checkbox, Slider, Spacer, Image, component, use_state, psx
+            from psx import Flex, Text, Button, Checkbox, Slider, Spacer, Divider, component, use_state, psx
             from psx.core.native import Native
             from psx.core.vnode import create_element
             from psx.sfle.f3_external import SFLEExternalPort
@@ -590,7 +667,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             # Unported component: no fallback to Kivy BoxLayout.
             backend, tree = create()
             try:
-                tree.render(Flex(Image("unported.png"), width=160, height=80))
+                tree.render(Flex(Divider(), width=160, height=80))
             except RendererCapabilityError as error:
                 assert "not certified" in str(error)
             else:

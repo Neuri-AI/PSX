@@ -13,13 +13,13 @@ from psx.sfle.f3_native_coverage import (
 @pytest.mark.parametrize("backend,expected", [
     ("qt", frozenset({
         "Text", "Button", "Checkbox", "Input", "TextArea",
-        "Slider", "Radio", "ProgressBar", "Select",
+        "Slider", "Radio", "ProgressBar", "Select", "Image",
     })),
     ("tk", frozenset({
-        "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar",
+        "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar", "Image",
     })),
     ("kivy", frozenset({
-        "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer",
+        "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer", "Image",
     })),
 ])
 def test_capability_surface_explicit_and_not_all_native_widgets(backend, expected):
@@ -62,9 +62,10 @@ def test_kivy_textured_and_measurable_items_require_real_measurement():
 
 
 @pytest.mark.parametrize("backend", ["qt", "tk", "kivy"])
-def test_unported_image_cannot_silently_use_native_fallback(backend):
-    with pytest.raises(RendererCapabilityError, match="not certified"):
-        g2_native_leaf_needs_measurement(Image("missing.png"), backend=backend)
+def test_image_is_admitted_for_real_intrinsic_measurement(backend):
+    # Admission is not proof of source decoding: each toolkit rejects invalid
+    # image bytes during native measurement, never assumes a 100px QWidget.
+    assert g2_native_leaf_needs_measurement(Image("missing.png"), backend=backend)
 
 
 def test_backend_unknown_is_a_configuration_error():

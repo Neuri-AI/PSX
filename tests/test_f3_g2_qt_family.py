@@ -626,10 +626,58 @@ class QtFamilySFLEParityTests(unittest.TestCase):
             ))
         self.assertFalse(created)
 
-    def test_unported_widget_still_rejected_and_default_flex_fail_closed(self):
+    def test_image_intrinsic_and_sfle_paint_survive_reconcile_resize(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
         from psx import Image
+
+        gui = importlib.import_module(f"{PACKAGE}.QtGui")
+        with TemporaryDirectory() as directory:
+            source = str(Path(directory) / "image.png")
+            pixmap = gui.QPixmap(24, 12)
+            pixmap.fill(gui.QColor("#F03D64"))
+            self.assertTrue(pixmap.save(source))
+            root = self.reconciler.render(Flex(
+                Image(source, key="picture", fit="contain"),
+                Button("Below", key="below", layout_width="50px",
+                       layout_height="20px", flex_basis="20px", flex_shrink=0),
+                direction="column", width="100%", height="100%",
+                align_items="flex-start",
+            ))
+            widget = root.children[0].handle.widget
+            below = root.children[1].handle.widget
+            self.assertIsInstance(widget, qtwidgets.QLabel)
+            self.assertIsNone(widget.layout())
+            self.assertIs(widget.parentWidget(), root.handle.widget)
+            self.assertEqual(geometry(widget), (0, 0, 24, 12))
+            self.assertEqual(below.y(), 12)
+            self.assertEqual((widget.pixmap().width(), widget.pixmap().height()), (24, 12))
+            self.assertNotEqual(widget.minimumSize().width(), 24)
+            root = self.reconciler.render(Flex(
+                Image(source, key="picture", fit="cover",
+                      layout_width="60px", layout_height="28px"),
+                Button("Below", key="below", layout_width="50px",
+                       layout_height="20px", flex_basis="20px", flex_shrink=0),
+                direction="column", width="100%", height="100%",
+                align_items="flex-start",
+            ))
+            self.assertIs(root.children[0].handle.widget, widget)
+            self.assertEqual(geometry(widget), (0, 0, 60, 28))
+            self.assertEqual(below.y(), 28)
+            self.assertEqual((widget.pixmap().width(), widget.pixmap().height()), (60, 28))
+            self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
+    def test_image_invalid_source_fails_intrinsic_measurement(self):
+        from psx import Image
+        with self.assertRaisesRegex(SFLEError, "intrinsic dimensions"):
+            self.reconciler.render(Flex(
+                Image("this-file-must-not-exist.png"), width=160, height=80,
+            ))
+
+    def test_unported_widget_still_rejected_and_default_flex_fail_closed(self):
+        from psx import Divider
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
-            self.reconciler.render(Flex(Image("unported.png"), width=160, height=80))
+            self.reconciler.render(Flex(Divider(), width=160, height=80))
         legacy = RENDERER_CLASS(argv=["psx-qt-no-sfle"])
         second = Reconciler(legacy)
         with self.assertRaisesRegex(RendererCapabilityError, "F3-G2 SFLE geometry"):
