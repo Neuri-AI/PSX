@@ -512,3 +512,45 @@ def test_c5_headless_intrinsic_cache_skips_unaffected_siblings() -> None:
     assert all(not handle.destroyed for handle in original_handles)
     reconciler.unmount()
     assert not renderer._sfle_intrinsic_cache
+
+
+def test_c5_invalidated_during_measurement_rejects_stale_geometry_and_recovers() -> None:
+    """A semantic event raised by a host measurement cannot commit old boxes."""
+    from psx.sfle.errors import SFLEError
+
+    source = {"width": 20, "mutate": False}
+    renderer_holder = {}
+
+    def measure(node):
+        if node.type == "Text":
+            if source["mutate"]:
+                source["mutate"] = False
+                renderer_holder["renderer"].request_sfle_invalidation("resource")
+            return IntrinsicSizes(source["width"], source["width"], 14, 14,
+                                  source["width"], 14)
+        return None
+
+    renderer = new_renderer(measure_intrinsic=measure)
+    renderer_holder["renderer"] = renderer
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Flex(
+        Text("Measured", layout_width="40px", layout_height="20px"),
+        width=120, height=60,
+    ))
+    widget = root.children[0].handle
+    previous = widget.geometry
+    previous_generation = renderer.sfle_result.generation
+    source["width"] = 35
+    source["mutate"] = True
+    renderer._sfle_measurement_invalidations.request("content")
+    with pytest.raises(SFLEError, match="Stale semantic invalidation"):
+        renderer.commit_layout(root)
+    assert widget.geometry == previous
+    assert renderer.sfle_result.generation == previous_generation
+    assert renderer._sfle_measurement_invalidations.needs_commit()
+
+    renderer.commit_layout(root)
+    assert renderer.sfle_result.generation > previous_generation
+    assert not renderer._sfle_measurement_invalidations.needs_commit()
+    assert root.children[0].handle is widget
+    reconciler.unmount()
