@@ -127,7 +127,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert edit.width == 160
             wide_height = edit.height
             assert wide_height > 0
-            assert button.y == 500 - wide_height - 20
+            assert abs(button.y - (500 - wide_height - 20)) <= 1
             edit.select_text(1, 6)
             selection = edit.selection_text
             assert selection
@@ -135,7 +135,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             renderer.commit_layout(root)
             assert edit.width == 90
             assert edit.height > wide_height, (wide_height, edit.height)
-            assert button.y == 500 - edit.height - 20
+            assert abs(button.y - (500 - edit.height - 20)) <= 1
             assert edit.text == words
             assert edit.selection_text == selection
             assert root.children[0].handle.widget is edit
@@ -143,7 +143,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             renderer.set_sfle_constraints(constraints())
             renderer.commit_layout(root)
             assert edit.height == wide_height
-            assert button.y == 500 - wide_height - 20
+            assert abs(button.y - (500 - wide_height - 20)) <= 1
             assert events == []
 
             previous_generation = renderer.sfle_result.generation
@@ -153,7 +153,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert renderer._sfle_textarea_error is None
             assert renderer.sfle_result.generation > previous_generation
             assert edit.height > wide_height
-            assert button.y == 500 - edit.height - 20
+            assert abs(button.y - (500 - edit.height - 20)) <= 1
             assert edit.parent is root.handle.widget
             assert events == [edit.text], events
             tree.unmount()

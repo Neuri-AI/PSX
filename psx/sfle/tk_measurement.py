@@ -8,7 +8,6 @@ from __future__ import annotations
 import math
 import threading
 from collections.abc import Mapping
-from tkinter import font as tkfont
 
 from .errors import DiagnosticCode, SFLEError
 from .measurement_plan import MeasurementRequest
@@ -43,6 +42,8 @@ class TkMeasurementSource:
         ):
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                             "Tk TextArea needs a finite nonnegative content width.")
+        # GUI toolkit imports remain lazy: the G1 Flex contract is backend-free.
+        from tkinter import font as tkfont
         font = tkfont.Font(root=widget, font=widget.cget("font"))
         text = widget.get("1.0", "end-1c")
         horizontal = int(widget.cget("padx")) * 2 + (
@@ -65,10 +66,9 @@ class TkMeasurementSource:
             probe.place(x=-30000, y=-30000, width=probe_width, height=40)
             probe.update_idletasks()
             count = probe.count("1.0", "end-1c", "displaylines")
-            if count is None:
-                raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
-                                "Tk TextArea display-line measurements unavailable.")
-            lines = int(count[0]) + 1
+            # Tcl returns an empty result when there are zero display-line
+            # *transitions* (the single-line case), not an error.
+            lines = (int(count[0]) if count else 0) + 1
             line_height = int(font.metrics("linespace"))
             top_bottom = (
                 2 * (int(widget.cget("pady")) +
