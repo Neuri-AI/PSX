@@ -303,6 +303,7 @@ class TkinterRenderer:
         self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
         self._sfle_backend = "tk"
         self._sfle_generation = 0
+        self._sfle_theme_bind_id = None
         from psx.sfle.f3_g2_invalidation import MeasurementInvalidations
         self._sfle_measurement_invalidations = MeasurementInvalidations()
         self._sfle_invalidation_scheduled = False
@@ -412,6 +413,11 @@ class TkinterRenderer:
                 height=round(constraints.height.value),
             )
 
+    def _sfle_on_theme_changed(self, event) -> None:
+        if (not self._closed and event.widget is self.root
+                and self._sfle_mounted_root is not None):
+            self.request_sfle_invalidation("theme")
+
     def _sfle_on_configure(self, event) -> None:
         if (self._closed or event.widget is not self.root
                 or self._sfle_mounted_root is None):
@@ -506,6 +512,10 @@ class TkinterRenderer:
             self._sfle_resize_bind_id = self.root.bind(
                 "<Configure>", self._sfle_on_configure, add="+",
             )
+        if self._sfle_theme_bind_id is None:
+            self._sfle_theme_bind_id = self.root.bind(
+                "<<ThemeChanged>>", self._sfle_on_theme_changed, add="+",
+            )
         self._sfle_mounted_root = root
 
     def invalidate_layout(self) -> None:
@@ -513,6 +523,12 @@ class TkinterRenderer:
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
         self._sfle_mounted_root = None
+        if self._sfle_theme_bind_id is not None:
+            try:
+                self.root.unbind("<<ThemeChanged>>", self._sfle_theme_bind_id)
+            except tk.TclError:
+                pass
+            self._sfle_theme_bind_id = None
         if self._sfle_constraints is not None:
             self._sfle_generation += 1
             self._sfle_resize_epoch += 1
