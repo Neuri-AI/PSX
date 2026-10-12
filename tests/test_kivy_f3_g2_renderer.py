@@ -1515,6 +1515,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         env = dict(os.environ)
         env["KIVY_NO_ARGS"] = "1"
         env["KIVY_NO_FILELOG"] = "1"
+        env.pop("KIVY_NO_CONSOLELOG", None)
         result = subprocess.run(
             [sys.executable, "-c", script], env=env,
             capture_output=True, text=True, timeout=120,
@@ -1600,6 +1601,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         env = dict(os.environ)
         env["KIVY_NO_ARGS"] = "1"
         env["KIVY_NO_FILELOG"] = "1"
+        env.pop("KIVY_NO_CONSOLELOG", None)
         result = subprocess.run(
             [sys.executable, "-c", script], env=env,
             capture_output=True, text=True, timeout=120,
@@ -1673,6 +1675,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         env = dict(os.environ)
         env["KIVY_NO_ARGS"] = "1"
         env["KIVY_NO_FILELOG"] = "1"
+        env.pop("KIVY_NO_CONSOLELOG", None)
         result = subprocess.run([sys.executable, "-c", script], env=env,
                                 capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
