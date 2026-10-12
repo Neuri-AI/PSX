@@ -1301,7 +1301,12 @@ duplicate queued work. A queued task is canceled by root teardown.
 Qt's mounted root observes native `FontChange`, `PaletteChange`,
 `StyleChange`, `ScreenChangeInternal` and
 `DevicePixelRatioChange` where the binding exposes those event
-types; prior native viewport resize and TextArea hooks continue to run.
+types. Tk listens for the native `<<ThemeChanged>>` virtual event
+on its mounted root. Prior native viewport resize and TextArea
+hooks continue to run. A transactional intrinsic cache in Headless
+now reuses unchanged per-handle measurements on normal commits and
+remeasures invalidated inputs; native toolkit dependency pruning
+still remains open.
 
 **New regression drivers:** the semantic invalidation/epoch unit suite,
 parameterized Headless measured content and teardown tests, Qt-family
