@@ -104,6 +104,26 @@ class NativeGeometryCommitter:
             placements.append((node_id, self._widgets[node_id], x, y, border.width, border.height))
         for node_id, widget, x, y, width, height in placements:
             port = self._external_ports.get(node_id)
+            if self._skip_unchanged:
+                if port is not None:
+                    actual = port.read(widget)
+                    if (actual.x, actual.y, actual.width, actual.height) == (
+                            x, y, width, height):
+                        continue
+                elif self._backend == GeometryBackend.QT:
+                    rect = widget.geometry()
+                    if (rect.x(), rect.y(), rect.width(), rect.height()) == (
+                            round(x), round(y), round(width), round(height)):
+                        continue
+                elif self._backend == GeometryBackend.TK:
+                    info = widget.place_info()
+                    expected = dict(x=round(x), y=round(y),
+                                    width=round(width), height=round(height))
+                    if info and all(key in info and round(float(info[key])) == value
+                                    for key, value in expected.items()):
+                        continue
+                elif tuple(widget.pos) == (x, y) and tuple(widget.size) == (width, height):
+                    continue
             if port is not None:
                 port.apply(widget, Rect(x, y, width, height))
             elif self._backend == GeometryBackend.QT:
