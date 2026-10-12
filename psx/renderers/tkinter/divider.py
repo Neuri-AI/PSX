@@ -132,7 +132,9 @@ class TkDividerAdapter:
             canvas._psx_child_widget = None
             if canvas._psx_sfle_divider:
                 from psx.renderers.tkinter.flex import TkSFLEFlexAdapter
-                return TkSFLEFlexAdapter().remove(renderer, parent, child)
+                outcome = TkSFLEFlexAdapter().remove(renderer, parent, child)
+                self._redraw(canvas, parent.props)
+                return outcome
             self._redraw(canvas, parent.props)
         return True
 

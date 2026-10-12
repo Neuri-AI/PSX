@@ -121,6 +121,7 @@ class QtDividerAdapter:
         if getattr(parent.widget, "_psx_sfle_divider", False):
             from psx.renderers.qt.flex import QtSFLEFlexAdapter
             parent.widget._psx_child_widget = None
+            parent.widget.update()
             return QtSFLEFlexAdapter().remove(renderer, parent, child)
         from psx.renderers.qt.pyqt import _release
         parent.layout.removeWidget(child.widget)

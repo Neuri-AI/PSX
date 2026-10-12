@@ -165,7 +165,9 @@ class KivyDividerAdapter:
             if widget._psx_sfle_divider:
                 widget._psx_child = None
                 from psx.renderers.kivy.flex import KivySFLEFlexAdapter
-                return KivySFLEFlexAdapter().remove(renderer, parent, child)
+                outcome = KivySFLEFlexAdapter().remove(renderer, parent, child)
+                self._redraw(widget, parent.props)
+                return outcome
             widget.remove_widget(child.widget)
             widget._psx_child = None
             self._apply_size_hint(widget, parent.props)
