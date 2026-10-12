@@ -1549,6 +1549,46 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.renderer.application.processEvents()
         self.assertFalse(state.needs_commit())
 
+
+    def test_native_local_image_revision_remeasures_without_props_or_remount(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from psx import Image
+
+        gui = importlib.import_module(f"{PACKAGE}.QtGui")
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "revision.png"
+            pixmap = gui.QPixmap(24, 12)
+            pixmap.fill(gui.QColor("#AABBCC"))
+            self.assertTrue(pixmap.save(str(path)))
+            root = self.reconciler.render(Flex(
+                Image(str(path), key="img", fit="contain"),
+                button("Peer", "peer", 30),
+                direction="column", width=160, height=80,
+                align_items="flex-start",
+            ))
+            image_widget = root.children[0].handle.widget
+            peer = root.children[1].handle.widget
+            first_generation = self.renderer.sfle_result.generation
+            self.assertEqual(image_widget.height(), 12)
+            self.assertEqual(peer.y(), 12)
+
+            modified = gui.QPixmap(24, 24)
+            modified.fill(gui.QColor("#112233"))
+            self.assertTrue(modified.save(str(path)))
+            self.renderer._sfle_poll_image_resources(
+                self.renderer._sfle_invalidation_lifetime,
+            )
+            self.renderer.application.processEvents()
+            self.renderer.application.processEvents()
+            self.assertIs(root.children[0].handle.widget, image_widget)
+            self.assertIs(root.children[1].handle.widget, peer)
+            self.assertGreater(self.renderer.sfle_result.generation, first_generation)
+            self.assertEqual(image_widget.height(), 24)
+            self.assertEqual(peer.y(), 24)
+            self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
+            self.assertFalse(self.renderer._sfle_image_resource_watch.changed())
+
 if __name__ == "__main__":
     unittest.main()
 
