@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS — C1 (native component SFLE geometry) CLOSED at `6b0dc78`; C2 registry inventory implemented; C3–C6 lifecycle/extensibility/invalidations/final acceptance pending. G3–G5 NOT STARTED — 1/5 official F3 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS — C1 (native SFLE geometry) CLOSED, C2 (component × backend × operation inventory and evidence certification) CLOSED at `be7bec5`; C3–C6 lifecycle/extensibility/invalidations/final acceptance pending. G3–G5 NOT STARTED — 1/5 official F3 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -1035,3 +1035,53 @@ G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
   Acceptance is the linked workflow's completed SUCCESS status. This
   note does not extend C1's original signature into an untested claim
   of full C3 component lifecycle or C5 theme re-invalidation.
+
+## F3-G2-C2 — complete registry, backend and operation evidence certification (2026-10-12)
+
+**C2: CLOSED; G2 remains OPEN; F3 1/5 officially closed gates (20%).**
+
+- **Reviewed registry coverage:** `psx/sfle/f3_g2_matrix.py`
+  enumerates the live `builtin_component_registry()` for each of
+  `qt`, `tk`, `kivy` and `headless`. Each name must match an
+  expressly reviewed `native`, `unported`, `legacy_deferred`,
+  `transparent` or `external_port_required` classification. New or
+  removed names without a classification update fail CI; no automatic
+  implicit "supported" status is allowed.
+- **Operation evidence must be per component:** Added the immutable
+  `psx/sfle/f3_g2_evidence.py` source index, associating
+  `(backend, component, operation)` with a **specific real test method**,
+  rather than applying a general backend test to every built-in.
+  The eight dimensions are `create`, `update`, `reorder`,
+  `unmount`, `event_rebind`, `borrowed_ownership`, `rollback`
+  and `invalidation`. Nontrivial lifecycle claims are still pending
+  until C3–C6 provide their own per-control probes.
+- **65 reviewed references** currently count as operation-specific
+  source evidence, including 62 creation and 3 update tests.
+  The former Headless Button "create" reference was removed when CI
+  demonstrated its purported test exercised `Flex` nodes instead;
+  its pending status is the correct outcome, **not a skipped test**.
+  Structural, external, deprecated and unsupported cases are never
+  counted as silently passing per-widget native operations.
+- **Auditable outputs:** `g2_certification_matrix()` produces
+  per-component records with `operations_with_evidence` and
+  `pending_operations`. `g2_operation_coverage_summary()`
+  provides evidenced/pending counts by backend and operation.
+  `g2_matrix_summary()` reports backend capability classification.
+- **Executable fail-closed validation:** `tests/test_f3_g2_matrix.py`
+  checks exhaustive registry × backend entries and exact classifications;
+  parses actual Python ASTs to verify cited test methods exist and contain
+  a component reference; checks manifest operation names and ensures
+  evidenced and pending sets partition all eight dimensions.
+  The existing F3 core CI job always executes these tests.
+- **Certificate:** [`be7bec5`](https://github.com/Neuri-AI/PSX/commit/be7bec5c2da46cd53cde937ca1524ef4aab8a97a);
+  [F3 selective #38225021690](https://github.com/Neuri-AI/PSX/actions/runs/38225021690)
+  **COMPLETED SUCCESS**;
+  [G1 certification #38225021774](https://github.com/Neuri-AI/PSX/actions/runs/38225021774)
+  **COMPLETED SUCCESS**. Required selected native/platform jobs ran as
+  classified by the workflow and all applicable jobs passed.
+- **Next: C3** must turn pending per-control creation, reconciliation,
+  keyed reorder, event rebind, unmount and rollback into direct native
+  lifecycle evidence. C4 owns custom/borrowed/native resources; C5 owns
+  font/theme/DPI/resource invalidation; C6 independently audits geometry
+  tolerances and full green CI. C2 closure makes **no** claim of C3–C6
+  closure or G2 final certification.
