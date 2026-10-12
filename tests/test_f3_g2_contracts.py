@@ -114,9 +114,10 @@ def test_every_operation_oracle_has_positive_and_negative_behavior(operation):
     old = Observation(
         native_identity="native-1", mounted=True, rect=(0, 0, 20, 10),
         state="before", order=("a", "b"), events=(),
-        callback_identity="old", owner="caller", revision=1,
+        callback_identity="old", owner="psx", revision=1,
         remeasure_count=1,
     )
+    borrowed = Observation(**{**vars_for(old), "owner": "caller"})
     changed = {
         "create": (None, old),
         "update": (old, Observation(**{**vars_for(old), "state": "after"})),
@@ -125,7 +126,7 @@ def test_every_operation_oracle_has_positive_and_negative_behavior(operation):
         "event_rebind": (old, Observation(**{
             **vars_for(old), "callback_identity": "new", "events": ("new",),
         })),
-        "borrowed_ownership": (old, old),
+        "borrowed_ownership": (borrowed, borrowed),
         "rollback": (old, Observation(**{**vars_for(old), "mutation_failed": True})),
         "invalidation": (old, Observation(**{
             **vars_for(old), "revision": 2, "remeasure_count": 2,
