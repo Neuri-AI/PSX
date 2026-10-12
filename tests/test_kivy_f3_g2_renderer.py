@@ -1185,6 +1185,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from pathlib import Path
             from tempfile import TemporaryDirectory
             import base64
+            from kivy.clock import Clock
             from kivy.config import Config
             Config.set("graphics", "window_state", "hidden")
             from psx import (Text, Button, Input, Checkbox, TextArea, Slider,
