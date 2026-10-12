@@ -106,7 +106,7 @@ class HeadlessRenderer:
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
 
-    def request_sfle_invalidation(self, reason: str) -> None:
+    def request_sfle_invalidation(self, reason: str, *, widget_id: int | None = None) -> None:
         """Coalesce semantic measurement changes on the backend owner UI thread.
 
         The mounted instance is reused; the existing SFLE transaction remains
@@ -117,7 +117,7 @@ class HeadlessRenderer:
         if self._sfle_constraints is None:
             raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
         state = self._sfle_measurement_invalidations
-        state.request(reason)
+        state.request(reason, widget_id=widget_id)
         if self._sfle_invalidation_scheduled:
             return
         self._sfle_invalidation_scheduled = True
