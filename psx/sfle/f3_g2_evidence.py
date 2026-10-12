@@ -84,5 +84,4 @@ COMPONENT_OPERATION_TESTS = MappingProxyType({
     ("kivy", "Flex", "create"): "test_real_kivy_native_bottom_left_geometry_and_reconciliation",
     ("headless", "Flex", "create"): "test_opt_in_headless_flex_is_real_sfle_geometry_not_a_dummy_layout",
     ("headless", "Text", "create"): "test_text_intrinsic_dimensions_must_be_host_supplied",
-    ("headless", "Button", "create"): "test_keyed_reorder_and_resize_reuse_native_handle_without_remount",
 })
