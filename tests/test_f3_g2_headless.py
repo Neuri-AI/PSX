@@ -311,7 +311,7 @@ def test_all_supported_headless_components_reconcile_without_remount() -> None:
                 native_identity=id(handle), mounted=mounted,
                 rect=(geometry.x, geometry.y, geometry.width, geometry.height)
                 if geometry is not None else None,
-                state=handle.props.get("layout_width"),
+                state=geometry.width if geometry is not None else None,
                 order=order, disposed=handle.destroyed,
             )
         before = observe()
