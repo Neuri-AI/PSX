@@ -85,3 +85,30 @@ def test_c5_width_specific_measurements_cache_only_matching_width_and_props():
     assert calls == [80, 40, 40]
     assert roundtrip({"text": "changed"}, 40, invalidated=True) == (40, 24)
     assert calls == [80, 40, 40, 40]
+
+
+def test_c5_targeted_resource_change_remeasures_only_its_widget():
+    cache = NativeIntrinsicCache()
+    constraints = LayoutConstraints(AvailableSize(120, True), AvailableSize(60, True))
+    alpha, beta = object(), object()
+    calls = []
+
+    def run(dirty=frozenset()):
+        transaction = cache.begin(dirty_widgets=dirty)
+        for label, widget in (("alpha", alpha), ("beta", beta)):
+            transaction.read(
+                widget=widget, props={"source": label}, constraints=constraints,
+                node_id=label, generation=1,
+                measure=lambda label=label: (
+                    calls.append(label),
+                    MeasuredBox(label, IntrinsicSizes(8, 8, 8, 8, 8, 8),
+                                constraints, 1),
+                )[1],
+            )
+        transaction.publish()
+
+    run()
+    assert calls == ["alpha", "beta"]
+    run(dirty=frozenset((id(alpha),)))
+    assert calls == ["alpha", "beta", "alpha"]
+    assert cache.last_measured == {id(alpha)}
