@@ -905,10 +905,6 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertEqual(errors[0].code, DiagnosticCode.UNSUPPORTED_MEASUREMENT)
 
-
-if __name__ == "__main__":
-    unittest.main()
-
     def test_button_native_lifecycle_is_observed_through_reconciliation(self):
         from psx.sfle.f3_g2_oracles import Observation, ORACLES
 
@@ -966,4 +962,9 @@ if __name__ == "__main__":
         )
         self.assertNotIn(widget, [h.widget for h in after.handle.children])
         self.renderer.application.processEvents()
+
+
+
+if __name__ == "__main__":
+    unittest.main()
 
