@@ -180,6 +180,77 @@ authority checks are executable and GREEN.
 - Repository hygiene, removed names, docs and examples, new component
   tutorial, adapters/ports reference and final source SHA/CI certificate.
 
+### G5-FUNCTIONAL — mandatory exhaustive public behavior audit
+
+**Status: SPECIFIED, NOT IMPLEMENTED OR CERTIFIED.** This is a mandatory
+**G5 exit condition**, not a new F3 gate and not a reopening of G2-C3.
+Passing native lifecycle tests does not imply that portable public props,
+events or interactions behave identically on every supported renderer.
+
+1. **Inventory, derived from code rather than curated screenshots.** Enumerate
+   the live builtin registry, each component's published contract
+   (child policy, permitted props, types/defaults/validation, event signatures,
+   exposed public methods/ref behavior), public Markup syntax and applicable
+   renderer capabilities. Produce machine-readable tuples
+   `(component, backend, feature_kind, feature_name, scenario_id)`. A new
+   component, property, event, method or changed contract must add rows
+   automatically or fail census validation. Keep explicit `unsupported`
+   and `not_applicable` explanations: do not count either as a PASS.
+2. **Every advertised property:** Prove default, valid boundary/equivalence
+   classes, live update, invalid value rejection, and native readback/rendered
+   outcome on each supported backend. Include interacting properties when
+   coupling is documented or technically meaningful (e.g. enabled × event,
+   value × bounds, placeholder × focus, password/read-only × input, text
+   wrapping × width, nested Flex sizing). Infinite input spaces require
+   named partitions, deterministic combinatorial/pairwise sampling and
+   property-based/adversarial coverage with reproducible seeds — never claim
+   exhaustive enumeration of all possible values.
+3. **Every advertised event and public method:** Execute real user/host
+   interaction (native event dispatch, focus/keyboard/text input, scrolling,
+   selection, edit and activation where applicable); verify payload,
+   dispatch count, ordering, rebind/unsubscribe, disabled behavior, errors
+   and teardown. Verify exposed methods, refs and lifecycle contracts with
+   positive, negative and idempotence cases as relevant. Mock-only callback
+   invocation is not a substitute for a native event test.
+4. **All registered components across backends:** Execute on Qt bindings
+   (PySide6, PyQt6, PyQt5, PySide2), Tkinter, Kivy and Headless only where
+   the contract advertises support. Validate semantics independently of
+   toolkit-specific visual decoration; include screenshots/goldens only
+   for observable style/painting claims. Native/custom/borrowed variants
+   must use C4's explicit capability matrix, never inherit builtin proofs.
+5. **Functional evidence is distinct from C2/C3 lifecycle evidence.**
+   Each applicable row must identify one specific executed assertion/test,
+   source revision and environment; persist JUnit/results plus JSON
+   `executed_pass | pending | not_applicable | unsupported | failed`.
+   A passing general-purpose test name, AST mention, reference-only item,
+   synthetic oracle, skipped/xfail case or undocumented N/A must not certify
+   a row. A failing or missing required row fails G5.
+6. **CI fail closed:** Add a code-derived functional census, manifest
+   consistency test, functional scenario suites and receipt verifier. CI
+   fails for a newly advertised feature without a behavior-specific test;
+   stale/duplicate evidence; absent backend; missing execution artifact;
+   failed/skipped mandatory assertions; or conflicting contract/applicability.
+   During development, use existing selective impact routing and test only
+   affected suites. Formal G5 signoff executes **all** mandatory suites
+   and supported platform/toolkit variants on **one immutable SHA**, including
+   geometry (≤0.01 logical CSS px / ≤1 native px), Scroll, G4 removal,
+   Rust/Python, source/frozen and packaging.
+7. **Published acceptance artifact:** Generate a per-component report with
+   counts by `backend × props × events × public methods × scenarios`,
+   lists of exclusions and unsupported cases, failed or pending rows,
+   exact executed test identifiers, environment and SHA. G5 cannot close
+   unless the applicable public behavioral matrix has **zero pending,
+   zero uncertified and zero failed rows**, required tests are GREEN and
+   all exclusions are independently reviewed. This is bounded by the
+   explicitly *documented supported* API, not imaginary permutations,
+   unsupported CSS extensions or undisclosed proprietary widgets.
+
+**Boundary:** G2-C3 proves native lifecycle, G2-C4 proves
+external/borrowed ownership, G2-C5 proves invalidation, G2-C6 proves
+native precision/integration; G3 owns full Scroll; G4 removes legacy
+layouts. G5 alone consolidates functional behavior and cross-platform
+end-to-end certification. None of these certificates replaces another.
+
 **G5 and F3 CLOSED only after** CI, all integration/coverage gates, source
 audit and docs pass on the **same final SHA**. Never infer certification
 from older workflows or untested proprietary/custom widget paths.
