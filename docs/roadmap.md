@@ -3,6 +3,50 @@
 Implementation status is evidence-based; milestone placement does not certify a
 feature as complete.
 
+## Commit convention — binding agreement for all remaining PSX phases
+
+**Approved 2026-10-12. Applies to all new commits in the remaining F3 work
+(including G2–G5), F4, F5, and subsequent PSX development.** Follow
+[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
+
+```text
+<type>(<scope>): <concise imperative description>
+```
+
+- Write commit subjects and bodies **in English**. Describe the actual
+  behavior or implementation change, not merely the milestone identifier.
+- Select the scope from the **subsystem actually changed**, not the phase:
+  `sfle` exclusively for changes to the renderer-neutral mathematical
+  engine; `layout` for PSX layout integration/viewport geometry;
+  `renderers` for Qt/Kivy/Tkinter native adapters; `components` for
+  portable components; `measurement` for intrinsic measurements;
+  `reconciler` for reconciliation/ownership; `events` for interactions;
+  `ci` for workflows; `docs` for documentation. For tests use the
+  relevant subsystem (e.g. `test(layout)`, `test(renderers)`) rather
+  than a redundant generic `test(testing)` scope.
+- Use the appropriate Conventional Commit type (`feat`, `fix`,
+  `test`, `refactor`, `perf`, `docs`, `ci`, `chore`, etc.).
+- **Do not use `sfle-f3`, `sfle-g2`, `f3`, `g2`, or future phase/gate
+  names as generic scopes.** Reserve `sfle` for actual SFLE Core changes,
+  even if a commit takes place during F3–F5.
+- Track roadmap and certification linkage in the PR, issue, milestone,
+  documentation, or, when useful, in the commit body using `Phase: F3`,
+  `Gate: G2`, `Block: C1`. These are optional metadata, **not** required
+  in every subject.
+- **Do not rewrite existing commits** to retrofit this convention; apply
+  it prospectively, including all remaining PSX phases.
+
+Examples:
+
+```text
+feat(renderers): integrate Switch, SpinBox and Select with native layout
+fix(layout): prevent native controls from overriding committed geometry
+test(renderers): verify borrowed widget restoration on unmount
+ci: require native backend lifecycle certification
+fix(sfle): correct fixed-point overflow in the core engine
+```
+
+
 | Milestone | Name | Status |
 | --- | --- | --- |
 | M0 | Research & Architecture | implemented baseline |
