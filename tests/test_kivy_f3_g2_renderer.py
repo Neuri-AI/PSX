@@ -573,7 +573,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from kivy.uix.label import Label
             from kivy.uix.button import Button as KivyButton
 
-            from psx import Flex, Text, Button, Checkbox, Slider, Spacer, RadioGroup, component, use_state, psx
+            from psx import Flex, Text, Button, Checkbox, Slider, Spacer, Row, component, use_state, psx
             from psx.core.native import Native
             from psx.core.vnode import create_element
             from psx.sfle.f3_external import SFLEExternalPort
@@ -840,7 +840,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             # Unported component: no fallback to Kivy BoxLayout.
             backend, tree = create()
             try:
-                tree.render(Flex(RadioGroup(), width=160, height=80))
+                tree.render(Flex(Row(), width=160, height=80))
             except RendererCapabilityError as error:
                 assert "not certified" in str(error)
             else:

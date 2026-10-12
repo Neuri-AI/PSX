@@ -553,9 +553,9 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
 
     def test_unported_builtin_is_explicit_failure_not_native_layout_fallback(self):
-        from psx import RadioGroup
+        from psx import Row
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
-            self.reconciler.render(Flex(RadioGroup(), width=160, height=80))
+            self.reconciler.render(Flex(Row(), width=160, height=80))
 
     def test_additional_tk_native_primitives_have_sfle_geometry_no_pack(self):
         from psx import Slider, ProgressBar, Radio

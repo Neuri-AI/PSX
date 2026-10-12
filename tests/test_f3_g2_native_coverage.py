@@ -14,13 +14,16 @@ from psx.sfle.f3_native_coverage import (
     ("qt", frozenset({
         "Text", "Button", "Checkbox", "Input", "TextArea",
         "Slider", "Radio", "ProgressBar", "Select", "Image",
-        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox",    })),
+        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "RadioGroup", "Box",
+    })),
     ("tk", frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Radio", "ProgressBar", "Image",
-        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "Select",    })),
+        "Link", "Badge", "Divider", "Spacer", "Switch", "SpinBox", "Select", "RadioGroup", "Box",
+    })),
     ("kivy", frozenset({
         "Text", "Button", "Checkbox", "TextArea", "Slider", "Spacer", "Image",
-        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select",    })),
+        "Link", "Badge", "Divider", "Switch", "SpinBox", "Select", "Radio", "RadioGroup", "Box",
+    })),
 ])
 def test_capability_surface_explicit_and_not_all_native_widgets(backend, expected):
     assert G2_LEAF_TYPES[backend] == expected
@@ -60,11 +63,31 @@ def test_kivy_spacer_is_true_zero_intrinsic_not_native_default():
 
 
 @pytest.mark.parametrize("backend", ["qt", "tk", "kivy"])
-def test_divider_children_fail_closed_while_native_child_port_is_pending(backend):
-    from psx import Divider, Text
-    with pytest.raises(RendererCapabilityError, match="SFLE child-geometry port"):
+def test_structural_hosts_are_sfle_containers_not_intrinsic_leaves(backend):
+    from psx import Divider, Text, RadioGroup, Radio
+    from psx.core.vnode import Box
+    assert not g2_native_leaf_needs_measurement(Box(Text("Child")), backend=backend)
+    assert not g2_native_leaf_needs_measurement(
+        RadioGroup(Radio("x", label="X"), value="x"), backend=backend,
+    )
+    assert not g2_native_leaf_needs_measurement(
+        Divider(Text("Section")), backend=backend,
+    )
+
+
+@pytest.mark.parametrize("backend", ["qt", "tk", "kivy"])
+def test_invalid_structural_hosts_fail_before_native_changes(backend):
+    from psx import Divider, RadioGroup, Text
+    from psx.core.vnode import Box
+    with pytest.raises(RendererCapabilityError, match="exactly one child"):
+        g2_native_leaf_needs_measurement(Box(), backend=backend)
+    with pytest.raises(RendererCapabilityError, match="Radio nodes"):
         g2_native_leaf_needs_measurement(
-            Divider(Text("Section")), backend=backend,
+            RadioGroup(Text("invalid")), backend=backend,
+        )
+    with pytest.raises(RendererCapabilityError, match="Text child"):
+        g2_native_leaf_needs_measurement(
+            Divider(RadioGroup()), backend=backend,
         )
 
 
