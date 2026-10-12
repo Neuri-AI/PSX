@@ -328,6 +328,12 @@ def test_all_supported_headless_components_reconcile_without_remount() -> None:
             observe(order=("peer", "case")),
         )
         assert updated_root.handle.children[1] is handle
+        original_generation = renderer.sfle_result.generation
+        renderer.request_sfle_invalidation("font")
+        renderer.flush()
+        assert old.handle is handle
+        assert renderer.sfle_result.generation == original_generation + 1
+        assert not handle.destroyed, name
         # Deliberately bypass constructor validation to test transactional
         # rejection at the reconciliation boundary for every host family.
         from dataclasses import replace
@@ -346,12 +352,6 @@ def test_all_supported_headless_components_reconcile_without_remount() -> None:
         assert observe().rect == baseline.rect
         assert observe().state == baseline.state
         ORACLES["rollback"](baseline, replace(observe(), mutation_failed=True))
-        original_generation = renderer.sfle_result.generation
-        renderer.request_sfle_invalidation("font")
-        renderer.flush()
-        assert old.handle is handle
-        assert renderer.sfle_result.generation == original_generation + 1
-        assert not handle.destroyed, name
         prior = observe()
         reconciler.unmount()
         ORACLES["unmount"](prior, observe(mounted=False))
