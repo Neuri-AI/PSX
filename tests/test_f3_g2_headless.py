@@ -336,7 +336,8 @@ def test_all_supported_headless_components_reconcile_without_remount() -> None:
 
 def test_failed_headless_component_update_keeps_last_committed_node() -> None:
     """A rejected native update must not poison the next reconciliation delta."""
-    from psx.core.vnode import create_element
+    from dataclasses import replace
+    from types import MappingProxyType
 
     renderer = new_renderer()
     reconciler = Reconciler(renderer)
@@ -351,11 +352,9 @@ def test_failed_headless_component_update_keeps_last_committed_node() -> None:
     previous_rect = handle.geometry
     callback_slot = child.event_slots["on_click"][0]
 
-    invalid = create_element(
-        "Button", key="button", label="Mutated", font_size=-1,
-        enabled=True, layout_width="70px", layout_height="24px",
-        on_click=lambda: None,
-    )
+    invalid = replace(previous, props=MappingProxyType({
+        **dict(previous.props), "label": "Mutated", "font_size": -1,
+    }))
     with pytest.raises(RendererCapabilityError):
         reconciler.render(Flex(invalid, width=120, height=60))
     assert child.node is previous
