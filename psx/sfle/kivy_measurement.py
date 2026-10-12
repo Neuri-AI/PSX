@@ -161,6 +161,17 @@ class KivyMeasurementSource:
             return MeasuredBox(
                 request.node_id, metrics, request.constraints, request.revision,
             )
+        # Internal chrome is positioned by native children; SFLE owns only
+        # the composite host's outer rect. Never read its previous allocation
+        # as an intrinsic sizing suggestion.
+        if getattr(widget, "_psx_sfle_switch", False) or getattr(
+            widget, "_psx_sfle_spinbox", False
+        ):
+            width, height = widget._psx_intrinsic_size
+            metrics = IntrinsicSizes(width, width, height, height, width, height)
+            return MeasuredBox(
+                request.node_id, metrics, request.constraints, request.revision,
+            )
         # texture_size is the measured pixel content for Kivy Label.
         # minimum_size is available on some Kivy layouts. A generic Widget's
         # size is a negotiated allocation, not a valid intrinsic measurement.
