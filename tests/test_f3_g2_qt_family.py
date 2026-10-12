@@ -1502,12 +1502,15 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         before = tuple(geometry(widget) for widget in widgets)
         published = self.renderer.sfle_result
         original_committer = bridge.NativeGeometryCommitter
+        injected = {"done": False}
 
         def interrupted_committer(*args, **kwargs):
             apply = original_committer(*args, **kwargs)
             def fail_after_application(result):
                 apply(result)
-                self.renderer._sfle_measurement_invalidations.request("dpi")
+                if not injected["done"]:
+                    injected["done"] = True
+                    self.renderer._sfle_measurement_invalidations.request("dpi")
             return fail_after_application
 
         with patch.object(bridge, "NativeGeometryCommitter", side_effect=interrupted_committer):
