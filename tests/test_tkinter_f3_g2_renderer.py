@@ -1117,13 +1117,11 @@ class TkSFLEGeometryTests(unittest.TestCase):
             return original_error(space, expected, observed)
 
         with patch.object(bridge.DevicePixelSpace, "error", readback_error):
-            with self.assertRaisesRegex(SFLEError, "Stale semantic invalidation during native readback"):
-                self.renderer.commit_layout(root)
+            self.renderer.commit_layout(root)
         self.assertTrue(injected["done"], "Native readback assertion must execute")
         self.assertEqual(tuple(rect(widget) for widget in widgets), before)
-        self.assertIs(self.renderer.sfle_result, published)
-        self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, {"resource"})
-        self.renderer.commit_layout(root)
+        self.assertGreaterEqual(self.renderer.sfle_result.generation, published.generation + 2)
+        self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, set())
         self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
         self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
 
@@ -1180,12 +1178,10 @@ class TkSFLEGeometryTests(unittest.TestCase):
             return fail_after_application
 
         with patch.object(bridge, "NativeGeometryCommitter", side_effect=interrupted_committer):
-            with self.assertRaisesRegex(SFLEError, "Stale semantic invalidation after native geometry"):
-                self.renderer.commit_layout(root)
+            self.renderer.commit_layout(root)
         self.assertEqual(tuple(rect(widget) for widget in widgets), before)
-        self.assertIs(self.renderer.sfle_result, published)
-        self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, {"dpi"})
-        self.renderer.commit_layout(root)
+        self.assertGreaterEqual(self.renderer.sfle_result.generation, published.generation + 2)
+        self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, set())
         self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
         self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
 
