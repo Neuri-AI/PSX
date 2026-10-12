@@ -1480,6 +1480,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
             apply = original_committer(*args, **kwargs)
             def fail_after_application(result):
                 apply(result)
+                widgets[0].setGeometry(7, 9, 13, 15)
                 raise RuntimeError("injected Qt native application failure")
             return fail_after_application
 
