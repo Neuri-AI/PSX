@@ -1442,23 +1442,19 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         widgets = tuple(child.handle.widget for child in root.children)
         before = tuple(geometry(widget) for widget in widgets)
         published = self.renderer.sfle_result
-        original_ports = bridge.SFLEAdapterPorts
-        injected = {"reads": 0}
+        original_error = bridge.DevicePixelSpace.error
+        injected = {"done": False}
 
-        def race_ports(**kwargs):
-            read = kwargs["read_rectangles"]
-            def read_with_race():
-                data = read()
-                injected["reads"] += 1
-                if injected["reads"] == 2:
-                    self.renderer._sfle_measurement_invalidations.request("resource")
-                return data
-            kwargs["read_rectangles"] = read_with_race
-            return original_ports(**kwargs)
+        def readback_error(space, expected, observed):
+            if not injected["done"]:
+                injected["done"] = True
+                self.renderer._sfle_measurement_invalidations.request("resource")
+            return original_error(space, expected, observed)
 
-        with patch.object(bridge, "SFLEAdapterPorts", side_effect=race_ports):
+        with patch.object(bridge.DevicePixelSpace, "error", readback_error):
             with self.assertRaisesRegex(SFLEError, "Stale semantic invalidation during native readback"):
                 self.renderer.commit_layout(root)
+        self.assertTrue(injected["done"], "Native readback assertion must execute")
         self.assertEqual(tuple(geometry(widget) for widget in widgets), before)
         self.assertIs(self.renderer.sfle_result, published)
         self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, {"resource"})
