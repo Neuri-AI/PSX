@@ -308,6 +308,9 @@ class TkinterRenderer:
         self._sfle_measurement_invalidations = MeasurementInvalidations()
         from psx.sfle.f3_native_cache import NativeIntrinsicCache
         self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
+        from psx.sfle.f3_resource_watch import ImageResourceWatch
+        self._sfle_image_resource_watch = ImageResourceWatch()
+        self._sfle_resource_poll_scheduled = False
         self._sfle_invalidation_scheduled = False
         self._sfle_invalidation_lifetime = 0
         self._sfle_mounted_root = None
@@ -368,6 +371,42 @@ class TkinterRenderer:
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
+
+    def _sfle_poll_image_resources(self, lifetime: int) -> None:
+        if lifetime != self._sfle_invalidation_lifetime:
+            return
+        self._sfle_resource_poll_scheduled = False
+        root = self._sfle_mounted_root
+        if root is None or root.disposed:
+            return
+        for instance in self._sfle_image_resource_watch.changed():
+            if instance.disposed:
+                continue
+            widget = instance.handle.widget
+            # Image adapters cache decoded content by source string; a
+            # revision at that same path must bypass the old decoded image.
+            widget._psx_source = None
+            widget._psx_pixmap_cache = None
+            widget._psx_image_cache = None
+            source = instance.node.props["source"]
+            self.update(instance.handle, {"source": source}, frozenset())
+            reload_image = getattr(widget, "reload", None)
+            if callable(reload_image):
+                reload_image()
+            self.request_sfle_invalidation("resource")
+        self._sfle_schedule_image_poll()
+
+    def _sfle_schedule_image_poll(self) -> None:
+        if self._sfle_resource_poll_scheduled:
+            return
+        root = self._sfle_mounted_root
+        if (root is None or root.disposed
+                or not self._sfle_image_resource_watch.sync(root)):
+            return
+        self._sfle_resource_poll_scheduled = True
+        epoch = self._sfle_invalidation_lifetime
+        self.root.after(
+            600, lambda: self._sfle_poll_image_resources(epoch))
 
     def request_sfle_invalidation(self, reason: str) -> None:
         """Coalesce semantic measurement changes on the backend owner UI thread.
@@ -519,12 +558,15 @@ class TkinterRenderer:
                 "<<ThemeChanged>>", self._sfle_on_theme_changed, add="+",
             )
         self._sfle_mounted_root = root
+        self._sfle_schedule_image_poll()
 
     def invalidate_layout(self) -> None:
         self._sfle_invalidation_lifetime += 1
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
         self._sfle_native_intrinsic_cache.clear()
+        self._sfle_image_resource_watch.clear()
+        self._sfle_resource_poll_scheduled = False
         self._sfle_mounted_root = None
         if self._sfle_theme_bind_id is not None:
             try:
