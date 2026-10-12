@@ -20,11 +20,19 @@ class MeasurementInvalidations:
     epoch: int = 0
     committed_epoch: int = 0
     pending: set[str] = field(default_factory=set)
+    dirty_widgets: set[int] = field(default_factory=set)
+    invalidate_all: bool = False
 
-    def request(self, reason: str) -> int:
+    def request(self, reason: str, *, widget_id: int | None = None) -> int:
         if reason not in REASONS:
             raise ValueError(f"Unsupported SFLE measurement invalidation: {reason!r}")
         self.pending.add(reason)
+        if widget_id is None:
+            self.invalidate_all = True
+        elif type(widget_id) is not int or widget_id <= 0:
+            raise ValueError("Widget invalidation identity must be a positive integer.")
+        else:
+            self.dirty_widgets.add(widget_id)
         self.epoch += 1
         return self.epoch
 
@@ -38,10 +46,14 @@ class MeasurementInvalidations:
         if not self.is_current(epoch):
             return False
         self.pending.clear()
+        self.dirty_widgets.clear()
+        self.invalidate_all = False
         self.committed_epoch = epoch
         return True
 
     def cancel(self) -> None:
         self.epoch += 1
         self.pending.clear()
+        self.dirty_widgets.clear()
+        self.invalidate_all = False
         self.committed_epoch = self.epoch
