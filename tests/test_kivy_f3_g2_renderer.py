@@ -256,6 +256,79 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_structural_box_radio_group_and_labeled_divider_use_sfle(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.widget import Widget
+            from psx import Button, Divider, Flex, Radio, RadioGroup, Text
+            from psx.core.vnode import Box
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(340, True), AvailableSize(300, True),
+                ), engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            events = []
+            root = tree.render(Flex(
+                Box(Flex(
+                    Button("Nested", key="nested", layout_width="40px",
+                           layout_height="20px", flex_basis="40px", flex_shrink=0),
+                    width="100%", height="100%", align_items="flex-start",
+                ), key="box"),
+                RadioGroup(
+                    Radio("a", label="Alpha", key="a", layout_width="70px",
+                          layout_height="24px", flex_basis="24px", flex_shrink=0),
+                    Radio("b", label="Beta", key="b", layout_width="70px",
+                          layout_height="24px", flex_basis="24px", flex_shrink=0),
+                    key="group", value="a", spacing=4, padding=3,
+                    layout_width="140px", layout_height="70px",
+                    on_change=events.append,
+                ),
+                Divider(
+                    Text("Section", key="label", layout_width="65px",
+                         layout_height="20px", flex_basis="65px", flex_shrink=0),
+                    key="divider", layout_width="140px", layout_height="30px",
+                ),
+                direction="column", width="340px", height="300px",
+                align_items="flex-start",
+            ))
+            box, group, divider = (c.handle.widget for c in root.children)
+            inner = root.children[0].children[0].handle.widget
+            radio_a, radio_b = (c.handle.widget for c in root.children[1].children)
+            label = root.children[2].children[0].handle.widget
+            assert isinstance(box, Widget)
+            assert isinstance(group, Widget)
+            assert isinstance(divider, Widget)
+            assert inner.parent is box
+            assert radio_a.parent is group
+            assert radio_b.parent is group
+            assert label.parent is divider
+            assert all(tuple(w.size_hint) == (None, None)
+                       for w in (box, group, divider, radio_a, radio_b))
+            assert tuple(label.size)[0] > 0
+            assert group._psx_radios["a"].active
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            group._psx_radios["b"].active = True
+            assert events == ["b"], events
+            tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_image_intrinsic_source_and_native_sfle_geometry(self):
         script = textwrap.dedent(r"""
             import struct
