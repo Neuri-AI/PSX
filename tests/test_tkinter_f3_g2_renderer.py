@@ -682,6 +682,36 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertTrue(native._psx_variable.get())
         self.assertEqual(calls, [True])
 
+    def test_progressbar_native_sfle_geometry_without_pack(self):
+        from psx import ProgressBar
+        root = self.reconciler.render(Flex(
+            ProgressBar(
+                value=45, min=0, max=100, key="progress",
+                layout_width="110px", layout_height="22px",
+                flex_basis="110px", flex_shrink=0,
+            ),
+            direction="row", width="160px", height="80px",
+            align_items="flex-start",
+        ))
+        widget = root.children[0].handle.widget
+        self.assertIsInstance(widget, ttk.Progressbar)
+        self.assertEqual(rect(widget), (0, 0, 110, 22))
+        self.assertEqual(widget.winfo_manager(), "place")
+        self.assertEqual(widget.master, root.handle.widget)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        updated = self.reconciler.render(Flex(
+            ProgressBar(
+                value=80, min=0, max=100, key="progress",
+                layout_width="125px", layout_height="22px",
+                flex_basis="125px", flex_shrink=0,
+            ),
+            direction="row", width="160px", height="80px",
+            align_items="flex-start",
+        ))
+        self.assertIs(updated.children[0].handle.widget, widget)
+        self.assertEqual(rect(widget), (0, 0, 125, 22))
+        self.assertEqual(round(float(widget["value"])), 80)
+
     def test_default_tk_renderer_preserves_g1_fail_closed_route(self):
         regular = TkinterRenderer(root=self.host)
         try:

@@ -13,6 +13,69 @@ import unittest
 
 
 class KivySFLEGeometrySubprocessTests(unittest.TestCase):
+    def test_explicit_bounds_checkbox_and_progressbar_sfle_geometry(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.checkbox import CheckBox as KivyCheckBox
+            from kivy.uix.progressbar import ProgressBar as KivyProgressBar
+            from psx import Flex, Checkbox, ProgressBar
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            backend = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(160, True), AvailableSize(80, True),
+                ), engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(backend)
+            calls = []
+            def view(check, progress, width):
+                return Flex(
+                    Checkbox(
+                        checked=check, key="cb", on_change=calls.append,
+                        layout_width="24px", layout_height="24px",
+                        flex_basis="24px", flex_shrink=0,
+                    ),
+                    ProgressBar(
+                        value=progress, min=0, max=100, key="progress",
+                        layout_width=f"{width}px", layout_height="20px",
+                        flex_basis=f"{width}px", flex_shrink=0,
+                    ),
+                    direction="row", gap=8, width="160px", height="80px",
+                    align_items="flex-start",
+                )
+            root = tree.render(view(False, 45, 100))
+            cb, bar = (node.handle.widget for node in root.children)
+            assert isinstance(cb, KivyCheckBox)
+            assert isinstance(bar, KivyProgressBar)
+            assert (tuple(cb.pos), tuple(cb.size)) == ((0, 56), (24, 24))
+            assert (tuple(bar.pos), tuple(bar.size)) == ((32, 60), (100, 20))
+            assert backend.sfle_result.geometry_commit_error <= 1
+            assert cb.size_hint == [None, None] or tuple(cb.size_hint) == (None, None)
+            cb.dispatch("on_release")
+            assert calls == [True], calls
+            root = tree.render(view(True, 75, 110))
+            assert root.children[0].handle.widget is cb
+            assert root.children[1].handle.widget is bar
+            assert tuple(bar.size) == (110, 20)
+            assert round(bar.value) == 75
+            assert len(calls) == 1
+            tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_multiline_text_remeasured_at_real_content_width(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
