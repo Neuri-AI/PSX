@@ -410,7 +410,7 @@ def test_c5_explicit_invalidation_remeasures_without_remount(reason: str) -> Non
     renderer = new_renderer(measure_intrinsic=measure)
     reconciler = Reconciler(renderer)
     root = reconciler.render(Flex(
-        Text("Measured", key="content"),
+        Text("Measured", key="content", layout_width="50px", layout_height="16px"),
         width=120, height=60, align_items="flex-start",
     ))
     handle = root.children[0].handle
@@ -429,7 +429,7 @@ def test_c5_explicit_invalidation_remeasures_without_remount(reason: str) -> Non
     assert len(calls) > original_calls
     assert renderer._sfle_measurement_invalidations.pending == set()
     assert renderer._sfle_measurement_invalidations.committed_epoch > 0
-    assert handle.geometry.width != original_width
+    assert handle.geometry.width == original_width  # Fixed CSS width remains authoritative.
     before = Observation(
         id(handle), True, (0, 0, original_width, 16),
         revision=initial_generation, remeasure_count=original_calls,
@@ -452,7 +452,7 @@ def test_c5_stale_remeasurement_is_canceled_after_unmount() -> None:
     renderer = new_renderer(measure_intrinsic=measure)
     reconciler = Reconciler(renderer)
     root = reconciler.render(Flex(
-        Text("Data"), width=120, height=60, align_items="flex-start",
+        Text("Data", layout_width="50px", layout_height="16px"), width=120, height=60, align_items="flex-start",
     ))
     before = len(calls)
     renderer.request_sfle_invalidation("resource")
