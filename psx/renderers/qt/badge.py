@@ -27,6 +27,14 @@ def _badge_widget_class(binding: str):
             super().__init__()
             self._psx_props = None
             self._psx_style = None
+            self._psx_sfle_badge = False
+            self._psx_intrinsic = (1, 1)
+
+        def sizeHint(self):
+            return core.QSize(*self._psx_intrinsic)
+
+        def minimumSizeHint(self):
+            return core.QSize(*self._psx_intrinsic)
 
         def set_props(self, props):
             foreground, background, stroke, font_size, px, py = badge_style(props)
@@ -40,12 +48,14 @@ def _badge_widget_class(binding: str):
 
             self._psx_props = props
             self._psx_style = (foreground, background, stroke)
+            self._psx_intrinsic = (width, height)
             self.setEnabled(props["enabled"])
             self.setAccessibleName(props["label"])
 
             # Measure from the new font/text on every update, not from a
             # QLabel sizeHint constrained by an earlier setFixedSize().
-            self.setFixedSize(width, height)
+            if not self._psx_sfle_badge:
+                self.setFixedSize(width, height)
             self.updateGeometry()
             self.update()
 
@@ -94,6 +104,7 @@ class QtBadgeAdapter:
         if widget_type is None:
             widget_type = self._classes[binding] = _badge_widget_class(binding)
         widget = widget_type()
+        widget._psx_sfle_badge = renderer._sfle_constraints is not None
         widget.set_props(props)
         return QtHandle("Badge", widget, props=props)
 

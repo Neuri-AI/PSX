@@ -36,6 +36,13 @@ class QtDividerAdapter:
         props = divider_props({**DIVIDER_DEFAULTS, **node.props})
         validate_divider_props(props)
 
+        if renderer._sfle_constraints is not None:
+            widget = self._frame_class()
+            widget._psx_sfle_divider = True
+            widget._psx_props = props
+            self._apply_sfle_line(widget, props, renderer._binding_package)
+            return QtHandle("Divider", widget, props=props)
+
         widget = self._frame_class()
         layout = self._layout_h(widget) if props["orientation"] == "horizontal" \
             else self._layout_v(widget)
@@ -62,6 +69,10 @@ class QtDividerAdapter:
         handle.props = props
         binding = renderer._binding_package
         widget = handle.widget
+        if getattr(widget, "_psx_sfle_divider", False):
+            widget._psx_props = props
+            self._apply_sfle_line(widget, props, binding)
+            return
         self._apply_line(widget._psx_line_before, props, binding)
         if widget._psx_line_after is not None:
             self._apply_line(widget._psx_line_after, props, binding)
@@ -81,6 +92,10 @@ class QtDividerAdapter:
 
     def insert(self, renderer, parent, child, index):
         widget = parent.widget
+        if getattr(widget, "_psx_sfle_divider", False):
+            raise RendererCapabilityError(
+                "SFLE Divider child geometry port is not certified."
+            )
         target = 1 if widget._psx_line_after is not None else 0
         parent.layout.insertWidget(target, child.widget)
         self._apply_stretch(widget)
@@ -102,6 +117,22 @@ class QtDividerAdapter:
         return True
 
     # -- helpers ----------------------------------------------------------
+
+    @staticmethod
+    def _apply_sfle_line(widget, props, binding):
+        """Use native QFrame painting without QBoxLayout or fixed geometry."""
+        import importlib
+        widgets = importlib.import_module(f"{binding}.QtWidgets")
+        shape = getattr(widgets.QFrame, "Shape", widgets.QFrame)
+        shadow = getattr(widgets.QFrame, "Shadow", widgets.QFrame)
+        widget.setFrameShape(
+            shape.HLine if props["orientation"] == "horizontal" else shape.VLine
+        )
+        widget.setFrameShadow(shadow.Plain)
+        widget.setLineWidth(props["thickness"])
+        widget.setStyleSheet(f"color: {props['color']};" if props["color"] else "")
+
+
 
     def _make_line(self, renderer, parent_widget, props):
         line = self._frame_class(parent_widget)
