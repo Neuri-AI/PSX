@@ -144,16 +144,28 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             spacer_ids=spacer_ids, divider_nodes=divider_nodes,
         )
         readings = []
+        native_round = renderer._sfle_native_intrinsic_cache.begin(
+            invalidate_all=renderer._sfle_measurement_invalidations.needs_commit())
+        declared_props = {node_id: dict(vnode.props)
+                          for node_id, vnode in prepared.identities}
         for node_id in leaf_widgets:
-            readings.append(source.measure(MeasurementRequest(
-                node_id, renderer._sfle_constraints, generation, generation,
-            )))
+            readings.append(native_round.read(
+                widget=widgets[node_id], props=declared_props[node_id],
+                constraints=renderer._sfle_constraints,
+                node_id=node_id, generation=generation,
+                measure=lambda node_id=node_id: source.measure(MeasurementRequest(
+                    node_id, renderer._sfle_constraints, generation, generation)),
+            ))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Tk measurement.")
         for node_id, port in external.items():
-            readings.append(measure_external(
-                port, widgets[node_id], renderer._sfle_constraints,
-                node_id, generation,
+            readings.append(native_round.read(
+                widget=widgets[node_id], props=declared_props[node_id],
+                constraints=renderer._sfle_constraints,
+                node_id=node_id, generation=generation,
+                measure=lambda port=port, node_id=node_id: measure_external(
+                    port, widgets[node_id], renderer._sfle_constraints,
+                    node_id, generation),
             ))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external tk measurement.")
@@ -313,5 +325,6 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             raise
         renderer._sfle_physical_commit_error = physical_error_maximum
         renderer.sfle_result = replace(result, geometry_commit_error=error)
+        native_round.publish()
     finally:
         renderer._sfle_in_commit = False
