@@ -60,6 +60,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
     try:
         generation = renderer._sfle_generation + 1
         renderer._sfle_generation = generation
+        invalidation_epoch = renderer._sfle_measurement_invalidations.epoch
         components: dict[int, object] = {}
         handles: dict[int, object] = {}
 
@@ -257,6 +258,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             for node_id, widget in leaf_widgets.items()
             if node_id in dependent and "wraplength" in widget.keys()
         }
+        if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
         try:
             # F2 checks signed 1/64px precision before mutating a single child.
             committer(result)
@@ -288,6 +291,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 widgets[node_id].configure(
                     wraplength=max(1, round(rectangles[node_id].content.width)),
                 )
+            if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation after native geometry.")
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Tk geometry commit.")
             renderer.root.update_idletasks()
