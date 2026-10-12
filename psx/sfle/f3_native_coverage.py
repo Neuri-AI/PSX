@@ -1,9 +1,10 @@
 """Explicit F3-G2 native-leaf capability policy (not the G2 closure matrix).
 
 SFLE owns layout for these registered toolkit controls. Qt/Tk supply intrinsic
-requested sizes; Kivy's non-textured Widget primitives are admitted only
-with *both* explicit pixel layout dimensions, so no default Kivy size/size_hint
-is ever fabricated as CSS intrinsic measurement.
+requested sizes. Kivy Input, Checkbox and ProgressBar now have isolated
+native/theme-derived or portable density-scaled intrinsic ports; Slider still
+requires both explicit pixel layout dimensions. No default Kivy Widget.size
+or size_hint can impersonate CSS intrinsic measurement.
 
 Do not add container controls with native child geometry ownership here.
 Scroll is G3. Every added cell requires native create/update/event and
@@ -38,9 +39,10 @@ KIVY_EXPLICIT_BOUNDS = frozenset({"Slider"})
 def g2_native_leaf_needs_measurement(node: VNode, *, backend: str) -> bool:
     """Check one source declaration *before* stripping SFLE item metadata.
 
-    Returns False only for Kivy controls with definite explicit px dimensions
-    on both axes. Such controls need NO host intrinsic measurement; any CSS
-    intrinsic/auto/% sizes require a future real measurement port.
+    Returns False only when the node is structural or a Kivy slider has
+    definite pixel dimensions on both axes. All other native leaf controls,
+    including Kivy auto/percentage-sized Input, Checkbox and ProgressBar,
+    require a real measurement callback.
     """
     if node.kind is not NodeKind.HOST or not isinstance(node.type, str):
         raise RendererCapabilityError(

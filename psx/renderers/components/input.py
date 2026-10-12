@@ -64,6 +64,7 @@ def apply_tk_input(widget, props, binding=None):
     therefore never sent through on_change or password-mode state.
     """
     import tkinter as tk
+    from tkinter import ttk
 
     widget._psx_updating = True
     try:
@@ -104,8 +105,10 @@ def apply_tk_input(widget, props, binding=None):
             widget.bind("<FocusOut>", sync_hint, add="+")
             hint.bind("<Button-1>", lambda _event: widget.focus_set())
         hint = widget._psx_hint_label
-        hint.configure(font=font, fg="#777777",
-                       bg=widget.winfo_toplevel().cget("background"))
+        style = ttk.Style(widget)
+        field_style = str(widget.cget("style")) or "TEntry"
+        field_background = style.lookup(field_style, "fieldbackground") or "white"
+        hint.configure(font=font, fg="#777777", bg=field_background)
         widget._psx_sync_hint()
     finally:
         widget._psx_updating = False
