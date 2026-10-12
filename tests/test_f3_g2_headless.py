@@ -280,7 +280,6 @@ def test_all_supported_headless_components_reconcile_without_remount() -> None:
         "Flex": lambda width: Flex(
             Text("Child", layout_width="20px", layout_height="10px"),
             width=f"{width}px", height="24px", key="case",
-            layout_width=f"{width}px", layout_height="24px",
         ),
         "Text": lambda width: Text(
             "Content", key="case", layout_width=f"{width}px",
