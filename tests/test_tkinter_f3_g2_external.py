@@ -123,3 +123,27 @@ class TkExternalPortTests(unittest.TestCase):
                 width=160, height=80,
             ))
         self.assertEqual(calls, [])
+
+    def test_borrowed_tk_widget_with_foreign_parent_fails_without_disposal(self):
+        from psx.core.native import NativeWidget, NativeOwnership
+        from psx.core.vnode import native_widget
+        parent = ttk.Frame(self.host)
+        widget = ttk.Label(parent, text="Caller widget")
+        declaration = NativeWidget(
+            renderer="tkinter", widget=widget,
+            ownership=NativeOwnership.BORROWED,
+            sfle_port=port([]),
+        )
+        with self.assertRaisesRegex(RendererCapabilityError, "does not support reparenting"):
+            self.tree.render(Flex(
+                native_widget(declaration, key="borrowed",
+                              layout_width="32px", layout_height="18px",
+                              flex_basis="32px", flex_shrink=0),
+                width=160, height=80,
+            ))
+        self.assertTrue(widget.winfo_exists())
+        self.assertIs(widget.master, parent)
+        self.assertEqual(widget.cget("text"), "Caller widget")
+        widget.destroy()
+        parent.destroy()
+
