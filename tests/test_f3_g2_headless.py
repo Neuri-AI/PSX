@@ -696,3 +696,49 @@ def test_c5_multi_trigger_invalidation_during_measurement_preserves_cache_and_re
     assert tuple(child.handle for child in root.children) == handles
     assert tuple(handle.geometry for handle in handles) == baseline
     reconciler.unmount()
+
+
+def test_c5_invalidation_during_native_readback_rolls_back_and_recovers(monkeypatch) -> None:
+    """A resource event during readback must not publish stale geometry."""
+    import psx.sfle.f3_headless as bridge
+
+    renderer = new_renderer()
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Flex(
+        Flex(key="first", width=30, height=20),
+        Flex(key="second", width=20, height=20),
+        width=120, height=60, gap=5,
+    ))
+    widgets = tuple(child.handle for child in root.children)
+    before = tuple(widget.geometry for widget in widgets)
+    published = renderer.sfle_result
+    cache = dict(renderer._sfle_intrinsic_cache)
+    original_ports = bridge.SFLEAdapterPorts
+    injected = {"pending": True}
+
+    def race_ports(**kwargs):
+        original_read = kwargs["read_rectangles"]
+
+        def read():
+            data = original_read()
+            if injected["pending"]:
+                injected["pending"] = False
+                renderer._sfle_measurement_invalidations.request("resource")
+            return data
+
+        kwargs["read_rectangles"] = read
+        return original_ports(**kwargs)
+
+    monkeypatch.setattr(bridge, "SFLEAdapterPorts", race_ports)
+    with pytest.raises(SFLEError, match="Stale semantic invalidation during native readback"):
+        renderer.commit_layout(root)
+    assert tuple(widget.geometry for widget in widgets) == before
+    assert renderer.sfle_result is published
+    assert renderer._sfle_intrinsic_cache == cache
+    assert renderer._sfle_measurement_invalidations.pending == {"resource"}
+    assert tuple(child.handle for child in root.children) == widgets
+    renderer.commit_layout(root)
+    assert not renderer._sfle_measurement_invalidations.pending
+    assert renderer.sfle_result.generation > published.generation
+    assert tuple(child.handle for child in root.children) == widgets
+    reconciler.unmount()
