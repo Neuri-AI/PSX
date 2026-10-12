@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Image native intrinsic and SFLE-controlled paint certified on Qt, Tkinter and Kivy at `befcd5e`; multiline TextArea and physical DPI readback previously certified; complete registry/backend/operation matrix still open); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Link, Badge, Divider leaf and Spacer native SFLE geometry certified on Qt, Tkinter and Kivy at `844d379`; Image/TextArea and DPI earlier certified; full registry × backend × operation G2 matrix still open); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -702,3 +702,58 @@ Historical G1.2 incremental evidence is retained above.
   and native/custom lifecycle matrices, invalidation on image file
   change without a PSX prop change, complex font/theme/DPI changes,
   and F3-G3 through G5. Do not label G2 as CLOSED based on this increment.
+
+## F3-G2 increment — Link, Badge, leaf Divider and Spacer across Qt/Kivy/Tk (2026-10-11)
+
+**Status: increment certified, G2 itself IN PROGRESS. F3 still 1/5 gates closed.**
+
+- **Ports/policy:** All four existing PSX builtins are admitted by
+  `G2_LEAF_TYPES` in Qt, Kivy and Tk. They use the reconciler's
+  keyed/native handle graph, immutable SFLE snapshot, Rust-primary engine
+  with Python fallback, F2 parent-relative coordinate projection and
+  readback/rollback. **No new portable component or contract** was added.
+- **Link:** Native Qt QPushButton, Tk Label and Kivy Button retain
+  their existing focus/interaction semantics and source `on_click`
+  subscriptions. SFLE-enabled Qt and Kivy update paths no longer
+  resize their native widget independently; intrinsic text hints/textures
+  remain measurable and SFLE owns the outer rectangle.
+- **Badge:** Qt PaintedBadge now reports genuine font-derived
+  `sizeHint`/`minimumSizeHint` instead of fixing size under SFLE.
+  Kivy Badge retains separate natural glyph/padding dimensions
+  (`_psx_natural_size`) and does not override a committed rect.
+  Tk Canvas uses its native theme/font request while `place()`
+  remains SFLE-owned.
+- **Divider leaf:** SFLE resolves its zero free-axis intrinsic
+  dimension and `thickness`-sized cross axis. Qt uses a direct QFrame
+  line **without QHBoxLayout/QVBoxLayout, setFixedSize or secondary
+  geometry ownership**; Tk Canvas and Kivy canvas line paint inside
+  committed rectangles. Orientation/thickness remain portable props.
+  **Important limitation:** a Divider containing children still has
+  an older native-internal child layout. The SFLE route explicitly rejects
+  it *before mounting* with a stable capability error; supporting
+  Divider-with-child using SFLE child boxes remains a separate G2 item.
+- **Spacer:** A real intrinsic zero-size leaf in all three backends,
+  independent of QWidget/ttk.Frame/Kivy Widget defaults. In particular,
+  Kivy no longer requires two explicit px dimensions for Spacer.
+  SFLE's own `flex_grow` and `flex_basis` distribute free space; neither
+  the native adapter nor a hidden layout performs stretching.
+- **Native real-toolkit tests:** mixed five-element Flex trees exercise
+  exact logical and ≤1px applied native geometry (including Kivy
+  bottom-left Y), true spacer growth, line-thickness updates,
+  preserved keyed native identities, SFLE authority and event rebind
+  on Qt/Kivy. Policy tests enforce explicit child Divider rejection
+  and preserve negative unported-builtin checks.
+- **Source certificate:** [`844d379`](https://github.com/Neuri-AI/PSX/commit/844d379f4043305b83812e0e8786863e12ccdcf7).
+  [F3 #38210513225](https://github.com/Neuri-AI/PSX/actions/runs/38210513225)
+  **COMPLETED SUCCESS**; [G1 #38210513235](https://github.com/Neuri-AI/PSX/actions/runs/38210513235)
+  **COMPLETED SUCCESS** at identical SHA. Qt family: **25 tests × 4 bindings
+  × 2 DPI scales = 200 passing executions**, Tk: **32 native tests**,
+  Kivy: **9 SDL2 subprocess tests**. Required selective CI conclusion
+  and selected core/geometry/Rust-differential/Chromium/wheel jobs passed.
+- **Next G2 items:** full registry-backed coverage census;
+  lifecycle/operation matrix and owned/borrowed/custom widget variants;
+  interactivity ports (Switch/SpinBox/Select etc.); structural
+  Box/RadioGroup/Fragment and Divider child semantics; basic Scroll
+  viewport/host binding; invalidation on content, theme, font and
+  screen DPI. Full scroll behavior is G3, legacy Row/Column removal is G4,
+  and full platform/matrix certification is G5.
