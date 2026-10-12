@@ -442,9 +442,9 @@ C5_COMPONENT_OPERATION_TESTS = MappingProxyType({
     ("kivy", "Box", "invalidation"): "test_all_ported_builtin_lifecycles_keep_native_widget_handles",
     ("kivy", "Scroll", "invalidation"): "test_all_ported_builtin_lifecycles_keep_native_widget_handles",
     ("kivy", "Flex", "invalidation"): "test_all_ported_builtin_lifecycles_keep_native_widget_handles",
-    ("headless", "Flex", "invalidation"): "test_c5_explicit_invalidation_remeasures_without_remount",
-    ("headless", "Text", "invalidation"): "test_c5_explicit_invalidation_remeasures_without_remount",
-    ("headless", "Button", "invalidation"): "test_c5_explicit_invalidation_remeasures_without_remount",
+    ("headless", "Flex", "invalidation"): "test_all_supported_headless_components_reconcile_without_remount",
+    ("headless", "Text", "invalidation"): "test_all_supported_headless_components_reconcile_without_remount",
+    ("headless", "Button", "invalidation"): "test_all_supported_headless_components_reconcile_without_remount",
 })
 COMPONENT_OPERATION_TESTS = MappingProxyType({
     **COMPONENT_OPERATION_TESTS,
