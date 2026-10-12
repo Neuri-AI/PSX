@@ -997,7 +997,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                 "ProgressBar": lambda: ProgressBar(value=30),
                 "Radio": lambda: Radio("a", label="Before"),
                 "RadioGroup": lambda: RadioGroup(Radio("a", label="Before")),
-                "Select": lambda: Select(options=[("a", "A"), ("b", "B")]),
+                "Select": lambda: Select(options=[{"label": "A", "value": "a"}, {"label": "B", "value": "b"}], value="a"),
                 "Switch": lambda: Switch(checked=False),
                 "Link": lambda: Link(label="Before"),
                 "Badge": lambda: Badge(label="Before"),
