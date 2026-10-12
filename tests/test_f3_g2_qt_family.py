@@ -974,6 +974,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                          Scroll)
         from psx.core.vnode import Box
         from psx.core.vnode import create_element
+        from psx.sfle.f3_g2_oracles import Observation, ORACLES
         from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
         from pathlib import Path
         from tempfile import TemporaryDirectory
@@ -1058,6 +1059,16 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                     before = geometry(widget)
                     self.assertEqual(before[2], 60, name) if name != "Box" else self.assertGreater(before[2], 0, name)
                     self.assertEqual(before[3], 24, name) if name != "Box" else self.assertGreater(before[3], 0, name)
+                    previous_order = tuple(child.node.key for child in root.children)
+                    previous_state = (
+                        before,
+                        tuple(dict(child.node.props) for child in instance.children),
+                    )
+                    before_observation = Observation(
+                        native_identity=id(widget), mounted=True, rect=before,
+                        state=previous_state, order=previous_order,
+                    )
+                    ORACLES["create"](None, before_observation)
                     updated = self.reconciler.render(view(name, 80, reverse=True))
                     current = updated.children[1]
                     self.assertIs(current, instance, name)
@@ -1068,6 +1079,17 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                     self.assertGreater(after[0], 0, name)
                     self.assertLess(geometry(updated.children[0].handle.widget)[0],
                                     after[0], name)
+                    current_state = (
+                        after,
+                        tuple(dict(child.node.props) for child in instance.children),
+                    )
+                    after_observation = Observation(
+                        native_identity=id(widget), mounted=True, rect=after,
+                        state=current_state,
+                        order=tuple(child.node.key for child in updated.children),
+                    )
+                    ORACLES["update"](before_observation, after_observation)
+                    ORACLES["reorder"](before_observation, after_observation)
                     # Invalid callback changes must fail before touching the
                     # actual native widget or its last committed rectangle.
                     attempted = view(name, 80, reverse=True)
@@ -1086,6 +1108,13 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                         self.reconciler.render(forged)
                     self.assertIs(updated.children[1].handle.widget, widget, name)
                     self.assertEqual(geometry(widget), after, name)
+                    ORACLES["rollback"](
+                        after_observation, Observation(
+                            native_identity=id(widget), mounted=True,
+                            rect=after, state=current_state,
+                            order=after_observation.order, mutation_failed=True,
+                        ),
+                    )
                     destroyed = []
                     widget.destroyed.connect(lambda *_: destroyed.append(True))
                     self.reconciler.render(Flex(
@@ -1096,6 +1125,12 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                     qtcore = importlib.import_module(f"{PACKAGE}.QtCore")
                     qtcore.QCoreApplication.sendPostedEvents(None, qtcore.QEvent.Type.DeferredDelete)
                     self.assertTrue(destroyed, name)
+                    ORACLES["unmount"](
+                        after_observation, Observation(
+                            native_identity=id(widget), mounted=False,
+                            rect=after, state=current_state, disposed=bool(destroyed),
+                        ),
+                    )
             self.reconciler.unmount()
 
 
