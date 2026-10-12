@@ -689,7 +689,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
                 Input(value=value, placeholder=hint, key="input",
                       layout_width="180px", layout_height="32px",
                       flex_basis="180px", flex_shrink=0),
-                direction="row", width="200px", height="80px",
+                direction="row", width="400px", height="240px",
                 align_items="flex-start",
             )
         root = self.reconciler.render(view("", "Name"))
