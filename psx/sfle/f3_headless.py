@@ -44,6 +44,7 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
     try:
         generation = renderer._sfle_generation + 1
         renderer._sfle_generation = generation
+        invalidation_epoch = renderer._sfle_measurement_invalidations.epoch
         components: dict[int, object] = {}
         handles: dict[int, object] = {}
 
@@ -136,11 +137,15 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             placements[node_id] = rect
 
         before = {node_id: handle.geometry for node_id, handle in node_handles.items()}
+        if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before geometry.")
         try:
             for node_id, rect in placements.items():
                 node_handles[node_id].geometry = rect
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale geometry commit.")
+            if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation after geometry.")
             readback = ports.read_rectangles()
             error = max((
                 abs(getattr(rect, axis) - readback[node_id][axis])
