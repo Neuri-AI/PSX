@@ -1867,7 +1867,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
 
     def test_kivy_invalidation_during_native_application_rolls_back(self):
         script = textwrap.dedent(r"""
-            from unittest.mock import patch\n            from psx.sfle.errors import SFLEError
+            from unittest.mock import patch
             from kivy.config import Config
             Config.set("graphics", "window_state", "hidden")
             from psx import Button, Flex
@@ -1893,7 +1893,6 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             published = renderer.sfle_result
             original_committer = bridge.NativeGeometryCommitter
             injected = {"done": False}
-        injected = {"done": False}
 
             def interrupted_committer(*args, **kwargs):
                 apply = original_committer(*args, **kwargs)
@@ -1905,15 +1904,11 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 return fail_after_application
 
             with patch.object(bridge, "NativeGeometryCommitter", side_effect=interrupted_committer):
-                try:
-                    renderer.commit_layout(root)
-                except RuntimeError as exc:
-                    assert "injected Kivy native application failure" in str(exc)
-                else:
-                    raise AssertionError("Invalidated Kivy transaction unexpectedly succeeded")
+                renderer.commit_layout(root)
+            assert injected["done"]
             assert tuple((tuple(w.pos), tuple(w.size)) for w in widgets) == before
-            assert renderer.sfle_result is published
-            renderer.commit_layout(root)
+            assert renderer.sfle_result.generation >= published.generation + 2
+            assert not renderer._sfle_measurement_invalidations.pending
             assert tuple(child.handle.widget for child in root.children) == widgets
             tree.unmount()
         """)
