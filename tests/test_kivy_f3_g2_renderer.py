@@ -1199,6 +1199,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx.sfle.engine import PythonLayoutEngine
             from psx.sfle.model import AvailableSize, LayoutConstraints
             from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+            from psx.sfle.f3_g2_oracles import Observation, ORACLES
 
             with TemporaryDirectory() as tmp:
                 import struct
@@ -1281,12 +1282,36 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                         native_widget = old.handle.widget
                         assert (native_widget.width == 60 if name != "Box" else native_widget.width > 0), (name, native_widget.size)
                         assert (native_widget.height == 24 if name != "Box" else native_widget.height > 0), (name, native_widget.size)
+                        before_rectangle = (*native_widget.pos, *native_widget.size)
+                        prior_order = tuple(child.node.key for child in first.children)
+                        before_state = (
+                            before_rectangle,
+                            tuple(dict(child.node.props) for child in old.children),
+                        )
+                        before_observation = Observation(
+                            native_identity=id(native_widget), mounted=True,
+                            rect=before_rectangle, state=before_state,
+                            order=prior_order,
+                        )
+                        ORACLES["create"](None, before_observation)
                         second = tree.render(view(name, 80, True))
                         current = second.children[1]
                         assert current is old, name
                         assert current.handle.widget is native_widget, name
                         assert (native_widget.width == 80 if name != "Box" else native_widget.width > 0), (name, native_widget.size)
                         assert native_widget.x > second.children[0].handle.widget.x, name
+                        after_rectangle = (*native_widget.pos, *native_widget.size)
+                        current_state = (
+                            after_rectangle,
+                            tuple(dict(child.node.props) for child in old.children),
+                        )
+                        after_observation = Observation(
+                            native_identity=id(native_widget), mounted=True,
+                            rect=after_rectangle, state=current_state,
+                            order=tuple(child.node.key for child in second.children),
+                        )
+                        ORACLES["update"](before_observation, after_observation)
+                        ORACLES["reorder"](before_observation, after_observation)
                         attempted = view(name, 80, True)
                         current_node = attempted.children[1]
                         from dataclasses import replace
@@ -1310,12 +1335,26 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                         assert current.handle.widget is native_widget, name
                         assert tuple(native_widget.pos) == before_pos, name
                         assert tuple(native_widget.size) == before_size, name
+                        ORACLES["rollback"](
+                            after_observation, Observation(
+                                native_identity=id(native_widget), mounted=True,
+                                rect=after_rectangle, state=current_state,
+                                order=after_observation.order, mutation_failed=True,
+                            ),
+                        )
                         tree.render(Flex(
                             Button("Peer", key="peer", layout_width="20px",
                                    layout_height="24px"),
                             width=260, height=90, align_items="flex-start"))
                         assert old.disposed, name
                         assert native_widget.parent is None, name
+                        ORACLES["unmount"](
+                            after_observation, Observation(
+                                native_identity=id(native_widget), mounted=False,
+                                rect=after_rectangle, state=current_state,
+                                disposed=True,
+                            ),
+                        )
                     except Exception as error:
                         raise AssertionError(f"Native Kivy lifecycle for {name}: {error}") from error
                 tree.unmount()
