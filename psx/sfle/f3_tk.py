@@ -249,7 +249,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                     continue
                 if old:
                     if node_id in external:
-                            rect = Rect(*(float(old[axis]) for axis in (
+                        rect = Rect(*(float(old[axis]) for axis in (
                             "x", "y", "width", "height",
                         )))
                         external[node_id].apply(widget, rect)
