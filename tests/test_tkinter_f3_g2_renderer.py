@@ -162,6 +162,37 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(child), (0, 0, 30, 20))
         self.assertGreater(self.renderer.sfle_result.generation, initial)
 
+    def test_tk_multiline_text_height_follows_sfle_content_width(self):
+        words = ("One two three four five six seven eight nine ten "
+                 "eleven twelve thirteen fourteen fifteen sixteen.")
+        root = self.reconciler.render(Flex(
+            Text(words, key="copy", layout_width="100%", flex_shrink=0),
+            item("Below", "below", 30),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        label = root.children[0].handle.widget
+        following = root.children[1].handle.widget
+        wide_height = rect(label)[3]
+        self.assertGreater(wide_height, 0)
+        self.assertEqual(rect(following)[1], wide_height)
+
+        self.renderer.set_sfle_constraints(constraints(90, 80))
+        self.renderer.commit_layout(root)
+        narrow_height = rect(label)[3]
+        self.assertGreater(narrow_height, wide_height)
+        self.assertEqual(rect(label)[2], 90)
+        self.assertEqual(rect(following)[1], narrow_height)
+        self.assertEqual(round(float(label.cget("wraplength"))), 90)
+        self.assertIs(root.children[0].handle.widget, label)
+
+        self.renderer.set_sfle_constraints(constraints(160, 80))
+        self.renderer.commit_layout(root)
+        self.assertEqual(rect(label)[3], wide_height)
+        self.assertEqual(rect(following)[1], wide_height)
+        self.assertEqual(round(float(label.cget("wraplength"))), 160)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
     def test_real_tk_host_configure_automatically_reflows_sfle(self):
         class CountingEngine:
             def __init__(self):
