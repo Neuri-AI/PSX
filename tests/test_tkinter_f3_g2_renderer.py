@@ -1053,3 +1053,19 @@ class TkSFLEGeometryTests(unittest.TestCase):
                 self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, set())
                 self.reconciler.unmount()
 
+    def test_tk_theme_changed_event_requests_sfle_remeasurement(self):
+        root = self.reconciler.render(Flex(
+            Text("Theme", key="label", layout_width="50px",
+                 layout_height="20px"),
+            width=160, height=80,
+        ))
+        native = root.children[0].handle.widget
+        generation = self.renderer.sfle_result.generation
+        self.host.event_generate("<<ThemeChanged>>")
+        self.host.update()
+        self.renderer.flush()
+        self.assertIs(root.children[0].handle.widget, native)
+        self.assertGreater(self.renderer.sfle_result.generation, generation)
+        self.reconciler.unmount()
+        self.assertIsNone(self.renderer._sfle_theme_bind_id)
+
