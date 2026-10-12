@@ -197,7 +197,7 @@ def test_button_lifecycle_operations_use_real_headless_observations() -> None:
         return Observation(
             native_identity=id(handle), mounted=mounted,
             rect=(rect.x, rect.y, rect.width, rect.height) if rect else None,
-            state=handle.props.get("text"), order=order,
+            state=handle.props.get("label"), order=order,
             events=events, callback_identity=callback,
             disposed=handle.destroyed,
         )
@@ -235,7 +235,7 @@ def test_button_lifecycle_operations_use_real_headless_observations() -> None:
 
     updated = observe(button)
     ORACLES["update"](created, updated)
-    assert button.props["text"] == "Updated"
+    assert button.props["label"] == "Updated"
 
     reordered = observe(
         button, order=tuple(child.type for child in root.handle.children),
