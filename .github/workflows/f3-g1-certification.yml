@@ -20,13 +20,82 @@ on:
 
 permissions:
   contents: read
+  actions: read
+  pull-requests: read
 
 concurrency:
   group: "f3-g1-${{ github.event.pull_request.number || github.ref }}"
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: G1 verify contract-impact delta
+    runs-on: ubuntu-latest
+    outputs:
+      run_contract: "${{ steps.scope.outputs.run_contract }}"
+    steps:
+      - name: Require contract checks unless a prior green SHA covers a docs-only delta
+        id: scope
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const useMatrix = (why) => {
+              core.info('G1 contract matrix required: ' + why);
+              core.setOutput('run_contract', 'true');
+            };
+            // An initial PR, manual certification, ambiguous diff or failed
+            // predecessor must revalidate contracts, never silently skip.
+            const before = context.payload.before;
+            const after = context.payload.after;
+            if (context.eventName !== 'pull_request' ||
+                context.payload.action !== 'synchronize' || !before || !after) {
+              useMatrix('not a verifiable PR synchronize delta');
+              return;
+            }
+            try {
+              const common = {owner: context.repo.owner, repo: context.repo.repo};
+              const pr = context.issue.number;
+              const previous = await github.rest.actions.listWorkflowRunsForRepo({
+                ...common, head_sha: before, event: 'pull_request', per_page: 100,
+              });
+              const prior_green = (previous.data.workflow_runs || []).some(run =>
+                run.name === 'F3 G1 contract certification' &&
+                run.head_sha === before &&
+                run.status === 'completed' &&
+                run.conclusion === 'success' &&
+                (run.pull_requests || []).some(p => p.number === pr));
+              if (!prior_green) {
+                useMatrix('previous SHA has no completed successful G1 workflow');
+                return;
+              }
+              const diff = await github.rest.repos.compareCommits({
+                ...common, base: before, head: after, per_page: 100,
+              });
+              const entries = diff.data.files || [];
+              if (!entries.length || entries.length >= 300 ||
+                  diff.data.total_commits > 250) {
+                useMatrix('missing or truncated commit file delta');
+                return;
+              }
+              const files = entries.flatMap(file =>
+                [file.filename, file.previous_filename].filter(Boolean));
+              const isDocumentation = path => path === 'README.md' ||
+                path.startsWith('docs/') ||
+                (path.endsWith('.md') && !path.startsWith('.github/'));
+              if (!files.every(isDocumentation)) {
+                useMatrix('code, workflow or non-documentation changes');
+                return;
+              }
+              core.info('G1 contracts unchanged since verified green SHA ' + before +
+                        '; docs-only delta; zero G1 product tests.');
+              core.setOutput('run_contract', 'false');
+            } catch (error) {
+              useMatrix('provenance or diff unavailable: ' + error.message);
+            }
+
   g1-contract:
+    needs: changes
+    if: needs.changes.outputs.run_contract == 'true'
     name: G1 Builder/Markup/normalization Python ${{ matrix.python }}
     runs-on: ubuntu-latest
     strategy:
@@ -73,15 +142,29 @@ jobs:
   g1-verdict:
     name: G1 complete contract certification verdict
     if: always()
-    needs: [g1-contract]
+    needs: [changes, g1-contract]
     runs-on: ubuntu-latest
     steps:
       - name: Do not certify if any supported Python fails
         env:
+          CHANGE_RESULT: "${{ needs.changes.result }}"
+          RUN_CONTRACT: "${{ needs.changes.outputs.run_contract }}"
           RESULT: "${{ needs.g1-contract.result }}"
         run: |
-          test "$RESULT" = success || {
-            echo "G1 cannot be certified: matrix result $RESULT" >&2
+          test "$CHANGE_RESULT" = success || {
+            echo "G1 scope classifier failed; cannot certify." >&2
             exit 1
           }
-          echo "G1 core/markup/normalizer + adversarial suite certified on every supported Python version."
+          if [ "$RUN_CONTRACT" = false ]; then
+            test "$RESULT" = skipped || {
+              echo "Unexpected G1 matrix outcome for docs-only update: $RESULT" >&2
+              exit 1
+            }
+            echo "Docs-only delta from previously GREEN G1 SHA: no product tests necessary."
+          else
+            test "$RUN_CONTRACT" = true && test "$RESULT" = success || {
+              echo "G1 cannot be certified: matrix result $RESULT" >&2
+              exit 1
+            }
+            echo "G1 core/markup/normalizer + adversarial suite certified on every supported Python version."
+          fi

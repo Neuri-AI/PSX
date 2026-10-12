@@ -61,6 +61,55 @@ class RoutingTests(unittest.TestCase):
     def test_g2_registry_coverage_is_not_skipped(self):
         self.assertIn("core", self.selected("psx/core/contracts.py"))
 
+    def test_f3_backend_bridge_changes_execute_the_owner_toolkit(self):
+        self.assertEqual(self.selected("psx/sfle/f3_qt.py"), {"qt"})
+        self.assertEqual(self.selected("psx/sfle/f3_kivy.py"), {"kivy"})
+        self.assertEqual(self.selected("psx/sfle/f3_tk.py"), {"tkinter"})
+        self.assertEqual(self.selected("psx/sfle/f3_headless.py"), {"headless"})
+
+    def test_native_measurement_changes_cover_their_toolkit_and_sfle(self):
+        for filename, native in (
+            ("qt_measurement.py", "qt"),
+            ("kivy_measurement.py", "kivy"),
+            ("tk_measurement.py", "tkinter"),
+            ("headless_measurement.py", "headless"),
+        ):
+            self.assertEqual(
+                self.selected(f"psx/sfle/{filename}"), {"sfle", native}
+            )
+
+    def test_shared_g2_bridges_trigger_all_downstream_consumers(self):
+        all_consumers = {"core", "headless", "qt", "kivy", "tkinter"}
+        for filename in ("f3_snapshot.py", "f3_external.py"):
+            self.assertEqual(self.selected(f"psx/sfle/{filename}"), all_consumers)
+
+    def test_shared_width_dpi_and_capability_changes_reach_native_jobs(self):
+        consumers = {"core", "qt", "kivy", "tkinter"}
+        for filename in (
+            "f3_width_remeasurement.py",
+            "f3_native_coverage.py",
+            "native_pixel_space.py",
+        ):
+            self.assertEqual(self.selected(f"psx/sfle/{filename}"), consumers)
+
+    def test_native_geometry_preserves_core_and_toolkit_regressions(self):
+        self.assertGreaterEqual(
+            self.selected("psx/sfle/native_geometry.py"),
+            {"core", "sfle", "qt", "kivy", "tkinter", "headless"},
+        )
+
+    def test_g1_workflow_skips_only_verified_docs_deltas(self):
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/f3-g1-certification.yml").read_text(
+                        encoding="utf-8"
+                    )
+        self.assertIn("listWorkflowRunsForRepo", workflow)
+        self.assertIn("prior_green", workflow)
+        self.assertIn("previous_filename", workflow)
+        self.assertIn("run_contract", workflow)
+        self.assertIn("needs: changes", workflow)
+
     def test_native_port_changes_include_wheels(self):
         self.assertIn("native", self.selected("psx/sfle/backend.py"))
 

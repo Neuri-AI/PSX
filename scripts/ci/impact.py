@@ -52,8 +52,32 @@ def _classify_path(path: str) -> set[str]:
         return {"sfle", "rust", "chromium", "native"}
     if path.startswith("psx/sfle/"):
         name = PurePosixPath(path).name
-        if name in ("adapter_contract.py", "worker_lifecycle.py", "native_geometry.py", "native_measurement.py"):
-            return {"sfle", "headless", "qt", "kivy", "tkinter"}
+        # Production F3 bridges must route to the real toolkit consumer, not
+        # only to the neutral SFLE engine and browser oracle.
+        if name == "f3_qt.py":
+            return {"qt"}
+        if name == "f3_kivy.py":
+            return {"kivy"}
+        if name == "f3_tk.py":
+            return {"tkinter"}
+        if name == "f3_headless.py":
+            return {"headless"}
+        if name in ("qt_measurement.py", "qt_worker_dispatch.py"):
+            return {"sfle", "qt"}
+        if name == "kivy_measurement.py":
+            return {"sfle", "kivy"}
+        if name == "tk_measurement.py":
+            return {"sfle", "tkinter"}
+        if name == "headless_measurement.py":
+            return {"sfle", "headless"}
+        if name in ("f3_snapshot.py", "f3_external.py"):
+            return {"core", "headless", "qt", "kivy", "tkinter"}
+        if name in ("f3_width_remeasurement.py", "f3_native_coverage.py",
+                    "native_pixel_space.py"):
+            return {"core", "qt", "kivy", "tkinter"}
+        if name in ("adapter_contract.py", "worker_lifecycle.py", "native_geometry.py",
+                    "native_measurement.py", "native_lifecycle.py"):
+            return {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
         if name in ("backend.py", "native_loader.py"):
             return {"sfle", "rust", "native"}
         return {"sfle", "rust", "chromium", "headless"}
