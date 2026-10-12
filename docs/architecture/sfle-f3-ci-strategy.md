@@ -400,21 +400,50 @@ from rerunning product tests on a *verified* documentation-only PR delta.
   retain their SFLE tests. No change is made to the Rust/Chromium oracle policy
   for actual engine computation changes.
 - Regression tests: `tests/test_ci_impact.py` guards the concrete F3 bridge
-  paths, shared consumers, measurements and G1's predecessor-based docs guard.
+  paths, shared consumers, measurements and documentation-only CI routing.
 - [F3 selective #38205155544](https://github.com/Neuri-AI/PSX/actions/runs/38205155544):
   required selector regression and aggregate **SUCCESS** at `c31226d`;
   unrelated product jobs were intentionally **skipped**, not executed.
 - [G1 #38205155772](https://github.com/Neuri-AI/PSX/actions/runs/38205155772):
   the 3.10–3.13 contract matrix and verdict **SUCCESS** at the same code SHA.
-- G1's scope classifier checks a completed successful G1 predecessor run for
-  the same PR and a complete, strictly documentation-only `before..after`
-  comparison before reusing that certification. Missing provenance or any
-  source/workflow changes force the full contract matrix. The independent
-  required verdict continues to report a successful no-product-tests decision
-  when the contract matrix is correctly skipped.
+- Historical behavior (superseded 2026-10-12): G1 required a previously
+  GREEN CI predecessor before skipping a docs-only delta. This could waste
+  resources after a cancelled preceding run; the current contract is below.
 
 **This incremental routing repair does not close G2.** Full
 `registry × backend × operation` certification and G3–G5 remain outstanding.
+
+## Documentation-only synchronize regression repair — 2026-10-12
+
+The [docs-only commit `2ddf591`](https://github.com/Neuri-AI/PSX/commit/2ddf591a66a6994c2a19a8a5fd84d171487059ae)
+incorrectly launched the F3 product matrix because the preceding workflow
+had been cancelled. GitHub `paths-ignore` cannot solve this alone: a
+synchronize event on an existing code PR still includes earlier changed code
+when GitHub evaluates the cumulative PR file filters.
+
+- [CI fix `5e74538`](https://github.com/Neuri-AI/PSX/commit/5e7453871f14c56ed7b3970a07357e1817dd79c0):
+  on a PR `synchronize` event, compare `before..after` and inspect both
+  current filenames and rename sources. When the complete, nonempty delta
+  touches only documentation, **zero product tests** are selected even when
+  the immediately preceding CI was failed or cancelled.
+- A missing, unsafe, over-limit or otherwise unverifiable delta fails open
+  to the appropriate code checks. Mixed documentation and code changes retain
+  code testing. Explicit `workflow_dispatch` still performs requested full
+  certification.
+- `f3-selective.yml` skips all product jobs for verified docs-only changes;
+  previous-green optimizations for code require actual successful product jobs,
+  not merely a successful docs-only router. `f3-g1-certification.yml` also
+  skips the G1 matrix without a previous-green prerequisite.
+- The existing `ci.yml` and `sfle-core.yml` product jobs are now conditional
+  on their change classifiers. `docs-delta.yml` is a reusable lightweight
+  gate used by Chromium, native-wheel/frozen, real-UI certification and
+  runtime-boundary workflows. A docs-only event may run classification and
+  required summary/status checks, but must never install test dependencies,
+  build packages, or execute tests.
+- `tests/test_ci_impact.py` certifies the routing and mandatory job-gating
+  rules when CI code changes. [F3 selective run #38246129292](https://github.com/Neuri-AI/PSX/actions/runs/38246129292)
+  completed successfully for the CI code repair before this documentation
+  update, including the selective-router regressions.
 
 ## G5 functional behavior audit — compulsory final CI gate
 
