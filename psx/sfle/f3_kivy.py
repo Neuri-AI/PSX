@@ -21,6 +21,11 @@ from psx.sfle.f3_external import external_port_for, measure_external, read_exter
 from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
 from psx.sfle.fixed_point import LayoutUnit
 from psx.sfle.kivy_measurement import KivyMeasurementSource
+from psx.sfle.model import LayoutConstraints, AvailableSize
+from psx.sfle.f3_width_remeasurement import (
+    compute_width_dependent, auto_height_measurement_ids,
+    seed_unconstrained_width_measurements,
+)
 from psx.sfle.margin_tree import MarginTreeNode
 from psx.sfle.measurement_plan import MeasurementRequest
 from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
@@ -103,6 +108,21 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             # Kivy computes texture_size lazily; force only intrinsic texture
             # update, never a parent/BoxLayout placement pass.
             refresh = getattr(widget, "texture_update", None)
+            if (bindings[node_id].node_type == "Text"
+                    and hasattr(widget, "text_size")):
+                original_text_size = widget.text_size
+                widget.text_size = (None, None)
+                if callable(refresh):
+                    refresh()
+                readings.append(source.measure(MeasurementRequest(
+                    node_id, renderer._sfle_constraints, generation, generation,
+                )))
+                widget.text_size = original_text_size
+                if callable(refresh):
+                    refresh()
+                if renderer._sfle_generation != generation:
+                    raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Kivy measurement became stale.")
+                continue
             if callable(refresh):
                 refresh()
             readings.append(source.measure(MeasurementRequest(
@@ -118,7 +138,28 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external kivy measurement.")
         snapshot = replace(prepared.snapshot, measurements=tuple(readings))
-        result = renderer._sfle_engine.compute(snapshot)
+        automatic = auto_height_measurement_ids(snapshot)
+        dependent = {
+            node_id: (lambda width, node_id=node_id: source.measure_width(node_id, width))
+            for node_id, vnode in prepared.identities
+            if node_id in automatic and vnode.kind is NodeKind.HOST
+            and vnode.type == "Text"
+        }
+        for node_id, port in external.items():
+            if node_id in automatic:
+                dependent[node_id] = (
+                    lambda width, port=port, node_id=node_id:
+                    measure_external(
+                        port, bindings[node_id].widget,
+                        LayoutConstraints(AvailableSize(width, True), AvailableSize(None, False)),
+                        node_id, generation,
+                    ).intrinsic
+                )
+        snapshot = seed_unconstrained_width_measurements(snapshot, frozenset(dependent))
+        result = compute_width_dependent(
+            renderer._sfle_engine, snapshot, dependent,
+            current_generation=lambda: renderer._sfle_generation,
+        )
         def read_widget(node_id, handle):
             port = external.get(node_id)
             if port is not None:
@@ -172,10 +213,19 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             node_id: (tuple(handle.widget.pos), tuple(handle.widget.size))
             for node_id, handle in bindings.items() if node_id != root_id
         }
+        previous_text_sizes = {
+            node_id: bindings[node_id].widget.text_size
+            for node_id in dependent if node_id not in external
+            and hasattr(bindings[node_id].widget, "text_size")
+        }
         try:
             # F2 already validates the fixed-point grid and applies a pure
             # parent-relative bottom-left transform in precomputed order.
             committer(result)
+            for node_id in previous_text_sizes:
+                widget = bindings[node_id].widget
+                widget.text_size = (boxes[node_id].content.width, None)
+                widget.texture_update()
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Kivy geometry commit.")
             observed = ports.read_rectangles()
@@ -203,6 +253,10 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     "Kivy native readback differs from SFLE projection by more than 1px.",
                 )
         except BaseException:
+            for node_id, previous in previous_text_sizes.items():
+                widget = bindings[node_id].widget
+                widget.text_size = previous
+                widget.texture_update()
             for node_id, (pos, size) in before.items():
                 if node_id in external:
                     from psx.sfle.model import Rect

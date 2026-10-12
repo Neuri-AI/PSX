@@ -21,6 +21,11 @@ from psx.sfle.margin_tree import MarginTreeNode
 from psx.sfle.measurement_plan import MeasurementRequest
 from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
 from psx.sfle.tk_measurement import TkMeasurementSource
+from psx.sfle.model import LayoutConstraints, AvailableSize
+from psx.sfle.f3_width_remeasurement import (
+    compute_width_dependent, auto_height_measurement_ids,
+    seed_unconstrained_width_measurements,
+)
 
 if TYPE_CHECKING:
     from psx.core.instance import MountedInstance
@@ -124,7 +129,27 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external tk measurement.")
         snapshot = replace(prepared.snapshot, measurements=tuple(readings))
-        result = renderer._sfle_engine.compute(snapshot)
+        automatic = auto_height_measurement_ids(snapshot)
+        dependent = {
+            node_id: (lambda width, node_id=node_id: source.measure_width(node_id, width))
+            for node_id, vnode in prepared.identities
+            if node_id in automatic and vnode.kind is NodeKind.HOST and vnode.type == "Text"
+        }
+        for node_id, port in external.items():
+            if node_id in automatic:
+                dependent[node_id] = (
+                    lambda width, port=port, node_id=node_id:
+                    measure_external(
+                        port, widgets[node_id],
+                        LayoutConstraints(AvailableSize(width, True), AvailableSize(None, False)),
+                        node_id, generation,
+                    ).intrinsic
+                )
+        snapshot = seed_unconstrained_width_measurements(snapshot, frozenset(dependent))
+        result = compute_width_dependent(
+            renderer._sfle_engine, snapshot, dependent,
+            current_generation=lambda: renderer._sfle_generation,
+        )
 
         def read_widget(node_id, handle):
             port = external.get(node_id)
@@ -173,9 +198,21 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             node_id: dict(widget.place_info())
             for node_id, widget in widgets.items() if node_id != root_id
         }
+        previous_wraps = {
+            node_id: widget.cget("wraplength")
+            for node_id, widget in leaf_widgets.items()
+            if node_id in dependent and "wraplength" in widget.keys()
+        }
         try:
             # F2 checks signed 1/64px precision before mutating a single child.
             committer(result)
+            # Apply the SAME measured content width to actual native text
+            # painting, otherwise Tk could show a single-line clipped label
+            # even though SFLE correctly reserved multiline block height.
+            for node_id in previous_wraps:
+                widgets[node_id].configure(
+                    wraplength=max(1, round(rectangles[node_id].content.width)),
+                )
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Tk geometry commit.")
             renderer.root.update_idletasks()
@@ -195,6 +232,9 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Tk native placement exceeds SFLE's 1px tolerance.")
         except BaseException:
+            for node_id, old_wrap in previous_wraps.items():
+                if widgets[node_id].winfo_exists():
+                    widgets[node_id].configure(wraplength=old_wrap)
             for node_id, old in before.items():
                 widget = widgets[node_id]
                 if not widget.winfo_exists():

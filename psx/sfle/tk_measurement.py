@@ -30,8 +30,21 @@ class TkMeasurementSource:
         widget = self._widgets.get(request.node_id)
         if widget is None:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Tk measurement node.")
-        width = float(widget.winfo_reqwidth())
-        height = float(widget.winfo_reqheight())
+        # On later commits the Text widget may keep a wrapping constraint
+        # from the previous SFLE allocation. Take intrinsic hints UNWRAPPED
+        # so a previous narrow viewport cannot poison the new inline basis.
+        wrap_key = "wraplength" in widget.keys()
+        old_wrap = widget.cget("wraplength") if wrap_key else None
+        try:
+            if wrap_key:
+                widget.configure(wraplength=0)
+                widget.update_idletasks()
+            width = float(widget.winfo_reqwidth())
+            height = float(widget.winfo_reqheight())
+        finally:
+            if wrap_key:
+                widget.configure(wraplength=old_wrap)
+                widget.update_idletasks()
         if width < 0 or height < 0:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Invalid Tk requested widget size.")
         metrics = IntrinsicSizes(
