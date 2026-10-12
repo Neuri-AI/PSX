@@ -971,7 +971,8 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         from psx import (Text, Button, Input, Checkbox, TextArea, Slider,
                          Spacer, Divider, Image, ProgressBar, Radio,
                          RadioGroup, Select, Switch, Link, Badge, SpinBox,
-                         Scroll, Box)
+                         Scroll)
+        from psx.core.vnode import Box)
         from psx.core.vnode import create_element
         from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
         from pathlib import Path
