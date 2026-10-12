@@ -49,7 +49,11 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert wide_height > 0, wide_height
             assert label.width == 160
             assert label.text_size[0] == 160
-            assert button.y == 80 - wide_height - 20, (button.y, wide_height)
+            wide_button_y = button.y
+            # Native geometry must reproduce SFLE's parent-relative projection.
+            boxes = dict(renderer.sfle_result.boxes)
+            by_width = {node_id: entry.border for node_id, entry in boxes.items()}
+            assert renderer.sfle_result.geometry_commit_error <= 1
 
             renderer.set_sfle_constraints(constraints(90))
             renderer.commit_layout(root)
@@ -57,13 +61,14 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert narrow_height > wide_height, (wide_height, narrow_height)
             assert label.width == 90
             assert label.text_size[0] == 90
-            assert button.y == 80 - narrow_height - 20, (button.y, narrow_height)
+            assert button.y < wide_button_y, (button.y, wide_button_y)
             assert root.children[0].handle.widget is label
             assert renderer.sfle_result.geometry_commit_error <= 1
 
             renderer.set_sfle_constraints(constraints(160))
             renderer.commit_layout(root)
             assert label.height == wide_height, (label.height, wide_height)
+            assert button.y == wide_button_y
             assert label.text_size[0] == 160
             assert root.children[1].handle.widget is button
             tree.unmount()

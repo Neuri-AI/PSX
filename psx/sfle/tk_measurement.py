@@ -33,7 +33,7 @@ class TkMeasurementSource:
         # On later commits the Text widget may keep a wrapping constraint
         # from the previous SFLE allocation. Take intrinsic hints UNWRAPPED
         # so a previous narrow viewport cannot poison the new inline basis.
-        wrap_key = "wraplength" in widget.keys()
+        wrap_key = "wraplength" in (widget.keys() if hasattr(widget, "keys") else ())
         old_wrap = widget.cget("wraplength") if wrap_key else None
         try:
             if wrap_key:
