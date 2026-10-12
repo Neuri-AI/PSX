@@ -178,3 +178,89 @@ def test_owner_thread_is_required_for_headless_commit() -> None:
     assert errors[0].code is DiagnosticCode.UNSUPPORTED_MEASUREMENT
     assert renderer.sfle_result.generation == 1
     reconciler.unmount()
+
+
+def test_button_lifecycle_operations_use_real_headless_observations() -> None:
+    """Exercise Button operations through the reconciler, not fabricated oracle data."""
+    from psx.sfle.f3_g2_oracles import Observation, ORACLES
+
+    calls: list[str] = []
+
+    def first() -> None:
+        calls.append("first")
+
+    def second() -> None:
+        calls.append("second")
+
+    def observe(handle, *, mounted=True, order=(), callback=None, events=()):
+        rect = handle.geometry
+        return Observation(
+            native_identity=id(handle), mounted=mounted,
+            rect=(rect.x, rect.y, rect.width, rect.height) if rect else None,
+            state=handle.props.get("text"), order=order,
+            events=events, callback_identity=callback,
+            disposed=handle.destroyed,
+        )
+
+    renderer = new_renderer()
+    reconciler = Reconciler(renderer)
+    # Explicit dimensions make intrinsic host measurement unnecessary.
+    root = reconciler.render(Flex(
+        Button("First", key="action", layout_width="40px",
+               layout_height="20px", on_click=first),
+        Flex(key="peer", width=20, height=20),
+        width=120, height=60, gap=5,
+    ))
+    button = root.children[0].handle
+    peer = root.children[1].handle
+    created = observe(button)
+    ORACLES["create"](None, created)
+    assert button in root.handle.children
+    assert not button.destroyed
+
+    old_event_slot = button.events["on_click"]
+    old_event_slot.invoke()
+    assert calls == ["first"]
+
+    updated_root = reconciler.render(Flex(
+        Flex(key="peer", width=20, height=20),
+        Button("Updated", key="action", layout_width="40px",
+               layout_height="20px", on_click=second),
+        width=120, height=60, gap=5,
+    ))
+    assert updated_root is root
+    assert root.children[1].handle is button
+    assert root.children[0].handle is peer
+    assert button.events["on_click"] is old_event_slot
+
+    updated = observe(button)
+    ORACLES["update"](created, updated)
+    assert button.props["text"] == "Updated"
+
+    reordered = observe(
+        button, order=tuple(child.type for child in root.handle.children),
+    )
+    previous_order = Observation(
+        native_identity=created.native_identity, mounted=True,
+        rect=created.rect, state=created.state, order=("Button", "Flex"),
+    )
+    ORACLES["reorder"](previous_order, reordered)
+    assert reordered.order == ("Flex", "Button")
+
+    old_event_slot.invoke()
+    assert calls == ["first", "second"]
+    rebound = observe(button, callback=id(second), events=(id(second),))
+    before_rebind = observe(button, callback=id(first))
+    ORACLES["event_rebind"](before_rebind, rebound)
+    assert len([op for op in renderer.operations
+                if op[0] == "bind_event" and op[1] is button]) == 1
+
+    before_unmount = observe(button)
+    reconciler.unmount()
+    after_unmount = observe(button, mounted=False)
+    ORACLES["unmount"](before_unmount, after_unmount)
+    assert "on_click" not in button.events
+    old_event_slot.invoke()
+    assert calls == ["first", "second"]
+    assert len([op for op in renderer.operations
+                if op[0] == "destroy" and op[1] is button]) == 1
