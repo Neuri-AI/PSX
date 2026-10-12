@@ -1371,6 +1371,29 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                 self.reconciler.unmount()
 
 
+    def test_native_qt_font_and_theme_events_invalidate_without_remount(self):
+        qtcore = importlib.import_module(f"{PACKAGE}.QtCore")
+        event_type = getattr(qtcore.QEvent, "Type", qtcore.QEvent)
+        for name in ("FontChange", "PaletteChange", "StyleChange"):
+            with self.subTest(event=name):
+                self.reconciler.unmount()
+                root = self.reconciler.render(Flex(
+                    Text("Stable", key="fixed", layout_width="50px",
+                         layout_height="20px"),
+                    width=160, height=80, align_items="flex-start",
+                ))
+                native = root.children[0].handle.widget
+                generation = self.renderer.sfle_result.generation
+                qtcore.QCoreApplication.sendEvent(
+                    root.handle.widget, qtcore.QEvent(getattr(event_type, name)),
+                )
+                self.renderer.application.processEvents()
+                self.renderer.application.processEvents()
+                self.assertIs(root.children[0].handle.widget, native)
+                self.assertGreaterEqual(self.renderer.sfle_result.generation, generation + 1)
+                self.reconciler.unmount()
+
+
 if __name__ == "__main__":
     unittest.main()
 
