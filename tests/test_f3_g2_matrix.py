@@ -69,3 +69,30 @@ def test_matrix_does_not_mistake_backend_evidence_for_per_component_closure():
     summary = g2_matrix_summary()
     assert set(summary) == set(BACKENDS)
     assert sum(summary["qt"].values()) == len(builtin_component_registry().snapshot())
+
+
+@pytest.mark.parametrize("backend", ("qt", "tk", "kivy"))
+def test_c1_all_registered_native_builtins_have_explicit_sfle_geometry_port(backend):
+    """C1 rejects native-UI coverage gaps; Headless negatives remain intentional.
+
+    Transparent Fragment, delegated Native, and legacy Row/Column are tracked
+    separately. This proves scope classification, NOT every C3 lifecycle cell.
+    """
+    cells = [cell for cell in g2_certification_matrix() if cell.backend == backend]
+    assert not [cell.component for cell in cells if cell.status == "unported"]
+    assert {cell.component for cell in cells if cell.status == "native"} == (
+        set(G2_LEAF_TYPES[backend]) | {"Flex"}
+    )
+
+
+def test_c1_intrinsically_unmeasurable_kivy_widgets_fail_closed():
+    from psx import Input, Checkbox, ProgressBar
+    from psx.core.errors import RendererCapabilityError
+    from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
+    for constructor in (Input, Checkbox, ProgressBar):
+        with pytest.raises(RendererCapabilityError, match="explicit pixel"):
+            g2_native_leaf_needs_measurement(constructor(), backend="kivy")
+        assert not g2_native_leaf_needs_measurement(
+            constructor(layout_width="84px", layout_height="24px"),
+            backend="kivy",
+        )
