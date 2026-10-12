@@ -82,6 +82,11 @@ COMPONENT_OPERATION_TESTS = MappingProxyType({
     ("kivy", "Box", "create"): "test_structural_box_radio_group_and_labeled_divider_use_sfle",
     ("kivy", "Scroll", "create"): "test_scroll_basic_sfle_viewport_and_explicit_content_root",
     ("kivy", "Flex", "create"): "test_real_kivy_native_bottom_left_geometry_and_reconciliation",
+    ("headless", "Button", "create"): "test_button_lifecycle_operations_use_real_headless_observations",
+    ("headless", "Button", "update"): "test_button_lifecycle_operations_use_real_headless_observations",
+    ("headless", "Button", "reorder"): "test_button_lifecycle_operations_use_real_headless_observations",
+    ("headless", "Button", "event_rebind"): "test_button_lifecycle_operations_use_real_headless_observations",
+    ("headless", "Button", "unmount"): "test_button_lifecycle_operations_use_real_headless_observations",
     ("headless", "Flex", "create"): "test_opt_in_headless_flex_is_real_sfle_geometry_not_a_dummy_layout",
     ("headless", "Text", "create"): "test_text_intrinsic_dimensions_must_be_host_supplied",
 })
