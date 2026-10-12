@@ -552,6 +552,52 @@ class TkSFLEGeometryTests(unittest.TestCase):
         ])
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
 
+    def test_structural_box_radiogroup_and_labeled_divider_native_rectangles(self):
+        from psx import Radio, RadioGroup, Divider
+        from psx.core.vnode import Box
+        events = []
+        self.renderer.set_sfle_constraints(constraints(340, 300))
+        root = self.reconciler.render(Flex(
+            Box(Flex(
+                item("Nested", "nested", 40),
+                width="100%", height="100%", align_items="flex-start",
+            ), key="box"),
+            RadioGroup(
+                Radio("a", label="Alpha", key="a",
+                      layout_width="70px", layout_height="24px",
+                      flex_basis="24px", flex_shrink=0),
+                Radio("b", label="Beta", key="b",
+                      layout_width="70px", layout_height="24px",
+                      flex_basis="24px", flex_shrink=0),
+                key="group", value="a", spacing=4, padding=3,
+                layout_width="140px", layout_height="70px",
+                on_change=events.append,
+            ),
+            Divider(
+                Text("Section", key="label", layout_width="65px",
+                     layout_height="20px", flex_basis="65px", flex_shrink=0),
+                key="divider", layout_width="140px", layout_height="30px",
+            ),
+            direction="column", width="340px", height="300px",
+            align_items="flex-start",
+        ))
+        box, group, divider = (c.handle.widget for c in root.children)
+        inner = root.children[0].children[0].handle.widget
+        radio_a, radio_b = (c.handle.widget for c in root.children[1].children)
+        label = root.children[2].children[0].handle.widget
+        self.assertIs(inner.master, box)
+        self.assertIs(radio_a.master, group)
+        self.assertIs(radio_b.master, group)
+        self.assertIs(label.master, divider)
+        self.assertEqual(inner.winfo_manager(), "place")
+        self.assertEqual(radio_a.winfo_manager(), "place")
+        self.assertEqual(label.winfo_manager(), "place")
+        self.assertIsNone(divider._psx_child_window_id)
+        self.assertGreater(rect(label)[2], 0)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        radio_b.invoke()
+        self.assertEqual(events, ["b"])
+
     def test_unported_builtin_is_explicit_failure_not_native_layout_fallback(self):
         from psx import Row
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
