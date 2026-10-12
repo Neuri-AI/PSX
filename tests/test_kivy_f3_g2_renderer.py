@@ -1815,3 +1815,60 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         result = subprocess.run([sys.executable, "-c", script],
                                 env=env, capture_output=True, text=True, timeout=150)
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
+
+    def test_kivy_native_geometry_write_failure_restores_previous_rectangles(self):
+        script = textwrap.dedent(r"""
+            from unittest.mock import patch
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import Button, Flex
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            import psx.sfle.f3_kivy as bridge
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(160, True), AvailableSize(80, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(Flex(
+                Button("First", key="first", layout_width="40px", layout_height="20px"),
+                Button("Second", key="second", layout_width="30px", layout_height="20px"),
+                width=160, height=80, gap=8, align_items="flex-start",
+            ))
+            widgets = tuple(child.handle.widget for child in root.children)
+            before = tuple((tuple(w.pos), tuple(w.size)) for w in widgets)
+            published = renderer.sfle_result
+            original_committer = bridge.NativeGeometryCommitter
+
+            def interrupted_committer(*args, **kwargs):
+                apply = original_committer(*args, **kwargs)
+                def fail_after_application(result):
+                    apply(result)
+                    raise RuntimeError("injected Kivy native application failure")
+                return fail_after_application
+
+            with patch.object(bridge, "NativeGeometryCommitter", side_effect=interrupted_committer):
+                try:
+                    renderer.commit_layout(root)
+                except RuntimeError as exc:
+                    assert "injected Kivy native application failure" in str(exc)
+                else:
+                    raise AssertionError("Kivy native application unexpectedly succeeded")
+            assert tuple((tuple(w.pos), tuple(w.size)) for w in widgets) == before
+            assert renderer.sfle_result is published
+            renderer.commit_layout(root)
+            assert tuple(child.handle.widget for child in root.children) == widgets
+            tree.unmount()
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_ARGS"] = "1"
+        env["KIVY_NO_FILELOG"] = "1"
+        env.pop("KIVY_NO_CONSOLELOG", None)
+        result = subprocess.run([sys.executable, "-c", script],
+                                env=env, capture_output=True, text=True, timeout=150)
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
