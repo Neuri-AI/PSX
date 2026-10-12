@@ -30,11 +30,15 @@ class QtRadioGroupAdapter:
         props = radiogroup_props({**RADIOGROUP_DEFAULTS, **node.props})
 
         widget = self._widget_class()
-        layout = self._layout_h(widget) if props["orientation"] == "horizontal" \
-            else self._layout_v(widget)
-        left, top, right, bottom = _normalize_padding(props["padding"])
-        layout.setContentsMargins(left, top, right, bottom)
-        layout.setSpacing(int(props["spacing"]))
+        sfle = renderer._sfle_constraints is not None
+        layout = None
+        if not sfle:
+            layout = self._layout_h(widget) if props["orientation"] == "horizontal" \
+                else self._layout_v(widget)
+            left, top, right, bottom = _normalize_padding(props["padding"])
+            layout.setContentsMargins(left, top, right, bottom)
+            layout.setSpacing(int(props["spacing"]))
+        widget._psx_sfle_group = sfle
         widget.setEnabled(bool(props["enabled"]))
 
         button_group = widgets.QButtonGroup(widget)
@@ -56,9 +60,10 @@ class QtRadioGroupAdapter:
         widget = handle.widget
         layout = handle.layout
 
-        layout.setSpacing(int(props["spacing"]))
-        left, top, right, bottom = _normalize_padding(props["padding"])
-        layout.setContentsMargins(left, top, right, bottom)
+        if layout is not None:
+            layout.setSpacing(int(props["spacing"]))
+            left, top, right, bottom = _normalize_padding(props["padding"])
+            layout.setContentsMargins(left, top, right, bottom)
         widget.setEnabled(bool(props["enabled"]))
 
         if "value" in changed or "value" in removed:
@@ -94,7 +99,11 @@ class QtRadioGroupAdapter:
                 f"RadioGroup has duplicate Radio value {value!r}."
             )
         widget._psx_radios[value] = child.widget
-        parent.layout.insertWidget(index, child.widget)
+        if widget._psx_sfle_group:
+            from psx.renderers.qt.flex import QtSFLEFlexAdapter
+            QtSFLEFlexAdapter().insert(renderer, parent, child, index)
+        else:
+            parent.layout.insertWidget(index, child.widget)
         widget._psx_button_group.addButton(child.widget)
         child.widget._psx_radio_value = value
         # Apply the current selection to the newly inserted child.
@@ -102,6 +111,9 @@ class QtRadioGroupAdapter:
         return True
 
     def move(self, renderer, parent, child, index):
+        if parent.widget._psx_sfle_group:
+            from psx.renderers.qt.flex import QtSFLEFlexAdapter
+            return QtSFLEFlexAdapter().move(renderer, parent, child, index)
         parent.layout.removeWidget(child.widget)
         parent.layout.insertWidget(index, child.widget)
         return True
@@ -113,6 +125,9 @@ class QtRadioGroupAdapter:
         if value is not None:
             widget._psx_radios.pop(value, None)
         widget._psx_button_group.removeButton(child.widget)
+        if widget._psx_sfle_group:
+            from psx.renderers.qt.flex import QtSFLEFlexAdapter
+            return QtSFLEFlexAdapter().remove(renderer, parent, child)
         parent.layout.removeWidget(child.widget)
         _release(child)
         return True
