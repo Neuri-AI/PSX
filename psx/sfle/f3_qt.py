@@ -309,6 +309,13 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             if maximum > 1.0 or physical_maximum > pixel_space.allowed_physical_error:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Qt widget geometry readback exceeds 1px tolerance.")
+            if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+                raise SFLEError(
+                    DiagnosticCode.INVALID_SNAPSHOT,
+                    "Stale semantic invalidation during native readback.",
+                )
+            if renderer._sfle_generation != generation:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
         except BaseException:
             for node_id, values in before.items():
                 if node_id in external:
