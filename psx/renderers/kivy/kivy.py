@@ -99,6 +99,8 @@ class KivyHandle:
     children: list["KivyHandle"] = field(default_factory=list)
     native: NativeWidget | None = None
     original_parent: Widget | None = None
+    original_size_hint: object = None
+    original_pos_hint: dict[str, object] | None = None
 
 
 @dataclass(slots=True)
@@ -712,11 +714,17 @@ class KivyRenderer:
         if _is_borrowed(target):
             if widget.parent is not target.original_parent:
                 # Kivy disallows adding a widget which still has a parent.
-                # PSX owns only the temporary placement, never the instance.
+                # PSX owns only temporary placement, never the instance.
                 if widget.parent is not None:
                     widget.parent.remove_widget(widget)
                 if target.original_parent is not None:
                     target.original_parent.add_widget(widget)
+            # SFLE temporarily disables size/position hints while mounted.
+            # Borrowed callers retain ownership of their original hints.
+            if target.original_size_hint is not None:
+                widget.size_hint = target.original_size_hint
+            if target.original_pos_hint is not None:
+                widget.pos_hint = dict(target.original_pos_hint)
             return
         if widget.parent is not None:
             widget.parent.remove_widget(widget)
@@ -807,7 +815,12 @@ class KivyRenderer:
             if not borrowed and widget.parent is not None:
                 widget.parent.remove_widget(widget)
             raise
-        return KivyHandle(declaration, widget, dict(initial_props), native=declaration, original_parent=original_parent)
+        return KivyHandle(
+            declaration, widget, dict(initial_props), native=declaration,
+            original_parent=original_parent,
+            original_size_hint=tuple(widget.size_hint) if borrowed else None,
+            original_pos_hint=dict(widget.pos_hint) if borrowed else None,
+        )
 
 
 # -- module helpers ---------------------------------------------------------
