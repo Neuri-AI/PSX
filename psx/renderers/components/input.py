@@ -57,21 +57,25 @@ def apply_kivy_input(widget, props):
 
     widget._psx_updating = False
 
-def apply_tk_input(widget, props, binding):
+def apply_tk_input(widget, props, binding=None):
+    """Apply supported native ttk.Entry options without another layout.
+
+    Tk 8.6 Entry has no placeholder option. Preserve the declaration for
+    a future dedicated hint-rendering port instead of passing invalid Tcl.
+    """
     widget._psx_updating = True
-
-    if widget.var.get() != props["value"]:
-        widget.var.set(props["value"])
-
-    widget.configure(
-        placeholder=props["placeholder"],
-        font=("TkDefaultFont", int(round(props["font_size"]))),
-        show="*" if props["password"] else "",
-        state=(
-            "disabled" if not props["enabled"] else
-            "readonly" if props["read_only"] else
-            "normal"
-        ),
-    )
-
-    widget._psx_updating = False
+    try:
+        if widget.var.get() != props["value"]:
+            widget.var.set(props["value"])
+        widget._psx_placeholder = props["placeholder"]
+        widget.configure(
+            font=("TkDefaultFont", int(round(props["font_size"]))),
+            show="*" if props["password"] else "",
+            state=(
+                "disabled" if not props["enabled"] else
+                "readonly" if props["read_only"] else
+                "normal"
+            ),
+        )
+    finally:
+        widget._psx_updating = False
