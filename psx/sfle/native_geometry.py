@@ -41,10 +41,12 @@ class NativeGeometryCommitter:
         widgets: Mapping[str, object],
         *,
         external_ports: Mapping[str, SFLEExternalPort] | None = None,
+        skip_unchanged: bool = False,
     ) -> None:
         if not isinstance(backend, GeometryBackend):
             raise TypeError("Expected GeometryBackend.")
         self._backend = backend
+        self._skip_unchanged = skip_unchanged
         self._parents = {node.node_id: node.parent_id for node in nodes}
         if len(self._parents) != len(nodes):
             raise SFLEError(DiagnosticCode.INVALID_TREE, "Duplicate geometry node.")
