@@ -264,3 +264,72 @@ def test_button_lifecycle_operations_use_real_headless_observations() -> None:
     assert calls == ["first", "second"]
     assert len([op for op in renderer.operations
                 if op[0] == "destroy" and op[1] is button]) == 1
+
+
+def test_all_supported_headless_components_reconcile_without_remount() -> None:
+    """Exercise Flex, Text and Button independently across all lifecycle stages."""
+    from psx.sfle.f3_g2_oracles import Observation, ORACLES
+    from psx.sfle.f3_g2_matrix import HEADLESS_PORTED
+
+    def measure(node):
+        if node.type == "Text":
+            return IntrinsicSizes(10, 10, 10, 10, 10, 10)
+        return None
+
+    factories = {
+        "Flex": lambda width: Flex(
+            Text("Child", layout_width="20px", layout_height="10px"),
+            width=f"{width}px", height="24px", key="case",
+            layout_width=f"{width}px", layout_height="24px",
+        ),
+        "Text": lambda width: Text(
+            "Content", key="case", layout_width=f"{width}px",
+            layout_height="24px", flex_basis=f"{width}px", flex_shrink=0,
+        ),
+        "Button": lambda width: Button(
+            "Content", key="case", layout_width=f"{width}px",
+            layout_height="24px", flex_basis=f"{width}px", flex_shrink=0,
+        ),
+    }
+    assert set(factories) == HEADLESS_PORTED
+    for name in sorted(HEADLESS_PORTED):
+        renderer = new_renderer(measure_intrinsic=measure)
+        reconciler = Reconciler(renderer)
+        def view(width, reverse=False):
+            child = factories[name](width)
+            peer = Flex(key="peer", width="20px", height="24px",
+                        flex_basis="20px", flex_shrink=0)
+            return Flex(*( (peer, child) if reverse else (child, peer) ),
+                        width=160, height=60, gap=8,
+                        align_items="flex-start")
+
+        before_root = reconciler.render(view(40))
+        old = before_root.children[0]
+        handle = old.handle
+        def observe(mounted=True, order=()):
+            geometry = handle.geometry
+            return Observation(
+                native_identity=id(handle), mounted=mounted,
+                rect=(geometry.x, geometry.y, geometry.width, geometry.height)
+                if geometry is not None else None,
+                state=handle.props.get("layout_width"),
+                order=order, disposed=handle.destroyed,
+            )
+        before = observe()
+        ORACLES["create"](None, before)
+        assert handle.geometry.width == 40, name
+        updated_root = reconciler.render(view(60, reverse=True))
+        assert updated_root.children[1] is old
+        assert old.handle is handle
+        after = observe()
+        ORACLES["update"](before, after)
+        assert handle.geometry.width == 60, name
+        ORACLES["reorder"](
+            observe(order=("case", "peer")),
+            observe(order=("peer", "case")),
+        )
+        assert updated_root.handle.children[1] is handle
+        prior = observe()
+        reconciler.unmount()
+        ORACLES["unmount"](prior, observe(mounted=False))
+        assert handle.destroyed, name
