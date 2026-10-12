@@ -185,6 +185,61 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertGreater(self.renderer.sfle_result.generation, previous)
         self.assertIsNone(root.handle.widget.layout())
 
+    def test_native_root_resize_automatically_recomputes_sfle(self):
+        class CountingEngine:
+            def __init__(self):
+                self.calls = 0
+            def compute(self, snapshot):
+                self.calls += 1
+                return PythonLayoutEngine().compute(snapshot)
+
+        engine = CountingEngine()
+        self.renderer._sfle_engine = engine
+        root = self.reconciler.render(Flex(
+            button("Left", "left", 30),
+            button("Right", "right", 20),
+            direction="row", justify_content="space-between",
+            width="100%", height="100%", align_items="flex-start",
+        ))
+        outer = root.handle.widget
+        a, b = (child.handle.widget for child in root.children)
+        self.assertEqual(engine.calls, 1)
+        self.assertEqual((a.x(), b.x()), (0, 140))
+        outer.show()
+        self.renderer.application.processEvents()
+        # Events originating from the toolkit's initial widget realization
+        # must not replace the explicit viewport used for the first mount.
+        self.assertEqual(self.renderer._sfle_constraints.width.value, 160)
+        outer.resize(210, 100)
+        outer.resize(260, 120)
+        self.renderer.application.processEvents()
+        self.renderer.application.processEvents()
+        self.assertIsNone(self.renderer._sfle_resize_error)
+        self.assertEqual(
+            (self.renderer._sfle_constraints.width.value,
+             self.renderer._sfle_constraints.height.value), (260, 120),
+        )
+        self.assertEqual(engine.calls, 2)  # coalesced latest resize
+        self.assertIs(root.children[0].handle.widget, a)
+        self.assertIs(root.children[1].handle.widget, b)
+        self.assertEqual((a.x(), b.x()), (0, 240))
+        self.assertIsNone(outer.layout())
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
+    def test_queued_resize_is_ignored_after_unmount(self):
+        root = self.reconciler.render(Flex(
+            button("A", "a", 30), width="100%", height="100%",
+        ))
+        outer = root.handle.widget
+        outer.show()
+        self.renderer.application.processEvents()
+        outer.resize(230, 110)
+        self.reconciler.unmount()
+        self.renderer.application.processEvents()
+        self.assertIsNone(self.renderer.sfle_result)
+        self.assertIsNone(self.renderer._sfle_mounted_root)
+        self.assertIsNone(self.renderer._sfle_watched_widget)
+
     def test_native_owned_geometry_port_and_readback(self):
         calls = []
         def measure(widget, c):
