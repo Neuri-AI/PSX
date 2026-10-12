@@ -2,12 +2,14 @@
 
 These tests are a census, not a claim that the G2 gate is closed.
 """
+import ast
 from pathlib import Path
 
 import pytest
 
 from psx.core.registry import builtin_component_registry
 from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+from psx.sfle.f3_g2_evidence import COMPONENT_OPERATION_TESTS, SUITES as COMPONENT_SUITES
 from psx.sfle.f3_g2_matrix import (
     BACKENDS, EVIDENCE, OPERATIONS, g2_certification_matrix, g2_matrix_summary,
 )
@@ -58,6 +60,7 @@ def test_matrix_does_not_mistake_backend_evidence_for_per_component_closure():
     assert cells
     assert all(not c.fully_certified for c in cells)
     assert all(c.pending_operations for c in cells if c.status == "native")
+    assert all(set(c.pending_operations).isdisjoint(c.operations_with_evidence) for c in cells)
     assert any(c.component == "Input" and c.backend == "tk"
                and c.status == "native" for c in cells)
     assert any(c.component == "Input" and c.backend == "kivy"
@@ -94,3 +97,48 @@ def test_c1_kivy_controls_have_intrinsic_port_without_pixel_bounds():
             constructor(layout_width="84px", layout_height="24px"),
             backend="kivy",
         )
+
+
+def test_component_operation_evidence_is_exact_and_traceable():
+    """No stale names, missing methods, or phantom backend-level passes."""
+    cells = {(cell.backend, cell.component): cell for cell in g2_certification_matrix()}
+    parsed = {}
+    for backend, file in COMPONENT_SUITES.items():
+        source = (Path(__file__).parent / file).read_text()
+        parsed[backend] = (source, ast.parse(source))
+    for (backend, component, operation), method in COMPONENT_OPERATION_TESTS.items():
+        assert operation in OPERATIONS
+        assert operation in cells[(backend, component)].operations_with_evidence
+        source, module = parsed[backend]
+        functions = [
+            node for node in ast.walk(module)
+            if isinstance(node, ast.FunctionDef) and node.name == method
+        ]
+        assert len(functions) == 1, (backend, component, operation, method)
+        function = functions[0]
+        content = ast.get_source_segment(source, function)
+        assert content is not None
+        # A literal reference to the component must be present in the actual
+        # test body, including inline Kivy SDL2 subprocess scripts. Flex
+        # root and the Headless probe use the public component directly.
+        assert component in content, (backend, component, operation, method)
+
+    # Every nontrivial operation lacking an explicit component reference
+    # stays pending, even when there is a backend-wide reference.
+    for cell in cells.values():
+        certified = {
+            op for op in OPERATIONS
+            if (cell.backend, cell.component, op) in COMPONENT_OPERATION_TESTS
+        }
+        assert set(cell.operations_with_evidence) == certified
+        assert set(cell.pending_operations) == set(OPERATIONS) - certified
+
+
+def test_component_evidence_requires_reviewer_manifest_and_no_implicit_green():
+    cells = g2_certification_matrix()
+    native = [cell for cell in cells if cell.status == "native"]
+    assert native
+    assert all("create" in cell.operations_with_evidence for cell in native)
+    assert all("borrowed_ownership" in cell.pending_operations for cell in native)
+    assert all("rollback" in cell.pending_operations for cell in native)
+    assert all(not cell.fully_certified for cell in native)

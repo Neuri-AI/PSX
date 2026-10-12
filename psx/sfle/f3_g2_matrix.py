@@ -11,6 +11,7 @@ from types import MappingProxyType
 
 from psx.core.registry import builtin_component_registry
 from .f3_native_coverage import G2_LEAF_TYPES
+from .f3_g2_evidence import COMPONENT_OPERATION_TESTS
 
 BACKENDS = ("qt", "tk", "kivy", "headless")
 OPERATIONS = (
@@ -94,6 +95,11 @@ class G2Cell:
 def g2_certification_matrix() -> tuple[G2Cell, ...]:
     """Enumerate every registry × backend cell with no implicit green status."""
     names = tuple(sorted(builtin_component_registry().snapshot()))
+    for backend, component, operation in COMPONENT_OPERATION_TESTS:
+        if backend not in BACKENDS or operation not in OPERATIONS:
+            raise ValueError(f"Invalid component evidence key: {backend}, {component}, {operation}")
+        if component not in names:
+            raise ValueError(f"Evidence references absent registry component {component!r}.")
     for backend in BACKENDS:
         classified = (
             set(G2_LEAF_TYPES.get(backend, HEADLESS_PORTED))
@@ -123,17 +129,19 @@ def g2_certification_matrix() -> tuple[G2Cell, ...]:
                 status = "native"
             else:
                 status = "unported"
+            # Only references reviewed for this exact backend/component
+            # certify an operation. Generic backend tests do not propagate.
+            if status != "native" and any(
+                key[0] == backend and key[1] == name
+                for key in COMPONENT_OPERATION_TESTS
+            ):
+                raise ValueError(f"Evidence on non-native G2 cell {backend}/{name}.")
             evidence = (
-                tuple(op for op in OPERATIONS if op in EVIDENCE[backend])
+                tuple(op for op in OPERATIONS
+                      if (backend, name, op) in COMPONENT_OPERATION_TESTS)
                 if status == "native" else ()
             )
-            # Backend-level evidence does not prove *this specific control*
-            # has all of these operations. Keep all nontrivial operations
-            # pending until component-level operation evidence is added.
-            pending = (
-                tuple(op for op in OPERATIONS if op != "create")
-                if status == "native" else OPERATIONS
-            )
+            pending = tuple(op for op in OPERATIONS if op not in evidence)
             result.append(G2Cell(name, backend, status, evidence, pending))
     return tuple(result)
 
