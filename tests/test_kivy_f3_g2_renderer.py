@@ -1606,3 +1606,74 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_borrowed_kivy_event_subscriptions_are_removed_on_unmount(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.widget import Widget
+            from psx import Flex
+            from psx.core.native import NativeWidget, NativeOwnership
+            from psx.core.vnode import native_widget
+            from psx.core.reconcile import Reconciler
+            from psx.sfle.f3_external import SFLEExternalPort
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes, Rect
+
+            widget = Widget()
+            caller = Widget()
+            caller.add_widget(widget)
+            def port():
+                return SFLEExternalPort(
+                    lambda w, c: IntrinsicSizes(10, 40, 10, 20, 40, 20),
+                    lambda w, rect: (
+                        setattr(w, "pos", (rect.x, rect.y)),
+                        setattr(w, "size", (rect.width, rect.height))),
+                    lambda w: Rect(w.x, w.y, w.width, w.height))
+            declaration = NativeWidget(
+                renderer="kivy", widget=widget,
+                ownership=NativeOwnership.BORROWED, sfle_port=port(),
+                bind_event=lambda w, event, slot: bind_native(w, event, slot),
+            )
+            def bind_native(w, event, slot):
+                assert event == "on_native_signal:pos"
+                callback = lambda *_: slot.invoke()
+                w.bind(pos=callback)
+                return lambda: w.unbind(pos=callback)
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(160, True), AvailableSize(80, True)),
+                engine=PythonLayoutEngine())
+            reconciler = Reconciler(renderer)
+            calls = []
+            def view(callback):
+                return Flex(native_widget(
+                    declaration, key="case", **{
+                        "on_native_signal:pos": callback,
+                        "layout_width": "40px", "layout_height": "20px",
+                        "flex_basis": "40px", "flex_shrink": 0,
+                    }),
+                    width=160, height=80, align_items="flex-start")
+            root = reconciler.render(view(lambda: calls.append("old")))
+            assert root.children[0].handle.widget is widget
+            before = len(calls)
+            widget.pos = (7, 9)
+            assert calls[before:] == ["old"], calls
+            root = reconciler.render(view(lambda: calls.append("new")))
+            assert root.children[0].handle.widget is widget
+            before = len(calls)
+            widget.pos = (8, 10)
+            assert calls[before:] == ["new"], calls
+            reconciler.unmount()
+            assert widget.parent is caller
+            before = len(calls)
+            widget.pos = (9, 11)
+            assert len(calls) == before
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_ARGS"] = "1"
+        env["KIVY_NO_FILELOG"] = "1"
+        result = subprocess.run([sys.executable, "-c", script], env=env,
+                                capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
