@@ -142,3 +142,51 @@ class QtExternalPortTests(unittest.TestCase):
             isinstance(entry, tuple) and entry[0] == "apply" for entry in calls
         ))
         self.assertIsNone(self.renderer.sfle_result)
+
+    def test_borrowed_native_qwidget_preserves_caller_ownership_and_parent(self):
+        from psx.core.native import NativeWidget, NativeOwnership
+        from psx.core.vnode import native_widget
+        from psx.sfle.f3_g2_oracles import Observation, ORACLES
+
+        parent = QLabel()
+        widget = QLabel(parent)
+        prior_parent = widget.parentWidget()
+        deleted = []
+        widget.destroyed.connect(lambda *_: deleted.append(True))
+        calls = []
+        declaration = NativeWidget(
+            renderer="pyside6", widget=widget,
+            ownership=NativeOwnership.BORROWED,
+            update=lambda w, changed, removed: (
+                calls.append(("update", dict(changed), removed)),
+                w.setText(changed["text"]) if "text" in changed else None,
+            ),
+            sfle_port=external_port(),
+        )
+        def view(label):
+            return Flex(native_widget(
+                declaration, key="external", text=label,
+                layout_width="45px", layout_height="20px",
+                flex_basis="45px", flex_shrink=0,
+            ), width=160, height=80, align_items="flex-start")
+
+        root = self.tree.render(view("Before"))
+        self.assertIs(root.children[0].handle.widget, widget)
+        self.assertEqual(widget.text(), "Before")
+        self.assertIsNotNone(widget.parentWidget())
+        updated = self.tree.render(view("After"))
+        self.assertIs(updated.children[0].handle.widget, widget)
+        self.assertEqual(widget.text(), "After")
+        before = Observation(id(widget), True, (0, 0, 45, 20), owner="caller")
+        self.tree.unmount()
+        self.renderer.application.processEvents()
+        after = Observation(id(widget), False, (0, 0, 45, 20), owner="caller",
+                            disposed=bool(deleted))
+        ORACLES["borrowed_ownership"](before, after)
+        self.assertIs(widget.parentWidget(), prior_parent)
+        self.assertFalse(deleted)
+        self.assertEqual(len([c for c in calls if c[0] == "update"]), 2)
+        widget.setText("Caller still owns this")
+        self.assertEqual(widget.text(), "Caller still owns this")
+        parent.deleteLater()
+
