@@ -87,7 +87,11 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 continue
             child = bindings[node.node_id].widget
             parent = bindings[node.parent_id].widget
-            if child.parent is not parent:
+            owner = (
+                parent._psx_content if getattr(parent, "_psx_sfle_scroll", False)
+                else parent
+            )
+            if child.parent is not owner:
                 raise SFLEError(
                     DiagnosticCode.INVALID_TREE, "Actual Kivy parent differs from SFLE tree.", node.node_id,
                 )
@@ -246,10 +250,31 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             for node_id in dependent if node_id not in external
             and hasattr(bindings[node_id].widget, "text_size")
         }
+        # G2 can bind a native viewport without implementing full scroll
+        # offset translation. Larger content is deferred to G3 until the
+        # viewport-coordinate/scroll-offset readback has full certification.
+        for node in snapshot.nodes:
+            if node.parent_id is not None and getattr(
+                bindings[node.parent_id].widget, "_psx_sfle_scroll", False
+            ):
+                parent_box = boxes[node.parent_id].border
+                child_box = boxes[node.node_id].border
+                if (child_box.width > parent_box.width + 1.0
+                        or child_box.height > parent_box.height + 1.0):
+                    raise SFLEError(
+                        DiagnosticCode.UNSUPPORTED_FEATURE,
+                        "Kivy Scroll overflow offsets require F3-G3 viewport projection.",
+                        node.node_id,
+                    )
         try:
             # F2 already validates the fixed-point grid and applies a pure
             # parent-relative bottom-left transform in precomputed order.
             committer(result)
+            for node in snapshot.nodes:
+                if node.parent_id is not None:
+                    parent = bindings[node.parent_id].widget
+                    if getattr(parent, "_psx_sfle_scroll", False):
+                        parent._psx_content.size = parent.size
             for node_id, vnode in prepared.identities:
                 if vnode.kind is NodeKind.HOST and vnode.type == "Divider" and vnode.children:
                     from psx.renderers.kivy.divider import KivyDividerAdapter

@@ -103,7 +103,11 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 if widget.master is not renderer.root:
                     raise SFLEError(DiagnosticCode.INVALID_TREE,
                                     "Tk root Flex must belong directly to its renderer host.", node.node_id)
-            elif widget.master is not widgets[node.parent_id]:
+            elif widget.master is not (
+                widgets[node.parent_id]._psx_content
+                if getattr(widgets[node.parent_id], "_psx_sfle_scroll", False)
+                else widgets[node.parent_id]
+            ):
                 raise SFLEError(DiagnosticCode.INVALID_TREE,
                                 "Tk widget master must match SFLE node parent.", node.node_id)
 
@@ -233,6 +237,19 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         try:
             # F2 checks signed 1/64px precision before mutating a single child.
             committer(result)
+            for node in snapshot.nodes:
+                if node.parent_id is not None:
+                    parent = widgets[node.parent_id]
+                    if getattr(parent, "_psx_sfle_scroll", False):
+                        box = rectangles[node.node_id].border
+                        width = max(round(box.width), parent._psx_canvas.winfo_width())
+                        height = max(round(box.height), parent._psx_canvas.winfo_height())
+                        parent._psx_canvas.itemconfigure(
+                            parent._psx_window, width=width, height=height,
+                        )
+                        parent._psx_canvas.configure(
+                            scrollregion=(0, 0, width, height),
+                        )
             if image_ids:
                 from psx.renderers.tkinter.image import TkImageAdapter
                 for node_id in image_ids:

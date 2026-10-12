@@ -82,8 +82,13 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             # chrome (SpinBox minus/editor/plus), never for declarative
             # PSX child placement. Container layouts still fail closed.
             internal_chrome = (
-                handle.node_type == "SpinBox"
-                and getattr(handle.widget, "_psx_sfle_internal_layout", False)
+                (
+                    handle.node_type == "SpinBox"
+                    and getattr(handle.widget, "_psx_sfle_internal_layout", False)
+                ) or (
+                    handle.node_type == "Scroll"
+                    and getattr(handle.widget, "_psx_sfle_scroll", False)
+                )
             )
             if handle.layout is not None or (
                 handle.widget.layout() is not None and not internal_chrome
@@ -94,7 +99,11 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             if node.parent_id is None:
                 continue
             child, parent = bindings[node.node_id].widget, bindings[node.parent_id].widget
-            if child.parentWidget() is not parent:
+            owner = (
+                parent._psx_content if getattr(parent, "_psx_sfle_scroll", False)
+                else parent
+            )
+            if child.parentWidget() is not owner:
                 raise SFLEError(DiagnosticCode.INVALID_TREE,
                                 "Actual Qt parent does not match SFLE parent.", node.node_id)
 
@@ -225,6 +234,16 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         }
         try:
             committer(result)
+            for node in snapshot.nodes:
+                if node.parent_id is not None:
+                    parent = bindings[node.parent_id].widget
+                    if getattr(parent, "_psx_sfle_scroll", False):
+                        content = parent._psx_content
+                        box = dict(result.boxes)[node.node_id].border
+                        content.resize(
+                            max(parent.viewport().width(), round(box.width)),
+                            max(parent.viewport().height(), round(box.height)),
+                        )
             # A labeled Divider paints two line segments around its child's
             # *committed* native rectangle, never a speculative sizeHint.
             for node_id, vnode in prepared.identities:

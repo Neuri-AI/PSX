@@ -109,7 +109,7 @@ class _ScrollFrame(ttk.Frame):
             self._psx_canvas.delete("_psx_scroll_thumb")
 
     def _refresh(self, *_args):
-        if self._psx_disposed:
+        if self._psx_disposed or getattr(self, "_psx_sfle_scroll", False):
             return
         canvas = self._psx_canvas
         frame = self._psx_content
