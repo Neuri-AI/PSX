@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Box, RadioGroup and Divider with Text child use SFLE-owned structural/native child geometry in Qt, Tkinter and Kivy at `b02e8b5`; Switch/SpinBox/Select, Link/Badge/Divider leaf/Spacer, Image, TextArea and DPI earlier certified; full registry/backend/operation matrix still open); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (basic Scroll viewport and explicit Flex content geometry integrated in Qt/Tk/Kivy at `8e7e9e1`; overflow offset projection and scroll chaining pending G3; structural Box, RadioGroup, Divider with Text, interactive controls, image/text/DPI earlier certified; full registry/backend/operation matrix remains open); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -862,3 +862,54 @@ Historical G1.2 incremental evidence is retained above.
   structural re-ordering and removals, font/theme/source/DPI
   invalidations and Scroll native viewport binding. Advanced CSS
   replaced-element sizing remains outside F3.
+
+## F3-G2 increment — basic native Scroll viewport/content binding (2026-10-12)
+
+**Increment: initial viewport geometry implemented and native-tested.
+G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
+
+- **Source contract:** Added `psx/sfle/f3_scroll_viewport.py` with
+  backend-neutral `ScrollViewportBinding`, explicit Scroll -> one Flex
+  root validation, immutable viewport/content rectangles, overflow extents
+  and allowed scroll axes. The snapshot maps Scroll to an SFLE Flex layout
+  participant with its source VNode identity unchanged; width/height props
+  only seed dimensions when no conflicting `layout_width/layout_height`
+  was supplied. No native CSS sizing fallback.
+- **Native viewport ownership:**
+  - Qt: `QScrollArea` retains its clipped viewport, but its inner content
+    `QWidget` no longer owns a competing QBoxLayout. The mounted Flex
+    is parented to the content QWidget and SFLE alone projects its rect.
+    Scroll's internal Qt viewport/chrome layout is not a PSX layout.
+  - Tkinter: `Canvas` and `create_window` retain native clipping; the
+    explicit Flex is constructed with the native inner content `ttk.Frame`
+    as its immutable master and uses SFLE `place()`, never `pack()`.
+    Content canvas window extent follows committed SFLE content bounds.
+  - Kivy: `ScrollView` retains its viewport, using a plain `Widget`
+    content host rather than an owning BoxLayout. SFLE projects the
+    explicit content Flex while `size_hint/pos_hint` are disabled.
+    G2 prevents content-overflow geometry on Kivy until G3 can translate
+    offsets correctly; this is a deliberate capability diagnostic,
+    not a false assertion of complete scroll support.
+- **Parent adapter bridge:** F3 Qt/Tk/Kivy commit recognizes exactly the
+  known `Scroll._psx_content` intermediate native viewport owner during
+  ancestry validation; all other mismatched parents remain rejected.
+  Native geometry readback and rollback still follow F2.
+- **Coverage and regressions:** Existing explicit Flex-only Scroll
+  normalization is retained. Pure source tests verify root policy,
+  immutable widths/heights, direction, enabled and overflow. Real native
+  Qt/Tk/Kivy tests verify viewport geometry, explicit content widget,
+  native ancestry, no competing sibling layout and children positioned by
+  SFLE. The source commit `8e7e9e1` includes CI corrections for
+  duplicate width declarations and the serialized SFLE `component` field.
+- **Evidence:** [source `8e7e9e1`](https://github.com/Neuri-AI/PSX/commit/8e7e9e185026454305ed3737e1b9d57993362dbc).
+  [F3 selective #38217152181](https://github.com/Neuri-AI/PSX/actions/runs/38217152181),
+  [G1 contract #38217152170](https://github.com/Neuri-AI/PSX/actions/runs/38217152170).
+  Qt family **28 × 4 × 2 = 224 parity executions**, real Tk **35**
+  and real Kivy SDL2 **12**. See linked Actions for the exact per-job
+  conclusion and platform wheel certificate.
+- **Explicitly NOT implemented in this G2 increment:** complete G3
+  offset-aware overflowing content projection on Kivy, nested wheel
+  chaining/physics and scroll positions across dynamic changes. Qt and
+  Tk still use existing native scrolling mechanisms, but these are not
+  a cross-platform 1:1 scroll equivalence certification. G2 remains open
+  for full component/backend/operation and lifecycle matrix.
