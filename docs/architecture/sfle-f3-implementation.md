@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Qt, Tkinter and Kivy native TextArea width-aware sizing and edit-triggered reflow GREEN at `44888af`; prior DPI/readback at `b0f589f`; full G2 registry matrix still incomplete); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
+> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS (Image native intrinsic and SFLE-controlled paint certified on Qt, Tkinter and Kivy at `befcd5e`; multiline TextArea and physical DPI readback previously certified; complete registry/backend/operation matrix still open); G3–G5 NOT STARTED — 1/5 gates closed (20%).** Created 2026-10-11
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -651,3 +651,54 @@ Historical G1.2 incremental evidence is retained above.
   and failure modes, dynamic fonts/theme/screen DPI invalidation, plus
   the required platform matrix. G2 remains open; F3 global progress
   remains 1/5 official gates.
+ 
+## F3-G2 increment — native Image in Qt, Tkinter and Kivy (2026-10-11)
+
+**F3-G2 remains IN PROGRESS; official F3 gate progress stays 1/5 (20%).**
+
+- **Coverage:** Image is admitted in the explicit G2 native-leaf
+  capability policy for **Qt, Tkinter and Kivy**. Every source has a real
+  intrinsic decoder/measurement port: loaded `QPixmap`, loaded Pillow
+  image or Tk `PhotoImage`, and loaded Kivy texture (with synchronous
+  local `CoreImage` fallback). Missing/undecodable native sources fail
+  `UNSUPPORTED_MEASUREMENT`: no fabricated default widget dimensions.
+- **SFLE is the sole geometry authority:** the existing immutable SFLE
+  snapshot uses the source's real natural pixel size, modified only by the
+  established portable `Image.width` / `Image.height` contract.
+  `layout_width`, `layout_height`, Flex sizing and available constraints
+  remain SFLE's responsibility. This **does not implement** the separately
+  deferred SFLE-CSS-01 replaced-element intrinsic aspect-ratio rules.
+- **Qt (PySide6, PyQt6, PyQt5, PySide2):** in SFLE mode the existing
+  `QLabel` no longer calls `setFixedSize`; it composes its `contain`,
+  `cover`, `fill` or `none` painting into the **already committed**
+  SFLE rectangle, with Qt5/Qt6-compatible enum names. Normal non-SFLE
+  Image behavior remains unchanged.
+- **Tkinter:** the source's pixels are measured independently of the
+  painted label size. After `place()`, Pillow recomposes the requested
+  fit into the SFLE rectangle. Pillow is optional for users, but required
+  for arbitrary scaling/cropping; without it native-size PNG with
+  `contain`/`none` remains possible and unsupported scaling fails
+  explicitly. The real Tk image CI job installs Pillow.
+- **Kivy:** `kivy.uix.image.Image` supplies actual native texture
+  dimensions and keeps ownership of `fit_mode` painting, but SFLE
+  owns widget width, height and bottom-left position. In SFLE mode
+  `_on_texture` must not call `widget.size = ...`.
+- **Native tests:** decoded local PNG fixtures certify natural-size
+  geometry, CSS width/height overrides, keyed identity on update,
+  paint destination dimensions where accessible, no competing layout
+  manager, and explicit missing-source diagnostics. Old Image-as-unported
+  assertions were replaced by genuine unsupported Divider checks.
+- **Source and CI evidence:** certified source
+  [`befcd5e`](https://github.com/Neuri-AI/PSX/commit/befcd5efa19fb773e7a08a502ede54daedbaea2a),
+  [F3 selective #38209152288](https://github.com/Neuri-AI/PSX/actions/runs/38209152288)
+  **COMPLETED SUCCESS**, and
+  [G1 certification #38209152156](https://github.com/Neuri-AI/PSX/actions/runs/38209152156)
+  **COMPLETED SUCCESS** on the exact same SHA. Tkinter **31 native
+  tests** and Kivy **8 SDL2 subprocess tests** passed; four Qt
+  bindings each passed **24 parity tests at 1× and 24 at 1.5×**,
+  totalling **192 Qt parity executions**. Selected core/Chromium/
+  Rust-Python and native wheel jobs were GREEN.
+- **Still open:** complete registered-component × backend × operation
+  and native/custom lifecycle matrices, invalidation on image file
+  change without a PSX prop change, complex font/theme/DPI changes,
+  and F3-G3 through G5. Do not label G2 as CLOSED based on this increment.
