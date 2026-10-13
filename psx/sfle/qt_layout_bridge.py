@@ -265,12 +265,18 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                 if node.parent_id is not None:
                     parent = bindings[node.parent_id].widget
                     if getattr(parent, "_psx_sfle_scroll", False):
-                        content = parent._psx_content
-                        box = dict(result.boxes)[node.node_id].border
-                        content.resize(
-                            max(parent.viewport().width(), round(box.width)),
-                            max(parent.viewport().height(), round(box.height)),
+                        from psx.sfle.native_scroll_hosts import (
+                            apply_qt_scroll, binding_from_host,
                         )
+                        from psx.sfle.scroll_offsets import ScrollOffset
+                        parent_rect = dict(result.boxes)[node.parent_id].border
+                        child_rect = dict(result.boxes)[node.node_id].border
+                        binding = binding_from_host(parent._psx_props, parent_rect, child_rect)
+                        current = ScrollOffset(
+                            float(parent.horizontalScrollBar().value()),
+                            float(parent.verticalScrollBar().value()),
+                        )
+                        apply_qt_scroll(parent, binding, current)
             # A labeled Divider paints two line segments around its child's
             # *committed* native rectangle, never a speculative sizeHint.
             for node_id, vnode in prepared.identities:
