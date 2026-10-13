@@ -301,10 +301,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                             parent._psx_props, parent_box, child_box,
                         )
                         # scroll_y=1 is the top edge in Kivy.
-                        previous = ScrollOffset(
-                            max(0.0, float(parent.scroll_x) * binding.overflow_x),
-                            max(0.0, (1.0 - float(parent.scroll_y)) * binding.overflow_y),
-                        )
+                        from psx.sfle.native_scroll_transaction import prior_scroll_offset
+                        previous = prior_scroll_offset(scroll_before, parent)
                         apply_kivy_scroll(parent, binding, previous)
             for node_id, vnode in prepared.identities:
                 if vnode.kind is NodeKind.HOST and vnode.type == "Divider" and vnode.children:
