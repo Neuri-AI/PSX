@@ -96,7 +96,7 @@ class HeadlessRenderer:
         self.adapters = RendererAdapterRegistry()
         self._default_adapter = DelegatingAdapter()
         for component in (
-            "Column", "Row", "Fragment", "Flex",
+            "Fragment", "Flex",
             "Text", "Button", "Input", "TextArea", "Checkbox", "Slider",
             "Spacer", "Divider", "Image", "ProgressBar",
             "Radio", "RadioGroup", "Select", "Switch", "Link", "Badge", "SpinBox", "Scroll", "Box", "Native",
@@ -183,8 +183,6 @@ class HeadlessRenderer:
                     "Native SFLE native custom widgets require declared geometry and measurement ports."
                 )
             if node.kind is NodeKind.HOST:
-                if node.type in ("Row", "Column"):
-                    raise RendererCapabilityError("Legacy Row/Column cannot own SFLE layout.")
                 from psx.core.registry import builtin_component_registry
                 definition = builtin_component_registry().snapshot().get(node.type)
                 if definition is None:
