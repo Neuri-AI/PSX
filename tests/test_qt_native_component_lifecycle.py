@@ -71,6 +71,48 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.reconciler.unmount()
         self.renderer.application.processEvents()
 
+    def test_portable_native_event_payloads_from_real_qt_controls(self):
+        from psx import Slider, Select, SpinBox
+
+        received = []
+        self.renderer.set_sfle_constraints(viewport(700, 160))
+        def record(name):
+            return lambda value=None: received.append((name, value))
+        root = self.reconciler.render(Flex(
+            Button("Go", key="button", on_click=lambda: received.append(("click", None)),
+                   layout_width="60px", layout_height="26px"),
+            Checkbox(key="check", checked=False, on_change=record("check"),
+                     layout_width="34px", layout_height="26px"),
+            Input(key="input", value="one", on_change=record("input"),
+                  on_submit=lambda: received.append(("submit", None)),
+                  layout_width="100px", layout_height="26px"),
+            TextArea("start", key="text-area", on_change=record("textarea"),
+                     layout_width="100px", layout_height="40px"),
+            Slider(key="slider", value=10, on_change=record("slider"),
+                   layout_width="100px", layout_height="26px"),
+            Select(key="select", options=["One", "Two"], on_change=record("select"),
+                   layout_width="100px", layout_height="26px"),
+            SpinBox(key="spin", value=2, on_change=record("spin"),
+                    layout_width="100px", layout_height="26px"),
+            width="700px", height="160px", gap=5, align_items="flex-start",
+        ))
+        native = {node.vnode.key: node.handle.widget for node in root.children}
+        received.clear()  # Ignore legitimate creation-time widget initialization.
+        native["button"].click()
+        native["check"].click()
+        native["input"].setText("two")
+        native["input"].returnPressed.emit()
+        native["text-area"].setPlainText("changed")
+        native["slider"].setValue(20)
+        native["select"].setCurrentIndex(1)
+        native["spin"].setValue(3)
+        self.assertEqual(received, [
+            ("click", None), ("check", True), ("input", "two"),
+            ("submit", None), ("textarea", "changed"), ("slider", 20),
+            ("select", "Two"), ("spin", 3),
+        ])
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
     def test_binding_and_native_geometry_owner(self):
         self.assertEqual(self.renderer._binding, BINDING)
         self.assertIs(self.renderer._widgets, qtwidgets)
