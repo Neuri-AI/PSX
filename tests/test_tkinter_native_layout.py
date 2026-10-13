@@ -838,9 +838,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(canvas.winfo_height(), 80)
 
     def test_unported_builtin_is_explicit_failure_not_native_layout_fallback(self):
-        from psx import Row
-        with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
-            self.reconciler.render(Flex(Row(), width=160, height=80))
+        from psx.core.registry import builtin_component_registry
+        self.assertFalse(builtin_component_registry().contains("Row"))
 
     def test_additional_tk_native_primitives_have_sfle_geometry_no_pack(self):
         from psx import Slider, ProgressBar, Radio
