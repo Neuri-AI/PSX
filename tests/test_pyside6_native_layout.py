@@ -117,6 +117,43 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(inner.verticalScrollBar().value(),
                          inner.verticalScrollBar().maximum())
 
+    def test_scroll_failed_native_commit_restores_offsets_and_extent(self):
+        from unittest.mock import patch
+        from psx import Scroll
+        from psx.sfle import native_scroll_hosts
+
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        root = self.r.render(Flex(
+            Scroll(Flex(item("Inside", "inside", 40),
+                        direction="row", width="300px", height="200px",
+                        key="content", align_items="flex-start"),
+                   direction="both", key="scroll",
+                   layout_width="120px", layout_height="80px",
+                   flex_basis="120px", flex_shrink=0),
+            direction="row", width="300px", height="200px",
+            align_items="flex-start",
+        ))
+        area = root.children[0].handle.widget
+        area.horizontalScrollBar().setValue(60)
+        area.verticalScrollBar().setValue(30)
+        before_size = (area._psx_content.width(), area._psx_content.height())
+        original = native_scroll_hosts.apply_qt_scroll
+
+        def fail_after_mutation(area, binding, offset):
+            original(area, binding, offset)
+            area.horizontalScrollBar().setValue(0)
+            area.verticalScrollBar().setValue(0)
+            raise RuntimeError("injected native viewport failure")
+
+        with patch.object(native_scroll_hosts, "apply_qt_scroll",
+                          side_effect=fail_after_mutation):
+            with self.assertRaisesRegex(RuntimeError, "injected"):
+                self.renderer.commit_layout(root)
+        self.assertEqual((area.horizontalScrollBar().value(),
+                          area.verticalScrollBar().value()), (60, 30))
+        self.assertEqual((area._psx_content.width(),
+                          area._psx_content.height()), before_size)
+
     def test_scroll_reflow_preserves_native_offset_focus_and_widget_identity(self):
         from psx import Scroll
         from PySide6.QtWidgets import QApplication
