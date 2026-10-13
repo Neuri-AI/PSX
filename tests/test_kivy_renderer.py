@@ -17,7 +17,7 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             from kivy.config import Config
             Config.set("graphics", "window_state", "hidden")
             from kivy.clock import Clock
-            from psx import App, Button, Checkbox, Column, Text, component, use_state
+            from psx import App, Button, Checkbox, Flex, Text, component, use_state
 
             @component
             def Counter():
