@@ -46,21 +46,6 @@ FLEX_DEFAULTS = MappingProxyType({
     "max_width": "none", "max_height": "none", "padding": 0,
 })
 
-COLUMN_DEFAULTS = MappingProxyType({
-    "spacing": 0,
-    "padding": 0,
-    "align": "stretch",
-    "expand": False,
-    "enabled": True,
-})
-ROW_DEFAULTS = MappingProxyType({
-    "spacing": 0,
-    "padding": 0,
-    "align": "stretch",
-    "expand": False,
-    "enabled": True,
-})
-
 SLIDER_DEFAULTS = MappingProxyType({
     "value": 0.0,
     "min": 0.0,
