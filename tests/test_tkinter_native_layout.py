@@ -625,6 +625,41 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(child), (0, 0, 40, 20))
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
 
+    def test_native_scroll_overflow_offsets_and_canvas_clipping(self):
+        from psx import Scroll
+        from psx.sfle.native_scroll_hosts import apply_tk_scroll, binding_from_host
+        from psx.sfle.scroll_offsets import ScrollOffset
+        from psx.sfle.model import Rect
+
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        root = self.reconciler.render(Flex(
+            Scroll(Flex(item("Inside", "inside", 40),
+                        direction="row", width="300px", height="200px",
+                        key="content", align_items="flex-start"),
+                   direction="both", key="scroll",
+                   layout_width="120px", layout_height="80px",
+                   flex_basis="120px", flex_shrink=0),
+            direction="row", width="300px", height="200px",
+            align_items="flex-start",
+        ))
+        outer = root.children[0].handle.widget
+        child = root.children[0].children[0].handle.widget
+        canvas = outer._psx_canvas
+        self.host.update_idletasks()
+        self.assertIs(child.master, outer._psx_content)
+        self.assertEqual(rect(child), (0, 0, 300, 200))
+        self.assertEqual(tuple(map(int, canvas.cget("scrollregion").split())), (0, 0, 300, 200))
+        binding = binding_from_host(outer._psx_props, Rect(0, 0, 120, 80),
+                                    Rect(0, 0, 300, 200))
+        result = apply_tk_scroll(outer, binding, ScrollOffset(90, 60))
+        self.host.update_idletasks()
+        self.assertEqual(result.offset, ScrollOffset(90, 60))
+        self.assertLessEqual(abs(canvas.canvasx(0) - 90), 1)
+        self.assertLessEqual(abs(canvas.canvasy(0) - 60), 1)
+        self.assertEqual(canvas.cget("highlightthickness"), 0)
+        self.assertEqual(canvas.winfo_width(), 120)
+        self.assertEqual(canvas.winfo_height(), 80)
+
     def test_unported_builtin_is_explicit_failure_not_native_layout_fallback(self):
         from psx import Row
         with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
