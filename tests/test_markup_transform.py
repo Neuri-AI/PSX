@@ -149,7 +149,7 @@ def View(model):
         )
         namespace = _execute_transformed(result.source)
         model = namespace["WindowModel"]()
-        renderer = HeadlessRenderer()
+        renderer = measured_headless()
         root = Reconciler(renderer).render(namespace["View"](model=model))
         column = root.children[0].handle
         title, platform, frozen, settings, refresh = column.children
