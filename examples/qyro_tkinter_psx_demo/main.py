@@ -23,7 +23,7 @@ class QyroTkinterPsxDemo(tk.Tk, PSXComponent, ApplicationContext):
             set_count(lambda value: value - 1)
 
         return psx("""
-            <Column padding={32} spacing={10}>
+            <Flex direction="column" padding={32} gap={10}>
                 <Text>Qyro + PSX + Tkinter</Text>
                 <Text>App Title: {self.window_title}</Text>
                 <Text>Platform: {self.platform.value}</Text>
@@ -31,7 +31,7 @@ class QyroTkinterPsxDemo(tk.Tk, PSXComponent, ApplicationContext):
                 <Text>Count: {count}</Text>
                 <Button on_click={increment}>Increment</Button>
                 <Button on_click={decrement}>Decrement</Button>
-            </Column>
+            </Flex>
         """)
 
 
