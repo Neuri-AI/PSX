@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'sfle'))
 from psx.sfle.model import BoxRect, IntrinsicSizes, LayoutResult, Rect
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.remeasure_session import compute_with_width_measurements
-from test_f2_acceptance_contract_red import case_snapshot
+from test_acceptance_contract_regression import case_snapshot
 from test_sfle_f2_differential import _rust_compute
 
 
