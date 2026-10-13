@@ -61,6 +61,4 @@ def test_unported_headless_input_fails_closed(headless_tree, request):
     with pytest.raises(RendererCapabilityError):
         tree.render(Flex(Input(value="cannot-mount", key="input"),
                          width="400px", height="120px"))
-    assert_feature(request, Feature("Input", "headless", "capability",
-                                    "native_host", "reject_unsupported",
-                                    applicability="unported"), True)
+    # A reviewed unsupported result is not a native executed_pass receipt.
