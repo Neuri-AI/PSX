@@ -328,12 +328,13 @@ def test_all_supported_headless_components_reconcile_without_remount() -> None:
             observe(order=("peer", "case")),
         )
         assert updated_root.handle.children[1] is handle
-        original_generation = renderer.sfle_result.generation
-        renderer.request_sfle_invalidation("font")
-        renderer.flush()
-        assert old.handle is handle
-        assert renderer.sfle_result.generation == original_generation + 1
-        assert not handle.destroyed, name
+        for reason in ("content", "font", "theme", "resource", "dpi", "viewport"):
+            original_generation = renderer.sfle_result.generation
+            renderer.request_sfle_invalidation(reason)
+            renderer.flush()
+            assert old.handle is handle, (name, reason)
+            assert renderer.sfle_result.generation == original_generation + 1, (name, reason)
+            assert not handle.destroyed, (name, reason)
         # Deliberately bypass constructor validation to test transactional
         # rejection at the reconciliation boundary for every host family.
         from dataclasses import replace
