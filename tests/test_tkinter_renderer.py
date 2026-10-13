@@ -55,14 +55,16 @@ class TkinterRendererTests(unittest.TestCase):
         self.addCleanup(native.close)
 
     def test_counter_reuses_ttk_widgets_and_updates_on_the_tk_scheduler(self) -> None:
+        self._enable_native_sfle()
+
         @component
         def Counter():
             count, set_count = use_state(0)
-            return Column(
+            return Flex(
                 Text(f"Count: {count}", key="label"),
                 Button("Increment", key="button", on_click=lambda: set_count(lambda value: value + 1)),
-                padding=12,
-                spacing=6,
+                direction="column", width="640px", height="480px",
+                padding=12, gap=6,
             )
 
         root = self.reconciler.render(Counter())
@@ -71,39 +73,56 @@ class TkinterRendererTests(unittest.TestCase):
         label_widget = label.handle.widget
         button_widget = button.handle.widget
         self.assertEqual(label_widget.cget("text"), "Count: 0")
-        padding = tuple(int(value) for value in column.handle.widget.cget("padding"))
-        self.assertIn(len(padding), (1, 4))
-        self.assertTrue(all(value == 12 for value in padding))
+        self.assertIsNotNone(self.renderer.sfle_result)
+        self.assertGreater(int(label_widget.place_info()["x"]), 0)
         button_widget.invoke()
         self.renderer.flush()
         self.assertIs(label.handle.widget, label_widget)
         self.assertIs(button.handle.widget, button_widget)
         self.assertEqual(label_widget.cget("text"), "Count: 1")
 
-    def test_keyed_reorder_preserves_widgets_and_pack_order(self) -> None:
-        first = self.reconciler.render(Row(Text("A", key="a"), Text("B", key="b"), spacing=4))
+    def test_keyed_reorder_preserves_widgets_and_sfle_geometry(self) -> None:
+        self._enable_native_sfle()
+
+        def view(reverse=False):
+            children = (Text("B", key="b"), Text("A", key="a")) if reverse else (
+                Text("A", key="a"), Text("B", key="b"),
+            )
+            return Flex(*children, direction="row", width="640px", height="480px",
+                        gap=4, align_items="flex-start")
+
+        first = self.reconciler.render(view())
         a, b = first.children
         a_widget, b_widget = a.handle.widget, b.handle.widget
-        second = self.reconciler.render(Row(Text("B", key="b"), Text("A", key="a"), spacing=4))
+        self.assertLess(int(a_widget.place_info()["x"]), int(b_widget.place_info()["x"]))
+        second = self.reconciler.render(view(True))
         self.assertIs(second.children[0].handle.widget, b_widget)
         self.assertIs(second.children[1].handle.widget, a_widget)
-        self.assertEqual(second.handle.widget.pack_slaves(), [b_widget, a_widget])
+        self.assertLess(int(b_widget.place_info()["x"]), int(a_widget.place_info()["x"]))
 
-    def test_removing_optional_layout_props_resets_defaults(self) -> None:
-        first = self.reconciler.render(
-            Column(Row(Text("Ready"), padding=8, spacing=4), padding=24, spacing=12)
-        )
-        column_widget = first.handle.widget
-        row_widget = first.children[0].handle.widget
+    def test_removing_optional_layout_props_reflows_from_sfle_defaults(self) -> None:
+        self._enable_native_sfle()
 
-        second = self.reconciler.render(Column(Row(Text("Ready"))))
+        def view(padding, gap):
+            return Flex(
+                Flex(Text("Ready"), direction="row", padding=padding, gap=gap,
+                     key="inner"),
+                direction="column", width="640px", height="480px",
+                padding=padding, gap=gap,
+            )
 
-        self.assertIs(second.handle.widget, column_widget)
-        self.assertIs(second.children[0].handle.widget, row_widget)
-        for widget in (column_widget, row_widget):
-            padding = tuple(int(value) for value in widget.cget("padding"))
-            self.assertIn(len(padding), (1, 4))
-            self.assertTrue(all(value == 0 for value in padding))
+        first = self.reconciler.render(view(24, 12))
+        outer = first.handle.widget
+        inner = first.children[0].handle.widget
+        label = first.children[0].children[0].handle.widget
+        before = int(label.place_info()["x"])
+        self.assertGreater(before, 0)
+
+        second = self.reconciler.render(view(0, 0))
+        self.assertIs(second.handle.widget, outer)
+        self.assertIs(second.children[0].handle.widget, inner)
+        self.assertIs(second.children[0].children[0].handle.widget, label)
+        self.assertEqual(int(label.place_info()["x"]), 0)
 
     def test_worker_state_update_waits_for_tk_ui_drain(self) -> None:
         holder: dict[str, object] = {}
