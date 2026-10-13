@@ -68,7 +68,8 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             assert tuple(label.text_size) == (300, 60)  # size subscription cleaned up
             r.unmount()
             changes = []
-            r = Reconciler(app.renderer)
+            leaf_renderer = KivyRenderer()
+            r = Reconciler(leaf_renderer)
             check = r.render(Checkbox(on_change=changes.append)).handle.widget
             check.active = True
             assert changes == [True]
