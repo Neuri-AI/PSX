@@ -40,6 +40,19 @@ class TkinterRendererTests(unittest.TestCase):
         with self.assertRaisesRegex(RendererCapabilityError, "Native SFLE SFLE geometry"):
             self.renderer.create(Flex(Text("A")), None)
 
+    def _enable_native_sfle(self) -> None:
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, LayoutConstraints
+        native = TkinterRenderer(
+            root=self.root,
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(640, True), AvailableSize(480, True)),
+            engine=PythonLayoutEngine(),
+        )
+        self.reconciler = Reconciler(native)
+        self.addCleanup(self.reconciler.unmount)
+        self.addCleanup(native.close)
+
     def test_counter_reuses_ttk_widgets_and_updates_on_the_tk_scheduler(self) -> None:
         @component
         def Counter():
