@@ -164,7 +164,7 @@ class MatrixRunner:
             for item in self.results
         )
         page = """<!doctype html><meta charset=\"utf-8\"><title>PSX local certification</title>
-<style>body{font:14px system-ui;margin:2rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:.45rem;text-align:left}.passed{color:#087f23}.failed,.blocked{color:#b42318;font-weight:700}</style>
+<style>body{{font:14px system-ui;margin:2rem}}table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #ccc;padding:.45rem;text-align:left}}.passed{{color:#087f23}}.failed,.blocked{{color:#b42318;font-weight:700}}</style>
 <h1>PSX local certification</h1><p>Commit: <code>{}</code></p>
 <table><thead><tr><th>Combination</th><th>Status</th><th>Duration</th><th>Output</th><th>Detail</th></tr></thead><tbody>{}</tbody></table>
 """.format(html.escape(self.sha), rows)
