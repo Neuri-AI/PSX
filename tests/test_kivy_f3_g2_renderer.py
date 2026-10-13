@@ -1199,7 +1199,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx.renderers.kivy.kivy import KivyRenderer
             from psx.sfle.engine import PythonLayoutEngine
             from psx.sfle.model import AvailableSize, LayoutConstraints
-            from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+            from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
             from psx.sfle.f3_g2_oracles import Observation, ORACLES
 
             with TemporaryDirectory() as tmp:
@@ -1244,7 +1244,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                     "Flex": lambda: Flex(Text("Inside", layout_width="30px",
                                              layout_height="15px")),
                 }
-                native = set(G2_LEAF_TYPES["kivy"]) | {"Flex"}
+                native = set(NATIVE_LEAF_TYPES["kivy"]) | {"Flex"}
                 assert set(factories) == native, sorted(native ^ set(factories))
 
                 renderer = KivyRenderer(
@@ -1405,7 +1405,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx.renderers.kivy.kivy import KivyRenderer
             from psx.sfle.engine import PythonLayoutEngine
             from psx.sfle.model import AvailableSize, LayoutConstraints
-            from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+            from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
             from psx.sfle.f3_g2_contracts import EVENTLESS
 
             callbacks = {
@@ -1422,7 +1422,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 "Link": (Link(label="Action"), "on_click", ()),
                 "SpinBox": (SpinBox(value=2), "on_change", (3,)),
             }
-            assert set(callbacks) == (set(G2_LEAF_TYPES["kivy"]) | {"Flex"}) - EVENTLESS
+            assert set(callbacks) == (set(NATIVE_LEAF_TYPES["kivy"]) | {"Flex"}) - EVENTLESS
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
                     AvailableSize(180, True), AvailableSize(70, True)),
