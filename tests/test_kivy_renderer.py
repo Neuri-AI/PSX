@@ -22,7 +22,7 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             @component
             def Counter():
                 value, set_value = use_state(0)
-                return Column(Text(str(value), key="text"), Button("+", key="button", on_click=lambda: set_value(value + 1)))
+                return Flex(Text(str(value), key="text"), Button("+", key="button", on_click=lambda: set_value(value + 1)), direction="column")
 
             app = App(Counter(), renderer="kivy")
             app.mount()
@@ -37,24 +37,24 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             from kivy.uix.label import Label
             from psx.core.reconcile import Reconciler
             r = Reconciler(app.renderer)
-            root = r.render(Column(Text("old", font_size=24, bold=True, italic=True,
+            root = r.render(Flex(Text("old", font_size=24, bold=True, italic=True,
                                         color="#336699", align="right", enabled=False)))
             label = root.children[0].handle.widget
             assert isinstance(label, Label) and label.text == "old"
             assert label.font_size == 24 and label.bold and label.italic and label.disabled
             assert label.halign == "right"
             assert list(label.color) == [0.2, 0.4, 0.6, 1]
-            r.render(Column(Text("new", font_size=12, color="#112233", align="center")))
+            r.render(Flex(Text("new", font_size=12, color="#112233", align="center")))
             assert r.root.children[0].handle.widget is label and label.text == "new"
             assert label.font_size == 12 and not label.bold and not label.italic and not label.disabled
             assert label.halign == "center"
             assert list(label.color) == [17/255, 34/255, 51/255, 1]
-            r.render(Column(Text("theme")))
+            r.render(Flex(Text("theme")))
             assert list(label.color) == list(label.property("color").defaultvalue)
             assert list(label.disabled_color) == list(label.property("disabled_color").defaultvalue)
             label.size = (300, 60)
             assert tuple(label.text_size) == (300, 60)
-            r.render(Column())
+            r.render(Flex())
             assert label.parent is None and r.root.handle.children == []
             label.size = (400, 80)
             assert tuple(label.text_size) == (300, 60)  # size subscription cleaned up
