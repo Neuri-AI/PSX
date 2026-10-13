@@ -27,6 +27,9 @@ class Content:
 
 
 class QtContent(Content):
+    def __init__(self):
+        self._width, self._height = 300, 200
+
     def width(self):
         return self._width
 
