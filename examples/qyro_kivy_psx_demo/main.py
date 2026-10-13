@@ -24,14 +24,14 @@ class PsxQyroKivyDemo(PSXComponent, App, ApplicationContext):
             set_count(lambda value: value + 1)
 
         return psx("""
-            <Column padding={32} spacing={10}>
+            <Flex direction="column" padding={32} gap={10}>
                 <Text>Qyro + PSX + Kivy</Text>
                 <Text>App Title: {self.window_title}</Text>
                 <Text>Platform: {self.platform.value}</Text>
                 <Text>Frozen: {self.is_frozen}</Text>
                 <Text>Count: {count}</Text>
                 <Button on_click={increment}>Increment</Button>
-            </Column>
+            </Flex>
         """)
 
 
