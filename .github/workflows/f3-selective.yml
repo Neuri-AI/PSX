@@ -296,6 +296,8 @@ jobs:
         with:
           name: g2-qt-receipts-${{ matrix.binding }}
           path: |
+            g2-qt.xml
+            g2-qt-dpi.xml
             g2-qt-certification.json
             g2-qt-dpi-certification.json
             g2-qt-c5.json
@@ -330,6 +332,7 @@ jobs:
         with:
           name: g2-kivy-receipts
           path: |
+            g2-kivy.xml
             g2-kivy-certification.json
             g2-kivy-c5.json
             g2-kivy-c4.json
@@ -360,6 +363,7 @@ jobs:
         with:
           name: g2-tk-receipts
           path: |
+            g2-tk.xml
             g2-tk-certification.json
             g2-tk-c5.json
             g2-tk-c4.json
@@ -383,6 +387,7 @@ jobs:
         with:
           name: g2-headless-receipts
           path: |
+            g2-headless.xml
             g2-headless-certification.json
             g2-headless-c5.json
 
