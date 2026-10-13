@@ -25,11 +25,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT_ROOT = ROOT / "artifacts" / "local-certification"
 QT_BINDINGS = {
-    "pyside6": ("3.12", ".[qt]"),
-    "pyqt6": ("3.12", ".[pyqt6]"),
-    "pyqt5": ("3.12", ".[pyqt5]"),
-    "pyside2": ("3.10", "PySide2==5.15.2.1"),
+    "pyside6": ".[qt]",
+    "pyqt6": ".[pyqt6]",
+    "pyqt5": ".[pyqt5]",
+    "pyside2": "PySide2==5.15.2.1",
 }
+SELECTIONS = frozenset({"core", "headless", "pyside6", "pyqt6", "pyqt5", "pyside2",
+                        "kivy", "tkinter", "browser", "rust"})
 
 
 @dataclass
@@ -83,19 +85,21 @@ def venv_python(directory: Path) -> Path:
 
 
 class MatrixRunner:
-    def __init__(self, output: Path, sha: str, *, reuse_envs: bool) -> None:
+    def __init__(self, output: Path, sha: str, *, reuse_envs: bool,
+                 active_python: Path | None = None) -> None:
         self.output = output
         self.sha = sha
         self.reuse_envs = reuse_envs
+        self.active_python = active_python
         self.results: list[Result] = []
         self.receipts: list[Path] = []
 
     def environment(self, name: str, version: str, dependency: str) -> Path | None:
         directory = self.output / ".venvs" / name
-        python = venv_python(directory)
+        python = self.active_python or venv_python(directory)
         log = self.output / "logs" / f"{name}-install.log"
         try:
-            if not (self.reuse_envs and python.is_file()):
+            if self.active_python is None and not (self.reuse_envs and python.is_file()):
                 code, duration = call([*interpreter(version), "-m", "venv", str(directory)], log=log)
                 if code:
                     self.results.append(Result(name, "failed", duration, [*interpreter(version), "-m", "venv", str(directory)], str(log.relative_to(self.output)), "virtual environment creation failed"))
@@ -171,6 +175,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, help="Directory for immutable test artifacts.")
     parser.add_argument("--reuse-envs", action="store_true", help="Reuse existing per-binding virtual environments.")
+    parser.add_argument("--active-conda", action="store_true", help="Use the active Conda environment instead of creating virtual environments.")
+    parser.add_argument("--python-version", help="Required active Python version, for example 3.10.")
+    parser.add_argument("--only", default=",".join(sorted(SELECTIONS)),
+                        help="Comma-separated cells: " + ", ".join(sorted(SELECTIONS)))
     parser.add_argument("--allow-dirty", action="store_true", help="Allow uncommitted files (results are not certifiable).")
     parser.add_argument("--include-browser-and-rust", action="store_true", help="Also run Chromium and Rust/Python differential suites.")
     return parser.parse_args()
@@ -178,6 +186,13 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    selected = frozenset(part.strip() for part in args.only.split(",") if part.strip())
+    unknown = selected - SELECTIONS
+    if unknown:
+        raise SystemExit("Unknown matrix cells: " + ", ".join(sorted(unknown)))
+    active_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    if args.active_conda and args.python_version and active_version != args.python_version:
+        raise SystemExit(f"Active Python is {active_version}, expected {args.python_version}.")
     sha = git("rev-parse", "HEAD")
     dirty = bool(git("status", "--porcelain"))
     if dirty and not args.allow_dirty:
@@ -186,21 +201,31 @@ def main() -> int:
     output = args.output or ARTIFACT_ROOT / f"{platform.system().lower()}-{sha[:12]}-{stamp}"
     output.mkdir(parents=True, exist_ok=False)
     (output / "logs").mkdir()
-    runner = MatrixRunner(output, sha, reuse_envs=args.reuse_envs)
+    runner = MatrixRunner(output, sha, reuse_envs=args.reuse_envs,
+                          active_python=Path(sys.executable) if args.active_conda else None)
+    python_version = args.python_version or active_version
 
-    core = runner.environment("core", "3.12", "")
+    core = runner.environment("core", python_version if args.active_conda else "3.12", "")
     if core:
-        junit = output / "public-core.xml"
-        if runner.test("public-core", core, ["-m", "pytest", "-q", "tests/test_public_behavior_census.py",
-                                               "tests/test_public_contract_census.py", "tests/test_public_property_validation.py",
-                                               f"--junitxml={junit}"]):
-            runner.census("public-core", core, junit, f"{platform.system().lower()}-core-python-3.12")
-        runner.test("headless-native", core, ["-m", "pytest", "-q", "tests/test_core.py", "tests/test_renderer_adapters.py",
-                                                "tests/test_headless_native_layout.py", "tests/test_scroll_offsets.py"])
-        runner.run_public_suite("headless", core, "tests/test_headless_public_behavior.py",
-                                f"{platform.system().lower()}-headless-python-3.12")
+        if "core" in selected:
+            junit = output / "public-core.xml"
+            if runner.test("public-core", core, ["-m", "pytest", "-q", "tests/test_public_behavior_census.py",
+                                                   "tests/test_public_contract_census.py", "tests/test_public_property_validation.py",
+                                                   f"--junitxml={junit}"]):
+                runner.census("public-core", core, junit, f"{platform.system().lower()}-core-python-{python_version}")
+        if "headless" in selected:
+            runner.test("headless-native", core, ["-m", "pytest", "-q", "tests/test_core.py", "tests/test_renderer_adapters.py",
+                                                    "tests/test_headless_native_layout.py", "tests/test_scroll_offsets.py"])
+            runner.run_public_suite("headless", core, "tests/test_headless_public_behavior.py",
+                                    f"{platform.system().lower()}-headless-python-{python_version}")
 
-    for binding, (version, dependency) in QT_BINDINGS.items():
+    for binding, dependency in QT_BINDINGS.items():
+        if binding not in selected:
+            continue
+        version = python_version if args.active_conda else ("3.10" if binding == "pyside2" else "3.12")
+        if binding == "pyside2" and version != "3.10":
+            runner.results.append(Result(f"qt-{binding}", "blocked", 0, [], "", "PySide2 is supported only on Python 3.10."))
+            continue
         python = runner.environment(f"qt-{binding}", version, dependency)
         if not python:
             continue
@@ -210,22 +235,23 @@ def main() -> int:
         runner.run_public_suite(f"qt-{binding}", python, "tests/test_qt_public_behavior.py",
                                 f"{platform.system().lower()}-qt-{binding}-python-{version}", env)
 
-    kivy = runner.environment("kivy", "3.12", ".[kivy]")
+    kivy = runner.environment("kivy", python_version if args.active_conda else "3.12", ".[kivy]") if "kivy" in selected else None
     if kivy:
         runner.test("kivy-native", kivy, ["-m", "pytest", "-q", "tests/test_kivy_renderer.py", "tests/test_kivy_native_layout.py"])
         runner.run_public_suite("kivy", kivy, "tests/test_kivy_public_behavior.py",
-                                f"{platform.system().lower()}-kivy-python-3.12")
+                                f"{platform.system().lower()}-kivy-python-{python_version}")
 
-    tkinter = runner.environment("tkinter", "3.12", "Pillow")
+    tkinter = runner.environment("tkinter", python_version if args.active_conda else "3.12", "Pillow") if "tkinter" in selected else None
     if tkinter:
         runner.test("tkinter-native", tkinter, ["-m", "pytest", "-q", "tests/test_tkinter_renderer.py",
                                                    "tests/test_tkinter_native_layout.py", "tests/test_tkinter_external_native_ports.py"])
         runner.run_public_suite("tkinter", tkinter, "tests/test_tk_public_behavior.py",
-                                f"{platform.system().lower()}-tkinter-python-3.12")
+                                f"{platform.system().lower()}-tkinter-python-{python_version}")
 
-    if args.include_browser_and_rust and core:
+    if args.include_browser_and_rust and core and "rust" in selected:
         runner.test("rust-python", core, ["-m", "pytest", "-q", "tests/interop/test_sfle_differential.py",
                                             "tests/interop/test_sfle_capability_parity.py", "tests/interop/test_sfle_deferral_boundaries.py"])
+    if args.include_browser_and_rust and core and "browser" in selected:
         if runner.test("browser-install", core, ["-m", "pip", "install", "playwright"]):
             runner.test("browser-chromium-install", core, ["-m", "playwright", "install", "chromium"])
             runner.test("browser-geometry", core, ["-m", "pytest", "-q", "tests/browser/test_sfle_chromium.py",

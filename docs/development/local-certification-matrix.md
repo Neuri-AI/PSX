@@ -7,15 +7,26 @@ for the exact committed revision it tested.
 
 Run it from a clean checkout of the target branch:
 
+When Conda manages the environments, activate one and use it directly. The
+first run installs the selected binding packages into that environment:
+
 ```powershell
-# Windows PowerShell (install Python 3.10 and 3.12 with the Python launcher)
-py -3.12 scripts/run_local_certification_matrix.py --include-browser-and-rust
+conda activate psx-310
+python scripts/run_local_certification_matrix.py --active-conda --python-version 3.10 --include-browser-and-rust
 ```
 
-```bash
-# Native Linux partition or macOS (install python3.10 and python3.12 first)
-python3.12 scripts/run_local_certification_matrix.py --include-browser-and-rust
+Use Python 3.10 with all supported bindings, including PySide2. Then run
+Python 3.11, 3.12 and 3.13 with every selected cell *except* PySide2:
+
+```powershell
+conda activate psx-313
+python scripts/run_local_certification_matrix.py --active-conda --python-version 3.13 --only core,headless,pyside6,pyqt6,pyqt5,kivy,tkinter,browser,rust --include-browser-and-rust
 ```
+
+The same commands work on native Linux and macOS after activating the matching
+Conda environment. Without `--active-conda`, the runner retains its original
+mode: it creates isolated virtual environments and uses Python 3.12 for the
+main matrix plus Python 3.10 for PySide2.
 
 The report directory is printed at the end and contains:
 
