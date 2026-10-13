@@ -84,6 +84,10 @@ def validate_receipts(rows: tuple[Feature, ...], receipts: list[dict],
     if not sha or len(sha) != 40 or any(c not in "0123456789abcdef" for c in sha):
         raise ValueError("A full immutable lowercase commit SHA is required")
     keys = {(r.component, r.backend, r.feature_kind, r.feature_name, r.scenario_id) for r in rows}
+    definitions = {(r.component, r.backend, r.feature_kind, r.feature_name, r.scenario_id): r
+                   for r in rows}
+    if len(keys) != len(rows):
+        raise ValueError("Duplicate source census feature")
     by_key = {}
     for receipt in receipts:
         key = tuple(receipt.get(k) for k in
@@ -93,7 +97,9 @@ def validate_receipts(rows: tuple[Feature, ...], receipts: list[dict],
         status = receipt.get("status")
         if status not in ("executed_pass", "failed", "pending", "unsupported", "not_applicable"):
             raise ValueError(f"Invalid receipt status for {key}: {status}")
-        if status == "executed_pass":
+        if status == "executed_pass" and definitions[key].applicability == "unported":
+            raise ValueError(f"Unsupported native backend cannot claim PASS: {key}")
+        if status in ("executed_pass", "unsupported"):
             if (receipt.get("sha") != sha or not receipt.get("test_id") or
                     not receipt.get("junit_artifact") or not receipt.get("environment")):
                 raise ValueError(f"Unproven executed PASS for {key}")
@@ -108,8 +114,12 @@ def validate_receipts(rows: tuple[Feature, ...], receipts: list[dict],
                 for tag in ("skipped", "failure", "error")
             ):
                 raise ValueError(f"No unique successful JUnit assertion for {key}")
+        if status == "unsupported" and definitions[key].applicability == "native":
+            raise ValueError(f"Supported native capability cannot be excluded: {key}")
         if status in ("unsupported", "not_applicable") and not receipt.get("reason"):
             raise ValueError(f"Unexplained exclusion for {key}")
+        if status == "not_applicable" and not receipt.get("reviewed_by"):
+            raise ValueError(f"Unreviewed not-applicable exclusion for {key}")
         by_key[key] = receipt
     pending = sum(1 for k in keys if k not in by_key or
                   by_key[k].get("status") == "pending")
