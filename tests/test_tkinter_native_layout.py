@@ -68,6 +68,58 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.addCleanup(self.renderer.close)
         self.addCleanup(self.reconciler.unmount)
 
+    def test_portable_text_and_activation_event_payloads_from_tk_widgets(self):
+        from psx import Input
+
+        old, current = [], []
+        self.renderer.set_sfle_constraints(constraints(480, 140))
+
+        def view(tag):
+            sink = old if tag == "old" else current
+            return Flex(
+                Button("Activate", key="button", on_click=lambda: sink.append(("click", None)),
+                       layout_width="75px", layout_height="28px"),
+                Checkbox(key="check", on_change=lambda value: sink.append(("check", value)),
+                         layout_width="35px", layout_height="28px"),
+                Input(key="input", value="", on_change=lambda value: sink.append(("input", value)),
+                      on_submit=lambda: sink.append(("submit", None)),
+                      layout_width="120px", layout_height="28px"),
+                TextArea("start", key="textarea",
+                         on_change=lambda value: sink.append(("textarea", value)),
+                         layout_width="130px", layout_height="40px"),
+                width="480px", height="140px", gap=5, align_items="flex-start",
+            )
+
+        root = self.reconciler.render(view("old"))
+        widgets = {node.node.key: node.handle.widget for node in root.children}
+        old.clear()
+        widgets["button"].invoke()
+        widgets["check"].invoke()
+        widgets["input"].var.set("first")
+        widgets["input"].event_generate("<Return>")
+        widgets["textarea"].insert("end-1c", "!")
+        self.host.update()
+        self.assertEqual(old, [
+            ("click", None), ("check", True), ("input", "first"),
+            ("submit", None), ("textarea", "start!"),
+        ])
+
+        updated = self.reconciler.render(view("new"))
+        self.assertTrue(all(updated.children[i].handle.widget is widget for i, widget
+                            in enumerate(widgets.values())))
+        current.clear()
+        widgets["button"].invoke()
+        widgets["check"].invoke()
+        widgets["input"].var.set("second")
+        widgets["input"].event_generate("<Return>")
+        widgets["textarea"].insert("end-1c", "!")
+        self.host.update()
+        self.assertEqual(len(old), 5)
+        self.assertEqual(current, [
+            ("click", None), ("check", False), ("input", "second"),
+            ("submit", None), ("textarea", "start!!"),
+        ])
+
     def test_real_ttk_widgets_use_sfle_place_not_pack_or_grid(self):
         root = self.reconciler.render(Flex(
             Text("Left", key="left", layout_width="40px", layout_height="20px",
