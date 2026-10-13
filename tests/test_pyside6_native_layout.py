@@ -38,6 +38,55 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.r.unmount()
         self.renderer.application.processEvents()
 
+    def test_scroll_unmount_releases_native_viewport(self):
+        from psx import Scroll
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        root = self.r.render(Flex(
+            Scroll(Flex(item("Inside", "inside", 40),
+                        direction="row", width="300px", height="200px",
+                        key="content", align_items="flex-start"),
+                   direction="both", key="scroll",
+                   layout_width="120px", layout_height="80px",
+                   flex_basis="120px", flex_shrink=0),
+            direction="row", width="300px", height="200px",
+            align_items="flex-start",
+        ))
+        area = root.children[0].handle.widget
+        self.assertTrue(area._psx_sfle_scroll)
+        self.r.unmount()
+        self.renderer.application.processEvents()
+        self.assertIsNone(area.parentWidget())
+        self.assertFalse(area._fade.isActive())
+
+    def test_scroll_disabled_axes_reset_existing_offsets(self):
+        from psx import Scroll
+        from psx.sfle.model import Rect
+        from psx.sfle.native_scroll_hosts import apply_qt_scroll, binding_from_host
+        from psx.sfle.scroll_offsets import ScrollOffset
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        root = self.r.render(Flex(
+            Scroll(Flex(item("Inside", "inside", 40),
+                        direction="row", width="300px", height="200px",
+                        key="content", align_items="flex-start"),
+                   direction="both", key="scroll",
+                   layout_width="120px", layout_height="80px",
+                   flex_basis="120px", flex_shrink=0),
+            direction="row", width="300px", height="200px",
+            align_items="flex-start",
+        ))
+        area = root.children[0].handle.widget
+        binding = binding_from_host(area._psx_props, Rect(0, 0, 120, 80),
+                                    Rect(0, 0, 300, 200))
+        apply_qt_scroll(area, binding, ScrollOffset(60, 45))
+        self.assertEqual((area.horizontalScrollBar().value(),
+                          area.verticalScrollBar().value()), (60, 45))
+        area._psx_props = {**area._psx_props, "direction": "horizontal"}
+        restricted = binding_from_host(area._psx_props, Rect(0, 0, 120, 80),
+                                       Rect(0, 0, 300, 200))
+        apply_qt_scroll(area, restricted, ScrollOffset(60, 45))
+        self.assertEqual((area.horizontalScrollBar().value(),
+                          area.verticalScrollBar().value()), (60, 0))
+
     def test_native_scroll_overflow_offsets_and_viewport_clipping(self):
         from psx import Scroll
         from psx.sfle.native_scroll_hosts import apply_qt_scroll, binding_from_host
