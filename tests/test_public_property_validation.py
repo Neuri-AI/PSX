@@ -59,6 +59,8 @@ def sample(component: str, name: str, default: object) -> object:
         return "20px"
     if name.startswith(("min_", "max_")) and component == "Flex":
         return "120px"
+    if component == "Scroll" and name == "direction":
+        return "horizontal"
     if name in ENUM_SAMPLE:
         return ENUM_SAMPLE[name]
     if name == "value" and component in {"Text", "Radio", "RadioGroup", "Select"}:
