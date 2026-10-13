@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from xml.etree import ElementTree as ET
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -80,19 +81,29 @@ def validate_receipts(rows: tuple[Feature, ...], receipts: list[dict],
             if (receipt.get("sha") != sha or not receipt.get("test_id") or
                     not receipt.get("junit_artifact") or not receipt.get("environment")):
                 raise ValueError(f"Unproven executed PASS for {key}")
-            # This does not independently authenticate JUnit files. Until an
-            # executing verifier checks the artifact, the row stays pending.
-            raise ValueError(f"Unverified JUnit assertion for {key}")
+            artifact = Path(receipt["junit_artifact"])
+            if not artifact.is_file():
+                raise ValueError(f"Missing JUnit artifact for {key}")
+            matches = [case for case in ET.parse(artifact).getroot().iter("testcase")
+                       if case.get("classname", "") + "::" + case.get("name", "")
+                       == receipt["test_id"]]
+            if len(matches) != 1 or any(
+                matches[0].find(tag) is not None
+                for tag in ("skipped", "failure", "error")
+            ):
+                raise ValueError(f"No unique successful JUnit assertion for {key}")
         if status in ("unsupported", "not_applicable") and not receipt.get("reason"):
             raise ValueError(f"Unexplained exclusion for {key}")
         by_key[key] = receipt
     pending = sum(1 for k in keys if k not in by_key or
                   by_key[k].get("status") == "pending")
+    passes = sum(x.get("status") == "executed_pass" for x in by_key.values())
+    failed = sum(x.get("status") == "failed" for x in by_key.values())
     return {"sha": sha, "total": len(keys), "pending": pending,
-            "claimed_pass": 0, "excluded": sum(
+            "executed_pass": passes, "excluded": sum(
                 x.get("status") in ("unsupported", "not_applicable") for x in by_key.values()),
-            "failed": sum(x.get("status") == "failed" for x in by_key.values()),
-            "complete": False}
+            "failed": failed,
+            "complete": pending == 0 and failed == 0}
 
 
 def main() -> None:
