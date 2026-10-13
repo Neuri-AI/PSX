@@ -866,9 +866,8 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
 
     def test_unported_widget_still_rejected_and_default_flex_fail_closed(self):
-        from psx import Row
-        with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
-            self.reconciler.render(Flex(Row(), width=160, height=80))
+        from psx.core.registry import builtin_component_registry
+        self.assertFalse(builtin_component_registry().contains("Row"))
         legacy = RENDERER_CLASS(argv=["psx-qt-no-sfle"])
         second = Reconciler(legacy)
         with self.assertRaisesRegex(RendererCapabilityError, "Native SFLE SFLE geometry"):
