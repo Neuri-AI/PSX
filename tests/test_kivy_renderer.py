@@ -24,7 +24,15 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                 value, set_value = use_state(0)
                 return Flex(Text(str(value), key="text"), Button("+", key="button", on_click=lambda: set_value(value + 1)), direction="column")
 
-            app = App(Counter(), renderer="kivy")
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(400, True), AvailableSize(320, True)),
+                engine=PythonLayoutEngine(),
+            )
+            app = App(Counter(), renderer=renderer)
             app.mount()
             column = app.reconciler.root.children[0].handle
             label, button = column.children
