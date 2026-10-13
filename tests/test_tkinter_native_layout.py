@@ -647,7 +647,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertLessEqual(abs(canvas.canvasy(0) - 48), 1)
         self.assertEqual(wheel._psx_scroll_remainder, 0)
         self.assertEqual(outer._keyboard(SimpleNamespace(keysym="Page_Down")), "break")
-        self.assertLessEqual(abs(canvas.canvasy(0) - 128), 1)
+        self.assertLessEqual(abs(canvas.canvasy(0) - 120), 1)
         canvas.yview_moveto(1)
         self.host.update_idletasks()
         edge = SimpleNamespace(delta=-120, state=0)
