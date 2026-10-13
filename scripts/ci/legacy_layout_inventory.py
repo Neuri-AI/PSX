@@ -8,12 +8,18 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import re
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 
 LEGACY_LAYOUTS = frozenset({"Row", "Column"})
+LEGACY_PRIVATE = re.compile(
+    r"^(?:ROW|COLUMN)_(?:CONTRACT|PROPS|DEFAULTS)$"
+    r"|^(?:Qt|Tk|Kivy)(?:Row|Column)Adapter$"
+    r"|^validate_(?:row|column)_props$"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,11 +39,15 @@ def references(path: str, source: str) -> tuple[LegacyReference, ...]:
         def visit_Name(self, node: ast.Name) -> None:
             if node.id in LEGACY_LAYOUTS:
                 found.add(LegacyReference(path, node.lineno, node.id, "identifier"))
+            elif LEGACY_PRIVATE.fullmatch(node.id):
+                found.add(LegacyReference(path, node.lineno, node.id, "legacy_adapter_or_contract"))
             self.generic_visit(node)
 
         def visit_Attribute(self, node: ast.Attribute) -> None:
             if node.attr in LEGACY_LAYOUTS:
                 found.add(LegacyReference(path, node.lineno, node.attr, "attribute"))
+            elif LEGACY_PRIVATE.fullmatch(node.attr):
+                found.add(LegacyReference(path, node.lineno, node.attr, "legacy_adapter_or_contract"))
             self.generic_visit(node)
 
         def visit_Constant(self, node: ast.Constant) -> None:
