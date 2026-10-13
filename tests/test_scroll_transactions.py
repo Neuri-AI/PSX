@@ -26,6 +26,21 @@ class Content:
         self.size = (width, height)
 
 
+class QtContent(Content):
+    def width(self):
+        return self._width
+
+    def height(self):
+        return self._height
+
+    def resize(self, width, height):
+        self._width, self._height = width, height
+
+    @property
+    def size(self):
+        return (self._width, self._height)
+
+
 class Bar:
     def __init__(self, value=0, maximum=200):
         self._value, self._maximum = value, maximum
@@ -48,7 +63,8 @@ class QtHost:
     _psx_sfle_scroll = True
 
     def __init__(self):
-        self._psx_content = Content()
+        self._psx_content = QtContent()
+        self._psx_content.resize(300, 200)
         self.h, self.v = Bar(80, 200), Bar(60, 120)
         self.focus_token = object()
 
