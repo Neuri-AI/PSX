@@ -548,6 +548,56 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_native_kivy_wheel_and_nested_edge_chaining(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.widget import Widget
+            from psx.renderers.kivy.scroll import _PSXScrollView
+            from types import SimpleNamespace
+
+            def scroll(width, height, content_width, content_height):
+                view = _PSXScrollView(size_hint=(None, None),
+                                      size=(width, height))
+                content = Widget(size_hint=(None, None),
+                                 size=(content_width, content_height))
+                view.add_widget(content)
+                view._psx_content = content
+                view._psx_sfle_scroll = True
+                view._psx_props = {"enabled": True, "direction": "vertical"}
+                view.scroll_y = 1.0
+                return view, content
+
+            outer, outer_content = scroll(160, 100, 160, 300)
+            inner, inner_content = scroll(120, 80, 120, 200)
+            outer_content.add_widget(inner)
+            inner.scroll_y = 0.0
+            remaining = inner._psx_scroll_delta(0, 45)
+            assert remaining == (0.0, 0.0)
+            assert abs(outer.scroll_y - (1 - 45 / 200)) < 1e-6
+            assert inner.scroll_y == 0.0
+            first = outer.scroll_y
+            touch = SimpleNamespace(is_mouse_scrolling=True,
+                                    button="scrolldown",
+                                    pos=(inner.center_x, inner.center_y))
+            assert inner.on_touch_down(touch) is True
+            assert outer.scroll_y < first
+            # No scroll host claims a delta after all ancestors reach a bound.
+            outer.scroll_y = 0.0
+            assert inner._psx_scroll_delta(0, 48) == (0.0, 48.0)
+            outer_content.remove_widget(inner)
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_scroll_overflow_native_extent_and_logical_offsets(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
