@@ -12,13 +12,13 @@ def Counter():
 
     return psx(
         """
-        <Column spacing={spacing}>
+        <Flex direction="column" gap={12}>
             <Text>PSX Markup Counter</Text>
             <Text>Count: {count}</Text>
             <Button on_click={increment}>+1</Button>
-        </Column>
+        </Flex>
         """,
-        scope={"spacing": 12, "count": count, "increment": increment},
+        scope={"count": count, "increment": increment},
     )
 
 
