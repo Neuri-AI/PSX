@@ -5,10 +5,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Thread
 import struct
+from types import SimpleNamespace
 import zlib
 import tkinter as tk
 from tkinter import ttk
 import unittest
+import sys
 
 from psx import Button, Checkbox, Flex, Text, TextArea, component, psx, use_state
 from psx.core.errors import RendererCapabilityError
@@ -17,6 +19,7 @@ from psx.renderers.tkinter.tkinter import TkinterRenderer
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.errors import DiagnosticCode, SFLEError
 from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutResult
+import wheel
 
 
 def write_png(path, width, height):
@@ -85,7 +88,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
                       on_submit=lambda: sink.append(("submit", None)),
                       layout_width="120px", layout_height="28px"),
                 TextArea("start", key="textarea",
-                         on_change=lambda value: sink.append(("textarea", value)),
+                         on_change=lambda value: sink.append(
+                             ("textarea", value)),
                          layout_width="130px", layout_height="40px"),
                 width="480px", height="140px", gap=5, align_items="flex-start",
             )
@@ -283,7 +287,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(label)[3], wide_height)
         self.assertEqual(rect(following)[1], wide_height)
         self.assertEqual(round(float(label.cget("wraplength"))), 160)
-        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        self.assertLessEqual(
+            self.renderer.sfle_result.geometry_commit_error, 1)
 
     def test_textarea_wraps_at_real_sfle_width_and_preserves_edit_state(self):
         words = ("Alpha bravo charlie delta echo foxtrot golf hotel india "
@@ -317,7 +322,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(editor.index("insert"), initial_cursor)
         self.assertEqual(editor.tag_ranges("sel"), initial_selection)
         self.assertIs(root.children[0].handle.widget, editor)
-        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        self.assertLessEqual(
+            self.renderer.sfle_result.geometry_commit_error, 1)
         self.renderer.set_sfle_constraints(constraints(160, 500))
         self.renderer.commit_layout(root)
         self.assertEqual(rect(editor)[3], wide_height)
@@ -325,7 +331,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(editor.get("1.0", "end-1c"), words)
         self.assertEqual(events, [])
 
-        editor.insert("end-1c", " " + " ".join(["additional native text"] * 18))
+        editor.insert("end-1c", " " +
+                      " ".join(["additional native text"] * 18))
         self.host.update()
         self.assertEqual(events, [editor.get("1.0", "end-1c")])
         self.assertIsNone(self.renderer._sfle_textarea_error)
@@ -380,6 +387,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         class CountingEngine:
             def __init__(self):
                 self.calls = 0
+
             def compute(self, snapshot):
                 self.calls += 1
                 return PythonLayoutEngine().compute(snapshot)
@@ -413,7 +421,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
             self.assertEqual(rect(right), (240, 0, 20, 20))
             self.assertEqual(frame.pack_slaves(), [])
             self.assertEqual(frame.grid_slaves(), [])
-            self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+            self.assertLessEqual(
+                self.renderer.sfle_result.geometry_commit_error, 1.0)
         finally:
             self.reconciler.unmount()
             self.host.geometry("400x240+0+0")
@@ -436,16 +445,19 @@ class TkSFLEGeometryTests(unittest.TestCase):
             self.host.update()
 
     def test_rejects_non_sfle_native_geometry_manager(self):
-        root = self.reconciler.render(Flex(item("A", "a", 30), width=160, height=80))
+        root = self.reconciler.render(
+            Flex(item("A", "a", 30), width=160, height=80))
         widget = root.children[0].handle.widget
         widget.place_forget()
         widget.pack()
         with self.assertRaises(SFLEError) as captured:
             self.renderer.commit_layout(root)
-        self.assertEqual(captured.exception.code, DiagnosticCode.UNSUPPORTED_FEATURE)
+        self.assertEqual(captured.exception.code,
+                         DiagnosticCode.UNSUPPORTED_FEATURE)
 
     def test_engine_generation_mismatch_rejects_without_native_mutation(self):
-        root = self.reconciler.render(Flex(item("A", "a", 30), width=160, height=80))
+        root = self.reconciler.render(
+            Flex(item("A", "a", 30), width=160, height=80))
         widget = root.children[0].handle.widget
         before = rect(widget)
 
@@ -457,12 +469,15 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.renderer._sfle_engine = WrongGeneration()
         with self.assertRaises(SFLEError) as captured:
             self.renderer.commit_layout(root)
-        self.assertEqual(captured.exception.code, DiagnosticCode.INVALID_SNAPSHOT)
+        self.assertEqual(captured.exception.code,
+                         DiagnosticCode.INVALID_SNAPSHOT)
         self.assertEqual(rect(widget), before)
 
     def test_worker_thread_commit_fails_before_any_tcl_calls(self):
-        root = self.reconciler.render(Flex(item("A", "a", 30), width=160, height=80))
+        root = self.reconciler.render(
+            Flex(item("A", "a", 30), width=160, height=80))
         errors = []
+
         def run():
             try:
                 self.renderer.commit_layout(root)
@@ -472,7 +487,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         worker.start()
         worker.join()
         self.assertEqual(len(errors), 1)
-        self.assertEqual(errors[0].code, DiagnosticCode.UNSUPPORTED_MEASUREMENT)
+        self.assertEqual(
+            errors[0].code, DiagnosticCode.UNSUPPORTED_MEASUREMENT)
 
     def test_image_intrinsic_source_resize_and_keyed_native_reuse(self):
         from psx import Image
@@ -504,8 +520,10 @@ class TkSFLEGeometryTests(unittest.TestCase):
             self.assertEqual(rect(img), (0, 0, 60, 30))
             self.assertEqual(rect(button)[1], 30)
             self.assertGreater(img._psx_photo.width(), 0)
-            self.assertEqual((img._psx_photo.width(), img._psx_photo.height()), (60, 30))
-            self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+            self.assertEqual(
+                (img._psx_photo.width(), img._psx_photo.height()), (60, 30))
+            self.assertLessEqual(
+                self.renderer.sfle_result.geometry_commit_error, 1)
 
     def test_image_invalid_source_requires_actual_native_intrinsic_measurement(self):
         from psx import Image
@@ -546,7 +564,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         ])
         self.assertTrue(all(w.winfo_manager() == "place" for w in widgets))
         self.assertTrue(all(w.master is root.handle.widget for w in widgets))
-        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        self.assertLessEqual(
+            self.renderer.sfle_result.geometry_commit_error, 1)
 
         updated = self.reconciler.render(declaration("DONE", 5))
         self.assertTrue(all(updated.children[i].handle.widget is w
@@ -554,7 +573,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(divider), (162, 0, 34, 5))
         self.assertEqual(rect(spacer), (202, 0, 102, 10))
         self.assertEqual(badge._psx_badge_font.metrics("linespace") > 0, True)
-        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        self.assertLessEqual(
+            self.renderer.sfle_result.geometry_commit_error, 1)
 
     def test_switch_spinbox_select_sfle_geometry_and_state_preservation(self):
         from psx import Switch, SpinBox, Select
@@ -589,7 +609,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
 
         self.renderer.set_sfle_constraints(constraints(380, 80))
         root = self.reconciler.render(view("before"))
-        sw, spin, select = widgets = [item.handle.widget for item in root.children]
+        sw, spin, select = widgets = [
+            item.handle.widget for item in root.children]
         self.assertIsInstance(sw, ttk.Frame)
         self.assertIsInstance(spin, ttk.Frame)
         self.assertIsInstance(select, ttk.Combobox)
@@ -623,7 +644,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
             ("spin", "after", 4),
             ("select", "after", "a"),
         ])
-        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        self.assertLessEqual(
+            self.renderer.sfle_result.geometry_commit_error, 1)
 
     def test_structural_box_radiogroup_and_labeled_divider_native_rectangles(self):
         from psx import Radio, RadioGroup, Divider
@@ -667,7 +689,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(label.winfo_manager(), "place")
         self.assertIsNone(divider._psx_child_window_id)
         self.assertGreater(rect(label)[2], 0)
-        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        self.assertLessEqual(
+            self.renderer.sfle_result.geometry_commit_error, 1)
         radio_b.invoke()
         self.assertEqual(events, ["b"])
 
@@ -696,7 +719,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(scroll), (0, 0, 120, 80))
         self.assertEqual(rect(content), (0, 0, 120, 80))
         self.assertEqual(rect(child), (0, 0, 40, 20))
-        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        self.assertLessEqual(
+            self.renderer.sfle_result.geometry_commit_error, 1)
 
     def test_nested_native_tk_wheel_chains_only_remaining_pixels(self):
         from types import SimpleNamespace
@@ -724,7 +748,10 @@ class TkSFLEGeometryTests(unittest.TestCase):
         inner._psx_canvas.yview_moveto(1.0)
         outer._psx_canvas.yview_moveto(0)
         self.host.update_idletasks()
-        event = SimpleNamespace(delta=-120, state=0)
+        event = SimpleNamespace(
+            delta=-6 if sys.platform == "darwin" else -120,
+            state=0,
+        )
         self.assertIsNone(inner._wheel(event))
         self.assertEqual(outer._wheel(event), "break")
         self.assertLessEqual(abs(outer._psx_canvas.canvasy(0) - 48), 1)
@@ -793,7 +820,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertLessEqual(abs(outer._psx_canvas.canvasx(0) - 70), 1)
         self.assertLessEqual(abs(outer._psx_canvas.canvasy(0) - 40), 1)
         self.assertIs(root.children[0].children[0].handle.widget, content)
-        self.assertIs(root.children[0].children[0].children[0].handle.widget, button)
+        self.assertIs(
+            root.children[0].children[0].children[0].handle.widget, button)
         self.assertEqual(content.winfo_manager(), "place")
 
     def test_scroll_unmount_releases_tk_canvas(self):
@@ -864,15 +892,22 @@ class TkSFLEGeometryTests(unittest.TestCase):
         outer = root.children[0].handle.widget
         canvas = outer._psx_canvas
         self.host.update_idletasks()
-        wheel = SimpleNamespace(delta=-120, state=0)
+        wheel = SimpleNamespace(
+            delta=-6 if sys.platform == "darwin" else -120,
+            state=0,
+        )
         self.assertEqual(outer._wheel(wheel), "break")
         self.assertLessEqual(abs(canvas.canvasy(0) - 48), 1)
         self.assertEqual(wheel._psx_scroll_remainder, 0)
-        self.assertEqual(outer._keyboard(SimpleNamespace(keysym="Page_Down")), "break")
+        self.assertEqual(outer._keyboard(
+            SimpleNamespace(keysym="Page_Down")), "break")
         self.assertLessEqual(abs(canvas.canvasy(0) - 120), 1)
         canvas.yview_moveto(1)
         self.host.update_idletasks()
-        edge = SimpleNamespace(delta=-120, state=0)
+        edge = SimpleNamespace(
+            delta=-6 if sys.platform == "darwin" else -120,
+            state=0,
+        )
         self.assertIsNone(outer._wheel(edge))
 
     def test_native_scroll_overflow_offsets_and_canvas_clipping(self):
@@ -898,7 +933,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.host.update_idletasks()
         self.assertIs(child.master, outer._psx_content)
         self.assertEqual(rect(child), (0, 0, 300, 200))
-        self.assertEqual(tuple(map(int, canvas.cget("scrollregion").split())), (0, 0, 300, 200))
+        self.assertEqual(
+            tuple(map(int, canvas.cget("scrollregion").split())), (0, 0, 300, 200))
         binding = binding_from_host(outer._psx_props, Rect(0, 0, 120, 80),
                                     Rect(0, 0, 300, 200))
         result = apply_tk_scroll(outer, binding, ScrollOffset(90, 60))
@@ -968,6 +1004,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
 
     def test_input_placeholder_overlay_is_not_user_value_and_hides_on_update(self):
         from psx import Input
+
         def view(value, hint):
             return Flex(
                 Input(value=value, placeholder=hint, key="input",
@@ -1004,7 +1041,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(entry), (0, 0, 120, 25))
         self.assertEqual(entry.winfo_manager(), "place")
         self.assertIs(entry.master, root.handle.widget)
-        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        self.assertLessEqual(
+            self.renderer.sfle_result.geometry_commit_error, 1)
         updated = self.reconciler.render(Flex(
             Input(
                 value="Beta", key="input", layout_width="90px",
@@ -1033,7 +1071,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(widget), (0, 0, 110, 22))
         self.assertEqual(widget.winfo_manager(), "place")
         self.assertEqual(widget.master, root.handle.widget)
-        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        self.assertLessEqual(
+            self.renderer.sfle_result.geometry_commit_error, 1)
         updated = self.reconciler.render(Flex(
             ProgressBar(
                 value=80, min=0, max=100, key="progress",
@@ -1059,8 +1098,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         from psx.sfle.native_operation_oracles import Observation, ORACLES
 
         calls = []
-        original = lambda: calls.append("old")
-        replacement = lambda: calls.append("new")
+        def original(): return calls.append("old")
+        def replacement(): return calls.append("new")
         first = self.reconciler.render(Flex(
             Button("Old", key="action", on_click=original,
                    layout_width="40px", layout_height="20px"),
@@ -1091,7 +1130,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertIs(after.children[1].handle.widget, widget)
         ORACLES["update"](created, observe(state=widget.cget("text")))
         self.assertEqual(widget.cget("text"), "New")
-        self.assertLess(rect(after.children[0].handle.widget)[0], rect(widget)[0])
+        self.assertLess(rect(after.children[0].handle.widget)[
+                        0], rect(widget)[0])
         ORACLES["reorder"](
             observe(order=("action", "peer")),
             observe(order=("peer", "action")),
@@ -1150,9 +1190,9 @@ class TkSFLEGeometryTests(unittest.TestCase):
                               layout_height="15px"), width="40px", height="24px")
                 ),
                 "Box": lambda: Box(Text("Inside", layout_width="30px",
-                                       layout_height="15px")),
+                                        layout_height="15px")),
                 "Flex": lambda: Flex(Text("Inside", layout_width="30px",
-                                         layout_height="15px")),
+                                          layout_height="15px")),
             }
             native = set(NATIVE_LEAF_TYPES["tk"]) | {"Flex"}
             self.assertEqual(set(factories), native)
@@ -1177,7 +1217,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
             def view(name, width, reverse=False):
                 target = built(name, width)
                 peer = item("Peer", "peer", 20)
-                return Flex(*( (peer, target) if reverse else (target, peer) ),
+                return Flex(*((peer, target) if reverse else (target, peer)),
                             width=160, height=80, gap=8,
                             align_items="flex-start")
 
@@ -1189,19 +1229,24 @@ class TkSFLEGeometryTests(unittest.TestCase):
                     handle = instance.handle
                     widget = handle.widget
                     before = rect(widget)
-                    self.assertEqual(before[2], 60, name) if name != "Box" else self.assertGreater(before[2], 0, name)
-                    self.assertEqual(before[3], 24, name) if name != "Box" else self.assertGreater(before[3], 0, name)
-                    previous_order = tuple(child.node.key for child in root.children)
+                    self.assertEqual(before[2], 60, name) if name != "Box" else self.assertGreater(
+                        before[2], 0, name)
+                    self.assertEqual(before[3], 24, name) if name != "Box" else self.assertGreater(
+                        before[3], 0, name)
+                    previous_order = tuple(
+                        child.node.key for child in root.children)
                     previous_state = (
                         before,
-                        tuple(dict(child.node.props) for child in instance.children),
+                        tuple(dict(child.node.props)
+                              for child in instance.children),
                     )
                     before_observation = Observation(
                         native_identity=id(widget), mounted=True, rect=before,
                         state=previous_state, order=previous_order,
                     )
                     ORACLES["create"](None, before_observation)
-                    updated = self.reconciler.render(view(name, 80, reverse=True))
+                    updated = self.reconciler.render(
+                        view(name, 80, reverse=True))
                     current = updated.children[1]
                     unchanged_peer = updated.children[0].handle.widget
                     self.assertNotIn(id(unchanged_peer),
@@ -1211,18 +1256,21 @@ class TkSFLEGeometryTests(unittest.TestCase):
                     self.assertIs(current.handle, handle, name)
                     self.assertIs(current.handle.widget, widget, name)
                     after = rect(widget)
-                    self.assertEqual(after[2], 80, name) if name != "Box" else self.assertGreater(after[2], 0, name)
+                    self.assertEqual(after[2], 80, name) if name != "Box" else self.assertGreater(
+                        after[2], 0, name)
                     self.assertGreater(after[0], 0, name)
                     self.assertLess(rect(updated.children[0].handle.widget)[0],
                                     after[0], name)
                     current_state = (
                         after,
-                        tuple(dict(child.node.props) for child in instance.children),
+                        tuple(dict(child.node.props)
+                              for child in instance.children),
                     )
                     after_observation = Observation(
                         native_identity=id(widget), mounted=True, rect=after,
                         state=current_state,
-                        order=tuple(child.node.key for child in updated.children),
+                        order=tuple(
+                            child.node.key for child in updated.children),
                     )
                     ORACLES["update"](before_observation, after_observation)
                     ORACLES["reorder"](before_observation, after_observation)
@@ -1234,8 +1282,10 @@ class TkSFLEGeometryTests(unittest.TestCase):
                             self.renderer.flush()
                             self.assertGreater(self.renderer.sfle_result.generation,
                                                previous_generation, (name, reason))
-                            self.assertIs(current.handle.widget, widget, (name, reason))
-                            self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
+                            self.assertIs(current.handle.widget,
+                                          widget, (name, reason))
+                            self.assertFalse(
+                                self.renderer._sfle_measurement_invalidations.pending)
                     if name == "Image":
                         import os
                         original_stamp = image_path.stat().st_mtime_ns
@@ -1265,7 +1315,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
                     )
                     with self.assertRaises((TypeError, RendererCapabilityError)):
                         self.reconciler.render(forged)
-                    self.assertIs(updated.children[1].handle.widget, widget, name)
+                    self.assertIs(
+                        updated.children[1].handle.widget, widget, name)
                     self.assertEqual(rect(widget), after, name)
                     ORACLES["rollback"](
                         after_observation, Observation(
@@ -1287,7 +1338,6 @@ class TkSFLEGeometryTests(unittest.TestCase):
                         ),
                     )
             self.reconciler.unmount()
-
 
     def test_all_callback_controls_keep_one_live_slot_after_reconciliation(self):
         """Exercise per-control callback replacement against real mounted widgets."""
@@ -1317,6 +1367,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
             with self.subTest(component=name):
                 calls = []
                 self.reconciler.unmount()
+
                 def view(callback):
                     target = create_element(
                         base.type, *base.children, key="case",
@@ -1360,8 +1411,10 @@ class TkSFLEGeometryTests(unittest.TestCase):
                 self.renderer.request_sfle_invalidation(reason)
                 self.renderer.flush()
                 self.assertIs(root.children[0].handle.widget, widget)
-                self.assertEqual(self.renderer.sfle_result.generation, generation + 1)
-                self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, set())
+                self.assertEqual(
+                    self.renderer.sfle_result.generation, generation + 1)
+                self.assertEqual(
+                    self.renderer._sfle_measurement_invalidations.pending, set())
                 self.reconciler.unmount()
 
     def test_tk_theme_changed_event_requests_sfle_remeasurement(self):
@@ -1380,8 +1433,6 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.reconciler.unmount()
         self.assertIsNone(self.renderer._sfle_theme_bind_id)
 
-
-
     def test_readback_race_restores_tk_placement_and_preserves_identity(self):
         from unittest.mock import patch
         import psx.sfle.tkinter_layout_bridge as bridge
@@ -1399,19 +1450,22 @@ class TkSFLEGeometryTests(unittest.TestCase):
         def readback_error(space, expected, observed):
             if not injected["done"]:
                 injected["done"] = True
-                self.renderer._sfle_measurement_invalidations.request("resource")
+                self.renderer._sfle_measurement_invalidations.request(
+                    "resource")
             return original_error(space, expected, observed)
 
         with patch.object(bridge.DevicePixelSpace, "error", readback_error):
             self.renderer.commit_layout(root)
-        self.assertTrue(injected["done"], "Native readback assertion must execute")
+        self.assertTrue(injected["done"],
+                        "Native readback assertion must execute")
         self.assertEqual(tuple(rect(widget) for widget in widgets), before)
-        self.assertGreaterEqual(self.renderer.sfle_result.generation, published.generation + 2)
-        self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, set())
+        self.assertGreaterEqual(
+            self.renderer.sfle_result.generation, published.generation + 2)
+        self.assertEqual(
+            self.renderer._sfle_measurement_invalidations.pending, set())
         self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
-        self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
-
-
+        self.assertTrue(all(child.handle.widget is widget for child,
+                        widget in zip(root.children, widgets)))
 
     def test_native_tk_geometry_application_failure_restores_previous_placement(self):
         from unittest.mock import patch
@@ -1428,6 +1482,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
 
         def interrupted_committer(*args, **kwargs):
             apply = original_committer(*args, **kwargs)
+
             def fail_after_application(result):
                 apply(result)
                 widgets[0].place(x=7, y=9, width=13, height=15)
@@ -1440,8 +1495,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(tuple(rect(widget) for widget in widgets), before)
         self.assertIs(self.renderer.sfle_result, published)
         self.renderer.commit_layout(root)
-        self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
-
+        self.assertTrue(all(child.handle.widget is widget for child,
+                        widget in zip(root.children, widgets)))
 
     def test_native_tk_geometry_invalidation_during_application_rolls_back(self):
         from unittest.mock import patch
@@ -1459,22 +1514,25 @@ class TkSFLEGeometryTests(unittest.TestCase):
 
         def interrupted_committer(*args, **kwargs):
             apply = original_committer(*args, **kwargs)
+
             def fail_after_application(result):
                 apply(result)
                 if not injected["done"]:
                     injected["done"] = True
-                    self.renderer._sfle_measurement_invalidations.request("dpi")
+                    self.renderer._sfle_measurement_invalidations.request(
+                        "dpi")
             return fail_after_application
 
         with patch.object(bridge, "NativeGeometryCommitter", side_effect=interrupted_committer):
             self.renderer.commit_layout(root)
         self.assertEqual(tuple(rect(widget) for widget in widgets), before)
-        self.assertGreaterEqual(self.renderer.sfle_result.generation, published.generation + 2)
-        self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, set())
+        self.assertGreaterEqual(
+            self.renderer.sfle_result.generation, published.generation + 2)
+        self.assertEqual(
+            self.renderer._sfle_measurement_invalidations.pending, set())
         self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
-        self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
-
-
+        self.assertTrue(all(child.handle.widget is widget for child,
+                        widget in zip(root.children, widgets)))
 
     def test_native_local_image_revision_remeasures_without_props_or_remount(self):
         from psx import Image
@@ -1500,12 +1558,14 @@ class TkSFLEGeometryTests(unittest.TestCase):
             self.renderer.flush()
             self.assertIs(root.children[0].handle.widget, native)
             self.assertIs(root.children[1].handle.widget, peer)
-            self.assertGreater(self.renderer.sfle_result.generation, first_generation)
+            self.assertGreater(
+                self.renderer.sfle_result.generation, first_generation)
             self.assertEqual(rect(native)[3], 24)
             self.assertEqual(rect(peer)[1], 24)
-            self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
-            self.assertFalse(self.renderer._sfle_image_resource_watch.changed())
-
+            self.assertFalse(
+                self.renderer._sfle_measurement_invalidations.pending)
+            self.assertFalse(
+                self.renderer._sfle_image_resource_watch.changed())
 
     def test_targeted_resource_remeasurement_does_not_measure_unaffected_tk_peer(self):
         root = self.reconciler.render(Flex(
@@ -1514,11 +1574,13 @@ class TkSFLEGeometryTests(unittest.TestCase):
         ))
         first, second = (child.handle.widget for child in root.children)
         baseline = tuple(rect(widget) for widget in (first, second))
-        self.renderer.request_sfle_invalidation("resource", widget_id=id(first))
+        self.renderer.request_sfle_invalidation(
+            "resource", widget_id=id(first))
         self.renderer.flush()
         cache = self.renderer._sfle_native_intrinsic_cache
         self.assertIn(id(first), cache.last_measured)
         self.assertNotIn(id(second), cache.last_measured)
-        self.assertEqual(tuple(rect(widget) for widget in (first, second)), baseline)
+        self.assertEqual(tuple(rect(widget)
+                         for widget in (first, second)), baseline)
         self.assertIs(root.children[0].handle.widget, first)
         self.assertIs(root.children[1].handle.widget, second)
