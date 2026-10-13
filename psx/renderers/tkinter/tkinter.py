@@ -33,7 +33,7 @@ from psx.core.events import EventSlot
 from psx.core.native import NativeOwnership, NativeWidget
 from psx.core.vnode import NodeKind, VNode
 from psx.core.props import FLEX_ITEM_PROPS
-from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
+from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
 from psx.sfle.f3_external import external_port_for
 from psx.sfle.model import LayoutConstraints, LayoutResult
 from psx.renderers.adapters import (
@@ -306,7 +306,7 @@ class TkinterRenderer:
         self._sfle_theme_bind_id = None
         from psx.sfle.f3_g2_invalidation import MeasurementInvalidations
         self._sfle_measurement_invalidations = MeasurementInvalidations()
-        from psx.sfle.f3_native_cache import NativeIntrinsicCache
+        from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
         self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
         from psx.sfle.f3_resource_watch import ImageResourceWatch
         self._sfle_image_resource_watch = ImageResourceWatch()
@@ -647,7 +647,7 @@ class TkinterRenderer:
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
             if port is None and node.type != "Flex":
-                g2_native_leaf_needs_measurement(node, backend="tk")
+                native_leaf_needs_measurement(node, backend="tk")
             if node.type != "Flex":
                 node = VNode(node.kind, node.type, node.key,
                              {name: value for name, value in node.props.items()
