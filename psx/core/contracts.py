@@ -16,10 +16,8 @@ from dataclasses import dataclass
 from .validators import (
     validate_button_props,
     validate_checkbox_props,
-    validate_column_props,
     validate_flex_props,
     validate_input_props,
-    validate_row_props,
     validate_slider_props,
     validate_text_props,
     validate_textarea_props,
@@ -59,7 +57,7 @@ class ComponentContract:
 
     def _validate(self, props: Mapping[str, object], *, builder: bool) -> None:
         validator = (self.builder_validator or self.validator) if builder else self.validator
-        if self.name in ("Row", "Column", "Flex"):
+        if self.name == "Flex":
             # Legacy layouts keep their old contract until F3-G4 removal;
             # Flex validates its own closed syntax and shared item metadata.
             validator(props)
@@ -129,17 +127,6 @@ FLEX_CONTRACT = ComponentContract(
     frozenset(), "multiple", validate_flex_props,
 )
 
-COLUMN_CONTRACT = ComponentContract(
-    "Column",
-    COLUMN_PROPS,
-    COLUMN_DEFAULTS,
-    frozenset(),
-    "multiple",
-    validate_column_props,
-)
-ROW_CONTRACT = ComponentContract(
-    "Row", ROW_PROPS, ROW_DEFAULTS, frozenset(), "multiple", validate_row_props,
-)
 SLIDER_CONTRACT = ComponentContract(
     "Slider",
     SLIDER_PROPS,
