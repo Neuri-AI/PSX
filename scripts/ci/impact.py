@@ -131,7 +131,7 @@ def classify(files: list[str] | None, *, force_full: bool = False) -> dict[str, 
         not isinstance(p, str) or not p or p.startswith("/") or ".." in PurePosixPath(p).parts
         for p in files
     ):
-        selected = set(SUITES)
+        selected = set(SUITES) if force_full else set(SUITES) - {"legacy"}
         why = "explicit full certification" if force_full else "missing, unsafe or truncated diff"
         return {
             "docs_only": False, "full": True,
