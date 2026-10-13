@@ -210,6 +210,14 @@ def _element(
         if value is None:
             value = content
         return constructor(_text_value(value, filename, element.span), key=key, **props)
+    if contract is not None and contract.child_policy == "text":
+        value = props.pop("value", None)
+        content = _inline_children(element.children, scope, filename, lexical=lexical)
+        if value is not None and content:
+            _error(f"{definition.name} cannot receive both value and child text", filename, element.span)
+        if value is None:
+            value = content
+        return constructor(_text_value(value, filename, element.span), key=key, **props)
     if contract is not None and contract.child_policy == "none" and element.children:
         _error(f"{definition.name} does not accept child content; use its props instead", filename, element.span)
     children = _nodes(element.children, scope, resolver, filename, lexical=lexical)

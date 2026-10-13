@@ -77,9 +77,24 @@ EventDef = tuple[str, EventFactory]
 
 # Appliers
 def apply_qt_radio(widget, props):
+    parent = widget.parentWidget()
+    radios = getattr(parent, "_psx_radios", None)
+    previous = getattr(widget, "_psx_radio_value", None)
+    value = props["value"]
+    if radios is not None and previous != value:
+        if value in radios and radios[value] is not widget:
+            raise RendererCapabilityError(
+                f"RadioGroup has duplicate Radio value {value!r}."
+            )
+        if radios.get(previous) is widget:
+            del radios[previous]
+        radios[value] = widget
     widget.setText(str(props["label"]))
     widget.setEnabled(bool(props["enabled"]))
-    widget._psx_radio_value = props["value"]
+    widget._psx_radio_value = value
+    if radios is not None and previous != value:
+        from psx.renderers.qt.radiogroup import QtRadioGroupAdapter
+        QtRadioGroupAdapter._sync_checked(parent, parent._psx_selected_value)
 
 @dataclass(slots=True)
 class QtHandle:

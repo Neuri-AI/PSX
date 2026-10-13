@@ -134,7 +134,13 @@ def emit_tk_input(widget, slot):
     return _trace
 
 def emit_tk_submit(widget, slot):
-    return lambda event: slot.invoke()
+    def submit(event):
+        # Widget-level key bindings execute even when ttk's class binding is
+        # disabled. Guard the public callback against that native behavior.
+        if not widget.instate(("disabled",)):
+            return slot.invoke()
+        return None
+    return submit
 
 def emit_tk_textarea(widget, slot):
     def _on_modified(event):

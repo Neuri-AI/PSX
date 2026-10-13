@@ -202,7 +202,13 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                     ).intrinsic,
                     )
                 )
-        snapshot = seed_unconstrained_width_measurements(snapshot, frozenset(dependent))
+        # Initial native hints describe intrinsic content, not a measurement
+        # at the inherited viewport width. Width-independent controls (in
+        # particular Image) must not advertise that placeholder as a certified
+        # post-flex width. Dependent controls acquire definite widths below.
+        snapshot = seed_unconstrained_width_measurements(
+            snapshot, frozenset(leaf_widgets) | frozenset(dependent),
+        )
         result = compute_width_dependent(
             renderer._sfle_engine, snapshot, dependent,
             current_generation=lambda: renderer._sfle_generation,

@@ -56,8 +56,19 @@ class KivyRadioAdapter:
 
     def update(self, renderer, handle, changed, removed):
         props = updated_radio_props(handle.props, changed, removed)
-        handle.props = props
         widget = handle.widget
+        group = widget.parent
+        old_value = widget._psx_radio_value
+        new_value = props["value"]
+        if group is not None and hasattr(group, "_psx_radios") and new_value != old_value:
+            member = group._psx_radios.get(new_value)
+            if member is not None and member is not widget._psx_checkbox:
+                raise RendererCapabilityError(
+                    f"RadioGroup has duplicate Radio value {new_value!r}."
+                )
+            group._psx_radios.pop(old_value, None)
+            group._psx_radios[new_value] = widget._psx_checkbox
+        handle.props = props
         widget._psx_label.text = props["label"]
         if getattr(widget, "_psx_sfle_radio", False):
             widget._psx_label.texture_update()
@@ -68,6 +79,8 @@ class KivyRadioAdapter:
         widget._psx_radio_value = props["value"]
         widget.disabled = not props["enabled"]
         widget._psx_checkbox.disabled = not props["enabled"]
+        if group is not None and hasattr(group, "_psx_radios"):
+            KivyRadioGroupAdapter._sync_checked(group, group._psx_selected_value)
 
     def bind_event(self, renderer, handle, event, slot):
         raise RendererCapabilityError(
@@ -108,6 +121,7 @@ class KivyRadioGroupAdapter:
         widget._psx_radios = {}          # value -> KivyCheckBox
         widget._psx_event_slot = None
         widget._psx_updating = False
+        widget._psx_selected_value = props["value"]
         widget.disabled = not props["enabled"]
 
         return KivyHandle("RadioGroup", widget, props)
@@ -120,6 +134,7 @@ class KivyRadioGroupAdapter:
             widget.spacing = int(props["spacing"])
             widget.padding = _normalize_padding(props["padding"])
         widget.disabled = not props["enabled"]
+        widget._psx_selected_value = props["value"]
 
         if "value" in changed or "value" in removed:
             self._sync_checked(widget, props["value"])
@@ -155,8 +170,8 @@ class KivyRadioGroupAdapter:
             )
         checkbox = child.widget._psx_checkbox
         checkbox.group = widget._psx_group_name
-        checkbox.bind(active=lambda inst, active, v=value:
-                      self._on_active(widget, v, active))
+        checkbox.bind(active=lambda inst, active, radio=child.widget:
+                      self._on_active(widget, radio._psx_radio_value, active))
         widget._psx_radios[value] = checkbox
         if widget._psx_sfle_group:
             from psx.renderers.kivy.flex import KivySFLEFlexAdapter

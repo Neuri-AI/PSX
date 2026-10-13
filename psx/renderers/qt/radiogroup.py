@@ -45,6 +45,7 @@ class QtRadioGroupAdapter:
         button_group.setExclusive(True)
         widget._psx_button_group = button_group
         widget._psx_radios = {}          # value -> QRadioButton
+        widget._psx_selected_value = props["value"]
         widget._psx_event_slot = None
         widget._psx_updating = False
 
@@ -146,13 +147,21 @@ class QtRadioGroupAdapter:
     @staticmethod
     def _sync_checked(widget, selected_value):
         """Reflect the group's value on its radios without firing signals."""
+        widget._psx_selected_value = selected_value
         widget._psx_updating = True
+        # An exclusive QButtonGroup refuses to clear its last checked button.
+        # Temporarily suspend exclusivity for controlled None/stale selection,
+        # then restore the user's native exclusive-selection behavior.
+        group = widget._psx_button_group
+        was_exclusive = group.exclusive()
+        group.setExclusive(False)
         try:
             for value, radio in widget._psx_radios.items():
                 should_check = value == selected_value
                 if radio.isChecked() != should_check:
                     radio.setChecked(should_check)
         finally:
+            group.setExclusive(was_exclusive)
             widget._psx_updating = False
 
 

@@ -1,77 +1,68 @@
-"""Kivy widget behavior assertions executed against real SDL2 providers."""
+"""Public Kivy behavior certified through actual isolated SDL2 native widgets."""
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
-import textwrap
 
 import pytest
-
 from tests.certification.public_behavior_census import Feature, assert_feature
 
+COMPONENTS = ('Text', 'Button', 'Input', 'TextArea', 'Checkbox', 'Slider', 'Select',
+              'ProgressBar', 'Radio', 'RadioGroup', 'Switch', 'SpinBox', 'Divider', 'Link', 'Badge')
+EVENTS = [('Button', 'on_click'), ('Checkbox', 'on_change'), ('Input', 'on_change'),
+          ('Input', 'on_submit'), ('TextArea', 'on_change'), ('Slider', 'on_change'),
+          ('Select', 'on_change'), ('Switch', 'on_change'), ('SpinBox', 'on_change'),
+          ('RadioGroup', 'on_change'), ('Link', 'on_click')]
 
-@pytest.mark.parametrize(("component", "property_name"), [
-    ("Input", "value"),
-    ("Checkbox", "checked"),
-    ("ProgressBar", "value"),
-])
-def test_kivy_native_updated_widget_survives_reconciliation(request, component, property_name):
-    # A fresh interpreter isolates Kivy's singleton application and graphics
-    # provider, exactly as the mandatory native Kivy layout suite does.
-    script = textwrap.dedent("""
-        from kivy.config import Config
-        Config.set('graphics', 'window_state', 'hidden')
-        from psx import Flex, Input, Checkbox, ProgressBar
-        from psx.core.reconcile import Reconciler
-        from psx.renderers.kivy.kivy import KivyRenderer
-        from psx.sfle.engine import PythonLayoutEngine
-        from psx.sfle.model import AvailableSize, LayoutConstraints
 
-        renderer = KivyRenderer(
-            sfle_constraints=LayoutConstraints(
-                AvailableSize(260, True), AvailableSize(80, True)),
-            engine=PythonLayoutEngine())
-        tree = Reconciler(renderer)
-        component = COMPONENT
-        def view(updated):
-            port = {
-                'Input': lambda v: Input(
-                    value='after' if v else 'before',
-                    key='control', layout_width='120px',
-                    layout_height='32px', flex_basis='120px', flex_shrink=0),
-                'Checkbox': lambda v: Checkbox(
-                    checked=v, key='control', layout_width='32px',
-                    layout_height='32px', flex_basis='32px', flex_shrink=0),
-                'ProgressBar': lambda v: ProgressBar(
-                    value=65 if v else 25, key='control',
-                    layout_width='120px', layout_height='32px',
-                    flex_basis='120px', flex_shrink=0),
-            }[component]
-            return Flex(port(updated), width='260px', height='80px',
-                        align_items='flex-start')
-        read = {
-            'Input': lambda widget: widget.text,
-            'Checkbox': lambda widget: widget.active,
-            'ProgressBar': lambda widget: widget.value,
-        }[component]
-        before = {'Input': 'before', 'Checkbox': False, 'ProgressBar': 25}[component]
-        after = {'Input': 'after', 'Checkbox': True, 'ProgressBar': 65}[component]
-        first = tree.render(view(False))
-        widget = first.children[0].handle.widget
-        assert read(widget) == before, (component, read(widget), before)
-        updated = tree.render(view(True))
-        assert updated.children[0].handle.widget is widget, component
-        assert read(widget) == after, (component, read(widget), after)
-        assert renderer.sfle_result.geometry_commit_error <= 1
-        tree.unmount()
-    """).replace("COMPONENT", repr(component))
-    env = dict(os.environ, KIVY_NO_FILELOG="1", KIVY_NO_ARGS="1")
-    env["PYTHONPATH"] = "src" + os.pathsep + env.get("PYTHONPATH", "")
-    result = subprocess.run([sys.executable, "-c", script], env=env,
-                            capture_output=True, text=True, timeout=90)
-    assert result.returncode == 0, result.stdout + "\n" + result.stderr
-    for scenario in ("live_update", "native_readback"):
-        assert_feature(request, Feature(component, "kivy", "property",
-                                        property_name, scenario, applicability="native"),
-                       result.returncode == 0)
+def run_driver(request, component, mode, *args):
+    env = dict(os.environ, KIVY_NO_FILELOG='1', KIVY_NO_ARGS='1', KIVY_WINDOW='sdl2', KIVY_TEXT='sdl2')
+    result = subprocess.run([sys.executable, '-m',
+        'tests.certification.kivy_public_behavior_driver', mode, component, *args],
+        env=env, capture_output=True, text=True, timeout=90)
+    assert result.returncode == 0, result.stdout + '\n' + result.stderr
+    receipts = [line for line in result.stdout.splitlines() if line.startswith('PSX_NATIVE_VERIFIED=')]
+    assert len(receipts) == 1, result.stdout
+    verified = json.loads(receipts[0].split('=', 1)[1])
+    assert verified
+    assert len({tuple(row) for row in verified}) == len(verified)
+    for kind, name, scenario in verified:
+        assert_feature(request, Feature(component, 'kivy', kind, name, scenario,
+                                        applicability='native'), True)
+
+
+@pytest.mark.parametrize('component', COMPONENTS)
+def test_kivy_public_property_update_and_native_readback(request, component):
+    run_driver(request, component, 'property')
+
+
+@pytest.mark.parametrize(('component', 'event'), EVENTS)
+def test_kivy_real_event_payload_rebind_and_teardown(request, component, event):
+    run_driver(request, component, 'event', event)
+
+
+@pytest.mark.parametrize('component', COMPONENTS + ('Image', 'Spacer', 'Box', 'Flex', 'Scroll'))
+def test_kivy_keyed_native_mount_update_reorder_unmount(request, component):
+    run_driver(request, component, 'lifecycle')
+
+
+@pytest.mark.parametrize(('component', 'event'), [row for row in EVENTS
+    if row[0] in ('Button', 'Checkbox', 'Slider', 'Select', 'Switch', 'SpinBox', 'RadioGroup')])
+def test_kivy_disabled_controls_reject_native_touch(request, component, event):
+    run_driver(request, component, 'disabled', event)
+
+
+@pytest.mark.parametrize('component', ('Input', 'Slider', 'SpinBox', 'Select'))
+def test_kivy_coupled_properties_produce_real_native_behavior(request, component):
+    run_driver(request, component, 'interaction')
+
+
+@pytest.mark.parametrize('component', ('Image', 'Badge'))
+def test_kivy_native_resource_and_canvas_property_updates(request, component):
+    run_driver(request, component, 'decoration')
+
+
+def test_kivy_radio_value_update_reindexes_native_group_and_event_payload(request):
+    run_driver(request, 'Radio', 'radio_value')

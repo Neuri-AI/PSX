@@ -126,8 +126,8 @@ def validate_slider_props(props: Mapping[str, object]) -> None:
 
     for name in ("value", "min", "max", "step"):
         v = props.get(name, SLIDER_DEFAULTS[name])
-        if isinstance(v, bool) or not isinstance(v, (int, float)):
-            raise RendererCapabilityError(f"Slider.{name} must be a number.")
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+            raise RendererCapabilityError(f"Slider.{name} must be a finite number.")
         if name == "step" and v < 0:
             raise RendererCapabilityError("Slider.step must be >= 0.")
 
@@ -174,8 +174,8 @@ def validate_textarea_props(props: Mapping[str, object]) -> None:
     if isinstance(font_size, bool) or not isinstance(font_size, (int, float)):
         raise RendererCapabilityError(
             "TextArea.font_size must be a positive finite number.")
-    if font_size <= 0:
-        raise RendererCapabilityError("TextArea.font_size must be positive.")
+    if not math.isfinite(font_size) or font_size <= 0:
+        raise RendererCapabilityError("TextArea.font_size must be positive and finite.")
 
     for name in ("enabled", "read_only"):
         val = props.get(name, TEXTAREA_DEFAULTS[name])
@@ -254,8 +254,8 @@ def validate_input_props(props: Mapping[str, object]) -> None:
     if isinstance(font_size, bool) or not isinstance(font_size, (int, float)):
         raise RendererCapabilityError(
             "Input.font_size must be a positive finite number.")
-    if font_size <= 0:
-        raise RendererCapabilityError("Input.font_size must be positive.")
+    if not math.isfinite(font_size) or font_size <= 0:
+        raise RendererCapabilityError("Input.font_size must be positive and finite.")
 
     for name in ("enabled", "read_only", "password"):
         val = props.get(name, INPUT_DEFAULTS[name])
@@ -413,8 +413,8 @@ def validate_progressbar_props(props: Mapping[str, object]) -> None:
 
     for name in ("value", "min", "max"):
         v = props.get(name, PROGRESSBAR_DEFAULTS[name])
-        if isinstance(v, bool) or not isinstance(v, (int, float)):
-            raise RendererCapabilityError(f"ProgressBar.{name} must be a number.")
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+            raise RendererCapabilityError(f"ProgressBar.{name} must be a finite number.")
 
     lo = props.get("min", PROGRESSBAR_DEFAULTS["min"])
     hi = props.get("max", PROGRESSBAR_DEFAULTS["max"])
