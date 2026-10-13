@@ -1931,7 +1931,7 @@ G3 is subdivided for implementation tracking only; **the five official F3 gates 
 | C2 | Real native offset, clipping and axis integration in Qt, Tkinter, Kivy and Headless | **CLOSED — code SHA `8209f26`, required CI SUCCESS** |
 | C3 | Keyboard/wheel/touch event handling, edge chaining, nested viewport separation | **CLOSED — code SHA `dda1499`, required CI SUCCESS** |
 | C4 | Resize/content reflow, offset restoration, unmount/rollback and focus preservation | **CLOSED — code SHA `2bff382`, mandatory CI SUCCESS** |
-| C5 | Per-backend, per-operation executed behavioral receipts | Not started |
+| C5 | Per-backend, per-operation executed behavioral receipts | **CLOSED — code SHA `c58c9f5`, 19 executed Scroll operation receipts, CI SUCCESS** |
 | C6 | Final cross-platform immutable-SHA signoff and G3 gate acceptance | Not started |
 
 ### F3-G3-C1 — backend-neutral scroll offset mathematics
@@ -2085,3 +2085,64 @@ closure must execute zero product tests.
 C5 must build strict per-operation executed evidence for each
 applicable native backend, with no borrowed pass statuses; C6
 remains responsible for the final G3 gate signoff.
+
+### F3-G3-C5 — executed, backend-specific Scroll operation receipts
+
+**Fail-closed certifier:** `tests/certification/scroll_operation_receipts.py`
+is the single source of the dedicated Scroll operation inventory. It
+requires a passing, executed and **same-backend** JUnit testcase for
+every applicable operation, verifies its actual originating test
+module and rejects absent, failed, errored or skipped evidence.
+Identically named tests from another backend or unrelated module cannot
+certify an operation. The inventory explicitly identifies Headless
+native focus, native kinetic touch and native widget unmount as
+not-applicable, rather than inventing successful native execution.
+`tests/test_scroll_operation_receipts.py` includes executed negative
+fixtures for omitted tests, foreign evidence, skipped cases, mixed
+pass/fail results and unrecognized backend identifiers.
+
+**Mandatory backend matrix:** The executed mandatory Scroll-specific
+inventory contains **19 unique backend × operation cells**:
+Qt 5, Tkinter 5, Kivy 4, Headless 5. Each row names a distinct
+operation-specific test. Qt verifies viewport clipping/offsets,
+nested wheel chaining, keyboard boundary release, reflow/focus/widget
+identity and injected-failure rollback. Tkinter verifies Canvas
+clipping/offsets, nested wheel chaining, keyboard boundaries, native
+reflow/identity and injected-failure rollback. Kivy verifies mounted
+viewport, clipping/offsets, wheel/touch nested chaining and a separate
+mounted Scroll reflow/identity test. Headless verifies offset clamp,
+independent axes, disabled-input residual, nested offset independence
+and content-shrink behavior. These receipts are **executed tests**,
+not citations to source documentation or a passing Flex test.
+
+**CI enforcement and archiving:** The targeted Qt, Tk, Kivy and
+Headless native jobs now fail if their Scroll-specific JUnit contract
+fails, even when the rest of their tests are green. Every job uploads
+its JUnit-backed JSON receipt: the Qt native job archives
+`scroll-qt-operations.xml` and `scroll-qt-operations.json`;
+Tk/Kivy/Headless add their `scroll-*-operations.json` to the existing
+native-layout receipt artifacts. The archival files are produced on
+the same code SHA as their test execution. The full native selector
+also retains the four Qt binding-parity jobs, Chromium, Rust/Python,
+Windows/macOS wheel/fallback and the semantic naming guards.
+
+**Immutable code SHA:** [`c58c9f594e0dbcc2db6c2512d798e7fb8f22fdaa`](https://github.com/Neuri-AI/PSX/commit/c58c9f594e0dbcc2db6c2512d798e7fb8f22fdaa).
+[Native layout CI #38351225565](https://github.com/Neuri-AI/PSX/actions/runs/38351225565)
+completed **SUCCESS**: 18 successful jobs, zero failures,
+and the intentionally deferred G4 API-removal gate skipped.
+The run archived eight corresponding artifacts, including the
+dedicated Qt Scroll receipt and each other backend's Scroll JSON.
+The accompanying code-SHA commit-subject, runtime-boundary and
+Flex-contract workflows must remain green for formal F3 signoff;
+documentation-only updates run no product tests.
+
+**Scope distinction:** The 19-cell matrix certifies its explicitly
+declared, applicable Scroll operations. It is not a claim that every
+hardware-specific touch device, every OS input-method permutation,
+or the later full public component × property × event matrix (G5) has
+been tested. C6 separately owns adversarial review of coverage
+completeness, cross-platform source signoff and formal closure of
+the G3 gate. Missing additional applicable operations discovered
+during C6 cannot inherit these 19 passes and must be tested.
+
+**Acceptance: F3-G3-C5 CLOSED. Next: F3-G3-C6.**
