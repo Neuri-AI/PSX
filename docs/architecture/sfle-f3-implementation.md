@@ -1930,7 +1930,7 @@ G3 is subdivided for implementation tracking only; **the five official F3 gates 
 | C1 | Neutral scroll offsets, clamping, residual deltas, viewport/content coordinate projection and immutable engine geometry | **CLOSED — code SHA `abdf9f1`, required CI SUCCESS** |
 | C2 | Real native offset, clipping and axis integration in Qt, Tkinter, Kivy and Headless | **CLOSED — code SHA `8209f26`, required CI SUCCESS** |
 | C3 | Keyboard/wheel/touch event handling, edge chaining, nested viewport separation | **CLOSED — code SHA `dda1499`, required CI SUCCESS** |
-| C4 | Resize/content reflow, offset restoration, unmount/rollback and focus preservation | Not started |
+| C4 | Resize/content reflow, offset restoration, unmount/rollback and focus preservation | **CLOSED — code SHA `2bff382`, mandatory CI SUCCESS** |
 | C5 | Per-backend, per-operation executed behavioral receipts | Not started |
 | C6 | Final cross-platform immutable-SHA signoff and G3 gate acceptance | Not started |
 
@@ -2028,3 +2028,51 @@ workflows also completed successfully on the same code SHA.
 and transactional offset preservation; C5 owns the full executed
 backend × operation behavior matrix; C6 owns formal G3 gate signoff.
 The documentation-only closing commit must not rerun product tests.
+
+### F3-G3-C4 — native Scroll reflow, DPI and transactional lifecycle
+
+**Behavioral change:** `psx/sfle/native_scroll_transaction.py` records
+the native viewport content extent, scroll positions, scroll ranges and
+previous logical overflow *before* each SFLE native geometry transaction.
+The Qt, Tkinter and Kivy commit bridges recover the previous logical
+offset from the pre-commit snapshot, apply the newly calculated SFLE
+viewport/content extent and clamp the old offset through the C1
+mathematical contract. This avoids recomputing Kivy's old pixel offset
+using the new content range or trusting a scrollbar reset by a resize.
+SFLE border rectangles remain immutable. The existing UI-thread,
+semantic epoch and generation gates remain authoritative.
+
+**Failure recovery:** The three native layout bridges capture scroll
+hosts before applying geometry, and restore native viewport content
+geometry, Qt scrollbar limits and values, Tk Canvas scrollregion and
+offsets, and Kivy content size/hints and scroll fractions if native
+application or readback fails. Restored Scroll logical-offset/overflow
+metadata also matches the pre-transaction snapshot. This extends
+existing widget-geometry rollback without recreating widgets or
+reassigning native focus. Current renderer invalidation/unmount
+epochs and native resource cleanup continue to govern cancellation
+and released handles.
+
+**Executed evidence:** `tests/test_scroll_transactions.py` verifies
+Kivy pixel-offset preservation over changed overflow extents,
+clamping after content shrink, native rollback and Qt focus/identity
+invariants with observable ports. The native `tests/test_pyside6_native_layout.py`
+and `tests/test_tkinter_native_layout.py` suites certify reflow,
+offset preservation, widget identity and injected failure after
+native viewport mutation. The Kivy SDL2 native suite verifies
+`renderer.commit_layout(root)` preserves logical X/Y offsets and
+widget identity on a mounted overflown ScrollView. Existing native
+semantic/DPI/viewport, unmount and stale-generation tests continue
+in the same required CI selector. No new public event/prop contract
+or parallel layout solver was introduced.
+
+**Immutable source SHA:** [`2bff3823a9957476617428ce02c812b08a08937c`](https://github.com/Neuri-AI/PSX/commit/2bff3823a9957476617428ce02c812b08a08937c).
+[Required native layout CI #38350150740](https://github.com/Neuri-AI/PSX/actions/runs/38350150740)
+completed SUCCESS, with the expected G4 final API gate skipped.
+C4's final code is certified by this run; the subsequent
+documentation-only closure must not execute any product tests.
+
+**Acceptance:** **F3-G3-C4 CLOSED. Next: F3-G3-C5.**
+C5 must build strict per-operation executed evidence for each
+applicable native backend, with no borrowed pass statuses; C6
+remains responsible for the final G3 gate signoff.
