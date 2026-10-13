@@ -25,8 +25,6 @@ _SPECIAL = {
     "Scroll": "native_viewport",
     "Fragment": "transparent",
     "Native": "external_port",
-    "Row": "legacy",
-    "Column": "legacy",
 }
 _LEAVES = frozenset.union(*(frozenset(types) for types in NATIVE_LEAF_TYPES.values())) - set(_SPECIAL)
 FAMILY_POLICY = MappingProxyType({
