@@ -115,8 +115,16 @@ def main() -> None:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(rendered + "\n", encoding="utf-8")
     print(rendered)
-    if args.check and found:
-        raise SystemExit(f"Legacy portable layout references remain: {len(found)}")
+    if args.check:
+        # Historical negative fixtures in tests and the audit tooling itself
+        # intentionally mention rejected symbols; they are not shipped APIs.
+        shipped = [item for item in found if item.path.startswith(
+            ("psx/", "examples/", "benchmarks/"))]
+        if shipped:
+            raise SystemExit(
+                f"Legacy portable layout references remain in shipped code: {len(shipped)}; "
+                + ", ".join(f"{item.path}:{item.line}" for item in shipped[:16])
+            )
 
 
 if __name__ == "__main__":
