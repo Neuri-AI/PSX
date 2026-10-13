@@ -106,5 +106,5 @@ def test_c6_nested_parent_relative_native_readback_with_negative_coordinates(bac
 
 @pytest.mark.parametrize("value", (float("nan"), float("inf"), -float("inf")))
 def test_c6_nonfinite_native_projection_fails_closed(value):
-    with pytest.raises(SFLEError, match="Non-finite"):
+    with pytest.raises(ValueError, match="Rect.x must be finite"):
         DevicePixelSpace(1.5, "qt").to_physical(Rect(value, 0, 10, 10))
