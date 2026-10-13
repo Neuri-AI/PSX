@@ -41,7 +41,7 @@ def test_spacer_mounts_and_unmounts_cleanly() -> None:
 
 
 def test_spacer_keeps_identity_across_keyed_reorder() -> None:
-    renderer = HeadlessRenderer()
+    renderer = native_headless_renderer()
     reconciler = Reconciler(renderer)
     reconciler.render(Flex(Text("A", key="a"), Spacer(key="s"), Text("B", key="b"), direction="row"))
     spacer = reconciler.root.handle.children[1]
