@@ -280,10 +280,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                             rectangles[node.node_id].border,
                         )
                         canvas = parent._psx_canvas
-                        current = ScrollOffset(
-                            max(0.0, float(canvas.canvasx(0))),
-                            max(0.0, float(canvas.canvasy(0))),
-                        )
+                        from psx.sfle.native_scroll_transaction import prior_scroll_offset
+                        current = prior_scroll_offset(scroll_before, parent)
                         apply_tk_scroll(parent, binding, current)
             if image_ids:
                 from psx.renderers.tkinter.image import TkImageAdapter
