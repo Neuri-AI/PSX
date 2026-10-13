@@ -63,6 +63,14 @@ def git(*args: str) -> str:
     return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
 
 
+def source_checkout_is_dirty() -> bool:
+    """Ignore this runner's untracked reports, but never source changes."""
+    entries = git("status", "--porcelain").splitlines()
+    artifact_prefix = "artifacts/local-certification/"
+    return any(not entry[3:].replace("\\", "/").startswith(artifact_prefix)
+               for entry in entries)
+
+
 def interpreter(version: str) -> list[str]:
     """Resolve a versioned Python without ever falling back silently."""
     if os.name == "nt":
@@ -134,6 +142,13 @@ class MatrixRunner:
                                                        "--sha", self.sha, "--environment", environment]):
             return None
         receipt = inventory.with_name(f"{inventory.stem}-receipts.json")
+        # The final aggregator deliberately rejects absolute paths because it
+        # consumes downloaded artifacts. Make this local manifest portable as
+        # well: its JUnit file sits beside the manifest in the report folder.
+        manifest = json.loads(receipt.read_text(encoding="utf-8"))
+        for item in manifest["receipts"]:
+            item["junit_artifact"] = Path(item["junit_artifact"]).name
+        receipt.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
         self.receipts.append(receipt)
         return receipt
 
@@ -194,7 +209,7 @@ def main() -> int:
     if args.active_conda and args.python_version and active_version != args.python_version:
         raise SystemExit(f"Active Python is {active_version}, expected {args.python_version}.")
     sha = git("rev-parse", "HEAD")
-    dirty = bool(git("status", "--porcelain"))
+    dirty = source_checkout_is_dirty()
     if dirty and not args.allow_dirty:
         raise SystemExit("Refusing a dirty checkout. Commit/stash first, or use --allow-dirty for diagnostic-only output.")
     stamp = time.strftime("%Y%m%d-%H%M%S")
