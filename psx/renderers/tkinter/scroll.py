@@ -231,6 +231,9 @@ class TkScrollAdapter:
         self._apply(outer, props)
         renderer._bind_scroll_wheel(canvas)
         renderer._bind_scroll_wheel(content)
+        for target in (canvas, content):
+            target.bind("<KeyPress>", outer._keyboard, add="+")
+        canvas.configure(takefocus=1)
         return TkHandle("Scroll", outer, props)
 
     @staticmethod
