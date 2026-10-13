@@ -141,7 +141,7 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertEqual((scroll.horizontalScrollBar().value(),
                           scroll.verticalScrollBar().value()), (70, 40))
         self.assertIs(root.children[0].children[0].children[0].handle.widget, button)
-        self.assertIs(QApplication.focusWidget(), button)
+        self.assertIs(QApplication.focusWidget(), initial_focus)
         self.renderer.set_sfle_constraints(constraints(300, 200))
         self.renderer.commit_layout(root)
         self.assertEqual((scroll.horizontalScrollBar().value(),
