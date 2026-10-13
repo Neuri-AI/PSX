@@ -16,7 +16,7 @@ from psx.sfle.f3_g2_matrix import (
     BACKENDS, HEADLESS_PORTED, LEGACY, EXTERNAL, STRUCTURAL, TRANSPARENT,
     g2_certification_matrix,
 )
-from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
 from tests.certification.f3_g2_c4 import C4_BY_BACKEND
 from tests.certification.f3_g2_evidence import COMPONENT_OPERATION_TESTS, SUITES
 
@@ -39,7 +39,7 @@ def test_c6_all_registry_backend_pairs_are_classified_without_phantom_ports():
     }
     assert names >= LEGACY | EXTERNAL | STRUCTURAL | TRANSPARENT
     for backend in BACKENDS:
-        native = set(G2_LEAF_TYPES[backend]) | STRUCTURAL if backend != "headless" else HEADLESS_PORTED
+        native = set(NATIVE_LEAF_TYPES[backend]) | STRUCTURAL if backend != "headless" else HEADLESS_PORTED
         cells = [cell for cell in matrix if cell.backend == backend]
         assert {cell.component for cell in cells if cell.status == "native"} == native
         for cell in cells:
@@ -66,7 +66,7 @@ def test_c6_every_supported_native_component_has_real_geometry_driver(backend):
     assert len(candidates) == 1
     method = ast.get_source_segment(source, candidates[0])
     assert method
-    assert "G2_LEAF_TYPES" in method or "HEADLESS_PORTED" in method
+    assert "NATIVE_LEAF_TYPES" in method or "HEADLESS_PORTED" in method
     assert "set(factories)" in method
     assert "request_sfle_invalidation" in method
     # It must check more than mount/unmount or literal component names:
