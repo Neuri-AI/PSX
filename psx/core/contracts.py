@@ -58,8 +58,7 @@ class ComponentContract:
     def _validate(self, props: Mapping[str, object], *, builder: bool) -> None:
         validator = (self.builder_validator or self.validator) if builder else self.validator
         if self.name == "Flex":
-            # Legacy layouts keep their old contract until F3-G4 removal;
-            # Flex validates its own closed syntax and shared item metadata.
+            # Flex validates its own syntax and shared item metadata.
             validator(props)
             return
         validate_flex_item_props(props, owner=self.name)
