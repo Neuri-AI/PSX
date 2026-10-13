@@ -92,6 +92,19 @@ def venv_python(directory: Path) -> Path:
     return directory / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
+def blocked_qt_binding_reason(binding: str, version: str) -> str | None:
+    """Return a documented platform incompatibility, if the cell cannot run."""
+    if binding != "pyside2":
+        return None
+    if version != "3.10":
+        return "PySide2 is supported only on Python 3.10."
+    if (platform.system() == "Darwin"
+            and platform.machine().lower() in {"arm64", "aarch64"}):
+        return ("PySide2 has no installable wheel for Apple Silicon; "
+                "this macOS matrix cell is unsupported.")
+    return None
+
+
 class MatrixRunner:
     def __init__(self, output: Path, sha: str, *, reuse_envs: bool,
                  active_python: Path | None = None) -> None:
@@ -238,8 +251,9 @@ def main() -> int:
         if binding not in selected:
             continue
         version = python_version if args.active_conda else ("3.10" if binding == "pyside2" else "3.12")
-        if binding == "pyside2" and version != "3.10":
-            runner.results.append(Result(f"qt-{binding}", "blocked", 0, [], "", "PySide2 is supported only on Python 3.10."))
+        blocked_reason = blocked_qt_binding_reason(binding, version)
+        if blocked_reason:
+            runner.results.append(Result(f"qt-{binding}", "blocked", 0, [], "", blocked_reason))
             continue
         python = runner.environment(f"qt-{binding}", version, dependency)
         if not python:

@@ -24,9 +24,11 @@ python scripts/run_local_certification_matrix.py --active-conda --python-version
 ```
 
 The same commands work on native Linux and macOS after activating the matching
-Conda environment. Without `--active-conda`, the runner retains its original
-mode: it creates isolated virtual environments and uses Python 3.12 for the
-main matrix plus Python 3.10 for PySide2.
+Conda environment. On Apple Silicon, the Python 3.10 PySide2 cell is reported
+as `blocked`: PySide2 has no installable wheel for that platform, so it is an
+unsupported combination rather than a failed PSX test. Without `--active-conda`,
+the runner retains its original mode: it creates isolated virtual environments
+and uses Python 3.12 for the main matrix plus Python 3.10 for PySide2.
 
 The report directory is printed at the end and contains:
 
