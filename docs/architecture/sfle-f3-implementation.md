@@ -1928,7 +1928,7 @@ G3 is subdivided for implementation tracking only; **the five official F3 gates 
 | Increment | Scope | Status |
 | --- | --- | --- |
 | C1 | Neutral scroll offsets, clamping, residual deltas, viewport/content coordinate projection and immutable engine geometry | **CLOSED — code SHA `abdf9f1`, required CI SUCCESS** |
-| C2 | Real native offset, clipping and axis integration in Qt, Tkinter, Kivy and Headless | Not started |
+| C2 | Real native offset, clipping and axis integration in Qt, Tkinter, Kivy and Headless | **CLOSED — code SHA `8209f26`, required CI SUCCESS** |
 | C3 | Keyboard/wheel/touch event handling, edge chaining, nested viewport separation | Not started |
 | C4 | Resize/content reflow, offset restoration, unmount/rollback and focus preservation | Not started |
 | C5 | Per-backend, per-operation executed behavioral receipts | Not started |
@@ -1941,3 +1941,46 @@ G3 is subdivided for implementation tracking only; **the five official F3 gates 
 **Execution:** `tests/test_scroll_offsets.py` covers both axes, disabled directions, extremes, positive/negative residuals, resize/shrink, nested independent frames, inverse projection and invalid numeric inputs. This test is included in the mandatory Core CI command. It does **not** claim toolkit scroll gesture support, Kivy overflow enablement, scrollbar parity or native nested event chaining. Those are owned by C2–C6.
 
 **Certified implementation SHA:** [`abdf9f1caa53809e7b47b9cb469e7d514b5d7138`](https://github.com/Neuri-AI/PSX/commit/abdf9f1caa53809e7b47b9cb469e7d514b5d7138). [Required native layout CI #38345388117 — SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38345388117), including core, semantic source naming, Qt four bindings, Tkinter, Kivy, Headless, Chromium, Rust/Python differential and Windows/macOS wheel/fallback. The other three commit workflows also completed SUCCESS. **C1 CLOSED**; C2–C6 remain OPEN. Documentation-only revisions must not rerun product tests.
+
+### F3-G3-C2 — native viewport offsets, clipping and axis application
+
+**Implementation certified:** `psx/sfle/native_scroll_hosts.py` binds
+the existing immutable SFLE content and viewport rectangles to
+`QScrollArea`, Tk `Canvas`, Kivy `ScrollView`, and a deterministic
+Headless projection. `qt_layout_bridge.py`,
+`tkinter_layout_bridge.py` and `kivy_layout_bridge.py` apply the
+offset/extent projection after native SFLE geometry commit. No parallel
+Flex solver is involved. Kivy overflow is no longer rejected merely
+because content exceeds the viewport; its top-left logical Y offset
+is mapped into the bottom-left ScrollView fraction. The Kivy geometry
+committer continues to support rootless widget maps.
+
+**Executed native acceptance evidence:** `tests/test_native_scroll_hosts.py`
+checks shared clamping, axes, disabled scroll and immutable boxes for
+all four ports. The native toolkit suites execute `QScrollArea`
+readback with overflow, offsets, scrollbar limits and viewport parent
+clipping; Tk `Canvas` scrollregion, readback and viewport extent; and
+Kivy `ScrollView` overflow extent, top-left-to-bottom-left offset
+conversion and child geometry readback. Existing native SFLE commit
+readback checks remain mandatory. Headless is deterministic and has
+no actual clipping widget; it certifies the same logical projection.
+
+**Immutable source certificate:** [`8209f26a440e6ae19bf3376c26fd1fbc969488b2`](https://github.com/Neuri-AI/PSX/commit/8209f26a440e6ae19bf3376c26fd1fbc969488b2).
+[Native layout selective CI #38347298765](https://github.com/Neuri-AI/PSX/actions/runs/38347298765)
+completed **SUCCESS**: 18 successful jobs, zero failures, with only the
+future G4 Row/Column removal gate intentionally skipped. The other three
+required workflows (commit subject, runtime package boundaries and
+Flex contract certification) also completed **SUCCESS** on the same
+code SHA. The run includes Qt bindings, Tkinter, Kivy, Headless,
+browser oracle, Rust/Python differential and Windows/macOS native
+wheel/fallback.
+
+**Boundary:** C2 certifies viewport binding, offsets, axes, native clipping
+hosts and scroll extent/readback. It does **not** claim wheel/key/touch
+event-chain or nested dispatch certification (C3); reflow/unmount
+transaction recovery (C4); complete per-operation behavioral receipt
+matrix (C5); or final G3 cross-platform gate signoff (C6).
+Documentation-only revisions retain this tested immutable source SHA
+and must execute zero product tests.
+
+**Formal acceptance: F3-G3-C2 CLOSED. Next: F3-G3-C3.**
