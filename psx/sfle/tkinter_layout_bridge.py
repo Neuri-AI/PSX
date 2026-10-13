@@ -268,15 +268,21 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 if node.parent_id is not None:
                     parent = widgets[node.parent_id]
                     if getattr(parent, "_psx_sfle_scroll", False):
-                        box = rectangles[node.node_id].border
-                        width = max(round(box.width), parent._psx_canvas.winfo_width())
-                        height = max(round(box.height), parent._psx_canvas.winfo_height())
-                        parent._psx_canvas.itemconfigure(
-                            parent._psx_window, width=width, height=height,
+                        from psx.sfle.native_scroll_hosts import (
+                            apply_tk_scroll, binding_from_host,
                         )
-                        parent._psx_canvas.configure(
-                            scrollregion=(0, 0, width, height),
+                        from psx.sfle.scroll_offsets import ScrollOffset
+                        binding = binding_from_host(
+                            parent._psx_props,
+                            rectangles[node.parent_id].border,
+                            rectangles[node.node_id].border,
                         )
+                        canvas = parent._psx_canvas
+                        current = ScrollOffset(
+                            max(0.0, float(canvas.canvasx(0))),
+                            max(0.0, float(canvas.canvasy(0))),
+                        )
+                        apply_tk_scroll(parent, binding, current)
             if image_ids:
                 from psx.renderers.tkinter.image import TkImageAdapter
                 for node_id in image_ids:
