@@ -660,6 +660,12 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert abs(scroll.scroll_x - 0.5) < 1e-6
             assert abs(scroll.scroll_y - 0.5) < 1e-6
             assert tuple(content.size) == (300, 200)
+            button = root.children[0].children[0].children[0].handle.widget
+            renderer.commit_layout(root)
+            assert abs(scroll.scroll_x - 0.5) < 1e-6
+            assert abs(scroll.scroll_y - 0.5) < 1e-6
+            assert root.children[0].children[0].children[0].handle.widget is button
+            assert renderer.sfle_result.geometry_commit_error <= 1
             tree.unmount()
         """)
         environment = dict(os.environ)
