@@ -657,6 +657,34 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertLessEqual(abs(outer._psx_canvas.canvasy(0) - 48), 1)
         self.assertEqual(event._psx_scroll_remainder, 0.0)
 
+    def test_scroll_reflow_keeps_logical_offset_and_native_identity(self):
+        from psx import Scroll
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        root = self.reconciler.render(Flex(
+            Scroll(Flex(item("Inside", "inside", 40),
+                        direction="row", width="300px", height="200px",
+                        key="content", align_items="flex-start"),
+                   direction="both", key="scroll",
+                   layout_width="120px", layout_height="80px",
+                   flex_basis="120px", flex_shrink=0),
+            direction="row", width="300px", height="200px",
+            align_items="flex-start",
+        ))
+        outer = root.children[0].handle.widget
+        content = root.children[0].children[0].handle.widget
+        button = root.children[0].children[0].children[0].handle.widget
+        self.host.update_idletasks()
+        outer._psx_canvas.xview_moveto(70 / 300)
+        outer._psx_canvas.yview_moveto(40 / 200)
+        self.host.update_idletasks()
+        self.renderer.commit_layout(root)
+        self.host.update_idletasks()
+        self.assertLessEqual(abs(outer._psx_canvas.canvasx(0) - 70), 1)
+        self.assertLessEqual(abs(outer._psx_canvas.canvasy(0) - 40), 1)
+        self.assertIs(root.children[0].children[0].handle.widget, content)
+        self.assertIs(root.children[0].children[0].children[0].handle.widget, button)
+        self.assertEqual(content.winfo_manager(), "place")
+
     def test_native_tk_wheel_and_keyboard_offset_readback(self):
         from types import SimpleNamespace
         from psx import Scroll
