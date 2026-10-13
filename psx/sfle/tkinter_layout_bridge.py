@@ -259,6 +259,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             for node_id, widget in leaf_widgets.items()
             if node_id in dependent and "wraplength" in widget.keys()
         }
+        from psx.sfle.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
+        scroll_before = capture_scroll_hosts("tk", bindings)
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
         try:
@@ -335,6 +337,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
         except BaseException:
+            restore_scroll_hosts(scroll_before)
             for node_id, old_wrap in previous_wraps.items():
                 if widgets[node_id].winfo_exists():
                     widgets[node_id].configure(wraplength=old_wrap)
