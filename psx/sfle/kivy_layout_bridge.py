@@ -279,6 +279,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             for node_id in dependent if node_id not in external
             and hasattr(bindings[node_id].widget, "text_size")
         }
+        from psx.sfle.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
+        scroll_before = capture_scroll_hosts("kivy", bindings)
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
         try:
@@ -354,6 +356,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
         except BaseException:
+            restore_scroll_hosts(scroll_before)
             for node_id, previous in previous_text_sizes.items():
                 widget = bindings[node_id].widget
                 widget.text_size = previous
