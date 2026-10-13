@@ -763,7 +763,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(widget), (0, 0, 125, 22))
         self.assertEqual(round(float(widget["value"])), 80)
 
-    def test_default_tk_renderer_preserves_g1_fail_closed_route(self):
+    def test_default_tk_renderer_preserves_flex_fail_closed_route(self):
         regular = TkinterRenderer(root=self.host)
         try:
             with self.assertRaisesRegex(RendererCapabilityError, "Native SFLE SFLE geometry"):
