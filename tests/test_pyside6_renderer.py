@@ -33,7 +33,7 @@ class PySide6RendererTests(unittest.TestCase):
         self.renderer.application.processEvents()
 
 
-    def test_flex_has_explicit_g1_route_without_legacy_qboxlayout_fallback(self) -> None:
+    def test_flex_has_explicit_flex_route_without_legacy_qboxlayout_fallback(self) -> None:
         from psx import Flex
 
         self.assertIsNotNone(self.renderer.adapters.get("Flex"))
