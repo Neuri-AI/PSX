@@ -5,17 +5,17 @@ Run from the project root after installing the optional Qt extra:
     PYTHONPATH=src python examples/pyside6_counter.py
 """
 
-from psx import App, Button, Column, Text, component, use_state
+from psx import App, Button, Flex, Text, component, use_state
 
 
 def main() -> int:
     @component
     def Counter():
         count, set_count = use_state(0)
-        return Column(
+        return Flex(
             Text(f"Count: {count}", key="count"),
             Button("+1", key="increment", on_click=lambda: set_count(lambda value: value + 1)),
-            spacing=12,
+            direction="column", gap=12,
         )
 
     app = App(Counter(), renderer="pyside6")
