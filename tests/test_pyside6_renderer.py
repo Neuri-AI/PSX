@@ -12,7 +12,7 @@ sys.path.insert(0, "src")
 from PySide6.QtWidgets import QLabel, QPushButton, QWidget
 from pydux import Action, Store
 
-from psx import App, Button, Checkbox, Column, Input, Native, NativeWidget, Ref, Text, create_element, component, native_widget, psx, use_state
+from psx import App, Button, Checkbox, Flex, Input, Native, NativeWidget, Ref, Text, create_element, component, native_widget, psx, use_state
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.integrations.pydux import StoreProvider, use_selector
@@ -43,7 +43,7 @@ class PySide6RendererTests(unittest.TestCase):
     def test_counter_update_reuses_qwidgets(self) -> None:
         calls: list[str] = []
         root = self.reconciler.render(
-            Column(Text("Count: 1", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("old")))
+            Flex(Text("Count: 1", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("old")), direction="column")
         )
         column = root.handle
         self.assertIsInstance(column, QtHandle)
@@ -57,7 +57,7 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertIsInstance(button, QPushButton)
 
         self.reconciler.render(
-            Column(Text("Count: 2", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("new")))
+            Flex(Text("Count: 2", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("new")), direction="column")
         )
 
         self.assertIs(root.children[0].handle, label_handle)
@@ -83,7 +83,7 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertEqual(len(self.reconciler.root.event_slots), 1)
 
     def test_app_selects_pyside6_lazily(self) -> None:
-        app = App(Column(Text("Hello")), renderer="pyside6")
+        app = App(Flex(Text("Hello"), direction="column"), renderer="pyside6")
         handle = app.mount()
         self.assertIsInstance(handle, QtHandle)
         app.unmount()
@@ -135,16 +135,16 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertFalse(isValid(label))
 
     def test_text_inherits_theme_and_returns_to_it_after_color_override(self) -> None:
-        root = self.reconciler.render(Column(Text("theme")))
+        root = self.reconciler.render(Flex(Text("theme"), direction="column"))
         shell = root.handle.widget
         label = root.children[0].handle.widget
         shell.setStyleSheet("QLabel { color: #eeeeee; }")
         label.ensurePolished()
         self.assertEqual(label.styleSheet(), "")
         self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#eeeeee")
-        self.reconciler.render(Column(Text("explicit", color="#336699")))
+        self.reconciler.render(Flex(Text("explicit", color="#336699"), direction="column"))
         self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#336699")
-        self.reconciler.render(Column(Text("theme again")))
+        self.reconciler.render(Flex(Text("theme again"), direction="column"))
         self.assertIs(self.reconciler.root.children[0].handle.widget, label)
         self.assertEqual(label.styleSheet(), "")
         self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#eeeeee")
@@ -206,13 +206,13 @@ class PySide6RendererTests(unittest.TestCase):
         native = NativeWidget(
             renderer="pyside6", factory=QLabel, update=update, name="StatusLabel"
         )
-        root = self.reconciler.render(Column(native_widget(native, key="status", message="ready")))
+        root = self.reconciler.render(Flex(native_widget(native, key="status", message="ready"), direction="column"))
         handle = root.children[0].handle
         self.assertIsInstance(handle, QtHandle)
         self.assertIsInstance(handle.widget, QLabel)
         self.assertEqual(handle.widget.text(), "ready")
 
-        self.reconciler.render(Column(native_widget(native, key="status", message="updated")))
+        self.reconciler.render(Flex(native_widget(native, key="status", message="updated"), direction="column"))
         self.assertIs(root.children[0].handle, handle)
         self.assertEqual(handle.widget.text(), "updated")
         self.assertEqual(updates, [("ready", frozenset()), ("updated", frozenset())])
@@ -221,10 +221,10 @@ class PySide6RendererTests(unittest.TestCase):
         original_parent = QWidget()
         borrowed = QLabel("borrowed", original_parent)
         native = NativeWidget(renderer="pyside6", widget=borrowed, ownership="borrowed")
-        self.reconciler.render(Column(native_widget(native, key="borrowed")))
+        self.reconciler.render(Flex(native_widget(native, key="borrowed"), direction="column"))
         self.assertIsNot(borrowed.parentWidget(), original_parent)
 
-        self.reconciler.render(Column())
+        self.reconciler.render(Flex(direction="column"))
         self.assertIs(borrowed.parentWidget(), original_parent)
         self.assertEqual(borrowed.text(), "borrowed")
 
@@ -275,7 +275,7 @@ class PySide6RendererTests(unittest.TestCase):
             return QLabel(parent)  # type: ignore[arg-type]
 
         native = NativeWidget(renderer="pyside6", factory=factory, takes_parent=True)
-        self.reconciler.render(Column(native_widget(native)))
+        self.reconciler.render(Flex(native_widget(native), direction="column"))
         handle = self.reconciler.root.children[0].handle
         self.assertIsInstance(handle, QtHandle)
         self.assertEqual(parents, [self.reconciler.root.handle.widget])
