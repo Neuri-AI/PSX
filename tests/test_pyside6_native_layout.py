@@ -74,6 +74,33 @@ class QtSFLEGeometryTests(unittest.TestCase):
                           area.verticalScrollBar().value()), (180, 120))
         self.assertIs(area.viewport(), area._psx_content.parentWidget())
 
+    def test_native_scroll_keyboard_moves_and_releases_at_boundary(self):
+        from psx import Scroll
+        from PySide6.QtCore import Qt, QEvent
+        from PySide6.QtGui import QKeyEvent
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        root = self.r.render(Flex(
+            Scroll(Flex(item("Inside", "inside", 40),
+                        direction="row", width="300px", height="200px",
+                        key="content", align_items="flex-start"),
+                   direction="both", key="scroll",
+                   layout_width="120px", layout_height="80px",
+                   flex_basis="120px", flex_shrink=0),
+            direction="row", width="300px", height="200px",
+            align_items="flex-start",
+        ))
+        area = root.children[0].handle.widget
+        event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Down,
+                          Qt.KeyboardModifier.NoModifier)
+        area.keyPressEvent(event)
+        self.assertEqual(area.verticalScrollBar().value(), 40)
+        self.assertTrue(event.isAccepted())
+        area.verticalScrollBar().setValue(area.verticalScrollBar().maximum())
+        event = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Down,
+                          Qt.KeyboardModifier.NoModifier)
+        area.keyPressEvent(event)
+        self.assertFalse(event.isAccepted())
+
     def test_real_qwidgets_take_exact_sfle_geometry_without_qboxlayout(self):
         root = self.r.render(
             Flex(
