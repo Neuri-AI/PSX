@@ -103,9 +103,17 @@ class QtSFLEGeometryTests(unittest.TestCase):
         )
         inner.verticalScrollBar().setValue(inner.verticalScrollBar().maximum())
         outer.verticalScrollBar().setValue(0)
-        residual = inner._psx_scroll_delta(0, 35)
-        self.assertEqual(residual, (0.0, 0.0))
-        self.assertEqual(outer.verticalScrollBar().value(), 35)
+        from PySide6.QtCore import Qt, QPoint, QPointF
+        from PySide6.QtGui import QWheelEvent
+        wheel = QWheelEvent(
+            QPointF(20, 20), QPointF(20, 20), QPoint(0, 0),
+            QPoint(0, -120), Qt.MouseButton.NoButton,
+            Qt.KeyboardModifier.NoModifier,
+            Qt.ScrollPhase.ScrollUpdate, False,
+        )
+        inner.wheelEvent(wheel)
+        self.assertTrue(wheel.isAccepted())
+        self.assertEqual(outer.verticalScrollBar().value(), 48)
         self.assertEqual(inner.verticalScrollBar().value(),
                          inner.verticalScrollBar().maximum())
 
