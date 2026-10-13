@@ -21,6 +21,54 @@ class _PSXScrollView(ScrollView):
     block wheel/trackpad events even when content can move.
     """
 
+    def _psx_scroll_delta(self, dx, dy):
+        """Apply logical movement once and chain only the unconsumed delta."""
+        from psx.renderers.components.scroll import consume_scroll
+        remainder_x, remainder_y = float(dx), float(dy)
+        props = getattr(self, "_psx_props", None)
+        content = getattr(self, "_psx_content", None)
+        if props is not None and props["enabled"] and content is not None:
+            allow_x, allow_y = scroll_axes(props["direction"])
+            max_x = max(0.0, content.width - self.width)
+            max_y = max(0.0, content.height - self.height)
+            if allow_x and max_x and remainder_x:
+                position, remainder_x = consume_scroll(
+                    self.scroll_x * max_x, max_x, remainder_x,
+                )
+                self.scroll_x = position / max_x
+            if allow_y and max_y and remainder_y:
+                position, remainder_y = consume_scroll(
+                    (1.0 - self.scroll_y) * max_y, max_y, remainder_y,
+                )
+                self.scroll_y = 1.0 - position / max_y
+        if remainder_x or remainder_y:
+            parent = self.parent
+            while parent is not None:
+                if hasattr(parent, "_psx_scroll_delta"):
+                    return parent._psx_scroll_delta(remainder_x, remainder_y)
+                parent = parent.parent
+        return remainder_x, remainder_y
+
+    def on_touch_down(self, touch):
+        # Wheel input is discrete. Pan/touch gestures remain owned by Kivy's
+        # ScrollView, preserving kinetic effects and native touch lifecycle.
+        if (getattr(self, "_psx_sfle_scroll", False)
+                and getattr(touch, "is_mouse_scrolling", False)
+                and self.collide_point(*touch.pos)):
+            directions = {
+                "scrollup": (0.0, -48.0),
+                "scrolldown": (0.0, 48.0),
+                "scrollleft": (-48.0, 0.0),
+                "scrollright": (48.0, 0.0),
+            }
+            movement = directions.get(getattr(touch, "button", ""))
+            if movement is not None:
+                remaining = self._psx_scroll_delta(*movement)
+                if remaining != movement:
+                    return True
+                return False
+        return super().on_touch_down(touch)
+
 
 class KivyScrollAdapter:
     def create(self, renderer, node, parent):
