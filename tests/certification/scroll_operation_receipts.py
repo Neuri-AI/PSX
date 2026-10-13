@@ -31,7 +31,7 @@ REQUIRED = {
         "viewport_clipping_offsets": "test_scroll_overflow_native_extent_and_logical_offsets",
         "nested_wheel_touch": "test_native_kivy_wheel_and_nested_edge_chaining",
         "mounted_viewport": "test_scroll_basic_sfle_viewport_and_explicit_content_root",
-        "resize_reflow": "test_native_root_and_sdl2_window_resize_automatically_reflow_sfle",
+        "resize_reflow": "test_scroll_mounted_reflow_preserves_logical_offsets",
     },
     "headless": {
         "offset_clamping": "test_scroll_offset_clamps_each_axis_and_preserves_engine_boxes",
