@@ -62,29 +62,64 @@ def _scroll_area_class(binding: str):
             super().resizeEvent(event)
             self._refresh_indicators()
 
-        def wheelEvent(self, event):
+        def _psx_scroll_delta(self, dx, dy):
+            """Consume X/Y movement once, handing unconsumed travel to parent."""
+            from psx.renderers.components.scroll import consume_scroll
             props = self._psx_props
-            if props is None or not props["enabled"]:
-                event.ignore()
-                return
-            dx, dy = scroll_axes(props["direction"])
-            delta = event.angleDelta()
-            horizontal = abs(delta.x()) > abs(delta.y())
-            allowed = dx if horizontal else dy
-            bar = self.horizontalScrollBar() if horizontal else self.verticalScrollBar()
-            amount = delta.x() if horizontal else delta.y()
-            can_move = (
-                (amount > 0 and bar.value() > bar.minimum())
-                or (amount < 0 and bar.value() < bar.maximum())
-            )
-            if allowed and can_move:
-                super().wheelEvent(event)
+            remaining_x, remaining_y = float(dx), float(dy)
+            if props is not None and props["enabled"]:
+                allow_x, allow_y = scroll_axes(props["direction"])
+                for axis, delta, enabled in (
+                    ("x", remaining_x, allow_x),
+                    ("y", remaining_y, allow_y),
+                ):
+                    if not enabled or not delta:
+                        continue
+                    bar = (self.horizontalScrollBar() if axis == "x"
+                           else self.verticalScrollBar())
+                    next_value, residual = consume_scroll(
+                        float(bar.value()), float(bar.maximum()), delta,
+                    )
+                    bar.setValue(round(next_value))
+                    if axis == "x":
+                        remaining_x = residual
+                    else:
+                        remaining_y = residual
+            consumed = (dx - remaining_x, dy - remaining_y)
+            if consumed != (0, 0):
                 self._fade.start(750)
                 self._refresh_indicators(active=True)
+            if remaining_x or remaining_y:
+                ancestor = self.parentWidget()
+                while ancestor is not None:
+                    if hasattr(ancestor, "_psx_scroll_delta"):
+                        tail = ancestor._psx_scroll_delta(remaining_x, remaining_y)
+                        remaining_x, remaining_y = tail
+                        break
+                    ancestor = ancestor.parentWidget()
+            return remaining_x, remaining_y
+
+        def wheelEvent(self, event):
+            if self._psx_props is None or not self._psx_props["enabled"]:
+                event.ignore()
                 return
-            # Native Qt wheel dispatch will offer an ignored event to an
-            # enclosing scroll area. Avoid consuming at the boundary.
-            event.ignore()
+            pixel = event.pixelDelta()
+            angle = event.angleDelta()
+            # Qt positive wheel delta points up/left, opposite to logical
+            # increasing top-left SFLE offsets.
+            dx = -float(pixel.x()) if pixel.x() else -float(angle.x()) * 48 / 120
+            dy = -float(pixel.y()) if pixel.y() else -float(angle.y()) * 48 / 120
+            shift = getattr(getattr(qt, "KeyboardModifier", qt), "ShiftModifier")
+            if event.modifiers() & shift and not dx:
+                dx, dy = dy, 0.0
+            if not (dx or dy):
+                event.ignore()
+                return
+            residual = self._psx_scroll_delta(dx, dy)
+            if residual == (dx, dy):
+                event.ignore()
+            else:
+                event.accept()
 
         def keyPressEvent(self, event):
             from psx.sfle.scroll_events import scroll_key_delta
