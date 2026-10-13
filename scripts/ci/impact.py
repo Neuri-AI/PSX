@@ -122,8 +122,9 @@ def _classify_path(path: str) -> set[str]:
         return {"core"}
     if path.startswith("examples/") or path.startswith("scripts/"):
         return {"core"}
-    # Unrecognized code/configuration: do not silently skip tests.
-    return set(SUITES)
+    # Unrecognized code/configuration: run all current product gates.
+    # Row/Column removal is a separately scheduled future acceptance gate.
+    return set(SUITES) - {"legacy"}
 
 
 def classify(files: list[str] | None, *, force_full: bool = False) -> dict[str, object]:
