@@ -56,9 +56,9 @@ def external_port_for(node: VNode, renderer: object) -> SFLEExternalPort | None:
         return port
     if node.kind is not NodeKind.HOST:
         raise RendererCapabilityError("F3-G2 external leaf requires a HOST or Native node.")
-    from .f3_native_coverage import G2_LEAF_TYPES
+    from .f3_native_coverage import NATIVE_LEAF_TYPES
     kind = getattr(renderer, "_sfle_backend", None)
-    if node.type == "Flex" or node.type in G2_LEAF_TYPES.get(kind, ()):
+    if node.type == "Flex" or node.type in NATIVE_LEAF_TYPES.get(kind, ()):
         return None
     adapter = renderer.adapters.get(str(node.type))
     from psx.renderers.adapters import DelegatingAdapter
