@@ -96,7 +96,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                     layout_width="100px", layout_height="26px"),
             width="700px", height="160px", gap=5, align_items="flex-start",
         ))
-        native = {node.vnode.key: node.handle.widget for node in root.children}
+        native = {node.node.key: node.handle.widget for node in root.children}
         received.clear()  # Ignore legitimate creation-time widget initialization.
         native["button"].click()
         native["check"].click()
