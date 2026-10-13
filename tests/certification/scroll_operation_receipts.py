@@ -70,7 +70,14 @@ def certify_scroll_receipts(backend: str, junit: str | Path) -> dict:
         observed.setdefault((classname, operation), []).append(state)
     records = []
     for operation, test_name in REQUIRED[backend].items():
-        receipts = observed.get((TEST_MODULE[backend], test_name), [])
+        receipts = [
+            status for (classname, name), states in observed.items()
+            if name == test_name and (
+                classname == TEST_MODULE[backend]
+                or classname.startswith(TEST_MODULE[backend] + ".")
+            )
+            for status in states
+        ]
         if receipts and all(state == "passed" for state in receipts):
             status = "executed_pass"
         elif receipts:
