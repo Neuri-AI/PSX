@@ -321,6 +321,18 @@ jobs:
           python -m tests.certification.native_acceptance_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c6.json
           python -m tests.certification.native_invalidation_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c5.json
           python -m psx.sfle.native_external_ownership_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c4.json
+      - name: Certify public native Qt property behavior with semantic JUnit evidence
+        run: |
+          python -m pytest -q tests/test_qt_public_behavior.py --junitxml=public-native-qt.xml
+          python -m tests.certification.public_behavior_census --out public-native-qt-inventory.json --junit public-native-qt.xml --sha "${{ github.sha }}" --environment "ubuntu-qt-${{ matrix.binding }}-python-${{ matrix.python }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-native-qt-receipts-${{ matrix.binding }}
+          path: |
+            public-native-qt.xml
+            public-native-qt-inventory.json
+            public-native-qt-inventory-receipts.json
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: native-layout-qt-receipts-${{ matrix.binding }}
