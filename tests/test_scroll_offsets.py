@@ -91,3 +91,12 @@ def test_nonfinite_offsets_deltas_and_positions_fail_closed(bad):
         content_to_viewport(b, ScrollOffset(), x=bad, y=0)
     with pytest.raises(ValueError):
         viewport_to_content(b, ScrollOffset(), x=0, y=bad)
+
+
+def test_content_shrinking_to_viewport_resets_offsets_without_relayout():
+    b = binding(viewport=(10, 20, 100, 80), content=(0, 0, 40, 50))
+    assert clamp_scroll_offset(b, ScrollOffset(80, 40)) == ScrollOffset()
+    result = consume_scroll_delta(b, ScrollOffset(80, 40), delta_x=12, delta_y=9)
+    assert result.offset == ScrollOffset()
+    assert (result.remaining_x, result.remaining_y) == (12, 9)
+    assert b.content == Rect(0, 0, 40, 50)
