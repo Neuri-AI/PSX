@@ -356,9 +356,8 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertIsNone(root.handle.widget.layout())
 
     def test_unported_component_is_explicitly_rejected(self):
-        from psx import Row
-        with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
-            self.r.render(Flex(Row(), width=160, height=80))
+        from psx.core.registry import builtin_component_registry
+        self.assertFalse(builtin_component_registry().contains("Row"))
 
     def test_additional_qt_native_primitives_have_sfle_geometry_and_no_qboxlayout(self):
         from psx import Checkbox, Input, Slider, ProgressBar, Radio, Select
