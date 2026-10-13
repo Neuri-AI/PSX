@@ -723,6 +723,57 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertIs(root.children[0].children[0].children[0].handle.widget, button)
         self.assertEqual(content.winfo_manager(), "place")
 
+    def test_scroll_unmount_releases_tk_canvas(self):
+        from psx import Scroll
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        root = self.reconciler.render(Flex(
+            Scroll(Flex(item("Inside", "inside", 40),
+                        direction="row", width="300px", height="200px",
+                        key="content", align_items="flex-start"),
+                   direction="both", key="scroll",
+                   layout_width="120px", layout_height="80px",
+                   flex_basis="120px", flex_shrink=0),
+            direction="row", width="300px", height="200px",
+            align_items="flex-start",
+        ))
+        outer = root.children[0].handle.widget
+        self.assertTrue(outer.winfo_exists())
+        self.reconciler.unmount()
+        self.assertTrue(outer._psx_disposed)
+        self.assertFalse(outer.winfo_exists())
+
+    def test_scroll_disabled_axes_reset_existing_tk_offsets(self):
+        from psx import Scroll
+        from psx.sfle.model import Rect
+        from psx.sfle.native_scroll_hosts import apply_tk_scroll, binding_from_host
+        from psx.sfle.scroll_offsets import ScrollOffset
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        root = self.reconciler.render(Flex(
+            Scroll(Flex(item("Inside", "inside", 40),
+                        direction="row", width="300px", height="200px",
+                        key="content", align_items="flex-start"),
+                   direction="both", key="scroll",
+                   layout_width="120px", layout_height="80px",
+                   flex_basis="120px", flex_shrink=0),
+            direction="row", width="300px", height="200px",
+            align_items="flex-start",
+        ))
+        outer = root.children[0].handle.widget
+        canvas = outer._psx_canvas
+        self.host.update_idletasks()
+        binding = binding_from_host(outer._psx_props, Rect(0, 0, 120, 80),
+                                    Rect(0, 0, 300, 200))
+        apply_tk_scroll(outer, binding, ScrollOffset(60, 45))
+        self.host.update_idletasks()
+        self.assertLessEqual(abs(canvas.canvasy(0) - 45), 1)
+        outer._psx_props = {**outer._psx_props, "direction": "horizontal"}
+        restricted = binding_from_host(outer._psx_props, Rect(0, 0, 120, 80),
+                                       Rect(0, 0, 300, 200))
+        apply_tk_scroll(outer, restricted, ScrollOffset(60, 45))
+        self.host.update_idletasks()
+        self.assertLessEqual(abs(canvas.canvasy(0)), 1)
+        self.assertLessEqual(abs(canvas.canvasx(0) - 60), 1)
+
     def test_native_tk_wheel_and_keyboard_offset_readback(self):
         from types import SimpleNamespace
         from psx import Scroll
