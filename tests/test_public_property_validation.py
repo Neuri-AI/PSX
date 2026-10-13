@@ -63,7 +63,7 @@ def sample(component: str, name: str, default: object) -> object:
         return "horizontal"
     if name in ENUM_SAMPLE:
         return ENUM_SAMPLE[name]
-    if name == "value" and component in {"Text", "Radio", "RadioGroup", "Select"}:
+    if name == "value" and component in {"Text", "Radio", "RadioGroup", "Select", "Input", "TextArea"}:
         return "Changed"
     if name == "options":
         return ["Changed", "Another"]
