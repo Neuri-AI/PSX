@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from psx.core.registry import builtin_component_registry
-from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
 from psx.sfle.f3_g2_evidence import COMPONENT_OPERATION_TESTS, SUITES as COMPONENT_SUITES
 from psx.sfle.f3_g2_matrix import (
     BACKENDS, EVIDENCE, OPERATIONS, g2_certification_matrix, g2_matrix_summary,
@@ -36,7 +36,7 @@ def test_every_registered_component_backend_cell_is_explicit_and_unique():
 @pytest.mark.parametrize("backend", BACKENDS)
 def test_declared_native_ports_match_the_actual_registry(backend):
     registered = set(builtin_component_registry().snapshot())
-    native = set(G2_LEAF_TYPES[backend]) if backend != "headless" else {
+    native = set(NATIVE_LEAF_TYPES[backend]) if backend != "headless" else {
         "Flex", "Text", "Button",
     }
     assert native <= registered
@@ -84,16 +84,16 @@ def test_c1_all_registered_native_builtins_have_explicit_sfle_geometry_port(back
     cells = [cell for cell in g2_certification_matrix() if cell.backend == backend]
     assert not [cell.component for cell in cells if cell.status == "unported"]
     assert {cell.component for cell in cells if cell.status == "native"} == (
-        set(G2_LEAF_TYPES[backend]) | {"Flex"}
+        set(NATIVE_LEAF_TYPES[backend]) | {"Flex"}
     )
 
 
 def test_c1_kivy_controls_have_intrinsic_port_without_pixel_bounds():
     from psx import Input, Checkbox, ProgressBar
-    from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
+    from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
     for constructor in (Input, Checkbox, ProgressBar):
-        assert g2_native_leaf_needs_measurement(constructor(), backend="kivy")
-        assert g2_native_leaf_needs_measurement(
+        assert native_leaf_needs_measurement(constructor(), backend="kivy")
+        assert native_leaf_needs_measurement(
             constructor(layout_width="84px", layout_height="24px"),
             backend="kivy",
         )
