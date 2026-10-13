@@ -74,7 +74,7 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             self.skipTest("Kivy is installed but this test host has no usable native window provider.")
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_flex_has_explicit_g1_route_without_boxlayout_fallback(self) -> None:
+    def test_flex_has_explicit_flex_route_without_boxlayout_fallback(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
         environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
