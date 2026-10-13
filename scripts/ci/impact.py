@@ -94,7 +94,7 @@ def _classify_path(path: str) -> set[str]:
     if path.startswith("psx/renderers/"):
         return {"core", "qt", "kivy", "tkinter", "headless"}
     if path in ("psx/__init__.py", "psx/core/native.py") or path.startswith("psx/core/"):
-        return {"core", "headless", "qt", "kivy", "tkinter"}
+        return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
     if path.startswith("psx/markup/"):
         return {"core", "headless"}
     if path.startswith("psx/"):
@@ -123,8 +123,7 @@ def _classify_path(path: str) -> set[str]:
     if path.startswith("examples/") or path.startswith("scripts/"):
         return {"core"}
     # Unrecognized code/configuration: run all current product gates.
-    # Row/Column removal is a separately scheduled future acceptance gate.
-    return set(SUITES) - {"legacy"}
+    return set(SUITES)
 
 
 def classify(files: list[str] | None, *, force_full: bool = False) -> dict[str, object]:
@@ -132,7 +131,7 @@ def classify(files: list[str] | None, *, force_full: bool = False) -> dict[str, 
         not isinstance(p, str) or not p or p.startswith("/") or ".." in PurePosixPath(p).parts
         for p in files
     ):
-        selected = set(SUITES) if force_full else set(SUITES) - {"legacy"}
+        selected = set(SUITES)
         why = "explicit full certification" if force_full else "missing, unsafe or truncated diff"
         return {
             "docs_only": False, "full": True,
