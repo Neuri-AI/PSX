@@ -20,8 +20,19 @@ def test_spacer_is_a_builtin_markup_tag() -> None:
     assert node.children[1].type == "Spacer"
 
 
+def native_headless_renderer():
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    return HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(640, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+    )
+
+
 def test_spacer_mounts_and_unmounts_cleanly() -> None:
-    renderer = HeadlessRenderer()
+    renderer = native_headless_renderer()
     reconciler = Reconciler(renderer)
     root = reconciler.render(Flex(Text("A"), Spacer(), Text("B"), direction="row"))
     assert [h.type for h in root.handle.children] == ["Text", "Spacer", "Text"]
