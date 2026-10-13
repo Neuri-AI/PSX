@@ -19,7 +19,7 @@ class RoutingTests(unittest.TestCase):
     def test_python_component_registry_affects_all_native_backends(self):
         self.assertGreaterEqual(
             self.selected("psx/core/registry.py"),
-            {"core", "qt", "kivy", "tkinter", "headless"},
+            {"core", "qt", "kivy", "tkinter", "headless", "legacy"},
         )
 
     def test_qt_only_does_not_run_rust_or_other_toolkits(self):
@@ -181,10 +181,8 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(self.selected("docs/guide.md", "psx/renderers/qt/button.py"), {"qt"})
 
     def test_broad_unsafe_changes_fail_open(self):
-        self.assertEqual(set(classify(None)["selected"]), set(SUITES) - {"legacy"})
-        # Conservative unknown-diff validation exercises all current product
-        # suites, not the separate Row/Column-removal gate that cannot pass
-        # until its scheduled implementation. Explicit full remains available.
+        self.assertEqual(set(classify(None)["selected"]), set(SUITES))
+        # Unknown changes must run every gate, including retired public APIs.
         self.assertEqual(set(classify(None, force_full=True)["selected"]), set(SUITES))
         self.assertEqual(set(classify(["../hidden"])["selected"]), set(SUITES) - {"legacy"})
         self.assertEqual(set(classify([f"tests/t{i}.py" for i in range(300)])["selected"]), set(SUITES) - {"legacy"})
