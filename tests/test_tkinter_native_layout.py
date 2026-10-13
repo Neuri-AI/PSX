@@ -19,7 +19,6 @@ from psx.renderers.tkinter.tkinter import TkinterRenderer
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.errors import DiagnosticCode, SFLEError
 from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutResult
-import wheel
 
 
 def write_png(path, width, height):
