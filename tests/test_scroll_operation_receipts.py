@@ -74,3 +74,26 @@ def test_scroll_certifier_rejects_mixed_pass_and_fail_for_same_test(tmp_path):
     ET.ElementTree(root).write(source)
     with pytest.raises(ValueError, match="Missing/failing"):
         certify_scroll_receipts("qt", source)
+
+
+def test_scroll_inventory_references_real_distinct_backend_test_methods():
+    import ast
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    for backend, operations in REQUIRED.items():
+        assert len(set(operations.values())) == len(operations), backend
+        module_file = root.joinpath(*TEST_MODULE[backend].split(".")).with_suffix(".py")
+        assert module_file.is_file(), (backend, module_file)
+        tree = ast.parse(module_file.read_text(encoding="utf-8"))
+        defined = {
+            method.name
+            for klass in tree.body if isinstance(klass, ast.ClassDef)
+            for method in klass.body if isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        defined.update(
+            node.name for node in tree.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        )
+        missing = sorted(set(operations.values()) - defined)
+        assert not missing, (backend, missing)
