@@ -1,147 +1,154 @@
-"""Source-derived behavior census and fail-closed receipt tests."""
+"""Fail-closed tests for normalized public behavior and assertion-bound JUnit."""
 from __future__ import annotations
 
 from dataclasses import asdict
-
+import json
+from xml.etree import ElementTree as ET
 import pytest
 
 from tests.certification.public_behavior_census import (
-    BACKENDS, Feature, inventory, validate_receipts,
+    BACKENDS, CONTRACT, RECEIPT_PROPERTY, Feature, assert_feature,
+    feature_key, inventory, validate_receipts,
 )
 
 SHA = "a" * 40
 
 
-def test_registry_contract_census_includes_all_live_components():
+def test_source_derived_inventory_separates_shared_and_native():
     from psx.core.registry import builtin_component_registry
+    from psx.core.props import FLEX_ITEM_PROPS
+    from tests.certification.native_component_matrix import native_certification_matrix
 
     definitions = builtin_component_registry().snapshot()
     records = inventory()
-    assert {row.component for row in records} == set(definitions)
-    assert {row.backend for row in records} == set(BACKENDS)
-    assert all(row.status == "pending" for row in records)
     assert len(records) == len(set(records))
-    for name, definition in definitions.items():
-        subset = [row for row in records if row.component == name]
-        assert subset
-        if definition.contract is not None:
-            assert {
-                row.feature_name for row in subset if row.feature_kind == "property"
-            } >= set(definition.contract.properties)
-            assert {
-                row.feature_name for row in subset if row.feature_kind == "event"
-            } == set(definition.contract.events)
-
-
-def test_unverified_behavior_must_remain_pending():
-    rows = (Feature("Button", "pyside6", "event", "on_click", "native_dispatch"),)
-    report = validate_receipts(rows, [], sha=SHA)
-    assert report["pending"] == 1
-    assert report["complete"] is False
-
-
-@pytest.mark.parametrize("status", ["executed_pass", "skipped", "passed", "unknown"])
-def test_fabricated_or_nonexecuted_status_rejected(status, tmp_path):
-    rows = (Feature("Button", "pyside6", "event", "on_click", "native_dispatch"),)
-    data = {**asdict(rows[0]), "status": status}
-    if status == "executed_pass":
-        data.update(sha=SHA, test_id="fake::test_click", environment="ubuntu",
-                    junit_artifact=str(tmp_path / "missing.xml"))
-    with pytest.raises(ValueError):
-        validate_receipts(rows, [data], sha=SHA)
-
-
-def test_reject_foreign_component_and_duplicate_row():
-    rows = (Feature("Button", "pyside6", "event", "on_click", "native_dispatch"),)
-    receipt = {**asdict(rows[0]), "status": "pending"}
-    with pytest.raises(ValueError):
-        validate_receipts(rows, [receipt, receipt], sha=SHA)
-    with pytest.raises(ValueError):
-        validate_receipts(rows, [{**receipt, "component": "Text"}], sha=SHA)
-
-
-def test_exclusion_requires_reason():
-    rows = (Feature("Input", "kivy", "lifecycle", "mount", "native_behavior"),)
-    with pytest.raises(ValueError):
-        validate_receipts(rows, [{**asdict(rows[0]), "status": "unsupported"}], sha=SHA)
-
-
-def test_matching_executed_junit_test_is_accepted(tmp_path):
-    rows = (Feature("Button", "pyside6", "event", "on_click", "native_dispatch"),)
-    artifact = tmp_path / "native.xml"
-    artifact.write_text(
-        '<testsuite><testcase classname="tests.test_button" name="test_native_click"/></testsuite>',
-        encoding="utf-8",
-    )
-    receipt = {**asdict(rows[0]), "status": "executed_pass",
-               "sha": SHA, "environment": "linux pyside6",
-               "test_id": "tests.test_button::test_native_click",
-               "junit_artifact": str(artifact)}
-    result = validate_receipts(rows, [receipt], sha=SHA)
-    assert result["complete"] and result["executed_pass"] == 1
-    artifact.write_text(
-        '<testsuite><testcase classname="tests.test_button" name="test_native_click">'
-        '<skipped/></testcase></testsuite>', encoding="utf-8",
-    )
-    with pytest.raises(ValueError):
-        validate_receipts(rows, [receipt], sha=SHA)
-
-
-def test_backend_applicability_is_source_derived_and_no_unsupported_passes():
-    from tests.certification.native_component_matrix import native_certification_matrix
-
-    source = {(cell.backend, cell.component): cell.status
+    assert {row.component for row in records} == set(definitions)
+    assert {row.backend for row in records} == {*BACKENDS, CONTRACT}
+    assert all(row.status == "pending" for row in records)
+    native = {(cell.backend, cell.component): cell.status
               for cell in native_certification_matrix()}
-    expected = {"pyside6": "qt", "pyqt6": "qt", "pyqt5": "qt",
-                "pyside2": "qt", "kivy": "kivy",
-                "tkinter": "tk", "headless": "headless"}
-    for row in inventory():
-        assert row.applicability == source[(expected[row.backend], row.component)]
-        assert row.status == "pending"
-    assert any(row.component == "Input" and row.backend == "headless"
-               and row.applicability == "unported" for row in inventory())
-    assert any(row.component == "Button" and row.backend == "pyside6"
-               and row.applicability == "native" for row in inventory())
+    for component, definition in definitions.items():
+        contract = definition.contract
+        shared = [r for r in records if r.backend == CONTRACT and r.component == component]
+        if contract is None:
+            assert not shared
+        else:
+            advertised = set(contract.properties)
+            if component != "Flex":
+                advertised.update(FLEX_ITEM_PROPS)
+            assert {r.feature_name for r in shared if r.feature_kind == "property"} == advertised
+            assert all(r.scenario_id in ("default", "valid_boundary", "invalid_rejection")
+                       for r in shared if r.feature_kind == "property")
+        for backend in BACKENDS:
+            family = "qt" if backend.startswith(("pyqt", "pyside")) else (
+                "tk" if backend == "tkinter" else backend)
+            subset = [r for r in records if r.backend == backend and r.component == component]
+            assert subset
+            assert all(r.applicability == native[(family, component)] for r in subset)
+            assert not any(r.scenario_id in ("default", "valid_boundary", "invalid_rejection")
+                           for r in subset)
+            if native[(family, component)] == "unported":
+                assert len(subset) == 1
+                assert subset[0].scenario_id == "reject_unsupported"
 
 
-def test_unported_backend_cannot_imitate_executed_native_pass(tmp_path):
-    row = Feature("Input", "headless", "event", "on_change",
-                  "native_dispatch", applicability="unported")
-    source = tmp_path / "receipt.xml"
-    source.write_text('<testsuite><testcase classname="tests.input" name="test_input"/></testsuite>')
-    claim = {**asdict(row), "status": "executed_pass", "sha": SHA,
-             "test_id": "tests.input::test_input", "environment": "headless",
-             "junit_artifact": str(source)}
-    with pytest.raises(ValueError, match="Unsupported native backend"):
-        validate_receipts((row,), [claim], sha=SHA)
+def test_unexecuted_behavior_remains_pending():
+    row = Feature("Button", "pyside6", "event", "on_click", "native_dispatch")
+    result = validate_receipts((row,), [], sha=SHA)
+    assert result["pending"] == 1 and not result["complete"]
 
 
-def test_claimed_unsupported_requires_genuine_negative_junit(tmp_path):
-    row = Feature("Input", "headless", "event", "on_change",
-                  "native_dispatch", applicability="unported")
-    receipt = {**asdict(row), "status": "unsupported",
-               "reason": "No admitted native SFLE geometry port",
-               "sha": SHA, "test_id": "tests.input::test_rejected",
-               "environment": "headless",
-               "junit_artifact": str(tmp_path / "missing.xml")}
-    with pytest.raises(ValueError, match="Missing JUnit"):
-        validate_receipts((row,), [receipt], sha=SHA)
-    path = tmp_path / "missing.xml"
-    path.write_text('<testsuite><testcase classname="tests.input" name="test_rejected"/></testsuite>')
-    assert validate_receipts((row,), [receipt], sha=SHA)["excluded"] == 1
-    with pytest.raises(ValueError, match="Supported native capability"):
-        validate_receipts((
-            Feature("Input", "pyside6", "event", "on_change",
-                    "native_dispatch", applicability="native"),
-        ), [{**receipt, "backend": "pyside6"}], sha=SHA)
+def _receipt(row, path, *, status="executed_pass"):
+    return {**asdict(row), "status": status, "sha": SHA,
+            "test_id": "tests.test_sample::test_behavior",
+            "environment": "linux-python-3.12",
+            "junit_artifact": str(path)}
 
 
-def test_not_applicable_requires_explicit_reviewer():
-    row = Feature("Native", "headless", "lifecycle", "unmount",
-                  "native_behavior", applicability="external_port_required")
-    receipt = {**asdict(row), "status": "not_applicable",
-               "reason": "No external native host in Headless"}
+def _junit(path, row, *, state=None, asserted=True, duplicate=False):
+    root = ET.Element("testsuite")
+    case = ET.SubElement(root, "testcase", classname="tests.test_sample",
+                         name="test_behavior")
+    props = ET.SubElement(case, "properties")
+    if asserted:
+        for _ in range(2 if duplicate else 1):
+            ET.SubElement(props, "property", name=RECEIPT_PROPERTY,
+                          value=json.dumps(dict(zip((
+                              "component", "backend", "feature_kind",
+                              "feature_name", "scenario_id"), feature_key(row)))))
+    if state:
+        ET.SubElement(case, state)
+    ET.ElementTree(root).write(path, encoding="utf-8")
+
+
+def test_real_assertion_receipt_proves_exact_feature(tmp_path):
+    row = Feature("Button", "pyside6", "event", "on_click", "native_dispatch")
+    path = tmp_path / "executed.xml"
+    _junit(path, row)
+    result = validate_receipts((row,), [_receipt(row, path)], sha=SHA)
+    assert result["complete"] and result["executed_pass"] == 1
+
+
+@pytest.mark.parametrize("state", ["failure", "error", "skipped", None])
+def test_invalid_or_unmarked_junit_cannot_certify(state, tmp_path):
+    row = Feature("Button", "pyside6", "event", "on_click", "native_dispatch")
+    path = tmp_path / "invalid.xml"
+    _junit(path, row, state=state, asserted=bool(state))
+    with pytest.raises(ValueError, match="Missing successful feature assertion"):
+        validate_receipts((row,), [_receipt(row, path)], sha=SHA)
+
+
+def test_duplicate_assertion_rejected(tmp_path):
+    row = Feature("Button", "pyside6", "event", "on_click", "native_dispatch")
+    path = tmp_path / "dupe.xml"
+    _junit(path, row, duplicate=True)
+    with pytest.raises(ValueError, match="Duplicate feature"):
+        validate_receipts((row,), [_receipt(row, path)], sha=SHA)
+
+
+def test_unknown_duplicate_and_foreign_sha_fail(tmp_path):
+    row = Feature("Button", "pyside6", "event", "on_click", "native_dispatch")
+    path = tmp_path / "executed.xml"
+    _junit(path, row)
+    receipt = _receipt(row, path)
+    for bad in ([receipt, receipt], [{**receipt, "component": "Text"}],
+                [{**receipt, "sha": "b" * 40}]):
+        with pytest.raises(ValueError):
+            validate_receipts((row,), bad, sha=SHA)
+
+
+def test_unported_exclusion_requires_assertion_and_reviewer(tmp_path):
+    row = Feature("Input", "headless", "capability", "native_host",
+                  "reject_unsupported", applicability="unported")
+    path = tmp_path / "negative.xml"
+    _junit(path, row)
+    exclusion = {**_receipt(row, path, status="unsupported"),
+                 "reason": "No native geometry port"}
     with pytest.raises(ValueError, match="Unreviewed"):
+        validate_receipts((row,), [exclusion], sha=SHA)
+    exclusion["reviewed_by"] = "independent-review"
+    assert validate_receipts((row,), [exclusion], sha=SHA)["excluded"] == 1
+    with pytest.raises(ValueError, match="Unported"):
+        validate_receipts((row,), [_receipt(row, path)], sha=SHA)
+
+
+def test_native_positive_cannot_be_arbitrarily_excluded():
+    row = Feature("Button", "pyside6", "event", "on_click", "payload",
+                  applicability="native")
+    receipt = {**asdict(row), "status": "not_applicable",
+               "reason": "Convenience", "reviewed_by": "test"}
+    with pytest.raises(ValueError, match="Required native behavior"):
         validate_receipts((row,), [receipt], sha=SHA)
-    receipt["reviewed_by"] = "independent-review-fixture"
-    assert validate_receipts((row,), [receipt], sha=SHA)["excluded"] == 1
+
+
+def test_assert_feature_records_only_after_successful_assertion():
+    class Node:
+        user_properties = []
+    class Request:
+        node = Node()
+    row = Feature("Button", CONTRACT, "property", "enabled", "default")
+    with pytest.raises(AssertionError):
+        assert_feature(Request(), row, False)
+    assert not Request.node.user_properties
+    assert_feature(Request(), row, True)
+    assert Request.node.user_properties[0][0] == RECEIPT_PROPERTY
