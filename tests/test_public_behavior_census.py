@@ -85,3 +85,20 @@ def test_matching_executed_junit_test_is_accepted(tmp_path):
     )
     with pytest.raises(ValueError):
         validate_receipts(rows, [receipt], sha=SHA)
+
+
+def test_backend_applicability_is_source_derived_and_no_unsupported_passes():
+    from tests.certification.native_component_matrix import native_certification_matrix
+
+    source = {(cell.backend, cell.component): cell.status
+              for cell in native_certification_matrix()}
+    expected = {"pyside6": "qt", "pyqt6": "qt", "pyqt5": "qt",
+                "pyside2": "qt", "kivy": "kivy",
+                "tkinter": "tk", "headless": "headless"}
+    for row in inventory():
+        assert row.applicability == source[(expected[row.backend], row.component)]
+        assert row.status == "pending"
+    assert any(row.component == "Input" and row.backend == "headless"
+               and row.applicability == "unported" for row in inventory())
+    assert any(row.component == "Button" and row.backend == "pyside6"
+               and row.applicability == "native" for row in inventory())
