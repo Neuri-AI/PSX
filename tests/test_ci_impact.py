@@ -87,7 +87,7 @@ class RoutingTests(unittest.TestCase):
         consumers = {"core", "qt", "kivy", "tkinter"}
         for filename in (
             "f3_width_remeasurement.py",
-            "f3_native_coverage.py",
+            "native_component_capabilities.py",
             "native_pixel_space.py",
         ):
             self.assertEqual(self.selected(f"psx/sfle/{filename}"), consumers)
