@@ -656,7 +656,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(result.offset, ScrollOffset(90, 60))
         self.assertLessEqual(abs(canvas.canvasx(0) - 90), 1)
         self.assertLessEqual(abs(canvas.canvasy(0) - 60), 1)
-        self.assertEqual(canvas.cget("highlightthickness"), 0)
+        self.assertEqual(int(canvas.cget("highlightthickness")), 0)
         self.assertEqual(canvas.winfo_width(), 120)
         self.assertEqual(canvas.winfo_height(), 80)
 
