@@ -60,3 +60,19 @@ def test_legacy_layout_inventory_detects_import_only_no_builder_call():
     assert {(item.symbol, item.usage) for item in refs} == {
         ("Row", "import"), ("Column", "import"),
     }
+
+
+def test_shipped_python_examples_no_longer_depend_on_legacy_containers():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    examples = sorted((root / "examples").rglob("*.py"))
+    assert examples
+    violations = [
+        item for file in examples
+        for item in references(
+            file.relative_to(root).as_posix(),
+            file.read_text(encoding="utf-8"),
+        )
+    ]
+    assert not violations, violations
