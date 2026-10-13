@@ -33,6 +33,16 @@ class PySide6RendererTests(unittest.TestCase):
         self.renderer.application.processEvents()
 
 
+    def _enable_native_sfle(self) -> None:
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, LayoutConstraints
+        native = PySide6Renderer(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(640, True), AvailableSize(480, True)),
+            engine=PythonLayoutEngine(),
+        )
+        self.reconciler = Reconciler(native)
+
     def test_flex_has_explicit_flex_route_without_legacy_qboxlayout_fallback(self) -> None:
         from psx import Flex
 
@@ -41,6 +51,7 @@ class PySide6RendererTests(unittest.TestCase):
             self.renderer.create(Flex(Text("A")), None)
 
     def test_counter_update_reuses_qwidgets(self) -> None:
+        self._enable_native_sfle()
         calls: list[str] = []
         root = self.reconciler.render(
             Flex(Text("Count: 1", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("old")), direction="column")
@@ -83,7 +94,8 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertEqual(len(self.reconciler.root.event_slots), 1)
 
     def test_app_selects_pyside6_lazily(self) -> None:
-        app = App(Flex(Text("Hello"), direction="column"), renderer="pyside6")
+        self._enable_native_sfle()
+        app = App(Flex(Text("Hello"), direction="column"), renderer=self.reconciler.renderer)
         handle = app.mount()
         self.assertIsInstance(handle, QtHandle)
         app.unmount()
@@ -135,6 +147,7 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertFalse(isValid(label))
 
     def test_text_inherits_theme_and_returns_to_it_after_color_override(self) -> None:
+        self._enable_native_sfle()
         root = self.reconciler.render(Flex(Text("theme"), direction="column"))
         shell = root.handle.widget
         label = root.children[0].handle.widget
@@ -195,6 +208,7 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertEqual(label.text(), "1")
 
     def test_owned_native_widget_has_stable_identity_and_explicit_updates(self) -> None:
+        self._enable_native_sfle()
         updates: list[tuple[str, frozenset[str]]] = []
 
         def update(widget: object, changed: object, removed: frozenset[str]) -> None:
@@ -218,6 +232,7 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertEqual(updates, [("ready", frozenset()), ("updated", frozenset())])
 
     def test_borrowed_native_widget_is_not_deleted_and_parent_is_restored(self) -> None:
+        self._enable_native_sfle()
         original_parent = QWidget()
         borrowed = QLabel("borrowed", original_parent)
         native = NativeWidget(renderer="pyside6", widget=borrowed, ownership="borrowed")
@@ -268,6 +283,7 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertEqual(len(disconnections), 1)
 
     def test_native_factory_can_explicitly_receive_its_psx_parent(self) -> None:
+        self._enable_native_sfle()
         parents: list[object] = []
 
         def factory(parent: object) -> QLabel:
