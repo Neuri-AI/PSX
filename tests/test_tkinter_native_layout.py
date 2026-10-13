@@ -625,6 +625,38 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(child), (0, 0, 40, 20))
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
 
+    def test_nested_native_tk_wheel_chains_only_remaining_pixels(self):
+        from types import SimpleNamespace
+        from psx import Scroll
+        self.renderer.set_sfle_constraints(constraints(300, 300))
+        root = self.reconciler.render(Flex(
+            Scroll(Flex(
+                Scroll(Flex(item("Inside", "inside", 40),
+                            direction="row", width="300px", height="300px",
+                            key="inner-content", align_items="flex-start"),
+                       direction="vertical", key="inner",
+                       layout_width="120px", layout_height="80px",
+                       flex_basis="120px", flex_shrink=0),
+                direction="column", width="300px", height="300px",
+                key="outer-content", align_items="flex-start"),
+                direction="vertical", key="outer",
+                layout_width="160px", layout_height="100px",
+                flex_basis="160px", flex_shrink=0),
+            direction="row", width="300px", height="300px",
+            align_items="flex-start",
+        ))
+        outer = root.children[0].handle.widget
+        inner = root.children[0].children[0].children[0].handle.widget
+        self.host.update_idletasks()
+        inner._psx_canvas.yview_moveto(1.0)
+        outer._psx_canvas.yview_moveto(0)
+        self.host.update_idletasks()
+        event = SimpleNamespace(delta=-120, state=0)
+        self.assertIsNone(inner._wheel(event))
+        self.assertEqual(outer._wheel(event), "break")
+        self.assertLessEqual(abs(outer._psx_canvas.canvasy(0) - 48), 1)
+        self.assertEqual(event._psx_scroll_remainder, 0.0)
+
     def test_native_tk_wheel_and_keyboard_offset_readback(self):
         from types import SimpleNamespace
         from psx import Scroll
