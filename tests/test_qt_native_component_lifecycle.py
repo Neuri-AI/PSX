@@ -103,7 +103,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         native["input"].setText("two")
         native["input"].returnPressed.emit()
         native["text-area"].setPlainText("changed")
-        native["slider"].setValue(20)
+        native["slider"].setValue(int(20 * native["slider"]._psx_factor))
         native["select"].setCurrentIndex(2)
         native["spin"]._psx_parts[2].click()
         self.assertEqual(received, [
