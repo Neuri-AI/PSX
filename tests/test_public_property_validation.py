@@ -13,6 +13,7 @@ import pytest
 from psx.core.errors import RendererCapabilityError
 from psx.core.layout_item import FLEX_ITEM_PROPS
 from psx.core.registry import builtin_component_registry
+from tests.certification.public_behavior_census import Feature, CONTRACT, assert_feature
 
 
 REQUIRED = {"Text": {"value": "Hello"}, "Button": {"label": "Go"},
@@ -95,7 +96,7 @@ def cases():
 
 
 @pytest.mark.parametrize(("component", "property_name"), cases())
-def test_advertised_property_has_positive_and_invalid_classes(component, property_name):
+def test_advertised_property_has_positive_and_invalid_classes(component, property_name, request):
     contract = builtin_component_registry().resolve(component).contract
     assert contract is not None
     baseline = dict(contract.defaults)
@@ -110,11 +111,19 @@ def test_advertised_property_has_positive_and_invalid_classes(component, propert
     value = sample(component, property_name, baseline.get(property_name))
     variant = {**baseline, property_name: value}
     contract.validate(variant)
-    assert contract.with_defaults(variant)[property_name] == value
+    assert_feature(request, Feature(component, CONTRACT, "property", property_name,
+                                    "valid_boundary", applicability="shared"),
+                   contract.with_defaults(variant)[property_name] == value)
+    assert_feature(request, Feature(component, CONTRACT, "property", property_name,
+                                    "default", applicability="shared"),
+                   all(contract.with_defaults(baseline)[key] == default
+                       for key, default in contract.defaults.items()))
 
     invalid = {**baseline, property_name: object()}
     with pytest.raises((RendererCapabilityError, ValueError, TypeError)):
         contract.validate(invalid)
+    assert_feature(request, Feature(component, CONTRACT, "property", property_name,
+                                    "invalid_rejection", applicability="shared"), True)
 
 
 def test_all_public_property_names_are_in_executable_value_corpus():
