@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 from psx.core.registry import builtin_component_registry
-from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
 from .f3_g2_evidence import COMPONENT_OPERATION_TESTS
 
 BACKENDS = ("qt", "tk", "kivy", "headless")
@@ -102,7 +102,7 @@ def g2_certification_matrix() -> tuple[G2Cell, ...]:
             raise ValueError(f"Evidence references absent registry component {component!r}.")
     for backend in BACKENDS:
         classified = (
-            set(G2_LEAF_TYPES.get(backend, HEADLESS_PORTED))
+            set(NATIVE_LEAF_TYPES.get(backend, HEADLESS_PORTED))
             | STRUCTURAL | TRANSPARENT | LEGACY | EXTERNAL
             | set(UNPORTED_BY_BACKEND[backend])
         )
@@ -115,7 +115,7 @@ def g2_certification_matrix() -> tuple[G2Cell, ...]:
             )
     result: list[G2Cell] = []
     for backend in BACKENDS:
-        allowed = G2_LEAF_TYPES.get(backend, HEADLESS_PORTED)
+        allowed = NATIVE_LEAF_TYPES.get(backend, HEADLESS_PORTED)
         for name in names:
             if name in TRANSPARENT:
                 status = "transparent"
