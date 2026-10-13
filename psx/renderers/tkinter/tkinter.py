@@ -341,8 +341,6 @@ class TkinterRenderer:
         # "Input" stays reserved (unsupported in Tk) so custom adapters still need replace=True.
         for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Flex", "Input", "Native")):
             self.adapters.register(component, self._default_adapter)
-        from .column import TkColumnAdapter
-        from .row import TkRowAdapter
         from .divider import TkDividerAdapter
         from .image import TkImageAdapter
         from .box import TkBoxAdapter
@@ -353,8 +351,6 @@ class TkinterRenderer:
         from .badge import TkBadgeAdapter
         from .spinbox import TkSpinBoxAdapter
         from .scroll import TkScrollAdapter
-        self.adapters.register("Column", TkColumnAdapter())
-        self.adapters.register("Row", TkRowAdapter())
         self.adapters.register("Divider", TkDividerAdapter())
         self.adapters.register("Image", TkImageAdapter())
         self.adapters.register("Box", TkBoxAdapter())
