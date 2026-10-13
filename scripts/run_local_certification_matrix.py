@@ -144,12 +144,34 @@ class MatrixRunner:
                 log.relative_to(self.output)), str(error)))
             return None
 
-    def test(self, name: str, python: Path, arguments: list[str], *, env: dict[str, str] | None = None) -> bool:
+    def test(
+        self,
+        name: str,
+        python: Path,
+        arguments: list[str],
+        *,
+        env: dict[str, str] | None = None,
+    ) -> bool:
         log = self.output / "logs" / f"{name}.log"
         command = [str(python), *arguments]
+
+        if arguments[:2] == ["-m", "pytest"]:
+            basetemp = self.output / "tmp" / name
+            basetemp.parent.mkdir(parents=True, exist_ok=True)
+            command.append(f"--basetemp={basetemp}")
+
         code, duration = call(command, env=env, log=log)
-        self.results.append(Result(name, "passed" if code == 0 else "failed", duration, command,
-                                   str(log.relative_to(self.output)), "" if code == 0 else f"exit code {code}"))
+
+        self.results.append(
+            Result(
+                name,
+                "passed" if code == 0 else "failed",
+                duration,
+                command,
+                str(log.relative_to(self.output)),
+                "" if code == 0 else f"exit code {code}",
+            )
+        )
         return code == 0
 
     def census(self, name: str, python: Path, junit: Path, environment: str) -> Path | None:
@@ -308,7 +330,7 @@ def main() -> int:
         runner.test("tkinter-native", tkinter, ["-m", "pytest", "-q", "--capture=sys", "tests/test_tkinter_renderer.py",
                                                 "tests/test_tkinter_native_layout.py", "tests/test_tkinter_external_native_ports.py"])
         runner.run_public_suite("tkinter", tkinter, "tests/test_tk_public_behavior.py",
-                                f"{platform.system().lower()}-tkinter-python-{python_version}")
+                                f"{platform.system().lower()}-tkinter-python-{python_version}", capture="sys")
 
     if args.include_browser_and_rust and core and "rust" in selected:
         runner.test("rust-python", core, ["-m", "pytest", "-q", "tests/interop/test_sfle_differential.py",

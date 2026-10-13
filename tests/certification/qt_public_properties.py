@@ -49,7 +49,7 @@ def cases():
         expected=(1, 2))
     add("Button", "font_size", 11, 22, lambda w: w.font().pixelSize())
     for name in ("Input", "TextArea"):
-        add(name, "font_size", 11, 22, lambda w: w.font().pointSize())
+        add(name, "font_size", 11, 22, lambda w: w.font().pixelSize())
     for name in ("Button", "Radio", "Link"):
         add(name, "label", "Before", "After", lambda w: w.text())
     add("Switch", "label", "Before", "After", lambda w: w.accessibleName())
