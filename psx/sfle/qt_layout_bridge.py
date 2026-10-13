@@ -257,6 +257,8 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             for node_id, widget in bindings.items()
             if node_id != snapshot.nodes[0].node_id
         }
+        from psx.sfle.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
+        scroll_before = capture_scroll_hosts("qt", bindings)
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
         try:
@@ -323,6 +325,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
         except BaseException:
+            restore_scroll_hosts(scroll_before)
             for node_id, values in before.items():
                 if node_id in external:
                     external[node_id].apply(bindings[node_id].widget, Rect(*values))
