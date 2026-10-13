@@ -51,6 +51,12 @@ def apply_qt_scroll(area: object, binding: ScrollViewportBinding,
     content.resize(round(geometry.content_size[0]), round(geometry.content_size[1]))
     horizontal = area.horizontalScrollBar()
     vertical = area.verticalScrollBar()
+    # Hidden/offscreen QScrollArea widgets may not have calculated scroll
+    # ranges yet. SFLE's viewport and content extents are authoritative.
+    if hasattr(horizontal, "setRange"):
+        horizontal.setRange(0, round(binding.overflow_x) if binding.clip_x else 0)
+    if hasattr(vertical, "setRange"):
+        vertical.setRange(0, round(binding.overflow_y) if binding.clip_y else 0)
     horizontal.setValue(round(geometry.offset.x))
     vertical.setValue(round(geometry.offset.y))
     return geometry
