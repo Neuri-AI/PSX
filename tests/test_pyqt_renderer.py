@@ -24,7 +24,7 @@ class PyQtRendererSubprocessTests(unittest.TestCase):
             @component
             def Counter():
                 value, set_value = use_state(0)
-                return Column(Text(str(value), key="text"), Button("+", key="button", on_click=lambda: set_value(value + 1)))
+                return Flex(Text(str(value), key="text"), Button("+", key="button", on_click=lambda: set_value(value + 1)), direction="column")
 
             app = App(Counter(), renderer="{binding}")
             app.mount()
