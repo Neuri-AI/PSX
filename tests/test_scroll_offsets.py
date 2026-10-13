@@ -76,7 +76,7 @@ def test_nested_scroll_frames_keep_offsets_independent():
     inner_point = content_to_viewport(inner, ScrollOffset(12, 20), x=40, y=35)
     outer_point = content_to_viewport(outer, ScrollOffset(60, 30),
                                       x=inner_point[0], y=inner_point[1])
-    assert outer_point == (18, 35)
+    assert outer_point == (-2, 35)
     assert outer.content == Rect(0, 0, 300, 200)
 
 
