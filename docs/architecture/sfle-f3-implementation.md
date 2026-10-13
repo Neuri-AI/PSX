@@ -1919,3 +1919,25 @@ F3 now has **2 of 5 official gates CLOSED (40%)**. Next **F3-G3**.
 - Semantic refactoring is behavior-preserving: run all applicable native Qt bindings, Tkinter/Kivy/Headless, Rust/Python differential, Chromium and native-wheel workflows on a single code SHA. Documentation-only follow-up commits use selective CI without executing product tests.
 
 The archived historical references to F3/G2/C6 in this implementation plan remain valid as **history**, not as permission to reintroduce those prefixes into executable identifiers.
+
+
+## F3-G3 implementation tracking — native scrolling (2026-10-12)
+
+G3 is subdivided for implementation tracking only; **the five official F3 gates are unchanged**. These milestone codes belong exclusively in documentation; executable source and tests use behavior-descriptive names.
+
+| Increment | Scope | Status |
+| --- | --- | --- |
+| C1 | Neutral scroll offsets, clamping, residual deltas, viewport/content coordinate projection and immutable engine geometry | Implemented; awaiting full CI certification |
+| C2 | Real native offset, clipping and axis integration in Qt, Tkinter, Kivy and Headless | Not started |
+| C3 | Keyboard/wheel/touch event handling, edge chaining, nested viewport separation | Not started |
+| C4 | Resize/content reflow, offset restoration, unmount/rollback and focus preservation | Not started |
+| C5 | Per-backend, per-operation executed behavioral receipts | Not started |
+| C6 | Final cross-platform immutable-SHA signoff and G3 gate acceptance | Not started |
+
+### F3-G3-C1 — backend-neutral scroll offset mathematics
+
+**Implementation:** `psx/sfle/scroll_offsets.py`, independently of the native toolkit adapters. `ScrollOffset` is an immutable logical top-left offset in viewport/content coordinates, `ScrollConsumption` contains the next clamped offset and residual event deltas. `clamp_scroll_offset` respects allowed axes and current overflow; `consume_scroll_delta` reports unconsumed movement for future native parent chaining; `content_to_viewport` and `viewport_to_content` are inverse transformations for native viewport-parent coordinates. All current SFLE `Rect` instances remain unchanged. NaN/Infinity offsets, deltas, and requested coordinates fail closed.
+
+**Execution:** `tests/test_scroll_offsets.py` covers both axes, disabled directions, extremes, positive/negative residuals, resize/shrink, nested independent frames, inverse projection and invalid numeric inputs. This test is included in the mandatory Core CI command. It does **not** claim toolkit scroll gesture support, Kivy overflow enablement, scrollbar parity or native nested event chaining. Those are owned by C2–C6.
+
+**Implementation commit:** [`2ee33b0`](https://github.com/Neuri-AI/PSX/commit/2ee33b0ab0d8ac4abea69f2b371f0ea6c53936c4); [required CI execution](https://github.com/Neuri-AI/PSX/actions/runs/38345246046). Mark C1 CLOSED only when the native/geometry/Chromium/Rust-and-fallback required checks complete SUCCESS against the code SHA; documentation-only changes do not rerun product tests.
