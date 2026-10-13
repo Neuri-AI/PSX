@@ -279,22 +279,6 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             for node_id in dependent if node_id not in external
             and hasattr(bindings[node_id].widget, "text_size")
         }
-        # G2 can bind a native viewport without implementing full scroll
-        # offset translation. Larger content is deferred to G3 until the
-        # viewport-coordinate/scroll-offset readback has full certification.
-        for node in snapshot.nodes:
-            if node.parent_id is not None and getattr(
-                bindings[node.parent_id].widget, "_psx_sfle_scroll", False
-            ):
-                parent_box = boxes[node.parent_id].border
-                child_box = boxes[node.node_id].border
-                if (child_box.width > parent_box.width + 1.0
-                        or child_box.height > parent_box.height + 1.0):
-                    raise SFLEError(
-                        DiagnosticCode.UNSUPPORTED_FEATURE,
-                        "Kivy Scroll overflow offsets require F3-G3 viewport projection.",
-                        node.node_id,
-                    )
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
         try:
@@ -305,7 +289,21 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 if node.parent_id is not None:
                     parent = bindings[node.parent_id].widget
                     if getattr(parent, "_psx_sfle_scroll", False):
-                        parent._psx_content.size = parent.size
+                        from psx.sfle.native_scroll_hosts import (
+                            apply_kivy_scroll, binding_from_host,
+                        )
+                        from psx.sfle.scroll_offsets import ScrollOffset
+                        parent_box = boxes[node.parent_id].border
+                        child_box = boxes[node.node_id].border
+                        binding = binding_from_host(
+                            parent._psx_props, parent_box, child_box,
+                        )
+                        # scroll_y=1 is the top edge in Kivy.
+                        previous = ScrollOffset(
+                            max(0.0, float(parent.scroll_x) * binding.overflow_x),
+                            max(0.0, (1.0 - float(parent.scroll_y)) * binding.overflow_y),
+                        )
+                        apply_kivy_scroll(parent, binding, previous)
             for node_id, vnode in prepared.identities:
                 if vnode.kind is NodeKind.HOST and vnode.type == "Divider" and vnode.children:
                     from psx.renderers.kivy.divider import KivyDividerAdapter
@@ -330,7 +328,11 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                            LayoutUnit.from_nearest(parent.x)).to_px()
                 local_y = (LayoutUnit.from_nearest(border.y) -
                            LayoutUnit.from_nearest(parent.y)).to_px()
-                projected_y = (LayoutUnit.from_nearest(parent.height) -
+                parent_height = (border.height
+                                 if getattr(bindings[node.parent_id].widget,
+                                            "_psx_sfle_scroll", False)
+                                 else parent.height)
+                projected_y = (LayoutUnit.from_nearest(parent_height) -
                                LayoutUnit.from_nearest(local_y) -
                                LayoutUnit.from_nearest(border.height)).to_px()
                 actual = observed[node.node_id]
