@@ -76,3 +76,27 @@ def test_shipped_python_examples_no_longer_depend_on_legacy_containers():
         )
     ]
     assert not violations, violations
+
+
+
+@pytest.mark.parametrize("legacy_name", ("Row", "Column"))
+def test_removed_portable_layout_cannot_be_imported_or_resolved(legacy_name):
+    import psx
+    from psx.core.errors import MarkupSyntaxError, UnknownComponentError
+    from psx.core.registry import builtin_component_registry
+
+    assert legacy_name not in psx.__all__
+    assert not hasattr(psx, legacy_name)
+    registry = builtin_component_registry()
+    assert not registry.contains(legacy_name)
+    with pytest.raises(UnknownComponentError):
+        registry.resolve(legacy_name)
+    with pytest.raises(MarkupSyntaxError, match="Unknown PSX tag"):
+        psx.psx(f"<{legacy_name} />")
+
+
+def test_native_renderers_cannot_register_a_second_layout_authority():
+    # Runtime bridge adapters must never register removed layout engines.
+    from psx.renderers.headless import HeadlessRenderer
+    renderer = HeadlessRenderer()
+    assert not {"Row", "Column"} & renderer.supported_types
