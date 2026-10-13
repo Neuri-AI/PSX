@@ -1932,7 +1932,7 @@ G3 is subdivided for implementation tracking only; **the five official F3 gates 
 | C3 | Keyboard/wheel/touch event handling, edge chaining, nested viewport separation | **CLOSED — code SHA `dda1499`, required CI SUCCESS** |
 | C4 | Resize/content reflow, offset restoration, unmount/rollback and focus preservation | **CLOSED — code SHA `2bff382`, mandatory CI SUCCESS** |
 | C5 | Per-backend, per-operation executed behavioral receipts | **CLOSED — code SHA `c58c9f5`, 19 executed Scroll operation receipts, CI SUCCESS** |
-| C6 | Final cross-platform immutable-SHA signoff and G3 gate acceptance | Not started |
+| C6 | Final cross-platform immutable-SHA signoff and G3 gate acceptance | **CLOSED — immutable source SHA `2621ebd`, executed adversarial CI** |
 
 ### F3-G3-C1 — backend-neutral scroll offset mathematics
 
@@ -2146,3 +2146,69 @@ the G3 gate. Missing additional applicable operations discovered
 during C6 cannot inherit these 19 passes and must be tested.
 
 **Acceptance: F3-G3-C5 CLOSED. Next: F3-G3-C6.**
+
+### F3-G3-C6 — adversarial coverage audit and final Scroll gate acceptance
+
+**Audit disposition: G3 CLOSED** on immutable product/test source SHA
+[`2621ebd11dd8dea90ece6698f83e676d503eabcc`](https://github.com/Neuri-AI/PSX/commit/2621ebd11dd8dea90ece6698f83e676d503eabcc).
+This gate extends, rather than merely reuses, the earlier C5 receipt
+inventory. The source-SHA acceptance baseline has **25 mandatory
+backend × Scroll operation receipts**: Qt 7, Tkinter 7, Kivy 6,
+Headless 5, with three Headless-only native cases classified explicitly
+as not applicable. The added mandatory cases cover live Qt/Tk teardown,
+disabled-axis reset with nonzero prior offsets, and real Kivy native
+unmount and failure-injection rollback.
+
+**Adversarial challenges and dispositions:**
+1. **Missing lifecycle coverage — corrected.** Added executable
+   Scroll-specific native teardown cases on Qt, Tk and Kivy; no
+   generic component lifecycle test is borrowed as Scroll evidence.
+2. **Changing enabled axes with existing offsets — corrected.**
+   Added real Qt and Tk viewport tests that begin scrolled,
+   reconfigure allowed axes, and verify the forbidden-axis offset
+   returns to zero while the permitted-axis offset survives.
+3. **Native Kivy rollback evidence — corrected.** Injected an
+   exception *after* a Kivy viewport mutation and asserted restoration
+   of scroll fractions and content extent.
+4. **Evidence shrinkage / phantom reference — rejected by CI.**
+   The mandatory operation names have an independent 25-cell
+   acceptance baseline, and AST checks verify every declared
+   reference names an actual method in that backend's test module
+   without duplicate method reuse. Foreign-backend, missing,
+   skipped, failed and mixed-result JUnit negative fixtures remain
+   enforced.
+5. **Source integrity — accepted.** Native layout remains exclusively
+   SFLE-owned; scrollbar values and Kivy fractions are runtime state,
+   not a second layout solver. The prior native-transaction tests
+   preserve logical offsets across reflow and restore native state
+   after failed commits. Existing epoch, generation and UI-thread
+   checks stay active. Source naming rules remain enforced.
+
+**Cross-platform proof (two immutable code SHAs, not a fabricated
+single-run aggregate):** [Full native validation #38352219760](https://github.com/Neuri-AI/PSX/actions/runs/38352219760)
+is **SUCCESS** on SHA `bf5efe765402a3a6b44e2abb95ad454012d08f4c`:
+18 successful jobs, zero failures, with only the later G4 API-removal
+gate skipped. It includes Kivy SDL2, Tk/Xvfb, Qt bindings, Headless,
+Chromium geometry, Rust/Python parity and Windows/macOS native wheel
+build/fallback jobs. The final independent-baseline-only test commit
+SHA `2621ebd` is separately certified by
+[selective CI #38352462949](https://github.com/Neuri-AI/PSX/actions/runs/38352462949):
+3 successful jobs (change classifier, executed core/inventory tests,
+mandatory verdict), zero failures; unrelated product jobs were
+properly skipped. All four workflows on the final code SHA completed
+SUCCESS.
+
+**Scope and residual limitations:** This certifies the declared
+portable Scroll contracts and their concrete backend test operations,
+not every physical touchscreen, trackpad model, compositor, accessibility
+input mechanism or arbitrary third-party embedded native widget.
+Kivy kinetic physics remains toolkit-owned. Headless cannot certify
+native focus or touch. The broader all-components × props × events
+matrix and removal of public Row/Column belong to later F3 gates;
+those cannot inherit a Scroll-only pass. Hardware-specific or
+unregistered operations must be recorded as new required tests if
+they become release-blocking — never marked executed without receipts.
+
+**Formal decision:** **F3-G3 CLOSED**. G1, G2 and G3 are closed;
+the next F3 gate is **F3-G4**, not additional Scroll increments.
+This documentation-only close must run no product tests.
