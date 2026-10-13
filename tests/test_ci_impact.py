@@ -184,9 +184,9 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(set(classify(None)["selected"]), set(SUITES))
         # Unknown changes must run every gate, including retired public APIs.
         self.assertEqual(set(classify(None, force_full=True)["selected"]), set(SUITES))
-        self.assertEqual(set(classify(["../hidden"])["selected"]), set(SUITES) - {"legacy"})
-        self.assertEqual(set(classify([f"tests/t{i}.py" for i in range(300)])["selected"]), set(SUITES) - {"legacy"})
-        self.assertEqual(self.selected(".future-ci-extension"), set(SUITES) - {"legacy"})
+        self.assertEqual(set(classify(["../hidden"])["selected"]), set(SUITES))
+        self.assertEqual(set(classify([f"tests/t{i}.py" for i in range(300)])["selected"]), set(SUITES))
+        self.assertEqual(self.selected(".future-ci-extension"), set(SUITES))
 
     def test_explicit_full_overrides_documentation_only(self):
         result = classify(["docs/README.md"], force_full=True)
