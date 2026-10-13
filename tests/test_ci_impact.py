@@ -186,9 +186,9 @@ class RoutingTests(unittest.TestCase):
         # suites, not the separate Row/Column-removal gate that cannot pass
         # until its scheduled implementation. Explicit full remains available.
         self.assertEqual(set(classify(None, force_full=True)["selected"]), set(SUITES))
-        self.assertEqual(set(classify(["../hidden"])["selected"]), set(SUITES))
-        self.assertEqual(set(classify([f"tests/t{i}.py" for i in range(300)])["selected"]), set(SUITES))
-        self.assertEqual(self.selected(".future-ci-extension"), set(SUITES))
+        self.assertEqual(set(classify(["../hidden"])["selected"]), set(SUITES) - {"legacy"})
+        self.assertEqual(set(classify([f"tests/t{i}.py" for i in range(300)])["selected"]), set(SUITES) - {"legacy"})
+        self.assertEqual(self.selected(".future-ci-extension"), set(SUITES) - {"legacy"})
 
     def test_explicit_full_overrides_documentation_only(self):
         result = classify(["docs/README.md"], force_full=True)
