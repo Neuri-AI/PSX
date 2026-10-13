@@ -1929,7 +1929,7 @@ G3 is subdivided for implementation tracking only; **the five official F3 gates 
 | --- | --- | --- |
 | C1 | Neutral scroll offsets, clamping, residual deltas, viewport/content coordinate projection and immutable engine geometry | **CLOSED — code SHA `abdf9f1`, required CI SUCCESS** |
 | C2 | Real native offset, clipping and axis integration in Qt, Tkinter, Kivy and Headless | **CLOSED — code SHA `8209f26`, required CI SUCCESS** |
-| C3 | Keyboard/wheel/touch event handling, edge chaining, nested viewport separation | Not started |
+| C3 | Keyboard/wheel/touch event handling, edge chaining, nested viewport separation | **CLOSED — code SHA `dda1499`, required CI SUCCESS** |
 | C4 | Resize/content reflow, offset restoration, unmount/rollback and focus preservation | Not started |
 | C5 | Per-backend, per-operation executed behavioral receipts | Not started |
 | C6 | Final cross-platform immutable-SHA signoff and G3 gate acceptance | Not started |
@@ -1984,3 +1984,47 @@ Documentation-only revisions retain this tested immutable source SHA
 and must execute zero product tests.
 
 **Formal acceptance: F3-G3-C2 CLOSED. Next: F3-G3-C3.**
+
+### F3-G3-C3 — native scrolling input and independent nested viewports
+
+**Implementation:** `psx/sfle/scroll_events.py` dispatches wheel or
+keyboard-derived logical deltas in inner-to-outer order, returning only
+residual movement on each axis. Qt `QScrollArea` handles wheel
+and keyboard input, including Shift/wheel horizontal translation,
+native boundary release and chained remaining motion through ancestor
+scroll hosts. Qt's optional native `QScroller.TouchGesture` enables
+kinetic touch input on bindings exposing it. Tk `Canvas` wheel limits
+are derived from the SFLE content scrollregion rather than requested
+widget size, with keyboard paging/arrows and nested remaining-delta
+routing. Kivy `ScrollView` retains native touch gesture/kinetic
+handling, forwards touch-pan travel beyond a viewport edge to
+ancestors, and routes discrete native wheel events through the same
+independent logical offset/remaining-travel semantics.
+Headless certifies the deterministic event routing model.
+
+**Executed coverage:** `tests/test_scroll_events.py` validates
+inner-first dispatch, edge residuals, disabled axes, mixed X/Y parent
+chains, keyboard mapping and invalid deltas. Actual Qt widget tests
+exercise keyboard and nested `QWheelEvent` propagation; Tk widget
+tests exercise keyboard, wheel, SFLE overflow and nested Canvas handoff;
+Kivy SDL2-backed `ScrollView` tests exercise wheel chaining and a
+touch-pan edge-routing branch around Kivy's native gesture handler.
+Native Kivy motion/kinetic physics remains toolkit-owned rather than
+reimplemented. The full per-operation live-device and lifecycle
+matrix is explicitly reserved for G3-C4/C5/C6; this certificate does
+not mislabel their work as executed.
+
+**Immutable source certificate:**
+[`dda1499ee30614bdbd17585b11affc545195967b`](https://github.com/Neuri-AI/PSX/commit/dda1499ee30614bdbd17585b11affc545195967b).
+[Native layout selective CI #38348735216](https://github.com/Neuri-AI/PSX/actions/runs/38348735216)
+completed **SUCCESS** with 18 successful jobs, zero failed,
+and only the future G4 final API gate skipped. The certificate includes
+the applicable Qt bindings, Tkinter, Kivy, Headless, Chromium geometry
+oracle, Rust/Python differential, and Windows/macOS wheel and fallback
+jobs. The companion commit-subject, runtime-boundary and Flex-contract
+workflows also completed successfully on the same code SHA.
+
+**Acceptance:** **F3-G3-C3 CLOSED.** C4 owns resize/reflow/lifecycle
+and transactional offset preservation; C5 owns the full executed
+backend × operation behavior matrix; C6 owns formal G3 gate signoff.
+The documentation-only closing commit must not rerun product tests.
