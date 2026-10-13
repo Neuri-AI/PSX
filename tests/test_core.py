@@ -12,7 +12,9 @@ from psx.renderers.headless import HeadlessRenderer
 
 class CoreTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.renderer = HeadlessRenderer()
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, LayoutConstraints
+        self.renderer = HeadlessRenderer(sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)), engine=PythonLayoutEngine())
         self.reconciler = Reconciler(self.renderer)
 
     def test_normalizes_supported_children_and_rejects_true(self) -> None:
