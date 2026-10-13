@@ -16,6 +16,22 @@ BACKENDS = ("pyside6", "pyqt6", "pyqt5", "pyside2", "kivy", "tkinter", "headless
 CONTRACT = "contract"
 PROPERTY_SCENARIOS = ("default", "valid_boundary", "invalid_rejection")
 NATIVE_PROPERTY_SCENARIOS = ("live_update", "native_readback")
+# Cross-property interactions that cannot be inferred from isolated validation.
+# New semantic coupling requires an explicit reviewed entry, not every cartesian pair.
+INTERACTIONS = {
+    "Input": (("enabled", "on_change"), ("read_only", "on_change"),
+              ("password", "value"), ("placeholder", "value")),
+    "TextArea": (("read_only", "on_change"), ("value", "layout_width")),
+    "Slider": (("min", "max"), ("value", "step"), ("enabled", "on_change")),
+    "SpinBox": (("value", "min"), ("value", "max"), ("step", "decimals")),
+    "Select": (("options", "value"), ("enabled", "on_change")),
+    "Scroll": (("direction", "enabled"), ("width", "height")),
+    "Flex": (("direction", "wrap"), ("justify_content", "gap")),
+    "Button": (("enabled", "on_click"),),
+    "Checkbox": (("enabled", "on_change"),),
+    "Switch": (("enabled", "on_change"),),
+}
+
 EVENT_SCENARIOS = ("native_dispatch", "payload", "rebind", "disabled", "teardown")
 STRUCTURAL_SCENARIOS = ("mount", "update", "reorder", "unmount")
 RECEIPT_PROPERTY = "psx_verified_feature"
@@ -82,7 +98,7 @@ def inventory() -> tuple[Feature, ...]:
                 raise ValueError(f"Unclassified backend status: {backend}/{component}={status}")
             if contract is not None:
                 # Layout metadata is applied by SFLE, not forwarded to leaf controls.
-                native_props = set(contract.properties)
+                native_props = set(contract.properties) - set(contract.events)
                 if component != "Flex":
                     native_props.update(FLEX_ITEM_PROPS)
                 for prop in sorted(native_props):
@@ -93,6 +109,12 @@ def inventory() -> tuple[Feature, ...]:
                     for scenario in EVENT_SCENARIOS:
                         rows.append(Feature(component, backend, "event", event,
                                             scenario, applicability=status))
+                for a, b in INTERACTIONS.get(component, ()):
+                    available = set(contract.properties) | (FLEX_ITEM_PROPS if component != "Flex" else set())
+                    if a not in available or b not in available:
+                        raise ValueError(f"Stale feature interaction {component}: {a}/{b}")
+                    rows.append(Feature(component, backend, "interaction",
+                                        f"{a}__{b}", "paired_native", applicability=status))
             for operation in STRUCTURAL_SCENARIOS:
                 rows.append(Feature(component, backend, "lifecycle", operation,
                                     "native_behavior", applicability=status))
@@ -235,7 +257,7 @@ def main() -> None:
         report = validate_receipts(rows, receipts, sha=args.sha)
         report_path = args.out.with_name(args.out.stem + "-receipts.json")
         report_path.write_text(json.dumps({"summary": report, "receipts": receipts},
-                                          indent=2) + "\\n", encoding="utf-8")
+                                          indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, sort_keys=True))
     else:
         print(json.dumps({"public_behavior_rows": len(rows), "pending": len(rows),
