@@ -103,7 +103,7 @@ class NativeGeometryCommitter:
                 # content Widget whose extent is the child's SFLE border box.
                 # Its bottom-left projection must use that content extent,
                 # not the clipped viewport height.
-                parent_widget = self._widgets[parent_id]
+                parent_widget = self._widgets.get(parent_id)
                 parent_height = (border.height
                                  if getattr(parent_widget, "_psx_sfle_scroll", False)
                                  else parent.height)
