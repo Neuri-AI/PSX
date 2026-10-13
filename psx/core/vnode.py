@@ -42,10 +42,8 @@ from psx.core.contracts import (
     TEXTAREA_DEFAULTS,
 
     FLEX_CONTRACT,
-    COLUMN_DEFAULTS,
 
 
-    ROW_DEFAULTS,
 
     # Spacer
     SPACER_PROPS,
