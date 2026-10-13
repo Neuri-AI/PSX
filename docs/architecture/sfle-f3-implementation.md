@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **CURRENT STATUS (2026-10-12): F3-G1/G2/G3 CLOSED; F3-G4 IN PROGRESS (legacy layout migration); F3-G5 OPEN. F3 official gates: 3/5 CLOSED (60%).** Historical progress statements below are dated snapshots, not the current gate state.
+> **CURRENT STATUS (2026-10-13): F3-G1/G2/G3/G4 CLOSED; F3-G5 OPEN. F3 official gates: 4/5 CLOSED (80%).** Historical progress statements below are dated snapshots, not the current gate state.
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -2212,3 +2212,55 @@ they become release-blocking — never marked executed without receipts.
 **Formal decision:** **F3-G3 CLOSED**. G1, G2 and G3 are closed;
 the next F3 gate is **F3-G4**, not additional Scroll increments.
 This documentation-only close must run no product tests.
+
+### F3-G4 — final removal of legacy layout authority
+
+**Decision: G4 CLOSED** on immutable code SHA
+[`5bae7e1d5b764f7db1e1168d87be0402c4883e33`](https://github.com/Neuri-AI/PSX/commit/5bae7e1d5b764f7db1e1168d87be0402c4883e33).
+The full native selector
+[run #38361331349](https://github.com/Neuri-AI/PSX/actions/runs/38361331349)
+completed **SUCCESS: 19 successful jobs, 0 failed, 0 pending**,
+including the mandatory new G4 gate, real Kivy/Tkinter/Qt,
+Headless, browser Chromium geometry, four Qt binding parity runs,
+Rust/Python differential and native wheel/fallback on Windows/macOS.
+Commit subject, runtime boundaries and Flex contract certification
+also completed SUCCESS on that same SHA.
+
+**Active code and API retirement:** Removed `Row`/`Column` from
+`psx.__all__`, public Python builders, built-in registry,
+component contracts/defaults/props/validators, native adapters
+for Qt, Tkinter and Kivy, and competing Headless geometry paths.
+Removed eight legacy adapter modules; a dedicated Scroll padding
+helper retains the shared non-layout normalization without importing
+deleted modules. No aliases, wrappers or silent markup translations
+were introduced.
+
+**Executable acceptance:** The G4 CI job now runs on **every
+non-documentation code change**, not merely when the selector
+explicitly requests the `legacy` suite. It runs a tracked-source
+AST scan (`scripts/ci/legacy_layout_inventory.py --check`) that
+fails for legacy symbol references or markup in shipped
+`psx/`, `examples/` or `benchmarks/` code; historical negative
+test fixtures and migration/audit scripts remain searchable but
+are not mistaken for exported APIs. It then verifies that
+`Row`/`Column` are absent from the public package, exports
+and built-in registry. Core tests execute explicit public
+import/markup rejection and no-backend-adapter checks.
+The CI summary fails closed if the G4 job does not pass.
+Qt, Tkinter, Kivy and Headless retained their SFLE-owned Flex
+geometry and their native operations. A missing SFLE bridge still
+raises instead of delegating geometry to a toolkit layout manager.
+
+**Migration:** Shipped examples and benchmark layouts were migrated
+to directional `Flex`, as were affected test consumers. The
+public API, README and portable component references now document
+`Flex`, preserving architecture/audit history separately.
+Native widget measurement, events, Scroll and legitimate
+toolkit viewport internals remain intentionally unaffected.
+
+**Scope:** G4 certifies the *removal* of duplicate public layout
+authorities. It does not replace G5 final integration certification
+across every supported widget, backend, packaging mode and adverse
+combination. Those guarantees must be tested separately.
+
+**Next gate: F3-G5.**
