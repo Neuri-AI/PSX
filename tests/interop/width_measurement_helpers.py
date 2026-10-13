@@ -12,7 +12,7 @@ from psx.sfle.model import BoxRect, IntrinsicSizes, LayoutResult, Rect
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.remeasure_session import compute_with_width_measurements
 from test_acceptance_contract_regression import case_snapshot
-from test_sfle_f2_differential import _rust_compute
+from test_sfle_differential import _rust_compute
 
 
 def _rect(data: dict[str, float]) -> Rect:
@@ -23,7 +23,7 @@ def rust_compute(rust_binary, snapshot, *, provisional=False) -> LayoutResult:
     if provisional:
         import json
         import subprocess
-        from test_sfle_f2_differential import _snapshot_wire
+        from test_sfle_differential import _snapshot_wire
         run = subprocess.run([str(rust_binary), '--provisional'],
             input=json.dumps(_snapshot_wire(snapshot)), text=True,
             capture_output=True, check=True, timeout=30)
