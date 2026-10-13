@@ -23,7 +23,7 @@ OPERATIONS = (
 # silent unsupported additions: all new registry entries must be classified.
 TRANSPARENT = frozenset({"Fragment"})
 STRUCTURAL = frozenset({"Flex"})
-LEGACY = frozenset({"Row", "Column"})
+LEGACY = frozenset()
 EXTERNAL = frozenset({"Native"})
 # Complete G2 backlog for built-ins not yet admitted. A new registry entry
 # MUST be classified, otherwise CI fails rather than silently turning it red
