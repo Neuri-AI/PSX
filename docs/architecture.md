@@ -1,13 +1,12 @@
 # PSX architecture
 
-> **Current implementation vs planned SFLE architecture:** This document
-> describes the **currently implemented alpha runtime**, which still exposes
-> `Row` and `Column`. The approved [SFLE F1 architecture](architecture/sfle-f1-final-architecture.md)
-> supersedes those names for the **target API**: `Row` and `Column` will be
-> removed completely during an authorized implementation, without aliases or
-> compatibility wrappers. `Flex` will be the sole public Flexbox distribution
-> component. `Scroll` remains an independent scrolling/viewport component.
-> **No runtime migration has happened, and F2 has not been authorized.**
+> **F3-G4 implementation:** SFLE is PSX's sole portable layout
+> authority. `Flex` replaces the removed `Row` and `Column` public
+> APIs without aliases or silent conversions. `Scroll` is an independent
+> native viewport. Historical design decisions remain in
+> [SFLE F1](architecture/sfle-f1-final-architecture.md), while the
+> [F3 implementation plan](architecture/sfle-f3-implementation.md)
+> tracks executed gate certifications.
 
 PSX separates declarative descriptions from native GUI objects. Python builders and PSX markup create immutable `VNode` values. The reconciler owns identity, hooks, refs, event slots, and cleanup; renderers own native handles and UI-thread scheduling.
 
@@ -24,7 +23,7 @@ flowchart LR
 
 ## Resolution and contracts
 
-`builtin_component_registry()` returns a fresh registry containing `Column`, `Row`, `Text`, `Button`, `Input`, `Checkbox`, `Fragment`, and `Native`. Built-ins need no registration. External registries are isolated and can add tags such as `acme.Badge`; compilation caches include registry identity and version.
+`builtin_component_registry()` returns a fresh registry containing `Flex`, `Scroll`, `Text`, `Button`, `Input`, `Checkbox`, `Fragment`, and `Native`, among other supported primitives. Built-ins need no registration. External registries are isolated and can add tags such as `acme.Badge`; compilation caches include registry identity and version.
 
 `ComponentContract` is backend-independent metadata for properties, defaults, events, child policy, and validation. It has no Qt, Kivy, or Tkinter dependency. Markup and Python builders produce the same VNode semantics.
 
