@@ -59,6 +59,7 @@ def apply_qt_scroll(area: object, binding: ScrollViewportBinding,
         vertical.setRange(0, round(binding.overflow_y) if binding.clip_y else 0)
     horizontal.setValue(round(geometry.offset.x))
     vertical.setValue(round(geometry.offset.y))
+    area._psx_scroll_logical_offset = geometry.offset
     return geometry
 
 
@@ -76,6 +77,7 @@ def apply_tk_scroll(outer: object, binding: ScrollViewportBinding,
     # Tk fractions address the entire content extent, not the overflow extent.
     canvas.xview_moveto(geometry.offset.x / content_width if content_width else 0.0)
     canvas.yview_moveto(geometry.offset.y / content_height if content_height else 0.0)
+    outer._psx_scroll_logical_offset = geometry.offset
     return geometry
 
 
@@ -90,6 +92,7 @@ def apply_kivy_scroll(view: object, binding: ScrollViewportBinding,
                      if binding.clip_x and binding.overflow_x else 0.0)
     view.scroll_y = (1.0 - geometry.offset.y / binding.overflow_y
                      if binding.clip_y and binding.overflow_y else 1.0)
+    view._psx_scroll_logical_offset = geometry.offset
     return geometry
 
 
