@@ -42,8 +42,14 @@ from psx.core.contracts import (
     TEXTAREA_DEFAULTS,
 
     FLEX_CONTRACT,
+    COLUMN_CONTRACT,
+    COLUMN_PROPS,
+    COLUMN_DEFAULTS,
 
 
+    ROW_CONTRACT,
+    ROW_PROPS,
+    ROW_DEFAULTS,
 
     # Spacer
     SPACER_PROPS,
@@ -245,6 +251,19 @@ def Flex(
     return create_element("Flex", *children, key=key, ref=ref, **options)
 
 
+def Row(
+    *children: object, spacing: int = 0,
+    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
+    align: str = "stretch", expand: bool | tuple[bool, ...] = False,
+    enabled: bool = True, key: Key | None = None, ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Horizontal portable container with optional per-child expansion."""
+    options = dict(spacing=spacing, padding=padding, align=align,
+                   expand=expand, enabled=enabled, **props)
+    ROW_CONTRACT.validate_builder(options)
+    return create_element("Row", *children, key=key, ref=ref, **options)
+
 
 def Text(
     value: str | int | float, *, font_size: int | float = 16,
@@ -345,6 +364,22 @@ def TextArea(
     return create_element("TextArea", key=key, ref=ref, **options)
 
 
+def Column(
+    *children: object,
+    spacing: int = 0,
+    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
+    align: str = "stretch",
+    expand: bool | tuple[bool, ...] = False,
+    enabled: bool = True,
+    key: Key | None = None,
+    ref: object | None = None,
+    **props: object,
+) -> VNode:
+    """Vertical portable container with optional per-child expansion."""
+    options = dict(spacing=spacing, padding=padding, align=align,
+                   expand=expand, enabled=enabled, **props)
+    COLUMN_CONTRACT.validate_builder(options)
+    return create_element("Column", *children, key=key, ref=ref, **options)
 
 def Slider(
     *,
