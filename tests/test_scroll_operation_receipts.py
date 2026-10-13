@@ -97,3 +97,37 @@ def test_scroll_inventory_references_real_distinct_backend_test_methods():
         )
         missing = sorted(set(operations.values()) - defined)
         assert not missing, (backend, missing)
+
+
+# Independent acceptance baseline: shrinking the producer's REQUIRED matrix
+# must never make the gate green by silently dropping applicable operations.
+EXPECTED_OPERATIONS = {
+    "qt": frozenset({
+        "viewport_clipping_offsets", "nested_wheel_chaining",
+        "keyboard_boundary", "reflow_focus_identity",
+        "native_failure_rollback", "unmount_lifecycle",
+        "disabled_axes_after_scroll",
+    }),
+    "tk": frozenset({
+        "viewport_clipping_offsets", "nested_wheel_chaining",
+        "keyboard_boundary", "reflow_identity",
+        "native_failure_rollback", "unmount_lifecycle",
+        "disabled_axes_after_scroll",
+    }),
+    "kivy": frozenset({
+        "viewport_clipping_offsets", "nested_wheel_touch",
+        "mounted_viewport", "resize_reflow", "native_failure_rollback",
+        "unmount_lifecycle",
+    }),
+    "headless": frozenset({
+        "offset_clamping", "independent_axes",
+        "disabled_input_residual", "nested_offsets", "shrink_reset",
+    }),
+}
+
+
+def test_scroll_operation_inventory_cannot_silently_shrink():
+    assert set(REQUIRED) == set(EXPECTED_OPERATIONS)
+    for backend, mandatory in EXPECTED_OPERATIONS.items():
+        assert frozenset(REQUIRED[backend]) == mandatory, backend
+    assert sum(len(v) for v in EXPECTED_OPERATIONS.values()) == 25
