@@ -42,3 +42,14 @@ def test_legacy_layout_inventory_reports_line_numbers():
     refs = references("tests/example.py", "x = 1\ny = Row()\n")
     assert len(refs) == 1
     assert refs[0].line == 2
+
+
+def test_legacy_layout_inventory_finds_private_adapter_and_contract_routes():
+    refs = references("psx/renderers/example.py", '''
+ROW_CONTRACT.validate(options)
+adapter = QtColumnAdapter()
+validate_row_props(options)
+''')
+    assert {ref.symbol for ref in refs} == {
+        "ROW_CONTRACT", "QtColumnAdapter", "validate_row_props",
+    }
