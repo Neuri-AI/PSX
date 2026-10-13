@@ -79,7 +79,7 @@ class HeadlessRenderer:
         self._sfle_measure = measure_intrinsic
         self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
         self._sfle_generation = 0
-        from psx.sfle.f3_g2_invalidation import MeasurementInvalidations
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
         self._sfle_measurement_invalidations = MeasurementInvalidations()
         self._sfle_invalidation_scheduled = False
         self._sfle_invalidation_lifetime = 0
@@ -112,7 +112,7 @@ class HeadlessRenderer:
         The mounted instance is reused; the existing SFLE transaction remains
         the only writer. Teardown invalidates queued work by epoch.
         """
-        from psx.sfle.f3_g2_invalidation import MeasurementInvalidations
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
 
         if self._sfle_constraints is None:
             raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
@@ -156,7 +156,7 @@ class HeadlessRenderer:
     def commit_layout(self, root: object) -> None:
         """Commit actual SFLE geometry for the mounted root (if enabled)."""
         if self._sfle_constraints is not None:
-            from psx.sfle.f3_headless import commit_headless_sfle
+            from psx.sfle.headless_layout_bridge import commit_headless_sfle
             commit_headless_sfle(self, root)
             self._sfle_mounted_root = root
             self._sfle_measurement_invalidations.acknowledge(
@@ -180,7 +180,7 @@ class HeadlessRenderer:
         if self._sfle_constraints is not None:
             if node.kind is NodeKind.NATIVE:
                 raise RendererCapabilityError(
-                    "F3-G2 native custom widgets require declared geometry and measurement ports."
+                    "Native SFLE native custom widgets require declared geometry and measurement ports."
                 )
             if node.kind is NodeKind.HOST:
                 if node.type in ("Row", "Column"):
@@ -196,7 +196,7 @@ class HeadlessRenderer:
             return handle
         if node.kind is NodeKind.HOST and node.type == "Flex":
             raise RendererCapabilityError(
-                "Flex requires the F3-G2 SFLE geometry adapter for Headless; "
+                "Flex requires the Native SFLE SFLE geometry adapter for Headless; "
                 "native fallback layout is forbidden.")
         if node.kind is NodeKind.HOST:
             if node.type == "Text":

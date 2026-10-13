@@ -37,7 +37,7 @@ class PySide6RendererTests(unittest.TestCase):
         from psx import Flex
 
         self.assertIsNotNone(self.renderer.adapters.get("Flex"))
-        with self.assertRaisesRegex(RendererCapabilityError, "F3-G2 SFLE geometry"):
+        with self.assertRaisesRegex(RendererCapabilityError, "Native SFLE SFLE geometry"):
             self.renderer.create(Flex(Text("A")), None)
 
     def test_counter_update_reuses_qwidgets(self) -> None:

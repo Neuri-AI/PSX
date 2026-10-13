@@ -1,0 +1,156 @@
+name: Flex layout contract certification
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "psx/core/**"
+      - "psx/markup/**"
+      - "tests/test_flex_layout_contract.py"
+      - "tests/test_flex_item_metadata.py"
+      - "tests/test_core.py"
+      - "tests/test_component_contracts.py"
+      - "tests/test_component_registry.py"
+      - "tests/test_markup*.py"
+      - "tests/test_hooks_scheduler.py"
+      - "tests/test_renderer_adapters.py"
+      - "pyproject.toml"
+      - ".github/workflows/flex-layout-contract-certification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: "f3-g1-${{ github.event.pull_request.number || github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: G1 verify contract-impact delta
+    runs-on: ubuntu-latest
+    outputs:
+      run_contract: "${{ steps.scope.outputs.run_contract }}"
+    steps:
+      - name: Skip G1 matrix for verified docs-only PR updates
+        id: scope
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const useMatrix = (why) => {
+              core.info('G1 contract matrix required: ' + why);
+              core.setOutput('run_contract', 'true');
+            };
+            // Only an explicitly verified docs-only delta skips tests; a
+            // cancelled predecessor does not change that rule.
+            const before = context.payload.before;
+            const after = context.payload.after;
+            if (context.eventName !== 'pull_request' ||
+                context.payload.action !== 'synchronize' || !before || !after) {
+              useMatrix('not a verifiable PR synchronize delta');
+              return;
+            }
+            try {
+              const common = {owner: context.repo.owner, repo: context.repo.repo};
+              const diff = await github.rest.repos.compareCommits({
+                ...common, base: before, head: after, per_page: 100,
+              });
+              const entries = diff.data.files || [];
+              if (!entries.length || entries.length >= 300 ||
+                  diff.data.total_commits > 250) {
+                useMatrix('missing or truncated commit file delta');
+                return;
+              }
+              const files = entries.flatMap(file =>
+                [file.filename, file.previous_filename].filter(Boolean));
+              const isDocumentation = path => path === 'README.md' ||
+                path.startsWith('docs/') ||
+                (path.endsWith('.md') && !path.startsWith('.github/'));
+              const docsOnly = files.every(isDocumentation);
+              if (docsOnly) {
+                core.info('Docs-only PR update: no G1 product tests.');
+                core.setOutput('run_contract', 'false');
+                return;
+              }
+              useMatrix('code or workflow changes');
+            } catch (error) {
+              useMatrix('provenance or diff unavailable: ' + error.message);
+            }
+
+  g1-contract:
+    needs: changes
+    if: needs.changes.outputs.run_contract == 'true'
+    name: G1 Builder/Markup/normalization Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # pyproject.toml supports >=3.10,<3.14; do not falsely certify 3.14.
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "${{ matrix.python }}"
+          cache: pip
+      - run: python -m pip install -e . pytest
+      - name: Complete Flex layout positive and adversarial core contract suite
+        run: |
+          python -m pytest -q \
+            tests/test_flex_layout_contract.py \
+            tests/test_flex_item_metadata.py \
+            tests/test_component_contracts.py \
+            tests/test_component_registry.py \
+            tests/test_markup.py \
+            tests/test_markup_registry.py \
+            tests/test_core.py \
+            tests/test_hooks_scheduler.py \
+            tests/test_renderer_adapters.py
+      - name: Certify no GUI imports are required for Flex normalization
+        run: |
+          python - <<'PY'
+          import sys
+          from psx import Flex, Text
+          from psx.core.layout_tree import normalize_flex_tree
+          from psx.core.registry import builtin_component_registry
+          from psx.core.props import FLEX_ITEM_PROPS
+          tree = Flex(Text("ok", layout_width="50%", flex_grow=1))
+          assert normalize_flex_tree(tree).children[0].source is tree.children[0]
+          assert {"flex_grow", "layout_width", "layout_margin_top"} <= FLEX_ITEM_PROPS
+          assert "Flex" in builtin_component_registry().snapshot()
+          assert not any(name in sys.modules for name in (
+              "PySide6", "PyQt5", "PyQt6", "kivy", "tkinter"))
+          print("G1 declaration/normalization independent of GUI backend.")
+          PY
+
+  g1-verdict:
+    name: G1 complete contract certification verdict
+    if: always()
+    needs: [changes, g1-contract]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Do not certify if any supported Python fails
+        env:
+          CHANGE_RESULT: "${{ needs.changes.result }}"
+          RUN_CONTRACT: "${{ needs.changes.outputs.run_contract }}"
+          RESULT: "${{ needs.g1-contract.result }}"
+        run: |
+          test "$CHANGE_RESULT" = success || {
+            echo "G1 scope classifier failed; cannot certify." >&2
+            exit 1
+          }
+          if [ "$RUN_CONTRACT" = false ]; then
+            test "$RESULT" = skipped || {
+              echo "Unexpected G1 matrix outcome for docs-only update: $RESULT" >&2
+              exit 1
+            }
+            echo "Docs-only PR update: no G1 product tests executed."
+          else
+            test "$RUN_CONTRACT" = true && test "$RESULT" = success || {
+              echo "G1 cannot be certified: matrix result $RESULT" >&2
+              exit 1
+            }
+            echo "G1 core/markup/normalizer + adversarial suite certified on every supported Python version."
+          fi

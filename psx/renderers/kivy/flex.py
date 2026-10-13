@@ -1,4 +1,4 @@
-"""F3-G2 Kivy Flex host: explicit geometry, zero Kivy layout authority.
+"""Native SFLE Kivy Flex host: explicit geometry, zero Kivy layout authority.
 
 Kivy Widget is not a BoxLayout. SFLE alone controls child rectangles and
 Kivy's bottom-left projection happens at native geometry commit, not here.

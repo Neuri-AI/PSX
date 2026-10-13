@@ -1,4 +1,4 @@
-"""F3-G2 device-scale projection and native geometry readback.
+"""Native SFLE device-scale projection and native geometry readback.
 
 SFLE boxes are CSS *logical* px (i32 LayoutUnit, 1/64px). The immediate
 native widget APIs use their own coordinate spaces:

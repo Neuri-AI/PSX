@@ -434,7 +434,7 @@ specification only. Implementation and executable certification are separate.
 
 - **RED:** [`4468dba`](https://github.com/Neuri-AI/PSX/commit/4468dba644cdc22e38e4d11dc1e3d7a35330b177) added 12 intentionally failing normalization/Scroll cases while 58 prior Core cases passed; [RED CI #38153047652](https://github.com/Neuri-AI/PSX/actions/runs/38153047652).
 - **GREEN:** [`3ac035b`](https://github.com/Neuri-AI/PSX/commit/3ac035b58cc90a1f3f0f05223a881bb96ab0dc2a) added `psx/core/layout_tree.py` with immutable declarative normalization: transparent fragment and resolved-function-component boundaries, stable keyed paths, no synthetic visible boxes and a unique explicit `Flex` content root per Scroll viewport. Components are **not** invoked inside normalization; G2 will provide their already-rendered roots from the reconciler.
-- **Tests:** `tests/test_f3_flex_contract.py` now covers Markup/builder equivalence, nested Flex, preserved boundaries, reorder identity, unresolved components, Scroll roots, nested Scroll and duplicate-key errors. [GREEN CI #38153141925](https://github.com/Neuri-AI/PSX/actions/runs/38153141925) certified SHA `3ac035b` (70 Core tests, all selected CI jobs green; G4 legacy removal deliberately not selected).
+- **Tests:** `tests/test_flex_layout_contract.py` now covers Markup/builder equivalence, nested Flex, preserved boundaries, reorder identity, unresolved components, Scroll roots, nested Scroll and duplicate-key errors. [GREEN CI #38153141925](https://github.com/Neuri-AI/PSX/actions/runs/38153141925) certified SHA `3ac035b` (70 Core tests, all selected CI jobs green; G4 legacy removal deliberately not selected).
 - **Completion:** The remaining metadata and adversarial tests were implemented and separately certified in the final G1 evidence below. This is **not** evidence of production Qt/Kivy/Tk/Headless SFLE geometry integration or completed Scroll migration; those remain G2/G3 responsibilities.
 
 
@@ -487,8 +487,8 @@ Historical G1.2 incremental evidence is retained above.
 
 **State:** G2 **IN PROGRESS**, **not CLOSED**. Whole-phase progress remains **1/5 gates (20%)**.
 
-- **Canonical SFLE snapshot mapper:** [`aa245fe`](https://github.com/Neuri-AI/PSX/commit/aa245fe63677e22fb9943e8d34582ffea82a7d7a) introduced `psx/sfle/f3_snapshot.py`; it converts G1 normalized Flex participants into immutable `LayoutInput` styles and stable keyed IDs. Gap shorthand, padding longhands, flex item properties, native width separation, fragment/component transparency and unsupported Scroll are explicit. No second Flexbox algorithm.
-- **Mounted Headless geometry:** `psx/sfle/f3_headless.py` and `HeadlessRenderer` now have an **explicit opt-in viewport**. The reconciler's existing mounted/hook/key tree supplies source identities and real handle bindings; `load_layout_engine()` uses Rust primary and Python fallback at load time. Successful commits apply only SFLE border rectangles, after snapshot/generation/liveness/grid checks, with readback and rollback on commit failure. Host-provided intrinsic measurements are required where needed; the bridge never invents text/widget size.
+- **Canonical SFLE snapshot mapper:** [`aa245fe`](https://github.com/Neuri-AI/PSX/commit/aa245fe63677e22fb9943e8d34582ffea82a7d7a) introduced `psx/sfle/native_layout_snapshot.py`; it converts G1 normalized Flex participants into immutable `LayoutInput` styles and stable keyed IDs. Gap shorthand, padding longhands, flex item properties, native width separation, fragment/component transparency and unsupported Scroll are explicit. No second Flexbox algorithm.
+- **Mounted Headless geometry:** `psx/sfle/headless_layout_bridge.py` and `HeadlessRenderer` now have an **explicit opt-in viewport**. The reconciler's existing mounted/hook/key tree supplies source identities and real handle bindings; `load_layout_engine()` uses Rust primary and Python fallback at load time. Successful commits apply only SFLE border rectangles, after snapshot/generation/liveness/grid checks, with readback and rollback on commit failure. Host-provided intrinsic measurements are required where needed; the bridge never invents text/widget size.
 - **No misleading automatic fallback:** Unconfigured `HeadlessRenderer()` still rejects mounting `Flex`, and legacy `Row`/`Column` cannot act as competing layout authorities within an opted-in SFLE tree. Qt, Kivy and Tkinter Flex mounting remain intentionally fail-closed until their real G2 ports are wired.
 - **Tests and single-SHA CI:** [`a03f300`](https://github.com/Neuri-AI/PSX/commit/a03f30056ceadc9372049b84d8133ec5ec3ba9a3) passed [F3 selective #38158347861](https://github.com/Neuri-AI/PSX/actions/runs/38158347861), including **151 Core tests and 19 Headless tests**, plus impacted SFLE, Rust/Python, Chromium, Qt/Kivy/Tk regressions and platform wheels. [G1 regression matrix](https://github.com/Neuri-AI/PSX/actions/runs/38158347847) was scheduled on the same SHA; G1 continues closed.
 - **G2 remaining:** wire actual Qt/Kivy/Tkinter native measuring and rectangle commits (Kivy parent-relative Y inversion from existing `NativeGeometryCommitter`); cover all registered supported widgets plus `Native`/custom adapters and negative capability cells; width-dependent remeasurement, viewport/resize invalidation and strict native commit/readback/error separation. G3 still owns scrolling events/offset lifecycle. **Neither live Qt/Kivy/Tk Flex rendering nor full G2 certification is claimed by Headless-only evidence.**
@@ -499,9 +499,9 @@ Historical G1.2 incremental evidence is retained above.
 **Formal state remains G2 IN PROGRESS, not CLOSED. F3 remains 1/5 gates CLOSED (20%).**
 
 - **Explicit SFLE-enabled Qt host:** `psx/renderers/qt/flex.py` implements a native `QWidget` Flex host with **no QBoxLayout** or native sibling distribution. `QtRenderer` and Qt facades accept opt-in `sfle_constraints` and an optional injected engine. Without opt-in, G1's fail-closed error remains. Unported widget/backend combinations fail with an explicit F3-G2 capability diagnostic; **only Flex, Text and Button are admitted into this incremental SFLE-Qt path**.
-- **Real coordinate projection and native intrinsic measurement:** `psx/sfle/f3_qt.py` uses mounted reconciler identities and normalized markup/builder VNodes to form one SFLE `LayoutInput`, measures native `QWidget.sizeHint()/minimumSizeHint()` through the pre-existing `QtMeasurementSource`, computes using the renderer's chosen SFLE engine, and calls the F2 `NativeGeometryCommitter(GeometryBackend.QT)` to set Qt child geometries in parent-relative top-left coordinates. It does not install a competing Qt layout.
+- **Real coordinate projection and native intrinsic measurement:** `psx/sfle/qt_layout_bridge.py` uses mounted reconciler identities and normalized markup/builder VNodes to form one SFLE `LayoutInput`, measures native `QWidget.sizeHint()/minimumSizeHint()` through the pre-existing `QtMeasurementSource`, computes using the renderer's chosen SFLE engine, and calls the F2 `NativeGeometryCommitter(GeometryBackend.QT)` to set Qt child geometries in parent-relative top-left coordinates. It does not install a competing Qt layout.
 - **Commit guards:** UI-thread authority, duplicate/stale/disposed identities, no native `QLayout`, actual parent-graph validation, SFLE generation/rectangle shape and fixed-point preflight, ≤1 px Qt readback budget and rollback of native child geometry if application/readback fails. Root/window size remains host-owned; viewport constraints can be updated without remounting.
-- **Real native test evidence:** [commit `8e4d3b5`](https://github.com/Neuri-AI/PSX/commit/8e4d3b5919a7855ae73108393d8054a69bf6dc1b) passed [F3 selective CI #38159181324](https://github.com/Neuri-AI/PSX/actions/runs/38159181324) with successful aggregate, including **28 PySide6 Qt native tests** (the new `tests/test_pyside6_f3_g2_renderer.py` covers live `QWidget.geometry()`, nested parent-relative coordinates, PSX Markup, keyed reorder, hook-triggered reflow, button callbacks, viewport updates, explicit unsupported widgets and stale engine results). The [G1 3.10–3.13 regression #38159181381](https://github.com/Neuri-AI/PSX/actions/runs/38159181381) also passed on **the same code SHA**.
+- **Real native test evidence:** [commit `8e4d3b5`](https://github.com/Neuri-AI/PSX/commit/8e4d3b5919a7855ae73108393d8054a69bf6dc1b) passed [F3 selective CI #38159181324](https://github.com/Neuri-AI/PSX/actions/runs/38159181324) with successful aggregate, including **28 PySide6 Qt native tests** (the new `tests/test_pyside6_native_layout.py` covers live `QWidget.geometry()`, nested parent-relative coordinates, PSX Markup, keyed reorder, hook-triggered reflow, button callbacks, viewport updates, explicit unsupported widgets and stale engine results). The [G1 3.10–3.13 regression #38159181381](https://github.com/Neuri-AI/PSX/actions/runs/38159181381) also passed on **the same code SHA**.
 - **Still required for G2 closure:** Kivy bottom-left projection in its production renderer, Tkinter geometry application, other built-in Qt controls and complete Qt family matrix, `Native`/custom adapter ports, width-driven real text remeasure, font/DPI/resize lifecycle, fragment/Box ownership and fully instrumented per-backend and per-component matrix. Existing SFLE math and its precision thresholds remain unchanged. G3's Scroll events/offset integration is not considered complete.
 
 
@@ -510,9 +510,9 @@ Historical G1.2 incremental evidence is retained above.
 **Formal state: G2 IN PROGRESS; F3 remains 1/5 officially closed (20%).**
 
 - **Real Kivy production Flex host:** `psx/renderers/kivy/flex.py` implements an opt-in `Widget(size_hint=(None, None))` with **no BoxLayout**; reconciler insert/move/remove preserves declared identities. Direct children have `size_hint=(None, None)` and empty `pos_hint`, preventing Kivy sizing hints from overriding SFLE. Without `sfle_constraints`, G1's explicit fail-closed behavior remains unchanged.
-- **F2-authoritative projection:** `psx/sfle/f3_kivy.py` resolves mounted/reconciled nodes to immutable SFLE `LayoutInput`, measures Kivy native label textures using `KivyMeasurementSource` on the owning thread, and invokes `NativeGeometryCommitter(GeometryBackend.KIVY)` with SFLE's untouched boxes. Kivy native child Y is computed by F2 as **parent border height − child top-relative Y − child height**, separately for each actual parent frame. Fixed-point preflight, root-border/host viewport consistency, generation/liveness, actual parent ownership, ≤1px readback and rollback are enforced.
+- **F2-authoritative projection:** `psx/sfle/kivy_layout_bridge.py` resolves mounted/reconciled nodes to immutable SFLE `LayoutInput`, measures Kivy native label textures using `KivyMeasurementSource` on the owning thread, and invokes `NativeGeometryCommitter(GeometryBackend.KIVY)` with SFLE's untouched boxes. Kivy native child Y is computed by F2 as **parent border height − child top-relative Y − child height**, separately for each actual parent frame. Fixed-point preflight, root-border/host viewport consistency, generation/liveness, actual parent ownership, ≤1px readback and rollback are enforced.
 - **CSS root content-box caveat:** a root `width=160px; padding=10px` produces a **180px border box**; the host cannot pretend its viewport is 160px. The live nested-geometry test explicitly chooses a 140px content width + two 10px paddings to match a 160px native viewport. The G2 preflight rejects mismatched host/SFLE border sizes rather than silently redefining CSS math.
-- **Real SDL2/Window certification:** [source SHA `2eb0fad`](https://github.com/Neuri-AI/PSX/commit/2eb0fad8f1eea2ac975f146281c6a99e0b5a9d8b) passed [F3 selective CI #38162867871](https://github.com/Neuri-AI/PSX/actions/runs/38162867871) including the `xvfb-run` Kivy native job; `tests/test_kivy_f3_g2_renderer.py` verifies real SDL2 `Window.add_widget` mounting, native bottom-left readback, nested parents and padding, keyed move, hooks/Clock, events, viewport update, unsupported controls and stale generations. The [G1 supported-Python regression #38162867872](https://github.com/Neuri-AI/PSX/actions/runs/38162867872) is GREEN on the same code SHA.
+- **Real SDL2/Window certification:** [source SHA `2eb0fad`](https://github.com/Neuri-AI/PSX/commit/2eb0fad8f1eea2ac975f146281c6a99e0b5a9d8b) passed [F3 selective CI #38162867871](https://github.com/Neuri-AI/PSX/actions/runs/38162867871) including the `xvfb-run` Kivy native job; `tests/test_kivy_native_layout.py` verifies real SDL2 `Window.add_widget` mounting, native bottom-left readback, nested parents and padding, keyed move, hooks/Clock, events, viewport update, unsupported controls and stale generations. The [G1 supported-Python regression #38162867872](https://github.com/Neuri-AI/PSX/actions/runs/38162867872) is GREEN on the same code SHA.
 - **Scope:** new Kivy G2 path supports **Flex/Text/Button** only. All other pre-existing supported components need G2 native ports or explicit stable unsupported capability cases. Tkinter is not yet integrated, and Kivy's full Scroll/clipping/offset mechanics remain G3. Automatic Window resize invalidation, width-driven intrinsic text remeasurement, toolkit-specific DPI and complete native/custom adapter registry matrix remain **open**. There is **no claim of full G2 closure**.
 
 
@@ -521,7 +521,7 @@ Historical G1.2 incremental evidence is retained above.
 **State: G2 IN PROGRESS, not CLOSED; total F3 progress is still 1/5 gates (20%).**
 
 - **Opt-in SFLE renderer:** `TkinterRenderer(sfle_constraints=..., engine=...)` accepts a definite explicit viewport and the F2 Rust-primary/Python-fallback engine via `load_layout_engine()`. `psx/renderers/tkinter/flex.py` instantiates an actual `ttk.Frame` with native `place()` host geometry; **no `pack()` or `grid()` is ever used by the SFLE Flex path**. Reconciler-created Text and Button remain native `ttk.Label` and `ttk.Button`; item layout metadata is stripped before backend primitive validation but remains in the SFLE source VNodes. Default renderer without opt-in still fails closed.
-- **Mounted geometry bridge:** `psx/sfle/f3_tk.py` reuses the G1 normalizer, SFLE immutable `LayoutInput`, F2 `TkMeasurementSource` requested sizes, and `NativeGeometryCommitter(GeometryBackend.TK)` to project SFLE's top-left absolute border rectangles into parent-relative `place(x,y,width,height)` coordinates. The native root is explicitly sized from viewport constraints but the SFLE root border box must agree within ≤1px (content-box and padding are not overridden). Native master parentage, no competing `pack/grid`, Tcl/Tk owner thread, generation/liveness, signed fixed-point validation, ≤1px `place_info` readback, rollback on application/readback exceptions and stale-result rejection are enforced.
+- **Mounted geometry bridge:** `psx/sfle/tkinter_layout_bridge.py` reuses the G1 normalizer, SFLE immutable `LayoutInput`, F2 `TkMeasurementSource` requested sizes, and `NativeGeometryCommitter(GeometryBackend.TK)` to project SFLE's top-left absolute border rectangles into parent-relative `place(x,y,width,height)` coordinates. The native root is explicitly sized from viewport constraints but the SFLE root border box must agree within ≤1px (content-box and padding are not overridden). Native master parentage, no competing `pack/grid`, Tcl/Tk owner thread, generation/liveness, signed fixed-point validation, ≤1px `place_info` readback, rollback on application/readback exceptions and stale-result rejection are enforced.
 - **Regression tests with real Tk under xvfb:** Source commit [`85e1758`](https://github.com/Neuri-AI/PSX/commit/85e1758c8ba7feb771c8e753d526a25c8f7cdb3a) passed [F3 selective #38163393093](https://github.com/Neuri-AI/PSX/actions/runs/38163393093) **GREEN** (including Tk job **18 passed**, ten new G2 tests and eight existing tests). [G1 regression matrix #38163393026](https://github.com/Neuri-AI/PSX/actions/runs/38163393026) **GREEN** on the same code SHA. Assertions cover real `ttk` native `place_info` positions, nested parent frames and CSS padding, keyed reuse/reorder, hooks/events/flush, viewport updates, rejection of foreign geometry managers and unsupported primitives, stale generations, and worker-thread violations.
 - **Current scope and next steps:** Four target engines have **some native G2 integration**: Headless, Qt (PySide6 tested), Kivy (SDL2 tested), and Tkinter (Tk tested), but the current Qt/Kivy/Tk native SFLE subset is only `Flex`, `Text`, `Button`. Full G2 closure requires the complete `registered component × backend × create/update/move/remove/measure/commit` coverage table, `Native` and custom adapter geometry ports, other Qt binding parity, width-dependent intrinsic remeasurement and actual resize/DPI lifecycle. Scroll viewport/offset ownership remains G3. Do **not** mark G2 closed based on these happy-path adapters.
 
@@ -540,16 +540,16 @@ Historical G1.2 incremental evidence is retained above.
 
 **Formal state: G2 IN PROGRESS, not CLOSED; overall F3 remains 1/5 CLOSED (20%).**
 
-- **Port contract:** `psx/sfle/f3_external.py` defines immutable `SFLEExternalPort(measure, apply, read)`. `measure(widget, LayoutConstraints)` must return a real `IntrinsicSizes` on the toolkit's owner thread; `apply(widget, Rect)` receives the already-projected **native-parent-relative** border rectangle (top-left in Qt/Tk, **bottom-left in Kivy**); `read(widget)` must return a `Rect` in that same native frame for the ≤1px readback check. Invalid ports/return types fail explicitly; they never cause implicit toolkit layout fallback.
+- **Port contract:** `psx/sfle/external_native_geometry_ports.py` defines immutable `SFLEExternalPort(measure, apply, read)`. `measure(widget, LayoutConstraints)` must return a real `IntrinsicSizes` on the toolkit's owner thread; `apply(widget, Rect)` receives the already-projected **native-parent-relative** border rectangle (top-left in Qt/Tk, **bottom-left in Kivy**); `read(widget)` must return a `Rect` in that same native frame for the ≤1px readback check. Invalid ports/return types fail explicitly; they never cause implicit toolkit layout fallback.
 - **Native declaration API:** `Native(..., sfle_port=port)` and `NativeWidget(..., sfle_port=port)` are accepted by opted-in Qt (PySide6 proven), Kivy and Tkinter. Without a `SFLEExternalPort`, a `Native` leaf rejects mounting *before calling the native factory*. Props in the `layout_*` / flex metadata namespace never flow into the native widget-property adapter. Existing native ownership, borrowed widget detachment, event subscriptions, and reconciler identities remain toolkit-owned.
 - **Custom host adapter API:** `renderer.register_adapter("CustomBadge", CustomAdapter())`, where the adapter exposes `sfle_port = port` and implements normal native lifecycle methods. The external host is a **leaf** (no children needing layout). Builtin controls not yet migrated to G2 remain explicitly **not certified** even when they have older non-SFLE custom native adapters. All `Native` and registered custom-host leaves still participate in the same key-aware immutable SFLE snapshot; the provider does **not** calculate sibling layout.
-- **Geometry authority:** The F2 `NativeGeometryCommitter` accepts explicit `external_ports`, retains its signed 1/64px-grid preflight, computes all toolkit parent-relative placements from SFLE border boxes, and delegates only the actual native write. All three production bridges (`f3_qt.py`, `f3_kivy.py`, `f3_tk.py`) perform external measurement with generation checks, read back via the external port, and restore prior native geometry on commit/readback failures. F2's neutral engine and Chromium precision thresholds are unchanged.
+- **Geometry authority:** The F2 `NativeGeometryCommitter` accepts explicit `external_ports`, retains its signed 1/64px-grid preflight, computes all toolkit parent-relative placements from SFLE border boxes, and delegates only the actual native write. All three production bridges (`qt_layout_bridge.py`, `kivy_layout_bridge.py`, `tkinter_layout_bridge.py`) perform external measurement with generation checks, read back via the external port, and restore prior native geometry on commit/readback failures. F2's neutral engine and Chromium precision thresholds are unchanged.
 - **Minimal example (Qt):**
   ```python
   from PySide6.QtWidgets import QLabel
   from psx import Flex
   from psx.core.native import Native
-  from psx.sfle.f3_external import SFLEExternalPort
+  from psx.sfle.external_native_geometry_ports import SFLEExternalPort
   from psx.sfle.model import IntrinsicSizes, Rect
 
   port = SFLEExternalPort(
@@ -575,7 +575,7 @@ Historical G1.2 incremental evidence is retained above.
 
 - **Implementation reused:** All four concrete Qt renderer facades — `PySide6Renderer`, `PyQt6Renderer`, `PyQt5Renderer`, `PySide2Renderer` — reuse the same `QtRenderer`, production `QtSFLEFlexAdapter`, `QtMeasurementSource`, F2 `NativeGeometryCommitter(GeometryBackend.QT)`, immutable `LayoutInput`, generation/owner-thread guards, explicit `Native` and registered custom `SFLEExternalPort(measure,apply,read)`. No separate Qt5 CSS solver or `QBoxLayout` fallback was added.
 - **Actual defect repaired:** `Native()` previously rejected `renderer="pyside2"` despite the Qt renderer correctly supporting it. `psx/core/native.py` now accepts PySide2 and correctly infers it from `PySide2.QtWidgets` classes/instances (including existing borrowed widget ownership behavior). This defect was discovered by the first live PySide2 matrix run, not papered over by a skip.
-- **Binding matrix with explicit platform/Python constraints:** `tests/test_f3_g2_qt_family.py` is executed in a **fresh process per binding**, all with actual widgets under Ubuntu `QT_QPA_PLATFORM=offscreen`:
+- **Binding matrix with explicit platform/Python constraints:** `tests/test_qt_native_component_lifecycle.py` is executed in a **fresh process per binding**, all with actual widgets under Ubuntu `QT_QPA_PLATFORM=offscreen`:
   | Binding | Tested Python | G2 common parity |
   | --- | --- | --- |
   | PySide6 / Qt 6 | 3.12 | **14/14 PASS** |
@@ -585,7 +585,7 @@ Historical G1.2 incremental evidence is retained above.
 
   PySide2's last published wheel series is `5.15.2.1` (January 2022), with interpreter tags up through Python 3.10. The CI pins `PySide2==5.15.2.1` in an independent Python 3.10 Linux x86-64 job; no unsupported 3.11–3.13 PySide2 claim is made. The other Qt bindings are tested on Python 3.12, not yet every supported OS/Python combination.
 - **Parities exercised:** real `QWidget.geometry` and correct native parent for nested Builder and Markup `Flex` with padding/gaps; Text/Button; Checkbox/Input/Slider/Radio/ProgressBar/Select native types and exactly matching border rectangles; `key` moves with stable widget identity; coalesced hooks/state and callback rebinding; explicit viewport recomputation; owning UI thread; valid/invalid SFLE generation; reject unported primitive and non-SFLE `Flex`; `Native` explicit and inferred toolkit binding plus `SFLEExternalPort`, and registered custom leaf adapters with actual native projection/readback. `ProgressBar` checks **normalized progress**, not raw Qt scaled integer units.
-- **CI enforcement:** `.github/workflows/f3-selective.yml` has a required four-cell `qt-parity` job; the `F3 required CI conclusion` also fails when its aggregate is not successful, even if the pre-existing PySide6 native suite passes. `scripts/ci/impact.py` now sends both Qt-family parity test changes and central F3 workflow changes through Qt testing, with explicit router regressions.
+- **CI enforcement:** `.github/workflows/native-layout-selective.yml` has a required four-cell `qt-parity` job; the `F3 required CI conclusion` also fails when its aggregate is not successful, even if the pre-existing PySide6 native suite passes. `scripts/ci/impact.py` now sends both Qt-family parity test changes and central F3 workflow changes through Qt testing, with explicit router regressions.
 - **Certificate:** Source commit [`32050c0`](https://github.com/Neuri-AI/PSX/commit/32050c0b5af59f0997e0718c7d2f029025870086) passed [F3 selective CI #38167340136](https://github.com/Neuri-AI/PSX/actions/runs/38167340136) **COMPLETED SUCCESS** with all four binding jobs (14 tests each) and **35 existing PySide6 native tests**; [G1 certification #38167340147](https://github.com/Neuri-AI/PSX/actions/runs/38167340147) also **COMPLETED SUCCESS** on the identical source SHA.
 - **Open for full G2 closure:** Qt OS × Python × toolkit-version matrix beyond the certified Linux subset; remaining components and custom/borrowed lifecycle cases; automated native window resize propagation; width-dependent text intrinsic remeasurement; DPI scaling; complete registry × backend × operation tests. Cross-platform final acceptance remains **G5**.
 
@@ -605,7 +605,7 @@ Historical G1.2 incremental evidence is retained above.
 
 **State: G2 IN PROGRESS; F3 officially remains 1/5 gates CLOSED (20%).**
 
-- **Neutral coordinator:** `psx/sfle/f3_width_remeasurement.py` introduces `compute_width_dependent`, `seed_unconstrained_width_measurements` and `auto_height_measurement_ids`. For width-dependent **leaf / auto-height** participants only, the renderer submits its immutable `LayoutInput` to the current SFLE engine's **`compute_provisional`**. The provisional **actual leaf content-box width** (not the root's available viewport or an inherited guessed width) becomes a UI-thread native measurement constraint. Revised `MeasuredBox` metrics carry the current generation and definite measured content width. SFLE recomputes; repeated width passes stop when every width converges to **0.01px**, with an explicit bounded maximum of 5 passes. The final `compute` is checked against the measured widths before any native geometry writes. Stale/invalid revisions, foreign return types, unavailable provisional ABI, width oscillation and measurement failures **fail closed**; no provisional boxes are committed.
+- **Neutral coordinator:** `psx/sfle/width_dependent_intrinsic_measurement.py` introduces `compute_width_dependent`, `seed_unconstrained_width_measurements` and `auto_height_measurement_ids`. For width-dependent **leaf / auto-height** participants only, the renderer submits its immutable `LayoutInput` to the current SFLE engine's **`compute_provisional`**. The provisional **actual leaf content-box width** (not the root's available viewport or an inherited guessed width) becomes a UI-thread native measurement constraint. Revised `MeasuredBox` metrics carry the current generation and definite measured content width. SFLE recomputes; repeated width passes stop when every width converges to **0.01px**, with an explicit bounded maximum of 5 passes. The final `compute` is checked against the measured widths before any native geometry writes. Stale/invalid revisions, foreign return types, unavailable provisional ABI, width oscillation and measurement failures **fail closed**; no provisional boxes are committed.
 - **Qt all 4 bindings:** `QLabel.setWordWrap(True)` is enabled only for opted-in SFLE `Text`. `QtMeasurementSource.measure_width` asks the same live Qt `QLabel.heightForWidth(width)` / size-hint adapter for metrics after SFLE resolves actual content width. Fully implemented on **PySide6, PyQt6, PyQt5, PySide2** (using each binding's existing owner UI thread and no `QLayout`). The F3 parity suite proves a long multiline `Text` gains native height as width narrows from 160 to 90 and that the following button is repositioned **without remount**; verifies restoration on expansion. An additional test on **all four Qt bindings** confirms explicit external `SFLEExternalPort.measure(widget, constraints)` can adjust a `Native` leaf's auto height at widths 160 versus 90 and reposition its sibling. Controls with definite `layout_height` are not remeasured for auto height.
 - **Tkinter:** `TkMeasurementSource` temporarily clears existing `wraplength` to recover the unconstrained requested inline basis for a later viewport change, then restores it (including on failure). Width measurement temporarily applies the actual post-flex `wraplength`; only after a successful SFLE solution does the native commit assign the same wraplength for **visible multiline rendering**. Native readback / rollback restore previous wrap and geometry when needed. Real `ttk.Label` and following `ttk.Button` change native size/position with width 160→90→160, and existing F2 synthetic Tcl requested-size tests remain GREEN.
 - **Kivy:** For measured `Text` only, the bridge obtains a true **unconstrained natural texture size**, then uses a temporary `Label.text_size=(actual_content_width,None)` followed by `texture_update()` to obtain the wrapped block height on the owner UI thread. Temporary measurement settings are restored in `finally`; after successful SFLE projection `text_size` is set to the certified width for actual Kivy native painting, with prior texture configuration restored on geometry/readback failure. The real SDL2 test checks label height increases when content width narrows and the subsequent native button reflows in the Kivy **bottom-left** coordinate frame. No Kivy `BoxLayout` geometry fallback is admitted.
@@ -621,8 +621,8 @@ Historical G1.2 incremental evidence is retained above.
 - **Qt / PySide6, PyQt6, PyQt5, PySide2:** `QWidget.setGeometry()/geometry()` accepts/returns **device-independent native Qt logical coordinates**, even when `QWidget.devicePixelRatioF() > 1`. The Qt platform itself converts these to physical pixels; multiplying positions/sizes by DPR before `setGeometry` would **double-scale**. The bridge queries the mounted root `devicePixelRatioF()` (with Qt5 legacy getter fallback) **for each commit**, then compares expected versus actual native rectangles in both native logical and physically projected pixels, without modifying SFLE's 1/64px boxes.
 - **Kivy and Tkinter:** `Widget.pos/size` and `place(x,y,width,height)` already use their toolkit's native window pixel coordinates, respectively. Kivy `Metrics.density` controls `dp/sp` conversion in styling/text and Tk `tk scaling` controls pixel-per-point conversions/fonts; blindly multiplying the existing native widget geometry by either is incorrect. The per-backend contract deliberately uses **1 native coordinate unit → 1 physical coordinate pixel** for their native widget geometry readbacks. Font/theme/DPI-induced **intrinsic measurement changes** continue to be measured on the owning toolkit UI thread. This policy does **not** yet certify universal CSS-DP parity across operating-system DPI configurations.
 - **Native/custom:** `SFLEExternalPort.apply/read` continue to use already-projected **native-parent-relative toolkit coordinates** (Qt DIPs vs Kivy/Tk window pixels), never raw frame-buffer pixels. The native port must not multiply those values again by DPR. Its readback passes the same physical audit as the built-ins.
-- **Transaction:** `f3_qt.py`, `f3_kivy.py`, `f3_tk.py` record both `geometry_commit_error` (in widget API coordinates, max 1) and `renderer._sfle_physical_commit_error` (physical-pixel difference, bounded by the physical counterpart of the 1-native-unit tolerance). Nonfinite/negative DPR, invalid backend geometry, stale generation and native parentage fail before committing; readback violations retain existing rollback. Logical output is unchanged by DPR. No new F2 solver/rounding was introduced.
-- **Certification:** Source [`b0f589f`](https://github.com/Neuri-AI/PSX/commit/b0f589ffcbc5f93f83fce1c1d7d6a3ccc143ec1a) passed [F3 selective #38203902046](https://github.com/Neuri-AI/PSX/actions/runs/38203902046) **COMPLETED SUCCESS** and [G1 Python matrix #38203902052](https://github.com/Neuri-AI/PSX/actions/runs/38203902052) **COMPLETED SUCCESS**, **same source SHA**. `tests/test_f3_g2_native_pixel_scale.py` exercises DPI ratios 1×, 1.25×, 1.5×, 2×, 2.5× and 3×, edge continuity, signed/invalid scale rejection and native-vs-physical error. All four isolated real Qt binding CI jobs now run **19 tests at normal scale + 19 tests at `QT_SCALE_FACTOR=1.5` each** (76 at normal + 76 at 1.5×), in addition to **35 PySide6 native tests**, **27 Tk native**, **5 SDL2 Kivy**, **206 Core** and the pre-existing browser/F2 geometry/native wheel checks.
+- **Transaction:** `qt_layout_bridge.py`, `kivy_layout_bridge.py`, `tkinter_layout_bridge.py` record both `geometry_commit_error` (in widget API coordinates, max 1) and `renderer._sfle_physical_commit_error` (physical-pixel difference, bounded by the physical counterpart of the 1-native-unit tolerance). Nonfinite/negative DPR, invalid backend geometry, stale generation and native parentage fail before committing; readback violations retain existing rollback. Logical output is unchanged by DPR. No new F2 solver/rounding was introduced.
+- **Certification:** Source [`b0f589f`](https://github.com/Neuri-AI/PSX/commit/b0f589ffcbc5f93f83fce1c1d7d6a3ccc143ec1a) passed [F3 selective #38203902046](https://github.com/Neuri-AI/PSX/actions/runs/38203902046) **COMPLETED SUCCESS** and [G1 Python matrix #38203902052](https://github.com/Neuri-AI/PSX/actions/runs/38203902052) **COMPLETED SUCCESS**, **same source SHA**. `tests/test_native_pixel_scale.py` exercises DPI ratios 1×, 1.25×, 1.5×, 2×, 2.5× and 3×, edge continuity, signed/invalid scale rejection and native-vs-physical error. All four isolated real Qt binding CI jobs now run **19 tests at normal scale + 19 tests at `QT_SCALE_FACTOR=1.5` each** (76 at normal + 76 at 1.5×), in addition to **35 PySide6 native tests**, **27 Tk native**, **5 SDL2 Kivy**, **206 Core** and the pre-existing browser/F2 geometry/native wheel checks.
 - **Still OPEN in G2:** Detect and invalidate text/measurement caches for live runtime **screen migration / DPI changes without a window resize**; verify portable font metrics and actual visual CSS-DP size equivalence across disparate hardware DPI configurations in Kivy/Tk; new multi-DPI screenshot/golden fixtures against Chromium; complete OS×toolkit and primitive×backend×operation matrix and owned/borrowed lifecycle. The current increment certifies **device-coordinate projection and no-double-scaling**, not all possible high-DPI rendering permutations.
 
 ## F3-G2 increment — Qt native TextArea post-flex sizing and editing (2026-10-11)
@@ -649,7 +649,7 @@ Historical G1.2 incremental evidence is retained above.
   emission. Explicit/reconciler commits supersede pending remeasurement;
   unmount invalidates queued callbacks via an epoch. Diagnostic errors are
   retained in `_sfle_textarea_error` rather than crossing C++ boundaries.
-- **Real Qt tests:** `tests/test_f3_g2_qt_family.py` checks the same editor
+- **Real Qt tests:** `tests/test_qt_native_component_lifecycle.py` checks the same editor
   reflows at width 160 → 90 → 160, sibling geometry follows, text, selection,
   focus and callback behavior survive, definite CSS height remains 36px,
   callbacks rebind, native text editing triggers remeasurement without a
@@ -890,7 +890,7 @@ Historical G1.2 incremental evidence is retained above.
 **Increment IMPLEMENTED with native Qt/Tk/Kivy certification; G2 overall IN PROGRESS, official F3 closure 1/5 (20%).**
 
 - **Structural engine contract:** The existing normalized/mounted tree is
-  preserved. `prepare_f3_snapshot` maps the three *structural* nodes to
+  preserved. `prepare_native_layout_snapshot` maps the three *structural* nodes to
   SFLE Flex container semantics while retaining stable source VNode
   identities/handles and parent-relative projection. `Box` uses a
   single-child full-size passthrough, `RadioGroup` maps orientation,
@@ -943,7 +943,7 @@ Historical G1.2 incremental evidence is retained above.
 **Increment: initial viewport geometry implemented and native-tested.
 G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
 
-- **Source contract:** Added `psx/sfle/f3_scroll_viewport.py` with
+- **Source contract:** Added `psx/sfle/native_scroll_viewport.py` with
   backend-neutral `ScrollViewportBinding`, explicit Scroll -> one Flex
   root validation, immutable viewport/content rectangles, overflow extents
   and allowed scroll axes. The snapshot maps Scroll to an SFLE Flex layout
@@ -993,7 +993,7 @@ G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
 
 **Increment: census and fail-closed CI evidence indexing implemented. Not a G2 closure.**
 
-- New `psx/sfle/f3_g2_matrix.py` obtains the *live*
+- New `psx/sfle/native_component_matrix.py` obtains the *live*
   `builtin_component_registry()` snapshot rather than copying a
   misleading manually maintained list of names.
 - Enumerates every builtin across `qt`, `tk`, `kivy`, and `headless`,
@@ -1009,7 +1009,7 @@ G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
   proof of every operation on every individual component**: pending
   operations remain explicit for every native cell, with borrowed
   ownership deliberately unclaimed.
-- Added `tests/test_f3_g2_matrix.py` and required its execution in
+- Added `tests/test_native_component_matrix.py` and required its execution in
   the F3 core/registry CI job. The tests assert inventory exactness,
   backend coverage consistency, live evidence references and that
   G2 may not be marked complete from this aggregate evidence.
@@ -1026,7 +1026,7 @@ G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
 
 - The registry-derived G2 audit now has **no unported built-in GUI geometry
   cells** for Qt (PySide6, PySide2, PyQt5, PyQt6), Tkinter and Kivy.
-  `tests/test_f3_g2_matrix.py` enforces this invariant so a newly
+  `tests/test_native_component_matrix.py` enforces this invariant so a newly
   registered GUI component cannot silently lack a declared geometry port.
 - The missing Tk native geometry cells `Input` and `ProgressBar` were
   admitted; real Tk `ttk.Entry`/`ttk.Progressbar` tests verify
@@ -1111,7 +1111,7 @@ G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
 
 **C2: CLOSED; G2 remains OPEN; F3 1/5 officially closed gates (20%).**
 
-- **Reviewed registry coverage:** `psx/sfle/f3_g2_matrix.py`
+- **Reviewed registry coverage:** `psx/sfle/native_component_matrix.py`
   enumerates the live `builtin_component_registry()` for each of
   `qt`, `tk`, `kivy` and `headless`. Each name must match an
   expressly reviewed `native`, `unported`, `legacy_deferred`,
@@ -1119,7 +1119,7 @@ G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
   removed names without a classification update fail CI; no automatic
   implicit "supported" status is allowed.
 - **Operation evidence must be per component:** Added the immutable
-  `psx/sfle/f3_g2_evidence.py` source index, associating
+  `psx/sfle/native_operation_evidence.py` source index, associating
   `(backend, component, operation)` with a **specific real test method**,
   rather than applying a general backend test to every built-in.
   The eight dimensions are `create`, `update`, `reorder`,
@@ -1138,7 +1138,7 @@ G2 remains OPEN; F3 stays at 1/5 closed gates (20%).**
   `pending_operations`. `g2_operation_coverage_summary()`
   provides evidenced/pending counts by backend and operation.
   `g2_matrix_summary()` reports backend capability classification.
-- **Executable fail-closed validation:** `tests/test_f3_g2_matrix.py`
+- **Executable fail-closed validation:** `tests/test_native_component_matrix.py`
   checks exhaustive registry × backend entries and exact classifications;
   parses actual Python ASTs to verify cited test methods exist and contain
   a component reference; checks manifest operation names and ensures
@@ -1168,14 +1168,14 @@ The strengthened contract now has all five acceptance properties:
 1. **Exhaustive component registration:** Every builtin in
    `builtin_component_registry()` is classified explicitly for Qt, Tkinter,
    Kivy and Headless. Unknown, stale or unreviewed cells fail CI.
-2. **Explicit applicability:** `psx/sfle/f3_g2_contracts.py` emits one
+2. **Explicit applicability:** `psx/sfle/native_operation_contracts.py` emits one
    contract for **every component × backend × operation** (eight defined
    operations), with `required` or justified `not_applicable`.
    Operation ownership is routed to C3 (lifecycle/rollback), C4
    (external/borrowed ownership) or C5 (invalidation). Builtin-owned
    controls cannot silently claim borrowed Native behavior. Exclusions
    never count as successes.
-3. **Executable behavioral mechanisms:** `psx/sfle/f3_g2_oracles.py`
+3. **Executable behavioral mechanisms:** `psx/sfle/native_operation_oracles.py`
    contains real positive/negative assertions for create, update,
    reorder, unmount, event rebind, borrowed ownership, rollback and
    invalidation. Every required operation points to its oracle.
@@ -1184,13 +1184,13 @@ The strengthened contract now has all five acceptance properties:
    `oracle_pending_driver` mechanism, not false PASS status.
    C3/C4/C5 will capture real native before/after observations and
    invoke these reusable oracles.
-4. **Actual execution receipts:** `psx/sfle/f3_g2_receipts.py` reads
+4. **Actual execution receipts:** `psx/sfle/native_operation_receipts.py` reads
    pytest JUnit XML and marks a referenced test `executed_pass` **only
    when every parametrized case was executed and passed**. Missing,
    failed, errored or skipped references fail certification; merely
    mentioning a component in a test source is not runtime proof.
    `pending` and `not_applicable` remain distinct in JSON results.
-5. **Fail-closed CI:** `tests/test_f3_g2_contracts.py` verifies exact
+5. **Fail-closed CI:** `tests/test_native_operation_contracts.py` verifies exact
    cardinality, unique component-backend-operation identities,
    justified exclusions, oracle availability and synthetic
    positive/negative oracle behavior. It also verifies failed,
@@ -1222,7 +1222,7 @@ G2 remains OPEN; no scope from G3/G4/G5 is silently absorbed.
 - **Scope:** Every `native` cell in the registered built-in inventory for Qt, Tkinter, Kivy and Headless. Tests dynamically assert that the native factory set matches the registered adapter allowlist; newly admitted hosts cannot silently inherit evidence.
 - **Operations:** Create (actual mounting), update (same native handle and changed geometry/props), keyed reorder (same identity and new placement), unmount (native disposal/detachment), event rebinding (same live slot, replacement handler, no stale callback after teardown) for controls defining events, and rollback (injected invalid callback rejected before native mutation, preserving geometry and widget state). Eventless hosts receive a justified `not_applicable`, not a fabricated PASS. Rejection before mutation is the certified rollback case; compensating recovery from partially applied native mutations remains an independent risk, not implied by this evidence.
 - **Behavioral drivers:** `test_registered_builtin_lifecycle_keeps_real_native_identity` and `test_all_callback_controls_keep_one_live_slot_after_reconciliation` for Qt/Tkinter, `test_all_ported_builtin_lifecycles_keep_native_widget_handles` and `test_all_callback_controls_rebind_without_native_remount` for Kivy/SDL2, and `test_all_supported_headless_components_reconcile_without_remount` for Headless.
-- **Execution evidence:** Every component × operation reference is resolved by `f3_g2_receipts.py` against successful executed JUnit cases for the corresponding backend. Qt is certified separately on PySide6, PyQt6, PyQt5 and PySide2 and at DPR scaling test conditions; Tk and Kivy use real native widgets, not mocked geometry.
+- **Execution evidence:** Every component × operation reference is resolved by `native_operation_receipts.py` against successful executed JUnit cases for the corresponding backend. Qt is certified separately on PySide6, PyQt6, PyQt5 and PySide2 and at DPR scaling test conditions; Tk and Kivy use real native widgets, not mocked geometry.
 - **Mandatory guardrail:** `test_all_required_builtin_lifecycle_operations_have_component_drivers` fails the required core job if a required create/update/reorder/unmount/event_rebind/rollback operation is left at `oracle_pending_driver`, including for a newly registered native host.
 
 **Transfer to C4:** native/custom/borrowed widget ports, ownership, reparenting, and resource semantics remain separately unproven. C5 remains responsible for runtime invalidation and remeasurement; C6 remains responsible for final cross-platform precision and complete G2 closure. The C3 status never converts these other operations to PASS.
@@ -1262,12 +1262,12 @@ unbounded third-party toolkit widget or an unsupported capability.
   replaced on reconciliation and disconnected on teardown; subsequent
   native events cannot invoke disposed PSX callbacks. Tk's borrowed
   signal case is N/A because the borrowed host itself is unsupported.
-- **Behavioral guardrail:** `psx/sfle/f3_g2_c4.py` enumerates ownership,
+- **Behavioral guardrail:** `psx/sfle/native_external_ownership_cases.py` enumerates ownership,
   custom adapter and signal-subscription scenarios. The independent
-  `f3_g2_c4_receipts.py` validates executed JUnit cases, rejecting
+  `native_external_ownership_receipts.py` validates executed JUnit cases, rejecting
   absent, failed, errored and skipped tests. Its JSON artifacts are
   published by the same mandatory Qt/Tk/Kivy workflows, including Qt
-  scaling runs. `tests/test_f3_g2_c4_contracts.py` validates the census
+  scaling runs. `tests/test_native_external_ownership_contracts.py` validates the census
   and negative receipt behavior in required core CI.
 - **Safety:** invalid ownership declarations, mismatched backends,
   missing SFLE geometry ports and borrowed Tk are explicit errors rather
@@ -1341,7 +1341,7 @@ is supported by specific executed evidence on an immutable CI SHA.
 **Verified code revision:** [`487b724`](https://github.com/Neuri-AI/PSX/commit/487b72444067e7a7626d0b6189725f699faf6010), [required F3 selective workflow #38249572032 — SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38249572032).
 
 - **Native measurement selection:** `f3_native_cache.py` uses stable native widget identities plus declarative props, viewport constraints and measured width. Qt/Tk/Kivy bridge transactions preserve unchanged intrinsic results; a failed geometry commit never publishes partially updated cache entries. Specific native-loop assertions and the independent width-cache suite verify the behavior.
-- **External resource changes:** `f3_resource_watch.py` detects local file timestamp/size revisions, including deletion and recreation, without a VNode prop update; the Qt/Tk/Kivy owners poll/reload in the GUI thread, with safe lifetime fencing and last resource error tracking. Kivy also listens for texture replacement. Remote URLs, virtual resources and non-file resources require explicit host invalidation; the watcher deliberately does not pretend to monitor them.
+- **External resource changes:** `native_resource_watch.py` detects local file timestamp/size revisions, including deletion and recreation, without a VNode prop update; the Qt/Tk/Kivy owners poll/reload in the GUI thread, with safe lifetime fencing and last resource error tracking. Kivy also listens for texture replacement. Remote URLs, virtual resources and non-file resources require explicit host invalidation; the watcher deliberately does not pretend to monitor them.
 - **Platform events:** native Qt root and child font/palette/style/screen events, Tk theme event, and Kivy intrinsic texture and host notifications can trigger a coalesced layout transaction. Explicit `request_sfle_invalidation` is still the portable interface for changes not observable by a renderer.
 - **Per-component evidence:** every registered native component has an explicit `invalidation` contract and a component-iterating native-driver JUnit reference. The required core contract test rejects any missing coverage, and the existing backend receipt verification rejects failed/skipped/missing cases.
 
@@ -1360,7 +1360,7 @@ still apply normally, and the bridges continue verifying post-commit
 native readback under existing CSS-to-device-pixel tolerances.
 
 The required core regression
-`tests/test_f3_g2_c5_geometry_writes.py` verifies each toolkit backend
+`tests/test_native_geometry_write_suppression.py` verifies each toolkit backend
 applies an initial rectangle, makes **zero** additional position/size
 writes for an identical subsequent result, and does apply a changed
 rectangle. For external Tk widgets the first placement is deliberately
@@ -1379,7 +1379,7 @@ all remaining owner-thread race/resource/DPI scenarios to be certified.
 
 ### C5 concurrent transactions and dependency tracking — further implementation (2026-10-12)
 
-- `f3_g2_invalidation.py` now tracks **global vs widget-targeted**
+- `native_measurement_invalidation.py` now tracks **global vs widget-targeted**
   invalidations, including dirty native widget identities and semantic
   epochs. Local file-resource watchers mark only their affected Image
   widget. The native intrinsic cache uses those identities to avoid
@@ -1394,7 +1394,7 @@ all remaining owner-thread race/resource/DPI scenarios to be certified.
   measurement or geometry raises; a later retry can recover without
   remounting widgets. Headless has explicit injected-mid-measurement
   and transient-failure regression tests.
-- `f3_dirty_dependencies.py` identifies dirty leaves, their ancestor
+- `native_measurement_dependencies.py` identifies dirty leaves, their ancestor
   chain, and siblings of affected Flex containers. It is a conservative
   dependency graph **planner**; it does *not* assert or implement
   incremental Rust/Python Flex calculation by itself. Both SFLE
@@ -1429,10 +1429,10 @@ native readback** and before the transaction is published.
 - Headless: an injected semantic invalidation during geometry readback
   raises before its geometry/cache publication and restores prior
   rectangles. A later explicit commit recovers without remount.
-- Regression drivers: `tests/test_f3_g2_headless.py`,
-  `tests/test_f3_g2_qt_family.py`,
-  `tests/test_tkinter_f3_g2_renderer.py`,
-  and `tests/test_kivy_f3_g2_renderer.py` inject an invalidation from
+- Regression drivers: `tests/test_headless_native_layout.py`,
+  `tests/test_qt_native_component_lifecycle.py`,
+  `tests/test_tkinter_native_layout.py`,
+  and `tests/test_kivy_native_layout.py` inject an invalidation from
   the actual readback callback and assert rejection, rollback, pending
   invalidation, stable native identity and retry.
 - **Certification requirement:** record the final SHA, executed tests and
@@ -1469,20 +1469,20 @@ reuses unaffected sibling measurements for targeted invalidations.
 
 **Executed behavior-specific evidence:**
 
-- `tests/test_f3_g2_headless.py`: injected measurement-phase invalidation,
+- `tests/test_headless_native_layout.py`: injected measurement-phase invalidation,
   solver-phase invalidation, invalidation during readback, selective
   dirty-widget caching, transient measurement failure and retry, unmount
   cancellation, preserved mounted identities and unchanged published
   result on rejection.
-- `tests/test_f3_g2_qt_family.py`: real Qt-widget readback race,
+- `tests/test_qt_native_component_lifecycle.py`: real Qt-widget readback race,
   invalidation during geometry application with automatically successful
   bounded retry, and injected *actual native rectangle mutation* followed
   by an application exception and complete geometry rollback. All four
   supported Qt binding CI cells executed.
-- `tests/test_tkinter_f3_g2_renderer.py`: equivalent real Tk place-geometry
+- `tests/test_tkinter_native_layout.py`: equivalent real Tk place-geometry
   race, bounded native retry and rollback after a deliberately changed
   native placement.
-- `tests/test_kivy_f3_g2_renderer.py`: real SDL2 Kivy subprocess tests
+- `tests/test_kivy_native_layout.py`: real SDL2 Kivy subprocess tests
   exercising native position/size rollback, invalidation during geometry
   application and readback, mounted identity and bounded retry.
 - The mandatory selective run also passed the chosen SFLE, Rust/Python
@@ -1516,7 +1516,7 @@ use the selective classifier to skip product-test jobs.
 
 **What changed:**
 
-- `psx/sfle/f3_resource_watch.py`: a detected local image revision
+- `psx/sfle/native_resource_watch.py`: a detected local image revision
   remains pending until an explicit success acknowledgement. Failed
   native decoding/reloading does **not** consume the change: a
   subsequent owner-thread poll retries the same version even when no
@@ -1541,19 +1541,19 @@ use the selective classifier to skip product-test jobs.
 
 **Executed native evidence at the implementation SHA:**
 
-- `tests/test_f3_g2_c5_resources.py`: changed file signatures,
+- `tests/test_native_resource_invalidation.py`: changed file signatures,
   missing/recreated sources, unsupported virtual/URL paths, and
   *retry without additional file changes* when a native reload fails.
-- `tests/test_f3_g2_qt_family.py`: live local-file image revision
+- `tests/test_qt_native_component_lifecycle.py`: live local-file image revision
   reflows real Qt geometry without changing props or remounting;
   child-targeted style versus global DPI invalidation; native cache
   last-measured counters show an unaffected sibling was not remeasured.
   Qt parity was run in PySide6, PyQt6, PyQt5 and PySide2 CI cells.
-- `tests/test_tkinter_f3_g2_renderer.py`: real Tk image revision
+- `tests/test_tkinter_native_layout.py`: real Tk image revision
   reflows a mounted peer in-place, per-widget measurement counters
   exclude the unaffected peer, and native theme notifications remain
   covered by the existing renderer suite.
-- `tests/test_kivy_f3_g2_renderer.py`: real SDL2 Kivy subprocess
+- `tests/test_kivy_native_layout.py`: real SDL2 Kivy subprocess
   validates live image file revision without remount, followed by
   native readback; targeted measurement invalidation excludes an
   unaffected sibling. The existing Kivy texture and explicit host
@@ -1604,13 +1604,13 @@ also finished SUCCESS for **that same code SHA**. This section supersedes
 earlier C5 implementation checkpoints explicitly marked OPEN, which remain
 in the historical design log and are not the current closure state.
 
-The new test-only `tests/certification/f3_g2_c5_receipts.py` generates a
+The new test-only `tests/certification/native_invalidation_receipts.py` generates a
 fail-closed C5 matrix from the *live reviewed* G2 operation contracts and
 requires actual native executed JUnit methods for both the per-component
 driver and the semantic-reason driver, plus backend-specific regression
 drivers. Failed, missing, skipped or incomplete receipts fail the CI job.
 The validator's own negative cases are run by
-`tests/test_f3_g2_c5_receipts.py` in the mandatory core job.
+`tests/test_native_invalidation_receipts.py` in the mandatory core job.
 It is deliberately not shipped as production SFLE code.
 
 **Mandatory semantic reasons:** `content`, `font`, `theme`,
@@ -1634,7 +1634,7 @@ notification, not an invented platform event for each cell.
 Qt's 120-cell certificate was independently executed at standard scale and
 `QT_SCALE_FACTOR=1.5` on each of its four binding jobs; these are additional
 executions of the *same* Qt contract cells, not fabricated distinct
-components. `tests/test_f3_g2_qt_family.py` reported
+components. `tests/test_qt_native_component_lifecycle.py` reported
 41 passed / 159 native unittest subtests at both Qt scale settings in the
 inspected PySide6 job; Tk reported 50 passed / 156 subtests; Headless 37
 passed; Kivy 26 passed in its real SDL2 runner. All C5 receipt scripts emitted
@@ -1709,10 +1709,10 @@ workflows also completed SUCCESS at the same code SHA.
   published native geometry readback contract without fabricating it.
 
 **Executed tests:** newly added
-`tests/test_f3_g2_c6_precision.py` exercises signed numeric boundaries,
+`tests/test_native_geometry_precision.py` exercises signed numeric boundaries,
 fixed-point saturation, DPR edge seams, native parent graph transforms
 and nonfinite preflight. The intelligent F3 workflow now includes it in
-the required core job, alongside existing `test_f3_g2_native_pixel_scale`,
+the required core job, alongside existing `test_native_pixel_scale`,
 SFLE geometry contracts, Rust/Python differential and Chromium oracle.
 The full required workflow covered Headless, native Qt bindings,
 Tkinter, Kivy and Windows/macOS native wheels; its aggregate was SUCCESS.
@@ -1732,7 +1732,7 @@ SHA. **C6 and G2 remain OPEN until all four iterations finish.**
 **Required code CI:** [F3 selective #38334904498 — completed SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38334904498), with independent G1 contracts, package boundaries and commit-subject workflows green at the same code SHA.
 
 A new fail-closed integration census in
-`tests/test_f3_g2_c6_integration.py` enumerates the live
+`tests/test_native_component_integration.py` enumerates the live
 `builtin_component_registry().snapshot()` crossed with the four
 backends. Every pair has a unique, reviewed status and native
 classification must agree with the allowed ports; unported Headless
@@ -1781,14 +1781,14 @@ single-SHA closure and document reconciliation. C6/G2 remain OPEN.
 **Required F3 CI:** [run #38335949031 — completed SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38335949031). Commit-subject, G1 contract and package-boundary workflows also completed SUCCESS on this same code SHA.
 
 **Mandatory component × backend × operation certification:** The new
-`tests/certification/f3_g2_c6_receipts.py` runs inside each required native
+`tests/certification/native_acceptance_receipts.py` runs inside each required native
 backend job against its **executed JUnit XML**, requiring every operation
 with `applicability=required` in the code-derived `g2_operation_contracts()`
 to reference a test that actually ran and passed. Missing, skipped, failed or
 error receipts and unreferenced required operations **fail the job**. The
 certificate contains the component, backend, operation, behavioral oracle,
 original test reference, applicability and audited exclusion reason.
-`tests/test_f3_g2_c6_receipts.py` executes negative tests to prevent
+`tests/test_native_acceptance_receipts.py` executes negative tests to prevent
 future weakening of these invariants.
 
 | Backend | Executed required operation cells | Reviewed N/A cells | Pending |
@@ -1809,14 +1809,14 @@ certify borrowed `Native` ownership or resource-specific semantics.
 All native JUnit XML and C6 JSON reports are archived by their respective
 native GitHub Actions jobs.
 
-**Future family policy:** `tests/certification/f3_g2_families.py` has an
+**Future family policy:** `tests/certification/component_family_policy.py` has an
 exact registry-derived census backed by **explicit reviewed family
 classification** (`leaf`, `layout_container`,
 `structural_container`, `native_viewport`, `transparent`,
 `external_port`, `legacy`, and reserved `overlay_portal`).
 Unknown/unclassified new registry names and stale classifications fail
 automatically. The companion
-`tests/test_f3_g2_c6_families.py` tests an example `Modal`:
+`tests/test_component_family_policy.py` tests an example `Modal`:
 an unregistered/unclassified Modal is rejected; declaring
 `overlay_portal` requires a **dedicated overlay/portal driver**, explicit
 child policy and portal lifecycle/ownership semantics, rather than
@@ -1911,7 +1911,7 @@ F3 now has **2 of 5 official gates CLOSED (40%)**. Next **F3-G3**.
 
 **Normative for all new and refactored PSX code, tests, scripts, tooling and workflows.** Internal planning labels such as `F1`, `F2`, `F3`, `G1`, `G2`, `G3`, `C1`–`C6`, `D13` and their composites are **documentation and release-tracking identifiers only**. Do not use milestone codes to name Python files/packages, functions, classes, constants, test names, fixtures, standalone scripts, CI jobs/workflows or diagnostic identifiers. A developer must be able to infer behavior without decoding a roadmap.
 
-- Use purpose-driven module paths such as `sfle/native_intrinsic_cache.py`, `sfle/native_capabilities.py` or `tests/test_native_geometry_precision.py`, not `f3_native_cache.py` or `test_f3_g2_c6_precision.py`.
+- Use purpose-driven module paths such as `sfle/native_intrinsic_cache.py`, `sfle/native_component_capabilities.py` or `tests/test_native_geometry_precision.py`, not `f3_native_cache.py` or `test_f3_g2_c6_precision.py`.
 - Use action/contract names such as `native_leaf_needs_measurement(...)`, `certify_native_operation_receipts(...)` and `test_native_resource_invalidation(...)`, never `g2_native_leaf_needs_measurement`, `f3_g2_c6_receipts`, etc.
 - Write actionable backend errors (`Unsupported native geometry for Kivy Slider`) instead of roadmap-only codes (`F3-G2 Kivy ...`). Preserve documented machine-readable diagnostic enums and compatibility when required; move milestone labels to historical prose and test-report metadata.
 - Semantic categories (`leaf`, `layout_container`, `overlay_portal`), stable public names, protocol names and backend identifiers are allowed; phase/gate names remain acceptable **only** in architecture/roadmap text, dated certification reports and migration notes (not current executable symbol names).

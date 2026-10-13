@@ -11,13 +11,13 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 SFLE = ROOT / "psx" / "sfle"
 LEGACY = frozenset({
-    "f3_g2_c4.py",
-    "f3_g2_c4_receipts.py",
-    "f3_g2_contracts.py",
-    "f3_g2_evidence.py",
-    "f3_g2_matrix.py",
-    "f3_g2_oracles.py",
-    "f3_g2_receipts.py",
+    "native_external_ownership_cases.py",
+    "native_external_ownership_receipts.py",
+    "native_operation_contracts.py",
+    "native_operation_evidence.py",
+    "native_component_matrix.py",
+    "native_operation_oracles.py",
+    "native_operation_receipts.py",
 })
 CERTIFICATION = re.compile(
     r"^(?:f\d+(?:_g\d+)?(?:_c\d+)?_)?(?:"

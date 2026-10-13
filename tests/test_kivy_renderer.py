@@ -88,7 +88,7 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             try:
                 renderer.create(Flex(Text("A")), None)
             except RendererCapabilityError as exc:
-                assert "F3-G2 SFLE geometry" in str(exc)
+                assert "Native SFLE SFLE geometry" in str(exc)
             else:
                 raise AssertionError("Flex silently delegated geometry to native Kivy")
         """)

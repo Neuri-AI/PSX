@@ -156,7 +156,7 @@ portable layout duplication and stale examples without compatibility shims.
 **CI and test execution policy (F3, mandatory):**
 [Smart CI selective routing and F2 workflow reuse](architecture/sfle-f3-ci-strategy.md).
 Documentation-only edits run **no product tests**; regular code changes
-run only impacted test suites and dependency consumers. For F3 PRs into `develop`, `.github/workflows/f3-selective.yml` now routes impacted suites using `scripts/ci/impact.py`, with an exact-SHA aggregate status; F2 legacy workflows remain available for `main` and explicit manual use. Verified G1.2 [RED #38153047652](https://github.com/Neuri-AI/PSX/actions/runs/38153047652), [GREEN #38153141925](https://github.com/Neuri-AI/PSX/actions/runs/38153141925). G2 certification is CLOSED on its cited immutable code SHA; G5 certification remains pending.
+run only impacted test suites and dependency consumers. For F3 PRs into `develop`, `.github/workflows/native-layout-selective.yml` now routes impacted suites using `scripts/ci/impact.py`, with an exact-SHA aggregate status; F2 legacy workflows remain available for `main` and explicit manual use. Verified G1.2 [RED #38153047652](https://github.com/Neuri-AI/PSX/actions/runs/38153047652), [GREEN #38153141925](https://github.com/Neuri-AI/PSX/actions/runs/38153141925). G2 certification is CLOSED on its cited immutable code SHA; G5 certification remains pending.
 Explicit G1–G5 closure requires each gate's complete criteria;
 G5's final certification intentionally runs all mandatory suites
 on a single immutable SHA. This improves routine CI efficiency

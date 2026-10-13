@@ -27,7 +27,7 @@ from threading import get_ident
 
 from psx.core.props import FLEX_ITEM_PROPS
 from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
-from psx.sfle.f3_external import external_port_for
+from psx.sfle.external_native_geometry_ports import external_port_for
 from psx.sfle.model import LayoutConstraints, LayoutResult
 
 from kivy.base import runTouchApp
@@ -328,11 +328,11 @@ class KivyRenderer:
         self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
         self._sfle_backend = "kivy"
         self._sfle_generation = 0
-        from psx.sfle.f3_g2_invalidation import MeasurementInvalidations
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
         self._sfle_measurement_invalidations = MeasurementInvalidations()
         from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
         self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
-        from psx.sfle.f3_resource_watch import ImageResourceWatch
+        from psx.sfle.native_resource_watch import ImageResourceWatch
         self._sfle_image_resource_watch = ImageResourceWatch()
         self._sfle_resource_poll_scheduled = False
         self._sfle_resource_error: Exception | None = None
@@ -440,7 +440,7 @@ class KivyRenderer:
         The mounted instance is reused; the existing SFLE transaction remains
         the only writer. Teardown invalidates queued work by epoch.
         """
-        from psx.sfle.f3_g2_invalidation import MeasurementInvalidations
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
 
         if self._sfle_constraints is None:
             raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
@@ -560,7 +560,7 @@ class KivyRenderer:
     def commit_layout(self, root: object) -> None:
         if self._sfle_constraints is None:
             return
-        from psx.sfle.f3_kivy import commit_kivy_sfle
+        from psx.sfle.kivy_layout_bridge import commit_kivy_sfle
         # Native style/texture signals can arrive while measuring. Retry a
         # bounded number of times using the latest semantic epoch; never
         # publish a transaction rejected for stale measurements.
@@ -639,7 +639,7 @@ class KivyRenderer:
             # Only certified widget types join the native SFLE tree until
             # the complete G2 registry/backend matrix is implemented.
             if node.kind not in (NodeKind.HOST, NodeKind.NATIVE):
-                raise RendererCapabilityError("F3-G2 requires a host or Native layout participant.")
+                raise RendererCapabilityError("Native SFLE requires a host or Native layout participant.")
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
@@ -661,7 +661,7 @@ class KivyRenderer:
     def _adapter_create(self, node: VNode, parent: object | None) -> KivyHandle:
         if node.kind is NodeKind.HOST and node.type == "Flex":
             raise RendererCapabilityError(
-                "Flex requires the F3-G2 SFLE geometry adapter for Kivy; "
+                "Flex requires the Native SFLE SFLE geometry adapter for Kivy; "
                 "native fallback layout is forbidden.")
         _validate_props(node)
         if node.kind is NodeKind.NATIVE:

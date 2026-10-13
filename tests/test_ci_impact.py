@@ -1,4 +1,4 @@
-"""Failure-focused regression tests for the F3 change-impact router."""
+"""Failure-focused regression tests for the Native layout change-impact router."""
 
 import unittest
 from scripts.ci.impact import SUITES, classify
@@ -58,14 +58,14 @@ class RoutingTests(unittest.TestCase):
             {"sfle", "rust", "chromium", "native"},
         )
 
-    def test_g2_registry_coverage_is_not_skipped(self):
+    def test_native_registry_coverage_is_not_skipped(self):
         self.assertIn("core", self.selected("psx/core/contracts.py"))
 
-    def test_f3_backend_bridge_changes_execute_the_owner_toolkit(self):
-        self.assertEqual(self.selected("psx/sfle/f3_qt.py"), {"qt"})
-        self.assertEqual(self.selected("psx/sfle/f3_kivy.py"), {"kivy"})
-        self.assertEqual(self.selected("psx/sfle/f3_tk.py"), {"tkinter"})
-        self.assertEqual(self.selected("psx/sfle/f3_headless.py"), {"headless"})
+    def test_native_layout_backend_bridge_changes_execute_the_owner_toolkit(self):
+        self.assertEqual(self.selected("psx/sfle/qt_layout_bridge.py"), {"qt"})
+        self.assertEqual(self.selected("psx/sfle/kivy_layout_bridge.py"), {"kivy"})
+        self.assertEqual(self.selected("psx/sfle/tkinter_layout_bridge.py"), {"tkinter"})
+        self.assertEqual(self.selected("psx/sfle/headless_layout_bridge.py"), {"headless"})
 
     def test_native_measurement_changes_cover_their_toolkit_and_sfle(self):
         for filename, native in (
@@ -78,15 +78,15 @@ class RoutingTests(unittest.TestCase):
                 self.selected(f"psx/sfle/{filename}"), {"sfle", native}
             )
 
-    def test_shared_g2_bridges_trigger_all_downstream_consumers(self):
+    def test_shared_native_bridges_trigger_all_downstream_consumers(self):
         all_consumers = {"core", "headless", "qt", "kivy", "tkinter"}
-        for filename in ("f3_snapshot.py", "f3_external.py"):
+        for filename in ("native_layout_snapshot.py", "external_native_geometry_ports.py"):
             self.assertEqual(self.selected(f"psx/sfle/{filename}"), all_consumers)
 
     def test_shared_width_dpi_and_capability_changes_reach_native_jobs(self):
         consumers = {"core", "qt", "kivy", "tkinter"}
         for filename in (
-            "f3_width_remeasurement.py",
+            "width_dependent_intrinsic_measurement.py",
             "native_component_capabilities.py",
             "native_pixel_space.py",
         ):
@@ -101,17 +101,17 @@ class RoutingTests(unittest.TestCase):
     def test_g1_docs_delta_does_not_require_previous_green(self):
         from pathlib import Path
         workflow = (Path(__file__).resolve().parents[1] /
-                    ".github/workflows/f3-g1-certification.yml").read_text(
+                    ".github/workflows/flex-layout-contract-certification.yml").read_text(
                         encoding="utf-8")
         self.assertIn("const docsOnly = files.every(isDocumentation)", workflow)
         self.assertIn("run_contract', 'false'", workflow)
         self.assertNotIn("prior_green", workflow)
         self.assertIn("needs: changes", workflow)
 
-    def test_f3_docs_only_precedes_prior_green_requirement(self):
+    def test_native_layout_docs_only_precedes_prior_green_requirement(self):
         from pathlib import Path
         workflow = (Path(__file__).resolve().parents[1] /
-                    ".github/workflows/f3-selective.yml").read_text(
+                    ".github/workflows/native-layout-selective.yml").read_text(
                         encoding="utf-8")
         self.assertLess(
             workflow.index("if (docsOnly)"),
@@ -157,11 +157,11 @@ class RoutingTests(unittest.TestCase):
     def test_selector_changes_only_test_selector(self):
         self.assertEqual(self.selected("scripts/ci/impact.py"), {"router"})
 
-    def test_f3_workflow_must_exercise_qt_family_matrix(self):
-        self.assertEqual(self.selected(".github/workflows/f3-selective.yml"), {"router", "qt"})
+    def test_native_layout_workflow_must_exercise_qt_family_matrix(self):
+        self.assertEqual(self.selected(".github/workflows/native-layout-selective.yml"), {"router", "qt"})
 
-    def test_f3_qt_binding_parity_module_routes_to_qt_not_core(self):
-        self.assertEqual(self.selected("tests/test_f3_g2_qt_family.py"), {"qt"})
+    def test_qt_layout_bridge_binding_parity_module_routes_to_qt_not_core(self):
+        self.assertEqual(self.selected("tests/test_qt_native_component_lifecycle.py"), {"qt"})
 
     def test_workflow_affecting_browser_enables_chromium(self):
         self.assertEqual(

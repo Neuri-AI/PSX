@@ -495,3 +495,8 @@ pixel output.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+
+## Contributing and code naming
+
+Use **behavior-descriptive** identifiers for packages, modules, functions, tests, scripts and workflows. Planning identifiers (F1/F2/F3, G1/G2/G3, C1–C6, etc.) belong only in documentation and historical certification reports. See [Source naming conventions](docs/development/naming-conventions.md) for requirements and examples.

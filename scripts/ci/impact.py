@@ -1,4 +1,4 @@
-"""Classify F3 changes into the smallest *safe* GitHub Actions test set.
+"""Classify Native layout changes into the smallest *safe* GitHub Actions test set.
 
 Stdlib-only: called by the lightweight CI router before installing toolkits.
 A missing, truncated or ambiguous change set fails open to full validation.
@@ -31,8 +31,8 @@ def _classify_path(path: str) -> set[str]:
         # certify their own affected suite, not all of F2 by default.
         result = {"router"}
         name = PurePosixPath(path).name
-        if name == "f3-selective.yml":
-            # Changes to the shared F3 workflow must exercise the Qt parity
+        if name == "native-layout-selective.yml":
+            # Changes to the shared Native layout workflow must exercise the Qt parity
             # matrix; don't certify its new required job with router-only CI.
             result.add("qt")
         elif name == "sfle-chromium.yml":
@@ -52,15 +52,15 @@ def _classify_path(path: str) -> set[str]:
         return {"sfle", "rust", "chromium", "native"}
     if path.startswith("psx/sfle/"):
         name = PurePosixPath(path).name
-        # Production F3 bridges must route to the real toolkit consumer, not
+        # Production Native layout bridges must route to the real toolkit consumer, not
         # only to the neutral SFLE engine and browser oracle.
-        if name == "f3_qt.py":
+        if name == "qt_layout_bridge.py":
             return {"qt"}
-        if name == "f3_kivy.py":
+        if name == "kivy_layout_bridge.py":
             return {"kivy"}
-        if name == "f3_tk.py":
+        if name == "tkinter_layout_bridge.py":
             return {"tkinter"}
-        if name == "f3_headless.py":
+        if name == "headless_layout_bridge.py":
             return {"headless"}
         if name in ("qt_measurement.py", "qt_worker_dispatch.py"):
             return {"sfle", "qt"}
@@ -70,9 +70,9 @@ def _classify_path(path: str) -> set[str]:
             return {"sfle", "tkinter"}
         if name == "headless_measurement.py":
             return {"sfle", "headless"}
-        if name in ("f3_snapshot.py", "f3_external.py"):
+        if name in ("native_layout_snapshot.py", "external_native_geometry_ports.py"):
             return {"core", "headless", "qt", "kivy", "tkinter"}
-        if name in ("f3_width_remeasurement.py", "native_component_capabilities.py",
+        if name in ("width_dependent_intrinsic_measurement.py", "native_component_capabilities.py",
                     "native_pixel_space.py"):
             return {"core", "qt", "kivy", "tkinter"}
         if name in ("adapter_contract.py", "worker_lifecycle.py", "native_geometry.py",

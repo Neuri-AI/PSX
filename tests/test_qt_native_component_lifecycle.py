@@ -1,0 +1,1614 @@
+"""Native SFLE Qt-family parity against real widgets, isolated by binding in CI.
+
+Run this module once per process with PSX_QT_BINDING=pyside6|pyqt6|pyqt5|pyside2.
+No binding is silently skipped; install failures are CI failures. Exact SFLE
+coordinates are identical across bindings; font painting is toolkit-dependent.
+"""
+from __future__ import annotations
+
+import importlib
+import os
+import threading
+import unittest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from psx import Button, Checkbox, Flex, Input, Native, ProgressBar, Text, TextArea, component, psx, use_state
+from psx.core.errors import RendererCapabilityError
+from psx.core.reconcile import Reconciler
+from psx.sfle.engine import PythonLayoutEngine
+from psx.sfle.errors import DiagnosticCode, SFLEError
+from psx.sfle.external_native_geometry_ports import SFLEExternalPort
+from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints, Rect, LayoutResult
+from psx.sfle.native_pixel_space import DevicePixelSpace
+
+BINDING = os.environ.get("PSX_QT_BINDING")
+VALID = {"pyside6", "pyqt6", "pyqt5", "pyside2"}
+if BINDING not in VALID:
+    raise RuntimeError("PSX_QT_BINDING must select exactly one Qt binding.")
+
+PACKAGE = {
+    "pyside6": "PySide6", "pyqt6": "PyQt6",
+    "pyqt5": "PyQt5", "pyside2": "PySide2",
+}[BINDING]
+qtwidgets = importlib.import_module(f"{PACKAGE}.QtWidgets")
+if BINDING.startswith("pyside"):
+    facades = importlib.import_module("psx.renderers.qt.pyside")
+else:
+    facades = importlib.import_module("psx.renderers.qt.pyqt")
+RENDERER_CLASS = getattr(facades, f"{PACKAGE}Renderer")
+
+
+def viewport(w=160, h=80):
+    return LayoutConstraints(AvailableSize(w, True), AvailableSize(h, True))
+
+
+def button(label, key, width, *, on_click=None):
+    props = {
+        "key": key,
+        "layout_width": f"{width}px", "layout_height": "20px",
+        "flex_basis": f"{width}px", "flex_shrink": 0,
+    }
+    if on_click is not None:
+        props["on_click"] = on_click
+    return Button(label, **props)
+
+
+def geometry(widget):
+    rect = widget.geometry()
+    return (rect.x(), rect.y(), rect.width(), rect.height())
+
+
+class QtFamilySFLEParityTests(unittest.TestCase):
+    def setUp(self):
+        self.renderer = RENDERER_CLASS(
+            argv=["psx-qt-family", BINDING],
+            sfle_constraints=viewport(), engine=PythonLayoutEngine(),
+        )
+        self.reconciler = Reconciler(self.renderer)
+
+    def tearDown(self):
+        self.reconciler.unmount()
+        self.renderer.application.processEvents()
+
+    def test_binding_and_native_geometry_owner(self):
+        self.assertEqual(self.renderer._binding, BINDING)
+        self.assertIs(self.renderer._widgets, qtwidgets)
+        root = self.reconciler.render(Flex(
+            Text("A", key="a", layout_width="40px", layout_height="20px",
+                 flex_basis="40px", flex_shrink=0),
+            button("B", "b", 30), direction="row", gap=8,
+            width="160px", height="80px", align_items="flex-start",
+        ))
+        self.assertIsNone(root.handle.widget.layout())
+        left, right = (node.handle.widget for node in root.children)
+        self.assertIsInstance(left, qtwidgets.QLabel)
+        self.assertIsInstance(right, qtwidgets.QPushButton)
+        self.assertIs(left.parentWidget(), root.handle.widget)
+        self.assertIs(right.parentWidget(), root.handle.widget)
+        self.assertEqual(geometry(left), (0, 0, 40, 20))
+        self.assertEqual(geometry(right), (48, 0, 30, 20))
+        self.assertEqual(self.renderer.sfle_result.geometry_commit_error, 0.0)
+
+    def test_markup_nested_padding_and_local_coordinates(self):
+        root = self.reconciler.render(psx("""
+            <Flex direction="column" width="140px" height="60px"
+                  padding={10} align_items="flex-start">
+                <Flex direction="row" width="120px" height="40px"
+                      gap={6} align_items="flex-start">
+                    <Button label="A" key="a" layout_width="30px"
+                            layout_height="15px" flex_basis="30px"
+                            flex_shrink={0} />
+                    <Button label="B" key="b" layout_width="20px"
+                            layout_height="15px" flex_basis="20px"
+                            flex_shrink={0} />
+                </Flex>
+            </Flex>
+        """))
+        outer, inner = root.handle.widget, root.children[0].handle.widget
+        a, b = (child.handle.widget for child in root.children[0].children)
+        self.assertIsNone(inner.layout())
+        self.assertIs(inner.parentWidget(), outer)
+        self.assertEqual(geometry(inner), (10, 10, 120, 40))
+        self.assertEqual(geometry(a), (0, 0, 30, 15))
+        self.assertEqual(geometry(b), (36, 0, 20, 15))
+
+    def test_qt_live_dpi_is_physical_only_not_double_applied_to_qwidget(self):
+        root = self.reconciler.render(Flex(
+            button("One", "one", 33),
+            button("Two", "two", 25),
+            direction="row", width="160px", height="80px",
+            gap=7, align_items="flex-start",
+        ))
+        widget = root.handle.widget
+        physical = DevicePixelSpace.from_widget("qt", widget)
+        first, second = (n.handle.widget for n in root.children)
+        self.assertEqual(geometry(first), (0, 0, 33, 20))
+        self.assertEqual(geometry(second), (40, 0, 25, 20))
+        # Qt 5 and Qt 6 still accept *logical QWidget units* at higher DPR.
+        # QT_SCALE_FACTOR is set before importing Qt in a fresh CI process.
+        if "QT_SCALE_FACTOR" in os.environ:
+            self.assertGreaterEqual(physical.scale, 1.4)
+        self.assertEqual(
+            physical.to_physical(Rect(40, 0, 25, 20)).x,
+            round(40 * physical.scale),
+        )
+        self.assertLessEqual(self.renderer._sfle_physical_commit_error,
+                             physical.allowed_physical_error)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
+    def test_native_controls_have_identical_sfle_rectangles(self):
+        from psx import Slider, Select
+        root = self.reconciler.render(Flex(
+            Checkbox(checked=True, key="cb", layout_width="25px",
+                     layout_height="24px", flex_basis="25px", flex_shrink=0),
+            Input(value="hello", key="entry", layout_width="60px",
+                  layout_height="24px", flex_basis="60px", flex_shrink=0),
+            Slider(value=50, key="slider", layout_width="35px",
+                   layout_height="24px", flex_basis="35px", flex_shrink=0),
+            width=160, height=80, gap=5, align_items="flex-start",
+        ))
+        w = [node.handle.widget for node in root.children]
+        self.assertIsInstance(w[0], qtwidgets.QCheckBox)
+        self.assertIsInstance(w[1], qtwidgets.QLineEdit)
+        self.assertIsInstance(w[2], qtwidgets.QSlider)
+        self.assertEqual([geometry(v) for v in w],
+                         [(0, 0, 25, 24), (30, 0, 60, 24), (95, 0, 35, 24)])
+        self.assertTrue(w[0].isChecked())
+        self.assertEqual(w[1].text(), "hello")
+        self.assertEqual(self.renderer.sfle_result.geometry_commit_error, 0.0)
+
+    def test_keyed_reconciliation_and_button_event_rebind(self):
+        events = []
+        first = self.reconciler.render(Flex(
+            button("A", "a", 30, on_click=lambda: events.append("old")),
+            button("B", "b", 20),
+            width=160, height=80, gap=4, align_items="flex-start",
+        ))
+        a, b = (child.handle.widget for child in first.children)
+        a.click()
+        after = self.reconciler.render(Flex(
+            button("B", "b", 20),
+            button("A", "a", 30, on_click=lambda: events.append("new")),
+            width=160, height=80, gap=9, align_items="flex-start",
+        ))
+        self.assertIs(after.children[0].handle.widget, b)
+        self.assertIs(after.children[1].handle.widget, a)
+        self.assertEqual((b.x(), a.x()), (0, 29))
+        a.click()
+        self.assertEqual(events, ["old", "new"])
+
+    def test_state_update_recommits_without_widget_remount(self):
+        setters = []
+
+        @component
+        def Counter():
+            n, set_n = use_state(0)
+            setters.append(set_n)
+            return Flex(
+                button("Count", "btn", 20 + 10 * n),
+                width=160, height=80,
+            )
+
+        root = self.reconciler.render(Counter())
+        native = root.children[0].children[0].handle.widget
+        self.assertEqual(native.width(), 20)
+        setters[-1](2)
+        self.renderer.application.processEvents()
+        self.assertIs(root.children[0].children[0].handle.widget, native)
+        self.assertEqual(native.width(), 40)
+
+    def test_viewport_recompute_without_native_remount(self):
+        root = self.reconciler.render(Flex(
+            button("B", "b", 40), width="100%", height="100%",
+        ))
+        before = root.children[0].handle.widget
+        previous = self.renderer.sfle_result.generation
+        self.renderer.set_sfle_constraints(viewport(220, 120))
+        self.renderer.commit_layout(root)
+        self.assertIs(root.children[0].handle.widget, before)
+        self.assertGreater(self.renderer.sfle_result.generation, previous)
+        self.assertIsNone(root.handle.widget.layout())
+
+    def test_multiline_text_remeasures_actual_post_flex_width(self):
+        content = (
+            "One two three four five six seven eight nine ten "
+            "eleven twelve thirteen fourteen fifteen sixteen."
+        )
+        tree = self.reconciler.render(Flex(
+            Text(content, key="copy", layout_width="100%", flex_shrink=0),
+            button("Below", "below", 30),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        label = tree.children[0].handle.widget
+        next_button = tree.children[1].handle.widget
+        self.assertTrue(label.wordWrap())
+        self.assertEqual(label.width(), 160)
+        wide_height = label.height()
+        wide_y = next_button.y()
+        self.assertGreater(wide_height, 0)
+        self.assertEqual(wide_y, wide_height)
+
+        # Deliberately use the explicit live-viewport API to isolate the
+        # measurement pass from any Qt platform window-manager resize event.
+        self.renderer.set_sfle_constraints(viewport(90, 80))
+        tree.handle.widget.resize(90, 80)
+        self.renderer.commit_layout(tree)
+        narrow_height = label.height()
+        self.assertGreater(narrow_height, wide_height)
+        self.assertEqual(label.width(), 90)
+        self.assertEqual(next_button.y(), narrow_height)
+        self.assertIs(tree.children[0].handle.widget, label)
+        self.assertIs(tree.children[1].handle.widget, next_button)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
+        self.renderer.set_sfle_constraints(viewport(160, 80))
+        tree.handle.widget.resize(160, 80)
+        self.renderer.commit_layout(tree)
+        self.assertEqual(label.height(), wide_height)
+        self.assertEqual(next_button.y(), wide_y)
+        self.assertIs(tree.children[0].handle.widget, label)
+
+    def test_textarea_auto_height_wraps_at_post_flex_width_without_remount(self):
+        content = (
+            "Alpha bravo charlie delta echo foxtrot golf hotel india juliet "
+            "kilo lima mike november oscar papa quebec romeo sierra tango "
+            "uniform victor whiskey xray yankee zulu."
+        )
+        changes = []
+        root = self.reconciler.render(Flex(
+            TextArea(
+                value=content, key="editor", on_change=changes.append,
+                layout_width="100%", flex_shrink=0,
+            ),
+            button("Below", "below", 45),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        editor = root.children[0].handle.widget
+        below = root.children[1].handle.widget
+        self.assertIsInstance(editor, qtwidgets.QPlainTextEdit)
+        self.assertIsNone(editor.layout())
+        self.assertIs(editor.parentWidget(), root.handle.widget)
+        self.assertEqual(editor.toPlainText(), content)
+        wide_height = editor.height()
+        self.assertEqual(editor.width(), 160)
+        self.assertEqual(below.y(), wide_height)
+
+        gui = importlib.import_module(f"{PACKAGE}.QtGui")
+        cursor = editor.textCursor()
+        cursor.setPosition(3)
+        cursor.setPosition(
+            12, getattr(gui.QTextCursor, "MoveMode", gui.QTextCursor).KeepAnchor,
+        )
+        editor.setTextCursor(cursor)
+        original_selection = (
+            editor.textCursor().anchor(), editor.textCursor().position(),
+        )
+        root.handle.widget.show()
+        self.renderer.application.processEvents()
+        editor.setFocus()
+        self.renderer.application.processEvents()
+        self.assertTrue(editor.hasFocus())
+
+        self.renderer.set_sfle_constraints(viewport(90, 300))
+        root.handle.widget.resize(90, 300)
+        self.renderer.commit_layout(root)
+        narrow_height = editor.height()
+        self.assertGreater(narrow_height, wide_height)
+        self.assertEqual(editor.width(), 90)
+        self.assertEqual(below.y(), narrow_height)
+        self.assertEqual(editor.toPlainText(), content)
+        self.assertEqual(
+            (editor.textCursor().anchor(), editor.textCursor().position()),
+            original_selection,
+        )
+        self.assertIs(root.children[0].handle.widget, editor)
+        self.assertIs(root.children[1].handle.widget, below)
+        self.assertTrue(editor.hasFocus())
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
+        self.renderer.set_sfle_constraints(viewport(160, 300))
+        root.handle.widget.resize(160, 300)
+        self.renderer.commit_layout(root)
+        self.assertEqual(editor.height(), wide_height)
+        self.assertEqual(below.y(), wide_height)
+        self.assertEqual(editor.toPlainText(), content)
+        self.assertEqual(
+            (editor.textCursor().anchor(), editor.textCursor().position()),
+            original_selection,
+        )
+        self.assertEqual(changes, [])
+        editor.insertPlainText("!")
+        self.assertEqual(changes, [editor.toPlainText()])
+
+    def test_textarea_native_edit_remeasures_without_reconciler_remount(self):
+        self.renderer.set_sfle_constraints(viewport(160, 500))
+        changes = []
+        root = self.reconciler.render(Flex(
+            TextArea(
+                value="Short", key="editor", on_change=changes.append,
+                layout_width="100%", flex_shrink=0,
+            ),
+            button("Below", "below", 45),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        editor = root.children[0].handle.widget
+        below = root.children[1].handle.widget
+        first_height = editor.height()
+        previous_generation = self.renderer.sfle_result.generation
+        editor.insertPlainText(" " + " ".join(["Multiline native editing"] * 14))
+        self.assertEqual(len(changes), 1)
+        self.renderer.application.processEvents()
+        self.renderer.application.processEvents()
+        self.assertIsNone(self.renderer._sfle_textarea_error)
+        self.assertGreater(self.renderer.sfle_result.generation, previous_generation)
+        self.assertGreater(editor.height(), first_height)
+        self.assertEqual(below.y(), editor.height())
+        self.assertIs(root.children[0].handle.widget, editor)
+        self.assertEqual(editor.toPlainText(), changes[-1])
+
+    def test_textarea_fixed_height_keeps_css_authority_and_rebinds_events(self):
+        previous, current = [], []
+        root = self.reconciler.render(Flex(
+            TextArea(
+                value="First value", key="editor", on_change=previous.append,
+                layout_width="100%", layout_height="36px",
+            ),
+            button("Below", "below", 45),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        editor = root.children[0].handle.widget
+        below = root.children[1].handle.widget
+        self.assertEqual((editor.height(), below.y()), (36, 36))
+        self.assertIsInstance(editor, qtwidgets.QPlainTextEdit)
+        self.reconciler.render(Flex(
+            TextArea(
+                value="First value", key="editor", on_change=current.append,
+                layout_width="100%", layout_height="36px",
+            ),
+            button("Below", "below", 45),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        self.assertIs(root.children[0].handle.widget, editor)
+        self.renderer.set_sfle_constraints(viewport(90, 80))
+        root.handle.widget.resize(90, 80)
+        self.renderer.commit_layout(root)
+        self.assertEqual((editor.width(), editor.height(), below.y()), (90, 36, 36))
+        self.assertEqual((previous, current), ([], []))
+        editor.insertPlainText("!")
+        self.assertEqual(previous, [])
+        self.assertEqual(current, [editor.toPlainText()])
+
+    def test_native_root_resize_automatically_recomputes_sfle(self):
+        class CountingEngine:
+            def __init__(self):
+                self.calls = 0
+            def compute(self, snapshot):
+                self.calls += 1
+                return PythonLayoutEngine().compute(snapshot)
+
+        engine = CountingEngine()
+        self.renderer._sfle_engine = engine
+        root = self.reconciler.render(Flex(
+            button("Left", "left", 30),
+            button("Right", "right", 20),
+            direction="row", justify_content="space-between",
+            width="100%", height="100%", align_items="flex-start",
+        ))
+        outer = root.handle.widget
+        a, b = (child.handle.widget for child in root.children)
+        self.assertEqual(engine.calls, 1)
+        self.assertEqual((a.x(), b.x()), (0, 140))
+        outer.show()
+        self.renderer.application.processEvents()
+        # Events originating from the toolkit's initial widget realization
+        # must not replace the explicit viewport used for the first mount.
+        self.assertEqual(self.renderer._sfle_constraints.width.value, 160)
+        outer.resize(210, 100)
+        outer.resize(260, 120)
+        from time import sleep
+        sleep(0.035)  # allow one 16ms native-frame debounce window
+        self.renderer.application.processEvents()
+        self.renderer.application.processEvents()
+        self.assertIsNone(self.renderer._sfle_resize_error)
+        self.assertEqual(
+            (self.renderer._sfle_constraints.width.value,
+             self.renderer._sfle_constraints.height.value), (260, 120),
+        )
+        self.assertEqual(engine.calls, 2)  # coalesced latest resize
+        self.assertIs(root.children[0].handle.widget, a)
+        self.assertIs(root.children[1].handle.widget, b)
+        self.assertEqual((a.x(), b.x()), (0, 240))
+        self.assertIsNone(outer.layout())
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
+    def test_queued_resize_is_ignored_after_unmount(self):
+        root = self.reconciler.render(Flex(
+            button("A", "a", 30), width="100%", height="100%",
+        ))
+        outer = root.handle.widget
+        outer.show()
+        self.renderer.application.processEvents()
+        outer.resize(230, 110)
+        self.reconciler.unmount()
+        from time import sleep
+        sleep(0.035)
+        self.renderer.application.processEvents()
+        self.assertIsNone(self.renderer.sfle_result)
+        self.assertIsNone(self.renderer._sfle_mounted_root)
+        self.assertIsNone(self.renderer._sfle_watched_widget)
+
+    def test_external_native_auto_height_uses_actual_assigned_width(self):
+        widths = []
+
+        def measure(widget, limits):
+            width = limits.width.value
+            widths.append(width)
+            actual_height = 42 if width is not None and width <= 100 else 20
+            return IntrinsicSizes(10, 240, actual_height, actual_height,
+                                  240, actual_height)
+
+        def apply(widget, rect):
+            widget.setGeometry(
+                round(rect.x), round(rect.y),
+                round(rect.width), round(rect.height),
+            )
+
+        def read(widget):
+            r = widget.geometry()
+            return Rect(r.x(), r.y(), r.width(), r.height())
+
+        root = self.reconciler.render(Flex(
+            Native(
+                qtwidgets.QLabel, renderer=BINDING,
+                sfle_port=SFLEExternalPort(measure, apply, read),
+                key="width-dependency", layout_width="100%", flex_shrink=0,
+            ),
+            button("After", "after", 35),
+            direction="column", width="100%", height="100%",
+            align_items="flex-start",
+        ))
+        leaf = root.children[0].handle.widget
+        after = root.children[1].handle.widget
+        self.assertEqual(geometry(leaf), (0, 0, 160, 20))
+        self.assertEqual(after.y(), 20)
+        self.assertIn(160, widths)
+
+        self.renderer.set_sfle_constraints(viewport(90, 80))
+        root.handle.widget.resize(90, 80)
+        self.renderer.commit_layout(root)
+        self.assertEqual(geometry(leaf), (0, 0, 90, 42))
+        self.assertEqual(after.y(), 42)
+        self.assertIn(90, widths)
+        self.assertIs(root.children[0].handle.widget, leaf)
+
+    def test_native_owned_geometry_port_and_readback(self):
+        calls = []
+        def measure(widget, c):
+            calls.append("measure")
+            return IntrinsicSizes(10, 30, 8, 20, 30, 20)
+        def apply(widget, rect):
+            calls.append(("apply", rect))
+            widget.setGeometry(round(rect.x), round(rect.y),
+                               round(rect.width), round(rect.height))
+        def read(widget):
+            calls.append("read")
+            g = widget.geometry()
+            return Rect(g.x(), g.y(), g.width(), g.height())
+
+        root = self.reconciler.render(Flex(
+            Native(qtwidgets.QLabel, renderer=BINDING,
+                   sfle_port=SFLEExternalPort(measure, apply, read),
+                   layout_width="30px", layout_height="18px",
+                   flex_basis="30px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        w = root.children[0].handle.widget
+        self.assertIsInstance(w, qtwidgets.QLabel)
+        self.assertIs(w.parentWidget(), root.handle.widget)
+        self.assertEqual(geometry(w), (0, 0, 30, 18))
+        self.assertIn("measure", calls)
+        self.assertIn(("apply", Rect(0, 0, 30, 18)), calls)
+        self.assertIn("read", calls)
+
+    def test_native_binding_is_inferred_for_selected_toolkit(self):
+        inferred = Native(
+            qtwidgets.QLabel,
+            sfle_port=SFLEExternalPort(
+                measure=lambda w, c: IntrinsicSizes(4, 12, 4, 14, 12, 14),
+                apply=lambda w, r: w.setGeometry(
+                    round(r.x), round(r.y), round(r.width), round(r.height),
+                ),
+                read=lambda w: Rect(w.x(), w.y(), w.width(), w.height()),
+            ),
+            layout_width="12px", layout_height="14px",
+            flex_basis="12px", flex_shrink=0,
+        )
+        self.assertEqual(inferred.type.renderer, BINDING)
+        root = self.reconciler.render(Flex(inferred, width=160, height=80))
+        self.assertEqual(geometry(root.children[0].handle.widget), (0, 0, 12, 14))
+
+    def test_additional_certified_controls_preserve_native_types_and_geometry(self):
+        from psx import Radio, Select
+        specs = [
+            (Radio("r", label="Pick", key="radio",
+                   layout_width="70px", layout_height="24px",
+                   flex_basis="70px", flex_shrink=0), qtwidgets.QRadioButton, 70),
+            (ProgressBar(value=40, key="progress",
+                         layout_width="110px", layout_height="24px",
+                         flex_basis="110px", flex_shrink=0), qtwidgets.QProgressBar, 110),
+            (Select(options=["Alpha", "Beta"], value="Beta", key="select",
+                    layout_width="100px", layout_height="24px",
+                    flex_basis="100px", flex_shrink=0), qtwidgets.QComboBox, 100),
+        ]
+        root = self.reconciler.render(Flex(
+            *(node for node, _, _ in specs),
+            width="300px", height="80px", gap=5, align_items="flex-start",
+        ))
+        x = 0
+        for (vnode, expected_class, width), instance in zip(specs, root.children):
+            widget = instance.handle.widget
+            self.assertIsInstance(widget, expected_class, vnode.type)
+            self.assertIs(widget.parentWidget(), root.handle.widget)
+            self.assertIsNone(widget.layout())
+            self.assertEqual(geometry(widget), (x, 0, width, 24))
+            x += width + 5
+        progress = root.children[1].handle.widget
+        # QProgressBar uses integer-scaled units for portable float precision.
+        self.assertAlmostEqual(progress.value() / progress.maximum(), 0.4)
+        self.assertEqual(root.children[2].handle.widget.currentText(), "Beta")
+
+    def test_registered_custom_adapter_uses_sfles_native_port(self):
+        from psx.core.vnode import create_element
+        from psx.renderers.qt.pyqt import QtHandle
+
+        calls = []
+        def measure(widget, limits):
+            calls.append("measure")
+            return IntrinsicSizes(8, 23, 8, 15, 23, 15)
+        def apply(widget, rect):
+            calls.append(("apply", rect))
+            widget.setGeometry(round(rect.x), round(rect.y),
+                               round(rect.width), round(rect.height))
+        def read(widget):
+            calls.append("read")
+            r = widget.geometry()
+            return Rect(r.x(), r.y(), r.width(), r.height())
+
+        class BadgeAdapter:
+            sfle_port = SFLEExternalPort(measure, apply, read)
+
+            def create(self, renderer, node, parent):
+                return QtHandle("ParityBadge", qtwidgets.QLabel("Badge"))
+
+            def update(self, renderer, handle, changed, removed):
+                pass
+
+            def destroy(self, renderer, handle):
+                handle.widget.deleteLater()
+
+            def bind_event(self, renderer, handle, event, slot):
+                raise RendererCapabilityError("Unsupported external event.")
+
+            def unbind_event(self, renderer, subscription):
+                pass
+
+        self.renderer.register_adapter("ParityBadge", BadgeAdapter())
+        root = self.reconciler.render(Flex(
+            create_element("ParityBadge", key="badge",
+                           layout_width="42px", layout_height="18px",
+                           flex_basis="42px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        widget = root.children[0].handle.widget
+        self.assertIsInstance(widget, qtwidgets.QLabel)
+        self.assertIs(widget.parentWidget(), root.handle.widget)
+        self.assertEqual(geometry(widget), (0, 0, 42, 18))
+        self.assertIn("measure", calls)
+        self.assertIn(("apply", Rect(0, 0, 42, 18)), calls)
+        self.assertIn("read", calls)
+
+    def test_missing_native_geometry_port_fails_before_factory(self):
+        created = []
+        def factory():
+            created.append(True)
+            return qtwidgets.QLabel()
+        with self.assertRaisesRegex(RendererCapabilityError, "Native requires"):
+            self.reconciler.render(Flex(
+                Native(factory, renderer=BINDING,
+                       layout_width="20px", layout_height="20px"),
+                width=160, height=80,
+            ))
+        self.assertFalse(created)
+
+    def test_image_intrinsic_and_sfle_paint_survive_reconcile_resize(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from psx import Image
+
+        gui = importlib.import_module(f"{PACKAGE}.QtGui")
+        with TemporaryDirectory() as directory:
+            source = str(Path(directory) / "image.png")
+            pixmap = gui.QPixmap(24, 12)
+            pixmap.fill(gui.QColor("#F03D64"))
+            self.assertTrue(pixmap.save(source))
+            root = self.reconciler.render(Flex(
+                Image(source, key="picture", fit="contain"),
+                Button("Below", key="below", layout_width="50px",
+                       layout_height="20px", flex_basis="20px", flex_shrink=0),
+                direction="column", width="100%", height="100%",
+                align_items="flex-start",
+            ))
+            widget = root.children[0].handle.widget
+            below = root.children[1].handle.widget
+            self.assertIsInstance(widget, qtwidgets.QLabel)
+            self.assertIsNone(widget.layout())
+            self.assertIs(widget.parentWidget(), root.handle.widget)
+            self.assertEqual(geometry(widget), (0, 0, 24, 12))
+            self.assertEqual(below.y(), 12)
+            self.assertEqual((widget.pixmap().width(), widget.pixmap().height()), (24, 12))
+            self.assertNotEqual(widget.minimumSize().width(), 24)
+            root = self.reconciler.render(Flex(
+                Image(source, key="picture", fit="cover",
+                      layout_width="60px", layout_height="28px"),
+                Button("Below", key="below", layout_width="50px",
+                       layout_height="20px", flex_basis="20px", flex_shrink=0),
+                direction="column", width="100%", height="100%",
+                align_items="flex-start",
+            ))
+            self.assertIs(root.children[0].handle.widget, widget)
+            self.assertEqual(geometry(widget), (0, 0, 60, 28))
+            self.assertEqual(below.y(), 28)
+            self.assertEqual((widget.pixmap().width(), widget.pixmap().height()), (60, 28))
+            self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
+    def test_image_invalid_source_fails_intrinsic_measurement(self):
+        from psx import Image
+        with self.assertRaisesRegex(SFLEError, "intrinsic dimensions"):
+            self.reconciler.render(Flex(
+                Image("this-file-must-not-exist.png"), width=160, height=80,
+            ))
+
+    def test_portable_link_badge_divider_spacer_use_only_sfle_rectangles(self):
+        from psx import Link, Badge, Divider, Spacer
+        clicks = []
+
+        def declare(label, thickness):
+            return Flex(
+                Link(label="Guide", key="link", on_click=lambda: clicks.append(label),
+                     layout_width="72px", layout_height="24px",
+                     flex_basis="72px", flex_shrink=0),
+                Badge(label=label, key="badge", layout_width="78px",
+                      layout_height="24px", flex_basis="78px", flex_shrink=0),
+                Divider(thickness=thickness, key="divider",
+                        layout_width="34px", layout_height=f"{thickness}px",
+                        flex_basis="34px", flex_shrink=0),
+                Spacer(key="spacer", flex_grow=1, flex_basis="0px",
+                       layout_height="10px"),
+                button("End", "end", 30),
+                direction="row", gap=6, width="340px", height="80px",
+                align_items="flex-start",
+            )
+
+        root = self.reconciler.render(declare("READY", 3))
+        link, badge, divider, spacer, end = [
+            child.handle.widget for child in root.children
+        ]
+        self.assertIsInstance(link, qtwidgets.QPushButton)
+        self.assertIsInstance(divider, qtwidgets.QFrame)
+        self.assertIsNone(divider.layout())
+        self.assertEqual(geometry(link), (0, 0, 72, 24))
+        self.assertEqual(geometry(badge), (78, 0, 78, 24))
+        self.assertEqual(geometry(divider), (162, 0, 34, 3))
+        self.assertEqual(geometry(spacer), (202, 0, 102, 10))
+        self.assertEqual(geometry(end), (310, 0, 30, 20))
+        self.assertFalse(badge.minimumSize().width() == badge.maximumSize().width())
+        self.assertEqual(len(self.renderer.sfle_result.boxes), 6)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        link.click()
+        self.assertEqual(clicks, ["READY"])
+
+        updated = self.reconciler.render(declare("DONE", 5))
+        for index, native in enumerate((link, badge, divider, spacer, end)):
+            self.assertIs(updated.children[index].handle.widget, native)
+        self.assertEqual(geometry(divider), (162, 0, 34, 5))
+        self.assertEqual(geometry(spacer), (202, 0, 102, 10))
+        link.click()
+        self.assertEqual(clicks, ["READY", "DONE"])
+        self.assertEqual(badge._psx_props["label"], "DONE")
+
+    def test_interactive_switch_spinbox_select_preserve_geometry_state_events(self):
+        from psx import Switch, SpinBox, Select
+        calls = []
+
+        def view(tag, checked=False, value=2, selected="a"):
+            return Flex(
+                Switch(
+                    key="sw", label="Network", checked=checked,
+                    on_change=lambda v: calls.append(("switch", tag, v)),
+                    layout_width="80px", layout_height="32px",
+                    flex_basis="80px", flex_shrink=0,
+                ),
+                SpinBox(
+                    key="spin", value=value, min=0, max=9,
+                    on_change=lambda v: calls.append(("spin", tag, v)),
+                    layout_width="130px", layout_height="36px",
+                    flex_basis="130px", flex_shrink=0,
+                ),
+                Select(
+                    key="select", options=(
+                        {"label": "Alpha", "value": "a"},
+                        {"label": "Beta", "value": "b"},
+                    ), value=selected,
+                    on_change=lambda v: calls.append(("select", tag, v)),
+                    layout_width="110px", layout_height="34px",
+                    flex_basis="110px", flex_shrink=0,
+                ),
+                width="380px", height="80px", gap=6,
+                align_items="flex-start",
+            )
+
+        root = self.reconciler.render(view("before"))
+        sw, spin, select = widgets = [child.handle.widget for child in root.children]
+        self.assertIsInstance(sw, qtwidgets.QAbstractButton)
+        self.assertIsInstance(select, qtwidgets.QComboBox)
+        self.assertIsNone(root.handle.widget.layout())
+        self.assertEqual([geometry(w) for w in widgets], [
+            (0, 0, 80, 32), (86, 0, 130, 36), (222, 0, 110, 34),
+        ])
+        self.assertTrue(all(w.parentWidget() is root.handle.widget for w in widgets))
+        self.assertGreater(sw.maximumWidth(), 80)
+        self.assertGreater(spin.maximumWidth(), 130)
+        sw.click()
+        spin._psx_parts[2].click()
+        select.setCurrentIndex(2)
+        self.assertEqual(calls, [
+            ("switch", "before", True),
+            ("spin", "before", 3),
+            ("select", "before", "b"),
+        ])
+
+        updated = self.reconciler.render(view("after", True, 3, "b"))
+        self.assertTrue(all(updated.children[i].handle.widget is w
+                            for i, w in enumerate(widgets)))
+        self.assertTrue(sw.isChecked())
+        self.assertEqual(spin._psx_parts[1].text(), "3")
+        self.assertEqual(select.currentData(), "b")
+        self.assertEqual(len(calls), 3)
+        sw.click()
+        spin._psx_parts[2].click()
+        select.setCurrentIndex(1)
+        self.assertEqual(calls[3:], [
+            ("switch", "after", False),
+            ("spin", "after", 4),
+            ("select", "after", "a"),
+        ])
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
+    def test_structural_box_radiogroup_and_divider_children_are_sfle_owned(self):
+        from psx import Radio, RadioGroup, Divider
+        from psx.core.vnode import Box
+        events = []
+        root = self.reconciler.render(Flex(
+            Box(Flex(
+                button("Child", "child", 40),
+                direction="row", width="100%", height="100%",
+                align_items="flex-start",
+            ), key="box"),
+            RadioGroup(
+                Radio("a", label="Alpha", key="a", layout_width="70px",
+                      layout_height="24px", flex_basis="24px", flex_shrink=0),
+                Radio("b", label="Beta", key="b", layout_width="70px",
+                      layout_height="24px", flex_basis="24px", flex_shrink=0),
+                key="group", value="a", spacing=4, padding=3,
+                layout_width="140px", layout_height="70px",
+                on_change=events.append,
+            ),
+            Divider(
+                Text("Section", key="label", layout_width="65px",
+                     layout_height="20px", flex_basis="65px", flex_shrink=0),
+                key="divider", layout_width="140px",
+                layout_height="30px",
+            ),
+            direction="column", width="340px", height="300px",
+            align_items="flex-start",
+        ))
+        box, group, divider = [x.handle.widget for x in root.children]
+        inner = root.children[0].children[0].handle.widget
+        radio_a, radio_b = [x.handle.widget for x in root.children[1].children]
+        label = root.children[2].children[0].handle.widget
+        self.assertIsNone(box.layout())
+        self.assertIsNone(group.layout())
+        self.assertIsNone(divider.layout())
+        self.assertIs(inner.parentWidget(), box)
+        self.assertIs(radio_a.parentWidget(), group)
+        self.assertIs(radio_b.parentWidget(), group)
+        self.assertIs(label.parentWidget(), divider)
+        self.assertEqual(group._psx_button_group.buttons().__len__(), 2)
+        self.assertTrue(radio_a.isChecked())
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+        radio_b.click()
+        self.assertEqual(events, ["b"])
+        self.assertTrue(radio_b.isChecked())
+        self.assertGreater(label.width(), 0)
+        self.assertGreaterEqual(divider.width(), label.width())
+        self.assertLessEqual(self.renderer._sfle_physical_commit_error, 1)
+
+    def test_scroll_basic_sfle_viewport_hosts_explicit_content_flex(self):
+        from psx import Scroll
+        root = self.reconciler.render(Flex(
+            Scroll(
+                Flex(button("Inside", "inner", 40),
+                     direction="row", width="100%", height="100%",
+                     align_items="flex-start", key="content"),
+                direction="vertical", width=120, height=80,
+                key="scroll", layout_width="120px", layout_height="80px",
+                flex_basis="120px", flex_shrink=0,
+            ),
+            direction="row", width="300px", height="100px",
+            align_items="flex-start",
+        ))
+        scroll = root.children[0].handle.widget
+        content = root.children[0].children[0].handle.widget
+        child = root.children[0].children[0].children[0].handle.widget
+        self.assertIsInstance(scroll, qtwidgets.QScrollArea)
+        self.assertIsNone(content.layout())
+        self.assertIs(content.parentWidget(), scroll._psx_content)
+        self.assertIs(child.parentWidget(), content)
+        self.assertEqual(geometry(scroll), (0, 0, 120, 80))
+        self.assertEqual(geometry(content), (0, 0, 120, 80))
+        self.assertEqual(geometry(child), (0, 0, 40, 20))
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
+
+    def test_unported_widget_still_rejected_and_default_flex_fail_closed(self):
+        from psx import Row
+        with self.assertRaisesRegex(RendererCapabilityError, "not certified"):
+            self.reconciler.render(Flex(Row(), width=160, height=80))
+        legacy = RENDERER_CLASS(argv=["psx-qt-no-sfle"])
+        second = Reconciler(legacy)
+        with self.assertRaisesRegex(RendererCapabilityError, "Native SFLE SFLE geometry"):
+            second.render(Flex(width=160, height=80))
+        second.unmount()
+
+    def test_stale_layout_generation_fails_before_native_write(self):
+        class ForgedEngine:
+            def compute(self, snapshot):
+                valid = PythonLayoutEngine().compute(snapshot)
+                return LayoutResult(1, snapshot.generation + 1, valid.boxes)
+
+        self.renderer._sfle_engine = ForgedEngine()
+        with self.assertRaises(SFLEError) as result:
+            self.reconciler.render(Flex(
+                button("B", "b", 40), width=160, height=80,
+            ))
+        self.assertEqual(result.exception.code, DiagnosticCode.INVALID_SNAPSHOT)
+        self.assertIsNone(self.renderer.sfle_result)
+
+    def test_wrong_thread_layout_commit_rejected(self):
+        root = self.reconciler.render(Flex(
+            button("B", "b", 40), width=160, height=80,
+        ))
+        errors = []
+        def worker():
+            try:
+                self.renderer.commit_layout(root)
+            except SFLEError as error:
+                errors.append(error)
+        thread = threading.Thread(target=worker)
+        thread.start()
+        thread.join()
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0].code, DiagnosticCode.UNSUPPORTED_MEASUREMENT)
+
+    def test_button_native_lifecycle_is_observed_through_reconciliation(self):
+        from psx.sfle.native_operation_oracles import Observation, ORACLES
+
+        calls = []
+        original = lambda: calls.append("old")
+        replacement = lambda: calls.append("new")
+        first = self.reconciler.render(Flex(
+            Button("Old", key="action", layout_width="40px",
+                   layout_height="20px", on_click=original),
+            button("Peer", "peer", 20),
+            width=160, height=80, gap=4, align_items="flex-start",
+        ))
+        widget = first.children[0].handle.widget
+
+        def observe(*, mounted=True, disposed=False, state=None, order=(),
+                    callback=None, events=()):
+            return Observation(
+                native_identity=id(widget), mounted=mounted,
+                rect=geometry(widget), state=state, order=order,
+                callback_identity=callback, events=events, disposed=disposed,
+            )
+
+        created = observe(state=widget.text())
+        ORACLES["create"](None, created)
+        widget.click()
+        self.assertEqual(calls, ["old"])
+
+        after = self.reconciler.render(Flex(
+            button("Peer", "peer", 20),
+            Button("New", key="action", layout_width="40px",
+                   layout_height="20px", on_click=replacement),
+            width=160, height=80, gap=4, align_items="flex-start",
+        ))
+        self.assertIs(after.children[1].handle.widget, widget)
+        updated = observe(state=widget.text())
+        ORACLES["update"](created, updated)
+        self.assertEqual(widget.text(), "New")
+
+        before_order = observe(order=("action", "peer"))
+        new_order = observe(order=("peer", "action"))
+        self.assertIs(after.children[1].handle.widget, widget)
+        self.assertLess(after.children[0].handle.widget.x(), widget.x())
+        ORACLES["reorder"](before_order, new_order)
+
+        widget.click()
+        self.assertEqual(calls, ["old", "new"])
+        ORACLES["event_rebind"](
+            observe(callback=id(original)),
+            observe(callback=id(replacement), events=(id(replacement),)),
+        )
+        before_unmount = observe()
+        self.reconciler.unmount()
+        ORACLES["unmount"](
+            before_unmount, observe(mounted=False, disposed=True),
+        )
+        self.assertEqual(len(after.children), 2)
+        self.assertIs(after.children[1].handle.widget, widget)
+        self.renderer.application.processEvents()
+
+
+
+    def test_registered_builtin_lifecycle_keeps_real_native_identity(self):
+        """Exercise every native built-in family, not only Button."""
+        from psx import (Text, Button, Input, Checkbox, TextArea, Slider,
+                         Spacer, Divider, Image, ProgressBar, Radio,
+                         RadioGroup, Select, Switch, Link, Badge, SpinBox,
+                         Scroll)
+        from psx.core.vnode import Box
+        from psx.core.vnode import create_element
+        from psx.sfle.native_operation_oracles import Observation, ORACLES
+        from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        import base64
+
+        import struct
+        import zlib
+        def chunk(kind, data):
+            return (struct.pack(">I", len(data)) + kind + data
+                    + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
+        image_bytes = (
+            b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">2I5B", 2, 2, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress((b"\x00" + b"\xff\x33\x66\xff" * 2) * 2))
+            + chunk(b"IEND", b"")
+        )
+        with TemporaryDirectory() as tmp:
+            image_path = Path(tmp) / "pixel.png"
+            image_path.write_bytes(image_bytes)
+
+            factories = {
+                "Text": lambda: Text("Before"),
+                "Button": lambda: Button("Before"),
+                "Input": lambda: Input(value="Before"),
+                "Checkbox": lambda: Checkbox(checked=False),
+                "TextArea": lambda: TextArea("Before"),
+                "Slider": lambda: Slider(value=30),
+                "Spacer": lambda: Spacer(),
+                "Divider": lambda: Divider(),
+                "Image": lambda: Image(str(image_path)),
+                "ProgressBar": lambda: ProgressBar(value=30),
+                "Radio": lambda: Radio("a", label="Before"),
+                "RadioGroup": lambda: RadioGroup(Radio("a", label="Before")),
+                "Select": lambda: Select(options=[{"label": "A", "value": "a"}, {"label": "B", "value": "b"}], value="a"),
+                "Switch": lambda: Switch(checked=False),
+                "Link": lambda: Link(label="Before"),
+                "Badge": lambda: Badge(label="Before"),
+                "SpinBox": lambda: SpinBox(value=30),
+                "Scroll": lambda: Scroll(
+                    Flex(Text("Content", layout_width="30px",
+                              layout_height="15px"), width="40px", height="24px")
+                ),
+                "Box": lambda: Box(Text("Inside", layout_width="30px",
+                                       layout_height="15px")),
+                "Flex": lambda: Flex(Text("Inside", layout_width="30px",
+                                         layout_height="15px")),
+            }
+            native = set(NATIVE_LEAF_TYPES["qt"]) | {"Flex"}
+            self.assertEqual(set(factories), native)
+
+            def built(name, width):
+                if name == "Box":
+                    return create_element(
+                        "Box", Text("Inside", layout_width=f"{width}px",
+                                    layout_height="15px"), key="item",
+                    )
+                base = factories[name]()
+                props = {**dict(base.props), "flex_basis": f"{width}px",
+                         "flex_shrink": 0}
+                if name == "Flex":
+                    props.update(width=f"{width}px", height="24px")
+                else:
+                    props.update(layout_width=f"{width}px",
+                                 layout_height="24px")
+                return create_element(base.type, *base.children,
+                                      key="item", **props)
+
+            def view(name, width, reverse=False):
+                item = built(name, width)
+                peer = button("Peer", "peer", 20)
+                return Flex(*( (peer, item) if reverse else (item, peer) ),
+                            width=260, height=90, gap=8,
+                            align_items="flex-start")
+
+            for name in sorted(native):
+                with self.subTest(component=name):
+                    self.reconciler.unmount()
+                    root = self.reconciler.render(view(name, 60))
+                    instance = root.children[0]
+                    handle = instance.handle
+                    widget = handle.widget
+                    before = geometry(widget)
+                    self.assertEqual(before[2], 60, name) if name != "Box" else self.assertGreater(before[2], 0, name)
+                    self.assertEqual(before[3], 24, name) if name != "Box" else self.assertGreater(before[3], 0, name)
+                    previous_order = tuple(child.node.key for child in root.children)
+                    previous_state = (
+                        before,
+                        tuple(dict(child.node.props) for child in instance.children),
+                    )
+                    before_observation = Observation(
+                        native_identity=id(widget), mounted=True, rect=before,
+                        state=previous_state, order=previous_order,
+                    )
+                    ORACLES["create"](None, before_observation)
+                    updated = self.reconciler.render(view(name, 80, reverse=True))
+                    current = updated.children[1]
+                    unchanged_peer = updated.children[0].handle.widget
+                    self.assertNotIn(id(unchanged_peer),
+                                     self.renderer._sfle_native_intrinsic_cache.last_measured,
+                                     name)
+                    self.assertIs(current, instance, name)
+                    self.assertIs(current.handle, handle, name)
+                    self.assertIs(current.handle.widget, widget, name)
+                    after = geometry(widget)
+                    self.assertEqual(after[2], 80, name) if name != "Box" else self.assertGreater(after[2], 0, name)
+                    self.assertGreater(after[0], 0, name)
+                    self.assertLess(geometry(updated.children[0].handle.widget)[0],
+                                    after[0], name)
+                    current_state = (
+                        after,
+                        tuple(dict(child.node.props) for child in instance.children),
+                    )
+                    after_observation = Observation(
+                        native_identity=id(widget), mounted=True, rect=after,
+                        state=current_state,
+                        order=tuple(child.node.key for child in updated.children),
+                    )
+                    ORACLES["update"](before_observation, after_observation)
+                    ORACLES["reorder"](before_observation, after_observation)
+                    # C5: validate invalidation for every native family.
+                    for reason in ("content", "font", "theme", "resource", "dpi", "viewport"):
+                        with self.subTest(component=name, reason=reason):
+                            previous_generation = self.renderer.sfle_result.generation
+                            self.renderer.request_sfle_invalidation(reason)
+                            self.renderer.application.processEvents()
+                            self.renderer.application.processEvents()
+                            self.assertGreater(self.renderer.sfle_result.generation,
+                                               previous_generation, (name, reason))
+                            self.assertIs(current.handle.widget, widget, (name, reason))
+                            self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
+                    if name == "Image":
+                        import os
+                        original_stamp = image_path.stat().st_mtime_ns
+                        os.utime(image_path, ns=(
+                            original_stamp + 1_000_000_000,
+                            original_stamp + 1_000_000_000))
+                        prior_resource_generation = self.renderer.sfle_result.generation
+                        self.renderer._sfle_poll_image_resources(
+                            self.renderer._sfle_invalidation_lifetime)
+                        self.renderer.application.processEvents()
+                        self.renderer.application.processEvents()
+                        self.assertGreater(self.renderer.sfle_result.generation,
+                                           prior_resource_generation, name)
+                        self.assertIs(current.handle.widget, widget, name)
+                    # Invalid callback changes must fail before touching the
+                    # actual native widget or its last committed rectangle.
+                    attempted = view(name, 80, reverse=True)
+                    original = attempted.children[1]
+                    from dataclasses import replace
+                    from types import MappingProxyType
+                    invalid = replace(
+                        original, props=MappingProxyType({
+                            **dict(original.props), "on_invalid": 1,
+                        }),
+                    )
+                    forged = replace(
+                        attempted, children=(attempted.children[0], invalid),
+                    )
+                    with self.assertRaises((TypeError, RendererCapabilityError)):
+                        self.reconciler.render(forged)
+                    self.assertIs(updated.children[1].handle.widget, widget, name)
+                    self.assertEqual(geometry(widget), after, name)
+                    ORACLES["rollback"](
+                        after_observation, Observation(
+                            native_identity=id(widget), mounted=True,
+                            rect=after, state=current_state,
+                            order=after_observation.order, mutation_failed=True,
+                        ),
+                    )
+                    destroyed = []
+                    widget.destroyed.connect(lambda *_: destroyed.append(True))
+                    self.reconciler.render(Flex(
+                        button("Peer", "peer", 20), width=260, height=90,
+                        align_items="flex-start",
+                    ))
+                    self.assertTrue(instance.disposed, name)
+                    qtcore = importlib.import_module(f"{PACKAGE}.QtCore")
+                    qtcore.QCoreApplication.sendPostedEvents(None, qtcore.QEvent.Type.DeferredDelete)
+                    self.assertTrue(destroyed, name)
+                    ORACLES["unmount"](
+                        after_observation, Observation(
+                            native_identity=id(widget), mounted=False,
+                            rect=after, state=current_state, disposed=bool(destroyed),
+                        ),
+                    )
+            self.reconciler.unmount()
+
+
+    def test_all_callback_controls_keep_one_live_slot_after_reconciliation(self):
+        """Exercise per-control callback replacement against real mounted widgets."""
+        from psx import (Button, Input, TextArea, Checkbox, Slider, RadioGroup,
+                         Radio, Select, Switch, Link, SpinBox)
+        from psx.core.vnode import create_element
+        from psx.sfle.native_operation_contracts import EVENTLESS
+
+        factories = {
+            "Button": (Button("Action"), "on_click", ()),
+            "Input": (Input(value="a"), "on_change", ("new",)),
+            "TextArea": (TextArea("a"), "on_change", ("new",)),
+            "Checkbox": (Checkbox(), "on_change", (True,)),
+            "Slider": (Slider(value=2), "on_change", (3.0,)),
+            "RadioGroup": (RadioGroup(Radio("a")), "on_change", ("a",)),
+            "Select": (Select(options=(
+                {"label": "A", "value": "a"},
+                {"label": "B", "value": "b"}), value="a"), "on_change", ("b",)),
+            "Switch": (Switch(), "on_change", (True,)),
+            "Link": (Link(label="Action"), "on_click", ()),
+            "SpinBox": (SpinBox(value=2), "on_change", (3,)),
+        }
+        from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
+        native = set(NATIVE_LEAF_TYPES["qt"]) | {"Flex"}
+        self.assertEqual(set(factories), native - set(EVENTLESS))
+        for name, (base, event, args) in factories.items():
+            with self.subTest(component=name):
+                calls = []
+                self.reconciler.unmount()
+                def view(callback):
+                    target = create_element(
+                        base.type, *base.children, key="case",
+                        **{**dict(base.props), event: callback,
+                           "layout_width": "70px", "layout_height": "28px",
+                           "flex_basis": "70px", "flex_shrink": 0},
+                    )
+                    return Flex(target, width=180, height=70,
+                                align_items="flex-start")
+                initial = self.reconciler.render(
+                    view(lambda *values: calls.append(("old", values))))
+                instance = initial.children[0]
+                native_handle = instance.handle.widget
+                slot = instance.event_slots[event][0]
+                slot.invoke(*args)
+                self.assertEqual(calls, [("old", args)], name)
+                updated = self.reconciler.render(
+                    view(lambda *values: calls.append(("new", values))))
+                self.assertIs(updated.children[0], instance)
+                self.assertIs(instance.handle.widget, native_handle)
+                self.assertIs(instance.event_slots[event][0], slot)
+                self.assertEqual(len(instance.event_slots), 1, name)
+                slot.invoke(*args)
+                self.assertEqual(calls, [("old", args), ("new", args)], name)
+                self.reconciler.unmount()
+                slot.invoke(*args)
+                self.assertEqual(len(calls), 2, name)
+
+
+    def test_external_native_owned_borrowed_and_custom_resources(self):
+        """Native ownership is tested independently for every Qt binding."""
+        from psx.core.native import NativeWidget, NativeOwnership
+        from psx.core.vnode import native_widget, create_element
+        from psx.renderers.qt.pyqt import QtHandle
+        from psx.sfle.native_operation_oracles import Observation, ORACLES
+
+        def port():
+            def measure(widget, limits):
+                return IntrinsicSizes(10, 45, 10, 20, 45, 20)
+            def apply(widget, rect):
+                widget.setGeometry(round(rect.x), round(rect.y),
+                                   round(rect.width), round(rect.height))
+            def read(widget):
+                rect = widget.geometry()
+                return Rect(rect.x(), rect.y(), rect.width(), rect.height())
+            return SFLEExternalPort(measure, apply, read)
+
+        owner = qtwidgets.QWidget()
+        borrowed = qtwidgets.QLabel("Borrowed", owner)
+        before_parent = borrowed.parentWidget()
+        disposed = []
+        borrowed.destroyed.connect(lambda *_: disposed.append(True))
+        declaration = NativeWidget(
+            renderer=BINDING, widget=borrowed,
+            ownership=NativeOwnership.BORROWED,
+            sfle_port=port(),
+        )
+        def borrowed_view(width):
+            return Flex(native_widget(
+                declaration, key="borrowed",
+                layout_width=f"{width}px", layout_height="20px",
+                flex_basis=f"{width}px", flex_shrink=0),
+                width=160, height=80, align_items="flex-start")
+        first = self.reconciler.render(borrowed_view(35))
+        self.assertIs(first.children[0].handle.widget, borrowed)
+        second = self.reconciler.render(borrowed_view(45))
+        self.assertIs(second.children[0].handle.widget, borrowed)
+        before = Observation(id(borrowed), True, (0, 0, 45, 20),
+                             owner="caller")
+        self.reconciler.unmount()
+        after = Observation(id(borrowed), False, (0, 0, 45, 20),
+                            owner="caller", disposed=bool(disposed))
+        ORACLES["borrowed_ownership"](before, after)
+        self.assertIs(borrowed.parentWidget(), before_parent)
+        self.assertFalse(disposed)
+
+        owned = []
+        def factory():
+            widget = qtwidgets.QLabel("Owned")
+            widget.destroyed.connect(lambda *_: owned.append(True))
+            return widget
+        owner_declaration = NativeWidget(
+            renderer=BINDING, factory=factory, sfle_port=port())
+        result = self.reconciler.render(Flex(
+            native_widget(owner_declaration, key="owned",
+                          layout_width="40px", layout_height="20px",
+                          flex_basis="40px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        widget = result.children[0].handle.widget
+        self.assertEqual(geometry(widget), (0, 0, 40, 20))
+        self.reconciler.unmount()
+        qtcore = importlib.import_module(f"{PACKAGE}.QtCore")
+        qtcore.QCoreApplication.sendPostedEvents(
+            None, qtcore.QEvent.Type.DeferredDelete)
+        self.assertTrue(owned)
+
+        calls = []
+        class Custom:
+            sfle_port = port()
+            def create(self, renderer, node, parent):
+                calls.append("create")
+                return QtHandle("ExternalBadge", qtwidgets.QLabel("Custom"))
+            def update(self, renderer, handle, changed, removed):
+                calls.append("update")
+            def destroy(self, renderer, handle):
+                calls.append("destroy")
+                handle.widget.deleteLater()
+            def bind_event(self, renderer, handle, event, slot):
+                raise RendererCapabilityError("Unsupported custom event")
+            def unbind_event(self, renderer, subscription):
+                calls.append("unbind")
+
+        self.renderer.register_adapter("ExternalBadge", Custom())
+        mounted = self.reconciler.render(Flex(
+            create_element("ExternalBadge", key="custom",
+                           layout_width="36px", layout_height="20px",
+                           flex_basis="36px", flex_shrink=0),
+            width=160, height=80,
+        ))
+        self.assertEqual(geometry(mounted.children[0].handle.widget),
+                         (0, 0, 36, 20))
+        self.reconciler.unmount()
+        self.assertEqual(calls.count("create"), 1)
+        self.assertEqual(calls.count("destroy"), 1)
+        borrowed.setText("Survives PSX teardown")
+        self.assertEqual(borrowed.text(), "Survives PSX teardown")
+        owner.deleteLater()
+
+
+    def test_external_native_signal_binding_is_removed_on_unmount(self):
+        from psx.core.native import NativeWidget, NativeOwnership
+        from psx.core.vnode import native_widget
+
+        widget = qtwidgets.QPushButton("Fire")
+        fired = []
+        declaration = NativeWidget(
+            renderer=BINDING, widget=widget,
+            ownership=NativeOwnership.BORROWED,
+            bind_event=lambda w, event, slot: self._native_clicked_subscription(
+                w, event, slot,
+            ),
+            sfle_port=SFLEExternalPort(
+                lambda w, c: IntrinsicSizes(10, 40, 10, 20, 40, 20),
+                lambda w, rect: w.setGeometry(
+                    round(rect.x), round(rect.y), round(rect.width),
+                    round(rect.height)),
+                lambda w: Rect(w.x(), w.y(), w.width(), w.height()),
+            ),
+        )
+        def view(callback):
+            return Flex(native_widget(
+                declaration, key="external", on_native_signal_clicked=callback,
+                layout_width="40px", layout_height="20px",
+                flex_basis="40px", flex_shrink=0,
+            ), width=160, height=80, align_items="flex-start")
+        # Native signal declarations use an exact event key (including ':').
+        def mount(callback):
+            return Flex(native_widget(
+                declaration, key="external", **{
+                    "on_native_signal:clicked": callback,
+                    "layout_width": "40px", "layout_height": "20px",
+                    "flex_basis": "40px", "flex_shrink": 0,
+                }),
+                width=160, height=80, align_items="flex-start",
+            )
+        root = self.reconciler.render(mount(lambda *a: fired.append("old")))
+        self.assertIs(root.children[0].handle.widget, widget)
+        widget.click()
+        self.assertEqual(fired, ["old"])
+        updated = self.reconciler.render(mount(lambda *a: fired.append("new")))
+        self.assertIs(updated.children[0].handle.widget, widget)
+        widget.click()
+        self.assertEqual(fired, ["old", "new"])
+        self.reconciler.unmount()
+        widget.click()
+        self.assertEqual(fired, ["old", "new"])
+
+    @staticmethod
+    def _native_clicked_subscription(widget, event, slot):
+        assert event == "on_native_signal:clicked"
+        callback = lambda *_: slot.invoke()
+        widget.clicked.connect(callback)
+        def dispose():
+            widget.clicked.disconnect(callback)
+        return dispose
+
+
+    def test_semantic_measurement_invalidations_keep_qt_widgets_mounted(self):
+        for reason in ("content", "font", "theme", "resource", "dpi", "viewport"):
+            with self.subTest(reason=reason):
+                self.reconciler.unmount()
+                root = self.reconciler.render(Flex(
+                    Text("Stable", key="fixed", layout_width="50px",
+                         layout_height="20px"),
+                    width=160, height=80, align_items="flex-start",
+                ))
+                widget = root.children[0].handle.widget
+                generation = self.renderer.sfle_result.generation
+                self.renderer.request_sfle_invalidation(reason)
+                self.renderer.request_sfle_invalidation(reason)
+                self.renderer.application.processEvents()
+                self.renderer.application.processEvents()
+                self.assertIs(root.children[0].handle.widget, widget)
+                self.assertEqual(self.renderer.sfle_result.generation, generation + 1)
+                self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, set())
+                self.reconciler.unmount()
+
+
+    def test_native_qt_font_and_theme_events_invalidate_without_remount(self):
+        qtcore = importlib.import_module(f"{PACKAGE}.QtCore")
+        event_type = getattr(qtcore.QEvent, "Type", qtcore.QEvent)
+        for name in ("FontChange", "PaletteChange", "StyleChange"):
+            with self.subTest(event=name):
+                self.reconciler.unmount()
+                root = self.reconciler.render(Flex(
+                    Text("Stable", key="fixed", layout_width="50px",
+                         layout_height="20px"),
+                    width=160, height=80, align_items="flex-start",
+                ))
+                native = root.children[0].handle.widget
+                generation = self.renderer.sfle_result.generation
+                qtcore.QCoreApplication.sendEvent(
+                    root.handle.widget, qtcore.QEvent(getattr(event_type, name)),
+                )
+                self.renderer.application.processEvents()
+                self.renderer.application.processEvents()
+                self.assertIs(root.children[0].handle.widget, native)
+                self.assertGreaterEqual(self.renderer.sfle_result.generation, generation + 1)
+                child_generation = self.renderer.sfle_result.generation
+                qtcore.QCoreApplication.sendEvent(
+                    native, qtcore.QEvent(getattr(event_type, name)),
+                )
+                self.renderer.application.processEvents()
+                self.renderer.application.processEvents()
+                self.assertGreater(self.renderer.sfle_result.generation,
+                                   child_generation)
+                self.assertIs(root.children[0].handle.widget, native)
+                self.reconciler.unmount()
+
+
+
+    def test_readback_race_restores_native_geometry_and_preserves_identity(self):
+        from unittest.mock import patch
+        import psx.sfle.qt_layout_bridge as bridge
+
+        root = self.reconciler.render(Flex(
+            button("First", "first", 40), button("Second", "second", 30),
+            width=160, height=80, gap=8, align_items="flex-start",
+        ))
+        widgets = tuple(child.handle.widget for child in root.children)
+        before = tuple(geometry(widget) for widget in widgets)
+        published = self.renderer.sfle_result
+        original_error = bridge.DevicePixelSpace.error
+        injected = {"done": False}
+
+        def readback_error(space, expected, observed):
+            if not injected["done"]:
+                injected["done"] = True
+                self.renderer._sfle_measurement_invalidations.request("resource")
+            return original_error(space, expected, observed)
+
+        with patch.object(bridge.DevicePixelSpace, "error", readback_error):
+            self.renderer.commit_layout(root)
+        self.assertTrue(injected["done"], "Native readback assertion must execute")
+        self.assertEqual(tuple(geometry(widget) for widget in widgets), before)
+        self.assertGreaterEqual(self.renderer.sfle_result.generation, published.generation + 2)
+        self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, set())
+        self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
+        self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
+
+
+    def test_native_qt_geometry_application_failure_restores_previous_rectangles(self):
+        from unittest.mock import patch
+        import psx.sfle.qt_layout_bridge as bridge
+
+        root = self.reconciler.render(Flex(
+            button("First", "first", 40), button("Second", "second", 30),
+            width=160, height=80, gap=8, align_items="flex-start",
+        ))
+        widgets = tuple(child.handle.widget for child in root.children)
+        before = tuple(geometry(widget) for widget in widgets)
+        published = self.renderer.sfle_result
+        original_committer = bridge.NativeGeometryCommitter
+
+        def interrupted_committer(*args, **kwargs):
+            apply = original_committer(*args, **kwargs)
+            def fail_after_application(result):
+                apply(result)
+                widgets[0].setGeometry(7, 9, 13, 15)
+                raise RuntimeError("injected Qt native application failure")
+            return fail_after_application
+
+        with patch.object(bridge, "NativeGeometryCommitter", side_effect=interrupted_committer):
+            with self.assertRaisesRegex(RuntimeError, "injected Qt native application failure"):
+                self.renderer.commit_layout(root)
+        self.assertEqual(tuple(geometry(widget) for widget in widgets), before)
+        self.assertIs(self.renderer.sfle_result, published)
+        self.renderer.commit_layout(root)
+        self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
+
+    def test_native_qt_geometry_invalidation_during_application_rolls_back(self):
+        from unittest.mock import patch
+        import psx.sfle.qt_layout_bridge as bridge
+
+        root = self.reconciler.render(Flex(
+            button("First", "first", 40), button("Second", "second", 30),
+            width=160, height=80, gap=8, align_items="flex-start",
+        ))
+        widgets = tuple(child.handle.widget for child in root.children)
+        before = tuple(geometry(widget) for widget in widgets)
+        published = self.renderer.sfle_result
+        original_committer = bridge.NativeGeometryCommitter
+        injected = {"done": False}
+
+        def interrupted_committer(*args, **kwargs):
+            apply = original_committer(*args, **kwargs)
+            def fail_after_application(result):
+                apply(result)
+                if not injected["done"]:
+                    injected["done"] = True
+                    self.renderer._sfle_measurement_invalidations.request("dpi")
+            return fail_after_application
+
+        with patch.object(bridge, "NativeGeometryCommitter", side_effect=interrupted_committer):
+            self.renderer.commit_layout(root)
+        self.assertEqual(tuple(geometry(widget) for widget in widgets), before)
+        self.assertGreaterEqual(self.renderer.sfle_result.generation, published.generation + 2)
+        self.assertEqual(self.renderer._sfle_measurement_invalidations.pending, set())
+        self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
+        self.assertTrue(all(child.handle.widget is widget for child, widget in zip(root.children, widgets)))
+
+
+
+    def test_child_style_invalidation_targets_native_intrinsic_without_global_dirty(self):
+        root = self.reconciler.render(Flex(
+            Text("First", key="first", layout_width="40px", layout_height="20px"),
+            Text("Second", key="second", layout_width="40px", layout_height="20px"),
+            width=160, height=80, gap=8, align_items="flex-start",
+        ))
+        first = root.children[0].handle.widget
+        second = root.children[1].handle.widget
+        state = self.renderer._sfle_measurement_invalidations
+
+        self.renderer._sfle_on_native_semantic_change(first, "font")
+        self.assertEqual(state.dirty_widgets, {id(first)})
+        self.assertFalse(state.invalidate_all)
+        self.renderer.application.processEvents()
+        self.renderer.application.processEvents()
+        self.assertIs(root.children[0].handle.widget, first)
+        self.assertIs(root.children[1].handle.widget, second)
+        self.assertFalse(state.needs_commit())
+
+        # Screen migration / device scale invalidates the whole projection.
+        self.renderer._sfle_on_native_semantic_change(second, "dpi")
+        self.assertTrue(state.invalidate_all)
+        self.renderer.application.processEvents()
+        self.renderer.application.processEvents()
+        self.assertFalse(state.needs_commit())
+
+
+    def test_native_local_image_revision_remeasures_without_props_or_remount(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from psx import Image
+
+        gui = importlib.import_module(f"{PACKAGE}.QtGui")
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "revision.png"
+            pixmap = gui.QPixmap(24, 12)
+            pixmap.fill(gui.QColor("#AABBCC"))
+            self.assertTrue(pixmap.save(str(path)))
+            root = self.reconciler.render(Flex(
+                Image(str(path), key="img", fit="contain"),
+                button("Peer", "peer", 30),
+                direction="column", width=160, height=80,
+                align_items="flex-start",
+            ))
+            image_widget = root.children[0].handle.widget
+            peer = root.children[1].handle.widget
+            first_generation = self.renderer.sfle_result.generation
+            self.assertEqual(image_widget.height(), 12)
+            self.assertEqual(peer.y(), 12)
+
+            modified = gui.QPixmap(24, 24)
+            modified.fill(gui.QColor("#112233"))
+            self.assertTrue(modified.save(str(path)))
+            self.renderer._sfle_poll_image_resources(
+                self.renderer._sfle_invalidation_lifetime,
+            )
+            self.renderer.application.processEvents()
+            self.renderer.application.processEvents()
+            self.assertIs(root.children[0].handle.widget, image_widget)
+            self.assertIs(root.children[1].handle.widget, peer)
+            self.assertGreater(self.renderer.sfle_result.generation, first_generation)
+            self.assertEqual(image_widget.height(), 24)
+            self.assertEqual(peer.y(), 24)
+            self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
+            self.assertFalse(self.renderer._sfle_image_resource_watch.changed())
+
+
+    def test_targeted_resource_remeasurement_does_not_measure_unaffected_qt_peer(self):
+        root = self.reconciler.render(Flex(
+            button("First", "first", 40), button("Second", "second", 30),
+            width=160, height=80, gap=8, align_items="flex-start",
+        ))
+        first, second = (child.handle.widget for child in root.children)
+        baseline = tuple(geometry(widget) for widget in (first, second))
+        self.renderer.request_sfle_invalidation("resource", widget_id=id(first))
+        self.renderer.application.processEvents()
+        self.renderer.application.processEvents()
+        cache = self.renderer._sfle_native_intrinsic_cache
+        self.assertIn(id(first), cache.last_measured)
+        self.assertNotIn(id(second), cache.last_measured)
+        self.assertEqual(tuple(geometry(widget) for widget in (first, second)), baseline)
+        self.assertIs(root.children[0].handle.widget, first)
+        self.assertIs(root.children[1].handle.widget, second)
+
+if __name__ == "__main__":
+    unittest.main()
+

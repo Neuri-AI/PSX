@@ -73,7 +73,7 @@ class NativeWidget:
         if self.bind_event is not None and not callable(self.bind_event):
             raise TypeError("NativeWidget.bind_event must be callable or None.")
         if self.sfle_port is not None:
-            from psx.sfle.f3_external import SFLEExternalPort
+            from psx.sfle.external_native_geometry_ports import SFLEExternalPort
             if not isinstance(self.sfle_port, SFLEExternalPort):
                 raise TypeError("NativeWidget.sfle_port requires SFLEExternalPort.")
 

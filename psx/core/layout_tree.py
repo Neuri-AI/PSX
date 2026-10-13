@@ -1,4 +1,4 @@
-"""F3-G1: immutable, renderer-neutral normalization of declarative Flex trees.
+"""Flex layout: immutable, renderer-neutral normalization of declarative Flex trees.
 
 This is a structural hand-off contract, not a layout engine or reconciler.
 No component is evaluated here: G2 supplies already-rendered component roots

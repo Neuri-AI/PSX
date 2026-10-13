@@ -1,4 +1,4 @@
-"""F3-G2 Qt Flex host: native parenting only, never Qt layout geometry.
+"""Native SFLE Qt Flex host: native parenting only, never Qt layout geometry.
 
 SFLE owns placement. This adapter deliberately does not construct
 QHBoxLayout/QVBoxLayout and does not calculate sibling sizes.

@@ -34,7 +34,7 @@ from psx.core.native import NativeOwnership, NativeWidget
 from psx.core.vnode import NodeKind, VNode
 from psx.core.props import FLEX_ITEM_PROPS
 from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
-from psx.sfle.f3_external import external_port_for
+from psx.sfle.external_native_geometry_ports import external_port_for
 from psx.sfle.model import LayoutConstraints, LayoutResult
 from psx.renderers.adapters import (
     AdapterSubscription,
@@ -304,11 +304,11 @@ class TkinterRenderer:
         self._sfle_backend = "tk"
         self._sfle_generation = 0
         self._sfle_theme_bind_id = None
-        from psx.sfle.f3_g2_invalidation import MeasurementInvalidations
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
         self._sfle_measurement_invalidations = MeasurementInvalidations()
         from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
         self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
-        from psx.sfle.f3_resource_watch import ImageResourceWatch
+        from psx.sfle.native_resource_watch import ImageResourceWatch
         self._sfle_image_resource_watch = ImageResourceWatch()
         self._sfle_resource_poll_scheduled = False
         self._sfle_resource_error: Exception | None = None
@@ -422,7 +422,7 @@ class TkinterRenderer:
         The mounted instance is reused; the existing SFLE transaction remains
         the only writer. Teardown invalidates queued work by epoch.
         """
-        from psx.sfle.f3_g2_invalidation import MeasurementInvalidations
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
 
         if self._sfle_constraints is None:
             raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
@@ -552,7 +552,7 @@ class TkinterRenderer:
     def commit_layout(self, root: object) -> None:
         if self._sfle_constraints is None:
             return
-        from psx.sfle.f3_tk import commit_tk_sfle
+        from psx.sfle.tkinter_layout_bridge import commit_tk_sfle
         # Native style/texture signals can arrive while measuring. Retry a
         # bounded number of times using the latest semantic epoch; never
         # publish a transaction rejected for stale measurements.
@@ -642,7 +642,7 @@ class TkinterRenderer:
             # G2 incremental native coverage: no silent native pack/grid
             # fallback for builtins or custom declarations not ported yet.
             if node.kind not in (NodeKind.HOST, NodeKind.NATIVE):
-                raise RendererCapabilityError("F3-G2 requires a host or Native layout participant.")
+                raise RendererCapabilityError("Native SFLE requires a host or Native layout participant.")
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
@@ -695,7 +695,7 @@ class TkinterRenderer:
     def _adapter_create(self, node: VNode, parent: object | None) -> TkHandle:
         if node.kind is NodeKind.HOST and node.type == "Flex":
             raise RendererCapabilityError(
-                "Flex requires the F3-G2 SFLE geometry adapter for Tkinter; "
+                "Flex requires the Native SFLE SFLE geometry adapter for Tkinter; "
                 "native fallback layout is forbidden.")
         _validate_props(node)
         master = _as_handle(parent).widget if parent is not None else self.root

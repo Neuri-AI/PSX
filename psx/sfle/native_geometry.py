@@ -16,7 +16,7 @@ from .model import LayoutResult, Rect
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .f3_external import SFLEExternalPort
+    from .external_native_geometry_ports import SFLEExternalPort
 from .fixed_point import LayoutUnit
 
 
@@ -57,7 +57,7 @@ class NativeGeometryCommitter:
         if self._external_ports:
             # Keep the F2 toolkit-worker/core import graph independent of
             # G2 vnode/native modules (avoids core.vnode initialization cycle).
-            from .f3_external import SFLEExternalPort
+            from .external_native_geometry_ports import SFLEExternalPort
         if any(not isinstance(port, SFLEExternalPort) for port in self._external_ports.values()):
             raise TypeError("External geometry ports must be SFLEExternalPort instances.")
         if nodes and nodes[0].parent_id is not None:

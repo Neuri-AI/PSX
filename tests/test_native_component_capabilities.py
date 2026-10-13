@@ -1,4 +1,4 @@
-"""F3-G2 backend native-leaf capability and Kivy intrinsic-size guardrails."""
+"""Native SFLE backend native-leaf capability and Kivy intrinsic-size guardrails."""
 from __future__ import annotations
 
 import pytest

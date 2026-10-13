@@ -1,4 +1,4 @@
-"""F3-G2 Tk Flex host: native ownership only; SFLE distributes all space.
+"""Native SFLE Tk Flex host: native ownership only; SFLE distributes all space.
 
 Unlike legacy Row/Column this adapter never invokes pack()/grid(). Tkinter
 receives already-computed border rectangles through place() in the SFLE
