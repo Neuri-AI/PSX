@@ -1149,7 +1149,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from kivy.uix.label import Label
             from kivy.uix.button import Button as KivyButton
 
-            from psx import Flex, Text, Button, Checkbox, Slider, Spacer, Row, component, use_state, psx
+            from psx import Flex, Text, Button, Checkbox, Slider, Spacer, component, use_state, psx
             from psx.core.native import Native
             from psx.core.vnode import create_element
             from psx.sfle.external_native_geometry_ports import SFLEExternalPort
@@ -1413,14 +1413,14 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert not native_created
             tree.unmount()
 
-            # Unported component: no fallback to Kivy BoxLayout.
+            # Retired layout primitives are never registered or routed natively.
+            from psx.core.registry import builtin_component_registry
+            registry = builtin_component_registry()
+            assert not registry.contains("Row")
+            assert not registry.contains("Column")
             backend, tree = create()
-            try:
-                tree.render(Flex(Row(), width=160, height=80))
-            except RendererCapabilityError as error:
-                assert "not certified" in str(error)
-            else:
-                raise AssertionError("Unported Kivy native widget silently mounted")
+            assert "Row" not in backend.adapters
+            assert "Column" not in backend.adapters
             tree.unmount()
 
             # Stale engine identity: fail before native geometry mutation.
