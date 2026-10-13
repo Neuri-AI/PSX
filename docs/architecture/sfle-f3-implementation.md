@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **STATUS: F3-G1 CLOSED; G2 IN PROGRESS — C1 CLOSED; C2 CLOSED after executable contract/pytest-receipt re-certification at `9e071a1`; C3 CLOSED (built-in lifecycle); C4 CLOSED (Native/custom/borrowed ownership and resource receipts at `9df902d`); C5–C6 invalidation and final precision certification remain pending. G3–G5 NOT STARTED — 1/5 official F3 gates closed (20%).** Created 2026-10-11
+> **CURRENT STATUS (2026-10-12): F3-G1 CLOSED; F3-G2 CLOSED (C1–C6 CLOSED; C6 iterations 1–4 certified); F3-G3/G4/G5 OPEN. F3 official gates: 2/5 CLOSED (40%).** Historical progress statements below are dated snapshots, not the current gate state.
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
@@ -1834,3 +1834,75 @@ remains corroborative, never counted as an executed native PASS. C6
 iteration 3/4 is CLOSED. Iteration 4/4 must reconcile live header/roadmap
 status, rerun the G2 aggregate and certify the final immutable SHA before
 labeling **G2 CLOSED**.
+
+
+### C6 iteration 4/4 — final G2 disposition and evidence reconciliation (CLOSED, 2026-10-12)
+
+**Current G2 authority:** this section and the document's CURRENT STATUS
+header supersede dated earlier notes that described C5, C6 or G2 as OPEN.
+Do not rewrite past incremental audit checkpoints as if the older results
+were known at that time.
+
+**Final tested CODE SHA:** [`700f1b3af3334b99f39fcf30a053d2a65838fc17`](https://github.com/Neuri-AI/PSX/commit/700f1b3af3334b99f39fcf30a053d2a65838fc17).
+**Full required product CI:** [F3 selective #38335949031 — COMPLETED SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38335949031).
+All three companion workflows (`F3 G1 contract certification`,
+`Runtime package boundaries`, `Commit subject clarity`) also finished
+SUCCESS on **the same source SHA**. The required F3 selector executed
+actual Qt binding parity at standard and 1.5 DPI, native Tkinter and Kivy,
+Headless, Chromium and Rust/Python differential, plus supported Windows
+and macOS native-wheel/fallback jobs. The unrelated G4 removal gate was
+intentionally skipped: G4 is a separate future acceptance gate.
+
+**Archived executed native evidence:** Seven checked workflow artifacts
+from #38335949031: `g2-qt-receipts-pyside6`,
+`g2-qt-receipts-pyqt6`, `g2-qt-receipts-pyqt5`,
+`g2-qt-receipts-pyside2`, `g2-tk-receipts`,
+`g2-kivy-receipts`, `g2-headless-receipts`.
+Each backend's C2/C3 and C6 validator uses actual JUnit XML; C4 custom
+owned/borrowed geometry-port certificates and C5 six-reason invalidation
+certificates are separately mandatory and preserved with the same artifacts.
+The C6 operation verifier on the final tested code SHA emitted:
+**Qt 130 required / 62 reviewed N/A; Tkinter 130 / 62;
+Kivy 130 / 62; Headless 19 / 173**. Thus **409 distinct required
+backend × component × operation cells executed PASS; 359 reviewed
+not-applicable cells; ZERO missing/failed/skipped required cells**.
+Qt's repeated 1×/1.5× DPI and four bindings are not double-counted
+as distinct component contracts. Missing or newly added component
+families and stale classifications are rejected by registry-exact CI.
+
+**G2 geometry authority:** SFLE owns all supported Flex mathematics
+with one signed, saturating 32-bit `LayoutUnit` per 1/64 logical px.
+Approved logical precision against Chromium remains ≤0.01 logical CSS px
+on equivalent intrinsic data; native geometry readback is bounded by
+the approved coordinate-system tolerance. Qt's integer QWidget readback
+tolerance is expressed in **device-independent** coordinates, not a
+blanket claim of ≤1 framebuffer pixel at DPR > 1. Kivy bottom-left
+projection, parent-relative positions, fractional device-pixel edges,
+concurrency/readback rollback, automatic semantic invalidation and
+selective native intrinsic remeasurement were exercised independently
+in C5/C6. This certificate does not assert full incremental SFLE
+mathematical solving, pixel-accurate raster screenshots, native
+scrollbar/scroll-offset semantics or exhaustive per-prop/event
+functional parity.
+
+**Scope and exclusions:** G2 admits every implemented native
+built-in/backend pair under its audited capability matrix, and
+the explicit Headless unsupported pairs are not counted as passes.
+`Native`/custom adapter owned/borrowed contracts use C4's separate
+native tests. A future overlay/portal such as `Modal` requires a
+new reviewed family classification, child policy and dedicated
+component-specific native lifecycle/geometry evidence; this is
+not a shipped `Modal` implementation. G3 still owns complete
+Scroll behavior, G4 public Row/Column removal, and G5 end-to-end
+public behavior and final F3 acceptance.
+
+**Final certification policy:** Because documentation-only changes
+must not rerun product tests, the immutable **code SHA** above carries
+the full native/browser/Rust product certificate; a later
+**documentation-only HEAD** carries its own selective workflow
+success and is not falsely labeled as a new full product run.
+Any change to executable code or tests after the certified SHA
+invalidates this signoff and requires fresh mandatory product CI.
+
+**Formal acceptance: F3-G2-C6 CLOSED (4/4 iterations); F3-G2 CLOSED.**
+F3 now has **2 of 5 official gates CLOSED (40%)**. Next **F3-G3**.
