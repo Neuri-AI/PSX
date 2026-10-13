@@ -98,7 +98,7 @@ class RoutingTests(unittest.TestCase):
             {"core", "sfle", "qt", "kivy", "tkinter", "headless"},
         )
 
-    def test_g1_docs_delta_does_not_require_previous_green(self):
+    def test_flex_docs_delta_does_not_require_previous_green(self):
         from pathlib import Path
         workflow = (Path(__file__).resolve().parents[1] /
                     ".github/workflows/flex-layout-contract-certification.yml").read_text(

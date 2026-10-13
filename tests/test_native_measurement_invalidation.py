@@ -6,11 +6,11 @@ import pytest
 from psx.sfle.native_measurement_invalidation import MeasurementInvalidations, REASONS
 
 
-def test_c5_invalidation_taxonomy_is_explicit():
+def test_native_invalidation_invalidation_taxonomy_is_explicit():
     assert REASONS == {"content", "font", "theme", "resource", "dpi", "viewport"}
 
 
-def test_c5_duplicate_notifications_coalesce_and_acknowledge_only_latest():
+def test_native_invalidation_duplicate_notifications_coalesce_and_acknowledge_only_latest():
     state = MeasurementInvalidations()
     assert not state.needs_commit()
     stale = state.request("font")
@@ -24,7 +24,7 @@ def test_c5_duplicate_notifications_coalesce_and_acknowledge_only_latest():
     assert state.committed_epoch > latest
 
 
-def test_c5_teardown_fences_queued_invalidation():
+def test_native_invalidation_teardown_fences_queued_invalidation():
     state = MeasurementInvalidations()
     epoch = state.request("viewport")
     state.cancel()
@@ -34,7 +34,7 @@ def test_c5_teardown_fences_queued_invalidation():
 
 
 @pytest.mark.parametrize("reason", ("", "all", "input", "font-change", "window", "unknown"))
-def test_c5_unknown_invalidation_kind_fails_closed(reason):
+def test_native_invalidation_unknown_invalidation_kind_fails_closed(reason):
     state = MeasurementInvalidations()
     with pytest.raises(ValueError, match="Unsupported SFLE measurement invalidation"):
         state.request(reason)
@@ -57,7 +57,7 @@ def test_every_supported_native_component_has_c5_invalidation_evidence():
     assert not gaps, f"C5 per-component invalidation coverage gaps: {gaps}"
 
 
-def test_c5_targeted_invalidation_coalesces_without_marking_global():
+def test_native_invalidation_targeted_invalidation_coalesces_without_marking_global():
     state = MeasurementInvalidations()
     state.request("resource", widget_id=123)
     state.request("content", widget_id=123)
@@ -73,7 +73,7 @@ def test_c5_targeted_invalidation_coalesces_without_marking_global():
     assert not state.invalidate_all
 
 
-def test_c5_dependency_closure_retains_flex_siblings():
+def test_native_invalidation_dependency_closure_retains_flex_siblings():
     from psx.sfle.native_measurement_dependencies import plan_layout_dependents
     from psx.sfle.model import LayoutInput, LayoutNode, LayoutConstraints, AvailableSize, WritingDirection
 

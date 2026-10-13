@@ -27,7 +27,7 @@ REASON_DRIVERS = {
     "qt": "test_semantic_measurement_invalidations_keep_qt_widgets_mounted",
     "tk": "test_semantic_invalidations_preserve_native_tk_widget_identity",
     "kivy": "test_semantic_measurement_invalidations_do_not_remount_kivy",
-    "headless": "test_c5_targeted_invalidations_remeasure_only_dirty_native_handles",
+    "headless": "test_native_invalidation_targeted_invalidations_remeasure_only_dirty_native_handles",
 }
 ADDITIONAL_DRIVERS = {
     "qt": (
@@ -50,10 +50,10 @@ ADDITIONAL_DRIVERS = {
         "test_kivy_readback_race_rolls_back_real_widget_geometry",
     ),
     "headless": (
-        "test_c5_invalidated_during_measurement_rejects_stale_geometry_and_recovers",
-        "test_c5_invalidation_during_native_readback_rolls_back_and_recovers",
-        "test_c5_multi_trigger_invalidation_during_measurement_preserves_cache_and_retries",
-        "test_c5_solver_invalidation_rejects_provisional_result_and_recovers",
+        "test_native_invalidation_invalidated_during_measurement_rejects_stale_geometry_and_recovers",
+        "test_native_invalidation_invalidation_during_native_readback_rolls_back_and_recovers",
+        "test_native_invalidation_multi_trigger_invalidation_during_measurement_preserves_cache_and_retries",
+        "test_native_invalidation_solver_invalidation_rejects_provisional_result_and_recovers",
     ),
 }
 

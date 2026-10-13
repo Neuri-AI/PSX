@@ -5,29 +5,29 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from psx.sfle.native_external_ownership_cases import C4_BY_BACKEND, C4_CASES
+from psx.sfle.native_external_ownership_cases import EXTERNAL_OWNERSHIP_CASES_BY_BACKEND, EXTERNAL_OWNERSHIP_CASES
 from psx.sfle.native_external_ownership_receipts import certify_c4
 
 
-def test_c4_inventory_has_explicit_external_variants_for_each_backend():
-    assert set(C4_BY_BACKEND) == {"qt", "tk", "kivy"}
+def test_external_ownership_inventory_has_explicit_external_variants_for_each_backend():
+    assert set(EXTERNAL_OWNERSHIP_CASES_BY_BACKEND) == {"qt", "tk", "kivy"}
     required = {"native_owned", "native_borrowed", "custom_adapter"}
-    for backend, cases in C4_BY_BACKEND.items():
+    for backend, cases in EXTERNAL_OWNERSHIP_CASES_BY_BACKEND.items():
         assert required <= {item.variant for item in cases}
         if backend in ("qt", "kivy"):
             assert "signal_subscription" in {item.variant for item in cases}
         assert all(item.test_name.startswith("test_") for item in cases)
         assert all(item.expectation for item in cases)
         assert len({item.variant for item in cases}) == len(cases)
-    assert {case.expectation for case in C4_CASES if
+    assert {case.expectation for case in EXTERNAL_OWNERSHIP_CASES if
             case.backend == "tk" and case.variant == "native_borrowed"} == {
                 "rejected_without_mutation"
             }
 
 
-def test_c4_execution_receipt_requires_passed_non_skipped_tests(tmp_path):
+def test_external_ownership_execution_receipt_requires_passed_non_skipped_tests(tmp_path):
     backend = "qt"
-    cases = C4_BY_BACKEND[backend]
+    cases = EXTERNAL_OWNERSHIP_CASES_BY_BACKEND[backend]
     root = ET.Element("testsuite")
     for test in {c.test_name for c in cases}:
         ET.SubElement(root, "testcase", name=test)
@@ -59,6 +59,6 @@ def test_c4_execution_receipt_requires_passed_non_skipped_tests(tmp_path):
         certify_c4(backend, path)
 
 
-def test_c4_receipts_reject_unknown_backend(tmp_path):
+def test_external_ownership_receipts_reject_unknown_backend(tmp_path):
     with pytest.raises(ValueError, match="Unknown C4 backend"):
         certify_c4("headless", tmp_path / "missing.xml")

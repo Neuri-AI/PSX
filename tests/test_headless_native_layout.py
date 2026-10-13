@@ -398,7 +398,7 @@ def test_failed_headless_component_update_keeps_last_committed_node() -> None:
 
 
 @pytest.mark.parametrize("reason", ("content", "font", "theme", "resource", "dpi", "viewport"))
-def test_c5_explicit_invalidation_remeasures_without_remount(reason: str) -> None:
+def test_native_invalidation_explicit_invalidation_remeasures_without_remount(reason: str) -> None:
     """C5 observable Headless remeasurement, not merely a queued callback."""
     from psx.sfle.native_operation_oracles import Observation, ORACLES
 
@@ -449,7 +449,7 @@ def test_c5_explicit_invalidation_remeasures_without_remount(reason: str) -> Non
     reconciler.unmount()
 
 
-def test_c5_stale_remeasurement_is_canceled_after_unmount() -> None:
+def test_native_invalidation_stale_remeasurement_is_canceled_after_unmount() -> None:
     calls = []
     def measure(node):
         if node.type == "Text":
@@ -471,13 +471,13 @@ def test_c5_stale_remeasurement_is_canceled_after_unmount() -> None:
     assert not renderer._sfle_measurement_invalidations.pending
 
 
-def test_c5_invalidation_rejects_unrecognized_reasons() -> None:
+def test_native_invalidation_invalidation_rejects_unrecognized_reasons() -> None:
     renderer = new_renderer()
     with pytest.raises(ValueError, match="Unsupported SFLE measurement invalidation"):
         renderer.request_sfle_invalidation("unknown")
 
 
-def test_c5_headless_intrinsic_cache_skips_unaffected_siblings() -> None:
+def test_native_invalidation_headless_intrinsic_cache_skips_unaffected_siblings() -> None:
     measured = []
 
     def measure(node):
@@ -515,7 +515,7 @@ def test_c5_headless_intrinsic_cache_skips_unaffected_siblings() -> None:
     assert not renderer._sfle_intrinsic_cache
 
 
-def test_c5_invalidated_during_measurement_rejects_stale_geometry_and_recovers() -> None:
+def test_native_invalidation_invalidated_during_measurement_rejects_stale_geometry_and_recovers() -> None:
     """A semantic event raised by a host measurement cannot commit old boxes."""
     from psx.sfle.errors import SFLEError
 
@@ -557,7 +557,7 @@ def test_c5_invalidated_during_measurement_rejects_stale_geometry_and_recovers()
     reconciler.unmount()
 
 
-def test_c5_failed_queued_measurement_retains_request_until_successful_retry() -> None:
+def test_native_invalidation_failed_queued_measurement_retains_request_until_successful_retry() -> None:
     from psx.sfle.errors import SFLEError
 
     fail = {"active": False}
@@ -592,7 +592,7 @@ def test_c5_failed_queued_measurement_retains_request_until_successful_retry() -
     reconciler.unmount()
 
 
-def test_c5_targeted_invalidations_remeasure_only_dirty_native_handles() -> None:
+def test_native_invalidation_targeted_invalidations_remeasure_only_dirty_native_handles() -> None:
     """Resource events should not remeasure independent mounted siblings."""
     calls: list[str] = []
     widths = {"Alpha": 20, "Beta": 25, "Gamma": 30}
@@ -633,7 +633,7 @@ def test_c5_targeted_invalidations_remeasure_only_dirty_native_handles() -> None
     reconciler.unmount()
 
 
-def test_c5_multi_trigger_invalidation_during_measurement_preserves_cache_and_retries() -> None:
+def test_native_invalidation_multi_trigger_invalidation_during_measurement_preserves_cache_and_retries() -> None:
     """An invalidation racing a provisional measure cannot publish its cache."""
     calls: list[str] = []
     race = {"enabled": False, "fail": False}
@@ -699,7 +699,7 @@ def test_c5_multi_trigger_invalidation_during_measurement_preserves_cache_and_re
     reconciler.unmount()
 
 
-def test_c5_invalidation_during_native_readback_rolls_back_and_recovers(monkeypatch) -> None:
+def test_native_invalidation_invalidation_during_native_readback_rolls_back_and_recovers(monkeypatch) -> None:
     """A resource event during readback must not publish stale geometry."""
     import psx.sfle.headless_layout_bridge as bridge
 
@@ -745,7 +745,7 @@ def test_c5_invalidation_during_native_readback_rolls_back_and_recovers(monkeypa
     reconciler.unmount()
 
 
-def test_c5_solver_invalidation_rejects_provisional_result_and_recovers() -> None:
+def test_native_invalidation_solver_invalidation_rejects_provisional_result_and_recovers() -> None:
     """A synchronous resource event during SFLE compute must fence native writes."""
     renderer = new_renderer()
     reconciler = Reconciler(renderer)

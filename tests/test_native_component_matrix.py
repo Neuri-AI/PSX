@@ -75,7 +75,7 @@ def test_matrix_does_not_mistake_backend_evidence_for_per_component_closure():
 
 
 @pytest.mark.parametrize("backend", ("qt", "tk", "kivy"))
-def test_c1_all_registered_native_builtins_have_explicit_sfle_geometry_port(backend):
+def test_native_capability_all_registered_native_builtins_have_explicit_sfle_geometry_port(backend):
     """C1 rejects native-UI coverage gaps; Headless negatives remain intentional.
 
     Transparent Fragment, delegated Native, and legacy Row/Column are tracked
@@ -88,7 +88,7 @@ def test_c1_all_registered_native_builtins_have_explicit_sfle_geometry_port(back
     )
 
 
-def test_c1_kivy_controls_have_intrinsic_port_without_pixel_bounds():
+def test_native_capability_kivy_controls_have_intrinsic_port_without_pixel_bounds():
     from psx import Input, Checkbox, ProgressBar
     from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
     for constructor in (Input, Checkbox, ProgressBar):
@@ -150,7 +150,7 @@ def test_component_evidence_requires_reviewer_manifest_and_no_implicit_green():
     assert all(not cell.fully_certified for cell in native)
 
 
-def test_c2_operation_summary_exposes_all_missing_component_specific_evidence():
+def test_native_operation_operation_summary_exposes_all_missing_component_specific_evidence():
     from psx.sfle.native_component_matrix import native_operation_coverage_summary
     coverage = native_operation_coverage_summary()
     assert set(coverage) == set(BACKENDS)

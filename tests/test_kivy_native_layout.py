@@ -1552,7 +1552,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
-    def test_c4_owned_native_and_custom_adapter_cleanup(self):
+    def test_external_ownership_owned_native_and_custom_adapter_cleanup(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
             Config.set("graphics", "window_state", "hidden")

@@ -6,7 +6,7 @@ from tests.certification.native_acceptance_receipts import certify_c6
 from tests.certification.native_operation_contracts import native_operation_contracts
 
 @pytest.mark.parametrize("backend", ("qt", "tk", "kivy", "headless"))
-def test_c6_certification_is_complete_and_rejects_invalid_junit(backend, tmp_path):
+def test_native_acceptance_certification_is_complete_and_rejects_invalid_junit(backend, tmp_path):
     required = [c for c in native_operation_contracts()
                 if c.backend == backend and c.applicability == "required"]
     assert required
@@ -40,6 +40,6 @@ def test_c6_certification_is_complete_and_rejects_invalid_junit(backend, tmp_pat
     with pytest.raises(ValueError, match="missing/failed"):
         certify_c6(backend, path)
 
-def test_c6_unknown_backend_fails_closed(tmp_path):
+def test_native_acceptance_unknown_backend_fails_closed(tmp_path):
     with pytest.raises(ValueError, match="Unknown C6 backend"):
         certify_c6("unregistered", tmp_path / "not-created.xml")

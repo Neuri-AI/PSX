@@ -6,11 +6,11 @@ import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from .native_external_ownership_cases import C4_BY_BACKEND
+from .native_external_ownership_cases import EXTERNAL_OWNERSHIP_CASES_BY_BACKEND
 
 
 def certify_c4(backend: str, junit: str | Path) -> dict:
-    if backend not in C4_BY_BACKEND:
+    if backend not in EXTERNAL_OWNERSHIP_CASES_BY_BACKEND:
         raise ValueError(f"Unknown C4 backend: {backend!r}")
     root = ET.parse(junit).getroot()
     executions: dict[str, list[str]] = {}
@@ -24,7 +24,7 @@ def certify_c4(backend: str, junit: str | Path) -> dict:
         executions.setdefault(method, []).append(status)
     records = []
     gaps = []
-    for c in C4_BY_BACKEND[backend]:
+    for c in EXTERNAL_OWNERSHIP_CASES_BY_BACKEND[backend]:
         executions_for_method = executions.get(c.test_name, ())
         status = ("executed_pass" if executions_for_method
                   and all(s == "executed_pass" for s in executions_for_method)
@@ -41,7 +41,7 @@ def certify_c4(backend: str, junit: str | Path) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backend", choices=tuple(C4_BY_BACKEND), required=True)
+    parser.add_argument("--backend", choices=tuple(EXTERNAL_OWNERSHIP_CASES_BY_BACKEND), required=True)
     parser.add_argument("--junit", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()

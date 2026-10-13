@@ -17,7 +17,7 @@ from psx.sfle.native_component_matrix import (
     native_certification_matrix,
 )
 from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
-from tests.certification.native_external_ownership_cases import C4_BY_BACKEND
+from tests.certification.native_external_ownership_cases import EXTERNAL_OWNERSHIP_CASES_BY_BACKEND
 from tests.certification.native_operation_evidence import COMPONENT_OPERATION_TESTS, SUITES
 
 NATIVE_DRIVER = {
@@ -30,7 +30,7 @@ PORT_CASES = {"native_owned", "native_borrowed", "custom_adapter"}
 ROOT = Path(__file__).resolve().parent
 
 
-def test_c6_all_registry_backend_pairs_are_classified_without_phantom_ports():
+def test_native_acceptance_all_registry_backend_pairs_are_classified_without_phantom_ports():
     names = set(builtin_component_registry().snapshot())
     matrix = native_certification_matrix()
     assert len(matrix) == len(names) * len(BACKENDS)
@@ -57,7 +57,7 @@ def test_c6_all_registry_backend_pairs_are_classified_without_phantom_ports():
 
 
 @pytest.mark.parametrize("backend", BACKENDS)
-def test_c6_every_supported_native_component_has_real_geometry_driver(backend):
+def test_native_acceptance_every_supported_native_component_has_real_geometry_driver(backend):
     source = (ROOT / SUITES[backend]).read_text(encoding="utf-8")
     module = ast.parse(source)
     candidates = [node for node in ast.walk(module) if
@@ -80,8 +80,8 @@ def test_c6_every_supported_native_component_has_real_geometry_driver(backend):
 
 
 @pytest.mark.parametrize("backend", ("qt", "tk", "kivy"))
-def test_c6_external_native_ports_have_explicit_owned_borrowed_custom_contract(backend):
-    cases = C4_BY_BACKEND[backend]
+def test_native_acceptance_external_native_ports_have_explicit_owned_borrowed_custom_contract(backend):
+    cases = EXTERNAL_OWNERSHIP_CASES_BY_BACKEND[backend]
     assert PORT_CASES <= {case.variant for case in cases}
     assert len(cases) == len({case.variant for case in cases})
     for case in cases:
@@ -96,11 +96,11 @@ def test_c6_external_native_ports_have_explicit_owned_borrowed_custom_contract(b
 
 
 @pytest.mark.parametrize("backend", ("qt", "tk", "kivy"))
-def test_c6_native_leaf_and_custom_adapter_geometry_do_not_inherit_evidence(backend):
+def test_native_acceptance_native_leaf_and_custom_adapter_geometry_do_not_inherit_evidence(backend):
     native = {c.component for c in native_certification_matrix()
               if c.backend == backend and c.status == "native"}
     assert all((backend, component, "create") in COMPONENT_OPERATION_TESTS
                for component in native)
     assert not any((backend, "Native", operation) in COMPONENT_OPERATION_TESTS
                    for operation in ("create", "invalidation"))
-    assert "custom_adapter" in {case.variant for case in C4_BY_BACKEND[backend]}
+    assert "custom_adapter" in {case.variant for case in EXTERNAL_OWNERSHIP_CASES_BY_BACKEND[backend]}

@@ -196,7 +196,7 @@ jobs:
       - run: cargo test --manifest-path rust/sfle-core/Cargo.toml --all-targets
       - run: python -m pip install -e . pytest
       - name: Rust/Python capability and geometry agreement
-        run: python -m pytest -q tests/interop/test_sfle_f2_differential.py tests/interop/test_sfle_f2_point2_capability_parity.py tests/interop/test_sfle_f2_point5_deferral_boundaries.py
+        run: python -m pytest -q tests/interop/test_sfle_differential.py tests/interop/test_sfle_capability_parity.py tests/interop/test_sfle_deferral_boundaries.py
 
   chromium:
     name: Native layout browser geometry oracle
@@ -213,7 +213,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: python -m pip install -e . pytest playwright==1.63.0
       - run: python -m playwright install --with-deps chromium
-      - run: python -m pytest -q tests/browser/test_sfle_chromium.py tests/browser/test_sfle_f2_engine_chromium.py tests/browser/test_sfle_f2_headless_oracle.py tests/browser/test_sfle_f2_seeded_fuzz_red.py
+      - run: python -m pytest -q tests/browser/test_sfle_chromium.py tests/browser/test_sfle_engine_chromium.py tests/browser/test_sfle_headless_oracle.py tests/browser/test_sfle_seeded_fuzz_regression.py
 
   qt:
     name: Native layout Qt native components
@@ -430,7 +430,7 @@ jobs:
           python -m pip install --no-deps --find-links wheelhouse "psx-sfle-native==0.1.0"
           python -c "import _sfle_native as native; assert native.schema_version()==1"
       - name: Verify Rust/Python parity of installed wheel
-        run: python -m pytest -q tests/interop/test_sfle_f2_native_wheel.py
+        run: python -m pytest -q tests/interop/test_sfle_native_wheel.py
       - name: Uninstall wheel and prove load-time Python fallback
         run: |
           python -m pip uninstall -y psx-sfle-native

@@ -103,7 +103,7 @@ COMPONENT_OPERATION_TESTS = MappingProxyType({
 # enumerated native registry and asserts the requested operation on the actual
 # widget. The registry/AST/execution receipt checks prevent a missing component
 # or a skipped driver from masquerading as a pass.
-C3_COMPONENT_OPERATION_TESTS = MappingProxyType({
+NATIVE_LIFECYCLE_OPERATION_TESTS = MappingProxyType({
     ("qt", "Text", "update"): "test_registered_builtin_lifecycle_keeps_real_native_identity",
     ("qt", "Text", "reorder"): "test_registered_builtin_lifecycle_keeps_real_native_identity",
     ("qt", "Text", "unmount"): "test_registered_builtin_lifecycle_keeps_real_native_identity",
@@ -376,12 +376,12 @@ C3_COMPONENT_OPERATION_TESTS = MappingProxyType({
 })
 COMPONENT_OPERATION_TESTS = MappingProxyType({
     **COMPONENT_OPERATION_TESTS,
-    **C3_COMPONENT_OPERATION_TESTS,
+    **NATIVE_LIFECYCLE_OPERATION_TESTS,
 })
 
 # C5 native component invalidation evidence is exercised inside actual
 # per-component backend loops. JUnit receipts remain mandatory.
-C5_COMPONENT_OPERATION_TESTS = MappingProxyType({
+NATIVE_INVALIDATION_OPERATION_TESTS = MappingProxyType({
     ("qt", "Text", "invalidation"): "test_registered_builtin_lifecycle_keeps_real_native_identity",
     ("qt", "Button", "invalidation"): "test_registered_builtin_lifecycle_keeps_real_native_identity",
     ("qt", "Checkbox", "invalidation"): "test_registered_builtin_lifecycle_keeps_real_native_identity",
@@ -448,5 +448,5 @@ C5_COMPONENT_OPERATION_TESTS = MappingProxyType({
 })
 COMPONENT_OPERATION_TESTS = MappingProxyType({
     **COMPONENT_OPERATION_TESTS,
-    **C5_COMPONENT_OPERATION_TESTS,
+    **NATIVE_INVALIDATION_OPERATION_TESTS,
 })

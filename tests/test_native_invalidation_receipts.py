@@ -11,7 +11,7 @@ from tests.certification.native_invalidation_receipts import (
 
 
 @pytest.mark.parametrize("backend", tuple(COMPONENT_DRIVERS))
-def test_c5_receipt_matrix_requires_every_real_native_driver(backend, tmp_path):
+def test_native_invalidation_receipt_matrix_requires_every_real_native_driver(backend, tmp_path):
     expected = sorted({COMPONENT_DRIVERS[backend], REASON_DRIVERS[backend],
                        *ADDITIONAL_DRIVERS[backend]})
     xml = tmp_path / "junit.xml"

@@ -63,7 +63,7 @@ def test_failed_native_measurement_transaction_never_publishes_partial_cache():
     assert not cache.entries
 
 
-def test_c5_width_specific_measurements_cache_only_matching_width_and_props():
+def test_native_invalidation_width_specific_measurements_cache_only_matching_width_and_props():
     cache = NativeIntrinsicCache()
     widget = object()
     viewport = LayoutConstraints(AvailableSize(160, True), AvailableSize(90, True))
@@ -87,7 +87,7 @@ def test_c5_width_specific_measurements_cache_only_matching_width_and_props():
     assert calls == [80, 40, 40, 40]
 
 
-def test_c5_targeted_resource_change_remeasures_only_its_widget():
+def test_native_invalidation_targeted_resource_change_remeasures_only_its_widget():
     cache = NativeIntrinsicCache()
     constraints = LayoutConstraints(AvailableSize(120, True), AvailableSize(60, True))
     alpha, beta = object(), object()

@@ -116,7 +116,7 @@ def test_invalid_native_measurement_and_readback_are_rejected():
     assert error.value.code is DiagnosticCode.INVALID_SNAPSHOT
 
 
-def test_f2_native_geometry_projection_calls_external_port_only_for_its_node():
+def test_native_geometry_projection_calls_external_port_only_for_its_node():
     class Builtin:
         def __init__(self):
             self.geometry = None

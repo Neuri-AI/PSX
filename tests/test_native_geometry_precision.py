@@ -24,7 +24,7 @@ def box(x: float, y: float, width: float, height: float) -> BoxRect:
 
 @pytest.mark.parametrize("raw", (I32_MIN, I32_MIN + 1, -65, -64, -1,
                                   0, 1, 64, 65, I32_MAX - 1, I32_MAX))
-def test_c6_signed_fixed_point_raw_boundaries_roundtrip(raw):
+def test_native_acceptance_signed_fixed_point_raw_boundaries_roundtrip(raw):
     unit = LayoutUnit.from_raw(raw)
     assert unit.raw == raw
     assert LayoutUnit.from_nearest(unit.to_px()).raw == raw
@@ -34,12 +34,12 @@ def test_c6_signed_fixed_point_raw_boundaries_roundtrip(raw):
     (2**40, I32_MAX), (-2**40, I32_MIN),
     (I32_MAX / 64 + 1, I32_MAX), (I32_MIN / 64 - 1, I32_MIN),
 ))
-def test_c6_layoutunit_saturates_before_native_application(value, expected):
+def test_native_acceptance_layoutunit_saturates_before_native_application(value, expected):
     assert LayoutUnit.from_nearest(value).raw == expected
 
 
 @pytest.mark.parametrize("dpr", (1, 1.25, 1.5, 2, 2.5, 3))
-def test_c6_adjacent_edge_projection_has_zero_seam_error(dpr):
+def test_native_acceptance_adjacent_edge_projection_has_zero_seam_error(dpr):
     projection = DevicePixelSpace(dpr, "qt")
     for raw in (-131, -65, -32, -1, 0, 1, 32, 65, 131):
         boundary = LayoutUnit.from_raw(raw).to_px()
@@ -51,7 +51,7 @@ def test_c6_adjacent_edge_projection_has_zero_seam_error(dpr):
 
 @pytest.mark.parametrize("backend", (GeometryBackend.QT, GeometryBackend.TK,
                                       GeometryBackend.KIVY))
-def test_c6_nested_parent_relative_native_readback_with_negative_coordinates(backend):
+def test_native_acceptance_nested_parent_relative_native_readback_with_negative_coordinates(backend):
     class Native:
         def __init__(self):
             self.state = (0, 0, 0, 0)
@@ -105,6 +105,6 @@ def test_c6_nested_parent_relative_native_readback_with_negative_coordinates(bac
 
 
 @pytest.mark.parametrize("value", (float("nan"), float("inf"), -float("inf")))
-def test_c6_nonfinite_native_projection_fails_closed(value):
+def test_native_acceptance_nonfinite_native_projection_fails_closed(value):
     with pytest.raises(ValueError, match="Rect.x must be finite"):
         DevicePixelSpace(1.5, "qt").to_physical(Rect(value, 0, 10, 10))

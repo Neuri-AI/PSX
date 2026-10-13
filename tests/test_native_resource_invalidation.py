@@ -9,7 +9,7 @@ from psx.core.vnode import Image, Flex
 from psx.sfle.native_resource_watch import ImageResourceWatch, file_signature
 
 
-def test_c5_image_resource_revision_detected_without_vnode_or_handle_change(tmp_path):
+def test_native_invalidation_image_resource_revision_detected_without_vnode_or_handle_change(tmp_path):
     path = tmp_path / "resource.png"
     path.write_bytes(b"original")
     vnode = Image(str(path))
@@ -35,13 +35,13 @@ def test_c5_image_resource_revision_detected_without_vnode_or_handle_change(tmp_
     assert not watcher._tracked
 
 
-def test_c5_unsupported_resources_require_explicit_notification():
+def test_native_invalidation_unsupported_resources_require_explicit_notification():
     assert file_signature("https://example.com/sample.png") is None
     assert file_signature("qrc:/images/logo.png") is None
     assert file_signature("atlas://widgets/button") is None
 
 
-def test_c5_deleted_image_is_detected_and_recreation_retries(tmp_path):
+def test_native_invalidation_deleted_image_is_detected_and_recreation_retries(tmp_path):
     path = tmp_path / "resource.png"
     path.write_bytes(b"first")
     instance = SimpleNamespace(node=Image(str(path)), handle=object(),
@@ -61,7 +61,7 @@ def test_c5_deleted_image_is_detected_and_recreation_retries(tmp_path):
     assert watcher.changed() == ()
 
 
-def test_c5_failed_image_decode_is_retried_without_another_file_change(tmp_path):
+def test_native_invalidation_failed_image_decode_is_retried_without_another_file_change(tmp_path):
     path = tmp_path / "decode.png"
     path.write_bytes(b"version-1")
     instance = SimpleNamespace(node=Image(str(path)), handle=object(),

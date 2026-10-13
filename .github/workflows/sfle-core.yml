@@ -137,7 +137,7 @@ jobs:
       - name: Install PSX Python contract tests
         run: python -m pip install -e . pytest
       - name: Verify alpha corpus against both pure compute backends
-        run: python -m pytest -q tests/interop/test_sfle_f2_differential.py tests/interop/test_f2_a01_active_remeasure_red.py tests/interop/test_f2_a04_active_remeasure_red.py tests/interop/test_f2_a05_active_remeasure_red.py tests/interop/test_sfle_f2_negative_fuzz_red.py tests/interop/test_sfle_f2_unsupported_taxonomy.py tests/interop/test_sfle_f2_point2_capability_parity.py tests/interop/test_sfle_f2_point2_final_certification.py tests/interop/test_sfle_f2_point3_saturation_certification.py tests/interop/test_sfle_f2_point5_deferral_boundaries.py
+        run: python -m pytest -q tests/interop/test_sfle_differential.py tests/interop/test_width_constraint_active_remeasure_regression.py tests/interop/test_cross_leaf_active_remeasure_regression.py tests/interop/test_stale_intrinsic_active_remeasure_regression.py tests/interop/test_sfle_negative_fuzz_regression.py tests/interop/test_sfle_unsupported_taxonomy.py tests/interop/test_sfle_capability_parity.py tests/interop/test_sfle_final_certification.py tests/interop/test_sfle_saturation_certification.py tests/interop/test_sfle_deferral_boundaries.py
 
   native-wheel:
     needs: changes
@@ -170,7 +170,7 @@ jobs:
         run: |
           cd /tmp
           python -c "import _sfle_native as n; assert n.schema_version() == 1"
-          python -m pytest -q "$GITHUB_WORKSPACE/tests/interop/test_sfle_f2_native_wheel.py"
+          python -m pytest -q "$GITHUB_WORKSPACE/tests/interop/test_sfle_native_wheel.py"
 
   f2-migration-inventory:
     needs: changes
@@ -193,7 +193,7 @@ jobs:
           git -C /tmp/sfle-external-boilerplates/tkinter checkout --quiet --detach 2eb3ef8f93aa960137ee31da54c5e6d7e6d297f3
       - name: Count tracked PSX and all three pinned external boilerplates
         run: |
-          python scripts/audit_sfle_f2_migration.py \
+          python scripts/audit_sfle_migration.py \
             --external-root qt=/tmp/sfle-external-boilerplates/qt \
             --external-root kivy=/tmp/sfle-external-boilerplates/kivy \
             --external-root tkinter=/tmp/sfle-external-boilerplates/tkinter

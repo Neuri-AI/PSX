@@ -6,7 +6,7 @@ from tests.certification.component_family_policy import (
     FAMILY_POLICY, classify_component_family, family_inventory,
 )
 
-def test_c6_family_manifest_exactly_covers_live_registry():
+def test_native_acceptance_family_manifest_exactly_covers_live_registry():
     items = family_inventory()
     assert items
     assert len(items) == len(FAMILY_POLICY)
@@ -16,7 +16,7 @@ def test_c6_family_manifest_exactly_covers_live_registry():
     assert classify_component_family("Scroll").driver_type == "container_specific"
     assert classify_component_family("Native").driver_type == "explicit_special_case"
 
-def test_c6_new_component_never_inherits_existing_leaf_proof():
+def test_native_acceptance_new_component_never_inherits_existing_leaf_proof():
     with pytest.raises(ValueError, match="Unclassified"):
         classify_component_family("Modal")
     proposed = dict(FAMILY_POLICY, Modal="overlay_portal")
@@ -28,5 +28,5 @@ def test_c6_new_component_never_inherits_existing_leaf_proof():
     with pytest.raises(ValueError, match="Unclassified"):
         classify_component_family("Modal", policy={"Modal": "unknown"})
 
-def test_c6_no_existing_registered_overlay_can_bypass_dedicated_driver():
+def test_native_acceptance_no_existing_registered_overlay_can_bypass_dedicated_driver():
     assert all(x.family != "overlay_portal" for x in family_inventory())
