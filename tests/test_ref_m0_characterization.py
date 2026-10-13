@@ -22,7 +22,7 @@ def test_public_python_and_markup_paths_preserve_identity_events_keys_and_refs()
         count, set_count = use_state(0)
         button_ref = use_ref()
         return psx(
-            "<Flex direction="column" gap={gap}><Text key=\"label\">Count: {count}</Text>"
+            "<Flex direction='column' gap={gap}><Text key=\"label\">Count: {count}</Text>"
             "<Button key=\"increment\" ref={button_ref} on_click={increment}>+1</Button></Flex>",
             scope={
                 "gap": 8,
