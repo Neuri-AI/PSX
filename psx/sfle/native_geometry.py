@@ -99,7 +99,15 @@ class NativeGeometryCommitter:
             x = (LayoutUnit.from_nearest(border.x) - LayoutUnit.from_nearest(parent.x)).to_px()
             y = (LayoutUnit.from_nearest(border.y) - LayoutUnit.from_nearest(parent.y)).to_px()
             if self._backend == GeometryBackend.KIVY:
-                y = (LayoutUnit.from_nearest(parent.height) - LayoutUnit.from_nearest(y)
+                # A ScrollView renders its explicit Flex root in a separate
+                # content Widget whose extent is the child's SFLE border box.
+                # Its bottom-left projection must use that content extent,
+                # not the clipped viewport height.
+                parent_widget = self._widgets[parent_id]
+                parent_height = (border.height
+                                 if getattr(parent_widget, "_psx_sfle_scroll", False)
+                                 else parent.height)
+                y = (LayoutUnit.from_nearest(parent_height) - LayoutUnit.from_nearest(y)
                      - LayoutUnit.from_nearest(border.height)).to_px()
             placements.append((node_id, self._widgets[node_id], x, y, border.width, border.height))
         for node_id, widget, x, y, width, height in placements:
