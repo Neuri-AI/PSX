@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.f3_native_cache import NativeIntrinsicCache
+from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
 from psx.sfle.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox,
 )
