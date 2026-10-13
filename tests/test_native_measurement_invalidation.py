@@ -41,7 +41,7 @@ def test_native_invalidation_unknown_invalidation_kind_fails_closed(reason):
     assert not state.needs_commit()
 
 
-def test_every_supported_native_component_has_c5_invalidation_evidence():
+def test_every_supported_native_component_has_native_invalidation_invalidation_evidence():
     from psx.sfle.native_component_matrix import native_certification_matrix
     from psx.sfle.native_operation_contracts import native_operation_contracts
     native = [c for c in native_certification_matrix() if c.status == "native"]
