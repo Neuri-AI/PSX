@@ -144,7 +144,7 @@ def test_bad_engine_generation_does_not_commit_any_rectangles() -> None:
     reconciler.unmount()
 
 
-def test_absent_opt_in_is_still_fail_closed_for_g1_clients() -> None:
+def test_absent_opt_in_is_still_fail_closed_for_flex_clients() -> None:
     renderer = HeadlessRenderer()
     with pytest.raises(RendererCapabilityError, match="Native SFLE SFLE geometry"):
         Reconciler(renderer).render(Flex(width=100, height=40))
