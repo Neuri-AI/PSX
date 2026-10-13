@@ -190,3 +190,28 @@ def test_collector_rejects_foreign_or_double_claims(tmp_path):
     _junit(artifact, row)
     with pytest.raises(ValueError, match="Unknown source feature"):
         collect_executed_receipts((), (artifact,), sha=SHA, environment="linux")
+
+
+def test_shared_validation_is_not_multiplied_by_binding_count():
+    rows = inventory()
+    native = [row for row in rows if row.backend != CONTRACT]
+    shared = [row for row in rows if row.backend == CONTRACT]
+    assert shared and native
+    # Only native interactions/events require independent toolkit evidence.
+    for row in native:
+        assert not (row.feature_kind == "property" and row.feature_name.startswith("on_"))
+    from tests.certification.public_behavior_census import INTERACTIONS
+    for component, pairs in INTERACTIONS.items():
+        for a, b in pairs:
+            expected = f"{a}__{b}"
+            assert any(row.component == component and row.feature_kind == "interaction"
+                       and row.feature_name == expected for row in native)
+
+
+def test_unsupported_does_not_expand_to_fake_property_coverage():
+    rows = inventory()
+    headless = [row for row in rows if row.component == "Input"
+                and row.backend == "headless"]
+    assert len(headless) == 1
+    assert headless[0].applicability == "unported"
+    assert headless[0].scenario_id == "reject_unsupported"
