@@ -585,6 +585,16 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             # No scroll host claims a delta after all ancestors reach a bound.
             outer.scroll_y = 0.0
             assert inner._psx_scroll_delta(0, 48) == (0.0, 48.0)
+            outer.scroll_y = 1.0
+            from unittest.mock import patch
+            from kivy.uix.scrollview import ScrollView
+            # Native Kivy owns kinetic pan mechanics. Exercise PSX's edge
+            # residual around that operation without synthesizing a second
+            # native physics solver.
+            with patch.object(ScrollView, "on_scroll_move", return_value=True):
+                touch_move = SimpleNamespace(dx=0.0, dy=-30.0)
+                assert inner.on_scroll_move(touch_move) is True
+            assert abs(outer.scroll_y - (1 - 30 / 200)) < 1e-6
             outer_content.remove_widget(inner)
         """)
         environment = dict(os.environ)
