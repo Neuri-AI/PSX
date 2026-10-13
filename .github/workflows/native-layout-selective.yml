@@ -461,7 +461,7 @@ jobs:
   legacy:
     name: Native layout G4 no-Row-or-Column final API gate
     needs: changes
-    if: needs.changes.outputs.legacy == 'true'
+    if: needs.changes.outputs.docs_only == 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -502,6 +502,10 @@ jobs:
           if os.environ["CHANGE_RESULT"] != "success":
               sys.exit("Change router did not succeed; CI cannot be certified.")
           selected = {x for x in os.environ["SELECTED"].split(",") if x}
+          if selected:
+              # Retirement is universal: a backend-only change can reintroduce
+              # a forbidden native layout adapter, so G4 runs for ALL code.
+              selected.add("legacy")
           aliases = {"router": "selector-tests"}
           failures = []
           for suite in selected:
