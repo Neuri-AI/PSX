@@ -181,9 +181,45 @@ def validate_receipts(rows: tuple[Feature, ...], receipts: list[dict], *,
             "complete": counts["pending"] == 0 and counts["failed"] == 0}
 
 
+
+def collect_executed_receipts(rows: tuple[Feature, ...], artifacts: tuple[Path, ...],
+                              *, sha: str, environment: str) -> list[dict]:
+    """Import only directly asserted features from successful real JUnit runs.
+
+    No implicit attribution from test names, components or inherited adapters.
+    A testcase claiming an unknown feature is an error, never ignored.
+    """
+    expected = {feature_key(row): row for row in rows}
+    observed: list[dict] = []
+    for artifact in artifacts:
+        cases = _executed_receipts(artifact)
+        for test_id, case in cases.items():
+            features = case["features"]
+            if len(features) != len(set(features)):
+                raise ValueError(f"Duplicate assertions in {test_id}")
+            for key in features:
+                row = expected.get(key)
+                if row is None:
+                    raise ValueError(f"Unknown source feature assertion: {key}")
+                if not case["passed"]:
+                    # Never promote a failed or skipped testcase to green.
+                    status = "failed"
+                else:
+                    status = "executed_pass"
+                observed.append({
+                    **dict(zip(KEY_FIELDS, key)), "status": status,
+                    "sha": sha, "test_id": test_id,
+                    "junit_artifact": str(artifact), "environment": environment,
+                })
+    return observed
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--junit", type=Path, action="append", default=[])
+    parser.add_argument("--sha")
+    parser.add_argument("--environment")
     args = parser.parse_args()
     rows = inventory()
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -191,8 +227,19 @@ def main() -> None:
                                    indent=2) + "\n", encoding="utf-8")
     from collections import Counter
     counts = Counter(row.backend for row in rows)
-    print(json.dumps({"public_behavior_rows": len(rows), "pending": len(rows),
-                      "by_backend": dict(sorted(counts.items()))}))
+    if args.junit:
+        if not args.sha or not args.environment:
+            parser.error("--junit requires --sha and --environment")
+        receipts = collect_executed_receipts(
+            rows, tuple(args.junit), sha=args.sha, environment=args.environment)
+        report = validate_receipts(rows, receipts, sha=args.sha)
+        report_path = args.out.with_name(args.out.stem + "-receipts.json")
+        report_path.write_text(json.dumps({"summary": report, "receipts": receipts},
+                                          indent=2) + "\\n", encoding="utf-8")
+        print(json.dumps(report, sort_keys=True))
+    else:
+        print(json.dumps({"public_behavior_rows": len(rows), "pending": len(rows),
+                          "by_backend": dict(sorted(counts.items()))}))
 
 
 if __name__ == "__main__":
