@@ -134,7 +134,7 @@ not a catch-all for unimplemented CSS features.
 
 **Base:** `develop` at `979b6ed9e86c63b640d498439045910ed1a189aa`.
 **Feature branch:** [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
-**CURRENT STATE (2026-10-12): G1 CLOSED; G2 CLOSED (C1–C6 CLOSED; C6 4/4 iterations). F3: 2/5 official gates CLOSED (40%); G3, G4 and G5 remain OPEN.** The historical checkpoints are preserved in the [F3 Implementation Plan](architecture/sfle-f3-implementation.md); its final C6 section is authoritative for detailed G2 closure.
+**CURRENT STATE (2026-10-12): G1, G2 and G3 CLOSED (G3 C1–C6 certified). F3: 3/5 official gates CLOSED (60%); G4 IN PROGRESS, G5 OPEN.** The historical checkpoints are preserved in the [F3 Implementation Plan](architecture/sfle-f3-implementation.md); its final C6 section is authoritative for detailed G2 closure.
 
 **Formal G2 certificate:** [tested code SHA `700f1b3`](https://github.com/Neuri-AI/PSX/commit/700f1b3af3334b99f39fcf30a053d2a65838fc17); [full required F3 CI #38335949031 SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38335949031) plus three companion workflows GREEN on that SHA. Native JUnit operation receipts: **409 required executed PASS**, **359 reviewed N/A**, **0 pending**, across Qt (all four bindings, normal and 1.5 DPI), Tkinter, Kivy and Headless. Seven native receipt artifacts archived; C4 external ownership and C5 resource/invalidation contracts remain separately verified. C6-1 numerical geometry, C6-2 registry/native/custom integration, C6-3 fail-closed JUnit operation receipts and C6-4 final code/documentation signoff are all CLOSED. Logical Chromium tolerance is ≤0.01 px with equivalent intrinsic inputs; Qt's native readback bound is in device-independent coordinates and must not be misreported as ≤1 physical framebuffer pixel at high DPR. G3 owns full Scroll; G4 removes legacy Row/Column; G5 audits end-to-end public props/events. **Next: F3-G3.**
 
@@ -170,7 +170,7 @@ becomes F3 work.
 
 ## SFLE — official phase status (2026-10-11)
 
-**F1 CLOSED · F2 CLOSED · F3 IN PROGRESS (G1 and G2 CLOSED, 2/5 gates CLOSED = 40%; G3–G5 OPEN).**
+**F1 CLOSED · F2 CLOSED · F3 IN PROGRESS (G1, G2, G3 CLOSED; 3/5 gates CLOSED = 60%; G4 IN PROGRESS, G5 OPEN).**
 
 - [Formal F2 final exit certificate](architecture/sfle-f2-final-certification.md)
 - [F2 current implementation and normative exit ledger](architecture/sfle-f2-implementation.md)
