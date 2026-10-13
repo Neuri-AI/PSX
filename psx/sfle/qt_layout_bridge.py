@@ -274,10 +274,8 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                         parent_rect = dict(result.boxes)[node.parent_id].border
                         child_rect = dict(result.boxes)[node.node_id].border
                         binding = binding_from_host(parent._psx_props, parent_rect, child_rect)
-                        current = ScrollOffset(
-                            float(parent.horizontalScrollBar().value()),
-                            float(parent.verticalScrollBar().value()),
-                        )
+                        from psx.sfle.native_scroll_transaction import prior_scroll_offset
+                        current = prior_scroll_offset(scroll_before, parent)
                         apply_qt_scroll(parent, binding, current)
             # A labeled Divider paints two line segments around its child's
             # *committed* native rectangle, never a speculative sizeHint.
