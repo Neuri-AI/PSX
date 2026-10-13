@@ -57,8 +57,25 @@ GitHub Actions core suite also archives the JUnit and census artifacts.
    and exact JUnit properties; add reviewed exclusions where appropriate.
 2. Cover meaningful interactions, real events, callback rebinding, focus,
    lifecycle, rollback, resource/DPI invalidation and concurrent commits.
-3. Add a full-mode receipt aggregation across the operating system/toolkit
-   matrix; require zero pending, failed or unreviewed applicable rows.
+3. Feed all per-platform receipt manifests into the implemented immutable-SHA
+   aggregator; require zero pending, failed or unreviewed applicable rows.
+   The aggregator reopens the original JUnit testcase properties rather than
+   trusting JSON manifests alone. Example after downloading artifacts:
+
+   ```bash
+   python -m tests.certification.public_behavior_census \\
+     --out public-behavior-final-inventory.json \\
+     --sha "$(git rev-parse HEAD)" \\
+     --receipt-file artifacts/qt/public-behavior-inventory-receipts.json \\
+     --receipt-file artifacts/tk/public-behavior-inventory-receipts.json \\
+     --receipt-file artifacts/kivy/public-behavior-inventory-receipts.json \\
+     --receipt-file artifacts/headless/public-behavior-inventory-receipts.json \\
+     --require-complete
+   ```
+
+   Every downloaded receipt manifest must sit next to its original JUnit
+   file and refer to the same source revision; a missing, failing or skipped
+   feature assertion keeps the final gate RED.
 4. Run Chromium comparisons, Rust/Python equivalence, frozen/wheel packaging,
    native integration, Scroll and G4 retirement on **the same immutable SHA**.
 
