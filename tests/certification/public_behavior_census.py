@@ -83,7 +83,7 @@ def inventory() -> tuple[Feature, ...]:
             status = native[(family, component)]
             if status == "unported":
                 rows.append(Feature(component, backend, "capability", "native_host",
-                                    "reject_unsupported", applicability=status))
+                                    "classification_review", applicability=status))
                 continue
             if status == "external_port_required":
                 rows.append(Feature(component, backend, "capability", "external_port",
