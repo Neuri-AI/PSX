@@ -152,3 +152,41 @@ def test_assert_feature_records_only_after_successful_assertion():
     assert not Request.node.user_properties
     assert_feature(Request(), row, True)
     assert Request.node.user_properties[0][0] == RECEIPT_PROPERTY
+
+
+def test_collector_imports_only_assertion_bound_success(tmp_path):
+    from tests.certification.public_behavior_census import collect_executed_receipts
+    row = Feature("Button", "pyside6", "event", "on_click", "native_dispatch")
+    artifact = tmp_path / "native.xml"
+    _junit(artifact, row)
+    claims = collect_executed_receipts((row,), (artifact,), sha=SHA,
+                                       environment="linux-pyside6")
+    assert len(claims) == 1
+    assert validate_receipts((row,), claims, sha=SHA)["complete"]
+    _junit(artifact, row, state="failure")
+    failed = collect_executed_receipts((row,), (artifact,), sha=SHA,
+                                       environment="linux-pyside6")
+    assert failed[0]["status"] == "failed"
+    assert not validate_receipts((row,), failed, sha=SHA)["complete"]
+
+
+def test_collector_does_not_assign_unmarked_general_tests(tmp_path):
+    from tests.certification.public_behavior_census import collect_executed_receipts
+    row = Feature("Button", "pyside6", "event", "on_click", "native_dispatch")
+    artifact = tmp_path / "unmarked.xml"
+    _junit(artifact, row, asserted=False)
+    assert collect_executed_receipts((row,), (artifact,), sha=SHA,
+                                    environment="linux-pyside6") == []
+
+
+def test_collector_rejects_foreign_or_double_claims(tmp_path):
+    from tests.certification.public_behavior_census import collect_executed_receipts
+    row = Feature("Button", "pyside6", "event", "on_click", "native_dispatch")
+    artifact = tmp_path / "invalid.xml"
+    _junit(artifact, row, duplicate=True)
+    with pytest.raises(ValueError, match="Duplicate assertions"):
+        collect_executed_receipts((row,), (artifact,), sha=SHA,
+                                  environment="linux")
+    _junit(artifact, row)
+    with pytest.raises(ValueError, match="Unknown source feature"):
+        collect_executed_receipts((), (artifact,), sha=SHA, environment="linux")
