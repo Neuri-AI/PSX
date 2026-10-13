@@ -53,19 +53,18 @@ def test_divider_mounts_updates_and_unmounts() -> None:
     )
     reconciler = Reconciler(renderer)
     root = reconciler.render(
-        Flex(Divider(key="d"), Divider("Etiqueta", key="d2"), direction="column")
+        Flex(Divider(key="d"), Divider(key="d2"), direction="column")
     )
     column_handle = root.handle
     assert [h.type for h in column_handle.children] == ["Divider", "Divider"]
     second_divider = column_handle.children[1]
-    assert len(second_divider.children) == 1
-    assert second_divider.children[0].type == "Text"
+    assert second_divider.children == []
 
     first_handle = column_handle.children[0]
     reconciler.render(
         Flex(
             Divider(thickness=2, color="#336699", key="d"),
-            Divider("Otra", key="d2"), direction="column",
+            Divider(key="d2"), direction="column",
         )
     )
     assert column_handle.children[0] is first_handle
@@ -74,3 +73,14 @@ def test_divider_mounts_updates_and_unmounts() -> None:
 
     reconciler.unmount()
     assert all(h.destroyed for h in column_handle.children)
+
+
+def test_labelled_divider_retains_text_child_without_native_container():
+    renderer = HeadlessRenderer()
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Divider("Etiqueta"))
+    assert len(root.children) == 1
+    assert root.children[0].handle.type == "Text"
+    reconciler.render(Divider("Otra"))
+    assert root.children[0].handle.props["value"] == "Otra"
+    reconciler.unmount()
