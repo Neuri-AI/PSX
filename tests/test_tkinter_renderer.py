@@ -49,6 +49,7 @@ class TkinterRendererTests(unittest.TestCase):
                 AvailableSize(640, True), AvailableSize(480, True)),
             engine=PythonLayoutEngine(),
         )
+        self.renderer = native
         self.reconciler = Reconciler(native)
         self.addCleanup(self.reconciler.unmount)
         self.addCleanup(native.close)
