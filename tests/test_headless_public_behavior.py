@@ -53,12 +53,14 @@ def test_admitted_headless_control_reconciliation(headless_tree, request,
     assert renderer.sfle_result.geometry_commit_error == 0
 
 
-def test_unported_headless_input_fails_closed(headless_tree, request):
+def test_unported_headless_input_is_not_equivalent_to_native_certification(headless_tree):
     from psx import Input
-    from psx.core.errors import RendererCapabilityError
 
     _, tree = headless_tree
-    with pytest.raises(RendererCapabilityError):
-        tree.render(Flex(Input(value="cannot-mount", key="input"),
-                         width="400px", height="120px"))
-    # A reviewed unsupported result is not a native executed_pass receipt.
+    root = tree.render(Flex(
+        Input(value="virtual", key="input", layout_width="100px",
+              layout_height="24px", flex_basis="100px", flex_shrink=0),
+        width="400px", height="120px"))
+    assert root.children[0].handle.props["value"] == "virtual"
+    # G2's unported classification does not imply creation rejection:
+    # Headless can store a virtual handle without certifying native ports.
