@@ -136,6 +136,7 @@ class QtSFLEGeometryTests(unittest.TestCase):
         scroll.horizontalScrollBar().setValue(70)
         scroll.verticalScrollBar().setValue(40)
         button.setFocus()
+        initial_focus = QApplication.focusWidget()
         self.renderer.commit_layout(root)
         self.assertEqual((scroll.horizontalScrollBar().value(),
                           scroll.verticalScrollBar().value()), (70, 40))
