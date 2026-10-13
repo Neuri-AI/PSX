@@ -1663,3 +1663,64 @@ outside this C5 certificate.
 verified implementation, tests, documentation, JUnit evidence and completed
 required GitHub Actions. **Next: F3-G2-C6**, without reopening C5 absent a
 new regression or a changed contract.
+
+
+## F3-G2-C6 — final numerical geometry and integration certification (IN PROGRESS)
+
+### C6 iteration 1/4 — signed precision, physical projection and native coordinates (CLOSED, 2026-10-12)
+
+**Certified code SHA:** [`cb69e2fadb9b28741a30256d1ddafcfed33ba80e`](https://github.com/Neuri-AI/PSX/commit/cb69e2fadb9b28741a30256d1ddafcfed33ba80e).
+**Full required test matrix:** [F3 selective #38333768220 — completed SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38333768220).
+The independent G1 contract, runtime package boundaries and commit-subject
+workflows also completed SUCCESS at the same code SHA.
+
+**Numerical audit:**
+
+- `LayoutUnit` remains a **signed saturating 32-bit** fixed-point value
+  at 1/64 logical CSS px; boundary raw values and signed overflow
+  saturations were retested rather than changing the certified F2 math.
+- Device-pixel projection snaps absolute edges, never independently rounds
+  sibling widths; tests cover negative/fractional coordinates and DPR
+  `1, 1.25, 1.5, 2, 2.5, 3`. Shared-edge continuity is exact after
+  snapping, including signed negative LayoutUnits.
+- Native parent-relative transforms are tested on a three-level tree,
+  including a child to the *left* of its parent and the real Kivy
+  bottom-left inversion. The native root/window rectangle must remain
+  host-owned; this test exercises all three native commit algorithms
+  independently of toolkit event loops.
+- `Rect` rejects nonfinite `x/y/width/height` at construction
+  (`ValueError`), **before** device projection. The initial C6 RED
+  run showed a newly added test incorrectly expecting the downstream
+  `SFLEError` instead. The corrected assertion was executed GREEN on
+  the code SHA above; no production validation was weakened.
+- Chromium logical-layout oracle and Rust/Python differential continue to
+  run in the mandatory suite. The approved engine comparison limit
+  remains **0.01 logical CSS px** on equivalent inputs. No new
+  off-spec CSS feature or mathematical incremental solver is claimed.
+- **Unit caveat:** Qt `QWidget.geometry` reports integer *device-independent
+  Qt units*, which are not physical framebuffer pixels. The existing
+  `DevicePixelSpace.allowed_physical_error = ceil(DPR)` is a translated
+  tolerance for *one QWidget integer unit* and must **not** be described
+  as a verified maximum of one *physical* pixel at DPR > 1.
+  Kivy/Tk native geometry APIs use their respective window units and
+  are not secondarily scaled. A true framebuffer-pixel acceptance
+  contract would require framebuffer readback and belongs to the
+  separate visual/OS certification scope; this increment certifies the
+  published native geometry readback contract without fabricating it.
+
+**Executed tests:** newly added
+`tests/test_f3_g2_c6_precision.py` exercises signed numeric boundaries,
+fixed-point saturation, DPR edge seams, native parent graph transforms
+and nonfinite preflight. The intelligent F3 workflow now includes it in
+the required core job, alongside existing `test_f3_g2_native_pixel_scale`,
+SFLE geometry contracts, Rust/Python differential and Chromium oracle.
+The full required workflow covered Headless, native Qt bindings,
+Tkinter, Kivy and Windows/macOS native wheels; its aggregate was SUCCESS.
+
+**C6 handoff:** iteration 1/4 CLOSED. Iteration 2/4 remains responsible
+for exhaustive supported/unsupported component/backend integration and
+mixed/nested/native/custom ports. Iteration 3/4 must enforce a fail-closed
+G2 precision/lifecycle evidence matrix with executed receipts. Iteration
+4/4 consolidates G2 release documentation, removes conflicting historical
+status summaries from the active header, and signs off the exact final
+SHA. **C6 and G2 remain OPEN until all four iterations finish.**
