@@ -8,12 +8,14 @@ from dataclasses import dataclass
 from psx import App, component
 from psx.core.errors import PSXError, RendererCapabilityError
 from psx.core.hooks import provide_context, use_context
-from psx.core.vnode import Box, VNode
+from psx.core.vnode import Box, Flex, VNode
 
 try:  # Optional integration: importing PSX core never requires Qyro.
     from qyro.ui.component import Component as _QyroComponent
 except ImportError:  # pragma: no cover - exercised by installations without Qyro
     _QyroComponent = object  # type: ignore[assignment,misc]
+
+from psx.sfle.model import AvailableSize, LayoutConstraints
 
 _QYRO_CONTEXT = object()
 _QYRO_CONTAINER = object()
@@ -284,6 +286,41 @@ class PSXComponent(_QyroComponent):
             print(f"[PSX Dev] DISABLED: {exc}")
 
 
+def _qt_renderer_with_sfle(
+    host: object,
+    binding: str,
+) -> object:
+    """Create a Qt renderer using the borrowed host's logical viewport."""
+    from psx.renderers.qt.pyqt import QtRenderer
+
+    actual_binding = _qt_binding_for(host)
+
+    if actual_binding is None:
+        raise RendererCapabilityError(
+            "SFLE Qt integration requires a native Qt host."
+        )
+
+    if binding.lower() != actual_binding.lower():
+        raise RendererCapabilityError(
+            f"Qyro host uses {actual_binding}, "
+            f"but renderer configuration requests {binding}."
+        )
+
+    contents_rect = host.contentsRect()
+    width = max(1, contents_rect.width())
+    height = max(1, contents_rect.height())
+
+    constraints = LayoutConstraints(
+        AvailableSize(width, True),
+        AvailableSize(height, True),
+    )
+
+    return QtRenderer(
+        binding=actual_binding,
+        sfle_constraints=constraints,
+    )
+
+
 def mount_psx(
     host: object,
     child: VNode,
@@ -301,6 +338,23 @@ def mount_psx(
     """
     if renderer is None and context is not None:
         renderer = _renderer_from_context(context)
+
+    qt_binding = _qt_binding_for(host)
+
+    if qt_binding is not None and renderer is None:
+        renderer = qt_binding
+
+    if (
+        qt_binding is not None
+        and isinstance(renderer, str)
+        and renderer.lower() in {
+            "pyside6",
+            "pyside2",
+            "pyqt6",
+            "pyqt5",
+        }
+    ):
+        renderer = _qt_renderer_with_sfle(host, renderer)
     # Qyro already owns the Tk root.  Creating a second ``tk.Tk`` here would
     # produce an empty Qyro window plus a separate PSX window, and gives each
     # one an independent event-loop lifecycle.  Supply the borrowed host to
@@ -310,7 +364,20 @@ def mount_psx(
 
         renderer = TkinterRenderer(root=host)
 
-    inner = Box(child)
+    sfle_enabled = (
+        getattr(renderer, "_sfle_constraints", None) is not None
+    )
+
+    if sfle_enabled:
+        inner = Flex(
+            child,
+            direction="column",
+            width="100%",
+            height="100%",
+        )
+    else:
+        inner = Box(child)
+
     node = (
         QyroProvider(inner, context=context, container=container)
         if context is not None or container is not None

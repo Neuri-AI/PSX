@@ -22,7 +22,7 @@ from time import perf_counter
 import tracemalloc
 from typing import Any
 
-from psx import Button, Flex, Text, builtin_component_registry, component, psx, use_state
+from psx import Button, Flex, Text, builtin_component_registry, component, use_state
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
 
@@ -149,8 +149,13 @@ def _vnode_build(size: int, *, single_update: bool = False, noop: bool = False) 
     return action, lambda: size + 1
 
 
-def _update_tree(size: int, *, single_update: bool = False, noop: bool = False) -> tuple[Callable[[], None], Callable[[], int]]:
-    renderer = HeadlessRenderer()
+def _update_tree(
+    size: int,
+    *,
+    single_update: bool = False,
+    noop: bool = False,
+) -> tuple[Callable[[], None], Callable[[], int]]:
+    renderer = _native_headless_renderer()
     reconciler = Reconciler(renderer)
     reconciler.render(_tree(size, single_update=single_update))
     renderer.operations.clear()
@@ -160,20 +165,35 @@ def _update_tree(size: int, *, single_update: bool = False, noop: bool = False) 
         nonlocal tick
         renderer.operations.clear()
         tick += 0 if noop else 1
-        reconciler.render(_tree(size, tick, single_update=single_update))
+        reconciler.render(
+            _tree(size, tick, single_update=single_update)
+        )
 
     return action, lambda: len(renderer.operations)
 
 
 def _reconcile_prebuilt(
-    size: int, *, single_update: bool = False, noop: bool = False, iterations: int
+    size: int,
+    *,
+    single_update: bool = False,
+    noop: bool = False,
+    iterations: int,
 ) -> tuple[Callable[[], None], Callable[[], int]]:
-    """Measure reconciliation only; VNodes are deliberately built before timing."""
-    renderer = HeadlessRenderer()
+    """Measure reconciliation with VNodes built before timing."""
+    renderer = _native_headless_renderer()
     reconciler = Reconciler(renderer)
-    # No-op reconciliation still receives an equivalent *new* VNode tree.
-    values = [0 for _ in range(iterations + 1)] if noop else list(range(iterations + 1))
-    nodes = [_tree(size, value, single_update=single_update) for value in values]
+
+    values = (
+        [0 for _ in range(iterations + 1)]
+        if noop
+        else list(range(iterations + 1))
+    )
+
+    nodes = [
+        _tree(size, value, single_update=single_update)
+        for value in values
+    ]
+
     reconciler.render(nodes[0])
     renderer.operations.clear()
     index = 0

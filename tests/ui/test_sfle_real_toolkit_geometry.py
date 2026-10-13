@@ -15,7 +15,7 @@ import pytest
 
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/"tests"/"sfle"))
-from test_f2_acceptance_contract_red import case_snapshot  # noqa: E402
+from test_acceptance_contract_regression import case_snapshot  # noqa: E402
 
 from psx.sfle.engine import PythonLayoutEngine  # noqa: E402
 from psx.sfle.native_geometry import NativeGeometryCommitter, GeometryBackend  # noqa: E402
