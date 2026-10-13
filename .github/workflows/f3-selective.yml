@@ -381,7 +381,8 @@ jobs:
           cache: pip
       - run: python -m pip install -e . pytest
       - run: python -m pytest -q tests/test_core.py tests/test_renderer_adapters.py tests/test_f3_g2_headless.py --junitxml=g2-headless.xml
-      - run: python -m psx.sfle.f3_g2_receipts --backend headless --junit g2-headless.xml --out g2-headless-certification.json
+      - run: |
+          python -m psx.sfle.f3_g2_receipts --backend headless --junit g2-headless.xml --out g2-headless-certification.json
           python -m tests.certification.f3_g2_c5_receipts --backend headless --junit g2-headless.xml --out g2-headless-c5.json
       - uses: actions/upload-artifact@v4
         with:
