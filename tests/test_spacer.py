@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from psx import Column, Row, Spacer, Text, psx
+from psx import Flex, Spacer, Text, psx
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
