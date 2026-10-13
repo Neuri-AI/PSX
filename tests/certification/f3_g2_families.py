@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 from psx.core.registry import builtin_component_registry
-from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
 
 FAMILIES = frozenset({
     "leaf", "layout_container", "structural_container",
@@ -28,7 +28,7 @@ _SPECIAL = {
     "Row": "legacy",
     "Column": "legacy",
 }
-_LEAVES = frozenset.union(*(frozenset(types) for types in G2_LEAF_TYPES.values())) - set(_SPECIAL)
+_LEAVES = frozenset.union(*(frozenset(types) for types in NATIVE_LEAF_TYPES.values())) - set(_SPECIAL)
 FAMILY_POLICY = MappingProxyType({
     **{name: "leaf" for name in _LEAVES},
     **_SPECIAL,
