@@ -72,7 +72,7 @@ def _classify_path(path: str) -> set[str]:
             return {"sfle", "headless"}
         if name in ("f3_snapshot.py", "f3_external.py"):
             return {"core", "headless", "qt", "kivy", "tkinter"}
-        if name in ("f3_width_remeasurement.py", "f3_native_coverage.py",
+        if name in ("f3_width_remeasurement.py", "native_component_capabilities.py",
                     "native_pixel_space.py"):
             return {"core", "qt", "kivy", "tkinter"}
         if name in ("adapter_contract.py", "worker_lifecycle.py", "native_geometry.py",
