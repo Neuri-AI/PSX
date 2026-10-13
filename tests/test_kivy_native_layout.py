@@ -1419,8 +1419,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert not registry.contains("Row")
             assert not registry.contains("Column")
             backend, tree = create()
-            assert "Row" not in backend.adapters
-            assert "Column" not in backend.adapters
+            assert backend.adapters.get("Row") is None
+            assert backend.adapters.get("Column") is None
             tree.unmount()
 
             # Stale engine identity: fail before native geometry mutation.
