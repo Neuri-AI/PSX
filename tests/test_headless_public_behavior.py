@@ -51,3 +51,16 @@ def test_admitted_headless_control_reconciliation(headless_tree, request,
                                     "native_readback", applicability="native"),
                    handle.props[prop] == after)
     assert renderer.sfle_result.geometry_commit_error == 0
+
+
+def test_unported_headless_input_fails_closed(headless_tree, request):
+    from psx import Input
+    from psx.core.errors import RendererCapabilityError
+
+    _, tree = headless_tree
+    with pytest.raises(RendererCapabilityError):
+        tree.render(Flex(Input(value="cannot-mount", key="input"),
+                         width="400px", height="120px"))
+    assert_feature(request, Feature("Input", "headless", "capability",
+                                    "native_host", "reject_unsupported",
+                                    applicability="unported"), True)
