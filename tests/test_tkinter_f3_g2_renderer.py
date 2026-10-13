@@ -943,13 +943,15 @@ class TkSFLEGeometryTests(unittest.TestCase):
                     ORACLES["update"](before_observation, after_observation)
                     ORACLES["reorder"](before_observation, after_observation)
                     # C5: validate invalidation for every native family.
-                    previous_generation = self.renderer.sfle_result.generation
-                    self.renderer.request_sfle_invalidation("font")
-                    self.renderer.flush()
-                    self.assertGreater(self.renderer.sfle_result.generation,
-                                       previous_generation, name)
-                    self.assertIs(current.handle.widget, widget, name)
-                    self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
+                    for reason in ("content", "font", "theme", "resource", "dpi", "viewport"):
+                        with self.subTest(component=name, reason=reason):
+                            previous_generation = self.renderer.sfle_result.generation
+                            self.renderer.request_sfle_invalidation(reason)
+                            self.renderer.flush()
+                            self.assertGreater(self.renderer.sfle_result.generation,
+                                               previous_generation, (name, reason))
+                            self.assertIs(current.handle.widget, widget, (name, reason))
+                            self.assertFalse(self.renderer._sfle_measurement_invalidations.pending)
                     if name == "Image":
                         import os
                         original_stamp = image_path.stat().st_mtime_ns
