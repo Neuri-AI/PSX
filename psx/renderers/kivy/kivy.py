@@ -358,8 +358,6 @@ class KivyRenderer:
         # "Input" stays reserved (unsupported in Kivy) so custom adapters still need replace=True.
         for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Flex", "Input", "Native")):
             self.adapters.register(component, self._default_adapter)
-        from .column import KivyColumnAdapter
-        from .row import KivyRowAdapter
         from .divider import KivyDividerAdapter
         from .image import KivyImageAdapter
         from .switch import KivySwitchAdapter
@@ -372,8 +370,6 @@ class KivyRenderer:
         from .radio import KivyRadioAdapter, KivyRadioGroupAdapter
 
         self.adapters.register("Divider", KivyDividerAdapter())
-        self.adapters.register("Column", KivyColumnAdapter())
-        self.adapters.register("Row", KivyRowAdapter())
         self.adapters.register("Image", KivyImageAdapter())
         self.adapters.register("Switch", KivySwitchAdapter())
         self.adapters.register("Link", KivyLinkAdapter())
