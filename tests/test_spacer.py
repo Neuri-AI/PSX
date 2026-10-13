@@ -16,7 +16,7 @@ def test_spacer_has_no_portable_props() -> None:
 
 
 def test_spacer_is_a_builtin_markup_tag() -> None:
-    node = psx("<Row><Text>A</Text><Spacer /><Text>B</Text></Row>")
+    node = psx('<Flex direction="row"><Text>A</Text><Spacer /><Text>B</Text></Flex>')
     assert node.children[1].type == "Spacer"
 
 
