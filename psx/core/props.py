@@ -55,22 +55,6 @@ FLEX_PROPS = frozenset({
     "layout_min_width", "layout_min_height", "layout_max_width", "layout_max_height",
 }) | FLEX_ITEM_PROPS
 
-COLUMN_PROPS = frozenset({
-    "spacing",
-    "padding",
-    "align",
-    "expand",
-    "enabled"
-})
-
-ROW_PROPS = frozenset({
-    "spacing",
-    "padding",
-    "align",
-    "expand",
-    "enabled"
-})
-
 SLIDER_PROPS = frozenset({
     "value",
     "min",
