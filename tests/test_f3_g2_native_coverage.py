@@ -123,7 +123,7 @@ def test_switch_spinbox_select_have_native_measurement_ports(backend):
 
 
 def test_backend_unknown_is_a_configuration_error():
-    with pytest.raises(ValueError, match="Unknown F3-G2 backend"):
+    with pytest.raises(ValueError, match="Unknown native SFLE backend"):
         native_leaf_needs_measurement(Checkbox(), backend="unknown")
 
 
