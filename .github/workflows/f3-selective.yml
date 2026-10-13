@@ -39,6 +39,16 @@ jobs:
       selected: "${{ steps.select.outputs.selected }}"
     steps:
       - uses: actions/checkout@v4
+      - name: Audit source tree for atomic naming migration
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = context.payload.pull_request?.head?.sha || context.sha;
+            const info = await github.rest.git.getCommit({
+              owner: context.repo.owner, repo: context.repo.repo,
+              commit_sha: sha,
+            });
+            core.info('SOURCE_TREE_SHA_FOR_MIGRATION=' + info.data.tree.sha);
       - name: Read complete changed paths (including rename sources)
         uses: actions/github-script@v7
         with:
