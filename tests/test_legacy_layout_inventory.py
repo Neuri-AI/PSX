@@ -53,3 +53,10 @@ validate_row_props(options)
     assert {ref.symbol for ref in refs} == {
         "ROW_CONTRACT", "QtColumnAdapter", "validate_row_props",
     }
+
+
+def test_legacy_layout_inventory_detects_import_only_no_builder_call():
+    refs = references("tests/old_adapter.py", "from psx import Row, Column\n")
+    assert {(item.symbol, item.usage) for item in refs} == {
+        ("Row", "import"), ("Column", "import"),
+    }
