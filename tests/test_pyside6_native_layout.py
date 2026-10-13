@@ -117,6 +117,35 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(inner.verticalScrollBar().value(),
                          inner.verticalScrollBar().maximum())
 
+    def test_scroll_reflow_preserves_native_offset_focus_and_widget_identity(self):
+        from psx import Scroll
+        from PySide6.QtWidgets import QApplication
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        root = self.r.render(Flex(
+            Scroll(Flex(item("Focused", "focused", 40),
+                        direction="row", width="300px", height="200px",
+                        key="content", align_items="flex-start"),
+                   direction="both", key="scroll",
+                   layout_width="120px", layout_height="80px",
+                   flex_basis="120px", flex_shrink=0),
+            direction="row", width="300px", height="200px",
+            align_items="flex-start",
+        ))
+        scroll = root.children[0].handle.widget
+        button = root.children[0].children[0].children[0].handle.widget
+        scroll.horizontalScrollBar().setValue(70)
+        scroll.verticalScrollBar().setValue(40)
+        button.setFocus()
+        self.renderer.commit_layout(root)
+        self.assertEqual((scroll.horizontalScrollBar().value(),
+                          scroll.verticalScrollBar().value()), (70, 40))
+        self.assertIs(root.children[0].children[0].children[0].handle.widget, button)
+        self.assertIs(QApplication.focusWidget(), button)
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        self.renderer.commit_layout(root)
+        self.assertEqual((scroll.horizontalScrollBar().value(),
+                          scroll.verticalScrollBar().value()), (70, 40))
+
     def test_native_scroll_keyboard_moves_and_releases_at_boundary(self):
         from psx import Scroll
         from PySide6.QtCore import Qt, QEvent
