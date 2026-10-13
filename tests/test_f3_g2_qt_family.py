@@ -975,7 +975,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         from psx.core.vnode import Box
         from psx.core.vnode import create_element
         from psx.sfle.f3_g2_oracles import Observation, ORACLES
-        from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
+        from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
         from pathlib import Path
         from tempfile import TemporaryDirectory
         import base64
@@ -1022,7 +1022,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                 "Flex": lambda: Flex(Text("Inside", layout_width="30px",
                                          layout_height="15px")),
             }
-            native = set(G2_LEAF_TYPES["qt"]) | {"Flex"}
+            native = set(NATIVE_LEAF_TYPES["qt"]) | {"Flex"}
             self.assertEqual(set(factories), native)
 
             def built(name, width):
@@ -1184,8 +1184,8 @@ class QtFamilySFLEParityTests(unittest.TestCase):
             "Link": (Link(label="Action"), "on_click", ()),
             "SpinBox": (SpinBox(value=2), "on_change", (3,)),
         }
-        from psx.sfle.f3_native_coverage import G2_LEAF_TYPES
-        native = set(G2_LEAF_TYPES["qt"]) | {"Flex"}
+        from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
+        native = set(NATIVE_LEAF_TYPES["qt"]) | {"Flex"}
         self.assertEqual(set(factories), native - set(EVENTLESS))
         for name, (base, event, args) in factories.items():
             with self.subTest(component=name):
