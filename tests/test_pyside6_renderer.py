@@ -43,6 +43,24 @@ class PySide6RendererTests(unittest.TestCase):
         )
         self.reconciler = Reconciler(native)
 
+    @staticmethod
+    def _native_geometry_port():
+        from psx.sfle.external_native_geometry_ports import SFLEExternalPort
+        from psx.sfle.model import IntrinsicSizes, Rect
+
+        def measure(widget, limits):
+            return IntrinsicSizes(12, 48, 18, 20, 48, 20)
+
+        def apply(widget, box):
+            widget.setGeometry(round(box.x), round(box.y),
+                               round(box.width), round(box.height))
+
+        def read(widget):
+            frame = widget.geometry()
+            return Rect(frame.x(), frame.y(), frame.width(), frame.height())
+
+        return SFLEExternalPort(measure, apply, read)
+
     def test_flex_has_explicit_flex_route_without_legacy_qboxlayout_fallback(self) -> None:
         from psx import Flex
 
@@ -218,7 +236,7 @@ class PySide6RendererTests(unittest.TestCase):
             updates.append((widget.text(), removed))
 
         native = NativeWidget(
-            renderer="pyside6", factory=QLabel, update=update, name="StatusLabel"
+            renderer="pyside6", factory=QLabel, update=update, name="StatusLabel", sfle_port=self._native_geometry_port()
         )
         root = self.reconciler.render(Flex(native_widget(native, key="status", message="ready"), direction="column"))
         handle = root.children[0].handle
@@ -235,7 +253,7 @@ class PySide6RendererTests(unittest.TestCase):
         self._enable_native_sfle()
         original_parent = QWidget()
         borrowed = QLabel("borrowed", original_parent)
-        native = NativeWidget(renderer="pyside6", widget=borrowed, ownership="borrowed")
+        native = NativeWidget(renderer="pyside6", widget=borrowed, ownership="borrowed", sfle_port=self._native_geometry_port())
         self.reconciler.render(Flex(native_widget(native, key="borrowed"), direction="column"))
         self.assertIsNot(borrowed.parentWidget(), original_parent)
 
@@ -290,7 +308,7 @@ class PySide6RendererTests(unittest.TestCase):
             parents.append(parent)
             return QLabel(parent)  # type: ignore[arg-type]
 
-        native = NativeWidget(renderer="pyside6", factory=factory, takes_parent=True)
+        native = NativeWidget(renderer="pyside6", factory=factory, takes_parent=True, sfle_port=self._native_geometry_port())
         self.reconciler.render(Flex(native_widget(native), direction="column"))
         handle = self.reconciler.root.children[0].handle
         self.assertIsInstance(handle, QtHandle)
