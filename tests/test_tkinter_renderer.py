@@ -107,8 +107,8 @@ class TkinterRendererTests(unittest.TestCase):
             return Flex(
                 Flex(Text("Ready"), direction="row", padding=padding, gap=gap,
                      key="inner"),
-                direction="column", width="640px", height="480px",
-                padding=padding, gap=gap,
+                direction="column", width=f"{640 - 2 * padding}px",
+                height=f"{480 - 2 * padding}px", padding=padding, gap=gap,
             )
 
         first = self.reconciler.render(view(24, 12))
