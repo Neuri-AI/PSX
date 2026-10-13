@@ -88,7 +88,9 @@ def _kivy_input_factory():
 
 
 def _kivy_textarea_factory():
-    return TextInput(multiline=True)
+    # A portable TextArea must reflow when SFLE changes its content width.
+    # Kivy's provider defaults are not consistent across platforms.
+    return TextInput(multiline=True, do_wrap=True)
 
 
 def _kivy_slider_factory():

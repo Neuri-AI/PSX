@@ -488,14 +488,35 @@ class TkinterRenderer:
             return
         self._sfle_resize_baseline = (width, height)
         constraints = self._sfle_constraints
-        if constraints is None or (constraints.width.value, constraints.height.value) == (width, height):
+        if constraints is None:
             return
-        self._sfle_resize_pending = (width, height)
+        target = (
+            width if self._sfle_root_axis_tracks_viewport("width") else constraints.width.value,
+            height if self._sfle_root_axis_tracks_viewport("height") else constraints.height.value,
+        )
+        if (constraints.width.value, constraints.height.value) == target:
+            return
+        self._sfle_resize_pending = target
         if self._sfle_resize_after_id is None:
             epoch = self._sfle_resize_epoch
             self._sfle_resize_after_id = self.root.after_idle(
                 lambda: self._sfle_flush_viewport_resize(epoch),
             )
+
+    def _sfle_root_axis_tracks_viewport(self, axis: str) -> bool:
+        """Whether the mounted SFLE root resolves this axis from the host."""
+        from psx.core.vnode import NodeKind
+        from psx.sfle.lengths import LengthKind, parse_length
+
+        instance = self._sfle_mounted_root
+        while instance is not None and instance.node.kind is NodeKind.COMPONENT:
+            if len(instance.children) != 1:
+                return False
+            instance = instance.children[0]
+        if instance is None or instance.node.type != "Flex":
+            return False
+        value = instance.node.props.get(axis, "auto")
+        return parse_length(value).kind in {LengthKind.AUTO, LengthKind.PERCENT}
 
     def _sfle_flush_viewport_resize(self, epoch: int) -> None:
         self._sfle_resize_after_id = None

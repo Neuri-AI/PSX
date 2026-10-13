@@ -235,6 +235,25 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(child), (0, 0, 30, 20))
         self.assertGreater(self.renderer.sfle_result.generation, initial)
 
+    def test_explicit_root_dimensions_ignore_unrelated_host_resize(self):
+        from types import SimpleNamespace
+
+        root = self.reconciler.render(Flex(
+            item("A", "a", 30), width="160px", height="80px",
+            align_items="flex-start",
+        ))
+        self.host.update_idletasks()
+        self.renderer._sfle_on_configure(SimpleNamespace(
+            widget=self.host, width=401, height=241,
+        ))
+        self.assertIsNone(self.renderer._sfle_resize_pending)
+        self.assertEqual(
+            (self.renderer._sfle_constraints.width.value,
+             self.renderer._sfle_constraints.height.value),
+            (160, 80),
+        )
+        self.assertEqual(rect(root.handle.widget), (0, 0, 160, 80))
+
     def test_tk_multiline_text_height_follows_sfle_content_width(self):
         words = ("One two three four five six seven eight nine ten "
                  "eleven twelve thirteen fourteen fifteen sixteen.")

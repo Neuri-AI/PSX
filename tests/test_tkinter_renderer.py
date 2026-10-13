@@ -156,7 +156,7 @@ class TkinterRendererTests(unittest.TestCase):
                                              color="#336699", align="right", enabled=False)).handle.widget
         self.assertIsInstance(label, ttk.Label)
         font = Font(root=label, font=label.cget("font"))
-        self.assertEqual(int(label.tk.splitlist(label.cget("font"))[1]), -24)
+        self.assertEqual(int(font.actual("size")), -24)
         self.assertEqual(font.actual("weight"), "bold")
         self.assertEqual(font.actual("slant"), "italic")
         self.assertEqual(str(label.cget("foreground")), "#336699")
@@ -166,7 +166,7 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertIs(self.reconciler.root.handle.widget, label)
         self.assertEqual(label.cget("text"), "new")
         font = Font(root=label, font=label.cget("font"))
-        self.assertEqual(int(label.tk.splitlist(label.cget("font"))[1]), -12)
+        self.assertEqual(int(font.actual("size")), -12)
         self.assertEqual(font.actual("weight"), "normal")
         self.assertEqual(font.actual("slant"), "roman")
         self.assertEqual(str(label.cget("foreground")), "#112233")
