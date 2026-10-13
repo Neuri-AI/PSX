@@ -625,6 +625,34 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(child), (0, 0, 40, 20))
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
 
+    def test_native_tk_wheel_and_keyboard_offset_readback(self):
+        from types import SimpleNamespace
+        from psx import Scroll
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        root = self.reconciler.render(Flex(
+            Scroll(Flex(item("Inside", "inside", 40),
+                        direction="row", width="300px", height="200px",
+                        key="content", align_items="flex-start"),
+                   direction="vertical", key="scroll",
+                   layout_width="120px", layout_height="80px",
+                   flex_basis="120px", flex_shrink=0),
+            direction="row", width="300px", height="200px",
+            align_items="flex-start",
+        ))
+        outer = root.children[0].handle.widget
+        canvas = outer._psx_canvas
+        self.host.update_idletasks()
+        wheel = SimpleNamespace(delta=-120, state=0)
+        self.assertEqual(outer._wheel(wheel), "break")
+        self.assertLessEqual(abs(canvas.canvasy(0) - 48), 1)
+        self.assertEqual(wheel._psx_scroll_remainder, 0)
+        self.assertEqual(outer._keyboard(SimpleNamespace(keysym="Page_Down")), "break")
+        self.assertLessEqual(abs(canvas.canvasy(0) - 128), 1)
+        canvas.yview_moveto(1)
+        self.host.update_idletasks()
+        edge = SimpleNamespace(delta=-120, state=0)
+        self.assertIsNone(outer._wheel(edge))
+
     def test_native_scroll_overflow_offsets_and_canvas_clipping(self):
         from psx import Scroll
         from psx.sfle.native_scroll_hosts import apply_tk_scroll, binding_from_host
