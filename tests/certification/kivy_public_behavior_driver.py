@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 import sys
 import time
+import struct
+import zlib
 
 from kivy.config import Config
 Config.set('graphics', 'window_state', 'hidden')
@@ -49,6 +51,19 @@ def view(component, props):
 
 def rgba(color):
     return tuple(int(color[i:i+2], 16) / 255 for i in (1, 3, 5)) + (1.,)
+
+
+def write_rgba_png(path, width, height, color):
+    """Create a deterministic PNG fixture without a test-only Pillow dependency."""
+    red, green, blue = (int(color[index:index + 2], 16) for index in (1, 3, 5))
+    row = bytes((red, green, blue, 255)) * width
+    raw = b"".join(b"\x00" + row for _ in range(height))
+    def chunk(kind, payload):
+        return (struct.pack(">I", len(payload)) + kind + payload +
+                struct.pack(">I", zlib.crc32(kind + payload) & 0xffffffff))
+    data = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)) +
+            chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+    path.write_bytes(data)
 
 
 # Assertions below inspect toolkit properties, composed native controls or actual
@@ -273,10 +288,11 @@ def lifecycle(component):
     from dataclasses import replace
     if component == 'Image':
         from tempfile import TemporaryDirectory
-        from PIL import Image
         temporary = TemporaryDirectory()
-        path = temporary.name + '/native.png'
-        Image.new('RGB', (8, 4), 'red').save(path)
+        from pathlib import Path
+        path = Path(temporary.name) / 'native.png'
+        write_rgba_png(path, 8, 4, '#ff0000')
+        path = str(path)
         initial, updated = {'source': path, 'fit': 'contain'}, {'source': path, 'fit': 'cover'}
     else:
         initial, updated = {
@@ -386,11 +402,12 @@ def decoration(component):
     tree = Reconciler(renderer())
     if component == 'Image':
         from tempfile import TemporaryDirectory
-        from PIL import Image
+        from pathlib import Path
         temporary = TemporaryDirectory()
-        paths = [temporary.name + '/first.png', temporary.name + '/second.png']
-        for path, size, color in zip(paths, [(8, 4), (16, 12)], ['red', 'blue']):
-            Image.new('RGB', size, color).save(path)
+        paths = [Path(temporary.name) / 'first.png', Path(temporary.name) / 'second.png']
+        for path, size, color in zip(paths, [(8, 4), (16, 12)], ['#ff0000', '#0000ff']):
+            write_rgba_png(path, *size, color)
+        paths = [str(path) for path in paths]
         widget = tree.render(view('Image', {'source': paths[0], 'fit': 'contain', 'enabled': True})).children[0].handle.widget
         tick()
         assert widget.source == paths[0] and tuple(widget.texture.size) == (8, 4)
