@@ -11,8 +11,8 @@ from psx.core.vnode import Input
 
 def test_default_registry_registers_existing_builtins_without_gui_imports() -> None:
     registry = builtin_component_registry()
-    assert registry.resolve("Column").constructor is Column
-    assert registry.resolve("Row").constructor is Row
+    assert registry.resolve("Flex").constructor is Flex
+    assert registry.contains("Row") is False and registry.contains("Column") is False
     assert registry.resolve("Text").constructor is Text
     assert registry.resolve("Button").constructor is Button
     assert registry.resolve("Input").constructor is Input
