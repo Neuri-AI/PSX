@@ -18,6 +18,21 @@ class ScrollHostGeometry:
     content_size: tuple[float, float]
 
 
+def binding_from_host(props: dict, viewport: object, content: object) -> ScrollViewportBinding:
+    """Adapt SFLE boxes and validated Scroll props without layout recomputation."""
+    from .model import Rect
+
+    axes = props["direction"]
+    enabled = bool(props["enabled"])
+    return ScrollViewportBinding(
+        axes, enabled,
+        Rect(viewport.x, viewport.y, viewport.width, viewport.height),
+        Rect(content.x, content.y, content.width, content.height),
+        enabled and axes in ("horizontal", "both"),
+        enabled and axes in ("vertical", "both"),
+    )
+
+
 def host_geometry(binding: ScrollViewportBinding, offset: ScrollOffset) -> ScrollHostGeometry:
     """Resolve axes and overflow once, independently of native coordinates."""
     position = clamp_scroll_offset(binding, offset)
