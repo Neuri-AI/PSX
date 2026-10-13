@@ -32,7 +32,7 @@ class TkinterRendererTests(unittest.TestCase):
         self.addCleanup(self.reconciler.unmount)
 
 
-    def test_flex_has_explicit_g1_route_without_pack_layout_fallback(self) -> None:
+    def test_flex_has_explicit_flex_route_without_pack_layout_fallback(self) -> None:
         from psx import Flex
         from psx.core.errors import RendererCapabilityError
 
