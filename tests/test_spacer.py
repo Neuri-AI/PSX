@@ -23,7 +23,7 @@ def test_spacer_is_a_builtin_markup_tag() -> None:
 def test_spacer_mounts_and_unmounts_cleanly() -> None:
     renderer = HeadlessRenderer()
     reconciler = Reconciler(renderer)
-    root = reconciler.render(Row(Text("A"), Spacer(), Text("B")))
+    root = reconciler.render(Flex(Text("A"), Spacer(), Text("B"), direction="row"))
     assert [h.type for h in root.handle.children] == ["Text", "Spacer", "Text"]
     reconciler.unmount()
     assert all(h.destroyed for h in root.handle.children)
@@ -32,7 +32,7 @@ def test_spacer_mounts_and_unmounts_cleanly() -> None:
 def test_spacer_keeps_identity_across_keyed_reorder() -> None:
     renderer = HeadlessRenderer()
     reconciler = Reconciler(renderer)
-    reconciler.render(Row(Text("A", key="a"), Spacer(key="s"), Text("B", key="b")))
+    reconciler.render(Flex(Text("A", key="a"), Spacer(key="s"), Text("B", key="b"), direction="row"))
     spacer = reconciler.root.handle.children[1]
-    reconciler.render(Row(Text("A", key="a"), Text("B", key="b"), Spacer(key="s")))
+    reconciler.render(Flex(Text("A", key="a"), Text("B", key="b"), Spacer(key="s"), direction="row"))
     assert reconciler.root.handle.children[2] is spacer
