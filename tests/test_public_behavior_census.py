@@ -102,3 +102,46 @@ def test_backend_applicability_is_source_derived_and_no_unsupported_passes():
                and row.applicability == "unported" for row in inventory())
     assert any(row.component == "Button" and row.backend == "pyside6"
                and row.applicability == "native" for row in inventory())
+
+
+def test_unported_backend_cannot_imitate_executed_native_pass(tmp_path):
+    row = Feature("Input", "headless", "event", "on_change",
+                  "native_dispatch", applicability="unported")
+    source = tmp_path / "receipt.xml"
+    source.write_text('<testsuite><testcase classname="tests.input" name="test_input"/></testsuite>')
+    claim = {**asdict(row), "status": "executed_pass", "sha": SHA,
+             "test_id": "tests.input::test_input", "environment": "headless",
+             "junit_artifact": str(source)}
+    with pytest.raises(ValueError, match="Unsupported native backend"):
+        validate_receipts((row,), [claim], sha=SHA)
+
+
+def test_claimed_unsupported_requires_genuine_negative_junit(tmp_path):
+    row = Feature("Input", "headless", "event", "on_change",
+                  "native_dispatch", applicability="unported")
+    receipt = {**asdict(row), "status": "unsupported",
+               "reason": "No admitted native SFLE geometry port",
+               "sha": SHA, "test_id": "tests.input::test_rejected",
+               "environment": "headless",
+               "junit_artifact": str(tmp_path / "missing.xml")}
+    with pytest.raises(ValueError, match="Missing JUnit"):
+        validate_receipts((row,), [receipt], sha=SHA)
+    path = tmp_path / "missing.xml"
+    path.write_text('<testsuite><testcase classname="tests.input" name="test_rejected"/></testsuite>')
+    assert validate_receipts((row,), [receipt], sha=SHA)["excluded"] == 1
+    with pytest.raises(ValueError, match="Supported native capability"):
+        validate_receipts((
+            Feature("Input", "pyside6", "event", "on_change",
+                    "native_dispatch", applicability="native"),
+        ), [{**receipt, "backend": "pyside6"}], sha=SHA)
+
+
+def test_not_applicable_requires_explicit_reviewer():
+    row = Feature("Native", "headless", "lifecycle", "unmount",
+                  "native_behavior", applicability="external_port_required")
+    receipt = {**asdict(row), "status": "not_applicable",
+               "reason": "No external native host in Headless"}
+    with pytest.raises(ValueError, match="Unreviewed"):
+        validate_receipts((row,), [receipt], sha=SHA)
+    receipt["reviewed_by"] = "independent-review-fixture"
+    assert validate_receipts((row,), [receipt], sha=SHA)["excluded"] == 1
