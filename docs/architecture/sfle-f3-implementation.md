@@ -2067,10 +2067,19 @@ in the same required CI selector. No new public event/prop contract
 or parallel layout solver was introduced.
 
 **Immutable source SHA:** [`2bff3823a9957476617428ce02c812b08a08937c`](https://github.com/Neuri-AI/PSX/commit/2bff3823a9957476617428ce02c812b08a08937c).
-[Required native layout CI #38350150740](https://github.com/Neuri-AI/PSX/actions/runs/38350150740)
-completed SUCCESS, with the expected G4 final API gate skipped.
-C4's final code is certified by this run; the subsequent
-documentation-only closure must not execute any product tests.
+[Full impacted-source native layout CI #38349973963](https://github.com/Neuri-AI/PSX/actions/runs/38349973963)
+completed SUCCESS on code SHA `aacfe567e17a31b396e50abf66f9411c2d30a713`
+with 18 successful jobs, zero failures, and only the future G4 API
+gate skipped, including Qt, Tk, Kivy, Headless, Rust/Python, browser
+and Windows/macOS. The final source/test-only commit adds Kivy's
+reflow/readback assertion without modifying production code.
+[Incremental native CI #38350150740](https://github.com/Neuri-AI/PSX/actions/runs/38350150740)
+completed SUCCESS on final source SHA `2bff382`: 3 successful jobs
+(classifier, executed Kivy native suite, required verdict); all other
+product jobs correctly skipped under selective routing. Combined
+these certify all C4 modifications without falsely claiming that
+a single final run reran unrelated suites. Subsequent documentation-only
+closure must execute zero product tests.
 
 **Acceptance:** **F3-G3-C4 CLOSED. Next: F3-G3-C5.**
 C5 must build strict per-operation executed evidence for each
