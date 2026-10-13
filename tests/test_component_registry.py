@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from psx import Button, Column, Flex, Fragment, Row, Text, component
+from psx import Button, Flex, Fragment, Text, component
 from psx.core.contracts import BUTTON_CONTRACT, INPUT_CONTRACT, TEXT_CONTRACT
 from psx.core.errors import DuplicateComponentError, UnknownComponentError
 from psx.core.registry import ComponentRegistry, builtin_component_registry
