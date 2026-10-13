@@ -36,6 +36,19 @@ def references(path: str, source: str) -> tuple[LegacyReference, ...]:
     found: set[LegacyReference] = set()
 
     class Inspector(ast.NodeVisitor):
+        def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+            for imported in node.names:
+                if imported.name in LEGACY_LAYOUTS or LEGACY_PRIVATE.fullmatch(imported.name):
+                    found.add(LegacyReference(path, node.lineno, imported.name, "import"))
+            self.generic_visit(node)
+
+        def visit_Import(self, node: ast.Import) -> None:
+            for imported in node.names:
+                symbol = imported.name.rsplit(".", 1)[-1]
+                if symbol in LEGACY_LAYOUTS or LEGACY_PRIVATE.fullmatch(symbol):
+                    found.add(LegacyReference(path, node.lineno, symbol, "import"))
+            self.generic_visit(node)
+
         def visit_Name(self, node: ast.Name) -> None:
             if node.id in LEGACY_LAYOUTS:
                 found.add(LegacyReference(path, node.lineno, node.id, "identifier"))
