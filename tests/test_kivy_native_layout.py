@@ -548,6 +548,71 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_scroll_overflow_native_extent_and_logical_offsets(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import Button, Flex, Scroll
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(300, True), AvailableSize(200, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(Flex(
+                Scroll(Flex(
+                    Button("Inside", key="inside",
+                           layout_width="40px", layout_height="20px",
+                           flex_shrink=0),
+                    direction="row", width="300px", height="200px",
+                    align_items="flex-start", key="content",
+                ), key="scroll", direction="both",
+                    layout_width="120px", layout_height="80px",
+                    flex_basis="120px", flex_shrink=0),
+                direction="row", width="300px", height="200px",
+                align_items="flex-start",
+            ))
+            scroll = root.children[0].handle.widget
+            content = root.children[0].children[0].handle.widget
+            assert tuple(scroll._psx_content.size) == (300, 200)
+            assert content.parent is scroll._psx_content
+            assert tuple(content.size) == (300, 200)
+            assert tuple(content.pos) == (0, 0)
+            assert scroll.scroll_x == 0.0
+            assert scroll.scroll_y == 1.0
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            from psx.sfle.native_scroll_hosts import (
+                apply_kivy_scroll, binding_from_host,
+            )
+            from psx.sfle.scroll_offsets import ScrollOffset
+            from psx.sfle.model import Rect
+            binding = binding_from_host(
+                scroll._psx_props, Rect(0, 0, 120, 80),
+                Rect(0, 0, 300, 200),
+            )
+            applied = apply_kivy_scroll(scroll, binding, ScrollOffset(90, 60))
+            assert applied.offset == ScrollOffset(90, 60)
+            assert abs(scroll.scroll_x - 0.5) < 1e-6
+            assert abs(scroll.scroll_y - 0.5) < 1e-6
+            assert tuple(content.size) == (300, 200)
+            tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_image_intrinsic_source_and_native_sfle_geometry(self):
         script = textwrap.dedent(r"""
             import struct
