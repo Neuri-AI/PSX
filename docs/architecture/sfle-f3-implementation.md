@@ -1773,3 +1773,64 @@ A passing source/AST check alone is never called a native PASS.
 executable component × backend × operation JUnit proofs and reject
 missing/skipped/failed precision cases; iteration 4/4 owns final C6/G2
 single-SHA closure and document reconciliation. C6/G2 remain OPEN.
+
+
+### C6 iteration 3/4 — executed native operation matrix and future component families (CLOSED, 2026-10-12)
+
+**Certified implementation SHA:** [`700f1b3af3334b99f39fcf30a053d2a65838fc17`](https://github.com/Neuri-AI/PSX/commit/700f1b3af3334b99f39fcf30a053d2a65838fc17).
+**Required F3 CI:** [run #38335949031 — completed SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38335949031). Commit-subject, G1 contract and package-boundary workflows also completed SUCCESS on this same code SHA.
+
+**Mandatory component × backend × operation certification:** The new
+`tests/certification/f3_g2_c6_receipts.py` runs inside each required native
+backend job against its **executed JUnit XML**, requiring every operation
+with `applicability=required` in the code-derived `g2_operation_contracts()`
+to reference a test that actually ran and passed. Missing, skipped, failed or
+error receipts and unreferenced required operations **fail the job**. The
+certificate contains the component, backend, operation, behavioral oracle,
+original test reference, applicability and audited exclusion reason.
+`tests/test_f3_g2_c6_receipts.py` executes negative tests to prevent
+future weakening of these invariants.
+
+| Backend | Executed required operation cells | Reviewed N/A cells | Pending |
+| --- | ---: | ---: | ---: |
+| Qt (each of 4 bindings, both standard and 1.5 DPR) | 130 | 62 | 0 |
+| Tkinter | 130 | 62 | 0 |
+| Kivy | 130 | 62 | 0 |
+| Headless | 19 | 173 | 0 |
+| **Distinct backend operation contracts** | **409** | **359** | **0** |
+
+The Qt 130-cell matrix was verified independently on PySide6, PyQt6,
+PyQt5 and PySide2 in both DPI configurations, without counting repeated
+execution as distinct component contracts. Tk and Kivy execute actual
+native host drivers; Headless uses deterministic real renderer handles.
+The existing C4 external-port and C5 six-reason JUnit certificates remain
+separate mandatory checks, so builtin lifecycle proofs cannot silently
+certify borrowed `Native` ownership or resource-specific semantics.
+All native JUnit XML and C6 JSON reports are archived by their respective
+native GitHub Actions jobs.
+
+**Future family policy:** `tests/certification/f3_g2_families.py` has an
+exact registry-derived census backed by **explicit reviewed family
+classification** (`leaf`, `layout_container`,
+`structural_container`, `native_viewport`, `transparent`,
+`external_port`, `legacy`, and reserved `overlay_portal`).
+Unknown/unclassified new registry names and stale classifications fail
+automatically. The companion
+`tests/test_f3_g2_c6_families.py` tests an example `Modal`:
+an unregistered/unclassified Modal is rejected; declaring
+`overlay_portal` requires a **dedicated overlay/portal driver**, explicit
+child policy and portal lifecycle/ownership semantics, rather than
+inheriting Button/Flex native-leaf evidence. This policy does **not**
+implement Modal or declare future modal focus, stacking or keyboard
+behavior as already certified. Those require a separately approved
+component contract and behavior-specific tests (public API completeness
+remains G5's separate gate).
+
+**Scope and exit:** This C6 certificate proves all presently required
+G2 lifecycle/invalidation operation rows have executed pass evidence,
+**not** every possible UI prop/event or OS framebuffer pixel, nor G3
+scroll interactions. The source-only manifest audit from iteration 2
+remains corroborative, never counted as an executed native PASS. C6
+iteration 3/4 is CLOSED. Iteration 4/4 must reconcile live header/roadmap
+status, rerun the G2 aggregate and certify the final immutable SHA before
+labeling **G2 CLOSED**.
