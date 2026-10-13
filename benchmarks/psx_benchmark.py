@@ -50,6 +50,14 @@ class _OpsOnlyRenderer(HeadlessRenderer):
     secuencia de operaciones emitida es la misma.
     """
 
+    def __init__(self) -> None:
+        super().__init__(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(640, True), AvailableSize(480, True)),
+            engine=PythonLayoutEngine(),
+            measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+        )
+
     def move(self, parent: object, child: object, index: int) -> None:
         self.operations.append(("move", parent, child, index))
 
