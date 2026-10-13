@@ -13,8 +13,8 @@ from psx.renderers.headless import HeadlessRenderer
 class CoreTests(unittest.TestCase):
     def setUp(self) -> None:
         from psx.sfle.engine import PythonLayoutEngine
-        from psx.sfle.model import AvailableSize, LayoutConstraints
-        self.renderer = HeadlessRenderer(sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)), engine=PythonLayoutEngine())
+        from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+        self.renderer = HeadlessRenderer(sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)), engine=PythonLayoutEngine(), measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8))
         self.reconciler = Reconciler(self.renderer)
 
     def test_normalizes_supported_children_and_rejects_true(self) -> None:
@@ -56,10 +56,10 @@ class CoreTests(unittest.TestCase):
 
     def test_event_slot_updates_without_a_second_connection(self) -> None:
         calls: list[str] = []
-        self.reconciler.render(Button("Save", on_click=lambda: calls.append("old")))
-        handle = self.reconciler.root.handle  # type: ignore[union-attr]
+        self.reconciler.render(Flex(Button("Save", on_click=lambda: calls.append("old")), width=640, height=480))
+        handle = self.reconciler.root.children[0].handle  # type: ignore[union-attr]
         handle.events["on_click"].invoke()
-        self.reconciler.render(Button("Save", on_click=lambda: calls.append("new")))
+        self.reconciler.render(Flex(Button("Save", on_click=lambda: calls.append("new")), width=640, height=480))
         handle.events["on_click"].invoke()
         self.assertEqual(calls, ["old", "new"])
         self.assertEqual(sum(1 for op in self.renderer.operations if op[0] == "bind_event"), 1)
