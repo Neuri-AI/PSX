@@ -99,4 +99,5 @@ def test_native_renderers_cannot_register_a_second_layout_authority():
     # Runtime bridge adapters must never register removed layout engines.
     from psx.renderers.headless import HeadlessRenderer
     renderer = HeadlessRenderer()
-    assert not {"Row", "Column"} & renderer.supported_types
+    assert renderer.adapters.get("Row") is None
+    assert renderer.adapters.get("Column") is None
