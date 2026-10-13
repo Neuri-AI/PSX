@@ -67,7 +67,7 @@ class MarkupM4ATests(unittest.TestCase):
             psx('<Text value={count} />')
         self.assertIn("scope", str(missing.exception))
         with self.assertRaises(MarkupSyntaxError) as malformed:
-            psx("<Flex direction="column">\n<Text>Hello</Flex>", filename="counter.psx")
+            psx("<Flex direction='column'>\n<Text>Hello</Flex>", filename="counter.psx")
         self.assertIn("counter.psx:2", str(malformed.exception))
         self.assertIn("Expected closing tag </Text>", str(malformed.exception))
 
