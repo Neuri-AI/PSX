@@ -16,7 +16,7 @@ from qyro import ApplicationContext, EngineContainer
 
 from pydux import configure_store, create_slice
 
-from psx import App, Button, Column, RendererConfigurationError, Text, component, use_state
+from psx import App, Button, Flex, RendererConfigurationError, Text, component, use_state
 from psx.integrations.pydux import use_dispatch, use_selector
 from psx.core.reconcile import Reconciler
 from psx.integrations.qyro import (
@@ -92,7 +92,7 @@ class QyroIntegrationTests(unittest.TestCase):
                 self.will_mount = True
 
             def render(self):
-                return Column(Text("declarative"), spacing=20)
+                return Flex(Text("declarative"), gap=20, direction="column")
 
             def component_did_mount(self) -> None:
                 self.did_mount = True
@@ -110,10 +110,9 @@ class QyroIntegrationTests(unittest.TestCase):
         class HookWindow(QMainWindow, PSXComponent, ApplicationContext):
             def render(self):
                 count, set_count = use_state(0)
-                return Column(
+                return Flex(
                     Text(f"Count: {count}"),
-                    Button("Increment", on_click=lambda: set_count(lambda value: value + 1)),
-                )
+                    Button("Increment", on_click=lambda: set_count(lambda value: value + 1)), direction="column")
 
         window = HookWindow()
         QApplication.instance().processEvents()
@@ -139,10 +138,9 @@ class QyroIntegrationTests(unittest.TestCase):
             def render(self):
                 count = use_selector(lambda state: state["counter"]["count"])
                 dispatch = use_dispatch()
-                return Column(
+                return Flex(
                     Text(f"Count: {count}"),
-                    Button("Increment", on_click=lambda: dispatch(counter.actions.increment())),
-                )
+                    Button("Increment", on_click=lambda: dispatch(counter.actions.increment())), direction="column")
 
         window = StoreWindow()
         QApplication.instance().processEvents()
