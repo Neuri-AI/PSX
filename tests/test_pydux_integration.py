@@ -85,7 +85,8 @@ class PyduxIntegrationTests(unittest.TestCase):
         )
         self.reconciler = Reconciler(self.renderer)
 
-    def test_selector_dispatch_and_native_event_share_the_existing_scheduler(self) -> None:        self._enable_native_sfle()
+    def test_selector_dispatch_and_native_event_share_the_existing_scheduler(self) -> None:
+        self._enable_native_sfle()
 
         renders = {"counter": 0}
         counter_slice = create_slice(
