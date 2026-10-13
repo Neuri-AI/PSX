@@ -86,6 +86,44 @@ def _scroll_area_class(binding: str):
             # enclosing scroll area. Avoid consuming at the boundary.
             event.ignore()
 
+        def keyPressEvent(self, event):
+            from psx.sfle.scroll_events import scroll_key_delta
+            from psx.sfle.scroll_offsets import ScrollOffset
+            props = self._psx_props
+            if props is None or not props["enabled"]:
+                event.ignore()
+                return
+            keys = getattr(qt, "Key", qt)
+            names = {
+                keys.Key_Left: "Left", keys.Key_Right: "Right",
+                keys.Key_Up: "Up", keys.Key_Down: "Down",
+                keys.Key_PageUp: "PageUp", keys.Key_PageDown: "PageDown",
+                keys.Key_Home: "Home", keys.Key_End: "End",
+            }
+            name = names.get(event.key())
+            if name is None:
+                super().keyPressEvent(event)
+                return
+            horizontal = self.horizontalScrollBar()
+            vertical = self.verticalScrollBar()
+            dx, dy = scroll_key_delta(
+                name, viewport_width=self.viewport().width(),
+                viewport_height=self.viewport().height(),
+                offset=ScrollOffset(horizontal.value(), vertical.value()),
+                maximum_x=horizontal.maximum(), maximum_y=vertical.maximum(),
+            )
+            allow_x, allow_y = scroll_axes(props["direction"])
+            dx = dx if allow_x else 0.0
+            dy = dy if allow_y else 0.0
+            before = horizontal.value(), vertical.value()
+            horizontal.setValue(before[0] + round(dx))
+            vertical.setValue(before[1] + round(dy))
+            if before != (horizontal.value(), vertical.value()):
+                event.accept()
+                self._refresh_indicators(active=True)
+            else:
+                event.ignore()
+
         def configure(self, props):
             self._psx_props = props
             self.setEnabled(props["enabled"])
