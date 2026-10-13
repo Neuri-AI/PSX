@@ -151,10 +151,11 @@ def test_absent_opt_in_is_still_fail_closed_for_flex_clients() -> None:
 
 
 def test_opted_in_legacy_rows_still_reject_competing_layout_authority() -> None:
-    from psx import Row
-    renderer = new_renderer()
-    with pytest.raises(RendererCapabilityError, match="Legacy Row/Column"):
-        Reconciler(renderer).render(Flex(Row(Text("test")), width=100, height=40))
+    from psx.core.errors import UnknownComponentError
+    from psx.core.registry import builtin_component_registry
+    registry = builtin_component_registry()
+    with pytest.raises(UnknownComponentError):
+        registry.resolve("Row")
 
 
 def test_owner_thread_is_required_for_headless_commit() -> None:
