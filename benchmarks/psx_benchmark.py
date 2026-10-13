@@ -22,9 +22,22 @@ from time import perf_counter
 import tracemalloc
 from typing import Any
 
-from psx import Button, Column, Row, Text, builtin_component_registry, component, psx, use_state
+from psx import Button, Flex, Text, builtin_component_registry, component, psx, use_state
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
+
+
+from psx.sfle.engine import PythonLayoutEngine
+from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+
+def _native_headless_renderer():
+    return HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(640, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+    )
 
 
 Result = dict[str, Any]
@@ -47,11 +60,11 @@ class _OpsOnlyRenderer(HeadlessRenderer):
         self.operations.append(("remove", parent, child))
 
 def _tree(size: int, value: int = 0, *, single_update: bool = False):
-    return Column(
+    return Flex(
         *(
             Text(f"{value}:{index}" if not single_update or index == 0 else f"0:{index}", key=index)
             for index in range(size)
-        )
+        ), direction="column", width="640px", height="480px",
     )
 
 
@@ -106,7 +119,7 @@ def _measure(
 
 
 def _mount_tree(size: int) -> tuple[Callable[[], None], Callable[[], int]]:
-    renderer = HeadlessRenderer()
+    renderer = _native_headless_renderer()
     reconciler = Reconciler(renderer)
 
     def action() -> None:
@@ -167,18 +180,18 @@ def _reconcile_prebuilt(
 
 
 def _keyed_reorder(
-    size: int, renderer_factory: Callable[[], HeadlessRenderer] = HeadlessRenderer
+    size: int, renderer_factory: Callable[[], HeadlessRenderer] = _native_headless_renderer
 ) -> tuple[Callable[[], None], Callable[[], int]]:
     renderer = renderer_factory()
     reconciler = Reconciler(renderer)
     values = list(range(size))
-    reconciler.render(Row(*(Text(str(index), key=index) for index in values)))
+    reconciler.render(Flex(*(Text(str(index), key=index) for index in values), direction="row", width="640px", height="480px"))
     renderer.operations.clear()
 
     def action() -> None:
         renderer.operations.clear()
         values.reverse()
-        reconciler.render(Row(*(Text(str(index), key=index) for index in values)))
+        reconciler.render(Flex(*(Text(str(index), key=index) for index in values), direction="row", width="640px", height="480px"))
 
     return action, lambda: len(renderer.operations)
 
@@ -238,7 +251,7 @@ def _batched_state() -> tuple[Callable[[], None], Callable[[], int]]:
 
 
 def _markup_render(size: int) -> tuple[Callable[[], None], Callable[[], int]]:
-    source = "<Column>" + "".join(f"<Text value={{item{index}}} />" for index in range(size)) + "</Column>"
+    source = '<Flex direction="column">' + "".join(f"<Text value={{item{index}}} />" for index in range(size)) + '</Flex>'
     values = {f"item{index}": str(index) for index in range(size)}
     # Compile once so this measures safe template rendering, not parser setup.
     from psx.markup import compile_template
@@ -251,7 +264,7 @@ def _markup_render(size: int) -> tuple[Callable[[], None], Callable[[], int]]:
 
 
 def _markup_compile(size: int) -> tuple[Callable[[], None], Callable[[], int]]:
-    source = "<Column>" + "".join(f"<Text value={{item{index}}} />" for index in range(size)) + "</Column>"
+    source = '<Flex direction="column">' + "".join(f"<Text value={{item{index}}} />" for index in range(size)) + '</Flex>'
     from psx.markup import clear_template_cache, compile_template
 
     counter = 0
@@ -280,7 +293,7 @@ def _m4b_transform() -> tuple[Callable[[], None], Callable[[], int]]:
 def _component_resolution() -> tuple[Callable[[], None], Callable[[], int]]:
     """Measure isolated registry lookups without a compiler/cache side effect."""
     registry = builtin_component_registry()
-    names = ("Column", "Row", "Text", "Button", "Input", "Checkbox", "Fragment", "Native")
+    names = ("Flex", "Text", "Button", "Input", "Checkbox", "Fragment", "Native")
 
     def action() -> None:
         for name in names:
