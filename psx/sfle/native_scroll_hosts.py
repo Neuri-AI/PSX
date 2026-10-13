@@ -93,6 +93,7 @@ def apply_kivy_scroll(view: object, binding: ScrollViewportBinding,
     view.scroll_y = (1.0 - geometry.offset.y / binding.overflow_y
                      if binding.clip_y and binding.overflow_y else 1.0)
     view._psx_scroll_logical_offset = geometry.offset
+    view._psx_scroll_previous_overflow = (binding.overflow_x, binding.overflow_y)
     return geometry
 
 
