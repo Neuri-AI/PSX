@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from threading import get_ident
 
 from psx.core.props import FLEX_ITEM_PROPS
-from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
+from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
 from psx.sfle.f3_external import external_port_for
 from psx.sfle.model import LayoutConstraints, LayoutResult
 
@@ -330,7 +330,7 @@ class KivyRenderer:
         self._sfle_generation = 0
         from psx.sfle.f3_g2_invalidation import MeasurementInvalidations
         self._sfle_measurement_invalidations = MeasurementInvalidations()
-        from psx.sfle.f3_native_cache import NativeIntrinsicCache
+        from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
         self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
         from psx.sfle.f3_resource_watch import ImageResourceWatch
         self._sfle_image_resource_watch = ImageResourceWatch()
@@ -644,7 +644,7 @@ class KivyRenderer:
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
             if port is None and node.type != "Flex":
-                g2_native_leaf_needs_measurement(node, backend="kivy")
+                native_leaf_needs_measurement(node, backend="kivy")
             if node.type != "Flex":
                 node = VNode(node.kind, node.type, node.key,
                              {key: val for key, val in node.props.items()
