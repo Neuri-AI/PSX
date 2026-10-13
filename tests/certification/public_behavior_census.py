@@ -236,12 +236,52 @@ def collect_executed_receipts(rows: tuple[Feature, ...], artifacts: tuple[Path, 
     return observed
 
 
+
+def merge_executed_manifests(rows: tuple[Feature, ...], manifests: tuple[Path, ...],
+                             *, sha: str, require_complete: bool = False) -> dict:
+    """Recheck original JUnit files after downloading per-platform artifacts.
+
+    Receipt manifests are transport metadata, never independently trusted
+    proof. Each reference is resolved next to its manifest and authenticated
+    again against the original testcase assertion property.
+    """
+    receipts: list[dict] = []
+    if not manifests:
+        raise ValueError("Final aggregation requires executed receipt manifests")
+    for manifest in manifests:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        if not isinstance(data, dict) or not isinstance(data.get("receipts"), list):
+            raise ValueError(f"Invalid receipt manifest: {manifest}")
+        if data.get("summary", {}).get("sha") != sha:
+            raise ValueError(f"Foreign-SHA evidence manifest: {manifest}")
+        for original in data["receipts"]:
+            receipt = dict(original)
+            if "junit_artifact" in receipt:
+                supplied = Path(receipt["junit_artifact"])
+                if supplied.is_absolute() or ".." in supplied.parts:
+                    raise ValueError(f"Unsafe referenced JUnit path: {supplied}")
+                # Uploaded GitHub artifacts can be unpacked in per-job folders.
+                resolved = manifest.parent / supplied
+                if not resolved.is_file():
+                    resolved = manifest.parent / supplied.name
+                receipt["junit_artifact"] = str(resolved)
+            receipts.append(receipt)
+    report = validate_receipts(rows, receipts, sha=sha)
+    if require_complete and not report["complete"]:
+        raise ValueError(
+            f"Final public behavior certificate incomplete: "
+            f"pending={report['pending']} failed={report['failed']}")
+    return report
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--junit", type=Path, action="append", default=[])
     parser.add_argument("--sha")
     parser.add_argument("--environment")
+    parser.add_argument("--receipt-file", type=Path, action="append", default=[])
+    parser.add_argument("--require-complete", action="store_true")
     args = parser.parse_args()
     rows = inventory()
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -249,7 +289,18 @@ def main() -> None:
                                    indent=2) + "\n", encoding="utf-8")
     from collections import Counter
     counts = Counter(row.backend for row in rows)
-    if args.junit:
+    if args.junit and args.receipt_file:
+        parser.error("Select --junit or --receipt-file, not both")
+    if args.receipt_file:
+        if not args.sha:
+            parser.error("--receipt-file requires --sha")
+        report = merge_executed_manifests(
+            rows, tuple(args.receipt_file), sha=args.sha,
+            require_complete=args.require_complete)
+        args.out.with_name(args.out.stem + "-final-report.json").write_text(
+            json.dumps(report, indent=2) + "\\n", encoding="utf-8")
+        print(json.dumps(report, sort_keys=True))
+    elif args.junit:
         if not args.sha or not args.environment:
             parser.error("--junit requires --sha and --environment")
         receipts = collect_executed_receipts(
@@ -258,6 +309,8 @@ def main() -> None:
         report_path = args.out.with_name(args.out.stem + "-receipts.json")
         report_path.write_text(json.dumps({"summary": report, "receipts": receipts},
                                           indent=2) + "\n", encoding="utf-8")
+        if args.require_complete and not report["complete"]:
+            raise ValueError(f"Public behavior coverage incomplete: {report}")
         print(json.dumps(report, sort_keys=True))
     else:
         print(json.dumps({"public_behavior_rows": len(rows), "pending": len(rows),
