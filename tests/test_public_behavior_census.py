@@ -49,7 +49,7 @@ def test_source_derived_inventory_separates_shared_and_native():
                            for r in subset)
             if native[(family, component)] == "unported":
                 assert len(subset) == 1
-                assert subset[0].scenario_id == "reject_unsupported"
+                assert subset[0].scenario_id == "classification_review"
 
 
 def test_unexecuted_behavior_remains_pending():
@@ -119,7 +119,7 @@ def test_unknown_duplicate_and_foreign_sha_fail(tmp_path):
 
 def test_unported_exclusion_requires_assertion_and_reviewer(tmp_path):
     row = Feature("Input", "headless", "capability", "native_host",
-                  "reject_unsupported", applicability="unported")
+                  "classification_review", applicability="unported")
     path = tmp_path / "negative.xml"
     _junit(path, row)
     exclusion = {**_receipt(row, path, status="unsupported"),
@@ -214,7 +214,7 @@ def test_unsupported_does_not_expand_to_fake_property_coverage():
                 and row.backend == "headless"]
     assert len(headless) == 1
     assert headless[0].applicability == "unported"
-    assert headless[0].scenario_id == "reject_unsupported"
+    assert headless[0].scenario_id == "classification_review"
 
 
 def test_final_aggregator_rechecks_original_junit_and_sha(tmp_path):
