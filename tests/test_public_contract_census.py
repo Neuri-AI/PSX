@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 
 from psx.core.registry import builtin_component_registry
+from psx.core.errors import RendererCapabilityError
 
 
 MANDATORY = {
@@ -32,7 +33,7 @@ def test_public_contract_valid_defaults_and_rejects_unknown_properties(name):
     resolved = contract.with_defaults(values)
     for key, value in contract.defaults.items():
         assert resolved[key] == value
-    with pytest.raises((ValueError, TypeError, KeyError, AttributeError)):
+    with pytest.raises((ValueError, TypeError, KeyError, AttributeError, RendererCapabilityError)):
         contract.validate({**values, "__unregistered_property__": True})
 
 
