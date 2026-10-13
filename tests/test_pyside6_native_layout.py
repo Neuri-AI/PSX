@@ -74,6 +74,41 @@ class QtSFLEGeometryTests(unittest.TestCase):
                           area.verticalScrollBar().value()), (180, 120))
         self.assertIs(area.viewport(), area._psx_content.parentWidget())
 
+    def test_nested_qt_scroll_residual_routes_to_parent_once(self):
+        from psx import Scroll
+        self.renderer.set_sfle_constraints(constraints(300, 300))
+        root = self.r.render(Flex(
+            Scroll(Flex(
+                Scroll(Flex(item("Inside", "inside", 40),
+                            width="300px", height="300px",
+                            key="inner-content", direction="row",
+                            align_items="flex-start"),
+                       direction="vertical", key="inner",
+                       layout_width="120px", layout_height="80px",
+                       flex_basis="120px", flex_shrink=0),
+                width="300px", height="300px",
+                key="outer-content", direction="column",
+                align_items="flex-start"),
+                direction="vertical", key="outer",
+                layout_width="160px", layout_height="100px",
+                flex_basis="160px", flex_shrink=0),
+            direction="row", width="300px", height="300px",
+            align_items="flex-start",
+        ))
+        outer = root.children[0].handle.widget
+        inner = root.children[0].children[0].children[0].handle.widget
+        assert inner._psx_sfle_scroll and outer._psx_sfle_scroll
+        assert inner.parentWidget() is outer._psx_content or (
+            inner.parentWidget().parentWidget() is outer._psx_content
+        )
+        inner.verticalScrollBar().setValue(inner.verticalScrollBar().maximum())
+        outer.verticalScrollBar().setValue(0)
+        residual = inner._psx_scroll_delta(0, 35)
+        self.assertEqual(residual, (0.0, 0.0))
+        self.assertEqual(outer.verticalScrollBar().value(), 35)
+        self.assertEqual(inner.verticalScrollBar().value(),
+                         inner.verticalScrollBar().maximum())
+
     def test_native_scroll_keyboard_moves_and_releases_at_boundary(self):
         from psx import Scroll
         from PySide6.QtCore import Qt, QEvent
