@@ -31,7 +31,7 @@ def apply_qt_input(widget, props, binding):
     widget.setPlaceholderText(props["placeholder"])
 
     font = widget.font()
-    font.setPointSize(int(round(props["font_size"])))
+    font.setPixelSize(max(1, round(props["font_size"])))
     widget.setFont(font)
 
     widget.setReadOnly(props["read_only"])
@@ -71,8 +71,8 @@ def apply_tk_input(widget, props, binding=None):
         if widget.var.get() != props["value"]:
             widget.var.set(props["value"])
         widget._psx_placeholder = props["placeholder"]
-        size = int(round(props["font_size"]))
-        font = ("TkDefaultFont", size)
+        size = max(1, round(props["font_size"]))
+        font = ("TkDefaultFont", -size)
         widget.configure(
             font=font,
             show="*" if props["password"] else "",

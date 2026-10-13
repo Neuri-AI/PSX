@@ -10,6 +10,7 @@ from psx import Button, Checkbox, Flex, Text, component, use_state
 from psx.core.reconcile import Reconciler
 from psx.integrations.qyro import mount_psx
 from psx.renderers.tkinter import TkinterRenderer
+from tests.certification.tk_public_driver import configured_font_size
 
 
 class TkinterRendererTests(unittest.TestCase):
@@ -156,7 +157,7 @@ class TkinterRendererTests(unittest.TestCase):
                                              color="#336699", align="right", enabled=False)).handle.widget
         self.assertIsInstance(label, ttk.Label)
         font = Font(root=label, font=label.cget("font"))
-        self.assertEqual(int(font.actual("size")), -24)
+        self.assertEqual(configured_font_size(label), 24)
         self.assertEqual(font.actual("weight"), "bold")
         self.assertEqual(font.actual("slant"), "italic")
         self.assertEqual(str(label.cget("foreground")), "#336699")
@@ -166,7 +167,7 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertIs(self.reconciler.root.handle.widget, label)
         self.assertEqual(label.cget("text"), "new")
         font = Font(root=label, font=label.cget("font"))
-        self.assertEqual(int(font.actual("size")), -12)
+        self.assertEqual(configured_font_size(label), 12)
         self.assertEqual(font.actual("weight"), "normal")
         self.assertEqual(font.actual("slant"), "roman")
         self.assertEqual(str(label.cget("foreground")), "#112233")

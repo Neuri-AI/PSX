@@ -121,9 +121,11 @@ class MatrixRunner:
         log = self.output / "logs" / f"{name}-install.log"
         try:
             if self.active_python is None and not (self.reuse_envs and python.is_file()):
-                code, duration = call([*interpreter(version), "-m", "venv", str(directory)], log=log)
+                code, duration = call(
+                    [*interpreter(version), "-m", "venv", str(directory)], log=log)
                 if code:
-                    self.results.append(Result(name, "failed", duration, [*interpreter(version), "-m", "venv", str(directory)], str(log.relative_to(self.output)), "virtual environment creation failed"))
+                    self.results.append(Result(name, "failed", duration, [*interpreter(version), "-m", "venv", str(
+                        directory)], str(log.relative_to(self.output)), "virtual environment creation failed"))
                     return None
             install = [str(python), "-m", "pip", "install", "-e",
                        dependency if dependency.startswith(".[") else ".", "pytest"]
@@ -133,11 +135,13 @@ class MatrixRunner:
                 install.append(dependency)
             code, duration = call(install, log=log)
             if code:
-                self.results.append(Result(name, "failed", duration, install, str(log.relative_to(self.output)), "dependency installation failed"))
+                self.results.append(Result(name, "failed", duration, install, str(
+                    log.relative_to(self.output)), "dependency installation failed"))
                 return None
             return python
         except RuntimeError as error:
-            self.results.append(Result(name, "blocked", 0, [], str(log.relative_to(self.output)), str(error)))
+            self.results.append(Result(name, "blocked", 0, [], str(
+                log.relative_to(self.output)), str(error)))
             return None
 
     def test(self, name: str, python: Path, arguments: list[str], *, env: dict[str, str] | None = None) -> bool:
@@ -151,8 +155,9 @@ class MatrixRunner:
     def census(self, name: str, python: Path, junit: Path, environment: str) -> Path | None:
         inventory = self.output / f"{name}-inventory.json"
         if not self.test(f"{name}-receipt", python, ["-m", "tests.certification.public_behavior_census",
-                                                       "--out", str(inventory), "--junit", str(junit),
-                                                       "--sha", self.sha, "--environment", environment]):
+                                                     "--out", str(
+                                                         inventory), "--junit", str(junit),
+                                                     "--sha", self.sha, "--environment", environment]):
             return None
         receipt = inventory.with_name(f"{inventory.stem}-receipts.json")
         # The final aggregator deliberately rejects absolute paths because it
@@ -161,15 +166,24 @@ class MatrixRunner:
         manifest = json.loads(receipt.read_text(encoding="utf-8"))
         for item in manifest["receipts"]:
             item["junit_artifact"] = Path(item["junit_artifact"]).name
-        receipt.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+        receipt.write_text(json.dumps(manifest, indent=2) +
+                           "\n", encoding="utf-8")
         self.receipts.append(receipt)
         return receipt
 
-    def run_public_suite(self, name: str, python: Path, test_file: str, environment: str,
-                         env: dict[str, str] | None = None) -> None:
+    def run_public_suite(self, name: str, python: Path, test_file: str, environment: str, env: dict[str, str] | None = None, capture: str | None = None,) -> None:
         junit = self.output / f"public-{name}.xml"
-        if self.test(f"public-{name}", python, ["-m", "pytest", "-q", test_file,
-                                                   f"--junitxml={junit}"], env=env):
+
+        arguments = [
+            "-m", "pytest", "-q",
+            test_file,
+            f"--junitxml={junit}",
+        ]
+
+        if capture is not None:
+            arguments.append(f"--capture={capture}")
+
+        if self.test(f"public-{name}", python, arguments, env=env):
             self.census(f"public-{name}", python, junit, environment)
 
     def write_report(self) -> None:
@@ -184,10 +198,12 @@ class MatrixRunner:
             "failed": sum(result.status == "failed" for result in self.results),
             "blocked": sum(result.status == "blocked" for result in self.results),
         }
-        (self.output / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        (self.output / "report.json").write_text(json.dumps(report,
+                                                            indent=2) + "\n", encoding="utf-8")
         rows = "\n".join(
             "<tr><td>{}</td><td class=\"{}\">{}</td><td>{:.2f}s</td><td><a href=\"{}\">log</a></td><td>{}</td></tr>".format(
-                html.escape(item.name), item.status, item.status, item.duration_seconds,
+                html.escape(
+                    item.name), item.status, item.status, item.duration_seconds,
                 html.escape(item.log), html.escape(item.detail))
             for item in self.results
         )
@@ -201,95 +217,113 @@ class MatrixRunner:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, help="Directory for immutable test artifacts.")
-    parser.add_argument("--reuse-envs", action="store_true", help="Reuse existing per-binding virtual environments.")
-    parser.add_argument("--active-conda", action="store_true", help="Use the active Conda environment instead of creating virtual environments.")
-    parser.add_argument("--python-version", help="Required active Python version, for example 3.10.")
+    parser.add_argument("--output", type=Path,
+                        help="Directory for immutable test artifacts.")
+    parser.add_argument("--reuse-envs", action="store_true",
+                        help="Reuse existing per-binding virtual environments.")
+    parser.add_argument("--active-conda", action="store_true",
+                        help="Use the active Conda environment instead of creating virtual environments.")
+    parser.add_argument(
+        "--python-version", help="Required active Python version, for example 3.10.")
     parser.add_argument("--only", default=",".join(sorted(SELECTIONS)),
                         help="Comma-separated cells: " + ", ".join(sorted(SELECTIONS)))
-    parser.add_argument("--allow-dirty", action="store_true", help="Allow uncommitted files (results are not certifiable).")
-    parser.add_argument("--include-browser-and-rust", action="store_true", help="Also run Chromium and Rust/Python differential suites.")
+    parser.add_argument("--allow-dirty", action="store_true",
+                        help="Allow uncommitted files (results are not certifiable).")
+    parser.add_argument("--include-browser-and-rust", action="store_true",
+                        help="Also run Chromium and Rust/Python differential suites.")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    selected = frozenset(part.strip() for part in args.only.split(",") if part.strip())
+    selected = frozenset(part.strip()
+                         for part in args.only.split(",") if part.strip())
     unknown = selected - SELECTIONS
     if unknown:
         raise SystemExit("Unknown matrix cells: " + ", ".join(sorted(unknown)))
     active_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     if args.active_conda and args.python_version and active_version != args.python_version:
-        raise SystemExit(f"Active Python is {active_version}, expected {args.python_version}.")
+        raise SystemExit(
+            f"Active Python is {active_version}, expected {args.python_version}.")
     sha = git("rev-parse", "HEAD")
     dirty = source_checkout_is_dirty()
     if dirty and not args.allow_dirty:
-        raise SystemExit("Refusing a dirty checkout. Commit/stash first, or use --allow-dirty for diagnostic-only output.")
+        raise SystemExit(
+            "Refusing a dirty checkout. Commit/stash first, or use --allow-dirty for diagnostic-only output.")
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    output = args.output or ARTIFACT_ROOT / f"{platform.system().lower()}-{sha[:12]}-{stamp}"
+    output = args.output or ARTIFACT_ROOT / \
+        f"{platform.system().lower()}-{sha[:12]}-{stamp}"
     output.mkdir(parents=True, exist_ok=False)
     (output / "logs").mkdir()
     runner = MatrixRunner(output, sha, reuse_envs=args.reuse_envs,
                           active_python=Path(sys.executable) if args.active_conda else None)
     python_version = args.python_version or active_version
 
-    core = runner.environment("core", python_version if args.active_conda else "3.12", "")
+    core = runner.environment(
+        "core", python_version if args.active_conda else "3.12", "")
     if core:
         if "core" in selected:
             junit = output / "public-core.xml"
             if runner.test("public-core", core, ["-m", "pytest", "-q", "tests/test_public_behavior_census.py",
-                                                   "tests/test_public_contract_census.py", "tests/test_public_property_validation.py",
-                                                   f"--junitxml={junit}"]):
-                runner.census("public-core", core, junit, f"{platform.system().lower()}-core-python-{python_version}")
+                                                 "tests/test_public_contract_census.py", "tests/test_public_property_validation.py",
+                                                 f"--junitxml={junit}"]):
+                runner.census("public-core", core, junit,
+                              f"{platform.system().lower()}-core-python-{python_version}")
         if "headless" in selected:
             runner.test("headless-native", core, ["-m", "pytest", "-q", "tests/test_core.py", "tests/test_renderer_adapters.py",
-                                                    "tests/test_headless_native_layout.py", "tests/test_scroll_offsets.py"])
+                                                  "tests/test_headless_native_layout.py", "tests/test_scroll_offsets.py"])
             runner.run_public_suite("headless", core, "tests/test_headless_public_behavior.py",
                                     f"{platform.system().lower()}-headless-python-{python_version}")
 
     for binding, dependency in QT_BINDINGS.items():
         if binding not in selected:
             continue
-        version = python_version if args.active_conda else ("3.10" if binding == "pyside2" else "3.12")
+        version = python_version if args.active_conda else (
+            "3.10" if binding == "pyside2" else "3.12")
         blocked_reason = blocked_qt_binding_reason(binding, version)
         if blocked_reason:
-            runner.results.append(Result(f"qt-{binding}", "blocked", 0, [], "", blocked_reason))
+            runner.results.append(
+                Result(f"qt-{binding}", "blocked", 0, [], "", blocked_reason))
             continue
         python = runner.environment(f"qt-{binding}", version, dependency)
         if not python:
             continue
         env = {"PSX_QT_BINDING": binding, "QT_QPA_PLATFORM": "offscreen"}
         runner.test(f"qt-{binding}-native", python, ["-m", "pytest", "-q", "-rs",
-                                                        "tests/test_qt_native_component_lifecycle.py"], env=env)
+                                                     "tests/test_qt_native_component_lifecycle.py"], env=env)
         runner.run_public_suite(f"qt-{binding}", python, "tests/test_qt_public_behavior.py",
                                 f"{platform.system().lower()}-qt-{binding}-python-{version}", env)
 
-    kivy = runner.environment("kivy", python_version if args.active_conda else "3.12", ".[kivy]") if "kivy" in selected else None
+    kivy = runner.environment(
+        "kivy", python_version if args.active_conda else "3.12", ".[kivy]") if "kivy" in selected else None
     if kivy:
-        runner.test("kivy-native", kivy, ["-m", "pytest", "-q", "tests/test_kivy_renderer.py", "tests/test_kivy_native_layout.py"])
+        runner.test("kivy-native", kivy, ["-m", "pytest", "-q",
+                    "tests/test_kivy_renderer.py", "tests/test_kivy_native_layout.py"])
         runner.run_public_suite("kivy", kivy, "tests/test_kivy_public_behavior.py",
                                 f"{platform.system().lower()}-kivy-python-{python_version}")
 
-    tkinter = runner.environment("tkinter", python_version if args.active_conda else "3.12", "Pillow") if "tkinter" in selected else None
+    tkinter = runner.environment(
+        "tkinter", python_version if args.active_conda else "3.12", "Pillow") if "tkinter" in selected else None
     if tkinter:
-        runner.test("tkinter-native", tkinter, ["-m", "pytest", "-q", "tests/test_tkinter_renderer.py",
-                                                   "tests/test_tkinter_native_layout.py", "tests/test_tkinter_external_native_ports.py"])
+        runner.test("tkinter-native", tkinter, ["-m", "pytest", "-q", "--capture=sys", "tests/test_tkinter_renderer.py",
+                                                "tests/test_tkinter_native_layout.py", "tests/test_tkinter_external_native_ports.py"])
         runner.run_public_suite("tkinter", tkinter, "tests/test_tk_public_behavior.py",
                                 f"{platform.system().lower()}-tkinter-python-{python_version}")
 
     if args.include_browser_and_rust and core and "rust" in selected:
         runner.test("rust-python", core, ["-m", "pytest", "-q", "tests/interop/test_sfle_differential.py",
-                                            "tests/interop/test_sfle_capability_parity.py", "tests/interop/test_sfle_deferral_boundaries.py"])
+                                          "tests/interop/test_sfle_capability_parity.py", "tests/interop/test_sfle_deferral_boundaries.py"])
     if args.include_browser_and_rust and core and "browser" in selected:
         if runner.test("browser-install", core, ["-m", "pip", "install", "playwright"]):
-            runner.test("browser-chromium-install", core, ["-m", "playwright", "install", "chromium"])
+            runner.test("browser-chromium-install", core,
+                        ["-m", "playwright", "install", "chromium"])
             runner.test("browser-geometry", core, ["-m", "pytest", "-q", "tests/browser/test_sfle_chromium.py",
-                                                      "tests/browser/test_sfle_engine_chromium.py", "tests/browser/test_sfle_headless_oracle.py", "tests/browser/test_sfle_seeded_fuzz_regression.py"])
+                                                   "tests/browser/test_sfle_engine_chromium.py", "tests/browser/test_sfle_headless_oracle.py", "tests/browser/test_sfle_seeded_fuzz_regression.py"])
 
     if runner.receipts and core:
         aggregate = output / "public-behavior-aggregate.json"
         runner.test("public-behavior-aggregate", core, ["-m", "tests.certification.public_behavior_census", "--out", str(aggregate),
-                                                          "--sha", sha, *sum((["--receipt-file", str(path)] for path in runner.receipts), [])])
+                                                        "--sha", sha, *sum((["--receipt-file", str(path)] for path in runner.receipts), [])])
     runner.write_report()
     print(f"Report: {output / 'report.html'}")
     print(f"Machine-readable: {output / 'report.json'}")

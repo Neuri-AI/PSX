@@ -35,7 +35,7 @@ def apply_qt_textarea(widget, props, binding):
 
     # Tamaño de fuente
     font = widget.font()
-    font.setPointSize(int(round(props["font_size"])))
+    font.setPixelSize(max(1, round(props["font_size"])))
     widget.setFont(font)
 
     # Read-only / enabled
@@ -68,7 +68,7 @@ def apply_tk_textarea(widget, props):
         widget.insert("1.0", props["value"])
 
     widget.configure(
-        font=("TkDefaultFont", int(round(props["font_size"]))),
+        font=("TkDefaultFont", -max(1, round(props["font_size"]))),
         state=(
             "disabled" if not props["enabled"] or props["read_only"] else
             "normal"

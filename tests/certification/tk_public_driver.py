@@ -1,5 +1,4 @@
 """Native Tk observations and input events for public behavior certification."""
-import re
 from tkinter import font, ttk
 import psx
 
@@ -35,10 +34,22 @@ def configured_font_size(widget):
     """
     spec = (ttk.Style(widget).lookup(widget.cget("style"), "font")
             if isinstance(widget, ttk.Button) else widget.cget("font"))
-    match = re.search(r"(?:^|\s)(-?\d+)(?:\s|$)", str(spec))
-    if match is None:
-        raise AssertionError(f"Native font has no explicit size: {spec!r}")
-    return abs(int(match.group(1)))
+    raw_name = str(spec)
+    if raw_name in font.names(root=widget):
+        size = int(font.nametofont(raw_name, root=widget).cget("size"))
+    else:
+        # Tcl font descriptions store the configured size as their second
+        # element. Do not use `font actual`: it applies DPI point conversion.
+        parts = widget.tk.splitlist(spec)
+        if len(parts) < 2:
+            raise AssertionError(f"Native font has no explicit size: {spec!r}")
+        try:
+            size = int(parts[1])
+        except (ValueError, TypeError) as error:
+            raise AssertionError(f"Native font has no numeric size: {spec!r}") from error
+    if size >= 0:
+        raise AssertionError(f"Expected a pixel-sized Tk font, got {size} points: {spec!r}")
+    return -size
 
 
 def enabled(widget):
