@@ -63,7 +63,7 @@ class TkinterRendererTests(unittest.TestCase):
             return Flex(
                 Text(f"Count: {count}", key="label"),
                 Button("Increment", key="button", on_click=lambda: set_count(lambda value: value + 1)),
-                direction="column", width="640px", height="480px",
+                direction="column", width="616px", height="456px",
                 padding=12, gap=6,
             )
 
