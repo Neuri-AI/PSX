@@ -237,6 +237,12 @@ jobs:
           python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@56e6df858bc0e1ae598cd1cab0aa384c921cf253"
       - run: python -m pytest -q tests/test_pyside6_renderer.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_native_layout.py tests/test_pyside6_external_native_ports.py --junitxml=scroll-qt-operations.xml
       - run: python -m tests.certification.scroll_operation_receipts --backend qt --junit scroll-qt-operations.xml --out scroll-qt-operations.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scroll-qt-operation-receipts
+          path: |
+            scroll-qt-operations.xml
+            scroll-qt-operations.json
 
   qt-parity:
     name: Native layout Qt SFLE parity ${{ matrix.binding }} / Python ${{ matrix.python }}
@@ -340,6 +346,7 @@ jobs:
           name: native-layout-kivy-receipts
           path: |
             native-layout-kivy.xml
+            scroll-kivy-operations.json
             native-layout-kivy-certification.json
             native-layout-kivy-c6.json
             native-layout-kivy-c5.json
@@ -374,6 +381,7 @@ jobs:
           name: native-layout-tk-receipts
           path: |
             native-layout-tk.xml
+            scroll-tk-operations.json
             native-layout-tk-certification.json
             native-layout-tk-c6.json
             native-layout-tk-c5.json
@@ -402,6 +410,7 @@ jobs:
           name: native-layout-headless-receipts
           path: |
             native-layout-headless.xml
+            scroll-headless-operations.json
             native-layout-headless-certification.json
             native-layout-headless-c6.json
             native-layout-headless-c5.json
