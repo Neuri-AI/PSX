@@ -1927,7 +1927,7 @@ G3 is subdivided for implementation tracking only; **the five official F3 gates 
 
 | Increment | Scope | Status |
 | --- | --- | --- |
-| C1 | Neutral scroll offsets, clamping, residual deltas, viewport/content coordinate projection and immutable engine geometry | Implemented; awaiting full CI certification |
+| C1 | Neutral scroll offsets, clamping, residual deltas, viewport/content coordinate projection and immutable engine geometry | **CLOSED — code SHA `abdf9f1`, required CI SUCCESS** |
 | C2 | Real native offset, clipping and axis integration in Qt, Tkinter, Kivy and Headless | Not started |
 | C3 | Keyboard/wheel/touch event handling, edge chaining, nested viewport separation | Not started |
 | C4 | Resize/content reflow, offset restoration, unmount/rollback and focus preservation | Not started |
@@ -1940,4 +1940,4 @@ G3 is subdivided for implementation tracking only; **the five official F3 gates 
 
 **Execution:** `tests/test_scroll_offsets.py` covers both axes, disabled directions, extremes, positive/negative residuals, resize/shrink, nested independent frames, inverse projection and invalid numeric inputs. This test is included in the mandatory Core CI command. It does **not** claim toolkit scroll gesture support, Kivy overflow enablement, scrollbar parity or native nested event chaining. Those are owned by C2–C6.
 
-**Implementation commit:** [`2ee33b0`](https://github.com/Neuri-AI/PSX/commit/2ee33b0ab0d8ac4abea69f2b371f0ea6c53936c4); [required CI execution](https://github.com/Neuri-AI/PSX/actions/runs/38345246046). Mark C1 CLOSED only when the native/geometry/Chromium/Rust-and-fallback required checks complete SUCCESS against the code SHA; documentation-only changes do not rerun product tests.
+**Certified implementation SHA:** [`abdf9f1caa53809e7b47b9cb469e7d514b5d7138`](https://github.com/Neuri-AI/PSX/commit/abdf9f1caa53809e7b47b9cb469e7d514b5d7138). [Required native layout CI #38345388117 — SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38345388117), including core, semantic source naming, Qt four bindings, Tkinter, Kivy, Headless, Chromium, Rust/Python differential and Windows/macOS wheel/fallback. The other three commit workflows also completed SUCCESS. **C1 CLOSED**; C2–C6 remain OPEN. Documentation-only revisions must not rerun product tests.
