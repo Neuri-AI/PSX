@@ -215,3 +215,42 @@ def test_unsupported_does_not_expand_to_fake_property_coverage():
     assert len(headless) == 1
     assert headless[0].applicability == "unported"
     assert headless[0].scenario_id == "reject_unsupported"
+
+
+def test_final_aggregator_rechecks_original_junit_and_sha(tmp_path):
+    from tests.certification.public_behavior_census import merge_executed_manifests
+    row = Feature("Button", "pyside6", "event", "on_click", "native_dispatch")
+    junit = tmp_path / "native.xml"
+    _junit(junit, row)
+    receipt = _receipt(row, junit)
+    receipt["junit_artifact"] = junit.name
+    manifest = tmp_path / "receipts.json"
+    manifest.write_text(json.dumps({
+        "summary": {"sha": SHA}, "receipts": [receipt],
+    }), encoding="utf-8")
+    report = merge_executed_manifests((row,), (manifest,), sha=SHA,
+                                       require_complete=True)
+    assert report["complete"] and report["executed_pass"] == 1
+    with pytest.raises(ValueError, match="Foreign-SHA"):
+        merge_executed_manifests((row,), (manifest,), sha="b" * 40)
+    _junit(junit, row, state="skipped")
+    with pytest.raises(ValueError, match="Missing successful"):
+        merge_executed_manifests((row,), (manifest,), sha=SHA)
+
+
+def test_final_aggregator_rejects_missing_coverage_and_duplicate_manifests(tmp_path):
+    from tests.certification.public_behavior_census import merge_executed_manifests
+    row = Feature("Button", "pyside6", "event", "on_click", "native_dispatch")
+    other = Feature("Button", "pyside6", "event", "on_click", "payload")
+    junit = tmp_path / "native.xml"
+    _junit(junit, row)
+    manifest = tmp_path / "receipts.json"
+    receipt = _receipt(row, junit)
+    receipt["junit_artifact"] = junit.name
+    manifest.write_text(json.dumps({"summary": {"sha": SHA},
+                                    "receipts": [receipt]}), encoding="utf-8")
+    with pytest.raises(ValueError, match="incomplete"):
+        merge_executed_manifests((row, other), (manifest,),
+                                 sha=SHA, require_complete=True)
+    with pytest.raises(ValueError, match="duplicate"):
+        merge_executed_manifests((row,), (manifest, manifest), sha=SHA)
