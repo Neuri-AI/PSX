@@ -608,6 +608,56 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_scroll_mounted_reflow_preserves_logical_offsets(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import Button, Flex, Scroll
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(300, True), AvailableSize(200, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(Flex(
+                Scroll(Flex(
+                    Button("Inside", key="inside", layout_width="40px",
+                           layout_height="20px", flex_shrink=0),
+                    direction="row", width="300px", height="200px",
+                    key="content", align_items="flex-start"),
+                    direction="both", key="scroll",
+                    layout_width="120px", layout_height="80px",
+                    flex_basis="120px", flex_shrink=0),
+                direction="row", width="300px", height="200px",
+                align_items="flex-start",
+            ))
+            scroll = root.children[0].handle.widget
+            child = root.children[0].children[0].children[0].handle.widget
+            scroll.scroll_x = 0.5
+            scroll.scroll_y = 0.5
+            renderer.commit_layout(root)
+            assert abs(scroll.scroll_x - 0.5) < 1e-6
+            assert abs(scroll.scroll_y - 0.5) < 1e-6
+            assert root.children[0].children[0].children[0].handle.widget is child
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_scroll_overflow_native_extent_and_logical_offsets(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
