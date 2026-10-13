@@ -608,6 +608,109 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_scroll_unmount_detaches_kivy_viewport(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import Button, Flex, Scroll
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(300, True), AvailableSize(200, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(Flex(
+                Scroll(Flex(Button("Inside", key="inside",
+                                   layout_width="40px", layout_height="20px",
+                                   flex_shrink=0),
+                            direction="row", width="300px", height="200px",
+                            key="content", align_items="flex-start"),
+                       key="scroll", direction="both",
+                       layout_width="120px", layout_height="80px",
+                       flex_basis="120px", flex_shrink=0),
+                direction="row", width="300px", height="200px",
+                align_items="flex-start",
+            ))
+            view = root.children[0].handle.widget
+            content = view._psx_content
+            assert content.parent is view
+            tree.unmount()
+            assert view.parent is None
+            assert renderer._sfle_mounted_root is None
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_FILELOG"] = "1"
+        env["KIVY_NO_ARGS"] = "1"
+        env["PYTHONPATH"] = "src" + os.pathsep + env.get("PYTHONPATH", "")
+        result = subprocess.run([sys.executable, "-c", script], env=env,
+                                capture_output=True, text=True, timeout=90)
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
+    def test_scroll_native_kivy_failure_restores_offsets(self):
+        script = textwrap.dedent(r"""
+            from unittest.mock import patch
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import Button, Flex, Scroll
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.sfle import native_scroll_hosts
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(300, True), AvailableSize(200, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(Flex(
+                Scroll(Flex(Button("Inside", key="inside",
+                                   layout_width="40px", layout_height="20px",
+                                   flex_shrink=0),
+                            direction="row", width="300px", height="200px",
+                            key="content", align_items="flex-start"),
+                       key="scroll", direction="both",
+                       layout_width="120px", layout_height="80px",
+                       flex_basis="120px", flex_shrink=0),
+                direction="row", width="300px", height="200px",
+                align_items="flex-start",
+            ))
+            view = root.children[0].handle.widget
+            view.scroll_x, view.scroll_y = 0.5, 0.5
+            content_size = tuple(view._psx_content.size)
+            original = native_scroll_hosts.apply_kivy_scroll
+
+            def fail(host, binding, offset):
+                original(host, binding, offset)
+                host.scroll_x, host.scroll_y = 0.0, 1.0
+                raise RuntimeError("injected Kivy native failure")
+
+            with patch.object(native_scroll_hosts, "apply_kivy_scroll", side_effect=fail):
+                try:
+                    renderer.commit_layout(root)
+                except RuntimeError as exc:
+                    assert "injected Kivy" in str(exc)
+                else:
+                    raise AssertionError("Injected native failure was swallowed")
+            assert abs(view.scroll_x - 0.5) < 1e-6
+            assert abs(view.scroll_y - 0.5) < 1e-6
+            assert tuple(view._psx_content.size) == content_size
+            tree.unmount()
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_FILELOG"] = "1"
+        env["KIVY_NO_ARGS"] = "1"
+        env["PYTHONPATH"] = "src" + os.pathsep + env.get("PYTHONPATH", "")
+        result = subprocess.run([sys.executable, "-c", script], env=env,
+                                capture_output=True, text=True, timeout=90)
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_scroll_mounted_reflow_preserves_logical_offsets(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
