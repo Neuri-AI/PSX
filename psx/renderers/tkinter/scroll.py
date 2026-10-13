@@ -31,6 +31,10 @@ class _ScrollFrame(ttk.Frame):
 
     def _bounds(self):
         canvas = self._psx_canvas
+        if self._psx_sfle_scroll and self._psx_scroll_region is not None:
+            _, _, width, height = self._psx_scroll_region
+            return (max(0, width - canvas.winfo_width()),
+                    max(0, height - canvas.winfo_height()))
         inner = self._psx_content
         return (
             max(0, inner.winfo_reqwidth() - canvas.winfo_width()),
@@ -83,7 +87,10 @@ class _ScrollFrame(ttk.Frame):
             self._psx_scroll_remainder[axis] = requested
             return "break"
         self._psx_scroll_remainder[axis] = 0.0
-        total = self._psx_content.winfo_reqwidth() if is_horizontal else self._psx_content.winfo_reqheight()
+        total = (self._psx_scroll_region[2 if is_horizontal else 3]
+                 if self._psx_sfle_scroll and self._psx_scroll_region is not None
+                 else (self._psx_content.winfo_reqwidth() if is_horizontal
+                       else self._psx_content.winfo_reqheight()))
         if is_horizontal:
             canvas.xview_moveto(quantized_position / max(1, total))
         else:
