@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, "src")
 
-from psx import Button, Checkbox, Column, Row, Text, component, use_state
+from psx import Button, Checkbox, Flex, Text, component, use_state
 from psx.core.reconcile import Reconciler
 from psx.integrations.qyro import mount_psx
 from psx.renderers.tkinter import TkinterRenderer
