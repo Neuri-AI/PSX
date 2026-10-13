@@ -77,8 +77,8 @@ jobs:
             test "${#candidates[@]}" -eq 1 || { echo "Expected one receipt manifest: $artifact"; exit 1; }
             files+=(--receipt-file "${candidates[0]}")
           done
-          python -m tests.certification.public_behavior_census \\
-            --out public-behavior-final-inventory.json \\
+          python -m tests.certification.public_behavior_census \
+            --out public-behavior-final-inventory.json \
             --sha "$EXPECTED_SHA" "${files[@]}" --require-complete
       - uses: actions/upload-artifact@v4
         if: always()
