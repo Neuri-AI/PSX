@@ -10,7 +10,7 @@ sys.path.insert(0, "src")
 
 from pydux import Action, Store, configure_store, create_async_thunk, create_slice
 
-from psx import Button, Column, PSXError, Text, component
+from psx import Button, Flex, PSXError, Text, component
 from psx.core.reconcile import Reconciler
 from psx.integrations.pydux import StoreProvider, use_dispatch, use_selector
 from psx.renderers.headless import HeadlessRenderer
@@ -72,7 +72,21 @@ class PyduxIntegrationTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.reconciler.unmount()
 
-    def test_selector_dispatch_and_native_event_share_the_existing_scheduler(self) -> None:
+    def _enable_native_sfle(self) -> None:
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+        self.reconciler.unmount()
+        self.renderer = HeadlessRenderer(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(640, True), AvailableSize(480, True)),
+            engine=PythonLayoutEngine(),
+            measure_intrinsic=lambda node: IntrinsicSizes(
+                4, 20, 8, 12, 18, 12, 8),
+        )
+        self.reconciler = Reconciler(self.renderer)
+
+    def test_selector_dispatch_and_native_event_share_the_existing_scheduler(self) -> None:        self._enable_native_sfle()
+
         renders = {"counter": 0}
         counter_slice = create_slice(
             name="counter",
@@ -91,9 +105,10 @@ class PyduxIntegrationTests(unittest.TestCase):
             renders["counter"] += 1
             count = use_selector(select_toolkit_count)
             dispatch = use_dispatch()
-            return Column(
+            return Flex(
                 Text(f"Count: {count}", key="label"),
                 Button("+1", key="button", on_click=lambda: dispatch(counter_slice.actions.increment())),
+                direction="column", width="640px", height="480px",
             )
 
         root = self.reconciler.render(StoreProvider(store, Counter()))
@@ -107,6 +122,7 @@ class PyduxIntegrationTests(unittest.TestCase):
         self.assertEqual(renders["counter"], 2)
 
     def test_only_the_component_with_a_changed_selector_rerenders(self) -> None:
+        self._enable_native_sfle()
         renders = {"count": 0, "other": 0}
 
         @component
@@ -119,7 +135,7 @@ class PyduxIntegrationTests(unittest.TestCase):
             renders["other"] += 1
             return Text(str(use_selector(select_other)))
 
-        self.reconciler.render(StoreProvider(self.store, Column(CountView(), OtherView())))
+        self.reconciler.render(StoreProvider(self.store, Flex(CountView(), OtherView(), direction="column", width="640px", height="480px")))
         self.assertEqual(renders, {"count": 1, "other": 1})
         self.store.dispatch(Action("increment"))
         self.renderer.flush()
