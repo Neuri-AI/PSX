@@ -657,6 +657,44 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertLessEqual(abs(outer._psx_canvas.canvasy(0) - 48), 1)
         self.assertEqual(event._psx_scroll_remainder, 0.0)
 
+    def test_scroll_failed_commit_restores_tk_scrollregion_and_offsets(self):
+        from unittest.mock import patch
+        from psx import Scroll
+        from psx.sfle import native_scroll_hosts
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        root = self.reconciler.render(Flex(
+            Scroll(Flex(item("Inside", "inside", 40),
+                        direction="row", width="300px", height="200px",
+                        key="content", align_items="flex-start"),
+                   direction="both", key="scroll",
+                   layout_width="120px", layout_height="80px",
+                   flex_basis="120px", flex_shrink=0),
+            direction="row", width="300px", height="200px",
+            align_items="flex-start",
+        ))
+        outer = root.children[0].handle.widget
+        canvas = outer._psx_canvas
+        self.host.update_idletasks()
+        canvas.xview_moveto(60 / 300)
+        canvas.yview_moveto(30 / 200)
+        before_region = canvas.cget("scrollregion")
+        original = native_scroll_hosts.apply_tk_scroll
+
+        def fail_after_mutation(host, binding, offset):
+            original(host, binding, offset)
+            host._psx_canvas.xview_moveto(0)
+            host._psx_canvas.yview_moveto(0)
+            raise RuntimeError("injected Tk scroll failure")
+
+        with patch.object(native_scroll_hosts, "apply_tk_scroll",
+                          side_effect=fail_after_mutation):
+            with self.assertRaisesRegex(RuntimeError, "injected Tk"):
+                self.renderer.commit_layout(root)
+        self.host.update_idletasks()
+        self.assertEqual(canvas.cget("scrollregion"), before_region)
+        self.assertLessEqual(abs(canvas.canvasx(0) - 60), 1)
+        self.assertLessEqual(abs(canvas.canvasy(0) - 30), 1)
+
     def test_scroll_reflow_keeps_logical_offset_and_native_identity(self):
         from psx import Scroll
         self.renderer.set_sfle_constraints(constraints(300, 200))
