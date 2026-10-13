@@ -7,7 +7,7 @@ the existing renderer/integration suites.
 
 from __future__ import annotations
 
-from psx import Button, Column, Ref, Text, component, psx, use_ref, use_state
+from psx import Button, Flex, Ref, Text, component, psx, use_ref, use_state
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
 
@@ -22,8 +22,8 @@ def test_public_python_and_markup_paths_preserve_identity_events_keys_and_refs()
         count, set_count = use_state(0)
         button_ref = use_ref()
         return psx(
-            "<Column spacing={gap}><Text key=\"label\">Count: {count}</Text>"
-            "<Button key=\"increment\" ref={button_ref} on_click={increment}>+1</Button></Column>",
+            "<Flex direction="column" gap={gap}><Text key=\"label\">Count: {count}</Text>"
+            "<Button key=\"increment\" ref={button_ref} on_click={increment}>+1</Button></Flex>",
             scope={
                 "gap": 8,
                 "count": count,
@@ -46,7 +46,7 @@ def test_public_python_and_markup_paths_preserve_identity_events_keys_and_refs()
 
 
 def test_public_builders_keep_normalization_and_default_props() -> None:
-    tree = Column("label", Button("Save"), Text("ready"))
+    tree = Flex("label", Button("Save"), Text("ready"), direction="column")
     assert [child.type for child in tree.children] == ["Text", "Button", "Text"]
     assert tree.children[0].props["value"] == "label"
     assert tree.children[1].props == {"label": "Save", "font_size": 14, "on_click": None, "enabled": True}
