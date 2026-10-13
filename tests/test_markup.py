@@ -72,16 +72,18 @@ class MarkupM4ATests(unittest.TestCase):
         self.assertIn("Expected closing tag </Text>", str(malformed.exception))
 
     def test_static_spacing_is_converted_by_the_column_schema(self) -> None:
-        tree = psx('<Flex direction="column" gap="16"><Text value="Hello" /></Flex>')
-        self.assertEqual(tree.props["spacing"], 16)
+        tree = psx('<Flex direction="column" gap="16px"><Text value="Hello" /></Flex>')
+        self.assertEqual(tree.props["gap"], "16px")
 
     def test_braced_numeric_literals_are_safe_static_attribute_values(self) -> None:
         tree = psx('<Flex direction="column" padding={50} gap={12}><Text value="Ready" /></Flex>')
         self.assertEqual(tree.props["padding"], 50)
-        self.assertEqual(tree.props["spacing"], 12)
+        self.assertEqual(tree.props["gap"], 12)
 
     def test_markup_component_uses_the_same_state_event_and_reconciliation_pipeline(self) -> None:
-        renderer = HeadlessRenderer()
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, LayoutConstraints
+        renderer = HeadlessRenderer(sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)), engine=PythonLayoutEngine())
         reconciler = Reconciler(renderer)
 
         @component
