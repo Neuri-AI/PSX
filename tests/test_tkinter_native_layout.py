@@ -96,7 +96,9 @@ class TkSFLEGeometryTests(unittest.TestCase):
         widgets["button"].invoke()
         widgets["check"].invoke()
         widgets["input"].var.set("first")
-        widgets["input"].event_generate("<Return>")
+        widgets["input"].focus_force()
+        self.host.update()
+        widgets["input"].event_generate("<Return>", when="tail")
         widgets["textarea"].insert("end-1c", "!")
         self.host.update()
         self.assertEqual(old, [
