@@ -101,6 +101,49 @@ class _ScrollFrame(ttk.Frame):
         # the next enclosing Scroll, preserving inner-first chaining.
         return "break" if abs(event._psx_scroll_remainder) < 0.5 else None
 
+    def _keyboard(self, event):
+        from psx.sfle.scroll_events import scroll_key_delta
+        from psx.sfle.scroll_offsets import ScrollOffset
+        if self._psx_disposed or not self._psx_props["enabled"]:
+            return None
+        canvas = self._psx_canvas
+        max_x, max_y = self._bounds()
+        dx, dy = scroll_key_delta(
+            event.keysym, viewport_width=canvas.winfo_width(),
+            viewport_height=canvas.winfo_height(),
+            offset=ScrollOffset(max(0.0, float(canvas.canvasx(0))),
+                                max(0.0, float(canvas.canvasy(0)))),
+            maximum_x=max_x, maximum_y=max_y,
+        )
+        allowed_x, allowed_y = scroll_axes(self._psx_props["direction"])
+        if not allowed_x:
+            dx = 0.0
+        if not allowed_y:
+            dy = 0.0
+        if not dx and not dy:
+            return None
+        moved = False
+        for axis, delta, bound, total in (
+            ("x", dx, max_x, self._psx_scroll_region[2] if self._psx_scroll_region else 0),
+            ("y", dy, max_y, self._psx_scroll_region[3] if self._psx_scroll_region else 0),
+        ):
+            if not delta:
+                continue
+            current = max(0.0, float(canvas.canvasx(0) if axis == "x"
+                                      else canvas.canvasy(0)))
+            new_position, _ = consume_scroll(current, bound, delta)
+            if round(new_position) == round(current):
+                continue
+            if axis == "x":
+                canvas.xview_moveto(new_position / max(1, total))
+            else:
+                canvas.yview_moveto(new_position / max(1, total))
+            moved = True
+        if moved:
+            self._show_thumbs()
+            return "break"
+        return None
+
     def _show_thumbs(self):
         if self._psx_after is not None:
             self.after_cancel(self._psx_after)
