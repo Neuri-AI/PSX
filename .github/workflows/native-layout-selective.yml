@@ -159,7 +159,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e . pytest
-      - run: python -m pytest -q tests/test_core.py tests/test_component_contracts.py tests/test_component_registry.py tests/test_markup_registry.py tests/test_markup.py tests/test_hooks_scheduler.py tests/test_renderer_adapters.py tests/test_source_naming_conventions.py tests/test_scroll_offsets.py tests/test_scroll_events.py tests/test_scroll_transactions.py tests/test_native_scroll_hosts.py tests/test_flex_layout_contract.py tests/test_flex_item_metadata.py tests/test_native_layout_snapshot.py tests/test_native_component_capabilities.py tests/test_native_component_matrix.py tests/test_native_operation_contracts.py tests/test_native_external_ownership_contracts.py tests/test_native_measurement_invalidation.py tests/test_native_invalidation_receipts.py tests/test_native_intrinsic_cache.py tests/test_native_geometry_write_suppression.py tests/test_native_resource_invalidation.py tests/test_external_native_geometry_ports.py tests/test_width_dependent_intrinsic_measurement.py tests/test_native_pixel_scale.py tests/test_native_geometry_precision.py tests/test_native_component_integration.py tests/test_native_acceptance_receipts.py tests/test_component_family_policy.py tests/test_headless_native_layout.py
+      - run: python -m pytest -q tests/test_core.py tests/test_component_contracts.py tests/test_component_registry.py tests/test_markup_registry.py tests/test_markup.py tests/test_hooks_scheduler.py tests/test_renderer_adapters.py tests/test_source_naming_conventions.py tests/test_scroll_offsets.py tests/test_scroll_events.py tests/test_scroll_transactions.py tests/test_scroll_operation_receipts.py tests/test_native_scroll_hosts.py tests/test_flex_layout_contract.py tests/test_flex_item_metadata.py tests/test_native_layout_snapshot.py tests/test_native_component_capabilities.py tests/test_native_component_matrix.py tests/test_native_operation_contracts.py tests/test_native_external_ownership_contracts.py tests/test_native_measurement_invalidation.py tests/test_native_invalidation_receipts.py tests/test_native_intrinsic_cache.py tests/test_native_geometry_write_suppression.py tests/test_native_resource_invalidation.py tests/test_external_native_geometry_ports.py tests/test_width_dependent_intrinsic_measurement.py tests/test_native_pixel_scale.py tests/test_native_geometry_precision.py tests/test_native_component_integration.py tests/test_native_acceptance_receipts.py tests/test_component_family_policy.py tests/test_headless_native_layout.py
 
   sfle:
     name: Native layout SFLE geometry contracts
@@ -235,7 +235,8 @@ jobs:
       - name: Install pinned Pydux dependency required by existing PySide6 integration tests
         run: |
           python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@56e6df858bc0e1ae598cd1cab0aa384c921cf253"
-      - run: python -m pytest -q tests/test_pyside6_renderer.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_native_layout.py tests/test_pyside6_external_native_ports.py
+      - run: python -m pytest -q tests/test_pyside6_renderer.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_native_layout.py tests/test_pyside6_external_native_ports.py --junitxml=scroll-qt-operations.xml
+      - run: python -m tests.certification.scroll_operation_receipts --backend qt --junit scroll-qt-operations.xml --out scroll-qt-operations.json
 
   qt-parity:
     name: Native layout Qt SFLE parity ${{ matrix.binding }} / Python ${{ matrix.python }}
@@ -329,6 +330,7 @@ jobs:
       - run: python -m pip install -e '.[kivy]' pytest
       - run: xvfb-run -a python -m pytest -q tests/test_kivy_renderer.py tests/test_kivy_native_layout.py --junitxml=native-layout-kivy.xml
       - run: |
+          python -m tests.certification.scroll_operation_receipts --backend kivy --junit native-layout-kivy.xml --out scroll-kivy-operations.json
           python -m psx.sfle.native_operation_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-certification.json
           python -m tests.certification.native_acceptance_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-c6.json
           python -m tests.certification.native_invalidation_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-c5.json
@@ -362,6 +364,7 @@ jobs:
       - run: python -m pip install -e . pytest Pillow
       - run: xvfb-run -a python -m pytest -q tests/test_tkinter_renderer.py tests/test_tkinter_native_layout.py tests/test_tkinter_external_native_ports.py --junitxml=native-layout-tk.xml
       - run: |
+          python -m tests.certification.scroll_operation_receipts --backend tk --junit native-layout-tk.xml --out scroll-tk-operations.json
           python -m psx.sfle.native_operation_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-certification.json
           python -m tests.certification.native_acceptance_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-c6.json
           python -m tests.certification.native_invalidation_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-c5.json
@@ -388,8 +391,9 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e . pytest
-      - run: python -m pytest -q tests/test_core.py tests/test_renderer_adapters.py tests/test_headless_native_layout.py --junitxml=native-layout-headless.xml
+      - run: python -m pytest -q tests/test_core.py tests/test_renderer_adapters.py tests/test_headless_native_layout.py tests/test_scroll_offsets.py --junitxml=native-layout-headless.xml
       - run: |
+          python -m tests.certification.scroll_operation_receipts --backend headless --junit native-layout-headless.xml --out scroll-headless-operations.json
           python -m psx.sfle.native_operation_receipts --backend headless --junit native-layout-headless.xml --out native-layout-headless-certification.json
           python -m tests.certification.native_acceptance_receipts --backend headless --junit native-layout-headless.xml --out native-layout-headless-c6.json
           python -m tests.certification.native_invalidation_receipts --backend headless --junit native-layout-headless.xml --out native-layout-headless-c5.json
