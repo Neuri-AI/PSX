@@ -47,7 +47,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             "Kivy SFLE geometry requires the renderer's Clock/UI thread.",
         )
     if renderer._sfle_in_commit:
-        raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Re-entrant Kivy SFLE commit.")
+        raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                        "Re-entrant Kivy SFLE commit.")
     renderer._sfle_in_commit = True
     try:
         generation = renderer._sfle_generation + 1
@@ -58,24 +59,29 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
 
         def gather(instance: "MountedInstance") -> None:
             if instance.disposed:
-                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Disposed Kivy layout node.")
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                                "Disposed Kivy layout node.")
             if instance.node.kind is NodeKind.COMPONENT:
                 if len(instance.children) != 1:
-                    raise SFLEError(DiagnosticCode.INVALID_TREE, "Function component needs one mounted root.")
+                    raise SFLEError(DiagnosticCode.INVALID_TREE,
+                                    "Function component needs one mounted root.")
                 component_roots[id(instance.node)] = instance.children[0].node
             else:
                 if instance.handle is None or id(instance.node) in handles:
-                    raise SFLEError(DiagnosticCode.INVALID_TREE, "Missing or duplicated Kivy layout handle.")
+                    raise SFLEError(DiagnosticCode.INVALID_TREE,
+                                    "Missing or duplicated Kivy layout handle.")
                 handles[id(instance.node)] = instance.handle
             for child in instance.children:
                 gather(child)
 
         gather(root)
-        normalized = normalize_flex_tree(root.node, component_roots=component_roots)
+        normalized = normalize_flex_tree(
+            root.node, component_roots=component_roots)
         prepared = prepare_native_layout_snapshot(
             normalized, renderer._sfle_constraints, generation=generation,
         )
-        bindings = {node_id: handles[id(source)] for node_id, source in prepared.identities}
+        bindings = {node_id: handles[id(source)]
+                    for node_id, source in prepared.identities}
         external = {
             node_id: port
             for node_id, source in prepared.identities
@@ -84,7 +90,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         for node in prepared.snapshot.nodes:
             if node.parent_id is None:
                 if bindings[node.node_id].widget is not renderer._root:
-                    raise SFLEError(DiagnosticCode.INVALID_TREE, "Kivy SFLE root does not match host.")
+                    raise SFLEError(DiagnosticCode.INVALID_TREE,
+                                    "Kivy SFLE root does not match host.")
                 continue
             child = bindings[node.node_id].widget
             parent = bindings[node.parent_id].widget
@@ -162,7 +169,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     if callable(refresh):
                         refresh()
                 if renderer._sfle_generation != generation:
-                    raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Kivy measurement became stale.")
+                    raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                                    "Kivy measurement became stale.")
                 continue
             if callable(refresh):
                 refresh()
@@ -174,7 +182,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     node_id, renderer._sfle_constraints, generation, generation)),
             ))
             if renderer._sfle_generation != generation:
-                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Kivy measurement became stale.")
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                                "Kivy measurement became stale.")
         for node_id, port in external.items():
             readings.append(native_round.read(
                 widget=bindings[node_id].widget, props=declared_props[node_id],
@@ -185,7 +194,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     renderer._sfle_constraints, node_id, generation),
             ))
             if renderer._sfle_generation != generation:
-                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external kivy measurement.")
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                                "Stale external kivy measurement.")
         snapshot = replace(prepared.snapshot, measurements=tuple(readings))
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
@@ -208,13 +218,15 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                         constraints=renderer._sfle_constraints,
                         width=width,
                         measure=lambda: measure_external(
-                        port, bindings[node_id].widget,
-                        LayoutConstraints(AvailableSize(width, True), AvailableSize(None, False)),
-                        node_id, generation,
-                    ).intrinsic,
+                            port, bindings[node_id].widget,
+                            LayoutConstraints(AvailableSize(
+                                width, True), AvailableSize(None, False)),
+                            node_id, generation,
+                        ).intrinsic,
                     )
                 )
-        snapshot = seed_unconstrained_width_measurements(snapshot, frozenset(dependent))
+        snapshot = seed_unconstrained_width_measurements(
+            snapshot, frozenset(dependent))
         result = compute_width_dependent(
             renderer._sfle_engine, snapshot, dependent,
             current_generation=lambda: renderer._sfle_generation,
@@ -243,7 +255,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         )
         validate_adapter_commit(snapshot, result, ports)
         if renderer._sfle_generation != generation:
-            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Kivy SFLE computation became stale.")
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                            "Kivy SFLE computation became stale.")
 
         pixel_space = DevicePixelSpace.from_widget("kivy", renderer._root)
         boxes = dict(result.boxes)
@@ -282,7 +295,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         from psx.sfle.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
         scroll_before = capture_scroll_hosts("kivy", bindings)
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
-            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                            "Stale semantic invalidation before native geometry.")
         try:
             # F2 already validates the fixed-point grid and applies a pure
             # parent-relative bottom-left transform in precomputed order.
@@ -314,9 +328,11 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 widget.text_size = (boxes[node_id].content.width, None)
                 widget.texture_update()
             if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
-                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation after native geometry.")
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                                "Stale semantic invalidation after native geometry.")
             if renderer._sfle_generation != generation:
-                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Kivy geometry commit.")
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                                "Stale Kivy geometry commit.")
             observed = ports.read_rectangles()
             maximum = 0.0
             physical_maximum = 0.0
@@ -336,9 +352,12 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                                LayoutUnit.from_nearest(local_y) -
                                LayoutUnit.from_nearest(border.height)).to_px()
                 actual = observed[node.node_id]
-                expected_native = Rect(local_x, projected_y, border.width, border.height)
-                actual_native = Rect(*(actual[axis] for axis in ("x", "y", "width", "height")))
-                logical_error, physical_error = pixel_space.error(expected_native, actual_native)
+                expected_native = Rect(
+                    local_x, projected_y, border.width, border.height)
+                actual_native = Rect(
+                    *(actual[axis] for axis in ("x", "y", "width", "height")))
+                logical_error, physical_error = pixel_space.error(
+                    expected_native, actual_native)
                 maximum = max(maximum, logical_error)
                 physical_maximum = max(physical_maximum, physical_error)
             if maximum > 1.0 or physical_maximum > pixel_space.allowed_physical_error:
@@ -352,7 +371,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     "Stale semantic invalidation during native readback.",
                 )
             if renderer._sfle_generation != generation:
-                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                                "Stale generation during native readback.")
         except BaseException:
             restore_scroll_hosts(scroll_before)
             for node_id, previous in previous_text_sizes.items():

@@ -26,13 +26,22 @@ class KivyMeasurementSource:
     ) -> None:
         self._widgets = dict(widgets)
         if not textarea_ids <= self._widgets.keys():
-            raise ValueError("TextArea measurement IDs must map to mounted Kivy controls.")
+
+            raise ValueError(
+                "TextArea measurement IDs must map to mounted Kivy controls.")
+
         self._textarea_ids = textarea_ids
         if not image_ids <= self._widgets.keys():
-            raise ValueError("Image measurement IDs must refer to mounted Kivy controls.")
+
+            raise ValueError(
+                "Image measurement IDs must refer to mounted Kivy controls.")
+
         self._image_ids = image_ids
         if not spacer_ids <= self._widgets.keys():
-            raise ValueError("Spacer measurement IDs must refer to native widgets.")
+
+            raise ValueError(
+                "Spacer measurement IDs must refer to native widgets.")
+
         self._spacer_ids = spacer_ids
         self._divider_nodes = dict(divider_nodes or {})
         if not self._divider_nodes.keys() <= self._widgets.keys():
@@ -73,7 +82,10 @@ class KivyMeasurementSource:
             )
         props = widget._psx_props
         sw, sh = texture.size
-        width, height = compute_target_size(sw, sh, props["width"], props["height"])
+
+        width, height = compute_target_size(
+            sw, sh, props["width"], props["height"])
+
         return IntrinsicSizes(
             float(width), float(width), float(height), float(height),
             float(width), float(height),
@@ -107,15 +119,23 @@ class KivyMeasurementSource:
         # for a later Clock iteration, while SFLE needs a synchronous port.
         probe = TextInput(**kwargs)
         probe.width = float(width) if width is not None else 32768.0
-        probe._refresh_text_from_property()
+        # Synchronize native font options and wrapped lines before measurement.
+        probe._refresh_line_options()
         height = float(probe.minimum_height)
         natural = max(
             (float(label.width) for label in probe._lines_labels),
             default=0.0,
         ) + float(probe.padding[0]) + float(probe.padding[2])
         if not math.isfinite(height) or not math.isfinite(natural):
-            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
-                            "Kivy TextArea returned nonfinite intrinsic metrics.")
+
+            raise SFLEError(
+
+                DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+
+                "Kivy TextArea returned nonfinite intrinsic metrics.",
+
+            )
+
         return IntrinsicSizes(natural, natural, height, height, natural, height)
 
     @staticmethod
@@ -151,7 +171,10 @@ class KivyMeasurementSource:
                 text_width = max(text_width, float(label.texture.size[0]))
                 line_height = max(line_height, float(label.texture.size[1]))
             left, top, right, bottom = [float(v) for v in widget.padding]
-            width = max(density_pixels(72), text_width + left + right + density_pixels(12))
+
+            width = max(density_pixels(72), text_width +
+                        left + right + density_pixels(12))
+
             height = max(density_pixels(32), line_height + top + bottom)
         elif kind == "Checkbox":
             # Graphic artwork is the closest native intrinsic hint.
@@ -190,10 +213,16 @@ class KivyMeasurementSource:
         if not isinstance(request, MeasurementRequest):
             raise TypeError("Expected MeasurementRequest.")
         if not self.is_ui_thread():
-            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Kivy measurement requires UI thread.")
+
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                            "Kivy measurement requires UI thread.")
+
         widget = self._widgets.get(request.node_id)
         if widget is None:
-            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Kivy measurement node.")
+
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                            "Unknown Kivy measurement node.")
+
         if request.node_id in self._spacer_ids:
             return MeasuredBox(
                 request.node_id, self._structural_metrics("Spacer", {}),
@@ -202,7 +231,10 @@ class KivyMeasurementSource:
         if request.node_id in self._divider_nodes:
             return MeasuredBox(
                 request.node_id,
-                self._structural_metrics("Divider", self._divider_nodes[request.node_id]),
+
+                self._structural_metrics(
+                    "Divider", self._divider_nodes[request.node_id]),
+
                 request.constraints, request.revision,
             )
         if request.node_id in self._image_ids:
@@ -221,14 +253,20 @@ class KivyMeasurementSource:
             )
         if getattr(widget, "_psx_sfle_badge", False):
             width, height = widget._psx_natural_size
-            metrics = IntrinsicSizes(width, width, height, height, width, height)
+
+            metrics = IntrinsicSizes(
+                width, width, height, height, width, height)
+
             return MeasuredBox(
                 request.node_id, metrics, request.constraints, request.revision,
             )
         if getattr(widget, "_psx_sfle_link", False):
             width = max(1.0, float(widget.texture_size[0]) + 4.0)
             height = max(24.0, float(widget.texture_size[1]) + 4.0)
-            metrics = IntrinsicSizes(width, width, height, height, width, height)
+
+            metrics = IntrinsicSizes(
+                width, width, height, height, width, height)
+
             return MeasuredBox(
                 request.node_id, metrics, request.constraints, request.revision,
             )
@@ -239,13 +277,16 @@ class KivyMeasurementSource:
             widget, "_psx_sfle_spinbox", False
         ):
             width, height = widget._psx_intrinsic_size
-            metrics = IntrinsicSizes(width, width, height, height, width, height)
+            metrics = IntrinsicSizes(
+                width, width, height, height, width, height)
+
             return MeasuredBox(
                 request.node_id, metrics, request.constraints, request.revision,
             )
         if getattr(widget, "_psx_sfle_radio", False):
             width, height = widget._psx_intrinsic_radio
-            metrics = IntrinsicSizes(width, width, height, height, width, height)
+            metrics = IntrinsicSizes(
+                width, width, height, height, width, height)
             return MeasuredBox(
                 request.node_id, metrics, request.constraints, request.revision,
             )
@@ -263,17 +304,26 @@ class KivyMeasurementSource:
             )
         width, height = (float(v) for v in pair)
         if width < 0 or height < 0:
-            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Invalid Kivy intrinsic metrics.")
+
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                            "Invalid Kivy intrinsic metrics.")
+
         metrics = IntrinsicSizes(width, width, height, height, width, height)
         return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
 
     def measure_width(self, node_id: str, width: float) -> IntrinsicSizes:
         """Measure a Kivy leaf at the exact post-flex content width."""
         if not self.is_ui_thread():
-            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Kivy measurement requires UI thread.")
+
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                            "Kivy measurement requires UI thread.")
+
         widget = self._widgets.get(node_id)
         if widget is None:
-            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Kivy measurement node.", node_id)
+
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                            "Unknown Kivy measurement node.", node_id)
+
         if node_id in self._textarea_ids:
             return self._textarea_metrics(widget, width)
         control_kind = getattr(widget, "_psx_sfle_intrinsic_kind", None)
