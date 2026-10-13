@@ -1,6 +1,6 @@
 # SFLE F3 — native integration, complete component coverage and exit criteria
 
-> **CURRENT STATUS (2026-10-12): F3-G1 CLOSED; F3-G2 CLOSED (C1–C6 CLOSED; C6 iterations 1–4 certified); F3-G3/G4/G5 OPEN. F3 official gates: 2/5 CLOSED (40%).** Historical progress statements below are dated snapshots, not the current gate state.
+> **CURRENT STATUS (2026-10-12): F3-G1/G2/G3 CLOSED; F3-G4 IN PROGRESS (legacy layout migration); F3-G5 OPEN. F3 official gates: 3/5 CLOSED (60%).** Historical progress statements below are dated snapshots, not the current gate state.
 > from `develop` SHA `979b6ed9e86c63b640d498439045910ed1a189aa` on feature branch
 > [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
 > This document records the approved scope, **not** an implementation
