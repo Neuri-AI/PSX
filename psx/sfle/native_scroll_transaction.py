@@ -73,3 +73,24 @@ def restore_scroll_hosts(snapshots: tuple[ScrollHostSnapshot, ...]) -> None:
             host.scroll_x, host.scroll_y = x, y
         host._psx_scroll_logical_offset = saved.logical
         host._psx_scroll_previous_overflow = saved.previous_overflow
+
+
+def prior_scroll_offset(snapshots: tuple[ScrollHostSnapshot, ...], host: object):
+    """Read offset from the pre-transaction viewport, before resize resets it."""
+    from .scroll_offsets import ScrollOffset
+
+    for saved in snapshots:
+        if saved.host is not host:
+            continue
+        if saved.backend == "qt":
+            return ScrollOffset(float(saved.values[4]), float(saved.values[5]))
+        if saved.backend == "tk":
+            return ScrollOffset(max(0.0, float(saved.values[3])),
+                                max(0.0, float(saved.values[4])))
+        old_x, old_y = saved.previous_overflow or (
+            max(0.0, saved.values[0][0] - host.width),
+            max(0.0, saved.values[0][1] - host.height),
+        )
+        return ScrollOffset(max(0.0, float(saved.values[2]) * old_x),
+                            max(0.0, (1.0 - float(saved.values[3])) * old_y))
+    raise KeyError("Scroll host not present in transaction snapshot")
