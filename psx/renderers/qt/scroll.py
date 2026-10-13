@@ -52,6 +52,16 @@ def _scroll_area_class(binding: str):
                 )
                 self._indicators[axis] = indicator
             self.viewport().installEventFilter(self)
+            # QScroller supplies native kinetic touch input when exposed by
+            # the active Qt binding; SFLE still owns all child geometry.
+            scroller = getattr(widgets, "QScroller", None)
+            if scroller is not None:
+                gesture = getattr(
+                    getattr(scroller, "ScrollerGestureType", scroller),
+                    "TouchGesture", None,
+                )
+                if gesture is not None:
+                    scroller.grabGesture(self.viewport(), gesture)
 
         def eventFilter(self, source, event):
             if source is self.viewport() and event.type() == event_type.Resize:
