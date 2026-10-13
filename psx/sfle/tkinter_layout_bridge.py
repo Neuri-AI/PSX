@@ -260,7 +260,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             if node_id in dependent and "wraplength" in widget.keys()
         }
         from psx.sfle.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
-        scroll_before = capture_scroll_hosts("tk", bindings)
+        scroll_before = capture_scroll_hosts("tk", widgets)
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
         try:
