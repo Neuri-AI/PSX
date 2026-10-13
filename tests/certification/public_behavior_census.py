@@ -25,6 +25,7 @@ class Feature:
     feature_name: str
     scenario_id: str
     status: str = "pending"
+    applicability: str = "review_required"
 
 
 def inventory() -> tuple[Feature, ...]:
@@ -32,7 +33,11 @@ def inventory() -> tuple[Feature, ...]:
     from psx.core.registry import builtin_component_registry
     from psx.core.layout_item import FLEX_ITEM_PROPS
 
+    from tests.certification.native_component_matrix import native_certification_matrix
+
     definitions = builtin_component_registry().snapshot()
+    native = {(cell.backend, cell.component): cell.status
+              for cell in native_certification_matrix()}
     rows = []
     for component, definition in sorted(definitions.items()):
         contract = definition.contract
@@ -40,22 +45,33 @@ def inventory() -> tuple[Feature, ...]:
             # Fragment, Box and Native have no public ComponentContract.
             # Their lifecycle must not disappear from the coverage census.
             for backend in BACKENDS:
+                family = "qt" if backend.startswith(("pyqt", "pyside")) else (
+                    "tk" if backend == "tkinter" else backend)
+                applicability = native[(family, component)]
                 for operation in STRUCTURAL_SCENARIOS:
-                    rows.append(Feature(component, backend, "lifecycle", operation, "native_behavior"))
+                    rows.append(Feature(component, backend, "lifecycle", operation,
+                                        "native_behavior", applicability=applicability))
             continue
         properties = set(contract.properties)
         if component != "Flex":
             properties.update(FLEX_ITEM_PROPS)
         for backend in BACKENDS:
-            rows.append(Feature(component, backend, "child_policy", contract.child_policy, "validate"))
+            family = "qt" if backend.startswith(("pyqt", "pyside")) else (
+                "tk" if backend == "tkinter" else backend)
+            applicability = native[(family, component)]
+            rows.append(Feature(component, backend, "child_policy", contract.child_policy,
+                                "validate", applicability=applicability))
             for prop in sorted(properties):
                 for scenario in PROPERTY_SCENARIOS:
-                    rows.append(Feature(component, backend, "property", prop, scenario))
+                    rows.append(Feature(component, backend, "property", prop, scenario,
+                                        applicability=applicability))
             for event in sorted(contract.events):
                 for scenario in EVENT_SCENARIOS:
-                    rows.append(Feature(component, backend, "event", event, scenario))
+                    rows.append(Feature(component, backend, "event", event, scenario,
+                                        applicability=applicability))
             for operation in STRUCTURAL_SCENARIOS:
-                rows.append(Feature(component, backend, "lifecycle", operation, "native_behavior"))
+                rows.append(Feature(component, backend, "lifecycle", operation,
+                                    "native_behavior", applicability=applicability))
     result = tuple(sorted(set(rows)))
     if len(result) != len(rows):
         raise ValueError("Duplicate public behavior census entry")
