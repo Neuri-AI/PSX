@@ -1724,3 +1724,52 @@ G2 precision/lifecycle evidence matrix with executed receipts. Iteration
 4/4 consolidates G2 release documentation, removes conflicting historical
 status summaries from the active header, and signs off the exact final
 SHA. **C6 and G2 remain OPEN until all four iterations finish.**
+
+
+### C6 iteration 2/4 — registry × native integration matrix (CLOSED, 2026-10-12)
+
+**Certified implementation SHA:** [`c3bef12d6c5d2aa35337b2d049b73d865e5f979f`](https://github.com/Neuri-AI/PSX/commit/c3bef12d6c5d2aa35337b2d049b73d865e5f979f).
+**Required code CI:** [F3 selective #38334904498 — completed SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38334904498), with independent G1 contracts, package boundaries and commit-subject workflows green at the same code SHA.
+
+A new fail-closed integration census in
+`tests/test_f3_g2_c6_integration.py` enumerates the live
+`builtin_component_registry().snapshot()` crossed with the four
+backends. Every pair has a unique, reviewed status and native
+classification must agree with the allowed ports; unported Headless
+controls remain explicit, not silently upgraded to supported.
+`Fragment` is transparent, `Native` requires an external geometry
+port, legacy `Row/Column` remain G4-deferred, and Flex is structural.
+
+Each registered native component is required to appear in a
+backend-specific source-checked **real native geometry/lifecycle driver**
+that asserts native rectangle/width and mounted handle identity.
+The integration census tests that these drivers enumerate the full
+native registry, actually invoke semantic invalidation and perform
+geometry assertions. Backend execution (not source references alone)
+is supplied by the corresponding native CI job:
+Qt PySide6/PyQt6/PyQt5/PySide2, real Tk/Xvfb, Kivy/SDL2, and deterministic
+Headless. The existing G2 per-component JUnit receipt pipeline remains
+required in each native CI job. The checks also prevent a builtin
+operation's certificate from silently conferring certification on a
+`Native` or custom adapter.
+
+External-ownership admission is verified against the independent C4
+manifest, with explicit cases for `native_owned`, `native_borrowed`,
+and `custom_adapter` on Qt, Tk and Kivy. Qt/Kivy borrowed ownership
+must preserve and reparent the original widget; Tk borrowed ownership
+is explicitly rejected without mutation because Tk cannot guarantee
+that ownership transfer. The mandatory C4 actual-execution verifier
+runs against native JUnit XML for every backend.
+
+The required CI at the implementation SHA completed successfully with
+Core, all native UI suites, Rust/Python differential, Chromium browser
+oracle, multi-platform native wheel/fallback jobs and G1 regressions.
+The G4 removal gate is deliberately excluded. The new census is an
+**integration and evidence-completeness guard**, not yet a final C6
+precision-per-operation receipt: the latter is owned by iteration 3.
+A passing source/AST check alone is never called a native PASS.
+
+**Status:** C6 iteration 2/4 CLOSED; iteration 3/4 must consolidate
+executable component × backend × operation JUnit proofs and reject
+missing/skipped/failed precision cases; iteration 4/4 owns final C6/G2
+single-SHA closure and document reconciliation. C6/G2 remain OPEN.
