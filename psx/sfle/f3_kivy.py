@@ -18,7 +18,7 @@ from psx.sfle.adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from psx.sfle.errors import DiagnosticCode, SFLEError
 from psx.sfle.f3_snapshot import prepare_f3_snapshot
 from psx.sfle.f3_external import external_port_for, measure_external, read_external
-from psx.sfle.f3_native_coverage import g2_native_leaf_needs_measurement
+from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
 from psx.sfle.fixed_point import LayoutUnit
 from psx.sfle.kivy_measurement import KivyMeasurementSource
 from psx.sfle.model import LayoutConstraints, AvailableSize
@@ -109,7 +109,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             and source.type not in ("Flex", "Box", "RadioGroup", "Scroll")
             and not (source.type == "Divider" and source.children)
             and node_id not in external
-            and g2_native_leaf_needs_measurement(source, backend="kivy")
+            and native_leaf_needs_measurement(source, backend="kivy")
         }
         textarea_ids = frozenset(
             node_id for node_id, vnode in prepared.identities
