@@ -38,6 +38,42 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.r.unmount()
         self.renderer.application.processEvents()
 
+    def test_native_scroll_overflow_offsets_and_viewport_clipping(self):
+        from psx import Scroll
+        from psx.sfle.native_scroll_hosts import apply_qt_scroll, binding_from_host
+        from psx.sfle.scroll_offsets import ScrollOffset
+        from psx.sfle.model import Rect
+
+        self.renderer.set_sfle_constraints(constraints(300, 200))
+        root = self.r.render(Flex(
+            Scroll(Flex(item("Inside", "inside", 40),
+                        direction="row", width="300px", height="200px",
+                        key="content", align_items="flex-start"),
+                   direction="both", key="scroll",
+                   layout_width="120px", layout_height="80px",
+                   flex_basis="120px", flex_shrink=0),
+            direction="row", width="300px", height="200px",
+            align_items="flex-start",
+        ))
+        area = root.children[0].handle.widget
+        content = root.children[0].children[0].handle.widget
+        self.assertIs(content.parentWidget(), area._psx_content)
+        self.assertEqual((area._psx_content.width(), area._psx_content.height()), (300, 200))
+        self.assertEqual((content.x(), content.y(), content.width(), content.height()), (0, 0, 300, 200))
+        self.assertIsNone(content.layout())
+        binding = binding_from_host(area._psx_props, Rect(0, 0, 120, 80),
+                                    Rect(0, 0, 300, 200))
+        result = apply_qt_scroll(area, binding, ScrollOffset(90, 60))
+        self.assertEqual(result.offset, ScrollOffset(90, 60))
+        self.assertEqual((area.horizontalScrollBar().value(),
+                          area.verticalScrollBar().value()), (90, 60))
+        self.assertEqual((area.horizontalScrollBar().maximum(),
+                          area.verticalScrollBar().maximum()), (180, 120))
+        apply_qt_scroll(area, binding, ScrollOffset(999, 999))
+        self.assertEqual((area.horizontalScrollBar().value(),
+                          area.verticalScrollBar().value()), (180, 120))
+        self.assertIs(area.viewport(), area._psx_content.parentWidget())
+
     def test_real_qwidgets_take_exact_sfle_geometry_without_qboxlayout(self):
         root = self.r.render(
             Flex(
