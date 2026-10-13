@@ -1282,7 +1282,7 @@ closed, or that G5's per-property/method/event functional audit passed.
 **Next block: F3-G2-C5.**
 
 
-## F3-G2-C5 — semantic invalidation and remeasurement (IN PROGRESS, 2026-10-12)
+## F3-G2-C5 — semantic invalidation and remeasurement (CLOSED, 2026-10-12)
 
 **Status: OPEN.** The first C5 increment establishes an explicit,
 backend-portable invalidation coordinator, not full native automatic
@@ -1593,3 +1593,73 @@ use the selective classifier to skip product-test jobs.
 **Status:** increment 2/3 CLOSED at the exact implementation SHA above.
 C5 remains OPEN until increment 3's exhaustive operation-specific
 evidence is complete; no C6 precision or G3 Scroll claims are inferred.
+
+
+### C5 increment 3 — full native operation × backend × semantic reason certificate (CLOSED)
+
+**Final source certificate:** [`a1578a156387e53d1cff7e976bf0bf04c544f53c`](https://github.com/Neuri-AI/PSX/commit/a1578a156387e53d1cff7e976bf0bf04c544f53c).
+**Required end-to-end CI:** [F3 selective run #38332526499: SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38332526499).
+The commit-subject, G1 contracts and runtime package-boundary workflows
+also finished SUCCESS for **that same code SHA**. This section supersedes
+earlier C5 implementation checkpoints explicitly marked OPEN, which remain
+in the historical design log and are not the current closure state.
+
+The new test-only `tests/certification/f3_g2_c5_receipts.py` generates a
+fail-closed C5 matrix from the *live reviewed* G2 operation contracts and
+requires actual native executed JUnit methods for both the per-component
+driver and the semantic-reason driver, plus backend-specific regression
+drivers. Failed, missing, skipped or incomplete receipts fail the CI job.
+The validator's own negative cases are run by
+`tests/test_f3_g2_c5_receipts.py` in the mandatory core job.
+It is deliberately not shipped as production SFLE code.
+
+**Mandatory semantic reasons:** `content`, `font`, `theme`,
+`resource`, `dpi`, `viewport`.
+The per-component native drivers now run all six reasons while preserving
+widget/handle identity, valid native geometry and post-commit invalidation
+state. Separate backend drivers validate actual automatic/native events
+where available, targeted cache behavior, local-file resource changes and
+transaction recovery. Not every type of widget intrinsically owns every
+resource; the matrix verifies its handling of each supported semantic
+notification, not an invented platform event for each cell.
+
+| Backend | Native component contracts | Semantic reasons | Required C5 cells | Executed PASS | Pending |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Qt (each PySide6, PyQt6, PyQt5, PySide2 binding) | 20 | 6 | 120 per binding | 120 per binding | 0 |
+| Tkinter | 20 | 6 | 120 | 120 | 0 |
+| Kivy | 20 | 6 | 120 | 120 | 0 |
+| Headless | 3 | 6 | 18 | 18 | 0 |
+| **Distinct backend contracts** | **63** | **6** | **378** | **378** | **0** |
+
+Qt's 120-cell certificate was independently executed at standard scale and
+`QT_SCALE_FACTOR=1.5` on each of its four binding jobs; these are additional
+executions of the *same* Qt contract cells, not fabricated distinct
+components. `tests/test_f3_g2_qt_family.py` reported
+41 passed / 159 native unittest subtests at both Qt scale settings in the
+inspected PySide6 job; Tk reported 50 passed / 156 subtests; Headless 37
+passed; Kivy 26 passed in its real SDL2 runner. All C5 receipt scripts emitted
+`pending: 0` and an equal `executed_pass` / `required_cases` count.
+
+**Run artifacts (original JUnit XML + certification JSON):**
+`g2-qt-receipts-pyside6`, `g2-qt-receipts-pyqt6`,
+`g2-qt-receipts-pyqt5`, `g2-qt-receipts-pyside2`,
+`g2-tk-receipts`, `g2-kivy-receipts`,
+`g2-headless-receipts`; all seven were returned by the Actions
+artifacts endpoint for run #38332526499. The JSON reports include the
+complete component/backend/reason matrix, the driver names and zero
+mandatory pending cells. The original XML is archived alongside each
+report. The aggregate required CI conclusion succeeded; the G4 legacy
+Row/Column removal gate was correctly skipped because G4 is not C5.
+
+**Scope exclusions and handoff:** External URL/virtual asset revisions
+without a reliable toolkit event require host-supplied semantic invalidation.
+No C5 result asserts full Rust/Python mathematical solver incrementality,
+browser-owned rendering or rollback of external device side effects.
+C6 still owns independent geometrical precision and final G2 acceptance.
+The postponed incremental mathematical solver has its own roadmap item,
+outside this C5 certificate.
+
+**Formal disposition: F3-G2-C5 CLOSED.** C5 increments 1, 2 and 3 have
+verified implementation, tests, documentation, JUnit evidence and completed
+required GitHub Actions. **Next: F3-G2-C6**, without reopening C5 absent a
+new regression or a changed contract.
