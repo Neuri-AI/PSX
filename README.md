@@ -4,7 +4,7 @@
 
 PSX lets you describe UI with Python components or JSX-like markup while it
 renders real widgets through PySide6, PyQt6, PyQt5, Tkinter, or Kivy. It has a
-small portable core (`Column`, `Row`, `Text`, `Button`) and an explicit native
+portable core (`Flex`, `Scroll`, `Text`, `Button`) and an explicit native
 escape hatch when a backend-specific control is the right tool.
 
 > PSX is an alpha release. The supported API and backend boundaries are
@@ -50,7 +50,7 @@ python -m pip install -e ".[dev,qt]"
 Create `counter.py`:
 
 ```python
-from psx import App, Button, Column, Text, component, use_state
+from psx import App, Button, Flex, Text, component, use_state\nfrom psx.renderers.qt.pyside import PySide6Renderer\nfrom psx.sfle.engine import PythonLayoutEngine\nfrom psx.sfle.model import AvailableSize, LayoutConstraints
 
 
 @component
@@ -69,7 +69,7 @@ def Counter():
 
 
 if __name__ == "__main__":
-    App(Counter(), renderer="pyside6").run()
+    renderer = PySide6Renderer(\n        sfle_constraints=LayoutConstraints(\n            AvailableSize(400, True), AvailableSize(240, True)),\n        engine=PythonLayoutEngine(),\n    )\n    App(Counter(), renderer=renderer).run()
 ```
 
 Run it:
@@ -111,7 +111,7 @@ Provide a stable `key` for dynamic siblings. A key preserves component/native
 identity while items move; changing it intentionally resets that subtree.
 
 ```python
-return Column(*(Text(todo.title, key=todo.id) for todo in todos))
+return Flex(*(Text(todo.title, key=todo.id) for todo in todos),\n            direction="column", width="400px", height="240px")
 ```
 
 Duplicate sibling keys are an error.
@@ -125,10 +125,10 @@ from psx import psx
 
 title = "Hello, PSX"
 node = psx("""
-    <Column spacing={12} padding={24}>
+    <Flex direction="column" gap={12} padding={24}>
         <Text>{title}</Text>
         <Button on_click={save}>Save</Button>
-    </Column>
+    </Flex>
 """, scope={"title": title, "save": save})
 ```
 
@@ -252,12 +252,12 @@ class CounterWindow(QMainWindow, PSXComponent, ApplicationContext):
             set_count(lambda value: value + 1)
 
         return psx("""
-            <Column padding={32} spacing={12}>
+            <Flex direction="column" padding={32} gap={12}>
                 <Text>Qyro + PSX</Text>
                 <Text>App: {self.window_title}</Text>
                 <Text>Count: {count}</Text>
                 <Button on_click={increment}>Increment</Button>
-            </Column>
+            </Flex>
         """)
 
 
@@ -286,13 +286,13 @@ from psx import component, psx
 @component
 def CounterCard(*, title: str, count: int, on_increment: Callable[[], None]):
     return psx("""
-        <Column spacing={8} padding={12}>
+        <Flex direction="column" gap={8} padding={12}>
             <Text>{title}</Text>
-            <Row spacing={8}>
+            <Flex direction="row" gap={8}>
                 <Text>Count: {count}</Text>
                 <Button on_click={on_increment}>Increment</Button>
-            </Row>
-        </Column>
+            </Flex>
+        </Flex>
     """, scope={
         "title": title,
         "count": count,
@@ -315,14 +315,14 @@ class CounterWindow(QMainWindow, PSXComponent, ApplicationContext):
             set_count(lambda value: value + 1)
 
         return psx("""
-            <Column spacing={12} padding={32}>
+            <Flex direction="column" gap={12} padding={32}>
                 <Text>Qyro dashboard</Text>
                 <CounterCard
                     title="Orders"
                     count={count}
                     on_increment={increment}
                     key="orders-counter" />
-            </Column>
+            </Flex>
         """)
 ```
 
@@ -369,10 +369,10 @@ class CounterWindow(QMainWindow, PSXComponent, ApplicationContext):
             dispatch(counter.actions.increment())
 
         return psx("""
-            <Column padding={32} spacing={12}>
+            <Flex direction="column" padding={32} gap={12}>
                 <Text>Counter: {count}</Text>
                 <Button on_click={increment}>Increment</Button>
-            </Column>
+            </Flex>
         """)
 
 
@@ -404,11 +404,11 @@ class CounterApp(PSXComponent, App, ApplicationContext):
             set_count(lambda value: value + 1)
 
         return psx("""
-            <Column padding={32} spacing={12}>
+            <Flex direction="column" padding={32} gap={12}>
                 <Text>Qyro + PSX + Kivy</Text>
                 <Text>Count: {count}</Text>
                 <Button on_click={increment}>Increment</Button>
-            </Column>
+            </Flex>
         """)
 
 
