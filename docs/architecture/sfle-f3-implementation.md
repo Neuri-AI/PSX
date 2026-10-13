@@ -1906,3 +1906,16 @@ invalidates this signoff and requires fresh mandatory product CI.
 
 **Formal acceptance: F3-G2-C6 CLOSED (4/4 iterations); F3-G2 CLOSED.**
 F3 now has **2 of 5 official gates CLOSED (40%)**. Next **F3-G3**.
+
+## Mandatory source naming policy — semantic names, not planning milestones
+
+**Normative for all new and refactored PSX code, tests, scripts, tooling and workflows.** Internal planning labels such as `F1`, `F2`, `F3`, `G1`, `G2`, `G3`, `C1`–`C6`, `D13` and their composites are **documentation and release-tracking identifiers only**. Do not use milestone codes to name Python files/packages, functions, classes, constants, test names, fixtures, standalone scripts, CI jobs/workflows or diagnostic identifiers. A developer must be able to infer behavior without decoding a roadmap.
+
+- Use purpose-driven module paths such as `sfle/native_intrinsic_cache.py`, `sfle/native_capabilities.py` or `tests/test_native_geometry_precision.py`, not `f3_native_cache.py` or `test_f3_g2_c6_precision.py`.
+- Use action/contract names such as `native_leaf_needs_measurement(...)`, `certify_native_operation_receipts(...)` and `test_native_resource_invalidation(...)`, never `g2_native_leaf_needs_measurement`, `f3_g2_c6_receipts`, etc.
+- Write actionable backend errors (`Unsupported native geometry for Kivy Slider`) instead of roadmap-only codes (`F3-G2 Kivy ...`). Preserve documented machine-readable diagnostic enums and compatibility when required; move milestone labels to historical prose and test-report metadata.
+- Semantic categories (`leaf`, `layout_container`, `overlay_portal`), stable public names, protocol names and backend identifiers are allowed; phase/gate names remain acceptable **only** in architecture/roadmap text, dated certification reports and migration notes (not current executable symbol names).
+- Refactoring requires a repository-wide reference update: imports and exports, source files, test collection and markers, workflows, selectors, packaging and runtime-boundary checks, documentation links, dynamic imports and AST-based source checks. Eliminate stale parallel wrappers and temporary aliases after migrating all consumers; new milestone-prefixed names must fail an automated source naming-policy gate.
+- Semantic refactoring is behavior-preserving: run all applicable native Qt bindings, Tkinter/Kivy/Headless, Rust/Python differential, Chromium and native-wheel workflows on a single code SHA. Documentation-only follow-up commits use selective CI without executing product tests.
+
+The archived historical references to F3/G2/C6 in this implementation plan remain valid as **history**, not as permission to reintroduce those prefixes into executable identifiers.
