@@ -128,6 +128,17 @@ class KivyMeasurementSource:
         Input is measured from native CoreLabel glyph textures and padding.
         """
         from kivy.metrics import dp
+
+        def density_pixels(logical_pixels: float) -> float:
+            """Return a usable density-scaled design minimum.
+
+            A partially initialized Kivy metrics provider can report NaN on
+            Windows.  These values are portable design minima, so retain the
+            logical-pixel minimum until the provider has a finite density.
+            """
+            scaled = float(dp(logical_pixels))
+            return scaled if math.isfinite(scaled) and scaled > 0 else logical_pixels
+
         if kind == "Input":
             from kivy.core.text import Label as CoreLabel
             candidates = (widget.text or "", widget.hint_text or "", "M")
@@ -140,8 +151,8 @@ class KivyMeasurementSource:
                 text_width = max(text_width, float(label.texture.size[0]))
                 line_height = max(line_height, float(label.texture.size[1]))
             left, top, right, bottom = [float(v) for v in widget.padding]
-            width = max(float(dp(72)), text_width + left + right + float(dp(12)))
-            height = max(float(dp(32)), line_height + top + bottom)
+            width = max(density_pixels(72), text_width + left + right + density_pixels(12))
+            height = max(density_pixels(32), line_height + top + bottom)
         elif kind == "Checkbox":
             # Graphic artwork is the closest native intrinsic hint.
             # For themes that do not expose an image, adopt the platform's
@@ -157,13 +168,13 @@ class KivyMeasurementSource:
                             sizes.append(tuple(float(x) for x in texture.size))
                     except (OSError, ValueError):
                         pass
-            width = max([float(dp(32))] + [x for x, _ in sizes])
-            height = max([float(dp(32))] + [y for _, y in sizes])
+            width = max([density_pixels(32)] + [x for x, _ in sizes])
+            height = max([density_pixels(32)] + [y for _, y in sizes])
         elif kind == "ProgressBar":
             # No content/text and no theme intrinsic-size interface in
             # Kivy ProgressBar: use a named portable design minimum instead
             # of the mutable default Widget.size (100, 100).
-            width, height = float(dp(120)), float(dp(20))
+            width, height = density_pixels(120), density_pixels(20)
         else:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                             f"Unrecognized native control {kind!r}.")

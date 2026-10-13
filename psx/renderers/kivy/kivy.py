@@ -91,6 +91,13 @@ def _kivy_textarea_factory():
     return TextInput(multiline=True)
 
 
+def _kivy_slider_factory():
+    # Kivy 2.3's default style binds the slider track width to this property
+    # during construction.  Its zero default is rejected by the Windows GL
+    # provider before PSX's normal property application can run.
+    return KivySlider(value_track_width=1.0)
+
+
 @dataclass(slots=True, eq=False)
 class KivyHandle:
     node_type: object
@@ -285,7 +292,7 @@ register_primitive(
 
 register_primitive(
     "Slider",
-    factory=KivySlider,
+    factory=_kivy_slider_factory,
     validate=validate_slider_props,
     apply=apply_kivy_slider,
     updated_props=updated_slider_props,

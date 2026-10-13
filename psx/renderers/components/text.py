@@ -45,8 +45,15 @@ def apply_tk_text(widget: object, props: Mapping[str, object]) -> None:
     from tkinter.font import nametofont
     p = text_props(props)
     family = nametofont("TkDefaultFont", root=widget).actual("family")
-    styles = ("bold" if p["bold"] else "normal") + " " + ("italic" if p["italic"] else "roman")
-    widget.configure(text=str(p["value"]), font=(family, -max(1, round(p["font_size"])), styles),
+    # Tk expects each font face token as its own list element.  Passing
+    # ``"bold italic"`` as one element happens to work on some Tcl/Tk
+    # builds, but is parsed as an unknown combined face on Linux.
+    styles = (
+        "bold" if p["bold"] else "normal",
+        "italic" if p["italic"] else "roman",
+    )
+    widget.configure(text=str(p["value"]),
+                     font=(family, -max(1, round(p["font_size"])), *styles),
                      foreground="" if p["color"] is None else p["color"], justify=p["align"],
                      anchor={"left": "w", "center": "center", "right": "e"}[p["align"]])
     widget.state(("!disabled",) if p["enabled"] else ("disabled",))
