@@ -75,3 +75,36 @@ def test_native_property_update_and_readback(qt_tree, request, name, before, aft
                                     "native_readback", applicability="native"),
                    read(widget) == after)
     assert renderer.sfle_result.geometry_commit_error <= 1
+
+
+def test_native_button_event_rebind_and_disabled(qt_tree, request):
+    _, tree = qt_tree
+    calls = []
+    def view(tag, enabled=True):
+        return Flex(
+            Button("Activate", key="action", enabled=enabled,
+                   on_click=lambda: calls.append(tag),
+                   layout_width="130px", layout_height="32px",
+                   flex_basis="130px", flex_shrink=0),
+            width="400px", height="120px", align_items="flex-start",
+        )
+    root = tree.render(view("first"))
+    widget = root.children[0].handle.widget
+    widget.click()
+    assert_feature(request, Feature("Button", BINDING, "event", "on_click",
+                                    "native_dispatch", applicability="native"),
+                   calls == ["first"])
+    assert_feature(request, Feature("Button", BINDING, "event", "on_click",
+                                    "payload", applicability="native"),
+                   len(calls) == 1 and calls[0] == "first")
+    updated = tree.render(view("second"))
+    assert updated.children[0].handle.widget is widget
+    widget.click()
+    assert_feature(request, Feature("Button", BINDING, "event", "on_click",
+                                    "rebind", applicability="native"),
+                   calls == ["first", "second"])
+    tree.render(view("disabled", enabled=False))
+    widget.click()
+    assert_feature(request, Feature("Button", BINDING, "event", "on_click",
+                                    "disabled", applicability="native"),
+                   calls == ["first", "second"])
