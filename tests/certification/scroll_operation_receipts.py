@@ -19,6 +19,8 @@ REQUIRED = {
         "keyboard_boundary": "test_native_scroll_keyboard_moves_and_releases_at_boundary",
         "reflow_focus_identity": "test_scroll_reflow_preserves_native_offset_focus_and_widget_identity",
         "native_failure_rollback": "test_scroll_failed_native_commit_restores_offsets_and_extent",
+        "unmount_lifecycle": "test_scroll_unmount_releases_native_viewport",
+        "disabled_axes_after_scroll": "test_scroll_disabled_axes_reset_existing_offsets",
     },
     "tk": {
         "viewport_clipping_offsets": "test_native_scroll_overflow_offsets_and_canvas_clipping",
@@ -26,12 +28,16 @@ REQUIRED = {
         "keyboard_boundary": "test_native_tk_wheel_and_keyboard_offset_readback",
         "reflow_identity": "test_scroll_reflow_keeps_logical_offset_and_native_identity",
         "native_failure_rollback": "test_scroll_failed_commit_restores_tk_scrollregion_and_offsets",
+        "unmount_lifecycle": "test_scroll_unmount_releases_tk_canvas",
+        "disabled_axes_after_scroll": "test_scroll_disabled_axes_reset_existing_tk_offsets",
     },
     "kivy": {
         "viewport_clipping_offsets": "test_scroll_overflow_native_extent_and_logical_offsets",
         "nested_wheel_touch": "test_native_kivy_wheel_and_nested_edge_chaining",
         "mounted_viewport": "test_scroll_basic_sfle_viewport_and_explicit_content_root",
         "resize_reflow": "test_scroll_mounted_reflow_preserves_logical_offsets",
+        "native_failure_rollback": "test_scroll_native_kivy_failure_restores_offsets",
+        "unmount_lifecycle": "test_scroll_unmount_detaches_kivy_viewport",
     },
     "headless": {
         "offset_clamping": "test_scroll_offset_clamps_each_axis_and_preserves_engine_boxes",
