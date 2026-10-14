@@ -11,7 +11,7 @@
 | G2 increment | State | Executable scope | Acceptance |
 | --- | --- | --- | --- |
 | Deterministic row packing and fixture schema | **CLOSED — certified 2026-10-14** | Rust-primary and Python-fallback `grid_math`, shared `tests/fixtures/grid_row_packing.json`, mixed auto/explicit row finalization, offsets, order stability, strict invalid rejection | Cargo unit tests, Python fixtures and randomized invariants, correct `sfle`+`rust` routing, green required Actions on immutable SHA |
-| Fixed-point pixel geometry and gutters | NOT STARTED | Real content-box pixel widths, gaps, projections, non-divisible shares | Rust/Python pixel-level edge agreement, deterministic fixtures |
+| Fixed-point pixel geometry and gutters | **CLOSED — certified 2026-10-14** | Real content-box pixel widths, gaps, projections, non-divisible shares | Rust/Python pixel-level edge agreement, deterministic fixtures |
 | RTL, row/cross-axis sizing and overflow | NOT STARTED | RTL logical reversal, row gaps/heights, constraints, overflow policy | Adversarial geometry tests, parity and error receipts |
 | Engine integration and final G2 audit | NOT STARTED | Pure engine authority and native-facing math outputs only | Rust primary/Python fallback agreement on immutable SHA, regression preservation |
 
@@ -22,6 +22,15 @@
 **Immutable certification of the first mathematical increment:** source commit `0b2e8d21fc0956a24ba1519c413f2f933b0ccbd0`; Actions `38554500438` concluded SUCCESS after all selected jobs, including Rust/Python differential, SFLE geometry tests, Qt/Kivy/Tk/Headless, Chromium, multiplatform native wheels, behavior aggregate and mandatory CI conclusion. Rust Cargo unit tests passed, Python interop + Grid fixtures ran **265 passed**, SFLE Python suite **597 passed**. Scoped existing public Grid/GridItem census **62/62 executed_pass, pending=0**, PR checkout SHA `92018a1ba1821ffd4b13d9602e77e631b29dea74`, aggregate job `115820826696`. See https://github.com/Neuri-AI/PSX/actions/runs/38554500438 . C1 introduces no new public contract receipts; the 62/62 are the unchanged G1 public contract. **G2 overall remains IN PROGRESS.**
 
 **Next:** design and test fixed-point pixel geometry and gutter projection with exact Rust/Python edge agreement; do not expose native Grid geometry yet.
+
+
+### Fixed-point horizontal projection — CLOSED (2026-10-14)
+
+The second G2 increment adds `project_grid_rows` in Rust and Python, consuming finalized logical row memberships and producing stable 1/64px horizontal edges with exactly one column gap per adjacent actual widget, **no gap for empty logical offsets**. The shared fixture `tests/fixtures/grid_pixel_projection.json` and `tests/sfle/test_grid_math.py` include fractional/nondivisible widths, wrapped rows, offsets, impossible gaps and projection invariants. Existing `scripts/ci/impact.py` routes the solver and fixtures to Rust/SFLE suites, exercised by `tests/test_ci_impact.py`. The solver introduces no public props, events, methods or interactions, so no new public census rows are applicable.
+
+**Immutable evidence:** source SHA `9d5ce3d5dfb64496461e14df557d867c3e196dc5`; PR checkout SHA `d537525507029e87ae6bfc25cac78a9272b60c5a`; required Actions run `38555560595` completed **SUCCESS**, including Rust and Python parity tests, SFLE geometry, native regression matrices, existing public-behavior aggregate and mandatory CI conclusion. Existing Grid/GridItem public contract census remained **62/62 executed_pass, pending=0** (aggregate job `115824318130`). The prior code run `38555221865` was cancelled due to intervening synchronization and is **not** closure evidence. Review https://github.com/Neuri-AI/PSX/actions/runs/38555560595 .
+
+**Still pending for G2 overall:** RTL horizontal reversal, row heights and row gaps, min/max intrinsic overflow policy, integration of these pure calculations with the engine and a final cross-language parity audit. This step does **not** certify native Grid mount or runtime reflow.
 
 ## Where to resume
 
