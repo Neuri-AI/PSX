@@ -125,7 +125,12 @@ def commit_headless_grid(renderer: object, root: object) -> None:
                 widget_map[leaf_id] = leaf_handles[placement.node_id]
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Grid measurement epoch.")
-        receipt = commit_grid_native_geometry(
+        # Capture every mounted handle: an invalidation after child readback
+        # must roll back the entire Grid, not only the latest child batch.
+        before_geometry = {identity: (handle, handle.geometry)
+                           for identity, handle in handles.items()}
+        try:
+            receipt = commit_grid_native_geometry(
             tuple(batch), backend=GridCommitBackend.HEADLESS,
             widgets=widget_map, generation=generation,
             current_generation=lambda: (renderer._sfle_generation
@@ -133,10 +138,14 @@ def commit_headless_grid(renderer: object, root: object) -> None:
                                         else -1),
             is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
         )
-        if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
-            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated after readback.")
-        grid_handle = handles[id(grid.source)]
-        grid_handle.geometry = Rect(0, 0, width, height)
+            if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated after readback.")
+            grid_handle = handles[id(grid.source)]
+            grid_handle.geometry = Rect(0, 0, width, height)
+        except BaseException:
+            for handle, previous in before_geometry.values():
+                handle.geometry = previous
+            raise
         renderer.grid_result = (prepared, receipt)
     finally:
         renderer._sfle_in_commit = False
