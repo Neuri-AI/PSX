@@ -664,7 +664,8 @@ def test_keyed_flex_grid_siblings_reorder_without_native_remount(request):
         close()
 
 
-def test_native_grid_root_late_resource_invalidation_is_atomic(request, monkeypatch):
+@pytest.mark.parametrize("reason", ("resource", "dpi"))
+def test_native_grid_root_late_resource_invalidation_is_atomic(request, monkeypatch, reason):
     """A new resource epoch after child readback rolls the whole Grid back."""
     from psx.sfle import native_grid_bridge
     from psx.sfle.errors import SFLEError
@@ -687,7 +688,7 @@ def test_native_grid_root_late_resource_invalidation_is_atomic(request, monkeypa
         with monkeypatch.context() as patch:
             def inject_epoch(*args, **kwargs):
                 receipt = original(*args, **kwargs)
-                renderer._sfle_measurement_invalidations.request("resource")
+                renderer._sfle_measurement_invalidations.request(reason)
                 return receipt
             patch.setattr(native_grid_bridge, "commit_grid_native_geometry",
                           inject_epoch)
@@ -701,7 +702,7 @@ def test_native_grid_root_late_resource_invalidation_is_atomic(request, monkeypa
         assert renderer.grid_result[1].max_readback_error <= 1
         assert_feature(request, Feature(
             "Grid", binding, "interaction", "semantic_epoch",
-            "late_resource_rollback", applicability="partial_native"), True)
+            f"late_{reason}_rollback", applicability="partial_native"), True)
     finally:
         tree.unmount()
         close()
