@@ -90,7 +90,17 @@ def element(
     if contract is not None and contract.content_property is not None:
         prop = contract.content_property
         value = props.pop(prop, None)
-        content = "".join(str(x) for x in children if x is not None and x is not False)
+        text_parts: list[str] = []
+        for part in children:
+            if part is None or part is False:
+                continue
+            if isinstance(part, bool) or not isinstance(part, (str, int, float)):
+                raise MarkupSyntaxError(
+                    f"{name} accepts only textual content",
+                    filename=filename, line=line, column=column,
+                )
+            text_parts.append(str(part))
+        content = "".join(text_parts)
         if value is not None and content.strip():
             raise MarkupSyntaxError(
                 f"{name} cannot receive both {prop} and child text",
