@@ -85,6 +85,8 @@ def normalize_grid_props(props: Mapping[str, object]) -> Mapping[str, object]:
     values.update(props)
     if type(values["columns"]) is not int or values["columns"] != GRID_COLUMNS:
         raise RendererCapabilityError("Grid.columns must be exactly 12 in F4.")
+    if values["gap"] is None:
+        raise RendererCapabilityError("Grid.gap must be a nonnegative finite pixel length.")
     for name in ("gap", "row_gap", "column_gap"):
         value = values[name]
         if value is not None:
