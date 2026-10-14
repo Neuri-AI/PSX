@@ -8,6 +8,24 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_expressive_markup_grammar_routes_real_core_and_headless(self):
+        for path in (
+            "psx/markup/expressive_syntax.py",
+            "psx/markup/parser.py",
+            "psx/markup/transform.py",
+            "tests/test_expressive_markup_syntax.py",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), {"core", "headless"})
+        self.assertEqual(
+            self.selected("docs/architecture/expressive-markup-progress.md"), set()
+        )
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("tests/test_expressive_markup_syntax.py", workflow)
+
     def test_application_grid_settings_change_routes_all_native_consumers(self):
         self.assertGreaterEqual(self.selected('psx/app.py'),
                                 {'core', 'qt', 'kivy', 'tkinter', 'headless'})
