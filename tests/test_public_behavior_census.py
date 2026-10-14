@@ -289,3 +289,20 @@ def test_scoped_contract_certificate_fails_closed_without_every_applicable_case(
     with pytest.raises(ValueError, match="Unknown contract certification"):
         merge_executed_manifests((covered, other), (manifest,), sha=SHA,
                                  require_contract_components=("GridItem",))
+
+
+def test_grid_native_certificate_requires_executed_backend_receipts(tmp_path):
+    from tests.certification.public_behavior_census import merge_executed_manifests
+    grid_rows = tuple(row for row in inventory()
+                      if row.component in ("Grid", "GridItem")
+                      and row.applicability == "partial_native")
+    assert {row.backend for row in grid_rows} == {
+        "headless", "pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"
+    }
+    assert len(grid_rows) == 35
+    manifest = tmp_path / "no-native-receipts.json"
+    manifest.write_text(json.dumps({"summary": {"sha": SHA}, "receipts": []}))
+    with pytest.raises(ValueError, match="Incomplete native Grid certification"):
+        merge_executed_manifests(
+            tuple(inventory()), (manifest,), sha=SHA,
+            require_native_components=("Grid", "GridItem"))
