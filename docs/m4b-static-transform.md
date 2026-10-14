@@ -1,5 +1,7 @@
 # M4B static lexical transform
 
+**F5 design note (2026-10-14):** Current behavior below describes the implemented lexical baseline. The future F5 Expressive Markup syntax (conditional `&&` and `? :`, statically compiled `.map()` lists, arrow callbacks, Python `==`/`!=` and conditional falsy suppression) is approved **but not implemented**. See [normative F5 contract](architecture/f5-expressive-markup-contract.md). The M4A explicit-scope untrusted-template safety boundary remains unchanged; M8 Hot Reloading is postponed to F6.
+
 M4B enables ergonomic inline developer-authored markup without runtime frame
 inspection. Transform a Python module before running, testing, or packaging it:
 
