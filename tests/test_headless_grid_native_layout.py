@@ -189,7 +189,7 @@ def test_flex_grid_mixed_headless_width_allocation_readback_and_identity(request
                 GridItem(Text("right"), key="right", span={"base": 12, "md": 6}),
                 gap=4,
             ),
-            direction="column", width=800, height=100,
+            direction="column", width="100%", height=100,
         ))
         grid = root.children[0]
         first = grid.children[0].handle
