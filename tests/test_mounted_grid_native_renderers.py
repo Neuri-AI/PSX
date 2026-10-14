@@ -225,8 +225,9 @@ def test_composite_grid_item_fails_closed_without_false_native_receipt(request):
     renderer, close = make_renderer(backend)
     tree = Reconciler(renderer)
     try:
-        with pytest.raises(GridPackingError, match="Composite GridItem measurement"):
-            tree.render(Grid(GridItem(Flex(Text("a"), Text("b")))))
+        from psx import Scroll
+        with pytest.raises(GridPackingError, match="Composite GridItem"):
+            tree.render(Grid(GridItem(Scroll(Flex(Text("a"), Text("b"))))))
         assert getattr(renderer, "grid_result", None) is None
         assert_feature(request, Feature(
             "GridItem", binding, "interaction", "composite_content",
@@ -517,4 +518,53 @@ def test_mixed_flex_grid_transaction_failure_restores_all_native_geometry(reques
             "rollback_and_recovery", applicability="partial_native"), True)
     finally:
         tree.unmount()
+        close()
+
+
+def test_grid_item_flex_content_uses_cinnamon_native_geometry(request):
+    """GridItem can host a measured multi-leaf Flex without a toolkit layout."""
+    from psx import Flex
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def scene():
+        return Grid(
+            GridItem(
+                Flex(
+                    Text("one", key="one", layout_width="80px", layout_height="20px",
+                         flex_basis="80px", flex_shrink=0),
+                    Text("two", key="two", layout_width="80px", layout_height="20px",
+                         flex_basis="80px", flex_shrink=0),
+                    direction="row", width="100%", height="50px",
+                    align_items="flex-start", gap=4,
+                ),
+                key="flex", span=12,
+            ),
+            gap=4,
+        )
+    try:
+        root = reconciler.render(scene())
+        item = root.children[0]
+        flex = item.children[0]
+        left, right = flex.children
+        left_widget, right_widget = left.handle.widget, right.handle.widget
+        assert rectangle(flex.handle.widget, backend)[2] == pytest.approx(800, abs=1)
+        assert rectangle(left_widget, backend)[2] == pytest.approx(80, abs=1)
+        assert rectangle(right_widget, backend)[0] > rectangle(left_widget, backend)[0]
+        assert renderer.grid_result[1].max_readback_error <= 1
+        renderer.set_sfle_constraints(viewport(767))
+        renderer.commit_layout(root)
+        assert rectangle(flex.handle.widget, backend)[2] == pytest.approx(767, abs=1)
+        assert rectangle(left_widget, backend)[2] == pytest.approx(80, abs=1)
+        assert flex.children[0].handle.widget is left_widget
+        assert flex.children[1].handle.widget is right_widget
+        assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(request, Feature(
+            "GridItem", binding, "interaction", "flex_content",
+            "measured_children_readback", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
         close()
