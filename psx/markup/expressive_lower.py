@@ -1,0 +1,121 @@
+"""Compile owner-authored expressive syntax trees into ordinary Python AST.
+
+This is an M4B-only static compilation step. Runtime M4A strings cannot enter
+this path, and no evaluation API or frame inspection is used.
+"""
+from __future__ import annotations
+
+import ast
+
+from psx.core.errors import MarkupSyntaxError
+from psx.core.registry import builtin_component_registry
+from . import expressive_ast as syntax
+
+_BUILTINS = frozenset(builtin_component_registry().snapshot())
+
+
+def _helper(name: str, *args: ast.expr) -> ast.Call:
+    return ast.Call(func=ast.Name(id=f"_psx_expr_{name}", ctx=ast.Load()),
+                    args=list(args), keywords=[])
+
+
+def _loc(node: syntax.Expression, filename: str) -> tuple[ast.Constant, ...]:
+    location = node.location
+    return (ast.Constant(filename), ast.Constant(location.line),
+            ast.Constant(location.column))
+
+
+def _raise_unsupported(node: syntax.Expression, filename: str, name: str) -> None:
+    loc = node.location
+    raise MarkupSyntaxError(
+        f"{name} is reserved for a later expressive markup gate",
+        filename=filename, line=loc.line, column=loc.column,
+    )
+
+
+def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast.expr:
+    if isinstance(node, syntax.Literal):
+        return ast.Constant(value=node.value)
+    if isinstance(node, syntax.Name):
+        # Author's ordinary Python lexical name remains in its own scope.
+        thunk = ast.Lambda(
+            args=ast.arguments(posonlyargs=[], args=[], kwonlyargs=[],
+                               kw_defaults=[], defaults=[]),
+            body=ast.Name(id=node.value, ctx=ast.Load()),
+        )
+        return _helper("lexical", thunk, ast.Constant(node.value), *_loc(node, filename))
+    if isinstance(node, syntax.Member):
+        return _helper("member", lower(node.target, filename=filename),
+                       ast.Constant(node.name), *_loc(node, filename))
+    if isinstance(node, syntax.Call):
+        return ast.Call(
+            func=lower(node.callee, filename=filename),
+            args=[lower(arg, filename=filename) for arg in node.arguments],
+            keywords=[],
+        )
+    if isinstance(node, syntax.Compare):
+        operator: ast.cmpop = ast.Eq() if node.operator == "==" else ast.NotEq()
+        return ast.Compare(
+            left=lower(node.left, filename=filename), ops=[operator],
+            comparators=[lower(node.right, filename=filename)],
+        )
+    if isinstance(node, syntax.ConditionalAnd):
+        branch = ast.IfExp(
+            test=lower(node.left, filename=filename),
+            body=lower(node.right, filename=filename, child=child),
+            orelse=ast.Constant(None),
+        )
+        return _helper("conditional", branch) if child else branch
+    if isinstance(node, syntax.Ternary):
+        branch = ast.IfExp(
+            test=lower(node.condition, filename=filename),
+            body=lower(node.yes, filename=filename, child=child),
+            orelse=lower(node.no, filename=filename, child=child),
+        )
+        return _helper("conditional", branch) if child else branch
+    if isinstance(node, syntax.Arrow):
+        _raise_unsupported(node, filename, "Arrow functions")
+    if isinstance(node, syntax.Map):
+        _raise_unsupported(node, filename, "Declarative .map()")
+    if isinstance(node, syntax.Fragment):
+        return _helper("fragment", *(lower(part, filename=filename, child=True)
+                                     for part in node.children if not _blank(part)))
+    if isinstance(node, syntax.Element):
+        tag = node.tag
+        values: list[ast.expr] = []
+        names: list[ast.expr] = []
+        for name, value in node.attributes:
+            names.append(ast.Constant(name))
+            if isinstance(value, syntax.Expression.__args__):
+                values.append(lower(value, filename=filename))
+            else:
+                values.append(ast.Constant(value))
+        props = ast.Dict(keys=names, values=values)
+        children = ast.Tuple(
+            elts=[lower(part, filename=filename, child=True)
+                  for part in node.children if not _blank(part)],
+            ctx=ast.Load(),
+        )
+        custom = (ast.Constant(None) if tag in _BUILTINS
+                  else lower(syntax.Name(tag, node.location), filename=filename))
+        return _helper("element", ast.Constant(tag), props, children,
+                       *_loc(node, filename), custom)
+    raise TypeError(f"Unexpected expressive AST node {type(node).__name__}")
+
+
+def _blank(node: syntax.Expression) -> bool:
+    return isinstance(node, syntax.Literal) and isinstance(node.value, str) and not node.value.strip()
+
+
+def helper_import() -> ast.ImportFrom:
+    return ast.ImportFrom(
+        module="psx.markup.expressive_runtime",
+        names=[
+            ast.alias(name="element", asname="_psx_expr_element"),
+            ast.alias(name="fragment", asname="_psx_expr_fragment"),
+            ast.alias(name="lexical", asname="_psx_expr_lexical"),
+            ast.alias(name="member", asname="_psx_expr_member"),
+            ast.alias(name="conditional", asname="_psx_expr_conditional"),
+        ],
+        level=0,
+    )

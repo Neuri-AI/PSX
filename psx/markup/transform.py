@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields, is_dataclass
 from pathlib import Path
 from typing import Iterable
 
@@ -18,6 +18,8 @@ from psx.core.registry import builtin_component_registry
 
 from .ast import Document, Fragment, Node, Reference, ReferencePart, TextNode
 from .parser import parse
+from .expressive_ast import parse_expressive_expression, Name as ExpressiveName
+from .expressive_lower import helper_import, lower
 
 
 
@@ -58,6 +60,7 @@ class _Transformer(ast.NodeTransformer):
         self.filename = filename
         self.templates: list[_Template] = []
         self.entries: list[SourceMapEntry] = []
+        self.expressive_count = 0
 
     def visit_Call(self, node: ast.Call) -> ast.AST:
         self.generic_visit(node)
@@ -65,6 +68,18 @@ class _Transformer(ast.NodeTransformer):
             return node
         source = node.args[0].value
         template_filename = f"{self.filename}:{node.lineno}:{node.col_offset + 1}"
+        # Only statically authored M4B source may use expressive JSX operators.
+        # Dynamic and explicitly scoped M4A calls remain on the old safe path.
+        if _has_conditional_interpolation(source):
+            tree = parse_expressive_expression(source, filename=template_filename)
+            replacement = lower(tree, filename=template_filename)
+            self.expressive_count += 1
+            self.entries.append(SourceMapEntry(
+                template_name=f"_psx_expressive_{self.expressive_count - 1}",
+                python_line=node.lineno, python_column=node.col_offset + 1,
+                markup_references=tuple(_expressive_reference_locations(tree)),
+            ))
+            return ast.copy_location(replacement, node)
         document = parse(source, filename=template_filename)
         identifiers = _required_identifiers(document)
         # A single leading underscore avoids Python class-body name mangling
@@ -101,6 +116,50 @@ class _Transformer(ast.NodeTransformer):
         return ast.copy_location(replacement, node)
 
 
+def _expressive_reference_locations(node: object) -> Iterable[tuple[int, int]]:
+    """Retain original source positions for every lexical name in the AST."""
+    if isinstance(node, ExpressiveName):
+        yield (node.location.line, node.location.column)
+    if is_dataclass(node):
+        for field in fields(node):
+            if field.name != "location":
+                yield from _expressive_reference_locations(getattr(node, field.name))
+    elif isinstance(node, (tuple, list)):
+        for child in node:
+            yield from _expressive_reference_locations(child)
+
+
+def _has_conditional_interpolation(source: str) -> bool:
+    """Find conditional operators in markup expressions, not in quoted literals.
+
+    Only expression braces activate G2. Text and quoted attributes containing
+    question marks or ampersands keep their existing M4B template behavior.
+    """
+    depth = 0
+    quoted: str | None = None
+    index = 0
+    while index < len(source):
+        ch = source[index]
+        if quoted is not None:
+            if ch == "\\":
+                index += 2
+                continue
+            if ch == quoted:
+                quoted = None
+            index += 1
+            continue
+        if ch in ("'", '"'):
+            quoted = ch
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth = max(depth - 1, 0)
+        elif depth and (source.startswith("&&", index) or ch == "?"):
+            return True
+        index += 1
+    return False
+
+
 def transform_source(source: str, *, filename: str = "<module>") -> TransformResult:
     """Transform statically known inline ``psx`` calls into lexical factories.
 
@@ -110,15 +169,16 @@ def transform_source(source: str, *, filename: str = "<module>") -> TransformRes
     module = ast.parse(source, filename=filename)
     transformer = _Transformer(filename)
     module = transformer.visit(module)
-    if transformer.templates:
+    if transformer.templates or transformer.expressive_count:
         insertion = _insertion_index(module.body)
-        declarations = _factory_declarations(transformer.templates)
+        declarations = ([] if not transformer.expressive_count else [helper_import()])
+        declarations.extend(_factory_declarations(transformer.templates) if transformer.templates else [])
         module.body[insertion:insertion] = declarations
     ast.fix_missing_locations(module)
     return TransformResult(
         source=ast.unparse(module) + "\n",
         source_map=SourceMap(filename, tuple(transformer.entries)),
-        transformed_calls=len(transformer.templates),
+        transformed_calls=len(transformer.templates) + transformer.expressive_count,
     )
 
 
