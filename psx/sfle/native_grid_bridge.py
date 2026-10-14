@@ -65,44 +65,94 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         if (not renderer._sfle_constraints.width.definite or width is None
                 or not renderer._sfle_constraints.height.definite or height is None):
             raise GridPackingError("Grid root requires definite viewport constraints.")
-        ids = tuple(path_identity(child.path) for child in grid.effective_children)
-        item_handles = {path_identity(child.path): handles[id(child.source)]
-                        for child in grid.effective_children}
-        leaf_nodes = {path_identity(child.path): child.effective_children[0].source
-                      for child in grid.effective_children}
-        leaf_handles = {identifier: handles[id(node)] for identifier, node in leaf_nodes.items()}
-        widgets = {identifier: handle.widget for identifier, handle in leaf_handles.items()}
-        if backend is GridCommitBackend.QT:
-            from .qt_measurement import QtMeasurementSource
-            source = QtMeasurementSource(widgets, qtcore=renderer._qtcore)
-        elif backend is GridCommitBackend.TK:
-            from .tk_measurement import TkMeasurementSource
-            source = TkMeasurementSource(widgets)
-            renderer.root.update_idletasks()
-        elif backend is GridCommitBackend.KIVY:
-            from .kivy_measurement import KivyMeasurementSource
-            source = KivyMeasurementSource(widgets)
-            for widget in widgets.values():
-                refresh = getattr(widget, "texture_update", None)
-                if callable(refresh):
-                    refresh()
-        else:
-            raise AssertionError("native bridge is only for toolkit backends")
-        prepared = measure_grid_native(
-            grid, content_width=float(width), source=source, mounted_ids=ids,
-            revisions={identifier: generation for identifier in ids}, generation=generation,
-            current_generation=renderer._sfle_generation,
+        nested_content = any(
+            child.effective_children and child.effective_children[0].type == "Grid"
+            for child in grid.effective_children
         )
-        batch, commit_widgets = list(prepared.placements), {
-            identifier: handle.widget for identifier, handle in item_handles.items()
-        }
-        for placement in prepared.placements:
-            leaf_id = placement.node_id + "/leaf"
-            batch.append(GridNativePlacement(
-                leaf_id, 0, 0, placement.used_width, placement.used_height,
-                placement.used_width, placement.used_height, False, False,
-            ))
-            commit_widgets[leaf_id] = leaf_handles[placement.node_id].widget
+        composed_heights = None
+        if nested_content:
+            # Each nested Grid resolves spans at its own Cinnamon-allocated
+            # content width; native sources measure only terminal widgets.
+            from .grid_native_composition import (
+                prepare_composed_grid, compose_geometry_batch,
+            )
+            if backend is GridCommitBackend.TK:
+                renderer.root.update_idletasks()
+
+            def measure_leaf(identifier, node, allocated_width):
+                widget = handles[id(node.source)].widget
+                if backend is GridCommitBackend.QT:
+                    from .qt_measurement import QtMeasurementSource
+                    native_source = QtMeasurementSource(
+                        {identifier: widget}, qtcore=renderer._qtcore)
+                elif backend is GridCommitBackend.TK:
+                    from .tk_measurement import TkMeasurementSource
+                    native_source = TkMeasurementSource({identifier: widget})
+                elif backend is GridCommitBackend.KIVY:
+                    from .kivy_measurement import KivyMeasurementSource
+                    refresh = getattr(widget, "texture_update", None)
+                    if callable(refresh):
+                        refresh()
+                    native_source = KivyMeasurementSource({identifier: widget})
+                else:
+                    raise AssertionError("Unexpected native Grid backend.")
+                return native_source.measure_width(identifier, allocated_width)
+
+            composed = prepare_composed_grid(
+                grid, content_width=float(width), generation=generation,
+                current_generation=renderer._sfle_generation,
+                measure_leaf=measure_leaf,
+                is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
+            )
+            prepared = composed.prepared
+            batch, commit_widgets, composed_heights = compose_geometry_batch(
+                composed, handles={identity: handle.widget
+                                   for identity, handle in handles.items()},
+                root_height=float(height),
+            )
+            from types import SimpleNamespace
+            source = SimpleNamespace(
+                is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread)
+        else:
+            ids = tuple(path_identity(child.path) for child in grid.effective_children)
+            item_handles = {path_identity(child.path): handles[id(child.source)]
+                            for child in grid.effective_children}
+            leaf_nodes = {path_identity(child.path): child.effective_children[0].source
+                          for child in grid.effective_children}
+            leaf_handles = {identifier: handles[id(node)]
+                            for identifier, node in leaf_nodes.items()}
+            widgets = {identifier: handle.widget for identifier, handle in leaf_handles.items()}
+            if backend is GridCommitBackend.QT:
+                from .qt_measurement import QtMeasurementSource
+                source = QtMeasurementSource(widgets, qtcore=renderer._qtcore)
+            elif backend is GridCommitBackend.TK:
+                from .tk_measurement import TkMeasurementSource
+                source = TkMeasurementSource(widgets)
+                renderer.root.update_idletasks()
+            elif backend is GridCommitBackend.KIVY:
+                from .kivy_measurement import KivyMeasurementSource
+                source = KivyMeasurementSource(widgets)
+                for widget in widgets.values():
+                    refresh = getattr(widget, "texture_update", None)
+                    if callable(refresh):
+                        refresh()
+            else:
+                raise AssertionError("native bridge is only for toolkit backends")
+            prepared = measure_grid_native(
+                grid, content_width=float(width), source=source, mounted_ids=ids,
+                revisions={identifier: generation for identifier in ids},
+                generation=generation, current_generation=renderer._sfle_generation,
+            )
+            batch, commit_widgets = list(prepared.placements), {
+                identifier: handle.widget for identifier, handle in item_handles.items()
+            }
+            for placement in prepared.placements:
+                leaf_id = placement.node_id + "/leaf"
+                batch.append(GridNativePlacement(
+                    leaf_id, 0, 0, placement.used_width, placement.used_height,
+                    placement.used_width, placement.used_height, False, False,
+                ))
+                commit_widgets[leaf_id] = leaf_handles[placement.node_id].widget
         # Capture root geometry before ANY native write. Child transaction
         # rollback alone is insufficient if commit/readback fails after resize.
         root_widget = handles[id(grid.source)].widget
@@ -116,9 +166,11 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             previous_root = (tuple(root_widget.pos), tuple(root_widget.size))
         kivy_heights = None
         if backend is GridCommitBackend.KIVY:
-            kivy_heights = {placement.node_id: float(height) for placement in prepared.placements}
-            kivy_heights.update({placement.node_id + "/leaf": placement.height
-                                 for placement in prepared.placements})
+            kivy_heights = composed_heights if composed_heights is not None else {
+                placement.node_id: float(height) for placement in prepared.placements}
+            if composed_heights is None:
+                kivy_heights.update({placement.node_id + "/leaf": placement.height
+                                     for placement in prepared.placements})
         try:
             # This host never delegates sibling geometry to toolkit layout.
             if backend is GridCommitBackend.QT:
