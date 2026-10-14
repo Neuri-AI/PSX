@@ -182,3 +182,35 @@ def test_headless_uninitialized_geometry_is_restored_to_none_on_failure():
                current_generation=lambda: state["generation"])
     assert widgets["a"].geometry is None
     assert widgets["b"].geometry is None
+
+
+def test_kivy_nested_grid_coordinates_use_immediate_parent_height():
+    pytest.importorskip("kivy")
+    from kivy.uix.widget import Widget
+    wrapper, leaf = Widget(), Widget()
+    wrapper.add_widget(leaf)
+    receipt = commit_grid_native_geometry(
+        (placement("item", 5, 20, 100, 40), placement("item/leaf", 0, 0, 100, 15)),
+        backend=GridCommitBackend.KIVY,
+        widgets={"item": wrapper, "item/leaf": leaf},
+        generation=1, current_generation=lambda: 1, is_ui_thread=lambda: True,
+        parent_height=200, parent_heights={"item": 200, "item/leaf": 40},
+    )
+    assert receipt.max_readback_error == 0
+    assert tuple(wrapper.pos) == (5, 140)
+    assert tuple(leaf.pos) == (0, 25)
+
+
+def test_kivy_parent_height_mismatch_rejects_before_mutation():
+    pytest.importorskip("kivy")
+    from kivy.uix.widget import Widget
+    child = Widget()
+    previous = tuple(child.pos)
+    with pytest.raises(GridPackingError):
+        commit_grid_native_geometry(
+            (placement("item", 0, 0),), backend=GridCommitBackend.KIVY,
+            widgets={"item": child}, generation=1,
+            current_generation=lambda: 1, is_ui_thread=lambda: True,
+            parent_height=100, parent_heights={"wrong": 100},
+        )
+    assert tuple(child.pos) == previous
