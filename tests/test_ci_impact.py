@@ -22,6 +22,7 @@ class RoutingTests(unittest.TestCase):
             "rust/sfle-core/src/grid_math.rs",
             "tests/sfle/test_grid_math.py",
             "tests/fixtures/grid_row_packing.json",
+            "tests/fixtures/grid_cross_axis.json",
         ):
             with self.subTest(path=path):
                 self.assertEqual(self.selected(path), expected)
