@@ -148,6 +148,7 @@ def test_grid_registry_is_isolated_and_contracts_are_explicit():
 @pytest.mark.parametrize("component", ("Grid", "GridItem"))
 @pytest.mark.parametrize("scenario", (
     "builder", "markup", "direct_element", "registry", "invalid_property", "key_identity",
+    "invalid_children",
 ))
 def test_public_grid_declaration_entry_points_are_executed(component, scenario, request):
     """Prove public entry points independently, not by borrowing property receipts."""
@@ -188,6 +189,20 @@ def test_public_grid_declaration_entry_points_are_executed(component, scenario, 
         with pytest.raises((RendererCapabilityError, MarkupSyntaxError, ValueError, TypeError)):
             psx(markup.replace(f"<{component}>",
                                f"<{component} __invalid_grid_prop__={{True}}>"))
+    elif scenario == "invalid_children":
+        from psx.core.errors import InvalidChildError
+        if component == "Grid":
+            with pytest.raises(InvalidChildError):
+                create_element(component, inner)
+            with pytest.raises(InvalidChildError):
+                builder(inner)
+        else:
+            with pytest.raises(InvalidChildError):
+                create_element(component)
+            with pytest.raises(InvalidChildError):
+                create_element(component, inner, Text("extra"))
+            with pytest.raises(InvalidChildError):
+                builder()
     elif scenario == "key_identity":
         keyed = builder(child, key="stable")
         assert keyed.key == "stable"
