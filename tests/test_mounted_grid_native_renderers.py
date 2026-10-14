@@ -703,3 +703,57 @@ def test_native_grid_root_late_resource_invalidation_is_atomic(request, monkeypa
     finally:
         tree.unmount()
         close()
+
+
+def test_multiple_mixed_grids_rollback_all_committed_siblings(request, monkeypatch):
+    """A failure in the second Grid batch rolls back the first and Flex."""
+    from psx import Flex
+    from psx.sfle import mixed_grid_native
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    tree = Reconciler(renderer)
+
+    def scene():
+        return Flex(*(
+            Grid(GridItem(Text(label), span={"base": 12, "md": 6}, key="one"),
+                 GridItem(Text("next"), span={"base": 12, "md": 6}, key="two"),
+                 key=label, gap=4)
+            for label in ("first", "second")
+        ), direction="column", width="100%", height=200, align_items="stretch")
+
+    try:
+        mounted = tree.render(scene())
+        handles = [mounted.handle.widget]
+        for grid in mounted.children:
+            handles.append(grid.handle.widget)
+            for item in grid.children:
+                handles.extend((item.handle.widget, item.children[0].handle.widget))
+        before = tuple(rectangle(widget, backend) for widget in handles)
+        renderer.set_sfle_constraints(viewport(767))
+        implementation = mixed_grid_native.commit_grid_native_geometry
+        count = [0]
+        with monkeypatch.context() as patch:
+            def fail_second(*args, **kwargs):
+                count[0] += 1
+                if count[0] == 2:
+                    raise RuntimeError("second Grid transaction aborted")
+                return implementation(*args, **kwargs)
+            patch.setattr(mixed_grid_native, "commit_grid_native_geometry", fail_second)
+            with pytest.raises(RuntimeError, match="second Grid transaction aborted"):
+                renderer.commit_layout(mounted)
+        assert count[0] == 2
+        after = tuple(rectangle(widget, backend) for widget in handles)
+        assert all(actual == pytest.approx(previous, abs=1)
+                   for actual, previous in zip(after, before))
+        renderer.commit_layout(mounted)
+        assert all(rectangle(grid.children[0].handle.widget, backend)[2]
+                   == pytest.approx(767, abs=1) for grid in mounted.children)
+        assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(request, Feature(
+            "Grid", binding, "interaction", "mixed_multi_grid",
+            "second_batch_atomic_rollback", applicability="partial_native"), True)
+    finally:
+        tree.unmount()
+        close()
