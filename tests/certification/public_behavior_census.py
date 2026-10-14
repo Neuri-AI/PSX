@@ -111,6 +111,10 @@ def inventory() -> tuple[Feature, ...]:
                     rows.append(Feature(component, "headless", "interaction",
                                         "native_root", scenario, applicability="partial_native"))
             if component == "Grid":
+                for name, scenario in (("mixed_scroll", "geometry_and_identity"),
+                                       ("mixed_transaction", "rollback_and_recovery")):
+                    rows.append(Feature("Grid", "headless", "interaction",
+                                        name, scenario, applicability="partial_native"))
                 rows.append(Feature("Grid", "headless", "interaction",
                                     "mixed_flex", "allocated_width_reflow",
                                     applicability="partial_native"))
@@ -140,6 +144,10 @@ def inventory() -> tuple[Feature, ...]:
                             rows.append(Feature("GridItem", native_backend, "interaction",
                                                 feature_name, scenario, applicability="partial_native"))
                     if component == "Grid":
+                        for name, scenario in (("mixed_scroll", "offset_retained_reflow"),
+                                               ("mixed_transaction", "rollback_and_recovery")):
+                            rows.append(Feature("Grid", native_backend, "interaction",
+                                                name, scenario, applicability="partial_native"))
                         rows.append(Feature("Grid", native_backend, "interaction",
                                             "mixed_flex", "allocated_width_reflow",
                                             applicability="partial_native"))
