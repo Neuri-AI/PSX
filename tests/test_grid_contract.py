@@ -409,6 +409,7 @@ def test_grid_unsupported_headless_mount_receipts(component, request):
 ))
 def test_grid_application_settings_are_validated_and_used(scenario, request):
     from psx import App, Text
+    from psx.core.errors import RendererConfigurationError
     from tests.certification.public_behavior_census import CONTRACT, Feature, assert_feature
     custom = {"base": 0, "sm": 400, "md": 600, "lg": 900, "xl": 1100}
     props = {"span": {"base": 12, "md": 6}}
@@ -434,9 +435,8 @@ def test_grid_application_settings_are_validated_and_used(scenario, request):
             {"unknown": 1},
             {"grid": []},
         ):
-            with pytest.raises((RendererCapabilityError, Exception)) as exc:
+            with pytest.raises((RendererCapabilityError, RendererConfigurationError)):
                 App(Text("root"), renderer="headless", settings=invalid)
-            assert type(exc.value).__name__ in ("RendererCapabilityError", "RendererConfigurationError")
     elif scenario == "application_settings_isolated":
         first = App(Text("root"), renderer="headless",
                     settings={"grid": {"breakpoints": custom}})
