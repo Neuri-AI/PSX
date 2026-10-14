@@ -64,6 +64,12 @@ def plan_grid_native_geometry(
                           rect.used_width_raw, rect.used_height_raw):
                 if type(value) is not int or not 0 <= value <= I32_MAX:
                     raise GridPackingError("Grid geometry must be representable LayoutUnit units.")
+            if type(rect.id) is not str or not rect.id:
+                raise GridPackingError("Grid geometry requires a stable string identity.")
+            if rect.x_raw + rect.width_raw > I32_MAX or (
+                rect.y_raw + rect.height_raw > I32_MAX
+            ):
+                raise GridPackingError("Grid allocated rectangle exceeds LayoutUnit range.")
             if rect.overflow_x != (rect.used_width_raw > rect.width_raw) or (
                 rect.overflow_y != (rect.used_height_raw > rect.height_raw)
             ):
