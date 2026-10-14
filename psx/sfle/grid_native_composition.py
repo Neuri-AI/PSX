@@ -16,6 +16,7 @@ from psx.core.vnode import NodeKind
 
 from .grid_math import GridPackingError
 from .grid_native_measurement import measure_grid_native
+from .grid_flex_composition import ComposedFlex, prepare_composed_flex
 from .grid_tree_measurement import PreparedGridMeasurement
 from .grid_native_plan import GridNativePlacement
 from .model import IntrinsicSizes, MeasuredBox
@@ -32,6 +33,7 @@ class ComposedGrid:
     grid: NormalizedLayoutNode
     prepared: PreparedGridMeasurement
     nested: dict[str, "ComposedGrid"]
+    nested_flex: dict[str, ComposedFlex]
     content_height: float
 
 
@@ -44,6 +46,7 @@ def prepare_composed_grid(
     measure_leaf: NativeLeafMeasurement,
     is_ui_thread: Callable[[], bool],
     breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
+    engine: object | None = None,
 ) -> ComposedGrid:
     """Measure nested Grid children bottom-up using parent-allocated widths.
 
@@ -65,6 +68,7 @@ def prepare_composed_grid(
             raise GridPackingError("GridItem requires exactly one content root.")
         child_by_id[path_identity(item.path)] = effective[0]
     nested: dict[str, ComposedGrid] = {}
+    nested_flex: dict[str, ComposedFlex] = {}
 
     class Source:
         def port(self):
@@ -85,10 +89,31 @@ def prepare_composed_grid(
                     child, content_width=width, generation=generation,
                     current_generation=current_generation,
                     measure_leaf=measure_leaf, is_ui_thread=is_ui_thread,
-                    breakpoints=breakpoints,
+                    breakpoints=breakpoints, engine=engine,
                 )
                 nested[identifier] = subgrid
                 height = subgrid.content_height
+                return IntrinsicSizes(0, width, 0, height, width, height)
+            if child.kind is NodeKind.HOST and child.type == "Flex":
+                if engine is None:
+                    raise GridPackingError(
+                        "GridItem Flex requires the existing Cinnamon SFLE engine."
+                    )
+                flex = prepare_composed_flex(
+                    child, content_width=width, generation=generation,
+                    current_generation=current_generation,
+                    measure_leaf=measure_leaf,
+                    measure_grid=lambda nested_grid, nested_width:
+                        prepare_composed_grid(
+                            nested_grid, content_width=nested_width,
+                            generation=generation, current_generation=current_generation,
+                            measure_leaf=measure_leaf, is_ui_thread=is_ui_thread,
+                            breakpoints=breakpoints, engine=engine,
+                        ),
+                    is_ui_thread=is_ui_thread, engine=engine,
+                )
+                nested_flex[identifier] = flex
+                height = flex.content_height
                 return IntrinsicSizes(0, width, 0, height, width, height)
             if child.kind not in (NodeKind.HOST, NodeKind.NATIVE) or child.effective_children:
                 raise GridPackingError("Composite GridItem requires a supported nested Grid.")
@@ -106,7 +131,7 @@ def prepare_composed_grid(
     )
     height = max((placement.y + placement.height for placement in prepared.placements),
                  default=0.0)
-    return ComposedGrid(grid, prepared, nested, height)
+    return ComposedGrid(grid, prepared, nested, nested_flex, height)
 
 
 def compose_geometry_batch(
@@ -140,6 +165,31 @@ def compose_geometry_batch(
                 widgets[grid_id] = handles[id(child.source)]
                 heights[grid_id] = placement.height
                 walk(nested, child_height)
+            elif identifier in grid.nested_flex:
+                subflex = grid.nested_flex[identifier]
+                flex_id = identifier + "/flex"
+                placements.append(GridNativePlacement(
+                    flex_id, 0, 0, placement.used_width, placement.used_height,
+                    placement.used_width, placement.used_height, False, False,
+                ))
+                widgets[flex_id] = handles[id(child.source)]
+                heights[flex_id] = placement.height
+                boxes = dict(subflex.result.boxes)
+                identities = dict(subflex.prepared.identities)
+                for node in subflex.prepared.snapshot.nodes[1:]:
+                    rect = boxes[node.node_id].border
+                    parent = boxes[node.parent_id].border
+                    local_x, local_y = rect.x - parent.x, rect.y - parent.y
+                    segment_id = flex_id + "/" + node.node_id
+                    placements.append(GridNativePlacement(
+                        segment_id, local_x, local_y, rect.width, rect.height,
+                        rect.width, rect.height, False, False,
+                    ))
+                    widgets[segment_id] = handles[id(identities[node.node_id])]
+                    heights[segment_id] = parent.height
+                    nested_grid = subflex.nested_grids.get(node.node_id)
+                    if nested_grid is not None:
+                        walk(nested_grid, rect.height)
             else:
                 leaf_id = identifier + "/leaf"
                 placements.append(GridNativePlacement(
