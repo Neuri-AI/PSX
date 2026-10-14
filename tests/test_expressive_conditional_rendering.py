@@ -133,9 +133,9 @@ def view(visible):
         with self.assertRaisesRegex(MarkupSyntaxError, "textual content"):
             namespace["view"](True)
 
-    def test_future_map_and_arrow_lowering_are_not_silently_enabled(self):
+    def test_invalid_arrow_outside_approved_grammar_fails_closed(self):
         sources = (
-            '<Flex>{visible && <Button on_click={() => save()} />}</Flex>',
+            '<Flex>{visible && <Button on_click={(item, index) => save(item)} />}</Flex>',
         )
         for markup in sources:
             with self.subTest(markup=markup):

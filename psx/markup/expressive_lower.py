@@ -74,7 +74,16 @@ def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast
         )
         return _helper("conditional", branch) if child else branch
     if isinstance(node, syntax.Arrow):
-        _raise_unsupported(node, filename, "Arrow functions")
+        # Compile callback syntax to a normal lexical Python closure. The
+        # body is evaluated only when the caller invokes the function.
+        parameters = node.parameters
+        return ast.Lambda(
+            args=ast.arguments(
+                posonlyargs=[], args=[ast.arg(arg=name) for name in parameters],
+                kwonlyargs=[], kw_defaults=[], defaults=[],
+            ),
+            body=lower(node.body, filename=filename),
+        )
     if isinstance(node, syntax.Map):
         # Map is compiler syntax, not a Python list method. Its callback is a
         # lexical Python lambda generated at transform time, never evaluated

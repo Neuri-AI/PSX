@@ -8,6 +8,14 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_arrow_callback_paths_select_core_and_headless(self):
+        self.assertEqual(self.selected("tests/test_arrow_callback_rendering.py"),
+                         {"core", "headless"})
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/test_arrow_callback_rendering.py", workflow)
+
     def test_declarative_list_paths_run_in_core_and_headless(self):
         for path in ("tests/test_declarative_list_rendering.py",
                      "psx/markup/expressive_lower.py",
