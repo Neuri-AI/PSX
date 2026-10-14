@@ -101,9 +101,9 @@ class ExpressiveGrammarTests(unittest.TestCase):
 
     def test_braces_do_not_evaluate_undefined_lexical_identifier(self):
         source = (
-            "from psx import psx\\n"
-            "def view():\\n"
-            "    return psx('<Flex gap={unknown_local} />')\\n"
+            "from psx import psx\n"
+            "def view():\n"
+            "    return psx('<Flex gap={unknown_local} />')\n"
         )
         result = transform_source(source, filename="unknown_local.py")
         self.assertEqual(result.transformed_calls, 1)
