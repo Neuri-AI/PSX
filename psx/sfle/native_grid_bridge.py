@@ -67,7 +67,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 or not renderer._sfle_constraints.height.definite or height is None):
             raise GridPackingError("Grid root requires definite viewport constraints.")
         nested_content = any(
-            child.effective_children and child.effective_children[0].type == "Grid"
+            child.effective_children and child.effective_children[0].type in ("Grid", "Flex")
             for child in grid.effective_children
         )
         composed_heights = None
