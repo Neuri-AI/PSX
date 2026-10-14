@@ -425,3 +425,36 @@ def test_grid_flex_grid_nested_reflow_and_stale_generation_recovery(request):
             "nested_reflow_identity", applicability="partial_native"), True)
     finally:
         reconciler.unmount()
+
+
+def test_grid_root_semantic_invalidation_after_child_commit_rolls_back_and_recovers(request, monkeypatch):
+    """Late content/resource invalidation must not leave stale child geometry."""
+    from psx.sfle import headless_grid_bridge
+    from psx.sfle.errors import SFLEError
+    renderer = make_renderer()
+    tree_instance = Reconciler(renderer)
+    try:
+        root = tree_instance.render(tree())
+        original = tuple((node.handle, node.handle.geometry)
+                         for node in (root, *root.children,
+                                      *(child.children[0] for child in root.children)))
+        renderer.set_sfle_constraints(viewport(767))
+        implementation = headless_grid_bridge.commit_grid_native_geometry
+        with monkeypatch.context() as patch:
+            def mutate_then_invalidate(*args, **kwargs):
+                receipt = implementation(*args, **kwargs)
+                renderer._sfle_measurement_invalidations.request("resource")
+                return receipt
+            patch.setattr(headless_grid_bridge, "commit_grid_native_geometry",
+                          mutate_then_invalidate)
+            with pytest.raises(SFLEError, match="invalidated after readback"):
+                renderer.commit_layout(root)
+        assert all(handle.geometry == rect for handle, rect in original)
+        renderer.commit_layout(root)
+        assert root.children[0].handle.geometry.width == 767
+        assert renderer.grid_result[1].max_readback_error == 0
+        assert_feature(request, Feature(
+            "Grid", "headless", "interaction", "semantic_epoch",
+            "post_commit_rollback_recovery", applicability="partial_native"), True)
+    finally:
+        tree_instance.unmount()
