@@ -31,6 +31,8 @@ from .contracts import (
     BADGE_CONTRACT,
     SPINBOX_CONTRACT,
     SCROLL_CONTRACT,
+    GRID_CONTRACT,
+    GRID_ITEM_CONTRACT,
     ComponentContract,
 )
 from .errors import DuplicateComponentError, UnknownComponentError
@@ -124,6 +126,8 @@ def builtin_component_registry() -> ComponentRegistry:
         Button,
         Checkbox,
         Flex,
+        Grid,
+        GridItem,
         Divider,
         Fragment,
         Input,
@@ -146,6 +150,8 @@ def builtin_component_registry() -> ComponentRegistry:
 
     registry = ComponentRegistry()
     registry.register("Flex", Flex, contract=FLEX_CONTRACT)
+    registry.register("Grid", Grid, contract=GRID_CONTRACT)
+    registry.register("GridItem", GridItem, contract=GRID_ITEM_CONTRACT)
     registry.register("Text", Text, contract=TEXT_CONTRACT)
     registry.register("Button", Button, contract=BUTTON_CONTRACT)
     registry.register("Input", Input, contract=INPUT_CONTRACT)
