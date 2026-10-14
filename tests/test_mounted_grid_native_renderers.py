@@ -234,3 +234,41 @@ def test_composite_grid_item_fails_closed_without_false_native_receipt(request):
     finally:
         tree.unmount()
         close()
+
+
+@pytest.mark.parametrize("width,expected", [
+    (767, 767),
+    (800, 398),
+    (767, 767),
+    (800, 398),
+])
+def test_grid_responsive_threshold_cycle_preserves_native_identity(
+    request, width, expected,
+):
+    """Every crossing re-evaluates Grid's own content width without remount."""
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(view())
+        first = root.children[0].handle.widget
+        second = root.children[1].handle.widget
+        first_leaf = root.children[0].children[0].handle.widget
+        second_leaf = root.children[1].children[0].handle.widget
+        renderer.set_sfle_constraints(viewport(width))
+        renderer.commit_layout(root)
+        assert rectangle(first, backend)[2] == pytest.approx(expected, abs=1)
+        assert rectangle(second, backend)[2] == pytest.approx(expected, abs=1)
+        assert root.children[0].handle.widget is first
+        assert root.children[1].handle.widget is second
+        assert root.children[0].children[0].handle.widget is first_leaf
+        assert root.children[1].children[0].handle.widget is second_leaf
+        assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(request, Feature(
+            "Grid", binding, "interaction", "responsive_cycle",
+            f"width_{width}_{expected}", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
+        close()
