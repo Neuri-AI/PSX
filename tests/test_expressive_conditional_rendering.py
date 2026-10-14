@@ -47,6 +47,14 @@ def view(enabled, count):
         self.assertEqual(node.children[0].props["value"], "0")
         self.assertEqual(len(node.children), 1)
 
+    def test_source_map_records_real_conditional_reference_positions(self):
+        markup = '<Flex>{ready && <Text value={label} />}</Flex>'
+        source = "from psx import psx\ndef view(ready, label):\n    return psx(" + repr(markup) + ")\n"
+        result = transform_source(source, filename="source_map.py")
+        positions = result.source_map.entries[0].markup_references
+        self.assertIn((1, markup.index("ready") + 1), positions)
+        self.assertIn((1, markup.index("label") + 1), positions)
+
     def test_conditional_false_true_and_zero_emit_no_child(self):
         namespace, result = _view("""
 from psx import psx
