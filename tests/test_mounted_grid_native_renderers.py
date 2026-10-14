@@ -507,7 +507,8 @@ def test_mixed_flex_grid_transaction_failure_restores_all_native_geometry(reques
                 renderer.commit_layout(mounted)
         after = (rectangle(grid.handle.widget, backend),
                  rectangle(first, backend), rectangle(leaf, backend))
-        assert after == pytest.approx(before, abs=1)
+        assert all(actual == pytest.approx(expected, abs=1)
+                   for actual, expected in zip(after, before))
         renderer.commit_layout(mounted)
         assert rectangle(first, backend)[2] == pytest.approx(767, abs=1)
         assert renderer.grid_result[1].max_readback_error <= 1
