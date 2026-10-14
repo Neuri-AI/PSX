@@ -44,7 +44,7 @@ def test_source_derived_inventory_separates_shared_and_native():
                 "tk" if backend == "tkinter" else backend)
             subset = [r for r in records if r.backend == backend and r.component == component]
             assert subset
-            partial_grid = backend == "headless" and component in ("Grid", "GridItem")
+            partial_grid = backend in ("headless", "pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy") and component in ("Grid", "GridItem")
             assert all(r.applicability == native[(family, component)] or (
                 partial_grid and r.applicability == "partial_native"
             ) for r in subset)
