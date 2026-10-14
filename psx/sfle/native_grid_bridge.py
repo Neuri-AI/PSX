@@ -10,6 +10,7 @@ from __future__ import annotations
 from threading import get_ident
 
 from psx.core.layout_tree import normalize_flex_tree
+from psx.core.grid_contract import GRID_BREAKPOINTS
 from psx.core.vnode import NodeKind
 
 from .errors import DiagnosticCode, SFLEError
@@ -103,6 +104,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 current_generation=renderer._sfle_generation,
                 measure_leaf=measure_leaf,
                 is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
+                breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
             )
             prepared = composed.prepared
             batch, commit_widgets, composed_heights = compose_geometry_batch(
@@ -142,6 +144,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 grid, content_width=float(width), source=source, mounted_ids=ids,
                 revisions={identifier: generation for identifier in ids},
                 generation=generation, current_generation=renderer._sfle_generation,
+                breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
             )
             batch, commit_widgets = list(prepared.placements), {
                 identifier: handle.widget for identifier, handle in item_handles.items()
