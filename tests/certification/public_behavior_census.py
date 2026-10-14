@@ -110,6 +110,10 @@ def inventory() -> tuple[Feature, ...]:
                 for scenario in ("geometry_readback", "resize_reflow", "keyed_reorder", "teardown"):
                     rows.append(Feature(component, "headless", "interaction",
                                         "native_root", scenario, applicability="partial_native"))
+            if component == "Grid":
+                for scenario in ("width_767_767", "width_800_398"):
+                    rows.append(Feature(component, "headless", "interaction",
+                                        "responsive_cycle", scenario, applicability="partial_native"))
             if component == "GridItem":
                 rows.append(Feature(component, "headless", "interaction",
                                     "native_child", "geometry_readback", applicability="partial_native"))
