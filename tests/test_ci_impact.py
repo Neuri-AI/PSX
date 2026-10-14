@@ -8,6 +8,22 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_grid_contract_code_and_tests_route_to_executable_core_suite(self):
+        self.assertGreaterEqual(
+            self.selected("psx/core/grid_contract.py"),
+            {"core", "headless", "qt", "kivy", "tkinter", "legacy"},
+        )
+        self.assertEqual(self.selected("tests/test_grid_contract.py"), {"core"})
+        self.assertEqual(
+            self.selected("docs/architecture/responsive-grid-contract.md"),
+            set(),
+        )
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("tests/test_grid_contract.py", workflow)
+
     def test_documentation_only_has_zero_tests(self):
         result = classify(["docs/architecture/sfle-f3-implementation.md", "README.md"])
         self.assertTrue(result["docs_only"])
