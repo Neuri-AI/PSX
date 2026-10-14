@@ -104,7 +104,7 @@ def test_markup_matches_builder_with_item_metadata_and_preserves_ref() -> None:
     # Plain PSX Markup should not require a separate user-supplied scope.
     marked = psx("""
         <Flex key="root">
-            <Text key="title" flex_grow={1} layout_width="50%"
+            <Text key="title" flex_grow="1" layout_width="50%"
                   layout_margin_top="-2px">Header</Text>
         </Flex>
     """)
