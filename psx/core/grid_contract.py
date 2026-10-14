@@ -9,6 +9,8 @@ from collections.abc import Mapping
 from types import MappingProxyType
 import math
 
+from psx.sfle.lengths import LengthKind, parse_length
+
 from .errors import RendererCapabilityError
 
 GRID_COLUMNS = 12
@@ -51,20 +53,27 @@ def _responsive(value: object, *, name: str, auto: bool) -> object:
 
 
 def _gap(value: object, *, name: str) -> object:
-    if isinstance(value, bool):
-        raise RendererCapabilityError(f"{name} must be a nonnegative layout length.")
-    if isinstance(value, (int, float)):
-        if not math.isfinite(value) or value < 0:
-            raise RendererCapabilityError(f"{name} must be a nonnegative finite length.")
+    """Validate a nonnegative pixel length using Cinnamon's canonical grammar."""
+    try:
+        parsed = parse_length(value)
+    except (TypeError, ValueError) as exc:
+        raise RendererCapabilityError(
+            f"{name} must be a nonnegative finite pixel length.") from exc
+    if parsed.kind is not LengthKind.PX or parsed.value is None or parsed.value < 0:
+        raise RendererCapabilityError(
+            f"{name} must be a nonnegative finite pixel length.")
+    return value
+
+
+def _at_breakpoint(value: object, breakpoint: str) -> object:
+    if not isinstance(value, Mapping):
         return value
-    if isinstance(value, str):
-        # Do not validate a different CSS grammar from Cinnamon: G1 accepts
-        # only the elementary nonnegative px form, extending only alongside
-        # the canonical length parser after its contract is verified.
-        import re
-        if re.fullmatch(r"(?:0|(?:\d+(?:\.\d+)?))px", value):
-            return value
-    raise RendererCapabilityError(f"{name} must be a nonnegative pixel length.")
+    active = next((name for name in reversed(GRID_BREAKPOINTS)
+                   if name in value and GRID_BREAKPOINTS[name] <= GRID_BREAKPOINTS[breakpoint]),
+                  None)
+    if active is None:
+        raise RendererCapabilityError("Responsive value requires base.")
+    return value[active]
 
 
 def normalize_grid_props(props: Mapping[str, object]) -> Mapping[str, object]:
@@ -95,7 +104,10 @@ def normalize_grid_item_props(props: Mapping[str, object]) -> Mapping[str, objec
     values.update(props)
     values["span"] = _responsive(values["span"], name="GridItem.span", auto=True)
     values["offset"] = _responsive(values["offset"], name="GridItem.offset", auto=False)
-    if isinstance(values["span"], int) and isinstance(values["offset"], int):
-        if values["span"] + values["offset"] > GRID_COLUMNS:
-            raise RendererCapabilityError("GridItem span + offset exceeds 12 columns.")
+    for breakpoint in GRID_BREAKPOINTS:
+        span = _at_breakpoint(values["span"], breakpoint)
+        offset = _at_breakpoint(values["offset"], breakpoint)
+        if span != "auto" and span + offset > GRID_COLUMNS:
+            raise RendererCapabilityError(
+                f"GridItem span + offset exceeds 12 columns at {breakpoint}.")
     return MappingProxyType(values)
