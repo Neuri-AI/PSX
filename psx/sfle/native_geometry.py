@@ -12,7 +12,11 @@ from enum import Enum
 from .errors import DiagnosticCode, SFLEError
 from .margin_tree import MarginTreeNode
 from .recursive_measurement import RecursiveMeasurementResult
-from .model import LayoutResult
+from .model import LayoutResult, Rect
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .external_native_geometry_ports import SFLEExternalPort
 from .fixed_point import LayoutUnit
 
 
@@ -35,14 +39,27 @@ class NativeGeometryCommitter:
         backend: GeometryBackend,
         nodes: tuple[MarginTreeNode, ...],
         widgets: Mapping[str, object],
+        *,
+        external_ports: Mapping[str, SFLEExternalPort] | None = None,
+        skip_unchanged: bool = False,
     ) -> None:
         if not isinstance(backend, GeometryBackend):
             raise TypeError("Expected GeometryBackend.")
         self._backend = backend
+        self._skip_unchanged = skip_unchanged
         self._parents = {node.node_id: node.parent_id for node in nodes}
         if len(self._parents) != len(nodes):
             raise SFLEError(DiagnosticCode.INVALID_TREE, "Duplicate geometry node.")
         self._widgets = dict(widgets)
+        self._external_ports = dict(external_ports or {})
+        if not set(self._external_ports) <= set(self._parents):
+            raise SFLEError(DiagnosticCode.INVALID_TREE, "External geometry port has no SFLE node.")
+        if self._external_ports:
+            # Keep the F2 toolkit-worker/core import graph independent of
+            # G2 vnode/native modules (avoids core.vnode initialization cycle).
+            from .external_native_geometry_ports import SFLEExternalPort
+        if any(not isinstance(port, SFLEExternalPort) for port in self._external_ports.values()):
+            raise TypeError("External geometry ports must be SFLEExternalPort instances.")
         if nodes and nodes[0].parent_id is not None:
             raise SFLEError(DiagnosticCode.INVALID_TREE, "Root must be first.")
 
@@ -82,11 +99,49 @@ class NativeGeometryCommitter:
             x = (LayoutUnit.from_nearest(border.x) - LayoutUnit.from_nearest(parent.x)).to_px()
             y = (LayoutUnit.from_nearest(border.y) - LayoutUnit.from_nearest(parent.y)).to_px()
             if self._backend == GeometryBackend.KIVY:
-                y = (LayoutUnit.from_nearest(parent.height) - LayoutUnit.from_nearest(y)
+                # A ScrollView renders its explicit Flex root in a separate
+                # content Widget whose extent is the child's SFLE border box.
+                # Its bottom-left projection must use that content extent,
+                # not the clipped viewport height.
+                parent_widget = self._widgets.get(parent_id)
+                parent_height = (border.height
+                                 if getattr(parent_widget, "_psx_sfle_scroll", False)
+                                 else parent.height)
+                y = (LayoutUnit.from_nearest(parent_height) - LayoutUnit.from_nearest(y)
                      - LayoutUnit.from_nearest(border.height)).to_px()
-            placements.append((self._widgets[node_id], x, y, border.width, border.height))
-        for widget, x, y, width, height in placements:
-            if self._backend == GeometryBackend.QT:
+            placements.append((node_id, self._widgets[node_id], x, y, border.width, border.height))
+        for node_id, widget, x, y, width, height in placements:
+            port = self._external_ports.get(node_id)
+            if self._skip_unchanged:
+                if port is not None:
+                    # External Tk read ports may require an initial place()
+                    # call before any position attributes exist.
+                    already_placed = (
+                        self._backend != GeometryBackend.TK
+                        or bool(widget.place_info())
+                    )
+                    if already_placed:
+                        actual = port.read(widget)
+                        if (actual.x, actual.y, actual.width, actual.height) == (
+                                x, y, width, height):
+                            continue
+                elif self._backend == GeometryBackend.QT:
+                    rect = widget.geometry()
+                    if (rect.x(), rect.y(), rect.width(), rect.height()) == (
+                            round(x), round(y), round(width), round(height)):
+                        continue
+                elif self._backend == GeometryBackend.TK:
+                    info = widget.place_info()
+                    expected = dict(x=round(x), y=round(y),
+                                    width=round(width), height=round(height))
+                    if info and all(key in info and round(float(info[key])) == value
+                                    for key, value in expected.items()):
+                        continue
+                elif tuple(widget.pos) == (x, y) and tuple(widget.size) == (width, height):
+                    continue
+            if port is not None:
+                port.apply(widget, Rect(x, y, width, height))
+            elif self._backend == GeometryBackend.QT:
                 widget.setGeometry(round(x), round(y), round(width), round(height))
             elif self._backend == GeometryBackend.TK:
                 widget.place(x=round(x), y=round(y), width=round(width), height=round(height))

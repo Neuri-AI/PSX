@@ -23,6 +23,7 @@ class KivyLinkAdapter:
             markup=True, halign="left",
         )
         widget._psx_link_props = props
+        widget._psx_sfle_link = renderer._sfle_constraints is not None
         widget.bind(on_release=lambda *_: activate_link(widget._psx_link_props))
         self._apply(widget, props)
         return KivyHandle("Link", widget, props)
@@ -37,7 +38,11 @@ class KivyLinkAdapter:
         widget.text = f"[u]{text}[/u]" if props["underline"] else text
         widget.disabled = not props["enabled"]
         widget.texture_update()
-        widget.size = (max(1, widget.texture_size[0] + 4), max(24, widget.texture_size[1] + 4))
+        if not widget._psx_sfle_link:
+            widget.size = (
+                max(1, widget.texture_size[0] + 4),
+                max(24, widget.texture_size[1] + 4),
+            )
 
     def update(self, renderer, handle, changed, removed):
         props = updated_link_props(handle.props, changed, removed)

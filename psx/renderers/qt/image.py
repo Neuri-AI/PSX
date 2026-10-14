@@ -30,11 +30,12 @@ class QtImageAdapter:
         core = importlib.import_module(f"{binding}.QtCore")
 
         widget = widgets.QLabel()
-        widget.setAlignment(core.Qt.AlignCenter)
+        widget.setAlignment(getattr(core.Qt, 'AlignmentFlag', core.Qt).AlignCenter)
         widget.setAccessibleName(props["alt"])
         widget._psx_source = None
         widget._psx_pixmap_cache = None
         widget._psx_props = props
+        widget._psx_sfle_image = renderer._sfle_constraints is not None
 
         self._load_and_apply(widget, props, binding)
         return QtHandle("Image", widget, props=props)
@@ -91,8 +92,8 @@ class QtImageAdapter:
 
         scaled = pixmap.scaled(
             max(1, int(round(w))), max(1, int(round(h))),
-            core.Qt.IgnoreAspectRatio,
-            core.Qt.SmoothTransformation,
+            getattr(core.Qt, "AspectRatioMode", core.Qt).IgnoreAspectRatio,
+            getattr(core.Qt, "TransformationMode", core.Qt).SmoothTransformation,
         )
         canvas = gui.QPixmap(int(target_w), int(target_h))
         canvas.fill(gui.QColor(0, 0, 0, 0))
@@ -101,6 +102,36 @@ class QtImageAdapter:
         painter.end()
 
         widget.setPixmap(canvas)
-        widget.setFixedSize(int(target_w), int(target_h))
+        if not widget._psx_sfle_image:
+            widget.setFixedSize(int(target_w), int(target_h))
         widget.setAccessibleName(props["alt"])
         widget.setEnabled(props["enabled"])
+
+    @staticmethod
+    def paint_sfle(widget, width: int, height: int, binding: str) -> None:
+        """Paint only inside the rectangle computed and applied by SFLE."""
+        gui = importlib.import_module(f"{binding}.QtGui")
+        core = importlib.import_module(f"{binding}.QtCore")
+        pixmap = widget._psx_pixmap_cache
+        if pixmap is None or pixmap.isNull():
+            raise RendererCapabilityError("Qt Image has no decoded source for SFLE painting.")
+        if width <= 0 or height <= 0:
+            widget.setPixmap(gui.QPixmap())
+            return
+        x, y, w, h = compute_fit_rect(
+            pixmap.width(), pixmap.height(), width, height,
+            widget._psx_props["fit"],
+        )
+        canvas = gui.QPixmap(width, height)
+        canvas.fill(gui.QColor(0, 0, 0, 0))
+        painter = gui.QPainter(canvas)
+        try:
+            painted = pixmap.scaled(
+                max(1, round(w)), max(1, round(h)),
+                getattr(core.Qt, "AspectRatioMode", core.Qt).IgnoreAspectRatio,
+                getattr(core.Qt, "TransformationMode", core.Qt).SmoothTransformation,
+            )
+            painter.drawPixmap(round(x), round(y), painted)
+        finally:
+            painter.end()
+        widget.setPixmap(canvas)

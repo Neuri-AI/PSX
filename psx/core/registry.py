@@ -14,11 +14,10 @@ from .component import ComponentType
 from .contracts import (
     BUTTON_CONTRACT,
     CHECKBOX_CONTRACT,
-    COLUMN_CONTRACT,
+    FLEX_CONTRACT,
     DIVIDER_CONTRACT,
     IMAGE_CONTRACT,
     INPUT_CONTRACT,
-    ROW_CONTRACT,
     SLIDER_CONTRACT,
     SPACER_CONTRACT,
     TEXT_CONTRACT,
@@ -124,11 +123,10 @@ def builtin_component_registry() -> ComponentRegistry:
     from .vnode import (
         Button,
         Checkbox,
-        Column,
+        Flex,
         Divider,
         Fragment,
         Input,
-        Row,
         Slider,
         Spacer,
         Text,
@@ -147,12 +145,7 @@ def builtin_component_registry() -> ComponentRegistry:
     )
 
     registry = ComponentRegistry()
-    registry.register_definition(ComponentDefinition(
-        "Column", Column, contract=COLUMN_CONTRACT,
-        markup_integer_properties=frozenset({"spacing", "padding"})))
-    registry.register_definition(ComponentDefinition(
-        "Row", Row, contract=ROW_CONTRACT,
-        markup_integer_properties=frozenset({"spacing", "padding"})))
+    registry.register("Flex", Flex, contract=FLEX_CONTRACT)
     registry.register("Text", Text, contract=TEXT_CONTRACT)
     registry.register("Button", Button, contract=BUTTON_CONTRACT)
     registry.register("Input", Input, contract=INPUT_CONTRACT)

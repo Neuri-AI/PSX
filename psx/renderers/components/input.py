@@ -31,7 +31,7 @@ def apply_qt_input(widget, props, binding):
     widget.setPlaceholderText(props["placeholder"])
 
     font = widget.font()
-    font.setPointSize(int(round(props["font_size"])))
+    font.setPixelSize(max(1, round(props["font_size"])))
     widget.setFont(font)
 
     widget.setReadOnly(props["read_only"])
@@ -57,21 +57,58 @@ def apply_kivy_input(widget, props):
 
     widget._psx_updating = False
 
-def apply_tk_input(widget, props, binding):
+def apply_tk_input(widget, props, binding=None):
+    """Update the real ttk.Entry value, with a non-value hint overlay.
+
+    The hint is a child of the Entry, never inserted into StringVar and
+    therefore never sent through on_change or password-mode state.
+    """
+    import tkinter as tk
+    from tkinter import ttk
+
     widget._psx_updating = True
-
-    if widget.var.get() != props["value"]:
-        widget.var.set(props["value"])
-
-    widget.configure(
-        placeholder=props["placeholder"],
-        font=("TkDefaultFont", int(round(props["font_size"]))),
-        show="*" if props["password"] else "",
-        state=(
-            "disabled" if not props["enabled"] else
-            "readonly" if props["read_only"] else
-            "normal"
-        ),
-    )
-
-    widget._psx_updating = False
+    try:
+        if widget.var.get() != props["value"]:
+            widget.var.set(props["value"])
+        widget._psx_placeholder = props["placeholder"]
+        size = max(1, round(props["font_size"]))
+        font = ("TkDefaultFont", -size)
+        widget.configure(
+            font=font,
+            show="*" if props["password"] else "",
+            state=(
+                "disabled" if not props["enabled"] else
+                "readonly" if props["read_only"] else "normal"
+            ),
+        )
+        if not hasattr(widget, "_psx_hint_label"):
+            hint = tk.Label(widget, borderwidth=0, padx=0, pady=0,
+                            anchor="w", takefocus=0)
+            widget._psx_hint_label = hint
+            def sync_hint(*_args):
+                if not widget.winfo_exists():
+                    return
+                show = (
+                    bool(getattr(widget, "_psx_placeholder", ""))
+                    and not widget.var.get()
+                    and widget.focus_get() is not widget
+                    and str(widget.cget("state")) != "disabled"
+                )
+                if show:
+                    hint.configure(text=widget._psx_placeholder)
+                    hint.place(x=4, rely=0.5, anchor="w")
+                else:
+                    hint.place_forget()
+            widget._psx_sync_hint = sync_hint
+            widget.var.trace_add("write", sync_hint)
+            widget.bind("<FocusIn>", sync_hint, add="+")
+            widget.bind("<FocusOut>", sync_hint, add="+")
+            hint.bind("<Button-1>", lambda _event: widget.focus_set())
+        hint = widget._psx_hint_label
+        style = ttk.Style(widget)
+        field_style = str(widget.cget("style")) or "TEntry"
+        field_background = style.lookup(field_style, "fieldbackground") or "white"
+        hint.configure(font=font, fg="#777777", bg=field_background)
+        widget._psx_sync_hint()
+    finally:
+        widget._psx_updating = False

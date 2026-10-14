@@ -1,12 +1,14 @@
 name: SFLE native wheels and frozen fallback
 
 on:
+  workflow_call:
   pull_request:
+    branches: [main]
     paths:
       - "psx/sfle/**"
       - "rust/sfle-core/**"
       - "tests/interop/sfle_frozen_probe.py"
-      - "tests/interop/test_sfle_f2_native_wheel.py"
+      - "tests/interop/test_sfle_native_wheel.py"
       - ".github/workflows/sfle-native-matrix.yml"
   push:
     branches: [main]
@@ -14,7 +16,7 @@ on:
       - "psx/sfle/**"
       - "rust/sfle-core/**"
       - "tests/interop/sfle_frozen_probe.py"
-      - "tests/interop/test_sfle_f2_native_wheel.py"
+      - "tests/interop/test_sfle_native_wheel.py"
       - ".github/workflows/sfle-native-matrix.yml"
   workflow_dispatch:
 
@@ -26,7 +28,12 @@ permissions:
   contents: read
 
 jobs:
+  docs-impact:
+    uses: ./.github/workflows/docs-delta.yml
+
   wheel-and-frozen:
+    needs: docs-impact
+    if: needs.docs-impact.outputs.run_checks == 'true'
     name: "SFLE wheel/frozen ${{ matrix.os }} Python 3.12"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 50
@@ -56,9 +63,9 @@ jobs:
           python -m pip install --no-deps --find-links wheelhouse "psx-sfle-native==0.1.0"
           python -c "import _sfle_native as native; assert native.schema_version()==1; print('SFLE_NATIVE_LIBRARY',native.__file__)"
       - name: Verify ABI, native primary and exact accepted corpus against Python
-        run: python -m pytest -q tests/interop/test_sfle_f2_native_wheel.py
+        run: python -m pytest -q tests/interop/test_sfle_native_wheel.py
       - name: Exercise strict schema negotiation and load-time-only fallback
-        run: python -m pytest -q tests/sfle/test_f2_a08_bad_native_schema_red.py tests/sfle/test_f2_a08_native_selector_red.py tests/sfle/test_f2_a08_runtime_no_retry_red.py tests/sfle/test_f2_a08_missing_native_fallback_red.py tests/sfle/test_f2_a08_backend_name_red.py tests/sfle/test_f2_a08_schema_type_red.py
+        run: python -m pytest -q tests/sfle/test_bad_native_schema_regression.py tests/sfle/test_native_selector_regression.py tests/sfle/test_runtime_no_retry_regression.py tests/sfle/test_missing_native_fallback_regression.py tests/sfle/test_backend_name_regression.py tests/sfle/test_schema_type_regression.py
       - name: Freeze an executable with Rust native extension bundled
         run: |
           pyinstaller --noconfirm --clean --onefile --name sfle-native-probe --hidden-import _sfle_native --distpath dist-native --workpath build-native tests/interop/sfle_frozen_probe.py

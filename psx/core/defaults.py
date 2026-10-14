@@ -37,19 +37,13 @@ TEXTAREA_DEFAULTS = MappingProxyType({
     "read_only": False,
     "on_change": None,
 })
-COLUMN_DEFAULTS = MappingProxyType({
-    "spacing": 0,
-    "padding": 0,
-    "align": "stretch",
-    "expand": False,
-    "enabled": True,
-})
-ROW_DEFAULTS = MappingProxyType({
-    "spacing": 0,
-    "padding": 0,
-    "align": "stretch",
-    "expand": False,
-    "enabled": True,
+FLEX_DEFAULTS = MappingProxyType({
+    "direction": "row", "wrap": "nowrap",
+    "justify_content": "flex-start", "align_items": "stretch",
+    "align_content": "normal", "gap": 0,
+    "width": "auto", "height": "auto",
+    "min_width": "auto", "min_height": "auto",
+    "max_width": "none", "max_height": "none", "padding": 0,
 })
 
 SLIDER_DEFAULTS = MappingProxyType({

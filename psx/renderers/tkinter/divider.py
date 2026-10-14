@@ -54,6 +54,7 @@ class TkDividerAdapter:
                                bg=_parent_bg(master))
 
         canvas._psx_props = props
+        canvas._psx_sfle_divider = renderer._sfle_constraints is not None
         canvas._psx_child_widget = None
         canvas._psx_child_window_id = None
 
@@ -70,10 +71,11 @@ class TkDividerAdapter:
         canvas._psx_props = props
 
         is_h = props["orientation"] == "horizontal"
-        if is_h:
-            canvas.configure(height=max(props["thickness"], 1))
-        else:
-            canvas.configure(width=max(props["thickness"], 1))
+        if not canvas._psx_sfle_divider:
+            if is_h:
+                canvas.configure(height=max(props["thickness"], 1))
+            else:
+                canvas.configure(width=max(props["thickness"], 1))
         self._redraw(canvas, props)
 
     def bind_event(self, renderer, handle, event, slot):
@@ -109,10 +111,16 @@ class TkDividerAdapter:
         _sync_label_style(canvas, child_widget)
 
         canvas._psx_child_widget = child_widget
+        if canvas._psx_sfle_divider:
+            from psx.renderers.tkinter.flex import TkSFLEFlexAdapter
+            return TkSFLEFlexAdapter().insert(renderer, parent, child, index)
         self._redraw(canvas, parent.props)
         return True
 
     def move(self, renderer, parent, child, index):
+        if parent.widget._psx_sfle_divider:
+            from psx.renderers.tkinter.flex import TkSFLEFlexAdapter
+            return TkSFLEFlexAdapter().move(renderer, parent, child, index)
         return True
 
     def remove(self, renderer, parent, child):
@@ -122,6 +130,11 @@ class TkDividerAdapter:
                 canvas.delete(canvas._psx_child_window_id)
                 canvas._psx_child_window_id = None
             canvas._psx_child_widget = None
+            if canvas._psx_sfle_divider:
+                from psx.renderers.tkinter.flex import TkSFLEFlexAdapter
+                outcome = TkSFLEFlexAdapter().remove(renderer, parent, child)
+                self._redraw(canvas, parent.props)
+                return outcome
             self._redraw(canvas, parent.props)
         return True
 
@@ -145,6 +158,30 @@ class TkDividerAdapter:
             _sync_label_style(canvas, child_widget)
 
         canvas.delete("psx_line")
+
+        if canvas._psx_sfle_divider and child_widget is not None:
+            # SFLE applies the child's native place() rectangle separately.
+            # Never create_window(), recenter or resize a PSX child.
+            placement = child_widget.place_info()
+            if not placement:
+                return
+            child_x = float(placement["x"])
+            child_y = float(placement["y"])
+            child_w = float(placement["width"])
+            child_h = float(placement["height"])
+            if is_h:
+                cy = h / 2
+                canvas.create_line(0, cy, max(0, child_x - 8), cy,
+                                   fill=color, width=thickness, tags=("psx_line",))
+                canvas.create_line(min(w, child_x + child_w + 8), cy, w, cy,
+                                   fill=color, width=thickness, tags=("psx_line",))
+            else:
+                cx = w / 2
+                canvas.create_line(cx, 0, cx, max(0, child_y - 8),
+                                   fill=color, width=thickness, tags=("psx_line",))
+                canvas.create_line(cx, min(h, child_y + child_h + 8), cx, h,
+                                   fill=color, width=thickness, tags=("psx_line",))
+            return
 
         if is_h:
             cy = h // 2

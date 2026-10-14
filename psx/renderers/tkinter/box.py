@@ -23,13 +23,22 @@ class TkBoxAdapter:
             )
 
     def insert(self, renderer, parent, child, index):
+        if renderer._sfle_constraints is not None:
+            from psx.renderers.tkinter.flex import TkSFLEFlexAdapter
+            return TkSFLEFlexAdapter().insert(renderer, parent, child, index)
         child.widget.pack(in_=parent.widget, fill=tk.BOTH, expand=True)
         return True
 
     def move(self, renderer, parent, child, index):
+        if renderer._sfle_constraints is not None:
+            from psx.renderers.tkinter.flex import TkSFLEFlexAdapter
+            return TkSFLEFlexAdapter().move(renderer, parent, child, index)
         return True
 
     def remove(self, renderer, parent, child):
+        if renderer._sfle_constraints is not None:
+            from psx.renderers.tkinter.flex import TkSFLEFlexAdapter
+            return TkSFLEFlexAdapter().remove(renderer, parent, child)
         child.widget.pack_forget()
         return True
 

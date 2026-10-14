@@ -25,12 +25,17 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from queue import Empty, SimpleQueue
+from threading import get_ident
 import tkinter as tk
 from tkinter import ttk
 from psx.core.errors import RendererCapabilityError
 from psx.core.events import EventSlot
 from psx.core.native import NativeOwnership, NativeWidget
 from psx.core.vnode import NodeKind, VNode
+from psx.core.props import FLEX_ITEM_PROPS
+from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
+from psx.sfle.external_native_geometry_ports import external_port_for
+from psx.sfle.model import LayoutConstraints, LayoutResult
 from psx.renderers.adapters import (
     AdapterSubscription,
     DelegatingAdapter,
@@ -102,6 +107,7 @@ class TkEventSubscription:
     event: str
     callback: Callable[[], object | None]
     option: str = "command"
+    binding_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -125,11 +131,16 @@ def emit_tk_input(widget, slot):
         if getattr(widget, "_psx_updating", False):
             return
         slot.invoke(widget.var.get())
-    widget.var.trace_add("write", _trace)
-    return _trace   # el trace no se puede “desconectar” fácilmente; se ignora si el slot ya no existe
+    return _trace
 
 def emit_tk_submit(widget, slot):
-    return lambda event: slot.invoke()
+    def submit(event):
+        # Widget-level key bindings execute even when ttk's class binding is
+        # disabled. Guard the public callback against that native behavior.
+        if not widget.instate(("disabled",)):
+            return slot.invoke()
+        return None
+    return submit
 
 def emit_tk_textarea(widget, slot):
     def _on_modified(event):
@@ -280,7 +291,51 @@ register_primitive(
 class TkinterRenderer:
     """Map PSX primitives to ttk widgets and use Tk's existing event loop."""
 
-    def __init__(self, root: tk.Tk | None = None, *, poll_interval_ms: int = 10) -> None:
+    def __init__(
+        self, root: tk.Tk | None = None, *, poll_interval_ms: int = 10,
+        sfle_constraints: LayoutConstraints | None = None,
+        engine: object | None = None,
+    ) -> None:
+        if sfle_constraints is not None and not isinstance(sfle_constraints, LayoutConstraints):
+            raise TypeError("Tk SFLE viewport must be LayoutConstraints.")
+        if sfle_constraints is None and engine is not None:
+            raise ValueError("Tk SFLE engine requires explicit viewport constraints.")
+        if sfle_constraints is not None and (
+            not sfle_constraints.width.definite or not sfle_constraints.height.definite
+        ):
+            raise RendererCapabilityError("Tk SFLE viewport requires definite axes.")
+        from psx.sfle.backend import load_layout_engine
+        self._sfle_constraints = sfle_constraints
+        self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
+        self._sfle_backend = "tk"
+        self._sfle_generation = 0
+        self._sfle_theme_bind_id = None
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+        self._sfle_measurement_invalidations = MeasurementInvalidations()
+        from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
+        self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
+        from psx.sfle.native_resource_watch import ImageResourceWatch
+        self._sfle_image_resource_watch = ImageResourceWatch()
+        self._sfle_resource_poll_scheduled = False
+        self._sfle_resource_error: Exception | None = None
+        self._sfle_invalidation_scheduled = False
+        self._sfle_invalidation_lifetime = 0
+        self._sfle_mounted_root = None
+        self._sfle_in_commit = False
+        self._sfle_owner_thread = get_ident()
+        self._sfle_mounted_root = None
+        self._sfle_resize_baseline = None
+        self._sfle_resize_pending = None
+        self._sfle_resize_after_id = None
+        self._sfle_resize_bind_id = None
+        self._sfle_resize_epoch = 0
+        self._sfle_resize_error: Exception | None = None
+        self._sfle_textarea_epoch = 0
+        self._sfle_textarea_after_id: str | None = None
+        self._sfle_textarea_error: Exception | None = None
+        self._sfle_root_widget: tk.Misc | None = None
+        self.sfle_result: LayoutResult | None = None
+        self._sfle_physical_commit_error: float | None = None
         self.root = root if root is not None else tk.Tk()
         self._owns_root = root is None
         self._pending: SimpleQueue[Callable[[], None]] = SimpleQueue()
@@ -290,10 +345,8 @@ class TkinterRenderer:
         self.adapters = RendererAdapterRegistry()
         self._default_adapter = DelegatingAdapter()
         # "Input" stays reserved (unsupported in Tk) so custom adapters still need replace=True.
-        for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Input", "Native")):
+        for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Flex", "Input", "Native")):
             self.adapters.register(component, self._default_adapter)
-        from .column import TkColumnAdapter
-        from .row import TkRowAdapter
         from .divider import TkDividerAdapter
         from .image import TkImageAdapter
         from .box import TkBoxAdapter
@@ -304,8 +357,6 @@ class TkinterRenderer:
         from .badge import TkBadgeAdapter
         from .spinbox import TkSpinBoxAdapter
         from .scroll import TkScrollAdapter
-        self.adapters.register("Column", TkColumnAdapter())
-        self.adapters.register("Row", TkRowAdapter())
         self.adapters.register("Divider", TkDividerAdapter())
         self.adapters.register("Image", TkImageAdapter())
         self.adapters.register("Box", TkBoxAdapter())
@@ -316,10 +367,293 @@ class TkinterRenderer:
         self.adapters.register("Badge", TkBadgeAdapter())
         self.adapters.register("SpinBox", TkSpinBoxAdapter())
         self.adapters.register("Scroll", TkScrollAdapter())
+        if sfle_constraints is not None:
+            from .flex import TkSFLEFlexAdapter
+            self.adapters.register("Flex", TkSFLEFlexAdapter(), replace=True)
         self._schedule_drain()
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
+
+    def _sfle_poll_image_resources(self, lifetime: int) -> None:
+        if lifetime != self._sfle_invalidation_lifetime:
+            return
+        self._sfle_resource_poll_scheduled = False
+        root = self._sfle_mounted_root
+        if root is None or root.disposed:
+            return
+        for instance in self._sfle_image_resource_watch.changed():
+            if instance.disposed:
+                continue
+            widget = instance.handle.widget
+            # Image adapters cache decoded content by source string; a
+            # revision at that same path must bypass the old decoded image.
+            widget._psx_source = None
+            widget._psx_pixmap_cache = None
+            widget._psx_image_cache = None
+            source = instance.node.props["source"]
+            try:
+                self.update(instance.handle, {"source": source}, frozenset())
+                reload_image = getattr(widget, "reload", None)
+                if callable(reload_image):
+                    reload_image()
+                self._sfle_resource_error = None
+                self.request_sfle_invalidation("resource", widget_id=id(widget))
+                self._sfle_image_resource_watch.acknowledge(instance)
+            except Exception as error:
+                # Preserve the last committed geometry and keep watching;
+                # recreating a missing/invalid file can recover in place.
+                self._sfle_resource_error = error
+        self._sfle_schedule_image_poll()
+
+    def _sfle_schedule_image_poll(self) -> None:
+        if self._sfle_resource_poll_scheduled:
+            return
+        root = self._sfle_mounted_root
+        if (root is None or root.disposed
+                or not self._sfle_image_resource_watch.sync(root)):
+            return
+        self._sfle_resource_poll_scheduled = True
+        epoch = self._sfle_invalidation_lifetime
+        self.root.after(
+            600, lambda: self._sfle_poll_image_resources(epoch))
+
+    def request_sfle_invalidation(self, reason: str, *, widget_id: int | None = None) -> None:
+        """Coalesce semantic measurement changes on the backend owner UI thread.
+
+        The mounted instance is reused; the existing SFLE transaction remains
+        the only writer. Teardown invalidates queued work by epoch.
+        """
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
+        state = self._sfle_measurement_invalidations
+        state.request(reason, widget_id=widget_id)
+        if self._sfle_invalidation_scheduled:
+            return
+        self._sfle_invalidation_scheduled = True
+        scheduled_epoch = self._sfle_invalidation_lifetime
+
+        def flush() -> None:
+            if scheduled_epoch != self._sfle_invalidation_lifetime:
+                return
+            self._sfle_invalidation_scheduled = False
+            root = self._sfle_mounted_root
+            if root is None or root.disposed or not state.needs_commit():
+                return
+            epoch = state.epoch
+            try:
+                self.commit_layout(root)
+            except Exception:
+                # Preserve all invalidations for explicit retry. A failed
+                # native transaction must never acknowledge its epoch.
+                self._sfle_last_invalidation_error = True
+                raise
+            else:
+                self._sfle_last_invalidation_error = False
+                state.acknowledge(epoch)
+
+        self.schedule_ui(flush)
+
+    def set_sfle_constraints(self, constraints: LayoutConstraints) -> None:
+        """Explicit Tk host viewport change; caller re-commits the mounted tree."""
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("Tk SFLE was not enabled for this renderer.")
+        if not isinstance(constraints, LayoutConstraints):
+            raise TypeError("Tk SFLE viewport must be LayoutConstraints.")
+        if not constraints.width.definite or not constraints.height.definite:
+            raise RendererCapabilityError("Tk SFLE viewport axes must be definite.")
+        self._sfle_constraints = constraints
+        self._sfle_generation += 1
+        if self._sfle_root_widget is not None and self._sfle_root_widget.winfo_exists():
+            self._sfle_root_widget.place_configure(
+                width=round(constraints.width.value),
+                height=round(constraints.height.value),
+            )
+
+    def _sfle_on_theme_changed(self, event) -> None:
+        if (not self._closed and event.widget is self.root
+                and self._sfle_mounted_root is not None):
+            self.request_sfle_invalidation("theme")
+
+    def _sfle_on_configure(self, event) -> None:
+        if (self._closed or event.widget is not self.root
+                or self._sfle_mounted_root is None):
+            return
+        width, height = event.width, event.height
+        if width <= 0 or height <= 0:
+            return
+        if self._sfle_resize_baseline == (width, height):
+            return
+        self._sfle_resize_baseline = (width, height)
+        constraints = self._sfle_constraints
+        if constraints is None:
+            return
+        target = (
+            width if self._sfle_root_axis_tracks_viewport("width") else constraints.width.value,
+            height if self._sfle_root_axis_tracks_viewport("height") else constraints.height.value,
+        )
+        if (constraints.width.value, constraints.height.value) == target:
+            return
+        self._sfle_resize_pending = target
+        if self._sfle_resize_after_id is None:
+            epoch = self._sfle_resize_epoch
+            self._sfle_resize_after_id = self.root.after_idle(
+                lambda: self._sfle_flush_viewport_resize(epoch),
+            )
+
+    def _sfle_root_axis_tracks_viewport(self, axis: str) -> bool:
+        """Whether the mounted SFLE root resolves this axis from the host."""
+        from psx.core.vnode import NodeKind
+        from psx.sfle.lengths import LengthKind, parse_length
+
+        instance = self._sfle_mounted_root
+        while instance is not None and instance.node.kind is NodeKind.COMPONENT:
+            if len(instance.children) != 1:
+                return False
+            instance = instance.children[0]
+        if instance is None or instance.node.type != "Flex":
+            return False
+        value = instance.node.props.get(axis, "auto")
+        return parse_length(value).kind in {LengthKind.AUTO, LengthKind.PERCENT}
+
+    def _sfle_flush_viewport_resize(self, epoch: int) -> None:
+        self._sfle_resize_after_id = None
+        if (self._closed or epoch != self._sfle_resize_epoch
+                or self._sfle_mounted_root is None):
+            return
+        size = self._sfle_resize_pending
+        self._sfle_resize_pending = None
+        if size is None:
+            return
+        root = self._sfle_mounted_root
+        if root.disposed:
+            return
+        from psx.sfle.model import AvailableSize
+        try:
+            self.set_sfle_constraints(LayoutConstraints(
+                AvailableSize(size[0], True), AvailableSize(size[1], True),
+            ))
+            self.commit_layout(root)
+            self._sfle_resize_error = None
+        except Exception as exc:
+            self._sfle_resize_error = exc
+            import logging
+            logging.getLogger(__name__).exception("Tk SFLE viewport resize failed")
+
+    def _sfle_on_textarea_modified(self, event) -> None:
+        widget = event.widget
+        if (self._closed or self._sfle_constraints is None
+                or self._sfle_mounted_root is None or self._sfle_in_commit
+                or getattr(widget, "_psx_updating", False)
+                or not widget.edit_modified()):
+            return
+        if self._sfle_textarea_after_id is None:
+            epoch = self._sfle_textarea_epoch
+            self._sfle_textarea_after_id = self.root.after_idle(
+                lambda: self._sfle_flush_textarea_modified(epoch),
+            )
+
+    def _sfle_flush_textarea_modified(self, epoch: int) -> None:
+        self._sfle_textarea_after_id = None
+        if (self._closed or epoch != self._sfle_textarea_epoch
+                or self._sfle_mounted_root is None):
+            return
+        root = self._sfle_mounted_root
+        if root.disposed:
+            return
+        try:
+            self._sfle_measurement_invalidations.request("content")
+            self.commit_layout(root)
+            self._sfle_textarea_error = None
+        except Exception as exc:
+            self._sfle_textarea_error = exc
+            import logging
+            logging.getLogger(__name__).exception("Tk TextArea SFLE remeasurement failed")
+
+    def commit_layout(self, root: object) -> None:
+        if self._sfle_constraints is None:
+            return
+        from psx.sfle.tkinter_layout_bridge import commit_tk_sfle
+        # Native style/texture signals can arrive while measuring. Retry a
+        # bounded number of times using the latest semantic epoch; never
+        # publish a transaction rejected for stale measurements.
+        from psx.sfle.errors import SFLEError
+        for attempt in range(3):
+            try:
+                commit_tk_sfle(self, root)
+                break
+            except SFLEError as error:
+                if ("Stale semantic invalidation" not in str(error)
+                        or attempt == 2):
+                    raise
+        self._sfle_measurement_invalidations.acknowledge(
+            self._sfle_measurement_invalidations.epoch)
+
+        self._sfle_textarea_epoch += 1
+        if self._sfle_textarea_after_id is not None:
+            self.root.after_cancel(self._sfle_textarea_after_id)
+            self._sfle_textarea_after_id = None
+        if self._sfle_resize_bind_id is None:
+            # Subscribe after the first successful commit: ignore native
+            # initialization and changes of unrelated child Frames.
+            self._sfle_resize_baseline = (
+                self.root.winfo_width(), self.root.winfo_height(),
+            )
+            self._sfle_resize_bind_id = self.root.bind(
+                "<Configure>", self._sfle_on_configure, add="+",
+            )
+        if self._sfle_theme_bind_id is None:
+            self._sfle_theme_bind_id = self.root.bind(
+                "<<ThemeChanged>>", self._sfle_on_theme_changed, add="+",
+            )
+        self._sfle_mounted_root = root
+        self._sfle_schedule_image_poll()
+
+    def invalidate_layout(self) -> None:
+        self._sfle_invalidation_lifetime += 1
+        self._sfle_invalidation_scheduled = False
+        self._sfle_measurement_invalidations.cancel()
+        self._sfle_native_intrinsic_cache.clear()
+        self._sfle_image_resource_watch.clear()
+        self._sfle_resource_poll_scheduled = False
+        self._sfle_mounted_root = None
+        if self._sfle_theme_bind_id is not None:
+            try:
+                self.root.unbind("<<ThemeChanged>>", self._sfle_theme_bind_id)
+            except tk.TclError:
+                pass
+            self._sfle_theme_bind_id = None
+        if self._sfle_constraints is not None:
+            self._sfle_generation += 1
+            self._sfle_resize_epoch += 1
+            self._sfle_textarea_epoch += 1
+            if self._sfle_textarea_after_id is not None:
+                try:
+                    self.root.after_cancel(self._sfle_textarea_after_id)
+                except tk.TclError:
+                    pass
+                self._sfle_textarea_after_id = None
+            self._sfle_textarea_error = None
+            self._sfle_mounted_root = None
+            self._sfle_resize_baseline = None
+            self._sfle_resize_pending = None
+            if self._sfle_resize_after_id is not None:
+                try:
+                    self.root.after_cancel(self._sfle_resize_after_id)
+                except tk.TclError:
+                    pass
+                self._sfle_resize_after_id = None
+            if self._sfle_resize_bind_id is not None:
+                try:
+                    self.root.unbind("<Configure>", self._sfle_resize_bind_id)
+                except tk.TclError:
+                    pass
+                self._sfle_resize_bind_id = None
+            self.sfle_result = None
+            self._sfle_physical_commit_error = None
+            self._sfle_root_widget = None
 
     def _adapter_for(self, key: object):
         return self.adapters.get(key) or self._default_adapter
@@ -327,6 +661,20 @@ class TkinterRenderer:
     # -- create -----------------------------------------------------------
 
     def create(self, node: VNode, parent: object | None) -> TkHandle:
+        if self._sfle_constraints is not None:
+            # G2 incremental native coverage: no silent native pack/grid
+            # fallback for builtins or custom declarations not ported yet.
+            if node.kind not in (NodeKind.HOST, NodeKind.NATIVE):
+                raise RendererCapabilityError("Native SFLE requires a host or Native layout participant.")
+            # An unregistered custom host or a Native declaration without a
+            # strict SFLE port must fail *before* its factory mutates the GUI.
+            port = external_port_for(node, self)
+            if port is None and node.type != "Flex":
+                native_leaf_needs_measurement(node, backend="tk")
+            if node.type != "Flex":
+                node = VNode(node.kind, node.type, node.key,
+                             {name: value for name, value in node.props.items()
+                              if name not in FLEX_ITEM_PROPS}, node.children)
         # Scroll owns an inner content frame. New Tk widgets must be constructed
         # with that frame as their real native master; pack(in_=...) alone
         # cannot reparent a widget into a descendant of its original master.
@@ -368,6 +716,10 @@ class TkinterRenderer:
         widget.bind("<Button-5>", on_wheel, add="+")
 
     def _adapter_create(self, node: VNode, parent: object | None) -> TkHandle:
+        if node.kind is NodeKind.HOST and node.type == "Flex":
+            raise RendererCapabilityError(
+                "Flex requires the Native SFLE SFLE geometry adapter for Tkinter; "
+                "native fallback layout is forbidden.")
         _validate_props(node)
         master = _as_handle(parent).widget if parent is not None else self.root
         if node.kind is NodeKind.NATIVE:
@@ -382,11 +734,21 @@ class TkinterRenderer:
             raise RendererCapabilityError(f"Tkinter does not support host primitive {node.type!r}.")
         widget = spec.factory(master)
         spec.apply(widget, node.props)
+        if self._sfle_constraints is not None and node.type == "TextArea":
+            # Preserve the native editor's selection/cursor; only observe
+            # real <<Modified>> notifications, never reset the flag here.
+            widget.bind("<<Modified>>", self._sfle_on_textarea_modified, add="+")
         return TkHandle(node.type, widget, dict(node.props))
 
     # -- update -----------------------------------------------------------
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
+        if self._sfle_constraints is not None and _as_handle(handle).node_type != "Flex":
+            changed = {name: value for name, value in changed.items()
+                       if name not in FLEX_ITEM_PROPS}
+            removed = frozenset(name for name in removed if name not in FLEX_ITEM_PROPS)
+            if not changed and not removed:
+                return
         self._adapter_for(handle_adapter_key(handle)).update(self, handle, changed, removed)
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
@@ -504,6 +866,19 @@ class TkinterRenderer:
             raise RendererCapabilityError(f"{event} is not supported by {handle.node_type} in Tkinter.")
         option, make_callback = definition
         callback = make_callback(handle.widget, slot)  # only the requested event's closure is built
+        if handle.node_type == "Input" and event == "on_change":
+            variable = handle.widget.var
+            token = variable.trace_add("write", callback)
+            def unsubscribe() -> None:
+                try:
+                    variable.trace_remove("write", token)
+                except tk.TclError:
+                    pass
+            return TkNativeEventSubscription(unsubscribe)
+        if option.startswith("<"):
+            # Tk virtual and keyboard events must use bind, not configure.
+            binding_id = handle.widget.bind(option, callback, add="+")
+            return TkEventSubscription(handle.widget, event, callback, option, binding_id)
         handle.widget.configure(**{option: callback})
         return TkEventSubscription(handle.widget, event, callback, option)
 
@@ -521,7 +896,10 @@ class TkinterRenderer:
                 pass
             return
         target = _as_subscription(subscription)
-        target.widget.configure(**{target.option: ""})
+        if target.binding_id is not None:
+            target.widget.unbind(target.option, target.binding_id)
+        else:
+            target.widget.configure(**{target.option: ""})
 
     # -- scheduling / lifecycle ------------------------------------------
 
@@ -538,6 +916,8 @@ class TkinterRenderer:
         return 0
 
     def close(self) -> None:
+        if self._sfle_constraints is not None:
+            self.invalidate_layout()
         self._closed = True
         if self._after_id is not None:
             try:
@@ -585,6 +965,14 @@ class TkinterRenderer:
         if initial_props and declaration.update is None:
             raise RendererCapabilityError(
                 f"Native widget {declaration.name!r} received props but has no update adapter."
+            )
+        # Tk widget masters are immutable. Even a widget already parented to
+        # the PSX Flex would be destroyed together with that Flex; therefore
+        # borrowed ownership cannot be guaranteed. Fail closed BEFORE writes.
+        if declaration.ownership is NativeOwnership.BORROWED:
+            raise RendererCapabilityError(
+                "Borrowed Tk widgets are unsupported: Tkinter cannot "
+                "reparent them or preserve their lifetime on PSX teardown."
             )
         widget = _build_native_widget(declaration, master)
         if not isinstance(widget, tk.Misc):

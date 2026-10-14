@@ -19,17 +19,26 @@ class PyQtRendererSubprocessTests(unittest.TestCase):
         environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
         script = textwrap.dedent(
             f"""
-            from psx import App, Button, Checkbox, Column, Text, component, use_state
+            from psx import App, Button, Checkbox, Flex, Text, component, use_state
 
             @component
             def Counter():
                 value, set_value = use_state(0)
-                return Column(Text(str(value), key="text"), Button("+", key="button", on_click=lambda: set_value(value + 1)))
+                return Flex(Text(str(value), key="text"), Button("+", key="button", on_click=lambda: set_value(value + 1)), direction="column")
 
-            app = App(Counter(), renderer="{binding}")
+            from psx.renderers.qt.pyqt import PyQt5Renderer, PyQt6Renderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            renderer_class = PyQt5Renderer if "{binding}" == "pyqt5" else PyQt6Renderer
+            renderer = renderer_class(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(480, True), AvailableSize(320, True)),
+                engine=PythonLayoutEngine(),
+            )
+            app = App(Counter(), renderer=renderer)
             app.mount()
-            column = app.reconciler.root.children[0].handle
-            label, button = (column.layout.itemAt(i).widget() for i in range(2))
+            column = app.reconciler.root.children[0]
+            label, button = (child.handle.widget for child in column.children)
             before = button
             button.click()
             app.renderer.application.processEvents()
@@ -40,7 +49,8 @@ class PyQtRendererSubprocessTests(unittest.TestCase):
             core = import_module("PyQt{binding[-1]}.QtCore")
             widgets = import_module("PyQt{binding[-1]}.QtWidgets")
             from psx.core.reconcile import Reconciler
-            r = Reconciler(app.renderer)
+            plain_renderer = renderer_class()
+            r = Reconciler(plain_renderer)
             label = r.render(Text("old", font_size=24, bold=True, italic=True,
                                   color="#336699", align="right", enabled=False)).handle.widget
             assert isinstance(label, widgets.QLabel)
@@ -57,7 +67,7 @@ class PyQtRendererSubprocessTests(unittest.TestCase):
             assert label.styleSheet() == ""
             r.unmount()
             changes = []
-            r = Reconciler(app.renderer)
+            r = Reconciler(plain_renderer)
             check = r.render(Checkbox(on_change=changes.append)).handle.widget
             check.click()
             assert changes == [True]

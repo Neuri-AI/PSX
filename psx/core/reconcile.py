@@ -64,6 +64,9 @@ class Reconciler:
             root = self.root
         finally:
             self._is_rendering = False
+        commit_layout = getattr(self.renderer, "commit_layout", None)
+        if callable(commit_layout):
+            commit_layout(root)
         self._commit_refs()
         self.scheduler.run_effects()
         assert root is not None
@@ -73,6 +76,9 @@ class Reconciler:
         if self.root is not None:
             self._unmount(self.root, detach=False)
             self.root = None
+        invalidate_layout = getattr(self.renderer, "invalidate_layout", None)
+        if callable(invalidate_layout):
+            invalidate_layout()
 
     def _mount(self, node: VNode, parent: MountedInstance | None) -> MountedInstance:
         instance = MountedInstance(node=node, parent=parent)
@@ -105,25 +111,41 @@ class Reconciler:
             return self._mount(node, parent)
 
         previous_node = old.node
-        old.node = node
         if node.kind is NodeKind.COMPONENT:
-            rendered = self._evaluate_component(old)
-            previous = old.children[0]
-            old.children = [self._reconcile(previous, rendered, old)]
-            return old
+            old.node = node
+            try:
+                rendered = self._evaluate_component(old)
+                previous = old.children[0]
+                old.children = [self._reconcile(previous, rendered, old)]
+                return old
+            except Exception:
+                old.node = previous_node
+                raise
 
         assert old.handle is not None
+        # Reject invalid callbacks before native mutation or slot replacement.
+        for name, callback in node.props.items():
+            if _is_event(name) and callback is not None and not callable(callback):
+                raise TypeError(f"{name} must be callable or None.")
         changed, removed = _prop_delta(previous_node.props, node.props)
+        try:
+            if changed or removed:
+                self.renderer.update(old.handle, changed, removed)
+            self._sync_events(old, previous_node.props, node.props)
+            previous_children = old.children
+            next_children = self._reconcile_children(
+                old, previous_children, node.children)
+            old.children = next_children
+            self._place_children(old, previous_children, next_children)
+        except Exception:
+            # Preserve the reconciler's last valid declarative state on a
+            # rejected update. Existing native mutations beyond this point
+            # still require an explicit compensating rollback certificate.
+            old.node = previous_node
+            raise
+        old.node = node
         if previous_node.props.get("ref") is not node.props.get("ref"):
             self._queue_ref(old, node.props.get("ref"))
-        self._sync_events(old, previous_node.props, node.props)
-        if changed or removed:
-            self.renderer.update(old.handle, changed, removed)
-        previous_children = old.children
-        next_children = self._reconcile_children(
-            old, previous_children, node.children)
-        old.children = next_children
-        self._place_children(old, previous_children, next_children)
         return old
 
     def _reconcile_children(
@@ -352,6 +374,9 @@ class Reconciler:
                         self._refresh_ancestor_layout(ancestor)
         finally:
             self._is_rendering = False
+        commit_layout = getattr(self.renderer, "commit_layout", None)
+        if callable(commit_layout) and self.root is not None:
+            commit_layout(self.root)
         self._commit_refs()
         self.scheduler.run_effects()
 

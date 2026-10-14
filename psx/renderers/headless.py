@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from threading import RLock
+from threading import RLock, get_ident
 
+from psx.sfle.model import IntrinsicSizes, LayoutConstraints, LayoutResult, Rect
+
+from psx.core.errors import RendererCapabilityError
 from psx.core.events import EventSlot
 from psx.core.vnode import NodeKind, VNode
 from psx.renderers.adapters import (
@@ -54,19 +57,46 @@ class HeadlessHandle:
     children: list["HeadlessHandle"] = field(default_factory=list)
     events: dict[str, EventSlot] = field(default_factory=dict)
     destroyed: bool = False
+    geometry: Rect | None = None
 
 
 class HeadlessRenderer:
     """Records native-like operations without importing a UI toolkit."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        sfle_constraints: LayoutConstraints | None = None,
+        measure_intrinsic: Callable[[VNode], IntrinsicSizes | None] | None = None,
+        engine: object | None = None,
+    ) -> None:
+        if sfle_constraints is not None and not isinstance(sfle_constraints, LayoutConstraints):
+            raise TypeError("Headless SFLE constraints must be LayoutConstraints.")
+        if sfle_constraints is None and (measure_intrinsic is not None or engine is not None):
+            raise ValueError("Headless SFLE measurements/engine require viewport constraints.")
+        from psx.sfle.backend import load_layout_engine
+        self._sfle_constraints = sfle_constraints
+        self._sfle_measure = measure_intrinsic
+        self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
+        self._sfle_generation = 0
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+        self._sfle_measurement_invalidations = MeasurementInvalidations()
+        self._sfle_invalidation_scheduled = False
+        self._sfle_invalidation_lifetime = 0
+        self._sfle_mounted_root = None
+        self._sfle_in_commit = False
+        # Stable native handle identity + immutable prop snapshot index.
+        # Published only after a successful geometry transaction.
+        self._sfle_intrinsic_cache = {}
+        self._sfle_owner_thread = get_ident()
+        self.sfle_result: LayoutResult | None = None
         self.operations: list[tuple[object, ...]] = []
         self._pending: list[Callable[[], None]] = []
         self._lock = RLock()
         self.adapters = RendererAdapterRegistry()
         self._default_adapter = DelegatingAdapter()
         for component in (
-            "Column", "Row", "Fragment",
+            "Fragment", "Flex",
             "Text", "Button", "Input", "TextArea", "Checkbox", "Slider",
             "Spacer", "Divider", "Image", "ProgressBar",
             "Radio", "RadioGroup", "Select", "Switch", "Link", "Badge", "SpinBox", "Scroll", "Box", "Native",
@@ -76,11 +106,96 @@ class HeadlessRenderer:
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
 
+    def request_sfle_invalidation(self, reason: str, *, widget_id: int | None = None) -> None:
+        """Coalesce semantic measurement changes on the backend owner UI thread.
+
+        The mounted instance is reused; the existing SFLE transaction remains
+        the only writer. Teardown invalidates queued work by epoch.
+        """
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
+        state = self._sfle_measurement_invalidations
+        state.request(reason, widget_id=widget_id)
+        if self._sfle_invalidation_scheduled:
+            return
+        self._sfle_invalidation_scheduled = True
+        scheduled_epoch = self._sfle_invalidation_lifetime
+
+        def flush() -> None:
+            if scheduled_epoch != self._sfle_invalidation_lifetime:
+                return
+            self._sfle_invalidation_scheduled = False
+            root = self._sfle_mounted_root
+            if root is None or root.disposed or not state.needs_commit():
+                return
+            epoch = state.epoch
+            try:
+                self.commit_layout(root)
+            except Exception:
+                # Preserve all invalidations for explicit retry. A failed
+                # native transaction must never acknowledge its epoch.
+                self._sfle_last_invalidation_error = True
+                raise
+            else:
+                self._sfle_last_invalidation_error = False
+                state.acknowledge(epoch)
+
+        self.schedule_ui(flush)
+
+    def set_sfle_constraints(self, constraints: LayoutConstraints) -> None:
+        """Change Headless viewport constraints; caller requests a new commit."""
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("SFLE was not enabled for this Headless renderer.")
+        if not isinstance(constraints, LayoutConstraints):
+            raise TypeError("SFLE constraints must be LayoutConstraints.")
+        self._sfle_constraints = constraints
+        self._sfle_generation += 1
+
+    def commit_layout(self, root: object) -> None:
+        """Commit actual SFLE geometry for the mounted root (if enabled)."""
+        if self._sfle_constraints is not None:
+            from psx.sfle.headless_layout_bridge import commit_headless_sfle
+            commit_headless_sfle(self, root)
+            self._sfle_mounted_root = root
+            self._sfle_measurement_invalidations.acknowledge(
+                self._sfle_measurement_invalidations.epoch)
+
+    def invalidate_layout(self) -> None:
+        self._sfle_invalidation_lifetime += 1
+        self._sfle_invalidation_scheduled = False
+        self._sfle_measurement_invalidations.cancel()
+        self._sfle_intrinsic_cache.clear()
+        self._sfle_mounted_root = None
+        if self._sfle_constraints is not None:
+            self._sfle_generation += 1
+            self.sfle_result = None
+
     def create(self, node: VNode, parent: object | None) -> HeadlessHandle:
         adapter = self.adapters.get(adapter_key(node)) or self._default_adapter
         return adapter.create(self, node, parent)  # type: ignore[return-value]
 
     def _adapter_create(self, node: VNode, parent: object | None) -> HeadlessHandle:
+        if self._sfle_constraints is not None:
+            if node.kind is NodeKind.NATIVE:
+                raise RendererCapabilityError(
+                    "Native SFLE native custom widgets require declared geometry and measurement ports."
+                )
+            if node.kind is NodeKind.HOST:
+                from psx.core.registry import builtin_component_registry
+                definition = builtin_component_registry().snapshot().get(node.type)
+                if definition is None:
+                    raise RendererCapabilityError(f"Unknown Headless SFLE host {node.type!r}.")
+                if definition.contract is not None:
+                    definition.contract.validate(node.props)
+            handle = HeadlessHandle(node.type, dict(node.props))
+            self.operations.append(("create", handle))
+            return handle
+        if node.kind is NodeKind.HOST and node.type == "Flex":
+            raise RendererCapabilityError(
+                "Flex requires the Native SFLE SFLE geometry adapter for Headless; "
+                "native fallback layout is forbidden.")
         if node.kind is NodeKind.HOST:
             if node.type == "Text":
                 validate_text_props(node.props)
@@ -134,6 +249,21 @@ class HeadlessRenderer:
         removed: frozenset[str],
     ) -> None:
         target = _handle(handle)
+        if self._sfle_constraints is not None:
+            from psx.core.registry import builtin_component_registry
+            from psx.core.layout_item import validate_flex_item_props
+            updated = dict(target.props)
+            updated.update(changed)
+            for name in removed:
+                updated.pop(name, None)
+            definition = builtin_component_registry().snapshot().get(target.type)
+            if definition is not None and definition.contract is not None:
+                definition.contract.validate(updated)
+            else:
+                validate_flex_item_props(updated, owner=str(target.type))
+            target.props = updated
+            self.operations.append(("update", target, dict(changed), removed))
+            return
         if target.type == "Text":
             updated_text_props(target.props, changed, removed)
         elif target.type == "Input":

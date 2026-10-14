@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, "src")
 
-from psx import Button, Column, MarkupSyntaxError, Text, component, psx, use_state
+from psx import Button, Flex, MarkupSyntaxError, Text, component, psx, use_state
 from psx.core.reconcile import Reconciler
 from psx.markup import compile_template
 from psx.renderers.headless import HeadlessRenderer
@@ -20,14 +20,14 @@ class MarkupM4ATests(unittest.TestCase):
 
         markup = psx(
             """
-            <Column spacing={gap}>
+            <Flex direction="column" gap={gap}>
                 <Text value={count} />
                 <Button label="+1" on_click={increment} />
-            </Column>
+            </Flex>
             """,
             scope={"gap": 12, "count": 3, "increment": increment},
         )
-        python = Column(Text("3"), Button("+1", on_click=increment), spacing=12)
+        python = Flex(Text("3"), Button("+1", on_click=increment), gap=12, direction="column")
         self.assertEqual(markup, python)
 
     def test_fragment_and_custom_component_share_the_vnode_pipeline(self) -> None:
@@ -67,21 +67,23 @@ class MarkupM4ATests(unittest.TestCase):
             psx('<Text value={count} />')
         self.assertIn("scope", str(missing.exception))
         with self.assertRaises(MarkupSyntaxError) as malformed:
-            psx("<Column>\n<Text>Hello</Column>", filename="counter.psx")
+            psx("<Flex direction='column'>\n<Text>Hello</Flex>", filename="counter.psx")
         self.assertIn("counter.psx:2", str(malformed.exception))
         self.assertIn("Expected closing tag </Text>", str(malformed.exception))
 
     def test_static_spacing_is_converted_by_the_column_schema(self) -> None:
-        tree = psx('<Column spacing="16"><Text value="Hello" /></Column>')
-        self.assertEqual(tree.props["spacing"], 16)
+        tree = psx('<Flex direction="column" gap="16px"><Text value="Hello" /></Flex>')
+        self.assertEqual(tree.props["gap"], "16px")
 
     def test_braced_numeric_literals_are_safe_static_attribute_values(self) -> None:
-        tree = psx('<Column padding={50} spacing={12}><Text value="Ready" /></Column>')
+        tree = psx('<Flex direction="column" padding={50} gap={12}><Text value="Ready" /></Flex>')
         self.assertEqual(tree.props["padding"], 50)
-        self.assertEqual(tree.props["spacing"], 12)
+        self.assertEqual(tree.props["gap"], 12)
 
     def test_markup_component_uses_the_same_state_event_and_reconciliation_pipeline(self) -> None:
-        renderer = HeadlessRenderer()
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+        renderer = HeadlessRenderer(sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)), engine=PythonLayoutEngine(), measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8))
         reconciler = Reconciler(renderer)
 
         @component
@@ -93,10 +95,10 @@ class MarkupM4ATests(unittest.TestCase):
 
             return psx(
                 """
-                <Column spacing={spacing}>
+                <Flex direction="column" gap={spacing}>
                     <Text value={count} />
                     <Button label="+1" on_click={increment} />
-                </Column>
+                </Flex>
                 """,
                 scope={"spacing": 8, "count": count, "increment": increment},
             )

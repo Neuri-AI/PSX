@@ -1,0 +1,648 @@
+name: Native layout selective validation
+
+on:
+  pull_request:
+    branches: [develop]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}"
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: read
+
+jobs:
+  changes:
+    name: Native layout classify full PR diff
+    runs-on: ubuntu-latest
+    outputs:
+      router: "${{ steps.select.outputs.router }}"
+      core: "${{ steps.select.outputs.core }}"
+      sfle: "${{ steps.select.outputs.sfle }}"
+      rust: "${{ steps.select.outputs.rust }}"
+      chromium: "${{ steps.select.outputs.chromium }}"
+      qt: "${{ steps.select.outputs.qt }}"
+      kivy: "${{ steps.select.outputs.kivy }}"
+      tkinter: "${{ steps.select.outputs.tkinter }}"
+      headless: "${{ steps.select.outputs.headless }}"
+      native: "${{ steps.select.outputs.native }}"
+      legacy: "${{ steps.select.outputs.legacy }}"
+      full: "${{ steps.select.outputs.full }}"
+      docs_only: "${{ steps.select.outputs.docs_only }}"
+      selected: "${{ steps.select.outputs.selected }}"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read complete changed paths (including rename sources)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let changed = [];
+            if (context.eventName === 'pull_request') {
+              try {
+                const common = {owner: context.repo.owner, repo: context.repo.repo};
+                const before = context.payload.before;
+                const after = context.payload.after;
+                const pr = context.issue.number;
+                let verifiedDelta = false;
+                // Verified docs-only synchronizations skip all tests regardless
+                // of the previous CI status (including cancelled/failed).
+                if (context.payload.action === 'synchronize' && before && after) {
+                  const diff = await github.rest.repos.compareCommits({
+                    ...common, base: before, head: after, per_page: 100,
+                  });
+                  const entries = diff.data.files || [];
+                  const safeDelta = diff.data.total_commits <= 250 &&
+                    entries.length > 0 && entries.length < 300;
+                  if (safeDelta) {
+                    const deltaPaths = entries.flatMap(file =>
+                      [file.filename, file.previous_filename].filter(Boolean));
+                    const isDocs = path => path === 'README.md' ||
+                      path.startsWith('docs/') ||
+                      (path.endsWith('.md') && !path.startsWith('.github/'));
+                    const docsOnly = deltaPaths.every(isDocs);
+                    if (docsOnly) {
+                      changed = deltaPaths;
+                      verifiedDelta = true;
+                      core.info('Verified docs-only PR update: zero tests, ' +
+                        'even if previous CI did not finish.');
+                    } else {
+                      // A passing docs-only router is not a passing product CI.
+                      // Reuse a code delta only when the prior HEAD passed tests.
+                      const past = await github.rest.actions.listWorkflowRunsForRepo({
+                        ...common, head_sha: before, event: 'pull_request', per_page: 100,
+                      });
+                      const previous = (past.data.workflow_runs || []).find(run =>
+                        run.name === 'Native layout selective validation' &&
+                        run.head_sha === before &&
+                        run.status === 'completed' &&
+                        run.conclusion === 'success' &&
+                        (run.pull_requests || []).some(p => p.number === pr));
+                      if (previous) {
+                        const pastJobs = await github.paginate(
+                          github.rest.actions.listJobsForWorkflowRun, {
+                            ...common, run_id: previous.id, per_page: 100,
+                          });
+                        const hasSuccessfulProductJob = pastJobs.some(job =>
+                          job.conclusion === 'success' &&
+                          /^Native layout (?:core and registry|SFLE geometry contracts|Rust and Python differential|browser geometry oracle|Qt native components|Qt SFLE parity|Kivy native components|Tkinter native components|deterministic Headless|native wheel and Python fallback)/.test(job.name));
+                        if (hasSuccessfulProductJob) {
+                          changed = deltaPaths;
+                          verifiedDelta = true;
+                          core.info('Previously certified HEAD ' + before +
+                            ': revalidating only changes through ' + after);
+                        }
+                      }
+                    }
+                  }
+                }
+                if (!verifiedDelta) {
+                  // New PR, previous failure, ambiguous delta or missing
+                  // predecessor: evaluate ALL cumulative changed paths.
+                  const files = await github.paginate(github.rest.pulls.listFiles, {
+                    ...common, pull_number: pr, per_page: 100,
+                  });
+                  if (files.length >= 3000) {
+                    core.warning('PR exceeds complete file inventory; select all checks.');
+                  } else {
+                    changed = files.flatMap(file =>
+                      [file.filename, file.previous_filename].filter(Boolean));
+                  }
+                }
+              } catch (error) {
+                core.warning('Diff/provenance unavailable: full testing. ' + error.message);
+                changed = [];
+              }
+            }
+            fs.writeFileSync('native-layout-changed-files.json', JSON.stringify(changed));
+      - name: Select impacted suites; fail open on missing diff
+        id: select
+        env:
+          NATIVE_LAYOUT_FULL: "${{ github.event_name == 'workflow_dispatch' }}"
+        shell: bash
+        run: |
+          args=()
+          if [[ "$NATIVE_LAYOUT_FULL" == "true" ]]; then args+=(--full); fi
+          python scripts/ci/impact.py --changed-json native-layout-changed-files.json --github-output "$GITHUB_OUTPUT" "${args[@]}"
+      - name: Explain CI selection
+        run: |
+          echo "Selected checks: ${{ steps.select.outputs.selected }}"
+          echo "Docs-only: ${{ steps.select.outputs.docs_only }}"
+          echo "Full certification: ${{ steps.select.outputs.full }}"
+
+  selector-tests:
+    name: Native layout change-router regression
+    needs: changes
+    if: needs.changes.outputs.router == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify zero-doc and dependency-aware routing
+        run: python -m unittest discover -s tests -p test_ci_impact.py -v
+
+  core:
+    name: Native layout core and registry
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e . pytest
+      - run: python -m pytest -q tests/test_core.py tests/test_spacer.py tests/test_divider.py tests/test_markup_transform.py tests/test_ref_m0_characterization.py tests/test_component_contracts.py tests/test_component_registry.py tests/test_markup_registry.py tests/test_markup.py tests/test_hooks_scheduler.py tests/test_renderer_adapters.py tests/test_source_naming_conventions.py tests/test_legacy_layout_inventory.py tests/test_scroll_offsets.py tests/test_scroll_events.py tests/test_scroll_transactions.py tests/test_scroll_operation_receipts.py tests/test_native_scroll_hosts.py tests/test_flex_layout_contract.py tests/test_flex_item_metadata.py tests/test_native_layout_snapshot.py tests/test_native_component_capabilities.py tests/test_native_component_matrix.py tests/test_native_operation_contracts.py tests/test_native_external_ownership_contracts.py tests/test_native_measurement_invalidation.py tests/test_native_invalidation_receipts.py tests/test_native_intrinsic_cache.py tests/test_native_geometry_write_suppression.py tests/test_native_resource_invalidation.py tests/test_external_native_geometry_ports.py tests/test_width_dependent_intrinsic_measurement.py tests/test_native_pixel_scale.py tests/test_native_geometry_precision.py tests/test_native_component_integration.py tests/test_native_acceptance_receipts.py tests/test_component_family_policy.py tests/test_headless_native_layout.py
+      - name: Verify source-derived public behavior inventory and receipt integrity
+        run: python -m pytest -q tests/test_public_behavior_census.py tests/test_public_contract_census.py tests/test_public_property_validation.py --junitxml=public-behavior-core.xml
+      - name: Export pending public behavior certification census
+        run: |
+          python -m tests.certification.public_behavior_census --out public-behavior-inventory.json --junit public-behavior-core.xml --sha "${{ github.sha }}" --environment "ubuntu-latest-python-3.12"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-behavior-inventory
+          path: |
+            public-behavior-inventory.json
+            public-behavior-inventory-receipts.json
+            public-behavior-core.xml
+          if-no-files-found: error
+      - name: Record active legacy-layout migration inventory
+        run: python scripts/ci/legacy_layout_inventory.py --out legacy-layout-inventory.json > legacy-layout-inventory-log.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: legacy-layout-migration-inventory
+          path: legacy-layout-inventory.json
+
+
+  sfle:
+    name: Native layout SFLE geometry contracts
+    needs: changes
+    if: needs.changes.outputs.sfle == 'true'
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Qt offscreen libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - run: python -m pip install -e '.[qt]' pytest
+      - run: python -m pytest -q -rs tests/sfle
+
+  rust:
+    name: Native layout Rust and Python differential
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --manifest-path rust/sfle-core/Cargo.toml --all-targets
+      - run: python -m pip install -e . pytest
+      - name: Rust/Python capability and geometry agreement
+        run: python -m pytest -q tests/interop/test_sfle_differential.py tests/interop/test_sfle_capability_parity.py tests/interop/test_sfle_deferral_boundaries.py
+
+  chromium:
+    name: Native layout browser geometry oracle
+    needs: changes
+    if: needs.changes.outputs.chromium == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python -m pip install -e . pytest playwright==1.63.0
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m pytest -q tests/browser/test_sfle_chromium.py tests/browser/test_sfle_engine_chromium.py tests/browser/test_sfle_headless_oracle.py tests/browser/test_sfle_seeded_fuzz_regression.py
+
+  qt:
+    name: Native layout Qt native components
+    needs: changes
+    if: needs.changes.outputs.qt == 'true'
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - run: python -m pip install -e '.[qt]' pytest
+      - name: Install pinned Pydux dependency required by existing PySide6 integration tests
+        run: |
+          python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@56e6df858bc0e1ae598cd1cab0aa384c921cf253"
+      - run: python -m pytest -q tests/test_pyside6_renderer.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_native_layout.py tests/test_pyside6_external_native_ports.py --junitxml=scroll-qt-operations.xml
+      - run: python -m tests.certification.scroll_operation_receipts --backend qt --junit scroll-qt-operations.xml --out scroll-qt-operations.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scroll-qt-operation-receipts
+          path: |
+            scroll-qt-operations.xml
+            scroll-qt-operations.json
+
+  qt-parity:
+    name: Native layout Qt SFLE parity ${{ matrix.binding }} / Python ${{ matrix.python }}
+    needs: changes
+    if: needs.changes.outputs.qt == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - binding: pyside6
+            package: PySide6
+            python: "3.12"
+          - binding: pyqt6
+            package: PyQt6
+            python: "3.12"
+          - binding: pyqt5
+            package: PyQt5
+            python: "3.12"
+          # PySide2's last official wheels only list up to CPython 3.10.
+          # Keep it isolated; an install failure must fail this required job.
+          - binding: pyside2
+            package: PySide2==5.15.2.1
+            python: "3.10"
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PSX_QT_BINDING: ${{ matrix.binding }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install native Qt runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - name: Install PSX and only the selected Qt binding
+        run: |
+          python -m pip install -e . pytest
+          python -m pip install --only-binary=:all: "${{ matrix.package }}"
+      - name: Check binding and native SFLE parity (no skip)
+        run: |
+          python -c "import importlib; p={'pyside6':'PySide6','pyqt6':'PyQt6','pyqt5':'PyQt5','pyside2':'PySide2'}['${{ matrix.binding }}']; importlib.import_module(p+'.QtWidgets')"
+          python -m pytest -q -rs tests/test_qt_native_component_lifecycle.py --junitxml=native-layout-qt.xml
+          python -m psx.sfle.native_operation_receipts --backend qt --junit native-layout-qt.xml --out native-layout-qt-certification.json
+          python -m tests.certification.native_acceptance_receipts --backend qt --junit native-layout-qt.xml --out native-layout-qt-c6.json
+          python -m tests.certification.native_invalidation_receipts --backend qt --junit native-layout-qt.xml --out native-layout-qt-c5.json
+          python -m psx.sfle.native_external_ownership_receipts --backend qt --junit native-layout-qt.xml --out native-layout-qt-c4.json
+          # A fresh process is required: Qt consumes QT_SCALE_FACTOR at
+          # QApplication initialization, and Qt 5/6 may round the reported
+          # physical DPR differently. The geometry must stay in QWidget DIPs.
+          QT_SCALE_FACTOR=1.5 python -m pytest -q -rs tests/test_qt_native_component_lifecycle.py --junitxml=native-layout-qt-dpi.xml
+          python -m psx.sfle.native_operation_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-certification.json
+          python -m tests.certification.native_acceptance_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c6.json
+          python -m tests.certification.native_invalidation_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c5.json
+          python -m psx.sfle.native_external_ownership_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c4.json
+      - name: Certify public native Qt property behavior with semantic JUnit evidence
+        run: |
+          python -m pytest -q tests/test_qt_public_behavior.py --junitxml=public-native-qt.xml
+          python -m tests.certification.public_behavior_census --out public-native-qt-inventory.json --junit public-native-qt.xml --sha "${{ github.sha }}" --environment "ubuntu-qt-${{ matrix.binding }}-python-${{ matrix.python }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-native-qt-receipts-${{ matrix.binding }}
+          path: |
+            public-native-qt.xml
+            public-native-qt-inventory.json
+            public-native-qt-inventory-receipts.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-layout-qt-receipts-${{ matrix.binding }}
+          path: |
+            native-layout-qt.xml
+            native-layout-qt-dpi.xml
+            native-layout-qt-certification.json
+            native-layout-qt-dpi-certification.json
+            native-layout-qt-c6.json
+            native-layout-qt-c5.json
+            native-layout-qt-dpi-c6.json
+            native-layout-qt-dpi-c5.json
+            native-layout-qt-c4.json
+            native-layout-qt-dpi-c4.json
+
+  kivy:
+    name: Native layout Kivy native components
+    needs: changes
+    if: needs.changes.outputs.kivy == 'true'
+    runs-on: ubuntu-latest
+    env:
+      KIVY_NO_ARGS: "1"
+      KIVY_NO_CONSOLELOG: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth libmtdev1 libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-ttf-2.0-0
+      - run: python -m pip install -e '.[kivy]' pytest
+      - run: xvfb-run -a python -m pytest -q tests/test_kivy_renderer.py tests/test_kivy_native_layout.py --junitxml=native-layout-kivy.xml
+      - run: |
+          python -m tests.certification.scroll_operation_receipts --backend kivy --junit native-layout-kivy.xml --out scroll-kivy-operations.json
+          python -m psx.sfle.native_operation_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-certification.json
+          python -m tests.certification.native_acceptance_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-c6.json
+          python -m tests.certification.native_invalidation_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-c5.json
+          python -m psx.sfle.native_external_ownership_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-c4.json
+      - name: Certify Kivy public native updates through real SDL2 widgets
+        run: |
+          xvfb-run -a python -m pytest -q tests/test_kivy_public_behavior.py --junitxml=public-native-kivy.xml
+          python -m tests.certification.public_behavior_census --out public-native-kivy-inventory.json --junit public-native-kivy.xml --sha "${{ github.sha }}" --environment "ubuntu-kivy-python-3.12"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-native-kivy-receipts
+          path: |
+            public-native-kivy.xml
+            public-native-kivy-inventory.json
+            public-native-kivy-inventory-receipts.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-layout-kivy-receipts
+          path: |
+            native-layout-kivy.xml
+            scroll-kivy-operations.json
+            native-layout-kivy-certification.json
+            native-layout-kivy-c6.json
+            native-layout-kivy-c5.json
+            native-layout-kivy-c4.json
+
+  tkinter:
+    name: Native layout Tkinter native components
+    needs: changes
+    if: needs.changes.outputs.tkinter == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth python3-tk
+      # Pillow supplies arbitrary scaling/cropping for the optional Tk Image
+      # renderer; plain Tk PhotoImage still supports natural-size PNG.
+      - run: python -m pip install -e . pytest Pillow
+      - run: xvfb-run -a python -m pytest -q tests/test_tkinter_renderer.py tests/test_tkinter_native_layout.py tests/test_tkinter_external_native_ports.py --junitxml=native-layout-tk.xml
+      - run: |
+          python -m tests.certification.scroll_operation_receipts --backend tk --junit native-layout-tk.xml --out scroll-tk-operations.json
+          python -m psx.sfle.native_operation_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-certification.json
+          python -m tests.certification.native_acceptance_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-c6.json
+          python -m tests.certification.native_invalidation_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-c5.json
+          python -m psx.sfle.native_external_ownership_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-c4.json
+      - name: Certify Tk native public properties with feature-level JUnit
+        run: |
+          xvfb-run -a python -m pytest -q tests/test_tk_public_behavior.py --junitxml=public-native-tk.xml
+          python -m tests.certification.public_behavior_census --out public-native-tk-inventory.json --junit public-native-tk.xml --sha "${{ github.sha }}" --environment "ubuntu-tkinter-python-3.12"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-native-tk-receipts
+          path: |
+            public-native-tk.xml
+            public-native-tk-inventory.json
+            public-native-tk-inventory-receipts.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-layout-tk-receipts
+          path: |
+            native-layout-tk.xml
+            scroll-tk-operations.json
+            native-layout-tk-certification.json
+            native-layout-tk-c6.json
+            native-layout-tk-c5.json
+            native-layout-tk-c4.json
+
+  headless:
+    name: Native layout deterministic Headless
+    needs: changes
+    if: needs.changes.outputs.headless == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -e . pytest
+      - run: python -m pytest -q tests/test_core.py tests/test_renderer_adapters.py tests/test_headless_native_layout.py tests/test_scroll_offsets.py --junitxml=native-layout-headless.xml
+      - run: |
+          python -m tests.certification.scroll_operation_receipts --backend headless --junit native-layout-headless.xml --out scroll-headless-operations.json
+          python -m psx.sfle.native_operation_receipts --backend headless --junit native-layout-headless.xml --out native-layout-headless-certification.json
+          python -m tests.certification.native_acceptance_receipts --backend headless --junit native-layout-headless.xml --out native-layout-headless-c6.json
+          python -m tests.certification.native_invalidation_receipts --backend headless --junit native-layout-headless.xml --out native-layout-headless-c5.json
+      - name: Certify native-like Headless public behavior with exact JUnit
+        run: |
+          python -m pytest -q tests/test_headless_public_behavior.py --junitxml=public-native-headless.xml
+          python -m tests.certification.public_behavior_census --out public-native-headless-inventory.json --junit public-native-headless.xml --sha "${{ github.sha }}" --environment "ubuntu-headless-python-3.12"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: public-native-headless-receipts
+          path: |
+            public-native-headless.xml
+            public-native-headless-inventory.json
+            public-native-headless-inventory-receipts.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-layout-headless-receipts
+          path: |
+            native-layout-headless.xml
+            scroll-headless-operations.json
+            native-layout-headless-certification.json
+            native-layout-headless-c6.json
+            native-layout-headless-c5.json
+
+  native:
+    name: Native layout native wheel and Python fallback ${{ matrix.os }}
+    needs: changes
+    if: needs.changes.outputs.native == 'true'
+    runs-on: "${{ matrix.os }}"
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["windows-2022", "macos-15-intel", "macos-15"]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Python build and test dependencies
+        run: python -m pip install -e . pytest "maturin>=1.8,<2"
+      - name: Build installable wheel on actual runner
+        run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
+      - name: Install wheel and assert Rust primary ABI
+        run: |
+          python -m pip install --no-deps --find-links wheelhouse "psx-sfle-native==0.1.0"
+          python -c "import _sfle_native as native; assert native.schema_version()==1"
+      - name: Verify Rust/Python parity of installed wheel
+        run: python -m pytest -q tests/interop/test_sfle_native_wheel.py
+      - name: Uninstall wheel and prove load-time Python fallback
+        run: |
+          python -m pip uninstall -y psx-sfle-native
+          python -c "import importlib.util; assert importlib.util.find_spec('_sfle_native') is None"
+          python -c "from psx.sfle.backend import load_layout_engine; assert load_layout_engine().backend_name=='python'"
+
+
+  legacy:
+    name: Native layout G4 no-Row-or-Column final API gate
+    needs: changes
+    if: needs.changes.outputs.docs_only == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - name: Reject shipped legacy layout identifiers and markup
+        run: python scripts/ci/legacy_layout_inventory.py --check --out legacy-layout-gate.json
+      - name: Reject any remaining public legacy layout API
+        run: |
+          python - <<'PY'
+          import psx
+          from psx.core.registry import builtin_component_registry
+          registry = builtin_component_registry()
+          for name in ("Row", "Column"):
+              assert not registry.contains(name), f"{name} still in public registry"
+              assert name not in psx.__all__, f"{name} still exported"
+              assert not hasattr(psx, name), f"{name} still exposed"
+          print("Legacy layout API absent as required for Native layout G4/G5.")
+          PY
+
+  public-behavior-final:
+    name: Native layout public behavior evidence aggregate
+    needs: [changes, core, qt-parity, kivy, tkinter, headless]
+    if: >-
+      needs.changes.outputs.full == 'true' &&
+      needs.core.result == 'success' &&
+      needs.qt-parity.result == 'success' &&
+      needs.kivy.result == 'success' &&
+      needs.tkinter.result == 'success' &&
+      needs.headless.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: public-*
+          path: public-artifacts
+      - name: Aggregate and validate every public behavior receipt from this CI run
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            public-behavior-inventory
+            public-native-qt-receipts-pyside6
+            public-native-qt-receipts-pyqt6
+            public-native-qt-receipts-pyqt5
+            public-native-qt-receipts-pyside2
+            public-native-tk-receipts
+            public-native-kivy-receipts
+            public-native-headless-receipts
+          )
+          files=()
+          for artifact in "${required[@]}"; do
+            dir="public-artifacts/$artifact"
+            test -d "$dir" || { echo "Missing native artifact: $artifact"; exit 1; }
+            mapfile -t candidates < <(find "$dir" -maxdepth 1 -type f -name '*-receipts.json')
+            test "${#candidates[@]}" -eq 1 || { echo "Expected one receipt manifest: $artifact"; exit 1; }
+            files+=(--receipt-file "${candidates[0]}")
+          done
+          python -m tests.certification.public_behavior_census \
+            --out public-behavior-final-inventory.json \
+            --sha "${{ github.sha }}" "${files[@]}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: final-public-behavior-inventory
+          path: |
+            public-behavior-final-inventory.json
+            public-behavior-final-inventory-final-report.json
+          if-no-files-found: warn
+
+  summary:
+    name: Native layout required CI conclusion
+    needs: [changes, selector-tests, core, sfle, rust, chromium, qt, qt-parity, kivy, tkinter, headless, native, legacy, public-behavior-final]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure every selected job succeeded
+        env:
+          CHANGE_RESULT: "${{ needs.changes.result }}"
+          SELECTED: "${{ needs.changes.outputs.selected }}"
+          FULL: "${{ needs.changes.outputs.full }}"
+          RESULTS: "${{ toJSON(needs) }}"
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          needs = json.loads(os.environ["RESULTS"])
+          if os.environ["CHANGE_RESULT"] != "success":
+              sys.exit("Change router did not succeed; CI cannot be certified.")
+          selected = {x for x in os.environ["SELECTED"].split(",") if x}
+          if selected:
+              # Retirement is universal: a backend-only change can reintroduce
+              # a forbidden native layout adapter, so G4 runs for ALL code.
+              selected.add("legacy")
+          aliases = {"router": "selector-tests"}
+          failures = []
+          for suite in selected:
+              job = aliases.get(suite, suite)
+              outcome = needs.get(job, {}).get("result")
+              if outcome != "success":
+                  failures.append(f"{job}={outcome}")
+          # Qt parity is a required four-binding matrix, not an optional
+          # informational job. GitHub sets its aggregate result to failure if
+          # any PySide6/PyQt6/PyQt5/PySide2 matrix cell fails or is cancelled.
+          if "qt" in selected:
+              parity = needs.get("qt-parity", {}).get("result")
+              if parity != "success":
+                  failures.append(f"qt-parity={parity}")
+          if os.environ["FULL"] == "true":
+              final = needs.get("public-behavior-final", {}).get("result")
+              if final != "success":
+                  failures.append(f"public-behavior-final={final}")
+          if failures:
+              sys.exit("Mandatory selected jobs not successful: " + ", ".join(failures))
+          print("Native layout selected suites GREEN:", ", ".join(sorted(selected)) or "(none)")
+          PY

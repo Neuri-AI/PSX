@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from psx import Button, Column, Fragment, Row, Text, component
+from psx import Button, Flex, Fragment, Text, component
 from psx.core.contracts import BUTTON_CONTRACT, INPUT_CONTRACT, TEXT_CONTRACT
 from psx.core.errors import DuplicateComponentError, UnknownComponentError
 from psx.core.registry import ComponentRegistry, builtin_component_registry
@@ -11,8 +11,8 @@ from psx.core.vnode import Input
 
 def test_default_registry_registers_existing_builtins_without_gui_imports() -> None:
     registry = builtin_component_registry()
-    assert registry.resolve("Column").constructor is Column
-    assert registry.resolve("Row").constructor is Row
+    assert registry.resolve("Flex").constructor is Flex
+    assert registry.resolve("Flex").constructor is Flex
     assert registry.resolve("Text").constructor is Text
     assert registry.resolve("Button").constructor is Button
     assert registry.resolve("Input").constructor is Input

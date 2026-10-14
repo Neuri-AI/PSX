@@ -46,6 +46,7 @@ class NativeWidget:
     bind_event: NativeBindEvent | None = None
     ownership: NativeOwnership = NativeOwnership.OWNED
     name: str = "NativeWidget"
+    sfle_port: object | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.ownership, str):
@@ -71,6 +72,10 @@ class NativeWidget:
             raise TypeError("NativeWidget.update must be callable or None.")
         if self.bind_event is not None and not callable(self.bind_event):
             raise TypeError("NativeWidget.bind_event must be callable or None.")
+        if self.sfle_port is not None:
+            from psx.sfle.external_native_geometry_ports import SFLEExternalPort
+            if not isinstance(self.sfle_port, SFLEExternalPort):
+                raise TypeError("NativeWidget.sfle_port requires SFLEExternalPort.")
 
 
 def Native(
@@ -79,6 +84,7 @@ def Native(
     props: Mapping[str, object] | None = None,
     signals: Mapping[str, Callable[..., object] | None] | None = None,
     renderer: str | None = None,
+    sfle_port: object | None = None,
     key: str | int | None = None,
     ref: object | None = None,
     **attributes: object,
@@ -95,10 +101,10 @@ def Native(
     if selected is None:
         raise TypeError(
             "Cannot infer a renderer for Native(); pass renderer='pyside6', "
-            "renderer='pyqt6', renderer='pyqt5', renderer='tkinter', or renderer='kivy'."
+            "renderer='pyqt6', renderer='pyqt5', renderer='pyside2', renderer='tkinter', or renderer='kivy'."
         )
     selected = selected.lower()
-    if selected not in {"pyside6", "pyqt6", "pyqt5", "tkinter", "kivy"}:
+    if selected not in {"pyside6", "pyside2", "pyqt6", "pyqt5", "tkinter", "kivy"}:
         raise ValueError(f"Unsupported Native renderer {selected!r}.")
     if isinstance(widget, type) or callable(widget):
         declaration = NativeWidget(
@@ -107,6 +113,7 @@ def Native(
             takes_parent=selected == "tkinter",
             update=_update_for(selected),
             bind_event=_bind_for(selected),
+            sfle_port=sfle_port,
             name=getattr(widget, "__name__", type(widget).__name__),
         )
     else:
@@ -116,6 +123,7 @@ def Native(
             ownership=NativeOwnership.BORROWED,
             update=_update_for(selected),
             bind_event=_bind_for(selected),
+            sfle_port=sfle_port,
             name=type(widget).__name__,
         )
     values = dict(props or {})
@@ -138,6 +146,8 @@ def _infer_renderer(value: object) -> str | None:
         module = getattr(cls, "__module__", "")
         if module.startswith("PySide6."):
             return "pyside6"
+        if module.startswith("PySide2."):
+            return "pyside2"
         if module.startswith("PyQt6."):
             return "pyqt6"
         if module.startswith("PyQt5."):

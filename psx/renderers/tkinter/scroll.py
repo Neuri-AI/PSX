@@ -31,6 +31,10 @@ class _ScrollFrame(ttk.Frame):
 
     def _bounds(self):
         canvas = self._psx_canvas
+        if self._psx_sfle_scroll and self._psx_scroll_region is not None:
+            _, _, width, height = self._psx_scroll_region
+            return (max(0, width - canvas.winfo_width()),
+                    max(0, height - canvas.winfo_height()))
         inner = self._psx_content
         return (
             max(0, inner.winfo_reqwidth() - canvas.winfo_width()),
@@ -83,7 +87,10 @@ class _ScrollFrame(ttk.Frame):
             self._psx_scroll_remainder[axis] = requested
             return "break"
         self._psx_scroll_remainder[axis] = 0.0
-        total = self._psx_content.winfo_reqwidth() if is_horizontal else self._psx_content.winfo_reqheight()
+        total = (self._psx_scroll_region[2 if is_horizontal else 3]
+                 if self._psx_sfle_scroll and self._psx_scroll_region is not None
+                 else (self._psx_content.winfo_reqwidth() if is_horizontal
+                       else self._psx_content.winfo_reqheight()))
         if is_horizontal:
             canvas.xview_moveto(quantized_position / max(1, total))
         else:
@@ -93,6 +100,49 @@ class _ScrollFrame(ttk.Frame):
         # When the viewport reaches an edge, pass any unconsumed travel to
         # the next enclosing Scroll, preserving inner-first chaining.
         return "break" if abs(event._psx_scroll_remainder) < 0.5 else None
+
+    def _keyboard(self, event):
+        from psx.sfle.scroll_events import scroll_key_delta
+        from psx.sfle.scroll_offsets import ScrollOffset
+        if self._psx_disposed or not self._psx_props["enabled"]:
+            return None
+        canvas = self._psx_canvas
+        max_x, max_y = self._bounds()
+        dx, dy = scroll_key_delta(
+            event.keysym, viewport_width=canvas.winfo_width(),
+            viewport_height=canvas.winfo_height(),
+            offset=ScrollOffset(max(0.0, float(canvas.canvasx(0))),
+                                max(0.0, float(canvas.canvasy(0)))),
+            maximum_x=max_x, maximum_y=max_y,
+        )
+        allowed_x, allowed_y = scroll_axes(self._psx_props["direction"])
+        if not allowed_x:
+            dx = 0.0
+        if not allowed_y:
+            dy = 0.0
+        if not dx and not dy:
+            return None
+        moved = False
+        for axis, delta, bound, total in (
+            ("x", dx, max_x, self._psx_scroll_region[2] if self._psx_scroll_region else 0),
+            ("y", dy, max_y, self._psx_scroll_region[3] if self._psx_scroll_region else 0),
+        ):
+            if not delta:
+                continue
+            current = max(0.0, float(canvas.canvasx(0) if axis == "x"
+                                      else canvas.canvasy(0)))
+            new_position, _ = consume_scroll(current, bound, delta)
+            if round(new_position) == round(current):
+                continue
+            if axis == "x":
+                canvas.xview_moveto(new_position / max(1, total))
+            else:
+                canvas.yview_moveto(new_position / max(1, total))
+            moved = True
+        if moved:
+            self._show_thumbs()
+            return "break"
+        return None
 
     def _show_thumbs(self):
         if self._psx_after is not None:
@@ -109,7 +159,7 @@ class _ScrollFrame(ttk.Frame):
             self._psx_canvas.delete("_psx_scroll_thumb")
 
     def _refresh(self, *_args):
-        if self._psx_disposed:
+        if self._psx_disposed or getattr(self, "_psx_sfle_scroll", False):
             return
         canvas = self._psx_canvas
         frame = self._psx_content
@@ -175,44 +225,58 @@ class TkScrollAdapter:
         outer._psx_content = content
         outer._psx_window = canvas.create_window(0, 0, window=content, anchor=tk.NW)
         outer._psx_props = props
+        outer._psx_sfle_scroll = renderer._sfle_constraints is not None
         content.bind("<Configure>", outer._refresh, add="+")
         canvas.bind("<Configure>", outer._refresh, add="+")
         self._apply(outer, props)
         renderer._bind_scroll_wheel(canvas)
         renderer._bind_scroll_wheel(content)
+        for target in (canvas, content):
+            target.bind("<KeyPress>", outer._keyboard, add="+")
+        canvas.configure(takefocus=1)
         return TkHandle("Scroll", outer, props)
 
     @staticmethod
     def _apply(outer, props):
         outer._psx_props = props
-        if props["width"] is not None:
-            outer._psx_canvas.configure(width=round(props["width"]))
-        if props["height"] is not None:
-            outer._psx_canvas.configure(height=round(props["height"]))
-        outer._refresh()
+        if not outer._psx_sfle_scroll:
+            if props["width"] is not None:
+                outer._psx_canvas.configure(width=round(props["width"]))
+            if props["height"] is not None:
+                outer._psx_canvas.configure(height=round(props["height"]))
+            outer._refresh()
 
     def update(self, renderer, handle, changed, removed):
         props = updated_scroll_props(handle.props, changed, removed)
         self._apply(handle.widget, props)
         handle.props = props
-        self._repack(handle)
+        if not handle.widget._psx_sfle_scroll:
+            self._repack(handle)
 
     def insert(self, renderer, parent, child, index):
         if child in parent.children:
             parent.children.remove(child)
         parent.children.insert(index, child)
+        if parent.widget._psx_sfle_scroll:
+            if child.widget.master is not parent.widget._psx_content:
+                raise RendererCapabilityError("Tk SFLE Scroll child requires content viewport master.")
+            return True
         self._repack(parent)
         return True
 
     def move(self, renderer, parent, child, index):
         parent.children.remove(child)
         parent.children.insert(index, child)
-        self._repack(parent)
+        if not parent.widget._psx_sfle_scroll:
+            self._repack(parent)
         return True
 
     def remove(self, renderer, parent, child):
         if child in parent.children:
             parent.children.remove(child)
+        if parent.widget._psx_sfle_scroll:
+            child.widget.place_forget()
+            return True
         child.widget.pack_forget()
         if (
             child.native is not None

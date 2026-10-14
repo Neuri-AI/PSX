@@ -23,6 +23,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from threading import get_ident
+
+from psx.core.props import FLEX_ITEM_PROPS
+from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
+from psx.sfle.external_native_geometry_ports import external_port_for
+from psx.sfle.model import LayoutConstraints, LayoutResult
 
 from kivy.base import runTouchApp
 from kivy.clock import Clock
@@ -82,7 +88,16 @@ def _kivy_input_factory():
 
 
 def _kivy_textarea_factory():
-    return TextInput(multiline=True)
+    # A portable TextArea must reflow when SFLE changes its content width.
+    # Kivy's provider defaults are not consistent across platforms.
+    return TextInput(multiline=True, do_wrap=True)
+
+
+def _kivy_slider_factory():
+    # Kivy 2.3's default style binds the slider track width to this property
+    # during construction.  Its zero default is rejected by the Windows GL
+    # provider before PSX's normal property application can run.
+    return KivySlider(value_track_width=1.0)
 
 
 @dataclass(slots=True, eq=False)
@@ -93,6 +108,8 @@ class KivyHandle:
     children: list["KivyHandle"] = field(default_factory=list)
     native: NativeWidget | None = None
     original_parent: Widget | None = None
+    original_size_hint: object = None
+    original_pos_hint: dict[str, object] | None = None
 
 
 @dataclass(slots=True)
@@ -277,7 +294,7 @@ register_primitive(
 
 register_primitive(
     "Slider",
-    factory=KivySlider,
+    factory=_kivy_slider_factory,
     validate=validate_slider_props,
     apply=apply_kivy_slider,
     updated_props=updated_slider_props,
@@ -301,15 +318,55 @@ register_primitive(
 class KivyRenderer:
     """Map portable PSX layout nodes to Kivy's native widget/layout APIs."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        sfle_constraints: LayoutConstraints | None = None,
+        engine: object | None = None,
+    ) -> None:
+        if sfle_constraints is not None and not isinstance(sfle_constraints, LayoutConstraints):
+            raise TypeError("Kivy SFLE viewport must be LayoutConstraints.")
+        if sfle_constraints is None and engine is not None:
+            raise ValueError("Kivy SFLE engine requires explicit viewport constraints.")
+        if sfle_constraints is not None and (
+            not sfle_constraints.width.definite or not sfle_constraints.height.definite
+        ):
+            raise RendererCapabilityError("Kivy SFLE viewport must have definite axes.")
+        from psx.sfle.backend import load_layout_engine
+        self._sfle_constraints = sfle_constraints
+        self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
+        self._sfle_backend = "kivy"
+        self._sfle_generation = 0
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+        self._sfle_measurement_invalidations = MeasurementInvalidations()
+        from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
+        self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
+        from psx.sfle.native_resource_watch import ImageResourceWatch
+        self._sfle_image_resource_watch = ImageResourceWatch()
+        self._sfle_resource_poll_scheduled = False
+        self._sfle_resource_error: Exception | None = None
+        self._sfle_invalidation_scheduled = False
+        self._sfle_invalidation_lifetime = 0
+        self._sfle_mounted_root = None
+        self._sfle_in_commit = False
+        self._sfle_owner_thread = get_ident()
+        self._sfle_mounted_root = None
+        self._sfle_watched_widget = None
+        self._sfle_resize_pending = None
+        self._sfle_resize_event = None
+        self._sfle_resize_epoch = 0
+        self._sfle_resize_error: Exception | None = None
+        self._sfle_textarea_event = None
+        self._sfle_textarea_epoch = 0
+        self._sfle_textarea_error: Exception | None = None
+        self.sfle_result: LayoutResult | None = None
+        self._sfle_physical_commit_error: float | None = None
         self._root: Widget | None = None
         self.adapters = RendererAdapterRegistry()
         self._default_adapter = DelegatingAdapter()
         # "Input" stays reserved (unsupported in Kivy) so custom adapters still need replace=True.
-        for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Input", "Native")):
+        for component in dict.fromkeys((*_LAYOUTS, *_PRIMITIVES, "Fragment", "Flex", "Input", "Native")):
             self.adapters.register(component, self._default_adapter)
-        from .column import KivyColumnAdapter
-        from .row import KivyRowAdapter
         from .divider import KivyDividerAdapter
         from .image import KivyImageAdapter
         from .switch import KivySwitchAdapter
@@ -322,8 +379,6 @@ class KivyRenderer:
         from .radio import KivyRadioAdapter, KivyRadioGroupAdapter
 
         self.adapters.register("Divider", KivyDividerAdapter())
-        self.adapters.register("Column", KivyColumnAdapter())
-        self.adapters.register("Row", KivyRowAdapter())
         self.adapters.register("Image", KivyImageAdapter())
         self.adapters.register("Switch", KivySwitchAdapter())
         self.adapters.register("Link", KivyLinkAdapter())
@@ -334,9 +389,250 @@ class KivyRenderer:
         self.adapters.register("ProgressBar", KivyProgressBarAdapter())
         self.adapters.register("Radio", KivyRadioAdapter())
         self.adapters.register("RadioGroup", KivyRadioGroupAdapter())
+        if sfle_constraints is not None:
+            from .flex import KivySFLEFlexAdapter
+            self.adapters.register("Flex", KivySFLEFlexAdapter(), replace=True)
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
+
+    def _sfle_poll_image_resources(self, lifetime: int) -> None:
+        if lifetime != self._sfle_invalidation_lifetime:
+            return
+        self._sfle_resource_poll_scheduled = False
+        root = self._sfle_mounted_root
+        if root is None or root.disposed:
+            return
+        for instance in self._sfle_image_resource_watch.changed():
+            if instance.disposed:
+                continue
+            widget = instance.handle.widget
+            # Image adapters cache decoded content by source string; a
+            # revision at that same path must bypass the old decoded image.
+            widget._psx_source = None
+            widget._psx_pixmap_cache = None
+            widget._psx_image_cache = None
+            source = instance.node.props["source"]
+            try:
+                self.update(instance.handle, {"source": source}, frozenset())
+                reload_image = getattr(widget, "reload", None)
+                if callable(reload_image):
+                    reload_image()
+                self._sfle_resource_error = None
+                self.request_sfle_invalidation("resource", widget_id=id(widget))
+                self._sfle_image_resource_watch.acknowledge(instance)
+            except Exception as error:
+                # Preserve the last committed geometry and keep watching;
+                # recreating a missing/invalid file can recover in place.
+                self._sfle_resource_error = error
+        self._sfle_schedule_image_poll()
+
+    def _sfle_schedule_image_poll(self) -> None:
+        if self._sfle_resource_poll_scheduled:
+            return
+        root = self._sfle_mounted_root
+        if (root is None or root.disposed
+                or not self._sfle_image_resource_watch.sync(root)):
+            return
+        self._sfle_resource_poll_scheduled = True
+        epoch = self._sfle_invalidation_lifetime
+        Clock.schedule_once(
+            lambda _dt: self._sfle_poll_image_resources(epoch), 0.6)
+
+    def request_sfle_invalidation(self, reason: str, *, widget_id: int | None = None) -> None:
+        """Coalesce semantic measurement changes on the backend owner UI thread.
+
+        The mounted instance is reused; the existing SFLE transaction remains
+        the only writer. Teardown invalidates queued work by epoch.
+        """
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
+        state = self._sfle_measurement_invalidations
+        state.request(reason, widget_id=widget_id)
+        if self._sfle_invalidation_scheduled:
+            return
+        self._sfle_invalidation_scheduled = True
+        scheduled_epoch = self._sfle_invalidation_lifetime
+
+        def flush() -> None:
+            if scheduled_epoch != self._sfle_invalidation_lifetime:
+                return
+            self._sfle_invalidation_scheduled = False
+            root = self._sfle_mounted_root
+            if root is None or root.disposed or not state.needs_commit():
+                return
+            epoch = state.epoch
+            try:
+                self.commit_layout(root)
+            except Exception:
+                # Preserve all invalidations for explicit retry. A failed
+                # native transaction must never acknowledge its epoch.
+                self._sfle_last_invalidation_error = True
+                raise
+            else:
+                self._sfle_last_invalidation_error = False
+                state.acknowledge(epoch)
+
+        self.schedule_ui(flush)
+
+    def set_sfle_constraints(self, constraints: LayoutConstraints) -> None:
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("Kivy SFLE has not been enabled for this renderer.")
+        if not isinstance(constraints, LayoutConstraints):
+            raise TypeError("Kivy SFLE viewport needs LayoutConstraints.")
+        if not constraints.width.definite or not constraints.height.definite:
+            raise RendererCapabilityError("Kivy SFLE viewport axes must be definite.")
+        self._sfle_constraints = constraints
+        self._sfle_generation += 1
+        if self._root is not None:
+            self._root.size = (constraints.width.value, constraints.height.value)
+
+    def _sfle_on_root_size(self, widget: Widget, size: object) -> None:
+        if widget is not self._sfle_watched_widget:
+            return
+        width, height = size
+        constraints = self._sfle_constraints
+        if (width <= 0 or height <= 0 or constraints is None
+                or self._sfle_mounted_root is None):
+            return
+        if (constraints.width.value, constraints.height.value) == (width, height):
+            return
+        self._sfle_resize_pending = (width, height)
+        if self._sfle_resize_event is None:
+            epoch = self._sfle_resize_epoch
+            self._sfle_resize_event = Clock.schedule_once(
+                lambda _dt: self._sfle_flush_viewport_resize(epoch), 0,
+            )
+
+    def _sfle_on_window_resize(self, window, width: float, height: float) -> None:
+        # A free-standing preview root must not follow a different Kivy window.
+        if (self._sfle_watched_widget is not None
+                and self._sfle_watched_widget.parent is window
+                and width > 0 and height > 0):
+            self._sfle_watched_widget.size = (width, height)
+
+    def _sfle_flush_viewport_resize(self, epoch: int) -> None:
+        self._sfle_resize_event = None
+        if epoch != self._sfle_resize_epoch or self._sfle_mounted_root is None:
+            return
+        size = self._sfle_resize_pending
+        self._sfle_resize_pending = None
+        if size is None:
+            return
+        root = self._sfle_mounted_root
+        if root.disposed:
+            return
+        from psx.sfle.model import AvailableSize
+        try:
+            self.set_sfle_constraints(LayoutConstraints(
+                AvailableSize(size[0], True), AvailableSize(size[1], True),
+            ))
+            self.commit_layout(root)
+            self._sfle_resize_error = None
+        except Exception as exc:
+            self._sfle_resize_error = exc
+            import logging
+            logging.getLogger(__name__).exception("Kivy SFLE viewport resize failed")
+
+    def _sfle_on_textarea_changed(self, widget: Widget, _text: str) -> None:
+        if (self._sfle_constraints is None or self._sfle_mounted_root is None
+                or self._sfle_in_commit or getattr(widget, "_psx_updating", False)
+                or self._sfle_textarea_event is not None):
+            return
+        epoch = self._sfle_textarea_epoch
+        self._sfle_textarea_event = Clock.schedule_once(
+            lambda _dt: self._sfle_flush_textarea_changed(epoch), 0,
+        )
+
+    def _sfle_flush_textarea_changed(self, epoch: int) -> None:
+        self._sfle_textarea_event = None
+        if epoch != self._sfle_textarea_epoch or self._sfle_mounted_root is None:
+            return
+        root = self._sfle_mounted_root
+        if root.disposed:
+            return
+        try:
+            self._sfle_measurement_invalidations.request("content")
+            self.commit_layout(root)
+            self._sfle_textarea_error = None
+        except Exception as exc:
+            self._sfle_textarea_error = exc
+            import logging
+            logging.getLogger(__name__).exception("Kivy TextArea SFLE remeasurement failed")
+
+    def commit_layout(self, root: object) -> None:
+        if self._sfle_constraints is None:
+            return
+        from psx.sfle.kivy_layout_bridge import commit_kivy_sfle
+        # Native style/texture signals can arrive while measuring. Retry a
+        # bounded number of times using the latest semantic epoch; never
+        # publish a transaction rejected for stale measurements.
+        from psx.sfle.errors import SFLEError
+        for attempt in range(3):
+            try:
+                commit_kivy_sfle(self, root)
+                break
+            except SFLEError as error:
+                if ("Stale semantic invalidation" not in str(error)
+                        or attempt == 2):
+                    raise
+        self._sfle_measurement_invalidations.acknowledge(
+            self._sfle_measurement_invalidations.epoch)
+
+        self._sfle_textarea_epoch += 1
+        if self._sfle_textarea_event is not None:
+            self._sfle_textarea_event.cancel()
+            self._sfle_textarea_event = None
+        widget = root.native_handle().widget
+        if widget is not self._sfle_watched_widget:
+            if self._sfle_watched_widget is not None:
+                self._sfle_watched_widget.unbind(size=self._sfle_on_root_size)
+            self._sfle_resize_epoch += 1
+            self._sfle_resize_pending = None
+            if self._sfle_resize_event is not None:
+                self._sfle_resize_event.cancel()
+                self._sfle_resize_event = None
+            widget.bind(size=self._sfle_on_root_size)
+            self._sfle_watched_widget = widget
+        from kivy.core.window import Window
+        if not getattr(self, "_sfle_window_bound", False):
+            Window.bind(on_resize=self._sfle_on_window_resize)
+            self._sfle_window_bound = True
+        self._sfle_mounted_root = root
+        self._sfle_schedule_image_poll()
+
+    def invalidate_layout(self) -> None:
+        self._sfle_invalidation_lifetime += 1
+        self._sfle_invalidation_scheduled = False
+        self._sfle_measurement_invalidations.cancel()
+        self._sfle_native_intrinsic_cache.clear()
+        self._sfle_image_resource_watch.clear()
+        self._sfle_resource_poll_scheduled = False
+        self._sfle_mounted_root = None
+        if self._sfle_constraints is not None:
+            self._sfle_generation += 1
+            self._sfle_resize_epoch += 1
+            self._sfle_textarea_epoch += 1
+            if self._sfle_textarea_event is not None:
+                self._sfle_textarea_event.cancel()
+                self._sfle_textarea_event = None
+            self._sfle_textarea_error = None
+            self._sfle_mounted_root = None
+            self._sfle_resize_pending = None
+            if self._sfle_resize_event is not None:
+                self._sfle_resize_event.cancel()
+                self._sfle_resize_event = None
+            if self._sfle_watched_widget is not None:
+                self._sfle_watched_widget.unbind(size=self._sfle_on_root_size)
+                self._sfle_watched_widget = None
+            if getattr(self, "_sfle_window_bound", False):
+                from kivy.core.window import Window
+                Window.unbind(on_resize=self._sfle_on_window_resize)
+                self._sfle_window_bound = False
+            self.sfle_result = None
+            self._sfle_physical_commit_error = None
 
     def _adapter_for(self, key: object):
         return self.adapters.get(key) or self._default_adapter
@@ -344,10 +640,34 @@ class KivyRenderer:
     # -- create -----------------------------------------------------------
 
     def create(self, node: VNode, parent: object | None) -> KivyHandle:
-        # type: ignore[return-value]
-        return self._adapter_for(adapter_key(node)).create(self, node, parent)
+        if self._sfle_constraints is not None:
+            # Only certified widget types join the native SFLE tree until
+            # the complete G2 registry/backend matrix is implemented.
+            if node.kind not in (NodeKind.HOST, NodeKind.NATIVE):
+                raise RendererCapabilityError("Native SFLE requires a host or Native layout participant.")
+            # An unregistered custom host or a Native declaration without a
+            # strict SFLE port must fail *before* its factory mutates the GUI.
+            port = external_port_for(node, self)
+            if port is None and node.type != "Flex":
+                native_leaf_needs_measurement(node, backend="kivy")
+            if node.type != "Flex":
+                node = VNode(node.kind, node.type, node.key,
+                             {key: val for key, val in node.props.items()
+                              if key not in FLEX_ITEM_PROPS}, node.children)
+        # All adapter kinds, including custom ProgressBar adapters, must
+        # advertise the same intrinsic port before native measurement.
+        handle = self._adapter_for(adapter_key(node)).create(self, node, parent)
+        if self._sfle_constraints is not None and node.type in (
+            "Input", "Checkbox", "ProgressBar",
+        ):
+            handle.widget._psx_sfle_intrinsic_kind = node.type
+        return handle
 
     def _adapter_create(self, node: VNode, parent: object | None) -> KivyHandle:
+        if node.kind is NodeKind.HOST and node.type == "Flex":
+            raise RendererCapabilityError(
+                "Flex requires the Native SFLE SFLE geometry adapter for Kivy; "
+                "native fallback layout is forbidden.")
         _validate_props(node)
         if node.kind is NodeKind.NATIVE:
             native_parent = _handle(
@@ -355,6 +675,14 @@ class KivyRenderer:
             handle = self._native(node, native_parent)
         else:
             handle = self._create_local(node)
+        if self._sfle_constraints is not None:
+            if handle.node_type in ("Input", "Checkbox", "ProgressBar"):
+                handle.widget._psx_sfle_intrinsic_kind = handle.node_type
+            # Widget itself must not accept an external Kivy layout's size hints.
+            handle.widget.size_hint = (None, None)
+            handle.widget.pos_hint = {}
+            if handle.node_type == "TextArea":
+                handle.widget.bind(text=self._sfle_on_textarea_changed)
         if parent is None:
             self._root = handle.widget
         return handle
@@ -381,6 +709,11 @@ class KivyRenderer:
     # -- update -----------------------------------------------------------
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
+        if self._sfle_constraints is not None and _handle(handle).node_type != "Flex":
+            changed = {key: val for key, val in changed.items() if key not in FLEX_ITEM_PROPS}
+            removed = frozenset(key for key in removed if key not in FLEX_ITEM_PROPS)
+            if not changed and not removed:
+                return
         self._adapter_for(handle_adapter_key(handle)).update(
             self, handle, changed, removed)
 
@@ -472,7 +805,20 @@ class KivyRenderer:
         # When the spacer sits at index 0, visible children start at index 1.
         offset = 1 if (spacer is not None and spacer.parent is layout) else 0
         for position in range(shared, len(desired)):
-            layout.add_widget(desired[position], index=position + offset)
+            widget = desired[position]
+            # An existing borrowed Native widget is still attached to its
+            # caller's parent when first mounted. Kivy refuses to add a widget
+            # that already has a parent, so transfer only the borrowed handle;
+            # its original parent is restored on remove/unmount.
+            if widget.parent is not None and widget.parent is not layout:
+                borrowed = next(
+                    (item for item in parent.children
+                     if item.widget is widget and _is_borrowed(item)), None)
+                if borrowed is None:
+                    raise RendererCapabilityError(
+                        "Cannot move an owned Kivy widget from a foreign parent.")
+                widget.parent.remove_widget(widget)
+            layout.add_widget(widget, index=position + offset)
 
     def destroy(self, handle: object) -> None:
         self._adapter_for(handle_adapter_key(handle)).destroy(self, handle)
@@ -480,12 +826,25 @@ class KivyRenderer:
     def _adapter_destroy(self, handle: object) -> None:
         target = _handle(handle)
         widget = target.widget
+        if self._sfle_constraints is not None and target.node_type == "TextArea":
+            widget.unbind(text=self._sfle_on_textarea_changed)
         spec = _spec_for(target)
         if spec is not None and spec.on_destroy is not None:
             spec.on_destroy(widget)
         if _is_borrowed(target):
-            if target.original_parent is not None and widget.parent is not target.original_parent:
-                target.original_parent.add_widget(widget)
+            if widget.parent is not target.original_parent:
+                # Kivy disallows adding a widget which still has a parent.
+                # PSX owns only temporary placement, never the instance.
+                if widget.parent is not None:
+                    widget.parent.remove_widget(widget)
+                if target.original_parent is not None:
+                    target.original_parent.add_widget(widget)
+            # SFLE temporarily disables size/position hints while mounted.
+            # Borrowed callers retain ownership of their original hints.
+            if target.original_size_hint is not None:
+                widget.size_hint = target.original_size_hint
+            if target.original_pos_hint is not None:
+                widget.pos_hint = dict(target.original_pos_hint)
             return
         if widget.parent is not None:
             widget.parent.remove_widget(widget)
@@ -576,7 +935,12 @@ class KivyRenderer:
             if not borrowed and widget.parent is not None:
                 widget.parent.remove_widget(widget)
             raise
-        return KivyHandle(declaration, widget, dict(initial_props), native=declaration, original_parent=original_parent)
+        return KivyHandle(
+            declaration, widget, dict(initial_props), native=declaration,
+            original_parent=original_parent,
+            original_size_hint=tuple(widget.size_hint) if borrowed else None,
+            original_pos_hint=dict(widget.pos_hint) if borrowed else None,
+        )
 
 
 # -- module helpers ---------------------------------------------------------

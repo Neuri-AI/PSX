@@ -1,28 +1,44 @@
 # Public API
 
-> **Alpha API status:** The imports below document the **currently
-> implemented API**. Under the approved [SFLE F1 D-F1.10 architecture](architecture/sfle-f1-final-architecture.md),
-> `Row` and `Column` are scheduled for **complete removal** (no aliases,
-> wrappers, or legacy compatibility layers) and `Flex` will be the sole
-> public Flexbox layout component. `Scroll` remains independent. This
-> change is **not yet implemented**; F2 requires explicit authorization.
+> **F3-G4 API:** `Flex` is the sole portable layout distributor. The
+> public `Row` and `Column` builders, registry definitions, markup tags,
+> native adapters and old geometry helpers were removed. There are no
+> aliases or automatic conversions. `Scroll` remains a separate viewport.
 
 ```python
 from psx import (
-    App, Button, Checkbox, Column, ComponentAdapter, ComponentDefinition,
-    ComponentRegistry, Fragment, Input, Native, NativeOwnership, NativeWidget,
-    PluginAPI, Ref, RendererAdapterRegistry, Row, Text, VNode,
-    builtin_component_registry, component, create_element, load_plugins,
-    native_widget, psx, register_adapter, register_component,
-    renderer_capabilities, use_effect, use_ref, use_state,
+    App, Badge, Button, Checkbox, ComponentAdapter,
+    ComponentDefinition, ComponentRegistry, Divider, Flex, Fragment,
+    Image, Input, Link, Native, NativeOwnership, NativeWidget,
+    PluginAPI, ProgressBar, Radio, RadioGroup, Ref,
+    RendererAdapterRegistry, Scroll, Select, Slider, Spacer, SpinBox,
+    Switch, Text, TextArea, VNode, builtin_component_registry,
+    component, create_element, load_plugins, native_widget, psx,
+    register_adapter, register_component, renderer_capabilities,
+    use_effect, use_ref, use_state,
 )
 ```
 
-## UI and markup
+## Portable layout and markup
 
-`Column`, `Row`, `Text`, `Button`, `Input`, and `Checkbox` are portable builders. `Column` and `Row` accept `spacing`, `padding`, `align`, positional `expand`, and `enabled`. `Checkbox` accepts `checked=False`, `enabled=True`, and `on_change: Callable[[bool], None] | None`. `key` controls reconciliation identity and `ref` is populated after commit.
+`Flex(direction="row")` distributes children horizontally, and
+`Flex(direction="column")` distributes vertically. Use `gap` for
+spacing, `padding` for the container inset, `align_items` for
+cross-axis alignment, and child `flex_grow`/`flex_basis` to
+participate in the available size.
 
-`psx(source, scope=..., registry=...)` resolves familiar built-ins automatically. Markup keeps attributes, expressions, children, keys, refs, event handlers, static transform support, and legacy `primitives=` support.
+`Text`, `Button`, `Input`, `Checkbox` and other admitted
+widgets retain their portable semantics. `key` controls
+reconciliation identity; `ref` is populated after mount.
+
+`psx(source, scope=..., registry=...)` resolves registered built-ins
+automatically, with static transforms available to bind lexical
+variables directly. `<Row>` and `<Column>` are not registered
+markup tags. See the [Flex reference](components/flex.md).
+
+**Viewport ownership:** a renderer accepting `Flex` needs SFLE
+constraints and its layout engine. The native toolkit contributes
+intrinsic measurements and events, not a second geometry solver.
 
 ## Extensions
 

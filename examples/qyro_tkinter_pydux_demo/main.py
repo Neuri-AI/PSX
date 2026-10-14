@@ -30,16 +30,16 @@ class PsxQyroTkinterDemo(tk.Tk, PSXComponent, ApplicationContext):
             dispatch(payload_slice.actions.set(count))
 
         return psx("""
-            <Column padding={50} spacing={12}>
+            <Flex direction="column" padding={50} gap={12}>
                 <Text>Hello, World!</Text>
                 <Text>Counter: {count}</Text>
                 <Text>Payload: {payload}</Text>
-                <Row spacing={12}>
+                <Flex direction="row" gap={12}>
                     <Button on_click={increment}>Increment</Button>
                     <Button on_click={decrement}>Decrement</Button>
-                </Row>
+                </Flex>
                 <Button on_click={update_payload}>Copy counter to payload</Button>
-            </Column>
+            </Flex>
         """)
 
 

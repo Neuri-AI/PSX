@@ -42,11 +42,23 @@ def apply_qt_text(widget: object, props: Mapping[str, object], binding: str) -> 
 
 
 def apply_tk_text(widget: object, props: Mapping[str, object]) -> None:
-    from tkinter.font import nametofont
+    from tkinter.font import Font, nametofont
     p = text_props(props)
     family = nametofont("TkDefaultFont", root=widget).actual("family")
-    styles = ("bold" if p["bold"] else "normal") + " " + ("italic" if p["italic"] else "roman")
-    widget.configure(text=str(p["value"]), font=(family, -max(1, round(p["font_size"])), styles),
+    # A Tk font tuple is parsed differently by Tcl/Tk builds: Linux can
+    # silently discard its bold face.  A retained named Font carries the
+    # independently specified weight and slant on every supported backend.
+    font = getattr(widget, "_psx_text_font", None)
+    if font is None:
+        font = Font(root=widget)
+        widget._psx_text_font = font
+    font.configure(
+        family=family,
+        size=-max(1, round(p["font_size"])),
+        weight="bold" if p["bold"] else "normal",
+        slant="italic" if p["italic"] else "roman",
+    )
+    widget.configure(text=str(p["value"]), font=font,
                      foreground="" if p["color"] is None else p["color"], justify=p["align"],
                      anchor={"left": "w", "center": "center", "right": "e"}[p["align"]])
     widget.state(("!disabled",) if p["enabled"] else ("disabled",))

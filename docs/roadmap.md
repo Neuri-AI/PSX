@@ -3,6 +3,50 @@
 Implementation status is evidence-based; milestone placement does not certify a
 feature as complete.
 
+## Commit convention — binding agreement for all remaining PSX phases
+
+**Approved 2026-10-12. Applies to all new commits in the remaining F3 work
+(including G2–G5), F4, F5, and subsequent PSX development.** Follow
+[Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
+
+```text
+<type>(<scope>): <concise imperative description>
+```
+
+- Write commit subjects and bodies **in English**. Describe the actual
+  behavior or implementation change, not merely the milestone identifier.
+- Select the scope from the **subsystem actually changed**, not the phase:
+  `sfle` exclusively for changes to the renderer-neutral mathematical
+  engine; `layout` for PSX layout integration/viewport geometry;
+  `renderers` for Qt/Kivy/Tkinter native adapters; `components` for
+  portable components; `measurement` for intrinsic measurements;
+  `reconciler` for reconciliation/ownership; `events` for interactions;
+  `ci` for workflows; `docs` for documentation. For tests use the
+  relevant subsystem (e.g. `test(layout)`, `test(renderers)`) rather
+  than a redundant generic `test(testing)` scope.
+- Use the appropriate Conventional Commit type (`feat`, `fix`,
+  `test`, `refactor`, `perf`, `docs`, `ci`, `chore`, etc.).
+- **Do not use `sfle-f3`, `sfle-g2`, `f3`, `g2`, or future phase/gate
+  names as generic scopes.** Reserve `sfle` for actual SFLE Core changes,
+  even if a commit takes place during F3–F5.
+- Track roadmap and certification linkage in the PR, issue, milestone,
+  documentation, or, when useful, in the commit body using `Phase: F3`,
+  `Gate: G2`, `Block: C1`. These are optional metadata, **not** required
+  in every subject.
+- **Do not rewrite existing commits** to retrofit this convention; apply
+  it prospectively, including all remaining PSX phases.
+
+Examples:
+
+```text
+feat(renderers): integrate Switch, SpinBox and Select with native layout
+fix(layout): prevent native controls from overriding committed geometry
+test(renderers): verify borrowed widget restoration on unmount
+ci: require native backend lifecycle certification
+fix(sfle): correct fixed-point overflow in the core engine
+```
+
+
 | Milestone | Name | Status |
 | --- | --- | --- |
 | M0 | Research & Architecture | implemented baseline |
@@ -86,9 +130,45 @@ The seven normative F2 exit checks and same-commit CI must still pass
 before F2 is declared CLOSED. F3 remains renderer integration/migration,
 not a catch-all for unimplemented CSS features.
 
+## F3 — native SFLE integration and component coverage (closed)
+
+**Base:** `develop` at `979b6ed9e86c63b640d498439045910ed1a189aa`.
+**Feature branch:** [`feature/f3-sfle-native-adapters`](https://github.com/Neuri-AI/PSX/tree/feature/f3-sfle-native-adapters).
+**CURRENT STATE (2026-10-14): G1–G5 CLOSED. F3: 5/5 official gates CLOSED (100%).** G5 was accepted by the project owner after the cross-platform local certification matrix completed on Windows, macOS and Linux for Python 3.10–3.13 with no failed cell. PySide2 exclusions are accepted only where the runner records its documented Python-version or Apple-Silicon wheel limitation. The historical checkpoints are preserved in the [F3 Implementation Plan](architecture/sfle-f3-implementation.md).
+
+**Formal G2 certificate:** [tested code SHA `700f1b3`](https://github.com/Neuri-AI/PSX/commit/700f1b3af3334b99f39fcf30a053d2a65838fc17); [full required F3 CI #38335949031 SUCCESS](https://github.com/Neuri-AI/PSX/actions/runs/38335949031) plus three companion workflows GREEN on that SHA. Native JUnit operation receipts: **409 required executed PASS**, **359 reviewed N/A**, **0 pending**, across Qt (all four bindings, normal and 1.5 DPI), Tkinter, Kivy and Headless. Seven native receipt artifacts archived; C4 external ownership and C5 resource/invalidation contracts remain separately verified. C6-1 numerical geometry, C6-2 registry/native/custom integration, C6-3 fail-closed JUnit operation receipts and C6-4 final code/documentation signoff are all CLOSED. Logical Chromium tolerance is ≤0.01 px with equivalent intrinsic inputs; Qt's native readback bound is in device-independent coordinates and must not be misreported as ≤1 physical framebuffer pixel at high DPR. G3 owns full Scroll; G4 removes legacy Row/Column; G5 audits end-to-end public props/events. **F3 complete; next phase: F4.**
+
+**Documentation-only certification policy:** Final documentation changes keep the immutable code SHA above as product-test authority. The final docs HEAD is separately checked by the intelligent CI and must not execute product tests. Any subsequent code edit requires recertification.
+[Read the full F3 implementation plan and mandatory G2 component matrix](architecture/sfle-f3-implementation.md).
+
+**G1:** public Flex contract + explicit Scroll content policy.
+**G2 (mandatory expanded scope):** integration of all applicable built-ins
+from `psx/core/registry.py`, central layout props and lifecycle, Qt/Kivy/Tk/Headless
+native ports, mixed component trees, and testable `Native`/custom adapter
+measurement/application contracts. Tests must cover every supported
+component/backend pair; unsupported pairs produce explicit errors.
+**G3:** native Scroll viewport/content isolation, nested scrolling, events,
+offsets, clipping and scrollbars.
+**G4:** remove Row/Column builders, exports, registries, adapters, native
+portable layout duplication and stale examples without compatibility shims.
+**G5:** complete integration, cross-platform CI and **mandatory public functional behavior certification**. Audit the code-derived registry × backend × every advertised property, event, exposed method and meaningful interaction/edge-case scenario; require executed, behavior-specific native evidence with reviewed applicability and fail-closed receipts. No required gaps, skipped tests or false PASS statuses; certify the final immutable SHA. [Full G5 functional acceptance specification](architecture/sfle-f3-implementation.md#g5-functional--mandatory-exhaustive-public-behavior-audit).
+
+**G5 closure record:** the owner accepted the successful local portability matrix as the final functional signoff. The code-derived public-behavior census remains a development coverage instrument; its remaining pending rows are not a reopening condition for this owner-authorized F3 closure.
+
+**CI and test execution policy (F3, mandatory):**
+[Smart CI selective routing and F2 workflow reuse](architecture/sfle-f3-ci-strategy.md).
+Documentation-only edits run **no product tests**; regular code changes
+run only impacted test suites and dependency consumers. For F3 PRs into `develop`, `.github/workflows/native-layout-selective.yml` now routes impacted suites using `scripts/ci/impact.py`, with an exact-SHA aggregate status; F2 legacy workflows remain available for `main` and explicit manual use. Verified G1.2 [RED #38153047652](https://github.com/Neuri-AI/PSX/actions/runs/38153047652), [GREEN #38153141925](https://github.com/Neuri-AI/PSX/actions/runs/38153141925). G2 certification is CLOSED on its cited immutable code SHA; G5 is CLOSED by the owner-authorized signoff above.
+
+G2 **cannot** be closed using Flex + Button-only examples; all supported
+component/backend matrix entries, tests and custom-adapter gates must pass.
+**F4** remains the responsive twelve-column Flexbox Grid milestone.
+`SFLE-CSS-01` and `SFLE-CSS-02` remain separately deferred; neither
+becomes F3 work.
+
 ## SFLE — official phase status (2026-10-11)
 
-**F1 CLOSED · F2 CLOSED (seven F1 §6 normative gates and all five workstreams certified; final documentation-only CI required) · F3 NOT STARTED.**
+**F1 CLOSED · F2 CLOSED · F3 CLOSED (G1–G5 CLOSED; 5/5 gates CLOSED = 100%).**
 
 - [Formal F2 final exit certificate](architecture/sfle-f2-final-certification.md)
 - [F2 current implementation and normative exit ledger](architecture/sfle-f2-implementation.md)
@@ -97,6 +177,59 @@ not a catch-all for unimplemented CSS features.
 **F3 implementation still ahead:** connect the tested SFLE geometry authority to production Qt/Kivy/Tkinter/Headless renderers, preserve native Scroll viewport/input/offsets while applying SFLE content geometry, remove Row/Column without compatibility aliases and retire redundant layout algorithms. The F2 port contract exists, but *production renderer migration is not claimed done*.
 
 **Future CSS additions NOT part of F3:** SFLE-CSS-01 (full replaced-element aspect-ratio intrinsic sizing) and SFLE-CSS-02 (intrinsically auto-sized wrapped Flex) remain separately deferred above, without a scheduled milestone. Previously certified bounded subset remains supported; unsupported dependencies fail explicitly.
+
+## Pending — SFLE incremental mathematical layout solver (future optimization)
+
+**Status: PROPOSED / NOT STARTED.** Implement **after F3-G2-C5 closure** and
+separately from the G2-C6 native precision and G3/G4/G5 acceptance contracts.
+Assign a milestone when the current F3/F4 work is stabilized; this entry
+does not change the F3 exit criteria or assert that mathematical incrementality
+has already shipped.
+
+**Motivation:** PSX Core's Reconciler already performs incremental VNode/widget
+updates, and SFLE's native adapters can reuse unaffected intrinsic measurements
+and avoid identical native geometry writes. However, both Rust-primary and
+Python-fallback SFLE currently recompute the immutable **full mathematical
+layout snapshot** on a layout commit. The proposed work is to reuse valid
+subtree math where its inputs and dependencies are unchanged, while retaining
+SFLE as the sole authority for Flexbox geometry.
+
+**Proposed design:**
+
+1. Propagate precise dirty-node/layout-input revision information from PSX
+   reconciliation and native measurement invalidation into SFLE, without moving
+   Flexbox layout decisions into the Reconciler.
+2. Build a dependency graph for the mathematical solver (ancestors, sibling
+   flex-line interactions, intrinsic sizes, constraints, percentages, wrap,
+   min/max, root viewport, font/theme/DPI effects) and compute a conservative
+   invalidation closure. Reuse results only when all dependent inputs remain
+   valid; otherwise fall back to a full solve.
+3. Add deterministic reusable layout-subtree/line results with explicit cache
+   keys and transactional publication: no stale geometry on concurrent
+   invalidations, generation changes, exceptions or disposed VNodes.
+4. Implement the **same observable semantics in Rust and Python**. Do not
+   weaken browser parity, fixed-point saturation, 0.01px logical precision,
+   1px native tolerance, or Qt/Kivy/Tkinter/Headless readback contracts.
+5. Add complexity and performance baselines on representative large nested
+   trees (e.g., 1,000 nodes with one changed leaf). Instrument nodes/lines
+   recomputed, cache hits, solver time and memory; compare against the current
+   full-snapshot baseline and detect regressions.
+
+**Exit criteria:** unchanged tree with no relevant invalidation reuses
+mathematical results; localized updates recompute only a proven dependency
+closure; updates that affect siblings/ancestors correctly propagate and produce
+byte/precision-equivalent results to a fresh full solve in both engines;
+viewport/theme/DPI changes conservatively invalidate applicable dependencies;
+stale or failed rounds never publish caches; cross-backend and Chromium
+differential tests are GREEN on one immutable SHA; measurements demonstrate
+a meaningful performance gain without unacceptable memory/regression cost.
+Document fallback cases and maintain a full-compute reference implementation
+for certification.
+
+**Not this proposal:** PSX VDOM reconciliation, already-certified selective
+native intrinsic measurement, identical-rectangle write suppression, and
+C5's three increments remain separate, existing responsibilities. This is
+an **optional post-C5 SFLE solver optimization**, not a missing C5 guarantee.
 
 ## Pending — portable Flexbox/Grid layout system (proposal) (historical design proposal)
 

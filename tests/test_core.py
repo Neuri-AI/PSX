@@ -5,29 +5,31 @@ import unittest
 
 sys.path.insert(0, "src")
 
-from psx import Button, Column, DuplicateKeyError, InvalidChildError, Row, Text, component
+from psx import Button, Flex, DuplicateKeyError, InvalidChildError, Text, component
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
 
 
 class CoreTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.renderer = HeadlessRenderer()
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+        self.renderer = HeadlessRenderer(sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)), engine=PythonLayoutEngine(), measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8))
         self.reconciler = Reconciler(self.renderer)
 
     def test_normalizes_supported_children_and_rejects_true(self) -> None:
-        node = Column("a", 2, None, False, [Text("b")])
+        node = Flex("a", 2, None, False, [Text("b")], direction="column")
         self.assertEqual([child.props["value"] for child in node.children], ["a", "2", "b"])
         with self.assertRaises(InvalidChildError):
-            Column(True)
+            Flex(True, direction="column")
 
     def test_prop_update_preserves_existing_handle(self) -> None:
-        root = self.reconciler.render(Column(Text("one"), Button("Save")))
+        root = self.reconciler.render(Flex(Text("one"), Button("Save"), direction="column"))
         column = root.handle
         text, button = column.children  # type: ignore[union-attr]
         self.renderer.operations.clear()
 
-        root = self.reconciler.render(Column(Text("two"), Button("Save")))
+        root = self.reconciler.render(Flex(Text("two"), Button("Save"), direction="column"))
         self.assertIs(root.handle, column)
         self.assertIs(root.handle.children[0], text)  # type: ignore[union-attr]
         self.assertIs(root.handle.children[1], button)  # type: ignore[union-attr]
@@ -35,11 +37,11 @@ class CoreTests(unittest.TestCase):
         self.assertEqual([entry[0] for entry in self.renderer.operations], ["update"])
 
     def test_keyed_reorder_preserves_identity_and_moves(self) -> None:
-        root = self.reconciler.render(Row(Text("A", key="a"), Text("B", key="b"), Text("C", key="c")))
+        root = self.reconciler.render(Flex(Text("A", key="a"), Text("B", key="b"), Text("C", key="c"), direction="row"))
         handles = {handle.props["value"]: handle for handle in root.handle.children}  # type: ignore[union-attr]
         self.renderer.operations.clear()
 
-        root = self.reconciler.render(Row(Text("C", key="c"), Text("B", key="b"), Text("A", key="a")))
+        root = self.reconciler.render(Flex(Text("C", key="c"), Text("B", key="b"), Text("A", key="a"), direction="row"))
         current = root.handle.children  # type: ignore[union-attr]
         self.assertEqual([item.props["value"] for item in current], ["C", "B", "A"])
         self.assertIs(current[0], handles["C"])
@@ -50,20 +52,20 @@ class CoreTests(unittest.TestCase):
 
     def test_duplicate_keys_fail_deterministically(self) -> None:
         with self.assertRaises(DuplicateKeyError):
-            self.reconciler.render(Row(Text("A", key="same"), Text("B", key="same")))
+            self.reconciler.render(Flex(Text("A", key="same"), Text("B", key="same"), direction="row"))
 
     def test_event_slot_updates_without_a_second_connection(self) -> None:
         calls: list[str] = []
-        self.reconciler.render(Button("Save", on_click=lambda: calls.append("old")))
-        handle = self.reconciler.root.handle  # type: ignore[union-attr]
+        self.reconciler.render(Flex(Button("Save", on_click=lambda: calls.append("old")), width=640, height=480))
+        handle = self.reconciler.root.children[0].handle  # type: ignore[union-attr]
         handle.events["on_click"].invoke()
-        self.reconciler.render(Button("Save", on_click=lambda: calls.append("new")))
+        self.reconciler.render(Flex(Button("Save", on_click=lambda: calls.append("new")), width=640, height=480))
         handle.events["on_click"].invoke()
         self.assertEqual(calls, ["old", "new"])
         self.assertEqual(sum(1 for op in self.renderer.operations if op[0] == "bind_event"), 1)
 
     def test_unmount_unbinds_and_destroys_once(self) -> None:
-        self.reconciler.render(Column(Button("Save", on_click=lambda: None)))
+        self.reconciler.render(Flex(Button("Save", on_click=lambda: None), direction="column"))
         self.reconciler.unmount()
         self.reconciler.unmount()
         names = [operation[0] for operation in self.renderer.operations]
@@ -75,9 +77,9 @@ class CoreTests(unittest.TestCase):
         def Greeting(name: str):
             return Text(f"Hello, {name}")
 
-        root = self.reconciler.render(Column(Greeting(name="Ada")))
+        root = self.reconciler.render(Flex(Greeting(name="Ada"), direction="column"))
         self.assertEqual(root.handle.children[0].props["value"], "Hello, Ada")  # type: ignore[union-attr]
-        self.reconciler.render(Column(Greeting(name="Grace")))
+        self.reconciler.render(Flex(Greeting(name="Grace"), direction="column"))
         self.assertEqual(root.handle.children[0].props["value"], "Hello, Grace")  # type: ignore[union-attr]
 
 

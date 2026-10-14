@@ -6,7 +6,14 @@ from collections.abc import Mapping
 
 from psx.core.contracts import SCROLL_DEFAULTS, SCROLL_PROPS, validate_scroll_props
 from psx.core.errors import RendererCapabilityError
-from psx.renderers.components.column import normalize_padding
+def normalize_padding(value: object) -> tuple[int, int, int, int]:
+    """Return normalized (left, top, right, bottom) padding."""
+    if isinstance(value, int):
+        return (value, value, value, value)
+    if len(value) == 2:
+        horizontal, vertical = value
+        return (horizontal, vertical, horizontal, vertical)
+    return tuple(value)  # type: ignore[return-value]
 
 
 def scroll_props(props: Mapping[str, object]) -> dict[str, object]:

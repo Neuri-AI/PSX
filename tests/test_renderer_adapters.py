@@ -71,12 +71,14 @@ def test_registered_adapter_owns_component_lifecycle_without_reconciler_changes(
 def test_custom_host_adapter_can_mount_update_and_unmount() -> None:
     renderer = HeadlessRenderer()
     adapter = CountingAdapter()
-    renderer.register_adapter("Badge", adapter)
+    # Use a genuinely third-party tag: Badge is now a built-in with its
+    # own validated prop contract, so passing "value" to Badge is invalid.
+    renderer.register_adapter("CustomBadge", adapter)
     reconciler = Reconciler(renderer)
 
-    node = create_element("Badge", value="one", key="badge")
+    node = create_element("CustomBadge", value="one", key="badge")
     handle = reconciler.render(node).handle
-    reconciler.render(create_element("Badge", value="two", key="badge"))
+    reconciler.render(create_element("CustomBadge", value="two", key="badge"))
     assert reconciler.root.handle is handle
     assert handle.props["value"] == "two"
     reconciler.unmount()

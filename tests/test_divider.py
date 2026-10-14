@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from psx import Column, Divider, Text, psx
+from psx import Divider, Flex, Text, psx
 from psx.core.errors import InvalidChildError, RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
@@ -44,22 +44,27 @@ def test_divider_markup_rejects_multiple_children() -> None:
 
 
 def test_divider_mounts_updates_and_unmounts() -> None:
-    renderer = HeadlessRenderer()
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+    )
     reconciler = Reconciler(renderer)
     root = reconciler.render(
-        Column(Divider(key="d"), Divider("Etiqueta", key="d2"))
+        Flex(Divider(key="d"), Divider(key="d2"), direction="column")
     )
     column_handle = root.handle
     assert [h.type for h in column_handle.children] == ["Divider", "Divider"]
     second_divider = column_handle.children[1]
-    assert len(second_divider.children) == 1
-    assert second_divider.children[0].type == "Text"
+    assert second_divider.children == []
 
     first_handle = column_handle.children[0]
     reconciler.render(
-        Column(
+        Flex(
             Divider(thickness=2, color="#336699", key="d"),
-            Divider("Otra", key="d2"),
+            Divider(key="d2"), direction="column",
         )
     )
     assert column_handle.children[0] is first_handle
@@ -68,3 +73,14 @@ def test_divider_mounts_updates_and_unmounts() -> None:
 
     reconciler.unmount()
     assert all(h.destroyed for h in column_handle.children)
+
+
+def test_labelled_divider_retains_text_child_without_native_container():
+    renderer = HeadlessRenderer()
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Divider("Etiqueta"))
+    assert len(root.children) == 1
+    assert root.children[0].handle.type == "Text"
+    reconciler.render(Divider("Otra"))
+    assert root.children[0].handle.props["value"] == "Otra"
+    reconciler.unmount()

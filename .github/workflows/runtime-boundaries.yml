@@ -1,0 +1,48 @@
+name: Runtime package boundaries
+
+on:
+  push:
+    branches: [main, feature/f3-sfle-native-adapters]
+    paths:
+      - "psx/**"
+      - "scripts/check_runtime_boundaries.py"
+      - ".github/workflows/runtime-boundaries.yml"
+  pull_request:
+    paths:
+      - "psx/**"
+      - "scripts/check_runtime_boundaries.py"
+      - ".github/workflows/runtime-boundaries.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docs-impact:
+    uses: ./.github/workflows/docs-delta.yml
+
+  boundaries:
+    needs: docs-impact
+    if: needs.docs-impact.outputs.run_checks == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Enforce certification ownership
+        run: python scripts/check_runtime_boundaries.py
+      - name: Compile relocated certification modules
+        run: python -m compileall -q tests/certification psx/sfle/native_external_ownership_cases.py psx/sfle/native_external_ownership_receipts.py psx/sfle/native_operation_contracts.py psx/sfle/native_operation_evidence.py psx/sfle/native_component_matrix.py psx/sfle/native_operation_oracles.py psx/sfle/native_operation_receipts.py
+      - name: Verify canonical imports and compatibility
+        run: |
+          python -m pip install -e .
+          python - <<'PY'
+          import importlib
+          for name in ("native_external_ownership_cases", "native_external_ownership_receipts", "native_operation_contracts", "native_operation_evidence", "native_component_matrix", "native_operation_oracles", "native_operation_receipts"):
+              old = importlib.import_module(f"psx.sfle.{name}")
+              new = importlib.import_module(f"tests.certification.{name}")
+              for attr in dir(new):
+                  if not attr.startswith("_") and hasattr(old, attr):
+                      assert getattr(old, attr) is getattr(new, attr), (name, attr)
+          PY

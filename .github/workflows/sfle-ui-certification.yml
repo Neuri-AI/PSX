@@ -2,6 +2,7 @@ name: SFLE real native UI certification
 
 on:
   pull_request:
+    branches: [main]
     paths:
       - "psx/sfle/**"
       - "tests/ui/**"
@@ -12,7 +13,12 @@ permissions:
   contents: read
 
 jobs:
+  docs-impact:
+    uses: ./.github/workflows/docs-delta.yml
+
   real-qt-tk-kivy:
+    needs: docs-impact
+    if: needs.docs-impact.outputs.run_checks == 'true'
     name: Live Qt Tk Kivy widgets and measurements
     runs-on: ubuntu-latest
     timeout-minutes: 30

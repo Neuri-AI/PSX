@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.widget import Widget
 from kivy.uix.scrollview import ScrollView
 
 from psx.core.errors import RendererCapabilityError
@@ -20,21 +21,108 @@ class _PSXScrollView(ScrollView):
     block wheel/trackpad events even when content can move.
     """
 
+    def _psx_scroll_delta(self, dx, dy):
+        """Apply logical movement once and chain only the unconsumed delta."""
+        from psx.renderers.components.scroll import consume_scroll
+        remainder_x, remainder_y = float(dx), float(dy)
+        props = getattr(self, "_psx_props", None)
+        content = getattr(self, "_psx_content", None)
+        if props is not None and props["enabled"] and content is not None:
+            allow_x, allow_y = scroll_axes(props["direction"])
+            max_x = max(0.0, content.width - self.width)
+            max_y = max(0.0, content.height - self.height)
+            if allow_x and max_x and remainder_x:
+                position, remainder_x = consume_scroll(
+                    self.scroll_x * max_x, max_x, remainder_x,
+                )
+                self.scroll_x = position / max_x
+            if allow_y and max_y and remainder_y:
+                position, remainder_y = consume_scroll(
+                    (1.0 - self.scroll_y) * max_y, max_y, remainder_y,
+                )
+                self.scroll_y = 1.0 - position / max_y
+        if remainder_x or remainder_y:
+            parent = self.parent
+            while parent is not None:
+                if hasattr(parent, "_psx_scroll_delta"):
+                    return parent._psx_scroll_delta(remainder_x, remainder_y)
+                parent = parent.parent
+        return remainder_x, remainder_y
+
+    def on_scroll_move(self, touch):
+        """Let Kivy own touch kinetics; chain only motion beyond an edge."""
+        from psx.renderers.components.scroll import consume_scroll
+        props = getattr(self, "_psx_props", None)
+        content = getattr(self, "_psx_content", None)
+        if not (getattr(self, "_psx_sfle_scroll", False)
+                and props and props["enabled"] and content is not None):
+            return super().on_scroll_move(touch)
+        max_x = max(0.0, content.width - self.width)
+        max_y = max(0.0, content.height - self.height)
+        start_x = self.scroll_x * max_x
+        start_y = (1.0 - self.scroll_y) * max_y
+        native_handled = super().on_scroll_move(touch)
+        # Screen motion points in the opposite direction to content travel.
+        dx = -float(getattr(touch, "dx", 0.0))
+        dy = -float(getattr(touch, "dy", 0.0))
+        allow_x, allow_y = scroll_axes(props["direction"])
+        remainder_x, remainder_y = dx, dy
+        if allow_x:
+            _, remainder_x = consume_scroll(start_x, max_x, dx)
+        if allow_y:
+            _, remainder_y = consume_scroll(start_y, max_y, dy)
+        if remainder_x or remainder_y:
+            ancestor = self.parent
+            while ancestor is not None:
+                if hasattr(ancestor, "_psx_scroll_delta"):
+                    tail = ancestor._psx_scroll_delta(remainder_x, remainder_y)
+                    if tail != (remainder_x, remainder_y):
+                        return True
+                    break
+                ancestor = ancestor.parent
+        return native_handled
+
+    def on_touch_down(self, touch):
+        # Wheel input is discrete. Pan/touch gestures remain owned by Kivy's
+        # ScrollView, preserving kinetic effects and native touch lifecycle.
+        if (getattr(self, "_psx_sfle_scroll", False)
+                and getattr(touch, "is_mouse_scrolling", False)
+                and self.collide_point(*touch.pos)):
+            directions = {
+                "scrollup": (0.0, -48.0),
+                "scrolldown": (0.0, 48.0),
+                "scrollleft": (-48.0, 0.0),
+                "scrollright": (48.0, 0.0),
+            }
+            movement = directions.get(getattr(touch, "button", ""))
+            if movement is not None:
+                remaining = self._psx_scroll_delta(*movement)
+                if remaining != movement:
+                    return True
+                return False
+        return super().on_touch_down(touch)
+
 
 class KivyScrollAdapter:
     def create(self, renderer, node, parent):
         from psx.renderers.kivy.kivy import KivyHandle
 
         props = scroll_props(node.props)
+        sfle = renderer._sfle_constraints is not None
         view = _PSXScrollView(
-            do_scroll_x=True, do_scroll_y=True, size_hint=(1, 1),
+            do_scroll_x=True, do_scroll_y=True,
+            size_hint=(None, None) if sfle else (1, 1),
             bar_width=6, scroll_type=["bars", "content"],
             scroll_wheel_distance=48,
         )
-        content = BoxLayout(
-            orientation=props["content_direction"],
-            size_hint=(None, None),
+        content = (
+            Widget(size_hint=(None, None)) if sfle else
+            BoxLayout(
+                orientation=props["content_direction"],
+                size_hint=(None, None),
+            )
         )
+        view._psx_sfle_scroll = sfle
         view.add_widget(content)
         view._psx_content = content
         self._apply(view, props)
@@ -48,15 +136,16 @@ class KivyScrollAdapter:
         view.do_scroll_x = x and props["enabled"]
         view.do_scroll_y = y and props["enabled"]
         content = view._psx_content
-        content.orientation = props["content_direction"]
-        content.padding = scroll_padding(props)
-        content.spacing = props["spacing"]
-        view.size_hint_x = None if props["width"] is not None else 1
-        view.size_hint_y = None if props["height"] is not None else 1
-        if props["width"] is not None:
-            view.width = float(props["width"])
-        if props["height"] is not None:
-            view.height = float(props["height"])
+        if not view._psx_sfle_scroll:
+            content.orientation = props["content_direction"]
+            content.padding = scroll_padding(props)
+            content.spacing = props["spacing"]
+            view.size_hint_x = None if props["width"] is not None else 1
+            view.size_hint_y = None if props["height"] is not None else 1
+            if props["width"] is not None:
+                view.width = float(props["width"])
+            if props["height"] is not None:
+                view.height = float(props["height"])
         view.bar_width = 6 if props["scrollbar"] != "hidden" else 0
         view.bar_color = (0.62, 0.62, 0.62, 0.78) if props["scrollbar"] != "hidden" else (0, 0, 0, 0)
         view.bar_inactive_color = (
@@ -65,7 +154,8 @@ class KivyScrollAdapter:
         )
         view.scroll_type = ["bars", "content"] if props["scrollbar"] != "hidden" else ["content"]
         view.disabled = not props["enabled"]
-        KivyScrollAdapter._resize_content(view)
+        if not view._psx_sfle_scroll:
+            KivyScrollAdapter._resize_content(view)
 
     @staticmethod
     def _resize_content(view):
@@ -79,6 +169,8 @@ class KivyScrollAdapter:
     @staticmethod
     def _connect(view):
         content = view._psx_content
+        if view._psx_sfle_scroll:
+            return
         view.bind(size=lambda *_: KivyScrollAdapter._resize_content(view))
         content.bind(minimum_size=lambda *_: KivyScrollAdapter._resize_content(view))
 
@@ -88,19 +180,28 @@ class KivyScrollAdapter:
         self._apply(handle.widget, props)
         handle.widget.scroll_x, handle.widget.scroll_y = position
         handle.props = props
-        self._layout_children(handle)
+        if not handle.widget._psx_sfle_scroll:
+            self._layout_children(handle)
 
     def insert(self, renderer, parent, child, index):
         if child in parent.children:
             parent.children.remove(child)
         parent.children.insert(index, child)
+        if parent.widget._psx_sfle_scroll:
+            content = parent.widget._psx_content
+            child.widget.size_hint = (None, None)
+            child.widget.pos_hint = {}
+            if child.widget.parent is not content:
+                content.add_widget(child.widget)
+            return True
         self._layout_children(parent)
         return True
 
     def move(self, renderer, parent, child, index):
         parent.children.remove(child)
         parent.children.insert(index, child)
-        self._layout_children(parent)
+        if not parent.widget._psx_sfle_scroll:
+            self._layout_children(parent)
         return True
 
     def remove(self, renderer, parent, child):

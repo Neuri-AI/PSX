@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from psx import Column, Row, Spacer, Text, psx
+from psx import Flex, Spacer, Text, psx
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
@@ -16,23 +16,34 @@ def test_spacer_has_no_portable_props() -> None:
 
 
 def test_spacer_is_a_builtin_markup_tag() -> None:
-    node = psx("<Row><Text>A</Text><Spacer /><Text>B</Text></Row>")
+    node = psx('<Flex direction="row"><Text>A</Text><Spacer /><Text>B</Text></Flex>')
     assert node.children[1].type == "Spacer"
 
 
+def native_headless_renderer():
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    return HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(640, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+    )
+
+
 def test_spacer_mounts_and_unmounts_cleanly() -> None:
-    renderer = HeadlessRenderer()
+    renderer = native_headless_renderer()
     reconciler = Reconciler(renderer)
-    root = reconciler.render(Row(Text("A"), Spacer(), Text("B")))
+    root = reconciler.render(Flex(Text("A"), Spacer(), Text("B"), direction="row"))
     assert [h.type for h in root.handle.children] == ["Text", "Spacer", "Text"]
     reconciler.unmount()
     assert all(h.destroyed for h in root.handle.children)
 
 
 def test_spacer_keeps_identity_across_keyed_reorder() -> None:
-    renderer = HeadlessRenderer()
+    renderer = native_headless_renderer()
     reconciler = Reconciler(renderer)
-    reconciler.render(Row(Text("A", key="a"), Spacer(key="s"), Text("B", key="b")))
+    reconciler.render(Flex(Text("A", key="a"), Spacer(key="s"), Text("B", key="b"), direction="row"))
     spacer = reconciler.root.handle.children[1]
-    reconciler.render(Row(Text("A", key="a"), Text("B", key="b"), Spacer(key="s")))
+    reconciler.render(Flex(Text("A", key="a"), Text("B", key="b"), Spacer(key="s"), direction="row"))
     assert reconciler.root.handle.children[2] is spacer

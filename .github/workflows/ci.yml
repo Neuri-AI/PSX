@@ -9,6 +9,12 @@ on:
       - "README.md"
       - "**/*.md"
   pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "**/*.md"
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -31,7 +37,8 @@ jobs:
         with:
           script: |
             const isDoc = path => path.startsWith('docs/') ||
-              path === 'README.md' || path.endsWith('.md');
+              path === 'README.md' ||
+              (path.endsWith('.md') && !path.startsWith('.github/'));
             let files;
             if (context.eventName === 'pull_request' &&
                 context.payload.action === 'synchronize') {
@@ -70,6 +77,8 @@ jobs:
             core.setOutput('code', String(code));
 
   core:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     name: Core / Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:
@@ -87,6 +96,8 @@ jobs:
       - run: PYTHONPATH=src python benchmarks/psx_benchmark.py --iterations 20 --repeats 3
 
   pyside6:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     name: PySide6 offscreen
     runs-on: ubuntu-latest
     steps:
@@ -118,6 +129,8 @@ jobs:
           fi
 
   package:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     name: Build distribution
     runs-on: ubuntu-latest
     steps:

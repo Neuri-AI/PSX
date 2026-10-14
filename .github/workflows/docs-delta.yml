@@ -1,0 +1,54 @@
+name: Documentation-only PR delta gate
+
+on:
+  workflow_call:
+    outputs:
+      run_checks:
+        description: Whether the caller must execute product checks
+        value: ${{ jobs.classify.outputs.run_checks }}
+
+permissions:
+  contents: read
+
+jobs:
+  classify:
+    name: Check PR update file delta
+    runs-on: ubuntu-latest
+    outputs:
+      run_checks: ${{ steps.scope.outputs.run_checks }}
+    steps:
+      - id: scope
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // PR path filters use cumulative PR changes, not this one update.
+            // Skip only a verifiable docs-only synchronize delta.
+            const before = context.payload.before;
+            const after = context.payload.after;
+            if (context.eventName !== 'pull_request' ||
+                context.payload.action !== 'synchronize' || !before || !after) {
+              core.setOutput('run_checks', 'true');
+              return;
+            }
+            try {
+              const {data: diff} = await github.rest.repos.compareCommits({
+                owner: context.repo.owner, repo: context.repo.repo,
+                base: before, head: after, per_page: 100,
+              });
+              const entries = diff.files || [];
+              const safelyComplete = entries.length > 0 && entries.length < 300 &&
+                diff.total_commits <= 250;
+              const paths = entries.flatMap(file =>
+                [file.filename, file.previous_filename].filter(Boolean));
+              const isDocs = path => path === 'README.md' ||
+                path.startsWith('docs/') ||
+                (path.endsWith('.md') && !path.startsWith('.github/'));
+              const docsOnly = safelyComplete && paths.every(isDocs);
+              core.info(docsOnly
+                ? 'Verified docs-only update: no product tests.'
+                : 'Code, mixed, or unverified update: run product tests.');
+              core.setOutput('run_checks', String(!docsOnly));
+            } catch (error) {
+              core.warning('Delta not verifiable: run tests. ' + error.message);
+              core.setOutput('run_checks', 'true');
+            }

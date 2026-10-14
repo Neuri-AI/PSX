@@ -23,6 +23,10 @@ import importlib
 import sys
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from psx.sfle.model import LayoutConstraints, LayoutResult
+from psx.core.props import FLEX_ITEM_PROPS
+from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
+from psx.sfle.external_native_geometry_ports import external_port_for
 
 
 from psx.core.errors import RendererCapabilityError
@@ -73,9 +77,24 @@ EventDef = tuple[str, EventFactory]
 
 # Appliers
 def apply_qt_radio(widget, props):
+    parent = widget.parentWidget()
+    radios = getattr(parent, "_psx_radios", None)
+    previous = getattr(widget, "_psx_radio_value", None)
+    value = props["value"]
+    if radios is not None and previous != value:
+        if value in radios and radios[value] is not widget:
+            raise RendererCapabilityError(
+                f"RadioGroup has duplicate Radio value {value!r}."
+            )
+        if radios.get(previous) is widget:
+            del radios[previous]
+        radios[value] = widget
     widget.setText(str(props["label"]))
     widget.setEnabled(bool(props["enabled"]))
-    widget._psx_radio_value = props["value"]
+    widget._psx_radio_value = value
+    if radios is not None and previous != value:
+        from psx.renderers.qt.radiogroup import QtRadioGroupAdapter
+        QtRadioGroupAdapter._sync_checked(parent, parent._psx_selected_value)
 
 @dataclass(slots=True)
 class QtHandle:
@@ -278,6 +297,38 @@ register_primitive(
 
 # -- renderer ---------------------------------------------------------------
 
+def _make_resize_filter(core, on_resize, on_invalidation=None):
+    """Observe root viewport and native style/DPI changes without owning layout."""
+    qevents = getattr(core.QEvent, "Type", core.QEvent)
+    event_type = getattr(qevents, "Resize")
+    semantic_types = {
+        value: reason
+        for name, reason in (
+            ("FontChange", "font"),
+            ("ApplicationFontChange", "font"),
+            ("PaletteChange", "theme"),
+            ("ApplicationPaletteChange", "theme"),
+            ("StyleChange", "theme"),
+            ("ScreenChangeInternal", "dpi"),
+            ("DevicePixelRatioChange", "dpi"),
+        )
+        if (value := getattr(qevents, name, None)) is not None
+    }
+
+    class ResizeFilter(core.QObject):
+        def eventFilter(self, watched, event):
+            if event.type() == event_type:
+                size = event.size()
+                on_resize(watched, size.width(), size.height())
+            elif on_invalidation is not None:
+                reason = semantic_types.get(event.type())
+                if reason is not None:
+                    on_invalidation(watched, reason)
+            return False
+
+    return ResizeFilter()
+
+
 def _make_dispatcher(core):
     """Build a QObject bridge that queues work from any Python thread onto the Qt loop."""
     queued = getattr(getattr(core.Qt, "ConnectionType",
@@ -302,10 +353,53 @@ def _make_dispatcher(core):
 class QtRenderer:
     """Single Qt renderer shared by PyQt5/6 and PySide2/6 bindings."""
 
-    def __init__(self, binding: str, argv: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        binding: str,
+        argv: list[str] | None = None,
+        *,
+        sfle_constraints: LayoutConstraints | None = None,
+        engine: object | None = None,
+    ) -> None:
+        if sfle_constraints is not None and not isinstance(sfle_constraints, LayoutConstraints):
+            raise TypeError("Qt SFLE viewport requires LayoutConstraints.")
+        if sfle_constraints is None and engine is not None:
+            raise ValueError("Qt SFLE engine requires explicit viewport constraints.")
+        from psx.sfle.backend import load_layout_engine
+        self._sfle_constraints = sfle_constraints
+        self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
+        self._sfle_generation = 0
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+        self._sfle_measurement_invalidations = MeasurementInvalidations()
+        from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
+        self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
+        from psx.sfle.native_resource_watch import ImageResourceWatch
+        self._sfle_image_resource_watch = ImageResourceWatch()
+        self._sfle_resource_poll_scheduled = False
+        self._sfle_resource_error: Exception | None = None
+        self._sfle_invalidation_scheduled = False
+        self._sfle_invalidation_lifetime = 0
+        self._sfle_mounted_root = None
+        self._sfle_in_commit = False
+        self._sfle_mounted_root = None
+        self._sfle_watched_widget = None
+        self._sfle_resize_filter = None
+        self._sfle_style_watched_widgets = {}
+        self._sfle_resize_pending = None
+        self._sfle_resize_baseline = None
+        self._sfle_resize_scheduled = False
+        self._sfle_resize_epoch = 0
+        self._sfle_resize_error: Exception | None = None
+        self._sfle_textarea_pending = False
+        self._sfle_textarea_epoch = 0
+        self._sfle_textarea_error: Exception | None = None
+        self.sfle_result: LayoutResult | None = None
+        self._sfle_physical_commit_error: float | None = None
+        self._sfle_backend = "qt"
         self._binding = binding.lower()
         self._binding_package = binding
         core = importlib.import_module(f"{binding}.QtCore")
+        self._qtcore = core
         self._widgets = widgets = importlib.import_module(
             f"{binding}.QtWidgets")
 
@@ -322,13 +416,11 @@ class QtRenderer:
 
         self.adapters = RendererAdapterRegistry()
         self._default_adapter = DelegatingAdapter()
-        for component in (*_LAYOUTS, "Fragment", *_PRIMITIVES, "Native"):
+        for component in (*_LAYOUTS, "Fragment", "Flex", *_PRIMITIVES, "Native"):
             self.adapters.register(component, self._default_adapter)
 
         # Register built-in adapters for common components. 
 
-        from .column import make_qt_column_adapter
-        from .row import make_qt_row_adapter
         from .divider import make_qt_divider_adapter
         from .image import QtImageAdapter
         from .switch import QtSwitchAdapter
@@ -339,8 +431,6 @@ class QtRenderer:
         from .box import make_qt_box_adapter
         from .radiogroup import make_qt_radiogroup_adapter
         self.adapters.register("Divider", make_qt_divider_adapter(self))
-        self.adapters.register("Column", make_qt_column_adapter(self))
-        self.adapters.register("Row", make_qt_row_adapter(self))
         self.adapters.register("Image", QtImageAdapter())
         self.adapters.register("Switch", QtSwitchAdapter())
         self.adapters.register("Link", QtLinkAdapter())
@@ -349,9 +439,292 @@ class QtRenderer:
         self.adapters.register("Scroll", QtScrollAdapter())
         self.adapters.register("Box", make_qt_box_adapter(self))
         self.adapters.register("RadioGroup", make_qt_radiogroup_adapter(self))
+        if sfle_constraints is not None:
+            from .flex import QtSFLEFlexAdapter
+            self.adapters.register("Flex", QtSFLEFlexAdapter(), replace=True)
 
     def register_adapter(self, component: str, adapter: object, *, replace: bool = False) -> None:
         self.adapters.register(component, adapter, replace=replace)
+
+    def _sfle_poll_image_resources(self, lifetime: int) -> None:
+        if lifetime != self._sfle_invalidation_lifetime:
+            return
+        self._sfle_resource_poll_scheduled = False
+        root = self._sfle_mounted_root
+        if root is None or root.disposed:
+            return
+        for instance in self._sfle_image_resource_watch.changed():
+            if instance.disposed:
+                continue
+            widget = instance.handle.widget
+            # Image adapters cache decoded content by source string; a
+            # revision at that same path must bypass the old decoded image.
+            widget._psx_source = None
+            widget._psx_pixmap_cache = None
+            widget._psx_image_cache = None
+            source = instance.node.props["source"]
+            try:
+                self.update(instance.handle, {"source": source}, frozenset())
+                reload_image = getattr(widget, "reload", None)
+                if callable(reload_image):
+                    reload_image()
+                self._sfle_resource_error = None
+                self.request_sfle_invalidation("resource", widget_id=id(widget))
+                self._sfle_image_resource_watch.acknowledge(instance)
+            except Exception as error:
+                # Preserve the last committed geometry and keep watching;
+                # recreating a missing/invalid file can recover in place.
+                self._sfle_resource_error = error
+        self._sfle_schedule_image_poll()
+
+    def _sfle_schedule_image_poll(self) -> None:
+        if self._sfle_resource_poll_scheduled:
+            return
+        root = self._sfle_mounted_root
+        if (root is None or root.disposed
+                or not self._sfle_image_resource_watch.sync(root)):
+            return
+        self._sfle_resource_poll_scheduled = True
+        epoch = self._sfle_invalidation_lifetime
+        self._qtcore.QTimer.singleShot(
+            600, lambda: self._sfle_poll_image_resources(epoch))
+
+    def request_sfle_invalidation(self, reason: str, *, widget_id: int | None = None) -> None:
+        """Coalesce semantic measurement changes on the backend owner UI thread.
+
+        The mounted instance is reused; the existing SFLE transaction remains
+        the only writer. Teardown invalidates queued work by epoch.
+        """
+        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
+        state = self._sfle_measurement_invalidations
+        state.request(reason, widget_id=widget_id)
+        if self._sfle_invalidation_scheduled:
+            return
+        self._sfle_invalidation_scheduled = True
+        scheduled_epoch = self._sfle_invalidation_lifetime
+
+        def flush() -> None:
+            if scheduled_epoch != self._sfle_invalidation_lifetime:
+                return
+            self._sfle_invalidation_scheduled = False
+            root = self._sfle_mounted_root
+            if root is None or root.disposed or not state.needs_commit():
+                return
+            epoch = state.epoch
+            try:
+                self.commit_layout(root)
+            except Exception:
+                # Preserve all invalidations for explicit retry. A failed
+                # native transaction must never acknowledge its epoch.
+                self._sfle_last_invalidation_error = True
+                raise
+            else:
+                self._sfle_last_invalidation_error = False
+                state.acknowledge(epoch)
+
+        self.schedule_ui(flush)
+
+    def set_sfle_constraints(self, constraints: LayoutConstraints) -> None:
+        """Update host viewport constraints; caller may re-commit mounted tree."""
+        if self._sfle_constraints is None:
+            raise RendererCapabilityError("Qt SFLE was not enabled for this renderer.")
+        if not isinstance(constraints, LayoutConstraints):
+            raise TypeError("Qt SFLE constraints must be LayoutConstraints.")
+        self._sfle_constraints = constraints
+        self._sfle_generation += 1
+
+    def _sfle_watch_child_style_events(self, root: object) -> None:
+        """Track live child widgets for font, palette and DPR changes."""
+        watched = {}
+        def walk(instance: object) -> None:
+            handle = getattr(instance, "handle", None)
+            if handle is not None and getattr(handle, "widget", None) is not None:
+                widget = handle.widget
+                watched[id(widget)] = widget
+            for child in instance.children:
+                walk(child)
+        walk(root)
+        for identity, widget in tuple(self._sfle_style_watched_widgets.items()):
+            if identity not in watched:
+                try:
+                    widget.removeEventFilter(self._sfle_resize_filter)
+                except RuntimeError:
+                    pass
+        for identity, widget in watched.items():
+            if identity not in self._sfle_style_watched_widgets:
+                widget.installEventFilter(self._sfle_resize_filter)
+        self._sfle_style_watched_widgets = watched
+
+    def _sfle_on_native_semantic_change(self, watched, reason: str) -> None:
+        if (id(watched) in self._sfle_style_watched_widgets
+                and self._sfle_mounted_root is not None
+                and self._sfle_constraints is not None):
+            # Screen/DPR migration changes the entire logical-to-device
+            # projection; root-level style changes likewise affect all
+            # descendants. A leaf font/style change only dirties that
+            # native widget's intrinsic result; SFLE still computes the
+            # authoritative geometry for the complete tree.
+            global_change = (reason == "dpi" or watched is self._sfle_watched_widget)
+            self.request_sfle_invalidation(
+                reason, widget_id=None if global_change else id(watched),
+            )
+
+    def _sfle_on_viewport_resize(self, watched, width: int, height: int) -> None:
+        if watched is not self._sfle_watched_widget or width <= 0 or height <= 0:
+            return
+        constraints = self._sfle_constraints
+        if constraints is None or self._sfle_mounted_root is None:
+            return
+        if self._sfle_resize_baseline == (width, height):
+            return
+        self._sfle_resize_baseline = (width, height)
+        if (constraints.width.value, constraints.height.value) == (width, height):
+            return
+        self._sfle_resize_pending = (width, height)
+        if self._sfle_resize_scheduled:
+            return
+        self._sfle_resize_scheduled = True
+        epoch = self._sfle_resize_epoch
+        # Frame-sized trailing-edge debounce: Qt may deliver consecutive
+        # top-level window Resize events over multiple nested event turns.
+        self._qtcore.QTimer.singleShot(16, lambda: self._sfle_flush_viewport_resize(epoch))
+
+    def _sfle_flush_viewport_resize(self, epoch: int) -> None:
+        self._sfle_resize_scheduled = False
+        if epoch != self._sfle_resize_epoch or self._sfle_mounted_root is None:
+            return
+        size = self._sfle_resize_pending
+        self._sfle_resize_pending = None
+        if size is None:
+            return
+        root = self._sfle_mounted_root
+        if root.disposed:
+            return
+        from psx.sfle.model import AvailableSize
+        try:
+            self.set_sfle_constraints(LayoutConstraints(
+                AvailableSize(size[0], True), AvailableSize(size[1], True),
+            ))
+            self.commit_layout(root)
+            self._sfle_resize_error = None
+        except Exception as exc:
+            # Exceptions must not cross Qt's C++ event callback boundary.
+            self._sfle_resize_error = exc
+            import logging
+            logging.getLogger(__name__).exception("Qt SFLE viewport resize failed")
+
+    def _sfle_on_textarea_content_changed(self) -> None:
+        """Coalesce native edits into one SFLE intrinsic remeasurement.
+
+        Signals are emitted on the Qt UI thread. Never perform a layout
+        transaction inside the QPlainTextEdit signal/paint call stack.
+        """
+        if (self._sfle_constraints is None or self._sfle_mounted_root is None
+                or self._sfle_in_commit or self._sfle_textarea_pending):
+            return
+        self._sfle_textarea_pending = True
+        epoch = self._sfle_textarea_epoch
+        self._qtcore.QTimer.singleShot(
+            0, lambda: self._sfle_flush_textarea_content(epoch),
+        )
+
+    def _sfle_flush_textarea_content(self, epoch: int) -> None:
+        if epoch != self._sfle_textarea_epoch:
+            return
+        self._sfle_textarea_pending = False
+        root = self._sfle_mounted_root
+        if root is None or root.disposed:
+            return
+        try:
+            self._sfle_measurement_invalidations.request("content")
+            self.commit_layout(root)
+            self._sfle_textarea_error = None
+        except Exception as exc:
+            self._sfle_textarea_error = exc
+            import logging
+            logging.getLogger(__name__).exception(
+                "Qt TextArea native SFLE remeasurement failed",
+            )
+
+    def commit_layout(self, root: object) -> None:
+        if self._sfle_constraints is None:
+            return
+        from psx.sfle.qt_layout_bridge import commit_qt_sfle
+        # Native style/texture signals can arrive while measuring. Retry a
+        # bounded number of times using the latest semantic epoch; never
+        # publish a transaction rejected for stale measurements.
+        from psx.sfle.errors import SFLEError
+        for attempt in range(3):
+            try:
+                commit_qt_sfle(self, root)
+                break
+            except SFLEError as error:
+                if ("Stale semantic invalidation" not in str(error)
+                        or attempt == 2):
+                    raise
+        self._sfle_measurement_invalidations.acknowledge(
+            self._sfle_measurement_invalidations.epoch)
+
+        # An explicit/reconciler commit supersedes a pending native edit.
+        self._sfle_textarea_epoch += 1
+        self._sfle_textarea_pending = False
+        # Subscribe only after the mounted SFLE root is fully certified.
+        # The observer watches the real root QWidget, not a nested Flex.
+        widget = root.native_handle().widget
+        if widget is not self._sfle_watched_widget:
+            if self._sfle_watched_widget is not None:
+                self._sfle_watched_widget.removeEventFilter(self._sfle_resize_filter)
+            self._sfle_resize_epoch += 1
+            self._sfle_resize_pending = None
+            self._sfle_resize_scheduled = False
+            self._sfle_resize_filter = _make_resize_filter(
+                self._qtcore, self._sfle_on_viewport_resize,
+                self._sfle_on_native_semantic_change,
+            )
+            widget.installEventFilter(self._sfle_resize_filter)
+            self._sfle_watched_widget = widget
+            self._sfle_resize_baseline = (widget.width(), widget.height())
+        self._sfle_mounted_root = root
+        self._sfle_watch_child_style_events(root)
+        self._sfle_schedule_image_poll()
+
+    def invalidate_layout(self) -> None:
+        self._sfle_invalidation_lifetime += 1
+        self._sfle_invalidation_scheduled = False
+        self._sfle_measurement_invalidations.cancel()
+        self._sfle_native_intrinsic_cache.clear()
+        self._sfle_image_resource_watch.clear()
+        self._sfle_resource_poll_scheduled = False
+        self._sfle_mounted_root = None
+        if self._sfle_constraints is not None:
+            self._sfle_generation += 1
+            self._sfle_resize_epoch += 1
+            self._sfle_resize_pending = None
+            self._sfle_resize_scheduled = False
+            self._sfle_textarea_epoch += 1
+            self._sfle_textarea_pending = False
+            self._sfle_textarea_error = None
+            self._sfle_mounted_root = None
+            if self._sfle_watched_widget is not None:
+                # Qt may already have destroyed a borrowed/owned widget.
+                try:
+                    self._sfle_watched_widget.removeEventFilter(self._sfle_resize_filter)
+                except RuntimeError:
+                    pass
+            for widget in self._sfle_style_watched_widgets.values():
+                try:
+                    widget.removeEventFilter(self._sfle_resize_filter)
+                except (RuntimeError, TypeError):
+                    pass
+            self._sfle_style_watched_widgets.clear()
+            self._sfle_watched_widget = None
+            self._sfle_resize_filter = None
+            self._sfle_resize_baseline = None
+            self.sfle_result = None
+            self._sfle_physical_commit_error = None
 
     def _adapter_for(self, key: object):
         return self.adapters.get(key) or self._default_adapter
@@ -366,10 +739,28 @@ class QtRenderer:
     # -- create -----------------------------------------------------------
 
     def create(self, node: VNode, parent: object | None) -> QtHandle:
+        if self._sfle_constraints is not None:
+            # G2 incremental native coverage: don't silently delegate an unported
+            # layout or primitive to native Qt layout managers.
+            if node.kind not in (NodeKind.HOST, NodeKind.NATIVE):
+                raise RendererCapabilityError("Native SFLE requires a host or Native layout participant.")
+            # An unregistered custom host or a Native declaration without a
+            # strict SFLE port must fail *before* its factory mutates the GUI.
+            port = external_port_for(node, self)
+            if port is None and node.type != "Flex":
+                native_leaf_needs_measurement(node, backend="qt")
+            if node.type != "Flex":
+                node = VNode(node.kind, node.type, node.key,
+                             {k: v for k, v in node.props.items() if k not in FLEX_ITEM_PROPS},
+                             node.children)
         # type: ignore[return-value]
         return self._adapter_for(adapter_key(node)).create(self, node, parent)
 
     def _adapter_create(self, node: VNode, parent: object | None) -> QtHandle:
+        if node.kind is NodeKind.HOST and node.type == "Flex":
+            raise RendererCapabilityError(
+                "Flex requires the Native SFLE SFLE geometry adapter for Qt; "
+                "native fallback layout is forbidden.")
         _validate_props(node)
         if node.kind is NodeKind.NATIVE:
             native_parent = _handle(
@@ -388,11 +779,24 @@ class QtRenderer:
                 f"PyQt does not support host primitive {node.type!r}.")
         widget = self._widget_class(node.type)()
         spec.apply(widget, node.props, self._binding_package)
+        if self._sfle_constraints is not None and node.type == "Text":
+            # QLabel's real heightForWidth is enabled by wordWrap.
+            # SFLE (not QLabel) still owns size and position.
+            widget.setWordWrap(True)
+        if self._sfle_constraints is not None and node.type == "TextArea":
+            # Native Qt continues to paint/edit text; SFLE owns the outer
+            # rectangle. Native text edits invalidate width-sensitive height.
+            widget.textChanged.connect(self._sfle_on_textarea_content_changed)
         return QtHandle(node.type, widget, props=dict(node.props))
 
     # -- update -----------------------------------------------------------
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
+        if self._sfle_constraints is not None and _handle(handle).node_type != "Flex":
+            changed = {key: value for key, value in changed.items() if key not in FLEX_ITEM_PROPS}
+            removed = frozenset(key for key in removed if key not in FLEX_ITEM_PROPS)
+            if not changed and not removed:
+                return
         self._adapter_for(handle_adapter_key(handle)).update(
             self, handle, changed, removed)
 
@@ -554,13 +958,13 @@ class QtRenderer:
 
 
 class PyQt6Renderer(QtRenderer):
-    def __init__(self, argv: list[str] | None = None) -> None:
-        super().__init__("PyQt6", argv)
+    def __init__(self, argv: list[str] | None = None, *, sfle_constraints: LayoutConstraints | None = None, engine: object | None = None) -> None:
+        super().__init__("PyQt6", argv, sfle_constraints=sfle_constraints, engine=engine)
 
 
 class PyQt5Renderer(QtRenderer):
-    def __init__(self, argv: list[str] | None = None) -> None:
-        super().__init__("PyQt5", argv)
+    def __init__(self, argv: list[str] | None = None, *, sfle_constraints: LayoutConstraints | None = None, engine: object | None = None) -> None:
+        super().__init__("PyQt5", argv, sfle_constraints=sfle_constraints, engine=engine)
 
 
 # -- module helpers ---------------------------------------------------------

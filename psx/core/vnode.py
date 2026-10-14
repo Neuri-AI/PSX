@@ -41,14 +41,9 @@ from psx.core.contracts import (
     TEXTAREA_PROPS,
     TEXTAREA_DEFAULTS,
 
-    COLUMN_CONTRACT,
-    COLUMN_PROPS,
-    COLUMN_DEFAULTS,
+    FLEX_CONTRACT,
 
 
-    ROW_CONTRACT,
-    ROW_PROPS,
-    ROW_DEFAULTS,
 
     # Spacer
     SPACER_PROPS,
@@ -93,8 +88,6 @@ from .validators import (
     validate_text_props,
     validate_slider_props,
     validate_textarea_props,
-    validate_column_props,
-    validate_row_props,
     validate_checkbox_props,
     validate_input_props,
     validate_button_props,
@@ -180,9 +173,9 @@ def create_element(
     from .component import ComponentType
 
     if node_type == "Text":
-        validate_text_props(props)
-    if key is not None and not isinstance(key, (str, int)):
-        raise TypeError("PSX keys must be str, int, or None.")
+        TEXT_CONTRACT.validate(props)
+    if key is not None and (isinstance(key, bool) or not isinstance(key, (str, int))):
+        raise TypeError("PSX keys must be str, int, or None (not bool).")
     if ref is not None:
         props["ref"] = ref
     if isinstance(node_type, ComponentType):
@@ -229,18 +222,26 @@ def _layout(name: str, children: tuple[object, ...], spacing: int, key: Key | No
     return create_element(name, *children, key=key, spacing=spacing, **props)
 
 
-def Row(
-    *children: object, spacing: int = 0,
-    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
-    align: str = "stretch", expand: bool | tuple[bool, ...] = False,
-    enabled: bool = True, key: Key | None = None, ref: object | None = None,
+def Flex(
+    *children: object,
+    direction: str = "row",
+    wrap: str = "nowrap",
+    justify_content: str = "flex-start",
+    align_items: str = "stretch",
+    align_content: str = "normal",
+    gap: int | float | str = 0,
+    key: Key | None = None,
+    ref: object | None = None,
     **props: object,
 ) -> VNode:
-    """Horizontal portable container with optional per-child expansion."""
-    options = dict(spacing=spacing, padding=padding, align=align,
-                   expand=expand, enabled=enabled, **props)
-    ROW_CONTRACT.validate_builder(options)
-    return create_element("Row", *children, key=key, ref=ref, **options)
+    """Create a validated SFLE Flex declaration (G1; native wiring is G2)."""
+    options = dict(
+        direction=direction, wrap=wrap, justify_content=justify_content,
+        align_items=align_items, align_content=align_content, gap=gap, **props,
+    )
+    FLEX_CONTRACT.validate_builder(options)
+    return create_element("Flex", *children, key=key, ref=ref, **options)
+
 
 
 def Text(
@@ -342,22 +343,6 @@ def TextArea(
     return create_element("TextArea", key=key, ref=ref, **options)
 
 
-def Column(
-    *children: object,
-    spacing: int = 0,
-    padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
-    align: str = "stretch",
-    expand: bool | tuple[bool, ...] = False,
-    enabled: bool = True,
-    key: Key | None = None,
-    ref: object | None = None,
-    **props: object,
-) -> VNode:
-    """Vertical portable container with optional per-child expansion."""
-    options = dict(spacing=spacing, padding=padding, align=align,
-                   expand=expand, enabled=enabled, **props)
-    COLUMN_CONTRACT.validate_builder(options)
-    return create_element("Column", *children, key=key, ref=ref, **options)
 
 def Slider(
     *,

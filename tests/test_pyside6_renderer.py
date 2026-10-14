@@ -12,7 +12,7 @@ sys.path.insert(0, "src")
 from PySide6.QtWidgets import QLabel, QPushButton, QWidget
 from pydux import Action, Store
 
-from psx import App, Button, Checkbox, Column, Input, Native, NativeWidget, Ref, Text, create_element, component, native_widget, psx, use_state
+from psx import App, Button, Checkbox, Flex, Input, Native, NativeWidget, Ref, Text, create_element, component, native_widget, psx, use_state
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.integrations.pydux import StoreProvider, use_selector
@@ -32,10 +32,47 @@ class PySide6RendererTests(unittest.TestCase):
         self.reconciler.unmount()
         self.renderer.application.processEvents()
 
+
+    def _enable_native_sfle(self) -> None:
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, LayoutConstraints
+        native = PySide6Renderer(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(640, True), AvailableSize(480, True)),
+            engine=PythonLayoutEngine(),
+        )
+        self.reconciler = Reconciler(native)
+
+    @staticmethod
+    def _native_geometry_port():
+        from psx.sfle.external_native_geometry_ports import SFLEExternalPort
+        from psx.sfle.model import IntrinsicSizes, Rect
+
+        def measure(widget, limits):
+            return IntrinsicSizes(12, 48, 18, 20, 48, 20)
+
+        def apply(widget, box):
+            widget.setGeometry(round(box.x), round(box.y),
+                               round(box.width), round(box.height))
+
+        def read(widget):
+            frame = widget.geometry()
+            return Rect(frame.x(), frame.y(), frame.width(), frame.height())
+
+        return SFLEExternalPort(measure, apply, read)
+
+    def test_flex_has_explicit_flex_route_without_legacy_qboxlayout_fallback(self) -> None:
+        from psx import Flex
+
+        self.assertIsNotNone(self.renderer.adapters.get("Flex"))
+        with self.assertRaisesRegex(RendererCapabilityError, "Native SFLE SFLE geometry"):
+            self.renderer.create(Flex(Text("A")), None)
+
     def test_counter_update_reuses_qwidgets(self) -> None:
+        self._enable_native_sfle()
         calls: list[str] = []
         root = self.reconciler.render(
-            Column(Text("Count: 1", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("old")))
+            Flex(Text("Count: 1", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("old")), direction="column")
         )
         column = root.handle
         self.assertIsInstance(column, QtHandle)
@@ -49,7 +86,7 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertIsInstance(button, QPushButton)
 
         self.reconciler.render(
-            Column(Text("Count: 2", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("new")))
+            Flex(Text("Count: 2", key="count"), Button("+1", key="increment", on_click=lambda: calls.append("new")), direction="column")
         )
 
         self.assertIs(root.children[0].handle, label_handle)
@@ -75,7 +112,8 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertEqual(len(self.reconciler.root.event_slots), 1)
 
     def test_app_selects_pyside6_lazily(self) -> None:
-        app = App(Column(Text("Hello")), renderer="pyside6")
+        self._enable_native_sfle()
+        app = App(Flex(Text("Hello"), direction="column"), renderer=self.reconciler.renderer)
         handle = app.mount()
         self.assertIsInstance(handle, QtHandle)
         app.unmount()
@@ -127,16 +165,17 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertFalse(isValid(label))
 
     def test_text_inherits_theme_and_returns_to_it_after_color_override(self) -> None:
-        root = self.reconciler.render(Column(Text("theme")))
+        self._enable_native_sfle()
+        root = self.reconciler.render(Flex(Text("theme"), direction="column"))
         shell = root.handle.widget
         label = root.children[0].handle.widget
         shell.setStyleSheet("QLabel { color: #eeeeee; }")
         label.ensurePolished()
         self.assertEqual(label.styleSheet(), "")
         self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#eeeeee")
-        self.reconciler.render(Column(Text("explicit", color="#336699")))
+        self.reconciler.render(Flex(Text("explicit", color="#336699"), direction="column"))
         self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#336699")
-        self.reconciler.render(Column(Text("theme again")))
+        self.reconciler.render(Flex(Text("theme again"), direction="column"))
         self.assertIs(self.reconciler.root.children[0].handle.widget, label)
         self.assertEqual(label.styleSheet(), "")
         self.assertEqual(label.palette().color(label.foregroundRole()).name(), "#eeeeee")
@@ -187,6 +226,7 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertEqual(label.text(), "1")
 
     def test_owned_native_widget_has_stable_identity_and_explicit_updates(self) -> None:
+        self._enable_native_sfle()
         updates: list[tuple[str, frozenset[str]]] = []
 
         def update(widget: object, changed: object, removed: frozenset[str]) -> None:
@@ -196,27 +236,28 @@ class PySide6RendererTests(unittest.TestCase):
             updates.append((widget.text(), removed))
 
         native = NativeWidget(
-            renderer="pyside6", factory=QLabel, update=update, name="StatusLabel"
+            renderer="pyside6", factory=QLabel, update=update, name="StatusLabel", sfle_port=self._native_geometry_port()
         )
-        root = self.reconciler.render(Column(native_widget(native, key="status", message="ready")))
+        root = self.reconciler.render(Flex(native_widget(native, key="status", message="ready"), direction="column"))
         handle = root.children[0].handle
         self.assertIsInstance(handle, QtHandle)
         self.assertIsInstance(handle.widget, QLabel)
         self.assertEqual(handle.widget.text(), "ready")
 
-        self.reconciler.render(Column(native_widget(native, key="status", message="updated")))
+        self.reconciler.render(Flex(native_widget(native, key="status", message="updated"), direction="column"))
         self.assertIs(root.children[0].handle, handle)
         self.assertEqual(handle.widget.text(), "updated")
         self.assertEqual(updates, [("ready", frozenset()), ("updated", frozenset())])
 
     def test_borrowed_native_widget_is_not_deleted_and_parent_is_restored(self) -> None:
+        self._enable_native_sfle()
         original_parent = QWidget()
         borrowed = QLabel("borrowed", original_parent)
-        native = NativeWidget(renderer="pyside6", widget=borrowed, ownership="borrowed")
-        self.reconciler.render(Column(native_widget(native, key="borrowed")))
+        native = NativeWidget(renderer="pyside6", widget=borrowed, ownership="borrowed", sfle_port=self._native_geometry_port())
+        self.reconciler.render(Flex(native_widget(native, key="borrowed"), direction="column"))
         self.assertIsNot(borrowed.parentWidget(), original_parent)
 
-        self.reconciler.render(Column())
+        self.reconciler.render(Flex(direction="column"))
         self.assertIs(borrowed.parentWidget(), original_parent)
         self.assertEqual(borrowed.text(), "borrowed")
 
@@ -260,14 +301,15 @@ class PySide6RendererTests(unittest.TestCase):
         self.assertEqual(len(disconnections), 1)
 
     def test_native_factory_can_explicitly_receive_its_psx_parent(self) -> None:
+        self._enable_native_sfle()
         parents: list[object] = []
 
         def factory(parent: object) -> QLabel:
             parents.append(parent)
             return QLabel(parent)  # type: ignore[arg-type]
 
-        native = NativeWidget(renderer="pyside6", factory=factory, takes_parent=True)
-        self.reconciler.render(Column(native_widget(native)))
+        native = NativeWidget(renderer="pyside6", factory=factory, takes_parent=True, sfle_port=self._native_geometry_port())
+        self.reconciler.render(Flex(native_widget(native), direction="column"))
         handle = self.reconciler.root.children[0].handle
         self.assertIsInstance(handle, QtHandle)
         self.assertEqual(parents, [self.reconciler.root.handle.widget])

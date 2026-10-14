@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, "src")
 
-from psx import Column, HookOrderError, Text, ThreadViolationError, component, use_effect, use_ref, use_state
+from psx import HookOrderError, Text, ThreadViolationError, component, use_effect, use_ref, use_state
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
 

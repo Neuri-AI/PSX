@@ -60,10 +60,30 @@ This is **source inventory only** for these exact identifiers at these immutable
 6. **No silent compatibility layer.** `Row` and `Column` are deleted in F3; neither parser aliases, deprecated wrappers nor native automatic fallback layouts are permitted. `Flex` handles LTR/RTL (row/column/reverse/wrap) or emits `SFLE_UNSUPPORTED_FEATURE` with matching IDs/diagnostics in Rust/Python.
 7. **Capability gates remain closed.** Do not modify F2 public capability manifest or advertise this adapter plan as current renderer support.
 
+## F3 scope extension — approved for 2026-10-11 planning
+
+The F2 port-contract inventory above remains historical certification evidence.
+**F3 implementation is planned on branch `feature/f3-sfle-native-adapters` forked from
+`develop` commit `979b6ed9e86c63b640d498439045910ed1a189aa`; no G1–G5 code is claimed implemented.**
+The five existing F3 gates remain the only five workstreams. Their revised
+mandatory acceptance criteria, complete built-in-component coverage matrix
+(including `ProgressBar`, `RadioGroup`, `Box`, `Native` and
+`Fragment`) and third-party adapter ports are specified in
+[**F3 implementation and certification plan**](sfle-f3-implementation.md).
+
+**Binding decision:** G2 is not complete until every applicable built-in
+registry component is proven end-to-end for each backend that already supports
+it, unsupported backend combinations fail explicitly, and extensibility
+ports are demonstrated for custom adapters and Native components. A demo with
+only `Flex` and `Button` never qualifies as completion evidence.
+The F2-tested geometry and precision contract is reused, **not redefined**.
+F4 responsive 12-column Flexbox Grid and postponed post-F2 CSS expansions
+are **not** pulled into F3.
+
 ## F3 implementation gates (not F2 code changes)
 
 - **F3-G1**: Add `Flex` declaration, contract and explicit Scroll-with-Flex child policy; prove nested tree normalization and unsupported diagnostics for each renderer.
-- **F3-G2**: Wire Qt, Kivy, Tkinter and Headless `measure → snapshot → compute → remeasure → commit` through generation-safe scheduler without native layout ownership. Test 0.01px pure, ≤1px native, stable identities and independent error channels.
+- **F3-G2 — Complete integration of built-in portable components and third-party adapters (mandatory):** Wire the **entire** built-in registry, not only `Flex`/`Button`, through Qt, Kivy, Tkinter and Headless `measure → snapshot → compute → remeasure → commit`, with a single SFLE geometry authority and a generation-safe scheduler. Supply a centrally validated layout-metadata namespace (`flex_grow`, `flex_shrink`, `flex_basis`, `align_self`, `order`, `layout_*`) without leaking it to native widget props. Every already-supported `(component, backend)` combination MUST have executable positive coverage for constrained intrinsic measurement, logical/natively applied rectangles, updates, resize, mount/move/unmount, key/ref/hook/focus/event preservation as applicable. Existing unsupported combinations MUST fail with explicit capability diagnostics rather than silently being treated as supported. `Native`, user components and `register_primitive` / `register_adapter` require documented and tested measure/apply/lifecycle port contracts. Mixed nested trees, widget state and independent measurement/engine/commit errors are mandatory. Enforce ≤0.01px pure and ≤1px native tolerance; no alternate QBoxLayout/BoxLayout/pack authority. **No G2 closure while any applicable registry component or custom-adapter gate lacks evidence.** See [authoritative F3 scope and coverage matrix](sfle-f3-implementation.md#f3-g2--mandatory-built-in-and-extensibility-coverage).
 - **F3-G3**: Wire Scroll native viewport/scrollregion updates from SFLE content bounds. Preserve offsets across content and viewport updates; verify horizontal/vertical and nested input handling on each toolkit.
 - **F3-G4**: Delete Row/Column public exports, registries, contract classes, adapters and old native layout algorithms. Migrate examples, boilerplates, tutorials and tests; add grep/no-alias gate. Keep Scroll.
 - **F3-G5**: Verify Windows/macOS/Linux wheels, PyO3 load and fallback when absent, source/frozen imports, Qt/Kivy/Tkinter/Headless parity, RTL/reverse, bounded sizing and complete Chromium oracle.

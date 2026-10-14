@@ -57,31 +57,31 @@ class QyroQtPsxDemo(QMainWindow, PSXComponent, ApplicationContext):
             print(f"Nuevo texto: {value}")
 
         return psx("""
-            <Column spacing={12} padding={30}>
+            <Flex direction="column" gap={12} padding={30}>
               <Text value="Crear cuenta" font_size={20} bold={True} />
-              <Column spacing={12}>
+              <Flex direction="column" gap={12}>
                 <Input value={email} placeholder="Email" on_change={on_email_change} />
                 <Input value={password} placeholder="Password" on_change={on_password_change} password={True} />
-              </Column>
-              <Row spacing={0}>
+              </Flex>
+              <Flex direction="row" gap={0}>
                 <Checkbox checked={accepted} on_change={on_accept_change} />
                 <Text value="Acepto los términos y condiciones" />
-              </Row>
-              <Row spacing={8}>
+              </Flex>
+              <Flex direction="row" gap={8}>
                 <Button label="Cancelar" on_click={cancel} />
                 <Button label="Guardar" on_click={save} />
-              </Row>
+              </Flex>
 
-                <Row spacing={12}>
+                <Flex direction="row" gap={12}>
                   <TextArea
                     value=""
                     placeholder="Escribe tu nota aquí..."
                     font_size={14}
                     on_change={on_note_change}
                   />
-                </Row>
+                </Flex>
 
-            </Column>
+            </Flex>
         """)
 
 

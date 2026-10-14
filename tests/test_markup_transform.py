@@ -19,18 +19,28 @@ def _execute_transformed(source: str) -> dict[str, object]:
     return namespace
 
 
+def measured_headless():
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    return HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+    )
+
+
 class MarkupM4BTransformTests(unittest.TestCase):
     def test_inline_markup_resolves_state_and_event_callback_lexically(self) -> None:
         result = transform_source(
             """
-from psx import Button, Column, Text, component, psx, use_state
+from psx import Button, Flex, Text, component, psx, use_state
 
 @component
 def Counter(prefix):
     count, set_count = use_state(0)
     def increment():
         set_count(lambda previous: previous + 1)
-    return psx('<Column><Text value={count} /><Button label="+1" on_click={increment} /></Column>')
+    return psx('<Flex direction="column"><Text value={count} /><Button label="+1" on_click={increment} /></Flex>')
 """,
             filename="counter_source.py",
         )
@@ -39,7 +49,7 @@ def Counter(prefix):
         self.assertNotIn("return psx(", result.source)
         namespace = _execute_transformed(result.source)
         counter = namespace["Counter"]
-        renderer = HeadlessRenderer()
+        renderer = measured_headless()
         reconciler = Reconciler(renderer)
         root = reconciler.render(counter(prefix="Count"))
         column = root.children[0].handle
@@ -54,13 +64,13 @@ def Counter(prefix):
             """
 from psx import psx
 def view():
-    return psx('<Column padding={50} spacing={12}><Text value="Ready" /></Column>')
+    return psx('<Flex direction="column" padding={50} gap={12}><Text value="Ready" /></Flex>')
 """,
             filename="numeric_markup.py",
         )
         node = _execute_transformed(result.source)["view"]()
         self.assertEqual(node.props["padding"], 50)
-        self.assertEqual(node.props["spacing"], 12)
+        self.assertEqual(node.props["gap"], 12)
 
     def test_builtin_textarea_tag_does_not_require_a_python_import(self) -> None:
         result = transform_source(
@@ -100,7 +110,7 @@ def make(value):
     def test_self_attributes_nested_paths_callbacks_and_rerenders_are_lexical(self) -> None:
         result = transform_source(
             """
-from psx import Button, Column, Text, component, psx, use_state
+from psx import Button, Flex, Text, component, psx, use_state
 
 class Platform:
     def __init__(self, value):
@@ -117,13 +127,13 @@ class WindowModel:
         self.settings_opened += 1
 
     def render(self, refresh):
-        return psx('''<Column>
+        return psx('''<Flex direction="column">
         <Text value={self.window_title} />
         <Text value={self.platform.value} />
         <Text value="Frozen" />
         <Button label="Settings" on_click={self.open_settings} />
         <Button label="Refresh" on_click={refresh} />
-    </Column>''')
+    </Flex>''')
 
 @component
 def View(model):
@@ -139,7 +149,7 @@ def View(model):
         )
         namespace = _execute_transformed(result.source)
         model = namespace["WindowModel"]()
-        renderer = HeadlessRenderer()
+        renderer = measured_headless()
         root = Reconciler(renderer).render(namespace["View"](model=model))
         column = root.children[0].handle
         title, platform, frozen, settings, refresh = column.children

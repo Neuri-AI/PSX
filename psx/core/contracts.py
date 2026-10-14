@@ -8,6 +8,7 @@ retain their established signatures and delegate here.
 from __future__ import annotations
 
 from .props import *
+from .layout_item import validate_flex_item_props
 from .defaults import *
 
 from collections.abc import Callable, Mapping
@@ -15,9 +16,8 @@ from dataclasses import dataclass
 from .validators import (
     validate_button_props,
     validate_checkbox_props,
-    validate_column_props,
+    validate_flex_props,
     validate_input_props,
-    validate_row_props,
     validate_slider_props,
     validate_text_props,
     validate_textarea_props,
@@ -55,11 +55,23 @@ class ComponentContract:
     builder_validator: Validator | None = None
     content_property: str | None = None
 
+    def _validate(self, props: Mapping[str, object], *, builder: bool) -> None:
+        validator = (self.builder_validator or self.validator) if builder else self.validator
+        if self.name == "Flex":
+            # Legacy layouts keep their old contract until F3-G4 removal;
+            # Flex validates its own closed syntax and shared item metadata.
+            validator(props)
+            return
+        validate_flex_item_props(props, owner=self.name)
+        native_props = {key: value for key, value in props.items()
+                        if key not in FLEX_ITEM_PROPS}
+        validator(native_props)
+
     def validate(self, props: Mapping[str, object]) -> None:
-        self.validator(props)
+        self._validate(props, builder=False)
 
     def validate_builder(self, props: Mapping[str, object]) -> None:
-        (self.builder_validator or self.validator)(props)
+        self._validate(props, builder=True)
 
     def with_defaults(self, props: Mapping[str, object]) -> dict[str, object]:
         self.validate(props)
@@ -110,17 +122,11 @@ INPUT_CONTRACT = ComponentContract(
     "none",
     validate_input_props,
 )
-COLUMN_CONTRACT = ComponentContract(
-    "Column",
-    COLUMN_PROPS,
-    COLUMN_DEFAULTS,
-    frozenset(),
-    "multiple",
-    validate_column_props,
+FLEX_CONTRACT = ComponentContract(
+    "Flex", FLEX_PROPS, FLEX_DEFAULTS,
+    frozenset(), "multiple", validate_flex_props,
 )
-ROW_CONTRACT = ComponentContract(
-    "Row", ROW_PROPS, ROW_DEFAULTS, frozenset(), "multiple", validate_row_props,
-)
+
 SLIDER_CONTRACT = ComponentContract(
     "Slider",
     SLIDER_PROPS,
