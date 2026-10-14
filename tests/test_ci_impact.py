@@ -13,7 +13,8 @@ class RoutingTests(unittest.TestCase):
             self.selected("psx/core/grid_contract.py"),
             {"core", "headless", "qt", "kivy", "tkinter", "legacy"},
         )
-        self.assertEqual(self.selected("tests/test_grid_contract.py"), {"core"})
+        self.assertEqual(self.selected("tests/test_grid_contract.py"),
+                         {"core", "qt", "kivy", "tkinter", "headless"})
         self.assertEqual(
             self.selected("docs/architecture/responsive-grid-contract.md"),
             set(),
@@ -23,6 +24,18 @@ class RoutingTests(unittest.TestCase):
                     ".github/workflows/native-layout-selective.yml").read_text(
                         encoding="utf-8")
         self.assertIn("tests/test_grid_contract.py", workflow)
+
+    def test_public_census_changes_require_all_evidence_producers(self):
+        expected = {"core", "qt", "kivy", "tkinter", "headless"}
+        for path in (
+            "tests/test_grid_contract.py",
+            "tests/test_public_behavior_census.py",
+            "tests/test_public_contract_census.py",
+            "tests/test_public_property_validation.py",
+            "tests/certification/public_behavior_census.py",
+            "tests/certification/public_property_cases.py",
+        ):
+            self.assertEqual(self.selected(path), expected)
 
     def test_documentation_only_has_zero_tests(self):
         result = classify(["docs/architecture/sfle-f3-implementation.md", "README.md"])
