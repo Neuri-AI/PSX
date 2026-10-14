@@ -330,3 +330,36 @@ def test_nested_grid_reflows_at_independent_content_width(request):
     finally:
         reconciler.unmount()
         close()
+
+
+def test_nested_grid_honors_application_custom_breakpoints(request):
+    """Configured md applies to each Grid's local content width, not the viewport."""
+    from psx.app import App
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    thresholds = {"base": 0, "sm": 100, "md": 350, "lg": 700, "xl": 900}
+    renderer, close = make_renderer(backend)
+    application = App(
+        nested_view(), renderer=renderer,
+        settings={"grid": {"breakpoints": thresholds}},
+    )
+    try:
+        root = application.reconciler.render(application.root)
+        nested_grid = root.children[0].children[0]
+        inner = nested_grid.children[0].handle.widget
+        assert rectangle(inner, backend)[2] == pytest.approx(197, abs=1)
+        renderer.set_sfle_constraints(viewport(600))
+        renderer.commit_layout(root)
+        # The outer Grid still splits at the custom md=350, but its nested
+        # Grid receives only a 298px content box and must now stack.
+        assert rectangle(root.children[0].handle.widget, backend)[2] == pytest.approx(298, abs=1)
+        assert rectangle(inner, backend)[2] == pytest.approx(298, abs=1)
+        assert inner is nested_grid.children[0].handle.widget
+        assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(request, Feature(
+            "Grid", binding, "interaction", "configured_container_breakpoints",
+            "isolated_nested_resolution", applicability="partial_native"), True)
+    finally:
+        application.unmount()
+        close()
