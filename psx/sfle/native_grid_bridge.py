@@ -112,11 +112,17 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         else:
             root_widget.pos = (0, 0)
             root_widget.size = (width, height)
+        kivy_heights = None
+        if backend is GridCommitBackend.KIVY:
+            kivy_heights = {placement.node_id: float(height) for placement in prepared.placements}
+            kivy_heights.update({placement.node_id + "/leaf": placement.height
+                                 for placement in prepared.placements})
         receipt = commit_grid_native_geometry(
             tuple(batch), backend=backend, widgets=commit_widgets, generation=generation,
             current_generation=lambda: renderer._sfle_generation,
             is_ui_thread=source.is_ui_thread,
             parent_height=float(height) if backend is GridCommitBackend.KIVY else None,
+            parent_heights=kivy_heights,
         )
         renderer.grid_result = (prepared, receipt)
     finally:
