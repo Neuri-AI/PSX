@@ -679,8 +679,10 @@ def test_native_grid_root_late_resource_invalidation_is_atomic(request, monkeypa
                          for child in root.children)
         handles = (root.handle.widget,) + tuple(
             widget for pair in children for widget in pair)
-        previous = tuple(rectangle(widget, backend) for widget in handles)
+        # Native host viewports resize when constraints are set; the atomic
+        # transaction starts at commit_layout, not at set_sfle_constraints.
         renderer.set_sfle_constraints(viewport(767))
+        previous = tuple(rectangle(widget, backend) for widget in handles)
         original = native_grid_bridge.commit_grid_native_geometry
         with monkeypatch.context() as patch:
             def inject_epoch(*args, **kwargs):
@@ -730,8 +732,8 @@ def test_multiple_mixed_grids_rollback_all_committed_siblings(request, monkeypat
             handles.append(grid.handle.widget)
             for item in grid.children:
                 handles.extend((item.handle.widget, item.children[0].handle.widget))
-        before = tuple(rectangle(widget, backend) for widget in handles)
         renderer.set_sfle_constraints(viewport(767))
+        before = tuple(rectangle(widget, backend) for widget in handles)
         implementation = mixed_grid_native.commit_grid_native_geometry
         count = [0]
         with monkeypatch.context() as patch:
