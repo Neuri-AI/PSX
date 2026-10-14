@@ -300,3 +300,75 @@ def test_grid_cross_property_contract_receipts(component, feature, scenario, req
         assert props["span"]["xl"] == 6 and props["offset"]["lg"] == 3
     assert_feature(request, Feature(component, CONTRACT, "interaction", feature,
                                     scenario, applicability="shared"), True)
+
+
+@pytest.mark.parametrize("width,span,offset", (
+    (0, 12, 0), (575, 12, 0), (576, 12, 0),
+    (767, 12, 0), (768, 8, 0), (991, 8, 0),
+    (992, 8, 2), (1199, 8, 2), (1200, 6, 2),
+))
+def test_grid_responsive_resolution_uses_inclusive_container_thresholds(width, span, offset):
+    from psx.core.grid_contract import resolve_grid_item_props
+    props = {"span": {"base": 12, "md": 8, "xl": 6},
+             "offset": {"base": 0, "lg": 2}}
+    assert dict(resolve_grid_item_props(props, width)) == {"span": span, "offset": offset}
+
+
+def test_grid_custom_breakpoints_are_validated_and_resolved():
+    from psx.core.grid_contract import resolve_grid_item_props, validate_grid_breakpoints
+    custom = {"base": 0, "sm": 400, "md": 600, "lg": 900, "xl": 1100}
+    validated = validate_grid_breakpoints(custom)
+    assert dict(validated) == custom
+    with pytest.raises(TypeError):
+        validated["md"] = 700
+    assert resolve_grid_item_props({"span": {"base": 12, "md": 6}}, 600,
+                                   breakpoints=custom)["span"] == 6
+    assert resolve_grid_item_props({"span": {"base": 12, "md": 6}}, 599,
+                                   breakpoints=custom)["span"] == 12
+
+
+@pytest.mark.parametrize("breakpoints", (
+    {}, {"base": 0, "sm": 576, "md": 768, "lg": 992},
+    {"base": 1, "sm": 576, "md": 768, "lg": 992, "xl": 1200},
+    {"base": 0, "sm": 576, "md": 576, "lg": 992, "xl": 1200},
+    {"base": 0, "sm": True, "md": 768, "lg": 992, "xl": 1200},
+    {"base": 0, "sm": 576.0, "md": 768, "lg": 992, "xl": 1200},
+))
+def test_grid_rejects_invalid_breakpoint_tables(breakpoints):
+    from psx.core.grid_contract import validate_grid_breakpoints
+    with pytest.raises(RendererCapabilityError):
+        validate_grid_breakpoints(breakpoints)
+
+
+@pytest.mark.parametrize("width", (-1, True, None, float("nan"), float("inf"), "768"))
+def test_grid_rejects_indefinite_or_invalid_container_width(width):
+    from psx.core.grid_contract import resolve_grid_item_props
+    with pytest.raises(RendererCapabilityError):
+        resolve_grid_item_props({}, width)
+
+
+@pytest.mark.parametrize("scenario", (
+    "inclusive_threshold", "custom_thresholds", "inherited_values",
+    "invalid_width", "invalid_thresholds",
+))
+def test_grid_responsive_resolution_receipts(scenario, request):
+    from psx.core.grid_contract import resolve_grid_item_props, validate_grid_breakpoints
+    from tests.certification.public_behavior_census import CONTRACT, Feature, assert_feature
+    props = {"span": {"base": 12, "md": 6}, "offset": {"base": 0, "lg": 2}}
+    if scenario == "inclusive_threshold":
+        assert resolve_grid_item_props(props, 767)["span"] == 12
+        assert resolve_grid_item_props(props, 768)["span"] == 6
+    elif scenario == "custom_thresholds":
+        thresholds = {"base": 0, "sm": 400, "md": 600, "lg": 900, "xl": 1100}
+        assert resolve_grid_item_props(props, 600, breakpoints=thresholds)["span"] == 6
+    elif scenario == "inherited_values":
+        assert dict(resolve_grid_item_props(props, 1000)) == {"span": 6, "offset": 2}
+    elif scenario == "invalid_width":
+        with pytest.raises(RendererCapabilityError):
+            resolve_grid_item_props(props, float("nan"))
+    elif scenario == "invalid_thresholds":
+        with pytest.raises(RendererCapabilityError):
+            validate_grid_breakpoints({"base": 0})
+    assert_feature(request, Feature("GridItem", CONTRACT, "interaction",
+                                    "responsive_resolution", scenario,
+                                    applicability="shared"), True)
