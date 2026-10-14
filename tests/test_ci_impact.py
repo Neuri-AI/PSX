@@ -15,6 +15,13 @@ class RoutingTests(unittest.TestCase):
                          {'core', 'qt', 'kivy', 'tkinter', 'headless'})
         self.assertEqual(self.selected('docs/architecture/responsive-grid-contract.md'), set())
 
+    def test_grid_native_preflight_routes_all_geometry_consumers(self):
+        expected = {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
+        for path in ("psx/sfle/grid_native_plan.py",
+                     "tests/sfle/test_grid_native_plan.py"):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), expected)
+
     def test_grid_row_solver_routes_both_language_parity_suites(self):
         expected = {"sfle", "rust"}
         for path in (
