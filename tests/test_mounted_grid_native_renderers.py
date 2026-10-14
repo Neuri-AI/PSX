@@ -171,3 +171,65 @@ def test_grid_under_flex_fails_closed_without_fallback(request):
     finally:
         tree.unmount()
         close()
+
+
+def test_component_boundaries_participate_in_native_grid(request):
+    """The reconciler, not Cinnamon, evaluates component roots and preserves handles."""
+    from psx import component
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+
+    @component
+    def Leaf(value: str):
+        return Text(value)
+
+    @component
+    def Screen(value: str):
+        return Grid(
+            GridItem(Leaf(value=value), span={"base": 12, "md": 6}, key="left"),
+            GridItem(Text("right"), span={"base": 12, "md": 6}, key="right"),
+            gap=4,
+        )
+
+    renderer, close = make_renderer(backend)
+    tree = Reconciler(renderer)
+    try:
+        mounted = tree.render(Screen(value="original"))
+        grid = mounted.children[0]
+        item = grid.children[0]
+        leaf = item.children[0].children[0]
+        original_widget = leaf.handle.widget
+        assert rectangle(item.handle.widget, backend)[2] == pytest.approx(398, abs=1)
+        assert rectangle(original_widget, backend)[2] == pytest.approx(398, abs=1)
+        assert renderer.grid_result[1].max_readback_error <= 1
+
+        changed = tree.render(Screen(value="updated"))
+        assert changed.children[0].children[0].children[0].children[0].handle.widget is original_widget
+        assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(request, Feature(
+            "GridItem", binding, "interaction", "component_boundary",
+            "keyed_update_readback", applicability="partial_native"), True)
+    finally:
+        tree.unmount()
+        close()
+
+
+def test_composite_grid_item_fails_closed_without_false_native_receipt(request):
+    """G4 composite measurement must not be guessed or delegated to toolkits."""
+    from psx.sfle.grid_math import GridPackingError
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    tree = Reconciler(renderer)
+    try:
+        with pytest.raises(GridPackingError, match="one mounted leaf|Composite GridItem"):
+            tree.render(Grid(GridItem(Text("a"), Text("b"))))
+        assert getattr(renderer, "grid_result", None) is None
+        assert_feature(request, Feature(
+            "GridItem", binding, "interaction", "composite_content",
+            "fails_closed", applicability="partial_native"), True)
+    finally:
+        tree.unmount()
+        close()
