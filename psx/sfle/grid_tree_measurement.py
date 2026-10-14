@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from collections.abc import Mapping, Sequence
 
 from psx.core.grid_contract import (
-    normalize_grid_props, normalize_grid_item_props, resolve_grid_item_props,
+    GRID_BREAKPOINTS, normalize_grid_props, normalize_grid_item_props, resolve_grid_item_props,
 )
 from psx.core.layout_tree import NormalizedLayoutNode
 from psx.core.vnode import NodeKind
@@ -54,6 +54,7 @@ def prepare_grid_measurement(
     current_generation: int,
     constraints: Mapping[str, GridItemConstraints] | None = None,
     rtl: bool = False,
+    breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
 ) -> PreparedGridMeasurement:
     """Resolve responsive Grid items against the Grid content box.
 
@@ -83,6 +84,7 @@ def prepare_grid_measurement(
         identifier = path_identity(child.path)
         values = resolve_grid_item_props(
             normalize_grid_item_props(child.source.props), content_width,
+            breakpoints=breakpoints,
         )
         slots.append(GridSlot(identifier, values["span"], values["offset"]))
         ids.append(identifier)
