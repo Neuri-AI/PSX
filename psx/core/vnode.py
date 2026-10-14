@@ -42,6 +42,8 @@ from psx.core.contracts import (
     TEXTAREA_DEFAULTS,
 
     FLEX_CONTRACT,
+    GRID_CONTRACT,
+    GRID_ITEM_CONTRACT,
 
 
 
