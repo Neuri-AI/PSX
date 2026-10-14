@@ -156,8 +156,12 @@ def classify(files: list[str] | None, *, force_full: bool = False) -> dict[str, 
         groups = _classify_path(path)
         selection.update(groups)
         causes.append(f"{path}: {','.join(sorted(groups))}")
+    # A path outside the reviewed routing map fails open to every product
+    # suite. Treat that equivalently to an explicit full run so that the
+    # final public-behavior aggregator cannot be silently omitted.
+    full = selection == set(SUITES)
     return {
-        "docs_only": False, "full": False,
+        "docs_only": False, "full": full,
         "selected": sorted(selection),
         "reason": "; ".join(causes),
         "changed": normalized,

@@ -181,12 +181,18 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(self.selected("docs/guide.md", "psx/renderers/qt/button.py"), {"qt"})
 
     def test_broad_unsafe_changes_fail_open(self):
+        self.assertTrue(classify(None)["full"])
         self.assertEqual(set(classify(None)["selected"]), set(SUITES))
         # Unknown changes must run every gate, including retired public APIs.
+        self.assertTrue(classify(None, force_full=True)["full"])
         self.assertEqual(set(classify(None, force_full=True)["selected"]), set(SUITES))
+        self.assertTrue(classify(["../hidden"])["full"])
         self.assertEqual(set(classify(["../hidden"])["selected"]), set(SUITES))
+        self.assertTrue(classify([f"tests/t{i}.py" for i in range(300)])["full"])
         self.assertEqual(set(classify([f"tests/t{i}.py" for i in range(300)])["selected"]), set(SUITES))
-        self.assertEqual(self.selected(".future-ci-extension"), set(SUITES))
+        result = classify([".future-ci-extension"])
+        self.assertTrue(result["full"])
+        self.assertEqual(set(result["selected"]), set(SUITES))
 
     def test_explicit_full_overrides_documentation_only(self):
         result = classify(["docs/README.md"], force_full=True)
