@@ -48,3 +48,21 @@ class PythonLayoutEngine:
         """Noncommittable geometry used solely to obtain post-flex widths."""
         from .compute_alpha import compute_snapshot
         return compute_snapshot(request, provisional=True)
+
+    def compute_grid(
+        self,
+        slots,
+        content_width,
+        column_gap=0,
+        row_gap=0,
+        item_heights=None,
+        constraints=None,
+        *,
+        rtl=False,
+    ):
+        """Pure Cinnamon Grid math integration; native mounting remains G3."""
+        from .grid_math import compute_grid
+        return compute_grid(
+            slots, content_width, column_gap, row_gap, item_heights,
+            constraints, rtl=rtl,
+        )

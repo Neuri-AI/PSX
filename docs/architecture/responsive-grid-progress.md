@@ -4,9 +4,41 @@
 >
 > Last evidence review: 2026-10-14. Working branch: `feature/responsive-grid-public-contract`; draft PR #16 to `develop`. The SHA and workflow results below describe **the reviewed execution**, not a promise that the branch has not advanced. Always inspect current HEAD and PR checks first.
 
+### G2 RTL and cross-axis CI certification — CLOSED (2026-10-14)
+
+Source SHA `c445770b60d6db1a8e96901e39778a38fcc8c836` passed required Actions run `38556168341`: 20/20 jobs SUCCESS, including Rust/Python differential (292 Python tests passed), SFLE geometry contracts (624 tests passed), native Qt/Kivy/Tk/Headless/Chromium regressions, change router, aggregate and mandatory CI conclusion. The Grid/GridItem scoped census remains **62/62 executed_pass, 0 pending**; aggregate checkout SHA `7a2bae9e9db0da4f5a749a6ad0a06054cd8aff90` (distinct from source SHA). Evidence: https://github.com/Neuri-AI/PSX/actions/runs/38556168341 . This closes the *RTL/row-height/row-gap math sub-increment only*, not G2 overall. Cross-axis fixture `tests/fixtures/grid_cross_axis.json` and Rust/Python tests cover RTL, explicit heights, offsets, row gaps and invalid heights. Native Grid mounting and runtime reflow are still unsupported. Next: min/max constraints, overflow/saturation, full engine integration and final adversarial differential audit.
+
+## G2 — Cinnamon mathematical Grid solver (new stacked branch)
+
+**Branch:** `feature/grid-mathematical-solver` forked from G1 immutable closure `8044d5423ac69fecbce5b171e6c35905d2b9b031`; review as a **stacked PR targeting G1**, not as changes to the certified G1 branch. G1's 62/62 receipt certificate remains unchanged.
+
+| G2 increment | State | Executable scope | Acceptance |
+| --- | --- | --- | --- |
+| Deterministic row packing and fixture schema | **CLOSED — certified 2026-10-14** | Rust-primary and Python-fallback `grid_math`, shared `tests/fixtures/grid_row_packing.json`, mixed auto/explicit row finalization, offsets, order stability, strict invalid rejection | Cargo unit tests, Python fixtures and randomized invariants, correct `sfle`+`rust` routing, green required Actions on immutable SHA |
+| Fixed-point pixel geometry and gutters | **CLOSED — certified 2026-10-14** | Real content-box pixel widths, gaps, projections, non-divisible shares | Rust/Python pixel-level edge agreement, deterministic fixtures |
+| RTL, row/cross-axis sizing and overflow | NOT STARTED | RTL logical reversal, row gaps/heights, constraints, overflow policy | Adversarial geometry tests, parity and error receipts |
+| Engine integration and final G2 audit | NOT STARTED | Pure engine authority and native-facing math outputs only | Rust primary/Python fallback agreement on immutable SHA, regression preservation |
+
+**Row-membership semantics frozen:** see [responsive-grid-mathematics.md](responsive-grid-mathematics.md). Mixed `[auto,8,auto,6]` produces rows `[auto(2),8,auto(2)]` and `[6]`; no closed-row backtracking. Logical offsets reserve columns but do not create native gaps. There is **no** native Grid widget layout at this stage.
+
+**Census assessment:** no new public props/events/methods/interactions in this first internal solver increment. The existing G1 census remains the public contract; executable math fixtures and CI are mandatory. No fabricated Grid geometry receipts.
+
+**Immutable certification of the first mathematical increment:** source commit `0b2e8d21fc0956a24ba1519c413f2f933b0ccbd0`; Actions `38554500438` concluded SUCCESS after all selected jobs, including Rust/Python differential, SFLE geometry tests, Qt/Kivy/Tk/Headless, Chromium, multiplatform native wheels, behavior aggregate and mandatory CI conclusion. Rust Cargo unit tests passed, Python interop + Grid fixtures ran **265 passed**, SFLE Python suite **597 passed**. Scoped existing public Grid/GridItem census **62/62 executed_pass, pending=0**, PR checkout SHA `92018a1ba1821ffd4b13d9602e77e631b29dea74`, aggregate job `115820826696`. See https://github.com/Neuri-AI/PSX/actions/runs/38554500438 . C1 introduces no new public contract receipts; the 62/62 are the unchanged G1 public contract. **G2 overall remains IN PROGRESS.**
+
+**Next:** design and test fixed-point pixel geometry and gutter projection with exact Rust/Python edge agreement; do not expose native Grid geometry yet.
+
+
+### Fixed-point horizontal projection — CLOSED (2026-10-14)
+
+The second G2 increment adds `project_grid_rows` in Rust and Python, consuming finalized logical row memberships and producing stable 1/64px horizontal edges with exactly one column gap per adjacent actual widget, **no gap for empty logical offsets**. The shared fixture `tests/fixtures/grid_pixel_projection.json` and `tests/sfle/test_grid_math.py` include fractional/nondivisible widths, wrapped rows, offsets, impossible gaps and projection invariants. Existing `scripts/ci/impact.py` routes the solver and fixtures to Rust/SFLE suites, exercised by `tests/test_ci_impact.py`. The solver introduces no public props, events, methods or interactions, so no new public census rows are applicable.
+
+**Immutable evidence:** source SHA `9d5ce3d5dfb64496461e14df557d867c3e196dc5`; PR checkout SHA `d537525507029e87ae6bfc25cac78a9272b60c5a`; required Actions run `38555560595` completed **SUCCESS**, including Rust and Python parity tests, SFLE geometry, native regression matrices, existing public-behavior aggregate and mandatory CI conclusion. Existing Grid/GridItem public contract census remained **62/62 executed_pass, pending=0** (aggregate job `115824318130`). The prior code run `38555221865` was cancelled due to intervening synchronization and is **not** closure evidence. Review https://github.com/Neuri-AI/PSX/actions/runs/38555560595 .
+
+**Still pending for G2 overall:** RTL horizontal reversal, row heights and row gaps, min/max intrinsic overflow policy, integration of these pure calculations with the engine and a final cross-language parity audit. This step does **not** certify native Grid mount or runtime reflow.
+
 ## Where to resume
 
-**F4 / G1 — CLOSED (public contract, metadata normalization, app settings and fail-closed certification). Next: G2 Cinnamon Grid mathematics.** Do **not** restart G1 at its first increment and do **not** begin G2 until G1 acceptance is explicitly certified.
+**F4 / G1 — CLOSED. G2 — IN PROGRESS (first row-packing increment CLOSED; pixel math next).** G1 is certified; do not restart it.
 
 The last reviewed source commit was `a6b04aca29d374f4b686d2cf49702aa9a95d456a` (`test(grid): bind unsupported mount receipts to actual Qt runtime`). Its pull-request Actions run `38550633487` passed, including all selected Qt bindings, Tkinter, Kivy, Headless, core, impact-router tests, public-behavior aggregate, and mandatory CI conclusion. Other commit checks (commit subject, package boundaries, Flex certification) also passed.
 
@@ -73,3 +105,27 @@ Application-level `App(..., settings={"grid": {"breakpoints": ...}})` is impleme
 3. Implement Rust-primary and Python-fallback Grid mathematics with deterministic fixtures, differential certification and CI impact routes; do not claim native Grid mounting before G3.
 
 **Roadmap boundary:** G1 public contract and normalization → G2 SFLE/Cinnamon Grid mathematics → G3 native integration → G4 responsive/nested runtime → G5 adversarial verification → G6 final certification. `Grid` is not yet a supported native geometry container merely because fail-closed checks pass.
+
+## Current G2 increment: fixed-point overflow hardening
+
+Implemented strict Rust/Python rejection of nonrepresentable widths, gaps, heights, and accumulated vertical extents. Added focused regression tests. Product CI is still running; do not mark this increment certified before the immutable code-SHA workflow completes. G2 remains open for min/max constraint policy and engine integration.
+
+### Boundary correction and CI routing (2026-10-14)
+
+Added executable Rust/Python shared fixtures at the exact signed `LayoutUnit` maximum (`2_147_483_647` raw), one quantum above it, impossible gap, exact maximum height, overflowing row gap and accumulated vertical extents. Fixed the missing `tests/fixtures/grid_pixel_projection.json` route in `scripts/ci/impact.py` and its routing test, so fixture-only modifications select both `sfle` and `rust`. Earlier docs-only green runs and cancelled code runs are **not** certification. This hardening increment remains **PENDING CI** until the latest code-bearing SHA has a completed mandatory run with Rust, Python and the relevant fixture tests actually executed. G2 overall remains IN PROGRESS.
+
+### Fixed-point overflow hardening — CERTIFIED CLOSED (2026-10-14)
+
+Immutable source SHA `47c03b587b1d653de3ff5c7275392fe160a9cb10` was certified by [required Actions run 38557432403](https://github.com/Neuri-AI/PSX/actions/runs/38557432403): **20/20 jobs SUCCESS**, including executable Rust Cargo + Python differential and Grid fixture tests (**307 passed** in the Rust/Python job), SFLE geometry (**639 passed**), CI change-router regression, native matrices, public behavior evidence aggregate and mandatory conclusion. Grid/GridItem scoped public census: **62/62 executed_pass; 0 pending**, PR checkout SHA `4fb1931b0e97de8708e7553ce7b88b6e2756ee4e` (not the source SHA). Shared fixtures cover exact signed `LayoutUnit` maximum, one-quantum overflow, row-gap/height limits, and cumulative vertical overflow. `scripts/ci/impact.py` now explicitly routes both shared Grid fixture files to Rust and SFLE; routing test executed. This certifies the **overflow hardening increment only**, not G2 overall, native Grid mounting, or engine integration. G2 remains IN PROGRESS pending min/max constraints, full engine integration and final adversarial parity audit.
+
+## G2 min/max and pure Cinnamon engine entry points — awaiting certification
+
+Implemented Rust/Python `compute_grid` math with resolved per-item min/max constraints, immutable allocated Grid rectangles, independently constrained used sizes, and explicit x/y overflow. Added shared fixture `tests/fixtures/grid_constraints.json`, Rust/Python fixture tests, `PythonLayoutEngine.compute_grid`, Rust PyO3 `compute_grid_json` binding, and `scripts/ci/impact.py` + router test. Native measurement/commit remains G3 and automatic snapshot Grid dispatch is not yet enabled. **Do not close G2 until source SHA CI confirms executable Rust/Python parity, and clarify that the Python engine entry point is not native Grid mounting.**
+
+## G2 mathematical Grid solver — CERTIFIED CLOSED (2026-10-14)
+
+**Certified immutable source SHA:** `8d772362208fbdd90cfb252859e49799ced1eb93`. **Actions:** https://github.com/Neuri-AI/PSX/actions/runs/38558618201 — all **20/20 required jobs SUCCESS**, including Rust/Python differential and Grid fixtures (**319 Python tests passed**), SFLE geometry (**651 passed**), Rust kernel tests, native wheel/fallback matrix, CI impact router, public census aggregate and mandatory conclusion. **Grid/GridItem public contract census:** 62/62 executed, pending 0; aggregate checkout SHA `89b319092ae82e5f3352712eaa8b4e851f648109` (distinct from source SHA). The existing public census is applicable unchanged: no new public Grid properties, events, methods or interactions were introduced by this internal solver increment.
+
+**Completed G2 scope:** 12-column logical packing, auto/explicit spans, offsets and stable ordering; fixed-point pixel projection and gutters; RTL and row cross-axis placement; overflow rejection at signed LayoutUnit boundaries; resolved min/max used sizes with explicit overflow flags; shared Rust/Python constraint fixtures; pure Cinnamon mathematical entry point through `PythonLayoutEngine.compute_grid` and Rust `grid_math::compute_grid`/PyO3 `compute_grid_json`. Bounds never silently reflow spans or move adjacent allocations.
+
+**Strict boundary:** this is a mathematical solver certification. Automatic dispatch from the general `LayoutInput` snapshot, native measurement, mounting, widget geometry readback, lifecycle and public Grid rendering are **not** claimed or certified; they must be completed in **G3**, followed by G4 responsive/nested runtime. G1 and G2 are closed; G3 is the next gate. Do not interpret green generic native regression jobs as proof of Grid native rendering.

@@ -15,6 +15,31 @@ class RoutingTests(unittest.TestCase):
                          {'core', 'qt', 'kivy', 'tkinter', 'headless'})
         self.assertEqual(self.selected('docs/architecture/responsive-grid-contract.md'), set())
 
+    def test_grid_row_solver_routes_both_language_parity_suites(self):
+        expected = {"sfle", "rust"}
+        for path in (
+            "psx/sfle/grid_math.py",
+            "rust/sfle-core/src/grid_math.rs",
+            "tests/sfle/test_grid_math.py",
+            "tests/fixtures/grid_row_packing.json",
+            "tests/fixtures/grid_cross_axis.json",
+                "tests/fixtures/grid_constraints.json",
+                "tests/fixtures/grid_pixel_projection.json",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), expected)
+        self.assertEqual(
+            self.selected("docs/architecture/responsive-grid-mathematics.md"), set()
+        )
+        self.assertEqual(
+            self.selected("psx/sfle/grid_math.py", "docs/architecture/README.md"),
+            expected,
+        )
+        self.assertEqual(
+            self.selected("psx/sfle/grid_math.py", "psx/renderers/kivy/kivy.py"),
+            {"sfle", "rust", "kivy"},
+        )
+
     def test_grid_contract_code_and_tests_route_to_executable_core_suite(self):
         self.assertGreaterEqual(
             self.selected("psx/core/grid_contract.py"),
