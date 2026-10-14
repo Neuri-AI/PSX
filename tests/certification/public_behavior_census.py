@@ -121,6 +121,10 @@ def inventory() -> tuple[Feature, ...]:
                         rows.append(Feature(component, native_backend, "interaction",
                                             "native_root" if component == "Grid" else "native_child",
                                             scenario, applicability="partial_native"))
+                    if component == "Grid" and native_backend != "headless":
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "native_root", "failed_commit_root_rollback",
+                                            applicability="partial_native"))
             for prop in sorted(props):
                 for scenario in PROPERTY_SCENARIOS:
                     rows.append(Feature(component, CONTRACT, "property", prop,
