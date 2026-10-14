@@ -271,3 +271,70 @@ mod pixel_projection_tests {
         }
     }
 }
+
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GridRect {
+    pub id: String,
+    pub x_raw: i32,
+    pub y_raw: i32,
+    pub width_raw: i32,
+    pub height_raw: i32,
+}
+
+/// Projects LTR/RTL horizontal coordinates and top-aligned rows.
+/// All heights must be explicitly supplied; intrinsic sizing is a later gate.
+pub fn layout_grid_rects(
+    rows: &[PackedGridRow],
+    content_width: f64,
+    column_gap: f64,
+    row_gap: f64,
+    item_heights: &std::collections::HashMap<String, f64>,
+    rtl: bool,
+) -> Result<Vec<Vec<GridRect>>, GridPackingError> {
+    use crate::layout_unit::LayoutUnit;
+    if !row_gap.is_finite() || row_gap < 0.0 {
+        return Err(GridPackingError::InvalidInput("Invalid row gap"));
+    }
+    let projected = project_grid_rows(rows, content_width, column_gap)?;
+    let width = LayoutUnit::from_nearest(content_width)
+        .map_err(|_| GridPackingError::InvalidInput("Invalid Grid width"))?.raw() as i64;
+    let gap = LayoutUnit::from_nearest(row_gap)
+        .map_err(|_| GridPackingError::InvalidInput("Invalid Grid row gap"))?.raw() as i64;
+    let mut heights = std::collections::HashMap::new();
+    for row in &projected {
+        for item in &row.items {
+            let height = item_heights.get(&item.id)
+                .ok_or(GridPackingError::InvalidInput("Missing Grid item height"))?;
+            if !height.is_finite() || *height < 0.0 {
+                return Err(GridPackingError::InvalidInput("Invalid Grid item height"));
+            }
+            heights.insert(item.id.clone(), LayoutUnit::from_nearest(*height)
+                .map_err(|_| GridPackingError::InvalidInput("Invalid Grid item height"))?
+                .raw() as i64);
+        }
+    }
+    let mut y = 0_i64;
+    let mut result = Vec::with_capacity(projected.len());
+    for row in projected {
+        let mut rects = Vec::with_capacity(row.items.len());
+        let mut row_height = 0_i64;
+        for item in row.items {
+            let height = heights[&item.id];
+            row_height = row_height.max(height);
+            let x = if rtl { width - item.x_raw as i64 - item.width_raw as i64 }
+                    else { item.x_raw as i64 };
+            if x < i32::MIN as i64 || x > i32::MAX as i64 ||
+                y > i32::MAX as i64 || height > i32::MAX as i64 {
+                return Err(GridPackingError::InvalidInput("Grid rectangle overflow"));
+            }
+            rects.push(GridRect {
+                id: item.id, x_raw: x as i32, y_raw: y as i32,
+                width_raw: item.width_raw, height_raw: height as i32,
+            });
+        }
+        if !rects.is_empty() { y += row_height + gap; }
+        result.push(rects);
+    }
+    Ok(result)
+}
