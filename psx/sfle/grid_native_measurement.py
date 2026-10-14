@@ -42,6 +42,7 @@ def measure_grid_native(
     current_generation: int,
     constraints: Mapping[str, object] | None = None,
     rtl: bool = False,
+    allow_nested: bool = False,
 ) -> PreparedGridMeasurement:
     """Perform real width-aware native measurement, then run Cinnamon Grid.
 
@@ -72,7 +73,9 @@ def measure_grid_native(
         effective = child.effective_children
         if len(effective) != 1 or effective[0].kind not in (NodeKind.HOST, NodeKind.NATIVE):
             raise GridPackingError("GridItem native measurement requires one mounted leaf.")
-        if effective[0].effective_children:
+        if effective[0].effective_children and not (
+            allow_nested and effective[0].kind is NodeKind.HOST and effective[0].type == "Grid"
+        ):
             raise GridPackingError("Composite GridItem measurement is not yet supported.")
         identifier = path_identity(child.path)
         values = resolve_grid_item_props(normalize_grid_item_props(child.source.props), content_width)
