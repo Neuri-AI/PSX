@@ -59,3 +59,13 @@ B. Add source-transform fixtures demonstrating correct binding names and safe Py
 C. Verify change-router selection and public-census applicability; execute relevant CI and record an immutable code SHA.
 
 **State:** specification groundwork recorded; no new parser behavior is claimed as shipped or certified.
+
+## First executable grammar increment — CERTIFIED, G1 STILL OPEN (2026-10-14)
+
+**Immutable implementation SHA:** `949d45d0d252dec4fcc108c6644322352380eff3`. **Required native selective CI:** https://github.com/Neuri-AI/PSX/actions/runs/38606480969 — SUCCESS (14/14 executed jobs, including final mandatory conclusion); four unrelated Rust/Chromium/SFLE/wheel jobs impact-skipped and are **not** represented as executed. PR: https://github.com/Neuri-AI/PSX/pull/25 (draft, targeting `develop`). CI core job reports **558 passed** plus 5 passed subtests including new grammar fixtures; public core suite **757 passed**. Legacy scoped public census Grid/GridItem **62/62** and native Grid/GridItem **150/150** executed unchanged; these **are not receipts for unshipped F5 interactions**.
+
+**Implemented:** `psx/markup/expressive_syntax.py` provides non-executing, source-spanned operator preflight for `&&`, `? :`, `=>`, `.map(`, `==`, `!=`. It tracks quote escapes and matching expression delimiters; rejects strict JS comparisons, unsupported template control directives, async arrows and unclosed quoted/delimiter inputs with `MarkupSyntaxError` filename/line/column. It intentionally neither parses nested JSX completely nor emits VNodes or Python AST. `tests/test_expressive_markup_syntax.py` exercises 12 grammar/isolation cases; existing M4A explicit-scope and current M4B lexical transformation remain unchanged. Source and test routes are connected to `scripts/ci/impact.py` with an exact router test and executable core workflow command.
+
+**Remaining before G1 CLOSE:** define and implement a full expression AST/grammar with nested JSX structural parsing, operator precedence and right-associative ternaries; validate narrow `.map` callback parameter grammar, legal arrow parameter/body shape and lexical name resolution boundaries; complete accurate markup-to-Python source spans and unsupported diagnostics for malformed nested branches; test attribute-expression containment and additional M4A negative cases. The current lexical token preflight is an initial contract foundation **not a completed grammar compiler**. No new F5 public runtime operations exist yet, so public census new-operation receipts are not applicable for this increment; revisit at G2–G4 when interactions ship.
+
+**Gate F5-G1: IN PROGRESS.** No work on M8/F6, Qyro CLI, or Qyro Engine.
