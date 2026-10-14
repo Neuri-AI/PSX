@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+from threading import get_ident
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from psx.sfle.model import LayoutConstraints, LayoutResult
@@ -381,6 +382,7 @@ class QtRenderer:
         self._sfle_invalidation_lifetime = 0
         self._sfle_mounted_root = None
         self._sfle_in_commit = False
+        self._sfle_owner_thread = get_ident()
         self._sfle_mounted_root = None
         self._sfle_watched_widget = None
         self._sfle_resize_filter = None
