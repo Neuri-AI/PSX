@@ -568,3 +568,50 @@ def test_grid_item_flex_content_uses_cinnamon_native_geometry(request):
     finally:
         reconciler.unmount()
         close()
+
+
+def test_alternating_grid_flex_grid_recurses_without_oscillation(request):
+    """A GridItem Flex may contain a second Grid with its own breakpoint."""
+    from psx import Flex
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    tree = Reconciler(renderer)
+
+    def scene():
+        return Grid(
+            GridItem(
+                Flex(
+                    Grid(
+                        GridItem(Text("inner one"), span={"base": 12, "md": 6}, key="one"),
+                        GridItem(Text("inner two"), span={"base": 12, "md": 6}, key="two"),
+                        gap=4, key="nested",
+                    ),
+                    direction="column", width="100%", height="80px",
+                    align_items="stretch",
+                ), key="outer", span=12,
+            ), gap=4,
+        )
+    try:
+        root = tree.render(scene())
+        flex = root.children[0].children[0]
+        inner = flex.children[0]
+        left = inner.children[0].handle.widget
+        right = inner.children[1].handle.widget
+        assert rectangle(left, backend)[2] == pytest.approx(398, abs=1)
+        assert rectangle(right, backend)[2] == pytest.approx(398, abs=1)
+        for width, expected in ((767, 767), (800, 398), (767, 767)):
+            renderer.set_sfle_constraints(viewport(width))
+            renderer.commit_layout(root)
+            assert rectangle(inner.handle.widget, backend)[2] == pytest.approx(width, abs=1)
+            assert rectangle(left, backend)[2] == pytest.approx(expected, abs=1)
+            assert inner.children[0].handle.widget is left
+            assert inner.children[1].handle.widget is right
+            assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(request, Feature(
+            "Grid", binding, "interaction", "alternating_composition",
+            "bounded_reflow_identity", applicability="partial_native"), True)
+    finally:
+        tree.unmount()
+        close()
