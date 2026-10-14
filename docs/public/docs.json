@@ -1,0 +1,52 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Velto",
+  "description": "Developer documentation for Velto's declarative Python native UI framework.",
+  "colors": {
+    "primary": "#7C3AED",
+    "light": "#8B5CF6",
+    "dark": "#6D28D9"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Introduction",
+        "pages": [
+          "introduction"
+        ]
+      },
+      {
+        "group": "Getting started",
+        "pages": [
+          "getting-started/overview"
+        ]
+      },
+      {
+        "group": "Learn the concepts",
+        "pages": [
+          "concepts/overview",
+          "concepts/architecture"
+        ]
+      },
+      {
+        "group": "Component catalog",
+        "pages": [
+          "components/overview"
+        ]
+      },
+      {
+        "group": "Python reference",
+        "pages": [
+          "reference/overview"
+        ]
+      },
+      {
+        "group": "Applications and examples",
+        "pages": [
+          "examples/overview"
+        ]
+      }
+    ]
+  }
+}
