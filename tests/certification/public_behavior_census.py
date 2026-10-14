@@ -162,6 +162,9 @@ def inventory() -> tuple[Feature, ...]:
                             rows.append(Feature("GridItem", native_backend, "interaction",
                                                 feature_name, scenario, applicability="partial_native"))
                     if component == "Grid":
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "semantic_epoch", "late_resource_rollback",
+                                            applicability="partial_native"))
                         for name, scenario in (("mixed_scroll", "offset_retained_reflow"),
                                                ("mixed_transaction", "rollback_and_recovery")):
                             rows.append(Feature("Grid", native_backend, "interaction",
