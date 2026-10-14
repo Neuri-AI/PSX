@@ -496,7 +496,6 @@ def grid_unsupported_mount(component):
             raise AssertionError(f'{component} mounted without Grid geometry support')
     finally:
         Widget.__init__ = original_init
-        native.close()
     assert not created, f'{component} created {len(created)} native Kivy widgets before rejection'
     return [['interaction', 'unsupported_mount', 'kivy_fail_closed']]
 
