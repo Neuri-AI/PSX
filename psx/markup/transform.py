@@ -154,7 +154,7 @@ def _has_expressive_interpolation(source: str) -> bool:
             depth += 1
         elif ch == "}":
             depth = max(depth - 1, 0)
-        elif depth and (source.startswith("&&", index) or ch == "?" or source.startswith(".map(", index)):
+        elif depth and (source.startswith("&&", index) or ch == "?" or source.startswith(".map(", index) or source.startswith("=>", index)):
             return True
         index += 1
     return False
