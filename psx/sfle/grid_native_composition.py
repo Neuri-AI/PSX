@@ -17,7 +17,7 @@ from .grid_math import GridPackingError
 from .grid_native_measurement import measure_grid_native
 from .grid_tree_measurement import PreparedGridMeasurement
 from .grid_native_plan import GridNativePlacement
-from .model import IntrinsicSizes
+from .model import IntrinsicSizes, MeasuredBox
 from .native_measurement import NativeMeasurementPort
 from .native_layout_snapshot import path_identity
 
@@ -66,7 +66,15 @@ def prepare_composed_grid(
 
     class Source:
         def port(self):
-            return NativeMeasurementPort(is_ui_thread, lambda request: None)
+            return NativeMeasurementPort(
+                is_ui_thread,
+                lambda request: MeasuredBox(
+                    request.node_id,
+                    self.measure_width(request.node_id, request.constraints.width.value),
+                    request.constraints,
+                    request.revision,
+                ),
+            )
 
         def measure_width(self, identifier, width):
             child = child_by_id[identifier]
