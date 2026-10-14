@@ -209,3 +209,58 @@ def test_grid_fixed_point_maximum_is_not_silently_clamped():
         project_grid_rows(rows, limit + 1 / 64)
     with pytest.raises(GridPackingError):
         layout_grid_rects(rows, 100, 0, 0, {"a": limit + 1 / 64})
+
+
+CONSTRAINT_CASES = json.loads(
+    (Path(__file__).resolve().parents[1] / "fixtures" / "grid_constraints.json")
+    .read_text(encoding="utf-8")
+)["cases"]
+
+
+@pytest.mark.parametrize("case", CONSTRAINT_CASES, ids=lambda item: item["name"])
+def test_grid_constrained_geometry_shared_with_rust(case):
+    from psx.sfle.grid_math import compute_grid, GridItemConstraints
+    slots = [GridSlot(**item) for item in case["items"]]
+    limits = {
+        key: GridItemConstraints(**value)
+        for key, value in case["constraints"].items()
+    }
+    args = (slots, case["width"], case["gap"], case["row_gap"],
+            case["heights"], limits)
+    if case.get("error") == "invalid":
+        with pytest.raises(GridPackingError):
+            compute_grid(*args, rtl=case["rtl"])
+        return
+    result = compute_grid(*args, rtl=case["rtl"])
+    from dataclasses import asdict
+    assert [[asdict(rect) for rect in row] for row in result] == case["rows"]
+
+
+def test_cinnamon_python_engine_grid_entry_point():
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.grid_math import GridItemConstraints
+    engine = PythonLayoutEngine()
+    result = engine.compute_grid(
+        [GridSlot("a", 6), GridSlot("b", 6)], 120,
+        item_heights={"a": 10, "b": 10},
+        constraints={"a": GridItemConstraints(min_width=70)},
+    )
+    assert result[0][0].overflow_x
+    assert result[0][0].width_raw == 3840
+    assert result[0][1].x_raw == 3840
+    assert not result[0][1].overflow_x
+
+
+@pytest.mark.parametrize("bounds", (
+    {"min_width": -1},
+    {"min_width": True},
+    {"min_width": float("inf")},
+    {"min_width": 40_000_000},
+    {"max_height": -1},
+    {"min_height": 11, "max_height": 10},
+))
+def test_grid_invalid_min_max_fail_closed(bounds):
+    from psx.sfle.grid_math import compute_grid, GridItemConstraints
+    with pytest.raises(GridPackingError):
+        compute_grid([GridSlot("a", 12)], 100, item_heights={"a": 10},
+                     constraints={"a": GridItemConstraints(**bounds)})
