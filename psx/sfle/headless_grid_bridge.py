@@ -103,7 +103,9 @@ def commit_headless_grid(renderer: object, root: object) -> None:
         receipt = commit_grid_native_geometry(
             tuple(batch), backend=GridCommitBackend.HEADLESS,
             widgets=widget_map, generation=generation,
-            current_generation=lambda: renderer._sfle_generation,
+            current_generation=lambda: (renderer._sfle_generation
+                                        if renderer._sfle_measurement_invalidations.epoch == invalidation_epoch
+                                        else -1),
             is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
         )
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
