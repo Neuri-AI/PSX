@@ -122,10 +122,12 @@ def test_grid_root_geometry_is_restored_when_native_batch_fails(request, monkeyp
     try:
         first = tree.render(view())
         parent_widget = first.handle.widget
-        before = rectangle(parent_widget, backend)
         a_widget = first.children[0].handle.widget
-        child_before = rectangle(a_widget, backend)
         renderer.set_sfle_constraints(viewport(767))
+        # Kivy may synchronously resize the viewport host on constraint update;
+        # rollback is defined against the geometry at commit entry.
+        before = rectangle(parent_widget, backend)
+        child_before = rectangle(a_widget, backend)
 
         def fail_commit(*args, **kwargs):
             raise RuntimeError("simulated native commit rejection")
