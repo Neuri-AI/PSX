@@ -163,3 +163,35 @@ def test_grid_cross_axis_rejects_invalid_input(row_gap, heights, rtl):
     rows = pack_grid_rows([GridSlot("a", 12)])
     with pytest.raises(GridPackingError):
         layout_grid_rects(rows, 120, 0, row_gap, heights, rtl=rtl)
+
+
+@pytest.mark.parametrize("width,gap", (
+    (40_000_000, 0),
+    (100, 40_000_000),
+))
+def test_grid_pixel_projection_rejects_unrepresentable_dimensions(width, gap):
+    from psx.sfle.grid_math import project_grid_rows
+    rows = pack_grid_rows([GridSlot("a", 6), GridSlot("b", 6)])
+    with pytest.raises(GridPackingError, match="LayoutUnit"):
+        project_grid_rows(rows, width, gap)
+
+
+@pytest.mark.parametrize("width,gap,row_gap,heights", (
+    (40_000_000, 0, 0, {"a": 10}),
+    (100, 0, 40_000_000, {"a": 10}),
+    (100, 0, 0, {"a": 40_000_000}),
+))
+def test_grid_cross_axis_rejects_unrepresentable_dimensions(
+    width, gap, row_gap, heights
+):
+    from psx.sfle.grid_math import layout_grid_rects
+    rows = pack_grid_rows([GridSlot("a", 12)])
+    with pytest.raises(GridPackingError, match="LayoutUnit"):
+        layout_grid_rects(rows, width, gap, row_gap, heights)
+
+
+def test_grid_cross_axis_rejects_accumulated_vertical_overflow():
+    from psx.sfle.grid_math import layout_grid_rects
+    rows = pack_grid_rows([GridSlot("a", 12), GridSlot("b", 12)])
+    with pytest.raises(GridPackingError, match="vertical geometry"):
+        layout_grid_rects(rows, 100, 0, 10, {"a": 20_000_000, "b": 20_000_000})
