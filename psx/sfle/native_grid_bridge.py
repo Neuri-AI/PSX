@@ -103,27 +103,51 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 placement.used_width, placement.used_height, False, False,
             ))
             commit_widgets[leaf_id] = leaf_handles[placement.node_id].widget
-        # The root is a native host, but it has no competing layout manager.
+        # Capture root geometry before ANY native write. Child transaction
+        # rollback alone is insufficient if commit/readback fails after resize.
         root_widget = handles[id(grid.source)].widget
         if backend is GridCommitBackend.QT:
-            root_widget.setGeometry(0, 0, round(width), round(height))
+            previous_rect = root_widget.geometry()
+            previous_root = (previous_rect.x(), previous_rect.y(),
+                             previous_rect.width(), previous_rect.height())
         elif backend is GridCommitBackend.TK:
-            root_widget.place(x=0, y=0, width=round(width), height=round(height))
+            previous_root = dict(root_widget.place_info())
         else:
-            root_widget.pos = (0, 0)
-            root_widget.size = (width, height)
+            previous_root = (tuple(root_widget.pos), tuple(root_widget.size))
         kivy_heights = None
         if backend is GridCommitBackend.KIVY:
             kivy_heights = {placement.node_id: float(height) for placement in prepared.placements}
             kivy_heights.update({placement.node_id + "/leaf": placement.height
                                  for placement in prepared.placements})
-        receipt = commit_grid_native_geometry(
-            tuple(batch), backend=backend, widgets=commit_widgets, generation=generation,
-            current_generation=lambda: renderer._sfle_generation,
-            is_ui_thread=source.is_ui_thread,
-            parent_height=float(height) if backend is GridCommitBackend.KIVY else None,
-            parent_heights=kivy_heights,
-        )
+        try:
+            # This host never delegates sibling geometry to toolkit layout.
+            if backend is GridCommitBackend.QT:
+                root_widget.setGeometry(0, 0, round(width), round(height))
+            elif backend is GridCommitBackend.TK:
+                root_widget.place(x=0, y=0, width=round(width), height=round(height))
+            else:
+                root_widget.pos = (0, 0)
+                root_widget.size = (width, height)
+            receipt = commit_grid_native_geometry(
+                tuple(batch), backend=backend, widgets=commit_widgets, generation=generation,
+                current_generation=lambda: renderer._sfle_generation,
+                is_ui_thread=source.is_ui_thread,
+                parent_height=float(height) if backend is GridCommitBackend.KIVY else None,
+                parent_heights=kivy_heights,
+            )
+        except BaseException:
+            # Restore the root as well as the child batch; an initially
+            # unplaced Tk root must remain unplaced after failed commit.
+            if backend is GridCommitBackend.QT:
+                root_widget.setGeometry(*previous_root)
+            elif backend is GridCommitBackend.TK:
+                if previous_root:
+                    root_widget.place_configure(**previous_root)
+                else:
+                    root_widget.place_forget()
+            else:
+                root_widget.pos, root_widget.size = previous_root
+            raise
         renderer.grid_result = (prepared, receipt)
     finally:
         renderer._sfle_in_commit = False
