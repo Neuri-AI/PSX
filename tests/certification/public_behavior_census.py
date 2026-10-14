@@ -238,7 +238,8 @@ def collect_executed_receipts(rows: tuple[Feature, ...], artifacts: tuple[Path, 
 
 
 def merge_executed_manifests(rows: tuple[Feature, ...], manifests: tuple[Path, ...],
-                             *, sha: str, require_complete: bool = False) -> dict:
+                             *, sha: str, require_complete: bool = False,
+                             require_contract_components: tuple[str, ...] = ()) -> dict:
     """Recheck original JUnit files after downloading per-platform artifacts.
 
     Receipt manifests are transport metadata, never independently trusted
@@ -267,6 +268,26 @@ def merge_executed_manifests(rows: tuple[Feature, ...], manifests: tuple[Path, .
                 receipt["junit_artifact"] = str(resolved)
             receipts.append(receipt)
     report = validate_receipts(rows, receipts, sha=sha)
+    if require_contract_components:
+        required_components = set(require_contract_components)
+        scoped_rows = {feature_key(row) for row in rows
+                       if row.backend == CONTRACT and row.component in required_components}
+        found_components = {row.component for row in rows if row.backend == CONTRACT
+                            and row.component in required_components}
+        if found_components != required_components or not scoped_rows:
+            raise ValueError(f"Unknown contract certification components: "
+                             f"{sorted(required_components - found_components)}")
+        passed = {feature_key(receipt) for receipt in receipts
+                  if receipt.get("status") == "executed_pass"}
+        missing = scoped_rows - passed
+        report["contract_scope"] = {
+            "components": sorted(required_components), "required": len(scoped_rows),
+            "executed_pass": len(scoped_rows - missing), "pending": len(missing),
+            "complete": not missing,
+        }
+        if missing:
+            raise ValueError(f"Incomplete component contract certification: "
+                             f"{sorted(missing)[:12]} ({len(missing)} missing)")
     if require_complete and not report["complete"]:
         raise ValueError(
             f"Final public behavior certificate incomplete: "
@@ -282,6 +303,7 @@ def main() -> None:
     parser.add_argument("--environment")
     parser.add_argument("--receipt-file", type=Path, action="append", default=[])
     parser.add_argument("--require-complete", action="store_true")
+    parser.add_argument("--require-contract-component", action="append", default=[])
     args = parser.parse_args()
     rows = inventory()
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -296,7 +318,8 @@ def main() -> None:
             parser.error("--receipt-file requires --sha")
         report = merge_executed_manifests(
             rows, tuple(args.receipt_file), sha=args.sha,
-            require_complete=args.require_complete)
+            require_complete=args.require_complete,
+            require_contract_components=tuple(args.require_contract_component))
         args.out.with_name(args.out.stem + "-final-report.json").write_text(
             json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, sort_keys=True))
