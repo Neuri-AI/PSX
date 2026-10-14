@@ -662,3 +662,44 @@ def test_keyed_flex_grid_siblings_reorder_without_native_remount(request):
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_grid_root_late_resource_invalidation_is_atomic(request, monkeypatch):
+    """A new resource epoch after child readback rolls the whole Grid back."""
+    from psx.sfle import native_grid_bridge
+    from psx.sfle.errors import SFLEError
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    tree = Reconciler(renderer)
+    try:
+        root = tree.render(view())
+        children = tuple((child.handle.widget, child.children[0].handle.widget)
+                         for child in root.children)
+        handles = (root.handle.widget,) + tuple(
+            widget for pair in children for widget in pair)
+        previous = tuple(rectangle(widget, backend) for widget in handles)
+        renderer.set_sfle_constraints(viewport(767))
+        original = native_grid_bridge.commit_grid_native_geometry
+        with monkeypatch.context() as patch:
+            def inject_epoch(*args, **kwargs):
+                receipt = original(*args, **kwargs)
+                renderer._sfle_measurement_invalidations.request("resource")
+                return receipt
+            patch.setattr(native_grid_bridge, "commit_grid_native_geometry",
+                          inject_epoch)
+            with pytest.raises(SFLEError, match="invalidated after native readback"):
+                renderer.commit_layout(root)
+        current = tuple(rectangle(widget, backend) for widget in handles)
+        assert all(actual == pytest.approx(old, abs=1)
+                   for actual, old in zip(current, previous))
+        renderer.commit_layout(root)
+        assert rectangle(children[0][0], backend)[2] == pytest.approx(767, abs=1)
+        assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(request, Feature(
+            "Grid", binding, "interaction", "semantic_epoch",
+            "late_resource_rollback", applicability="partial_native"), True)
+    finally:
+        tree.unmount()
+        close()
