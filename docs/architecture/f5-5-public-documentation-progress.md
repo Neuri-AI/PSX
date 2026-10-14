@@ -85,3 +85,16 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **C1 disposition:** **TECHNICALLY CERTIFIED** for the specific root export inventory and its fail-closed checks at the tested SHA; excludes exhaustive submodule APIs and native compatibility. **G1 remains IN PROGRESS**, G2–G6 remain NOT STARTED.
 - **This receipt ledger update creates a newer documentation-only commit**; the immutable executed CI SHA above remains the technical audit authority, and this newer commit must not be misrepresented as independently executed certification.
 - **Next three steps:** complete every submodule/component export and contract census; attach actual tests and backend support to inventory records; certify complete G1 before proceeding to G2.
+
+
+### 2026-10-14 — F5.5-G1 — declared API and builtin component audit expansion
+- **Starting develop SHA:** `e8b8e24de6937fa4875d830c8cdf442c54f69544` (includes merged PR #31).
+- **PR:** [#32](https://github.com/Neuri-AI/PSX/pull/32), branch `docs/f5-5-g1-complete-api-audit`, initially draft.
+- **Changed files:** `scripts/docs/full_api_audit.py`, `tests/test_docs_full_api_audit.py`, `.github/workflows/f5-5-g1-audit.yml`, this ledger.
+- **Source scope audited:** explicit exports of `psx`, `psx.markup`, `psx.renderers`; all builtin registry names including internal `Box`; component contract properties, defaults (repr snapshots), events and children policy. These findings are machine generated against the exact checked-out code and archived as GitHub Actions artifact.
+- **Commands:** `python scripts/docs/full_api_audit.py --write /tmp/f5-5-g1-declared-surface.json`; `python scripts/docs/full_api_audit.py --check /tmp/f5-5-g1-declared-surface.json`; `python -m unittest discover -s tests -p test_docs_full_api_audit.py -v`.
+- **Execution evidence:** Workflow `F5.5 G1 declared surface audit` introduced. **No verified passing run or immutable execution SHA at the time of this entry.** This document must be amended from the actual GitHub Actions results.
+- **Backend matrix:** Qt, Tkinter, Kivy, Headless and supported Python/OS combinations remain **not certified** by introspection. Registration is not native renderer proof. No new runnable examples.
+- **Discrepancies:** `psx.markup` and `psx.renderers` have their own `__all__`; package-root exports alone did not cover those. Builtin registry includes `Box` (internal) not in `psx.__all__`. `psx.core.errors` contains exception types not necessarily re-exported by the root, including `DuplicateComponentError` and `UnknownComponentError`. Optional Qyro integration exports must be reviewed without assuming they are part of the new ecosystem integration milestone.
+- **Status:** **G1 IN PROGRESS**, no claim of full G1 closure or native certification; PR branch not canonical until merged.
+- **Next three steps:** (1) audit remaining public submodules not exposing `__all__` with accurate test mappings; (2) execute and verify workflow on immutable PR SHA and address failures; (3) assemble source-to-test/native backend evidence and only then request G1 certification.
