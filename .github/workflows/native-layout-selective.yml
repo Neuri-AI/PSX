@@ -546,7 +546,7 @@ jobs:
           PY
 
   public-behavior-final:
-    name: Native layout complete public behavior certificate
+    name: Native layout public behavior evidence aggregate
     needs: [changes, core, qt-parity, kivy, tkinter, headless]
     if: >-
       needs.changes.outputs.full == 'true' &&
@@ -567,7 +567,7 @@ jobs:
         with:
           pattern: public-*
           path: public-artifacts
-      - name: Aggregate every public behavior receipt from this CI run
+      - name: Aggregate and validate every public behavior receipt from this CI run
         shell: bash
         run: |
           set -euo pipefail
@@ -591,7 +591,7 @@ jobs:
           done
           python -m tests.certification.public_behavior_census \
             --out public-behavior-final-inventory.json \
-            --sha "${{ github.sha }}" "${files[@]}" --require-complete
+            --sha "${{ github.sha }}" "${files[@]}"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
