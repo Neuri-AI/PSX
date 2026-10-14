@@ -105,3 +105,10 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Cause and correction:** introspection now dereferences callable instances to their defining classes; scalar constants remain legitimate API exports but source location is not invented. Corrected on `9d240c7fd407ce69dbc959594d1d542f54c25eca` and `f4ee62077ed53ce8914975c1ade7cfa023d64e5b`.
 - **Re-execution:** [Actions #38635580750](https://github.com/Neuri-AI/PSX/actions/runs/38635580750) queued on `f4ee62077ed53ce8914975c1ade7cfa023d64e5b` at inspection; **not yet a GREEN certification**.
 - **Remaining G1 blockers:** public submodules without `__all__` not fully covered; per-symbol behavioral test receipts and supported native renderer cells remain outstanding.
+
+
+### 2026-10-14 — F5.5-G1 — supplemental source and candidate-test census
+- **Changed file:** `scripts/docs/full_api_audit.py` updated to include top-level non-private class/function declarations in `psx.plugins`, `psx.core.errors`, `psx.core.hooks`, `psx.core.registry`, `psx.core.native`, `psx.core.vnode`, and `psx.integrations.qyro` alongside the prior explicit package exports and registry.
+- **Traceability:** candidate test file paths identified by matching declared API names in `tests/test_*.py` contents. **A candidate reference is NOT proof of a behavior-specific assertion or executed native test.** Source-to-test coverage must be reviewed per API before G1 closure.
+- **Previous verified execution:** [#38635580750](https://github.com/Neuri-AI/PSX/actions/runs/38635580750) **SUCCESS** on `f4ee62077ed53ce8914975c1ade7cfa023d64e5b` for declared exports and contract scanner. New supplemental scan commit `2b22d6dc241c2368ef52bc3fbd060f4869f664fa` requires its own CI result.
+- **Gate status:** G1 IN PROGRESS pending tests of expanded scanner, explicit reviewed API boundaries and native capability receipts.
