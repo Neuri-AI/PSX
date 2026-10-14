@@ -19,6 +19,8 @@ FAMILIES = frozenset({
 })
 _SPECIAL = {
     "Flex": "layout_container",
+    "Grid": "layout_container",
+    "GridItem": "structural_container",
     "Box": "structural_container",
     "RadioGroup": "structural_container",
     "Divider": "structural_container",
