@@ -76,7 +76,18 @@ def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast
     if isinstance(node, syntax.Arrow):
         _raise_unsupported(node, filename, "Arrow functions")
     if isinstance(node, syntax.Map):
-        _raise_unsupported(node, filename, "Declarative .map()")
+        # Map is compiler syntax, not a Python list method. Its callback is a
+        # lexical Python lambda generated at transform time, never evaluated
+        # from a string and never shared across iterations.
+        parameter = node.callback.parameters[0]
+        callback = ast.Lambda(
+            args=ast.arguments(posonlyargs=[], args=[ast.arg(arg=parameter)],
+                               kwonlyargs=[], kw_defaults=[], defaults=[]),
+            body=lower(node.callback.body, filename=filename, child=True),
+        )
+        return _helper("map_children",
+                       lower(node.iterable, filename=filename),
+                       callback, *_loc(node, filename))
     if isinstance(node, syntax.Fragment):
         return _helper("fragment", *(lower(part, filename=filename, child=True)
                                      for part in node.children if not _blank(part)))
@@ -116,6 +127,7 @@ def helper_import() -> ast.ImportFrom:
             ast.alias(name="lexical", asname="_psx_expr_lexical"),
             ast.alias(name="member", asname="_psx_expr_member"),
             ast.alias(name="conditional", asname="_psx_expr_conditional"),
+            ast.alias(name="map_children", asname="_psx_expr_map_children"),
         ],
         level=0,
     )
