@@ -74,7 +74,7 @@ def test_kivy_grid_unsupported_mount_fails_before_native_allocation(request, com
     result = subprocess.run([sys.executable, '-m',
         'tests.certification.kivy_public_behavior_driver', 'grid_unsupported_mount', component],
         env=env, capture_output=True, text=True, timeout=90)
-    assert result.returncode == 0, result.stdout + '\\n' + result.stderr
+    assert result.returncode == 0, result.stdout + '\n' + result.stderr
     receipts = [line for line in result.stdout.splitlines() if line.startswith('PSX_NATIVE_VERIFIED=')]
     assert len(receipts) == 1
     assert json.loads(receipts[0].split('=', 1)[1]) == [['interaction', 'unsupported_mount', 'kivy_fail_closed']]
