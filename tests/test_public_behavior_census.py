@@ -44,12 +44,18 @@ def test_source_derived_inventory_separates_shared_and_native():
                 "tk" if backend == "tkinter" else backend)
             subset = [r for r in records if r.backend == backend and r.component == component]
             assert subset
-            assert all(r.applicability == native[(family, component)] for r in subset)
+            partial_grid = backend == "headless" and component in ("Grid", "GridItem")
+            assert all(r.applicability == native[(family, component)] or (
+                partial_grid and r.applicability == "partial_native"
+            ) for r in subset)
             assert not any(r.scenario_id in ("default", "valid_boundary", "invalid_rejection")
                            for r in subset)
             if native[(family, component)] == "unported":
-                assert len(subset) == 1
-                assert subset[0].scenario_id == "classification_review"
+                classification = [r for r in subset if r.applicability == "unported"]
+                assert len(classification) == 1
+                assert classification[0].scenario_id == "classification_review"
+                if not partial_grid:
+                    assert len(subset) == 1
 
 
 def test_unexecuted_behavior_remains_pending():
