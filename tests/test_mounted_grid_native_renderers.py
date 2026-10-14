@@ -363,3 +363,36 @@ def test_nested_grid_honors_application_custom_breakpoints(request):
     finally:
         application.unmount()
         close()
+
+
+def test_flex_grid_native_geometry_and_resize_reconciliation(request):
+    """Mounted Flex assigns actual Grid width; Cinnamon Grid owns descendants."""
+    from psx import Flex
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(Flex(
+            view(), direction="column", width="100%", height=200,
+        ))
+        grid = mounted.children[0]
+        first = grid.children[0].handle.widget
+        leaf = grid.children[0].children[0].handle.widget
+        assert rectangle(grid.handle.widget, backend)[2] == pytest.approx(800, abs=1)
+        assert rectangle(first, backend)[2] == pytest.approx(398, abs=1)
+        assert renderer.grid_result[1].max_readback_error <= 1
+        renderer.set_sfle_constraints(viewport(767))
+        renderer.commit_layout(mounted)
+        assert rectangle(grid.handle.widget, backend)[2] == pytest.approx(767, abs=1)
+        assert rectangle(first, backend)[2] == pytest.approx(767, abs=1)
+        assert grid.children[0].handle.widget is first
+        assert grid.children[0].children[0].handle.widget is leaf
+        assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(request, Feature(
+            "Grid", binding, "interaction", "mixed_flex",
+            "allocated_width_reflow", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
+        close()
