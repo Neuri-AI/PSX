@@ -80,5 +80,5 @@ def test_grid_requires_real_width_aware_intrinsic_callback():
 def test_grid_fails_closed_without_sfle_viewport():
     renderer = HeadlessRenderer()
     reconciler = Reconciler(renderer)
-    with pytest.raises(Exception, match="SFLE viewport"):
+    with pytest.raises(Exception, match="SFLE Grid layout backend"):
         reconciler.render(tree())
