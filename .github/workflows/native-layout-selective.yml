@@ -549,7 +549,11 @@ jobs:
     name: Native layout public behavior evidence aggregate
     needs: [changes, core, qt-parity, kivy, tkinter, headless]
     if: >-
-      needs.changes.outputs.full == 'true' &&
+      needs.changes.outputs.core == 'true' &&
+      needs.changes.outputs.qt == 'true' &&
+      needs.changes.outputs.kivy == 'true' &&
+      needs.changes.outputs.tkinter == 'true' &&
+      needs.changes.outputs.headless == 'true' &&
       needs.core.result == 'success' &&
       needs.qt-parity.result == 'success' &&
       needs.kivy.result == 'success' &&
@@ -638,7 +642,7 @@ jobs:
               parity = needs.get("qt-parity", {}).get("result")
               if parity != "success":
                   failures.append(f"qt-parity={parity}")
-          if os.environ["FULL"] == "true":
+          if {"core", "qt", "kivy", "tkinter", "headless"}.issubset(selected):
               final = needs.get("public-behavior-final", {}).get("result")
               if final != "success":
                   failures.append(f"public-behavior-final={final}")
