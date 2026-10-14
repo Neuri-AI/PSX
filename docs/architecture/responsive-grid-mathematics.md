@@ -40,3 +40,18 @@ Other canonical cases:
 - **Error/precision review:** document saturation and overflow/readback contract, cyclic widths, deterministic fixture stress and Rust–Python true runtime differential. Shared fixture agreement alone is not a full native differential certification.
 
 **Census applicability:** This increment adds no public props, user events, methods or interactions. The G1 Grid/GridItem public census still applies unchanged; no fictitious native Grid receipt may be issued before G3. Add new cases and executed receipts whenever later increments change an observable public contract.
+
+
+## Fixed-point edge projection increment
+
+The pure solver now offers `project_grid_rows(rows, content_width, column_gap)` in Python and Rust. It consumes row membership and returns horizontal `x_raw`/`width_raw` in signed 1/64px layout units; it does **not** mount widgets. The shared fixture `tests/fixtures/grid_pixel_projection.json` is exercised by Rust unit tests and `tests/sfle/test_grid_math.py`.
+
+- Validate finite nonnegative definite width and gap; reject rows where between-widget gaps exceed available width.
+- Quantize width and gap with existing `LayoutUnit.from_nearest` policy.
+- For `N` rendered items in a row, subtract `(N-1)*column_gap` from width. Compute logical columns from *usable* width.
+- Offsets consume columns but **do not** generate extra gaps.
+- Project starts and ends against the **same row origin**, then add one gap per preceding rendered item. Avoid cumulative drift for nondivisible auto shares.
+- Fixtures cover nondivisible widths, mixed explicit/auto, offsets, wrapped rows, fractional lengths, zero width and impossible gutters.
+- RTL, cross-axis rows, intrinsic constraints, overflow and integration remain future increments. This internal math adds no new public props/events/methods/interactions and needs no fabricated public census receipt.
+
+**Certification pending until Rust and Python CI succeeds on the exact source SHA.**
