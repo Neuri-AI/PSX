@@ -18,6 +18,8 @@ from psx.core.registry import builtin_component_registry
 
 from .ast import Document, Fragment, Node, Reference, ReferencePart, TextNode
 from .parser import parse
+from .expressive_ast import parse_expressive_expression
+from .expressive_lower import helper_import, lower
 
 
 
@@ -58,6 +60,7 @@ class _Transformer(ast.NodeTransformer):
         self.filename = filename
         self.templates: list[_Template] = []
         self.entries: list[SourceMapEntry] = []
+        self.expressive_count = 0
 
     def visit_Call(self, node: ast.Call) -> ast.AST:
         self.generic_visit(node)
@@ -65,6 +68,18 @@ class _Transformer(ast.NodeTransformer):
             return node
         source = node.args[0].value
         template_filename = f"{self.filename}:{node.lineno}:{node.col_offset + 1}"
+        # Only statically authored M4B source may use expressive JSX operators.
+        # Dynamic and explicitly scoped M4A calls remain on the old safe path.
+        if "&&" in source or "?" in source:
+            tree = parse_expressive_expression(source, filename=template_filename)
+            replacement = lower(tree, filename=template_filename)
+            self.expressive_count += 1
+            self.entries.append(SourceMapEntry(
+                template_name=f"_psx_expressive_{self.expressive_count - 1}",
+                python_line=node.lineno, python_column=node.col_offset + 1,
+                markup_references=((tree.location.line, tree.location.column),),
+            ))
+            return ast.copy_location(replacement, node)
         document = parse(source, filename=template_filename)
         identifiers = _required_identifiers(document)
         # A single leading underscore avoids Python class-body name mangling
@@ -110,15 +125,16 @@ def transform_source(source: str, *, filename: str = "<module>") -> TransformRes
     module = ast.parse(source, filename=filename)
     transformer = _Transformer(filename)
     module = transformer.visit(module)
-    if transformer.templates:
+    if transformer.templates or transformer.expressive_count:
         insertion = _insertion_index(module.body)
-        declarations = _factory_declarations(transformer.templates)
+        declarations = ([] if not transformer.expressive_count else [helper_import()])
+        declarations.extend(_factory_declarations(transformer.templates) if transformer.templates else [])
         module.body[insertion:insertion] = declarations
     ast.fix_missing_locations(module)
     return TransformResult(
         source=ast.unparse(module) + "\n",
         source_map=SourceMap(filename, tuple(transformer.entries)),
-        transformed_calls=len(transformer.templates),
+        transformed_calls=len(transformer.templates) + transformer.expressive_count,
     )
 
 
