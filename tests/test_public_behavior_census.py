@@ -254,3 +254,32 @@ def test_final_aggregator_rejects_missing_coverage_and_duplicate_manifests(tmp_p
                                  sha=SHA, require_complete=True)
     with pytest.raises(ValueError, match="duplicate"):
         merge_executed_manifests((row,), (manifest, manifest), sha=SHA)
+
+
+def test_scoped_contract_certificate_fails_closed_without_every_applicable_case(tmp_path):
+    """A scoped release may leave unrelated backlog pending, never its own cells."""
+    from tests.certification.public_behavior_census import merge_executed_manifests
+    covered = Feature("Grid", CONTRACT, "public_api", "declaration", "builder",
+                      applicability="shared")
+    missing = Feature("Grid", CONTRACT, "public_api", "declaration", "markup",
+                      applicability="shared")
+    other = Feature("Text", CONTRACT, "property", "value", "default",
+                    applicability="shared")
+    junit = tmp_path / "core.xml"
+    _junit(junit, covered)
+    receipt = _receipt(covered, junit)
+    receipt["junit_artifact"] = junit.name
+    manifest = tmp_path / "core-receipts.json"
+    manifest.write_text(json.dumps({"summary": {"sha": SHA}, "receipts": [receipt]}),
+                        encoding="utf-8")
+    with pytest.raises(ValueError, match="Incomplete component contract"):
+        merge_executed_manifests((covered, missing, other), (manifest,), sha=SHA,
+                                 require_contract_components=("Grid",))
+    scoped = merge_executed_manifests((covered, other), (manifest,), sha=SHA,
+                                      require_contract_components=("Grid",))
+    assert scoped["contract_scope"]["complete"]
+    assert scoped["contract_scope"]["required"] == 1
+    assert not scoped["complete"]  # Unrelated missing evidence remains visible.
+    with pytest.raises(ValueError, match="Unknown contract certification"):
+        merge_executed_manifests((covered, other), (manifest,), sha=SHA,
+                                 require_contract_components=("GridItem",))
