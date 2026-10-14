@@ -1,12 +1,12 @@
 # Grid public contract — first G1 implementation handoff
 
-**Planning status:** owner-approved F4 contract; this handoff is documentation only and does not authorize claiming production Grid support, a passing test, or an increment closure.
+**Continuity status (2026-10-14):** owner-approved F4 contract merged into `develop` by PR #15; the former documentation branch was deleted. G1 product implementation is in progress in `feature/responsive-grid-public-contract` (draft PR #16), and remains uncertified. This handoff is documentation only: do not claim a passing test or closure without same-SHA executed evidence.
 
 Read `docs/architecture/responsive-grid-contract.md`, `docs/architecture/capability-certification-policy.md`, `AGENTS.md`, existing registry/props/markup contracts and the G1–G5 F3 baseline. Check actual branch, SHA and outstanding PRs before working.
 
 ## Single first increment: Grid and GridItem validated public metadata
 
-**Scope:** establish the smallest product-compatible public registration, typed declarations, defaults and fail-closed parsing/normalization for Grid and GridItem, without implementing responsive geometry or native rendering. Preserve existing interfaces, naming and reconciliation semantics; adapt to repository patterns found during implementation rather than inventing modules.
+**Scope:** complete and audit the already-started public registration, typed declarations, defaults and fail-closed parsing/normalization for Grid and GridItem, without implementing responsive geometry or native rendering. Start by reading `psx/core/grid_contract.py`, `psx/core/vnode.py`, `psx/core/registry.py`, `tests/test_grid_contract.py` and actual CI/census results on the current implementation SHA. Do not duplicate completed work or weaken F3 guarantees. Preserve existing interfaces, naming and reconciliation semantics; adapt to repository patterns found during implementation rather than inventing modules.
 
 **Functional RED/GREEN cases (minimum):** Grid recognized in builders and Markup; GridItem recognized; defaults (`columns=12`, `span="auto"`, `offset=0`, gaps); only 12 columns; invalid span/offset/types/unknown responsive names rejected; responsive scalar/map structure validated (no geometry claim); direct-resolved-child policy with functional component resolution; mismatched builder vs Markup rejects consistently; unsupported attempts to mount without a Grid layout backend fail explicitly; existing Flex/Scroll/Row-Column removal regressions remain unchanged.
 
