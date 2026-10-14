@@ -327,5 +327,5 @@ def test_grid_mount_fails_before_native_widget_creation(qt_tree, request, compon
     with pytest.raises(RendererCapabilityError, match=r"Native SFLE .* SFLE geometry not certified for .(?:Grid|GridItem)."):
         renderer.create(node, None)
     assert_feature(request, Feature(component, CONTRACT, "interaction",
-                                    "unsupported_mount", "qt_fail_closed",
+                                    "unsupported_mount", f"{BINDING}_fail_closed",
                                     applicability="shared"), True)
