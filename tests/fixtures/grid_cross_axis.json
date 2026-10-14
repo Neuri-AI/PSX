@@ -161,6 +161,89 @@
       "rtl": false,
       "heights": {},
       "error": "invalid"
+    },
+    {
+      "name": "height_layoutunit_max_exact",
+      "items": [
+        {
+          "id": "a",
+          "span": 12
+        }
+      ],
+      "width": 100,
+      "gap": 0,
+      "row_gap": 0,
+      "rtl": false,
+      "heights": {
+        "a": 33554431.984375
+      },
+      "rows": [
+        [
+          {
+            "id": "a",
+            "x_raw": 0,
+            "y_raw": 0,
+            "width_raw": 6400,
+            "height_raw": 2147483647
+          }
+        ]
+      ]
+    },
+    {
+      "name": "height_one_quantum_over",
+      "items": [
+        {
+          "id": "a",
+          "span": 12
+        }
+      ],
+      "width": 100,
+      "gap": 0,
+      "row_gap": 0,
+      "rtl": false,
+      "heights": {
+        "a": 33554432
+      },
+      "error": "invalid"
+    },
+    {
+      "name": "row_gap_one_quantum_over",
+      "items": [
+        {
+          "id": "a",
+          "span": 12
+        }
+      ],
+      "width": 100,
+      "gap": 0,
+      "row_gap": 33554432,
+      "rtl": false,
+      "heights": {
+        "a": 1
+      },
+      "error": "invalid"
+    },
+    {
+      "name": "accumulated_height_overflow",
+      "items": [
+        {
+          "id": "a",
+          "span": 12
+        },
+        {
+          "id": "b",
+          "span": 12
+        }
+      ],
+      "width": 100,
+      "gap": 0,
+      "row_gap": 1,
+      "rtl": false,
+      "heights": {
+        "a": 20000000,
+        "b": 20000000
+      },
+      "error": "invalid"
     }
   ]
 }
