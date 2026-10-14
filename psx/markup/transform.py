@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields, is_dataclass
 from pathlib import Path
 from typing import Iterable
 
@@ -18,7 +18,7 @@ from psx.core.registry import builtin_component_registry
 
 from .ast import Document, Fragment, Node, Reference, ReferencePart, TextNode
 from .parser import parse
-from .expressive_ast import parse_expressive_expression
+from .expressive_ast import parse_expressive_expression, Name as ExpressiveName
 from .expressive_lower import helper_import, lower
 
 
@@ -77,7 +77,7 @@ class _Transformer(ast.NodeTransformer):
             self.entries.append(SourceMapEntry(
                 template_name=f"_psx_expressive_{self.expressive_count - 1}",
                 python_line=node.lineno, python_column=node.col_offset + 1,
-                markup_references=((tree.location.line, tree.location.column),),
+                markup_references=tuple(_expressive_reference_locations(tree)),
             ))
             return ast.copy_location(replacement, node)
         document = parse(source, filename=template_filename)
@@ -114,6 +114,19 @@ class _Transformer(ast.NodeTransformer):
             keywords=[],
         )
         return ast.copy_location(replacement, node)
+
+
+def _expressive_reference_locations(node: object) -> Iterable[tuple[int, int]]:
+    """Retain original source positions for every lexical name in the AST."""
+    if isinstance(node, ExpressiveName):
+        yield (node.location.line, node.location.column)
+    if is_dataclass(node):
+        for field in fields(node):
+            if field.name != "location":
+                yield from _expressive_reference_locations(getattr(node, field.name))
+    elif isinstance(node, (tuple, list)):
+        for child in node:
+            yield from _expressive_reference_locations(child)
 
 
 def _has_conditional_interpolation(source: str) -> bool:
