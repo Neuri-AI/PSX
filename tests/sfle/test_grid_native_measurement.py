@@ -126,3 +126,58 @@ def test_headless_native_source_never_fabricates_missing_intrinsic_metrics():
     source._measure_intrinsic = lambda node, width: None
     with pytest.raises(SFLEError):
         run(grid, ids, source)
+
+
+def test_qt_measurement_uses_actual_qwidget_intrinsics():
+    qtwidgets = pytest.importorskip("PySide6.QtWidgets")
+    qtcore = pytest.importorskip("PySide6.QtCore")
+    from psx.sfle.qt_measurement import QtMeasurementSource
+
+    app = qtwidgets.QApplication.instance() or qtwidgets.QApplication([])
+    grid, ids, _, _ = setup()
+    widgets = {identifier: qtwidgets.QLabel("Native Qt label " + str(index))
+               for index, identifier in enumerate(ids)}
+    try:
+        source = QtMeasurementSource(widgets, qtcore=qtcore)
+        result = run(grid, ids, source)
+        assert len(result.placements) == 2
+        assert all(item.height > 0 for item in result.placements)
+        assert result.placements[1].x == 402
+    finally:
+        for widget in widgets.values():
+            widget.deleteLater()
+
+
+def test_tk_measurement_uses_actual_tcl_widget_requested_size():
+    import os
+    if not os.environ.get("DISPLAY"):
+        pytest.skip("Native Tk widget requires X11 display")
+    import tkinter as tk
+    from psx.sfle.tk_measurement import TkMeasurementSource
+
+    root = tk.Tk()
+    root.withdraw()
+    grid, ids, _, _ = setup()
+    widgets = {identifier: tk.Label(root, text="Native Tk label " + str(index))
+               for index, identifier in enumerate(ids)}
+    try:
+        result = run(grid, ids, TkMeasurementSource(widgets))
+        assert len(result.placements) == 2
+        assert all(item.height > 0 for item in result.placements)
+    finally:
+        root.destroy()
+
+
+def test_kivy_measurement_uses_real_label_texture():
+    pytest.importorskip("kivy")
+    from kivy.uix.label import Label
+    from psx.sfle.kivy_measurement import KivyMeasurementSource
+
+    grid, ids, _, _ = setup()
+    widgets = {identifier: Label(text="Native Kivy label " + str(index))
+               for index, identifier in enumerate(ids)}
+    for widget in widgets.values():
+        widget.texture_update()
+    result = run(grid, ids, KivyMeasurementSource(widgets))
+    assert len(result.placements) == 2
+    assert all(item.height > 0 for item in result.placements)
