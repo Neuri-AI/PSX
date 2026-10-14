@@ -16,10 +16,10 @@ flowchart TD
   E --> F["Cinnamon layout geometry"]
   F --> G["Native renderer adapters"]
   G --> H["Qt / Tkinter / Kivy widgets"]
-  D -. "Separate restricted route" .-> I["Explicit-scope runtime templates"]
+  I["Explicit-scope runtime templates"] -. "Separate restricted route" .-> D
 ```
 
-**Diagram in words:** developer-authored PSX is statically transformed before execution; component functions produce VNodes; the runtime reconciles them; Cinnamon computes geometry; native adapters apply the result to real widgets. The dashed path indicates that restricted runtime templates are a separate processing mode, not an arbitrary Python evaluator.
+**Diagram in words:** developer-authored PSX is statically transformed before execution; component functions produce VNodes; the runtime reconciles them; Cinnamon computes geometry; native adapters apply the result to real widgets. The dashed path runs from explicitly scoped runtime templates to VNode descriptions. It is a separate, restricted processing mode, not an arbitrary Python evaluator.
 
 ## Two markup paths
 
