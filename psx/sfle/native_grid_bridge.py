@@ -160,6 +160,12 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 commit_widgets[leaf_id] = leaf_handles[placement.node_id].widget
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid intrinsic measurement invalidated.")
+        # One transaction must cover the root AND every nested native child.
+        # A semantic invalidation after successful child readback still needs
+        # to restore the already-written children.
+        from .mixed_grid_native import MountedMixedGrid
+        rollback_scope = MountedMixedGrid(renderer, normalized, handles, backend, generation)
+        previous_descendants = rollback_scope.snapshot()
         # Capture root geometry before ANY native write. Child transaction
         # rollback alone is insufficient if commit/readback fails after resize.
         root_widget = handles[id(grid.source)].widget
@@ -200,6 +206,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Grid invalidated after native readback.")
         except BaseException:
+            rollback_scope.restore(previous_descendants)
             # Restore the root as well as the child batch; an initially
             # unplaced Tk root must remain unplaced after failed commit.
             if backend is GridCommitBackend.QT:
