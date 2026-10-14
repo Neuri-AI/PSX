@@ -372,3 +372,32 @@ def test_grid_responsive_resolution_receipts(scenario, request):
     assert_feature(request, Feature("GridItem", CONTRACT, "interaction",
                                     "responsive_resolution", scenario,
                                     applicability="shared"), True)
+
+
+@pytest.mark.parametrize("component", ("Grid", "GridItem"))
+@pytest.mark.parametrize("sfle_enabled", (False, True))
+def test_headless_rejects_unsupported_grid_mount_before_side_effects(component, sfle_enabled):
+    from psx import Grid, GridItem, Text
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.model import LayoutConstraints
+    node = Grid(GridItem(Text("x"))) if component == "Grid" else GridItem(Text("x"))
+    renderer = (HeadlessRenderer(sfle_constraints=LayoutConstraints(800, 600))
+                if sfle_enabled else HeadlessRenderer())
+    with pytest.raises(RendererCapabilityError, match="requires a Cinnamon Grid layout backend"):
+        renderer.create(node, None)
+    assert renderer.operations == []
+
+
+@pytest.mark.parametrize("component", ("Grid", "GridItem"))
+def test_grid_unsupported_headless_mount_receipts(component, request):
+    from psx import Grid, GridItem, Text
+    from psx.renderers.headless import HeadlessRenderer
+    from tests.certification.public_behavior_census import CONTRACT, Feature, assert_feature
+    node = Grid(GridItem(Text("x"))) if component == "Grid" else GridItem(Text("x"))
+    renderer = HeadlessRenderer()
+    with pytest.raises(RendererCapabilityError, match="Grid layout backend"):
+        renderer.create(node, None)
+    assert not renderer.operations
+    assert_feature(request, Feature(component, CONTRACT, "interaction",
+                                    "unsupported_mount", "headless_fail_closed",
+                                    applicability="shared"), True)
