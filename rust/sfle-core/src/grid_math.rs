@@ -508,3 +508,68 @@ pub fn compute_grid(
     }
     Ok(result)
 }
+
+
+#[cfg(test)]
+mod grid_constraint_tests {
+    use super::*;
+    use serde_json::Value;
+    use std::collections::HashMap;
+
+    #[test]
+    fn shared_min_max_and_overflow_fixtures() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/grid_constraints.json"
+        )).unwrap();
+        for case in fixture["cases"].as_array().unwrap() {
+            let name = case["name"].as_str().unwrap();
+            let slots: Vec<GridSlot> = case["items"].as_array().unwrap().iter().map(|item|
+                GridSlot {
+                    id: item["id"].as_str().unwrap().to_owned(),
+                    span: item["span"].as_u64().map(|v| v as u8),
+                    offset: item["offset"].as_u64().unwrap_or(0) as u8,
+                    order: item["order"].as_i64().unwrap_or(0) as i32,
+                }
+            ).collect();
+            let heights: HashMap<String, f64> = case["heights"].as_object().unwrap()
+                .iter().map(|(id, v)| (id.clone(), v.as_f64().unwrap())).collect();
+            let limits: HashMap<String, GridItemConstraints> = case["constraints"]
+                .as_object().unwrap().iter().map(|(id, value)| (
+                    id.clone(),
+                    GridItemConstraints {
+                        min_width: value["min_width"].as_f64().unwrap_or(0.0),
+                        max_width: value["max_width"].as_f64(),
+                        min_height: value["min_height"].as_f64().unwrap_or(0.0),
+                        max_height: value["max_height"].as_f64(),
+                    }
+                )).collect();
+            let result = compute_grid(
+                &slots, case["width"].as_f64().unwrap(),
+                case["gap"].as_f64().unwrap(), case["row_gap"].as_f64().unwrap(),
+                &heights, &limits, case["rtl"].as_bool().unwrap(),
+            );
+            if case["error"] == "invalid" {
+                assert!(result.is_err(), "{name}");
+                continue;
+            }
+            let actual = result.unwrap_or_else(|e| panic!("{name}: {e:?}"));
+            let expected = case["rows"].as_array().unwrap();
+            assert_eq!(actual.len(), expected.len(), "{name}");
+            for (row, target) in actual.iter().zip(expected) {
+                for (rect, item) in row.iter().zip(target.as_array().unwrap()) {
+                    assert_eq!(rect.id, item["id"].as_str().unwrap(), "{name}");
+                    for (value, field) in [
+                        (rect.x_raw, "x_raw"), (rect.y_raw, "y_raw"),
+                        (rect.width_raw, "width_raw"), (rect.height_raw, "height_raw"),
+                        (rect.used_width_raw, "used_width_raw"),
+                        (rect.used_height_raw, "used_height_raw"),
+                    ] {
+                        assert_eq!(value as i64, item[field].as_i64().unwrap(), "{name}: {field}");
+                    }
+                    assert_eq!(rect.overflow_x, item["overflow_x"].as_bool().unwrap(), "{name}");
+                    assert_eq!(rect.overflow_y, item["overflow_y"].as_bool().unwrap(), "{name}");
+                }
+            }
+        }
+    }
+}
