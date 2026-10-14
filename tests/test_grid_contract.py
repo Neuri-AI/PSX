@@ -143,3 +143,56 @@ def test_grid_registry_is_isolated_and_contracts_are_explicit():
         assert contract.properties == props
         assert contract.events == frozenset()
         assert first.resolve(name) is not second.resolve(name)
+
+
+@pytest.mark.parametrize("component", ("Grid", "GridItem"))
+@pytest.mark.parametrize("scenario", (
+    "builder", "markup", "direct_element", "registry", "invalid_property", "key_identity",
+))
+def test_public_grid_declaration_entry_points_are_executed(component, scenario, request):
+    """Prove public entry points independently, not by borrowing property receipts."""
+    from psx import Grid, GridItem, Text, psx
+    from psx.core.registry import builtin_component_registry
+    from psx.core.vnode import create_element
+    from tests.certification.public_behavior_census import CONTRACT, Feature, assert_feature
+
+    inner = Text("content")
+    item = GridItem(inner)
+    child = item if component == "Grid" else inner
+    builder = Grid if component == "Grid" else GridItem
+    markup = ("<Grid><GridItem><Text>content</Text></GridItem></Grid>"
+              if component == "Grid" else "<GridItem><Text>content</Text></GridItem>")
+    if scenario == "builder":
+        result = builder(child)
+        assert result.type == component and result.children == (child,)
+    elif scenario == "markup":
+        result = psx(markup)
+        assert result.type == component and len(result.children) == 1
+        assert result.children[0].type == ("GridItem" if component == "Grid" else "Text")
+    elif scenario == "direct_element":
+        result = create_element(component, child)
+        assert result.type == component and result.children == (child,)
+    elif scenario == "registry":
+        registry = builtin_component_registry()
+        definition = registry.resolve(component)
+        assert definition.name == component
+        assert definition.constructor is builder
+        assert definition.contract is not None
+        assert registry.clone().resolve(component) is definition
+    elif scenario == "invalid_property":
+        for construct in (lambda: builder(child, __invalid_grid_prop__=True),
+                          lambda: create_element(component, child, __invalid_grid_prop__=True)):
+            with pytest.raises(RendererCapabilityError):
+                construct()
+        with pytest.raises((RendererCapabilityError, ValueError, TypeError)):
+            psx(markup.replace(f"<{component}>",
+                               f"<{component} __invalid_grid_prop__={{True}}>"))
+    elif scenario == "key_identity":
+        keyed = builder(child, key="stable")
+        assert keyed.key == "stable"
+        assert builder(child, key="stable") == keyed
+        assert builder(child, key="different").key != keyed.key
+    else:
+        raise AssertionError(scenario)
+    assert_feature(request, Feature(component, CONTRACT, "public_api",
+                                    "declaration", scenario, applicability="shared"), True)
