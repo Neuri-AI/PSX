@@ -109,3 +109,7 @@ Application-level `App(..., settings={"grid": {"breakpoints": ...}})` is impleme
 ## Current G2 increment: fixed-point overflow hardening
 
 Implemented strict Rust/Python rejection of nonrepresentable widths, gaps, heights, and accumulated vertical extents. Added focused regression tests. Product CI is still running; do not mark this increment certified before the immutable code-SHA workflow completes. G2 remains open for min/max constraint policy and engine integration.
+
+### Boundary correction and CI routing (2026-10-14)
+
+Added executable Rust/Python shared fixtures at the exact signed `LayoutUnit` maximum (`2_147_483_647` raw), one quantum above it, impossible gap, exact maximum height, overflowing row gap and accumulated vertical extents. Fixed the missing `tests/fixtures/grid_pixel_projection.json` route in `scripts/ci/impact.py` and its routing test, so fixture-only modifications select both `sfle` and `rust`. Earlier docs-only green runs and cancelled code runs are **not** certification. This hardening increment remains **PENDING CI** until the latest code-bearing SHA has a completed mandatory run with Rust, Python and the relevant fixture tests actually executed. G2 overall remains IN PROGRESS.
