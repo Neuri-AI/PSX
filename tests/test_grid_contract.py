@@ -401,3 +401,25 @@ def test_grid_unsupported_headless_mount_receipts(component, request):
     assert_feature(request, Feature(component, CONTRACT, "interaction",
                                     "unsupported_mount", "headless_fail_closed",
                                     applicability="shared"), True)
+
+
+@pytest.mark.parametrize("backend", ("pyside6", "pyqt6", "pyqt5", "pyside2", "kivy", "tkinter"))
+@pytest.mark.parametrize("component", ("Grid", "GridItem"))
+def test_native_grid_mounts_reject_before_widget_creation(backend, component, request):
+    from psx import Grid, GridItem, Text
+    from tests.certification.public_behavior_census import CONTRACT, Feature, assert_feature
+    node = Grid(GridItem(Text("x"))) if component == "Grid" else GridItem(Text("x"))
+    if backend in ("pyside6", "pyqt6", "pyqt5", "pyside2"):
+        from psx.renderers.qt.pyqt import QtRenderer
+        renderer = QtRenderer(binding=backend)
+    elif backend == "kivy":
+        from psx.renderers.kivy.kivy import KivyRenderer
+        renderer = KivyRenderer()
+    else:
+        from psx.renderers.tkinter.tkinter import TkRenderer
+        renderer = TkRenderer()
+    with pytest.raises(RendererCapabilityError, match="requires a Cinnamon Grid layout backend"):
+        renderer.create(node, None)
+    assert_feature(request, Feature(component, CONTRACT, "interaction",
+                                    "unsupported_mount", f"{backend}_fail_closed",
+                                    applicability="shared"), True)
