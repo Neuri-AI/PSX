@@ -147,3 +147,25 @@ def test_grid_root_geometry_is_restored_when_native_batch_fails(request, monkeyp
     finally:
         tree.unmount()
         close()
+
+
+def test_grid_under_flex_fails_closed_without_fallback(request):
+    """G4 nested integration is intentionally not enabled by a native layout."""
+    from psx import Flex
+    from psx.core.errors import RendererCapabilityError
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    tree = Reconciler(renderer)
+    try:
+        with pytest.raises(RendererCapabilityError, match="Nested Grid"):
+            tree.render(Flex(view(), width="800px", height="200px"))
+        assert renderer.grid_result is None
+        assert_feature(request, Feature("Grid", binding, "interaction",
+                                        "nested_container", "fails_closed",
+                                        applicability="partial_native"), True)
+    finally:
+        tree.unmount()
+        close()
