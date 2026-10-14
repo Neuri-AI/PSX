@@ -10,7 +10,7 @@
 | Gate | Deliverable | Status | Immutable implementation SHA / CI evidence |
 | --- | --- | --- | --- |
 | G1 | Develop API census / verified support matrix | NOT STARTED | — |
-| G2 | Mintlify IA, docs.json and six template families | NOT STARTED | — |
+| G2 | Mintlify IA, docs.json and six template families | IN PROGRESS (PR #33) | pending pinned Mintlify validation CI |
 | G3 | Complete independent beginner-first tutorials | NOT STARTED | — |
 | G4 | Exhaustive verified API and component reference | NOT STARTED | — |
 | G5 | Real runnable example projects and native DX | NOT STARTED | — |
@@ -85,3 +85,16 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **C1 disposition:** **TECHNICALLY CERTIFIED** for the specific root export inventory and its fail-closed checks at the tested SHA; excludes exhaustive submodule APIs and native compatibility. **G1 remains IN PROGRESS**, G2–G6 remain NOT STARTED.
 - **This receipt ledger update creates a newer documentation-only commit**; the immutable executed CI SHA above remains the technical audit authority, and this newer commit must not be misrepresented as independently executed certification.
 - **Next three steps:** complete every submodule/component export and contract census; attach actual tests and backend support to inventory records; certify complete G1 before proceeding to G2.
+
+### 2026-10-14 — F5.5-G2 — Mintlify information architecture and editorial system
+- **Start develop SHA:** `e8b8e24de6937fa4875d830c8cdf442c54f69544`. G1 changes remain in separate PR #32, not present in this `develop` baseline. Do not rewrite G1 history.
+- **Implementation:** [PR #33](https://github.com/Neuri-AI/PSX/pull/33), branch `docs/f5-5-g2-mintlify-architecture`.
+- **Changed files:** `docs/public/docs.json`, `docs/public/package.json`, `docs/public/.mintignore`, `docs/public/introduction.mdx`, six navigable section/concept pages, six `docs/public/_templates/*.mdx`, `docs/architecture/f5-5-public-editorial-guide.md`, `scripts/docs/validate_public_site.py`, `tests/test_docs_public_site.py`, `.github/workflows/f5-5-public-docs.yml`, this ledger.
+- **Information architecture:** Introduction; Getting started; Learn the concepts; Component catalog; Python reference; Applications and examples. No misleading ecosystem integrations or unfinished API claims. Public docs are scaffold pages; beginner lessons G3, detailed API pages G4 and complete examples G5 remain pending.
+- **Mintlify tooling:** exact `mint@4.2.988` (Node 20.17–24) and commands `npm install --no-package-lock --no-audit --no-fund`, `npm run validate`, `npm run links`, `npm run a11y` from `docs/public`.
+- **Independent local checks:** `python scripts/docs/validate_public_site.py`; `python -m unittest discover -s tests -p test_docs_public_site.py -v`. These are structural checks, **not** an MDX parser.
+- **Runnable application paths/commands:** None created by G2; G3/G5 own that work.
+- **Native backend evidence:** Not applicable to this documentation architecture increment. No new renderer compatibility claims.
+- **CI:** GitHub Actions workflow `F5.5 public documentation validation` added; outcome and immutable SHA pending. Do not claim G2 certified until observed.
+- **Gate status:** G2 IN PROGRESS pending successful Mintlify/structural checks. G1 accepted baseline tracked separately in PR #32.
+- **Next three steps:** (1) review G2 CI jobs and repair real validation errors; (2) capture passing immutable SHA, update this ledger and roadmap, mark PR ready; (3) merge G1/G2 with ledger reconciliation, then begin G3 reproducible lessons.
