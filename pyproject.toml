@@ -46,6 +46,9 @@ dev = [
 velto-transform = "psx.markup.transform:main"
 velto-dev = "psx.devtools.__main__:main"
 
+[tool.poetry]
+packages = [{ include = "psx" }]
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
