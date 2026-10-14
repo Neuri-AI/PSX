@@ -255,3 +255,48 @@ def test_grid_item_accepts_independently_inherited_responsive_values():
     })
     assert dict(result["span"]) == {"base": 12, "md": 8, "xl": 6}
     assert dict(result["offset"]) == {"base": 0, "sm": 0, "lg": 3}
+
+
+@pytest.mark.parametrize("component,feature,scenario", (
+    ("Grid", "gap_normalization", "canonical_pixel_grammar"),
+    ("Grid", "gap_normalization", "axis_gap_inheritance"),
+    ("Grid", "gap_normalization", "invalid_primary_gap"),
+    ("GridItem", "span_offset", "breakpoint_inheritance"),
+    ("GridItem", "span_offset", "responsive_overflow_rejection"),
+    ("GridItem", "span_offset", "responsive_valid_combination"),
+))
+def test_grid_cross_property_contract_receipts(component, feature, scenario, request):
+    from tests.certification.public_behavior_census import CONTRACT, Feature, assert_feature
+    if scenario == "canonical_pixel_grammar":
+        from psx.sfle.lengths import parse_length, LengthKind
+        for value in ("0px", ".5px", " 4PX ", 2.5):
+            assert parse_length(normalize_grid_props({"gap": value})["gap"]).kind is LengthKind.PX
+    elif scenario == "axis_gap_inheritance":
+        props = normalize_grid_props({"gap": 3, "row_gap": None, "column_gap": 5})
+        assert props["row_gap"] == 3 and props["column_gap"] == 5
+    elif scenario == "invalid_primary_gap":
+        for value in (None, -1, "10%", "auto", float("nan"), True):
+            with pytest.raises(RendererCapabilityError):
+                normalize_grid_props({"gap": value})
+    elif scenario == "breakpoint_inheritance":
+        props = normalize_grid_item_props({
+            "span": {"base": 8, "md": 6},
+            "offset": {"base": 2, "lg": 3},
+        })
+        assert props["span"]["md"] == 6 and props["offset"]["lg"] == 3
+    elif scenario == "responsive_overflow_rejection":
+        for span, offset in (
+            ({"base": 12, "md": 8}, {"base": 0, "md": 5}),
+            (12, {"base": 0, "sm": 1}),
+            ({"base": 6, "lg": 12}, {"base": 0, "md": 1}),
+        ):
+            with pytest.raises(RendererCapabilityError):
+                normalize_grid_item_props({"span": span, "offset": offset})
+    elif scenario == "responsive_valid_combination":
+        props = normalize_grid_item_props({
+            "span": {"base": 12, "md": 8, "xl": 6},
+            "offset": {"base": 0, "lg": 3},
+        })
+        assert props["span"]["xl"] == 6 and props["offset"]["lg"] == 3
+    assert_feature(request, Feature(component, CONTRACT, "interaction", feature,
+                                    scenario, applicability="shared"), True)
