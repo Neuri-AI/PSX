@@ -65,3 +65,44 @@ def test_contract_normalization_does_not_mutate_caller_input():
     assert source == {"span": {"base": 12, "md": 6}}
     with pytest.raises(TypeError):
         normalized["span"]["md"] = 4
+
+
+def test_public_grid_builders_and_registry_resolve_to_equivalent_markup():
+    from psx import Grid, GridItem, Text, psx
+    from psx.core.registry import builtin_component_registry
+    registry = builtin_component_registry()
+    assert registry.contains("Grid") and registry.contains("GridItem")
+    built = Grid(GridItem(Text("Hello"), span=6), gap=8)
+    parsed = psx("""
+        <Grid gap={8}>
+            <GridItem span={6}><Text>Hello</Text></GridItem>
+        </Grid>
+    """)
+    assert built == parsed
+    assert built.props["columns"] == 12
+    assert built.children[0].props["span"] == 6
+
+
+def test_public_grid_validates_resolved_direct_children():
+    from psx import Grid, GridItem, Text
+    from psx.core.errors import InvalidChildError
+    with pytest.raises(InvalidChildError, match="GridItem"):
+        Grid(Text("invalid"))
+    with pytest.raises(InvalidChildError, match="one component root"):
+        GridItem()
+    with pytest.raises(InvalidChildError, match="one component root"):
+        GridItem(Text("a"), Text("b"))
+
+
+def test_grid_item_supports_automatic_span_in_public_markup():
+    from psx import psx
+    node = psx("<Grid><GridItem><Text>Header</Text></GridItem></Grid>")
+    assert node.type == "Grid"
+    assert node.children[0].props["span"] == "auto"
+
+
+def test_public_declarations_preserve_key_identity():
+    from psx import Grid, GridItem, Text
+    node = Grid(GridItem(Text("one"), key="one"), key="outer")
+    assert node.key == "outer"
+    assert node.children[0].key == "one"
