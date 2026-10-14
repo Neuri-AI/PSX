@@ -129,6 +129,9 @@ def inventory() -> tuple[Feature, ...]:
                                         "responsive_cycle", scenario, applicability="partial_native"))
             if component == "GridItem":
                 rows.append(Feature(component, "headless", "interaction",
+                                    "flex_content", "measured_children_readback",
+                                    applicability="partial_native"))
+                rows.append(Feature(component, "headless", "interaction",
                                     "native_child", "geometry_readback", applicability="partial_native"))
             if component in ("Grid", "GridItem"):
                 for native_backend in ("pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"):
@@ -139,6 +142,9 @@ def inventory() -> tuple[Feature, ...]:
                                             "native_root" if component == "Grid" else "native_child",
                                             scenario, applicability="partial_native"))
                     if component == "GridItem":
+                        rows.append(Feature("GridItem", native_backend, "interaction",
+                                            "flex_content", "measured_children_readback",
+                                            applicability="partial_native"))
                         for feature_name, scenario in (("component_boundary", "keyed_update_readback"),
                                                        ("composite_content", "fails_closed")):
                             rows.append(Feature("GridItem", native_backend, "interaction",
