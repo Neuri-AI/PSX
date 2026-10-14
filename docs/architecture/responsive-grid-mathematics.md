@@ -55,3 +55,7 @@ The pure solver now offers `project_grid_rows(rows, content_width, column_gap)` 
 - RTL, cross-axis rows, intrinsic constraints, overflow and integration remain future increments. This internal math adds no new public props/events/methods/interactions and needs no fabricated public census receipt.
 
 **Certification pending until Rust and Python CI succeeds on the exact source SHA.**
+
+## Overflow hardening
+
+Both solvers reject unrepresentable horizontal dimensions, gutters, item heights, and accumulated vertical rectangle extents rather than silently returning saturated fixed-point geometry. Rust and Python tests exercise the rejection. This is internal math only; native Grid mounting remains unsupported. CI certification is pending.
