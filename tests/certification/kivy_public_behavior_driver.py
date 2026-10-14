@@ -476,7 +476,7 @@ def grid_unsupported_mount(component):
     from psx.core.errors import RendererCapabilityError
     from kivy.uix.widget import Widget
 
-    native = renderer()
+    native = KivyRenderer()
     node = (psx.Grid(psx.GridItem(psx.Text('content')))
             if component == 'Grid' else psx.GridItem(psx.Text('content')))
     created = []
