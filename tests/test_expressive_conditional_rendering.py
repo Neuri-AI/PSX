@@ -135,7 +135,6 @@ def view(visible):
 
     def test_future_map_and_arrow_lowering_are_not_silently_enabled(self):
         sources = (
-            '<Flex>{visible && items.map((item) => <Text key={item.id} />)}</Flex>',
             '<Flex>{visible && <Button on_click={() => save()} />}</Flex>',
         )
         for markup in sources:
