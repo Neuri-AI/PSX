@@ -114,3 +114,18 @@ The owner clarified that `<Flex gap="12" />` is the approved literal syntax; num
 **Public census applicability review:** F5-G2 changes the authored M4B expression grammar and the VNode composition produced by existing component constructors. It does **not** register new props, events, methods, components or native widget interactions. The existing component-derived census remains required and passed without fabricated new native receipts; the new language behavior is directly verified by executable compiler/Headless tests in required jobs. F5-G3–G5 must separately assess any newly published component/method/interaction combinations and add the corresponding code-derived census cells/receipts when applicable. The event `Button.on_click` used for lifecycle verification is already part of the existing public census, not a newly declared event.
 
 **Gate boundary:** `&&` and `? :` conditional markup are now executable with M4B's static source transform, but `.map()` lowering remains G3 and arrow function compilation remains G4. M4A strings cannot execute expressive expressions, nor are Qyro CLI, Engine or postponed F6/M8 in scope. **F5 progress: 2/6 gates CLOSED**. PR [#26](https://github.com/Neuri-AI/PSX/pull/26) remains unmerged and in draft review; technical gate closure does not imply PR merger, alpha publication or deploy.
+
+
+## F5-G3 — Declarative list rendering (implementation in review)
+
+**Development branch:** `feature/expressive-declarative-lists`. **PR:** [#27](https://github.com/Neuri-AI/PSX/pull/27) (draft, targeting develop). Base implementation incorporates G2 in-progress PR #26; neither PR is implied merged.
+
+**Implemented in this increment:**
+- M4B statically lowers `items.map((item) => <Text key={item.id} />)` into an ordinary Python lexical lambda plus an explicit runtime list-materialization function; the transformation does not invoke a Python `list.map` method, use `eval`, `exec` or frame inspection.
+- Runtime materializes ordered VNodes, rejects noniterable sources, non-VNode items, missing/invalid keys and duplicate keys before attempting native mounting. Nested maps inherit independent Python lexical scopes.
+- Existing reconciler remains responsible for keyed insert/delete/move and native identity; no alternative reconciliation engine is introduced.
+- `tests/test_declarative_list_rendering.py` covers empty, ordering, insert, removal, nested lists, lexical captures, conditional maps, invalid keys and Headless keyed identity; `scripts/ci/impact.py`, routing regression and executable native-layout core/Headless jobs include the tests.
+
+**Acceptance still required:** certifying required GitHub Actions jobs on an immutable **code SHA** and reviewing adversarial situations (conditional JSX branches returning keys, nested fragment keys, duplicate keys across separate maps, generator errors and rollback). G3 is **IN PROGRESS** until those are evidenced; do not mark CLOSED based on implementation alone.
+
+**F5 gate count:** G1 and G2 CLOSED; G3-G6 remain (four gates including G3). M8/F6 not part of this work.
