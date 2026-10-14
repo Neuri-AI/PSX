@@ -575,6 +575,8 @@ class TkinterRenderer:
     def commit_layout(self, root: object) -> None:
         if self._sfle_constraints is None:
             return
+        from psx.sfle.native_grid_bridge import is_mounted_native_grid_root, commit_native_grid
+        from psx.sfle.grid_native_commit import GridCommitBackend
         from psx.sfle.tkinter_layout_bridge import commit_tk_sfle
         # Native style/texture signals can arrive while measuring. Retry a
         # bounded number of times using the latest semantic epoch; never
@@ -582,7 +584,10 @@ class TkinterRenderer:
         from psx.sfle.errors import SFLEError
         for attempt in range(3):
             try:
-                commit_tk_sfle(self, root)
+                if is_mounted_native_grid_root(root):
+                    commit_native_grid(self, root, backend=GridCommitBackend.TK)
+                else:
+                    commit_tk_sfle(self, root)
                 break
             except SFLEError as error:
                 if ("Stale semantic invalidation" not in str(error)
@@ -669,9 +674,9 @@ class TkinterRenderer:
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
-            if port is None and node.type != "Flex":
+            if port is None and node.type not in ("Flex", "Grid", "GridItem"):
                 native_leaf_needs_measurement(node, backend="tk")
-            if node.type != "Flex":
+            if node.type not in ("Flex", "Grid", "GridItem"):
                 node = VNode(node.kind, node.type, node.key,
                              {name: value for name, value in node.props.items()
                               if name not in FLEX_ITEM_PROPS}, node.children)
@@ -717,9 +722,12 @@ class TkinterRenderer:
 
     def _adapter_create(self, node: VNode, parent: object | None) -> TkHandle:
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
-            raise RendererCapabilityError(
-                f"{node.type} requires an SFLE Grid layout backend; "
-                "Tkinter Grid mounting is not implemented.")
+            if node.type == "GridItem" and (parent is None or _as_handle(parent).node_type != "Grid"):
+                raise RendererCapabilityError("GridItem must be a direct child of a mounted Grid.")
+            if node.type == "Grid" and parent is not None:
+                raise RendererCapabilityError("Nested Grid requires the later container integration.")
+            master = _as_handle(parent).widget if parent is not None else self.root
+            return TkHandle(node.type, ttk.Frame(master), dict(node.props))
         if node.kind is NodeKind.HOST and node.type == "Flex":
             raise RendererCapabilityError(
                 "Flex requires the Native SFLE SFLE geometry adapter for Tkinter; "
@@ -757,6 +765,11 @@ class TkinterRenderer:
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _as_handle(handle)
+        if target.node_type in ("Grid", "GridItem"):
+            target.props.update(changed)
+            for name in removed:
+                target.props.pop(name, None)
+            return
         if target.native is not None:
             _update_native(target, changed, removed)
             return
@@ -791,6 +804,11 @@ class TkinterRenderer:
         self._default_insert(parent, child, index)
 
     def _default_insert(self, parent: object, child: object, index: int) -> None:
+        if _as_handle(parent).node_type in ("Grid", "GridItem"):
+            container, item = _as_handle(parent), _as_handle(child)
+            if item not in container.children:
+                container.children.insert(index, item)
+            return
         self._place(_as_handle(parent), _as_handle(child), index, require_existing=False)
 
     def move(self, parent: object, child: object, index: int) -> None:
@@ -800,6 +818,12 @@ class TkinterRenderer:
         self._default_move(parent, child, index)
 
     def _default_move(self, parent: object, child: object, index: int) -> None:
+        if _as_handle(parent).node_type in ("Grid", "GridItem"):
+            container, item = _as_handle(parent), _as_handle(child)
+            if item in container.children:
+                container.children.remove(item)
+                container.children.insert(index, item)
+            return
         self._place(_as_handle(parent), _as_handle(child), index, require_existing=True)
 
     def remove(self, parent: object, child: object) -> None:
@@ -812,6 +836,9 @@ class TkinterRenderer:
         container, item = _as_handle(parent), _as_handle(child)
         if item in container.children:
             container.children.remove(item)
+        if container.node_type in ("Grid", "GridItem"):
+            item.widget.place_forget()
+            return
         item.widget.pack_forget()
 
     def _place(self, container: TkHandle, item: TkHandle, index: int, *, require_existing: bool) -> None:
