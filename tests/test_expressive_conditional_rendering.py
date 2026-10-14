@@ -140,7 +140,7 @@ def view(visible):
         )
         for markup in sources:
             with self.subTest(markup=markup):
-                module = "from psx import psx\\ndef view(visible, items=None):\\n    return psx(" + repr(markup) + ")\\n"
+                module = "from psx import psx\ndef view(visible, items=None):\n    return psx(" + repr(markup) + ")\n"
                 with self.assertRaises(MarkupSyntaxError):
                     transform_source(module, filename="future_syntax.py")
 
