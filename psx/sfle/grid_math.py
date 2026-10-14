@@ -151,6 +151,8 @@ def project_grid_rows(
         raise GridPackingError("Grid pixel projection requires packed rows.")
     width = LayoutUnit.from_nearest(content_width).raw
     gap = LayoutUnit.from_nearest(column_gap).raw
+    if content_width * 64 > 2_147_483_647 or column_gap * 64 > 2_147_483_647:
+        raise GridPackingError("Grid width or gap exceeds representable LayoutUnit range.")
     result: list[GridPixelRow] = []
     for row in rows:
         count = len(row.items)
@@ -172,7 +174,7 @@ def project_grid_rows(
             end_units = _nearest_positive_fraction(math.floor((item.start + item.span) * 1_000_000_000 + 0.5) * usable, 12_000_000_000)
             x = start_units + index * gap
             end = end_units + index * gap
-            if x < previous_end or end < x:
+            if x < previous_end or end < x or end > 2_147_483_647:
                 raise GridPackingError("Grid projected edges overlap or invert.")
             boxes.append(GridPixelItem(item.id, x, end - x))
             previous_end = end
@@ -217,6 +219,8 @@ def layout_grid_rects(
     projected = project_grid_rows(rows, content_width, column_gap)
     width = LayoutUnit.from_nearest(content_width).raw
     gap = LayoutUnit.from_nearest(row_gap).raw
+    if row_gap * 64 > 2_147_483_647:
+        raise GridPackingError("Grid row gap exceeds representable LayoutUnit range.")
     heights: dict[str, int] = {}
     for row in projected:
         for item in row.items:
@@ -227,10 +231,14 @@ def layout_grid_rects(
                 not math.isfinite(value) or value < 0
             ):
                 raise GridPackingError("Grid item height must be finite and nonnegative.")
+            if value * 64 > 2_147_483_647:
+                raise GridPackingError("Grid item height exceeds representable LayoutUnit range.")
             heights[item.id] = LayoutUnit.from_nearest(value).raw
     y = 0
     result: list[tuple[GridRect, ...]] = []
     for row in projected:
+        if y > 2_147_483_647 or (row.items and y + max(heights[item.id] for item in row.items) > 2_147_483_647):
+            raise GridPackingError("Grid vertical geometry exceeds LayoutUnit range.")
         result.append(tuple(
             GridRect(
                 item.id,
