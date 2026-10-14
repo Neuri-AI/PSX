@@ -321,3 +321,40 @@ def test_grid_item_supports_cinnamon_flex_content_and_native_children(request):
             "measured_children_readback", applicability="partial_native"), True)
     finally:
         reconciler.unmount()
+
+
+def test_alternating_grid_flex_grid_uses_cinnamon_at_each_depth(request):
+    from psx import Flex
+    renderer = make_renderer()
+    reconciler = Reconciler(renderer)
+    scene = Grid(
+        GridItem(
+            Flex(
+                Grid(
+                    GridItem(Text("a"), span={"base": 12, "md": 6}, key="a"),
+                    GridItem(Text("b"), span={"base": 12, "md": 6}, key="b"),
+                    gap=4,
+                ),
+                direction="column", width="100%", height="80px",
+                align_items="stretch",
+            ), span=12, key="outer",
+        ), gap=4,
+    )
+    try:
+        root = reconciler.render(scene)
+        inner = root.children[0].children[0].children[0]
+        first = inner.children[0].handle
+        second = inner.children[1].handle
+        assert first.geometry.width == 398
+        for width, expected in ((767, 767), (800, 398), (767, 767)):
+            renderer.set_sfle_constraints(viewport(width))
+            renderer.commit_layout(root)
+            assert first.geometry.width == expected
+            assert inner.children[0].handle is first
+            assert inner.children[1].handle is second
+            assert renderer.grid_result[1].max_readback_error == 0
+        assert_feature(request, Feature(
+            "Grid", "headless", "interaction", "alternating_composition",
+            "bounded_reflow_identity", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
