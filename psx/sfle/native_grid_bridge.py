@@ -39,6 +39,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
     try:
         generation = renderer._sfle_generation + 1
         renderer._sfle_generation = generation
+        invalidation_epoch = renderer._sfle_measurement_invalidations.epoch
         components, handles = {}, {}
 
         def gather(instance):
@@ -157,6 +158,8 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                     placement.used_width, placement.used_height, False, False,
                 ))
                 commit_widgets[leaf_id] = leaf_handles[placement.node_id].widget
+        if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid intrinsic measurement invalidated.")
         # Capture root geometry before ANY native write. Child transaction
         # rollback alone is insufficient if commit/readback fails after resize.
         root_widget = handles[id(grid.source)].widget
@@ -186,11 +189,16 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 root_widget.size = (width, height)
             receipt = commit_grid_native_geometry(
                 tuple(batch), backend=backend, widgets=commit_widgets, generation=generation,
-                current_generation=lambda: renderer._sfle_generation,
+                current_generation=lambda: (renderer._sfle_generation
+                    if renderer._sfle_measurement_invalidations.epoch == invalidation_epoch
+                    else -1),
                 is_ui_thread=source.is_ui_thread,
                 parent_height=float(height) if backend is GridCommitBackend.KIVY else None,
                 parent_heights=kivy_heights,
             )
+            if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
+                                "Grid invalidated after native readback.")
         except BaseException:
             # Restore the root as well as the child batch; an initially
             # unplaced Tk root must remain unplaced after failed commit.
