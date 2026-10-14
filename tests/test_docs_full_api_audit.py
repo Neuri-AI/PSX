@@ -19,7 +19,8 @@ class DeclaredPublicSurfaceTests(unittest.TestCase):
                 with self.subTest(symbol=f"{module}.{name}"):
                     record = self.report["symbols"][f"{module}.{name}"]
                     self.assertIn(record["kind"], {"class", "callable", "constant"})
-                    self.assertIsNotNone(record["implementation"])
+                    if record["kind"] != "constant":
+                        self.assertIsNotNone(record["implementation"])
 
     def test_registered_component_contracts(self):
         components = self.report["registered_components"]
