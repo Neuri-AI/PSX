@@ -25,6 +25,7 @@ class RoutingTests(unittest.TestCase):
         for path in ("psx/sfle/grid_native_commit.py", "psx/sfle/native_grid_bridge.py",
                      "psx/sfle/grid_native_composition.py",
                      "psx/sfle/mixed_grid_native.py",
+                     "psx/sfle/grid_flex_composition.py",
                      "tests/sfle/test_grid_native_commit.py"):
             with self.subTest(path=path):
                 self.assertEqual(self.selected(path), expected)
