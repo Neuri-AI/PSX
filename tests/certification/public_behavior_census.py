@@ -125,6 +125,9 @@ def inventory() -> tuple[Feature, ...]:
                         rows.append(Feature("Grid", native_backend, "interaction",
                                             "native_root", "failed_commit_root_rollback",
                                             applicability="partial_native"))
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "nested_container", "fails_closed",
+                                            applicability="partial_native"))
             for prop in sorted(props):
                 for scenario in PROPERTY_SCENARIOS:
                     rows.append(Feature(component, CONTRACT, "property", prop,
