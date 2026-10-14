@@ -10,6 +10,14 @@ Enable React-like declarative syntax inside Python-authored PSX markup without e
 
 Preserve existing host/component registries, VNode construction, renderer identities, reconciliation keys, lifecycle, scheduler, hook order, closure semantics, source maps and exception reporting. M4B transforms authored source before Python execution; the developer does not pass a manually assembled `scope` to `psx()`.
 
+## Literal attributes and expression braces — owner clarification (2026-10-14)
+
+**Binding grammar rule:** Curly braces in PSX Markup are reserved for variable references, mappings/list transforms, conditional expressions and arrow callbacks. **Static values are quoted, including numbers.** `<Flex gap="12" padding="50" />` is valid; `<Flex gap={12} />` is invalid and must produce a source-spanned `MarkupSyntaxError`, not silently accept a numeric constant. `<Flex gap={spacing} />` is valid only if `spacing` resolves in the authored lexical scope (M4B) or explicitly provided trusted mapping (M4A); an undefined identifier raises a diagnostic. No `eval`, `exec` or Python frame inspection may be used for lookup.
+
+Quoted numeric attributes pass through the existing registry-backed coercion/validation: known integer-valued props are converted as appropriate, while string/text props remain strings. This preserves markup schema authority rather than guessing types from braces. Boolean presence syntax and established string props are unchanged.
+
+For expressive F5 conditional, map and arrow constructs, braces delimit *validated compiled expressions* rather than an arbitrary Python evaluator. This is the **only extension** to simple references; bare literal expressions `{12}` in attributes remain invalid. A referenced variable can have any schema-valid value, including zero.
+
 ## 2. Owner-approved syntax
 
 | Capability | Approved syntax | Interpretation |
