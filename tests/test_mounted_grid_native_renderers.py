@@ -151,9 +151,9 @@ def test_grid_root_geometry_is_restored_when_native_batch_fails(request, monkeyp
         close()
 
 
-def test_grid_under_flex_fails_closed_without_fallback(request):
-    """G4 nested integration is intentionally not enabled by a native layout."""
-    from psx import Flex
+def test_grid_requires_explicit_scroll_flex_content(request):
+    """Scroll must expose explicit Flex content; a direct Grid cannot bypass it."""
+    from psx import Scroll
     from psx.core.errors import RendererCapabilityError
 
     backend = os.environ["PSX_GRID_BACKEND"]
@@ -163,7 +163,7 @@ def test_grid_under_flex_fails_closed_without_fallback(request):
     tree = Reconciler(renderer)
     try:
         with pytest.raises(RendererCapabilityError, match="Nested Grid"):
-            tree.render(Flex(view(), width="800px", height="200px"))
+            tree.render(Scroll(view(), height=200))
         assert getattr(renderer, "grid_result", None) is None
         assert_feature(request, Feature("Grid", binding, "interaction",
                                         "nested_container", "fails_closed",
