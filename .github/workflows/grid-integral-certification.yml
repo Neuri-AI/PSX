@@ -4,6 +4,9 @@ on:
     branches: [feature/grid-native-renderer-integration]
     paths-ignore: ["docs/**", "**/*.md"]
   workflow_dispatch:
+  pull_request:
+    branches: [develop]
+    paths-ignore: ["docs/**", "**/*.md"]
 permissions:
   contents: read
 concurrency:
