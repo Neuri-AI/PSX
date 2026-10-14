@@ -162,7 +162,7 @@ run only impacted test suites and dependency consumers. For F3 PRs into `develop
 
 G2 **cannot** be closed using Flex + Button-only examples; all supported
 component/backend matrix entries, tests and custom-adapter gates must pass.
-**F4** remains the responsive twelve-column Flexbox Grid milestone.
+**F4** — owner-approved responsive twelve-column Flexbox Grid contract (2026-10-14): [normative Grid and GridItem contract, mathematical cases and G1–G6 acceptance gates](architecture/responsive-grid-contract.md). The product behavior is approved, **implementation has not started**; all six gates are NOT STARTED (0/6 CLOSED), with no new F4 execution receipts or certification SHA. Continue from F3 without reusing its historical tests as F4 certification. The three-part requirement—specific functional tests, intelligent CI impact routing and executable public census receipts when applicable—is mandatory in each product increment: [F4 capability certification policy](architecture/capability-certification-policy.md). The policy and this contract currently reside on the F4 documentation branch until integrated into `develop`. Documentation-only changes must select zero product tests.
 `SFLE-CSS-01` and `SFLE-CSS-02` remain separately deferred; neither
 becomes F3 work.
 
