@@ -565,6 +565,8 @@ class KivyRenderer:
     def commit_layout(self, root: object) -> None:
         if self._sfle_constraints is None:
             return
+        from psx.sfle.native_grid_bridge import is_mounted_native_grid_root, commit_native_grid
+        from psx.sfle.grid_native_commit import GridCommitBackend
         from psx.sfle.kivy_layout_bridge import commit_kivy_sfle
         # Native style/texture signals can arrive while measuring. Retry a
         # bounded number of times using the latest semantic epoch; never
@@ -572,7 +574,10 @@ class KivyRenderer:
         from psx.sfle.errors import SFLEError
         for attempt in range(3):
             try:
-                commit_kivy_sfle(self, root)
+                if is_mounted_native_grid_root(root):
+                    commit_native_grid(self, root, backend=GridCommitBackend.KIVY)
+                else:
+                    commit_kivy_sfle(self, root)
                 break
             except SFLEError as error:
                 if ("Stale semantic invalidation" not in str(error)
@@ -648,9 +653,9 @@ class KivyRenderer:
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
-            if port is None and node.type != "Flex":
+            if port is None and node.type not in ("Flex", "Grid", "GridItem"):
                 native_leaf_needs_measurement(node, backend="kivy")
-            if node.type != "Flex":
+            if node.type not in ("Flex", "Grid", "GridItem"):
                 node = VNode(node.kind, node.type, node.key,
                              {key: val for key, val in node.props.items()
                               if key not in FLEX_ITEM_PROPS}, node.children)
@@ -665,9 +670,14 @@ class KivyRenderer:
 
     def _adapter_create(self, node: VNode, parent: object | None) -> KivyHandle:
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
-            raise RendererCapabilityError(
-                f"{node.type} requires an SFLE Grid layout backend; "
-                "Kivy Grid mounting is not implemented.")
+            if node.type == "GridItem" and (parent is None or _handle(parent).node_type != "Grid"):
+                raise RendererCapabilityError("GridItem must be a direct child of a mounted Grid.")
+            if node.type == "Grid" and parent is not None:
+                raise RendererCapabilityError("Nested Grid requires the later container integration.")
+            handle = KivyHandle(node.type, Widget(size_hint=(None, None)), dict(node.props))
+            if parent is None:
+                self._root = handle.widget
+            return handle
         if node.kind is NodeKind.HOST and node.type == "Flex":
             raise RendererCapabilityError(
                 "Flex requires the Native SFLE SFLE geometry adapter for Kivy; "
@@ -723,6 +733,11 @@ class KivyRenderer:
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _handle(handle)
+        if target.node_type in ("Grid", "GridItem"):
+            target.props.update(changed)
+            for name in removed:
+                target.props.pop(name, None)
+            return
         if target.native is not None:
             _update_native(target, changed, removed)
             return
@@ -749,6 +764,16 @@ class KivyRenderer:
         self._default_insert(parent, child, index)
 
     def _default_insert(self, parent: object, child: object, index: int) -> None:
+        if _handle(parent).node_type in ("Grid", "GridItem"):
+            container, item = _handle(parent), _handle(child)
+            if item in container.children:
+                container.children.remove(item)
+            container.children.insert(index, item)
+            if item.widget.parent is not container.widget:
+                if item.widget.parent is not None:
+                    item.widget.parent.remove_widget(item.widget)
+                container.widget.add_widget(item.widget)
+            return
         container, item = _handle(parent), _handle(child)
         if item in container.children:
             container.children.remove(item)
@@ -762,6 +787,11 @@ class KivyRenderer:
         self._default_move(parent, child, index)
 
     def _default_move(self, parent: object, child: object, index: int) -> None:
+        if _handle(parent).node_type in ("Grid", "GridItem"):
+            container, item = _handle(parent), _handle(child)
+            container.children.remove(item)
+            container.children.insert(index, item)
+            return
         container, item = _handle(parent), _handle(child)
         container.children.remove(item)
         container.children.insert(index, item)
@@ -777,6 +807,10 @@ class KivyRenderer:
         container, item = _handle(parent), _handle(child)
         if item in container.children:
             container.children.remove(item)
+        if container.node_type in ("Grid", "GridItem"):
+            if item.widget.parent is container.widget:
+                container.widget.remove_widget(item.widget)
+            return
         _layout(container).remove_widget(item.widget)
         if _is_borrowed(item) and item.original_parent is not None:
             item.original_parent.add_widget(item.widget)
