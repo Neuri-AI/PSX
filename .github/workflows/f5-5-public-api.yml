@@ -1,0 +1,28 @@
+name: F5.5 public API inventory
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "psx/__init__.py"
+      - "scripts/docs/**"
+      - "tests/test_docs_api_census.py"
+      - "docs/architecture/f5-5-api-exports.json"
+      - ".github/workflows/f5-5-public-api.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  root-export-inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify committed root export inventory
+        run: python scripts/docs/api_census.py --check docs/architecture/f5-5-api-exports.json
+      - name: Verify audit tool failure behavior
+        run: python -m unittest discover -s tests -p test_docs_api_census.py -v
