@@ -8,6 +8,18 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_declarative_list_paths_run_in_core_and_headless(self):
+        for path in ("tests/test_declarative_list_rendering.py",
+                     "psx/markup/expressive_lower.py",
+                     "psx/markup/expressive_runtime.py"):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), {"core", "headless"})
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("tests/test_declarative_list_rendering.py", workflow)
+
     def test_conditional_markup_routes_core_and_headless(self):
         for path in (
             "psx/markup/expressive_lower.py",

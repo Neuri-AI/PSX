@@ -114,3 +114,39 @@ The owner clarified that `<Flex gap="12" />` is the approved literal syntax; num
 **Public census applicability review:** F5-G2 changes the authored M4B expression grammar and the VNode composition produced by existing component constructors. It does **not** register new props, events, methods, components or native widget interactions. The existing component-derived census remains required and passed without fabricated new native receipts; the new language behavior is directly verified by executable compiler/Headless tests in required jobs. F5-G3–G5 must separately assess any newly published component/method/interaction combinations and add the corresponding code-derived census cells/receipts when applicable. The event `Button.on_click` used for lifecycle verification is already part of the existing public census, not a newly declared event.
 
 **Gate boundary:** `&&` and `? :` conditional markup are now executable with M4B's static source transform, but `.map()` lowering remains G3 and arrow function compilation remains G4. M4A strings cannot execute expressive expressions, nor are Qyro CLI, Engine or postponed F6/M8 in scope. **F5 progress: 2/6 gates CLOSED**. PR [#26](https://github.com/Neuri-AI/PSX/pull/26) remains unmerged and in draft review; technical gate closure does not imply PR merger, alpha publication or deploy.
+
+
+## F5-G3 — Declarative list rendering (implementation in review)
+
+**Development branch:** `feature/expressive-declarative-lists`. **PR:** [#27](https://github.com/Neuri-AI/PSX/pull/27) (draft, targeting develop). Base implementation incorporates G2 in-progress PR #26; neither PR is implied merged.
+
+**Implemented in this increment:**
+- M4B statically lowers `items.map((item) => <Text key={item.id} />)` into an ordinary Python lexical lambda plus an explicit runtime list-materialization function; the transformation does not invoke a Python `list.map` method, use `eval`, `exec` or frame inspection.
+- Runtime materializes ordered VNodes, rejects noniterable sources, non-VNode items, missing/invalid keys and duplicate keys before attempting native mounting. Nested maps inherit independent Python lexical scopes.
+- Existing reconciler remains responsible for keyed insert/delete/move and native identity; no alternative reconciliation engine is introduced.
+- `tests/test_declarative_list_rendering.py` covers empty, ordering, insert, removal, nested lists, lexical captures, conditional maps, invalid keys and Headless keyed identity; `scripts/ci/impact.py`, routing regression and executable native-layout core/Headless jobs include the tests.
+
+**Acceptance still required:** certifying required GitHub Actions jobs on an immutable **code SHA** and reviewing adversarial situations (conditional JSX branches returning keys, nested fragment keys, duplicate keys across separate maps, generator errors and rollback). G3's acceptance was subsequently evidenced by the immutable-SHA certification below; technical gate CLOSED.
+
+**F5 gate count:** G1 and G2 CLOSED; G3-G6 remain (four gates including G3). M8/F6 not part of this work.
+
+### G3 adversarial validation increment (2026-10-14)
+
+**Code SHA:** `7628a4d2f0aac93ac3c4e38530da5ac7e3434882`. **CI run:** [Native layout selective validation #38618906346](https://github.com/Neuri-AI/PSX/actions/runs/38618906346). The new CI run must finish successfully on this exact code SHA before G3 can close.
+
+The previously missing executable cases were added to `tests/test_declarative_list_rendering.py`: both keyed branches of mapped conditional JSX; failure of an unkeyed alternate branch; rejection of an unkeyed mapped fragment; generator exception after yielding an item without changing the previously mounted native tree; and duplicate-key failure after partial generator consumption without native commit. Existing sibling key collision and stable Headless reorder identity cases remain present.
+
+**Normalization decision:** direct mapped items must produce keyed VNodes, or absent conditional nodes; an unkeyed fragment returned as the mapped root is rejected. Nested mapped trees can use keyed container elements whose children are independently validated. An exception raised while materializing the list propagates before `Reconciler.render` is called, preserving the prior mounted tree. These are G3 test obligations, not new public props/events/methods; source-derived public census remains unchanged. Broader reconciliation rollback for native failures belongs to G5.
+
+**Status:** G3 IN PROGRESS while the new SHA's selected CI jobs run. G4 must not be marked started on the basis of the prior green SHA alone.
+
+## F5-G3 — Technical gate CLOSED (2026-10-14)
+
+**Immutable implementation SHA:** `7628a4d2f0aac93ac3c4e38530da5ac7e3434882`.
+**Certification:** [Native layout selective validation #38618906346](https://github.com/Neuri-AI/PSX/actions/runs/38618906346), latest attempt (rerun failed/cancelled jobs) **SUCCESS**, including the mandatory final conclusion. The initial attempt was interrupted when a later documentation-only commit was pushed; its cancelled job is not counted as a pass. The subsequent documentation-only run #38618977192 was green but skipped product suites and **is not** the certification basis.
+
+**Executed verification:** Core and registry **604 passed + 23 subtests passed**, public core census **757 passed**, Headless **113 passed, 8 skipped + 6 subtests passed**. Required final CI conclusion **SUCCESS**. New public event/prop/method operations: **none**; the existing source-derived core census ran and reported 1716 executed receipt passes and zero failures, while the separate selective public evidence aggregate job was impact-skipped, not misreported as executed. The Headless job also completed its existing public native receipt collection.
+
+**Coverage:** ordered, empty, inserted, removed, reordered, nested and conditional mapped elements; lexical binding; generated iterable consumption; strict keys and duplicate rejection; sibling-map collisions at reconciliation; per-key native Headless handle identity; conditional keyed/unkeyed branches; unkeyed fragment rejection; generator exception and late duplicate failure without committing the proposed tree. G3 stays on the existing reconciler and static M4B compiler; no dynamic Python source evaluator or M4A escape is introduced.
+
+**Disposition:** **F5-G3 CLOSED (technical gate)**. G1, G2, G3 CLOSED = **3/6**. G4 (arrow callbacks) next; G5, G6 pending. PR #27 remains in draft unless independently changed or merged. This is a scoped technical certificate, **not** the all-backend integral F5-G6 certificate or owner signoff.

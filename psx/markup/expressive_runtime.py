@@ -48,6 +48,49 @@ def conditional(value: object) -> object:
     return value if value else None
 
 
+def map_children(
+    iterable: object, callback: Callable[[object], object],
+    filename: str, line: int, column: int,
+) -> tuple[VNode, ...]:
+    """Materialize an ordered, keyed dynamic list once per render.
+
+    No monkey-patching of list.map, no index-based keys and no unkeyed
+    remount fallback. Validate the complete list before a native commit.
+    """
+    try:
+        iterator = iter(iterable)
+    except TypeError as error:
+        raise MarkupSyntaxError(
+            ".map() requires an iterable", filename=filename,
+            line=line, column=column,
+        ) from error
+    result: list[VNode] = []
+    keys: set[str | int] = set()
+    for item in iterator:
+        output = callback(item)
+        if output is None or output is False:
+            continue
+        if not isinstance(output, VNode):
+            raise MarkupSyntaxError(
+                ".map() must produce a keyed VNode or an absent conditional node",
+                filename=filename, line=line, column=column,
+            )
+        key = output.key
+        if key is None or isinstance(key, bool) or not isinstance(key, (str, int)):
+            raise MarkupSyntaxError(
+                ".map() elements require a stable string/integer key",
+                filename=filename, line=line, column=column,
+            )
+        if key in keys:
+            raise MarkupSyntaxError(
+                f"Duplicate .map() key {key!r}",
+                filename=filename, line=line, column=column,
+            )
+        keys.add(key)
+        result.append(output)
+    return tuple(result)
+
+
 def _flatten(children: tuple[object, ...]):
     for child in children:
         if child is None or child is False:

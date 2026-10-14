@@ -70,7 +70,7 @@ class _Transformer(ast.NodeTransformer):
         template_filename = f"{self.filename}:{node.lineno}:{node.col_offset + 1}"
         # Only statically authored M4B source may use expressive JSX operators.
         # Dynamic and explicitly scoped M4A calls remain on the old safe path.
-        if _has_conditional_interpolation(source):
+        if _has_expressive_interpolation(source):
             tree = parse_expressive_expression(source, filename=template_filename)
             replacement = lower(tree, filename=template_filename)
             self.expressive_count += 1
@@ -129,10 +129,10 @@ def _expressive_reference_locations(node: object) -> Iterable[tuple[int, int]]:
             yield from _expressive_reference_locations(child)
 
 
-def _has_conditional_interpolation(source: str) -> bool:
-    """Find conditional operators in markup expressions, not in quoted literals.
+def _has_expressive_interpolation(source: str) -> bool:
+    """Find expressive operators in markup expressions, not quoted literals.
 
-    Only expression braces activate G2. Text and quoted attributes containing
+    Only expression braces activate G2/G3. Text and quoted attributes containing
     question marks or ampersands keep their existing M4B template behavior.
     """
     depth = 0
@@ -154,7 +154,7 @@ def _has_conditional_interpolation(source: str) -> bool:
             depth += 1
         elif ch == "}":
             depth = max(depth - 1, 0)
-        elif depth and (source.startswith("&&", index) or ch == "?"):
+        elif depth and (source.startswith("&&", index) or ch == "?" or source.startswith(".map(", index)):
             return True
         index += 1
     return False
