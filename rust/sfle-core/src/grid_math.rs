@@ -177,6 +177,10 @@ pub fn project_grid_rows(
         !column_gap.is_finite() || column_gap < 0.0 {
         return Err(GridPackingError::InvalidInput("Invalid Grid content width or gap"));
     }
+    if content_width * 64.0 > i32::MAX as f64 ||
+        column_gap * 64.0 > i32::MAX as f64 {
+        return Err(GridPackingError::InvalidInput("Grid width or gap exceeds LayoutUnit range"));
+    }
     let width = LayoutUnit::from_nearest(content_width)
         .map_err(|_| GridPackingError::InvalidInput("Invalid Grid width"))?.raw() as i64;
     let gap = LayoutUnit::from_nearest(column_gap)
@@ -296,6 +300,9 @@ pub fn layout_grid_rects(
     if !row_gap.is_finite() || row_gap < 0.0 {
         return Err(GridPackingError::InvalidInput("Invalid row gap"));
     }
+    if row_gap * 64.0 > i32::MAX as f64 {
+        return Err(GridPackingError::InvalidInput("Grid row gap exceeds LayoutUnit range"));
+    }
     let projected = project_grid_rows(rows, content_width, column_gap)?;
     let width = LayoutUnit::from_nearest(content_width)
         .map_err(|_| GridPackingError::InvalidInput("Invalid Grid width"))?.raw() as i64;
@@ -308,6 +315,9 @@ pub fn layout_grid_rects(
                 .ok_or(GridPackingError::InvalidInput("Missing Grid item height"))?;
             if !height.is_finite() || *height < 0.0 {
                 return Err(GridPackingError::InvalidInput("Invalid Grid item height"));
+            }
+            if *height * 64.0 > i32::MAX as f64 {
+                return Err(GridPackingError::InvalidInput("Grid height exceeds LayoutUnit range"));
             }
             heights.insert(item.id.clone(), LayoutUnit::from_nearest(*height)
                 .map_err(|_| GridPackingError::InvalidInput("Invalid Grid item height"))?
@@ -325,7 +335,8 @@ pub fn layout_grid_rects(
             let x = if rtl { width - item.x_raw as i64 - item.width_raw as i64 }
                     else { item.x_raw as i64 };
             if x < i32::MIN as i64 || x > i32::MAX as i64 ||
-                y > i32::MAX as i64 || height > i32::MAX as i64 {
+                y > i32::MAX as i64 || height > i32::MAX as i64 ||
+                y + height > i32::MAX as i64 {
                 return Err(GridPackingError::InvalidInput("Grid rectangle overflow"));
             }
             rects.push(GridRect {
