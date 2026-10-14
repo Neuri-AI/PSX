@@ -4,6 +4,23 @@
 >
 > Last evidence review: 2026-10-14. Working branch: `feature/responsive-grid-public-contract`; draft PR #16 to `develop`. The SHA and workflow results below describe **the reviewed execution**, not a promise that the branch has not advanced. Always inspect current HEAD and PR checks first.
 
+## G2 — Cinnamon mathematical Grid solver (new stacked branch)
+
+**Branch:** `feature/grid-mathematical-solver` forked from G1 immutable closure `8044d5423ac69fecbce5b171e6c35905d2b9b031`; review as a **stacked PR targeting G1**, not as changes to the certified G1 branch. G1's 62/62 receipt certificate remains unchanged.
+
+| G2 increment | State | Executable scope | Acceptance |
+| --- | --- | --- | --- |
+| Deterministic row packing and fixture schema | **IN PROGRESS — CI required** | Rust-primary and Python-fallback `grid_math`, shared `tests/fixtures/grid_row_packing.json`, mixed auto/explicit row finalization, offsets, order stability, strict invalid rejection | Cargo unit tests, Python fixtures and randomized invariants, correct `sfle`+`rust` routing, green required Actions on immutable SHA |
+| Fixed-point pixel geometry and gutters | NOT STARTED | Real content-box pixel widths, gaps, projections, non-divisible shares | Rust/Python pixel-level edge agreement, deterministic fixtures |
+| RTL, row/cross-axis sizing and overflow | NOT STARTED | RTL logical reversal, row gaps/heights, constraints, overflow policy | Adversarial geometry tests, parity and error receipts |
+| Engine integration and final G2 audit | NOT STARTED | Pure engine authority and native-facing math outputs only | Rust primary/Python fallback agreement on immutable SHA, regression preservation |
+
+**Row-membership semantics frozen:** see [responsive-grid-mathematics.md](responsive-grid-mathematics.md). Mixed `[auto,8,auto,6]` produces rows `[auto(2),8,auto(2)]` and `[6]`; no closed-row backtracking. Logical offsets reserve columns but do not create native gaps. There is **no** native Grid widget layout at this stage.
+
+**Census assessment:** no new public props/events/methods/interactions in this first internal solver increment. The existing G1 census remains the public contract; executable math fixtures and CI are mandatory. No fabricated Grid geometry receipts.
+
+**Next required action:** verify running CI on the new stacked PR; fix Rust/Python bugs, update state and exact source/checkout/run SHAs here only after executed evidence. Do not mark G2 or its first increment CLOSED on implementation alone.
+
 ## Where to resume
 
 **F4 / G1 — CLOSED (public contract, metadata normalization, app settings and fail-closed certification). Next: G2 Cinnamon Grid mathematics.** Do **not** restart G1 at its first increment and do **not** begin G2 until G1 acceptance is explicitly certified.
