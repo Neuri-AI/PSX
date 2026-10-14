@@ -176,3 +176,35 @@ def test_nested_grid_observes_application_breakpoint_configuration(request):
             "isolated_nested_resolution", applicability="partial_native"), True)
     finally:
         application.unmount()
+
+
+def test_flex_grid_mixed_headless_width_allocation_readback_and_identity(request):
+    from psx import Flex
+    renderer = make_renderer()
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(Flex(
+            Grid(
+                GridItem(Text("left"), key="left", span={"base": 12, "md": 6}),
+                GridItem(Text("right"), key="right", span={"base": 12, "md": 6}),
+                gap=4,
+            ),
+            direction="column", width=800, height=100,
+        ))
+        grid = root.children[0]
+        first = grid.children[0].handle
+        leaf = grid.children[0].children[0].handle
+        assert grid.handle.geometry.width == 800
+        assert first.geometry.width == 398
+        renderer.set_sfle_constraints(viewport(767))
+        renderer.commit_layout(root)
+        assert grid.handle.geometry.width == 767
+        assert first.geometry.width == 767
+        assert grid.children[0].handle is first
+        assert grid.children[0].children[0].handle is leaf
+        assert renderer.grid_result[1].max_readback_error == 0
+        assert_feature(request, Feature(
+            "Grid", "headless", "interaction", "mixed_flex",
+            "allocated_width_reflow", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
