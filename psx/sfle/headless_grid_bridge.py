@@ -69,37 +69,58 @@ def commit_headless_grid(renderer: object, root: object) -> None:
             raise GridPackingError("Grid root requires definite viewport width.")
         if not renderer._sfle_constraints.height.definite or height is None:
             raise GridPackingError("Grid root requires definite viewport height.")
-        ids = tuple(path_identity(child.path) for child in grid.effective_children)
-        leaves = {
-            path_identity(child.path): child.effective_children[0].source
+        nested_content = any(
+            child.effective_children and child.effective_children[0].type == "Grid"
             for child in grid.effective_children
-        }
-        items = {path_identity(child.path): handles[id(child.source)]
-                 for child in grid.effective_children}
-        leaf_handles = {identifier: handles[id(node)] for identifier, node in leaves.items()}
-        if any(handle.destroyed for handle in (*items.values(), *leaf_handles.values())):
-            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Destroyed Grid widget.")
-        source = HeadlessGridMeasurementSource(
-            leaves, lambda node, width: renderer._sfle_measure(node, width),
         )
-        prepared = measure_grid_native(
-            grid, content_width=width, source=source, mounted_ids=ids,
-            revisions={identifier: generation for identifier in ids},
-            generation=generation, current_generation=renderer._sfle_generation,
-        )
+        if nested_content:
+            from .grid_native_composition import (
+                prepare_composed_grid, compose_geometry_batch,
+            )
+
+            def measure_leaf(identifier, child, allocated_width):
+                return renderer._sfle_measure(child.source, allocated_width)
+
+            composed = prepare_composed_grid(
+                grid, content_width=float(width), generation=generation,
+                current_generation=renderer._sfle_generation,
+                measure_leaf=measure_leaf,
+                is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
+            )
+            prepared = composed.prepared
+            batch, widget_map, _ = compose_geometry_batch(
+                composed, handles=handles, root_height=float(height),
+            )
+        else:
+            ids = tuple(path_identity(child.path) for child in grid.effective_children)
+            leaves = {
+                path_identity(child.path): child.effective_children[0].source
+                for child in grid.effective_children
+            }
+            items = {path_identity(child.path): handles[id(child.source)]
+                     for child in grid.effective_children}
+            leaf_handles = {identifier: handles[id(node)] for identifier, node in leaves.items()}
+            if any(handle.destroyed for handle in (*items.values(), *leaf_handles.values())):
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Destroyed Grid widget.")
+            source = HeadlessGridMeasurementSource(
+                leaves, lambda node, allocated_width: renderer._sfle_measure(node, allocated_width),
+            )
+            prepared = measure_grid_native(
+                grid, content_width=width, source=source, mounted_ids=ids,
+                revisions={identifier: generation for identifier in ids},
+                generation=generation, current_generation=renderer._sfle_generation,
+            )
+            batch = list(prepared.placements)
+            widget_map = dict(items)
+            for placement in prepared.placements:
+                leaf_id = placement.node_id + "/leaf"
+                batch.append(GridNativePlacement(
+                    leaf_id, 0, 0, placement.used_width, placement.used_height,
+                    placement.used_width, placement.used_height, False, False,
+                ))
+                widget_map[leaf_id] = leaf_handles[placement.node_id]
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Grid measurement epoch.")
-        # A GridItem is a real mounted layout wrapper. Its child receives
-        # local (0,0) geometry, using the used size to preserve overflow.
-        batch = list(prepared.placements)
-        widget_map = dict(items)
-        for placement in prepared.placements:
-            leaf_id = placement.node_id + "/leaf"
-            batch.append(GridNativePlacement(
-                leaf_id, 0, 0, placement.used_width, placement.used_height,
-                placement.used_width, placement.used_height, False, False,
-            ))
-            widget_map[leaf_id] = leaf_handles[placement.node_id]
         receipt = commit_grid_native_geometry(
             tuple(batch), backend=GridCommitBackend.HEADLESS,
             widgets=widget_map, generation=generation,
