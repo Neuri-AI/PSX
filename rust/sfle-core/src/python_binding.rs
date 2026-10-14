@@ -73,13 +73,19 @@ fn compute_grid_json(input: &str) -> PyResult<String> {
     let heights: HashMap<String, f64> = value["heights"].as_object().ok_or_else(invalid)?
         .iter().map(|(key, v)| Ok((key.clone(), v.as_f64().ok_or_else(invalid)?)))
         .collect::<PyResult<_>>()?;
+    let bound = |v: &Value, key: &str| -> PyResult<Option<f64>> {
+        match v.get(key) {
+            None | Some(Value::Null) => Ok(None),
+            Some(number) => number.as_f64().map(Some).ok_or_else(invalid),
+        }
+    };
     let limits: HashMap<String, GridItemConstraints> =
         value["constraints"].as_object().ok_or_else(invalid)?
         .iter().map(|(key, v)| Ok((key.clone(), GridItemConstraints {
-            min_width: v["min_width"].as_f64().unwrap_or(0.0),
-            max_width: v["max_width"].as_f64(),
-            min_height: v["min_height"].as_f64().unwrap_or(0.0),
-            max_height: v["max_height"].as_f64(),
+            min_width: bound(v, "min_width")?.unwrap_or(0.0),
+            max_width: bound(v, "max_width")?,
+            min_height: bound(v, "min_height")?.unwrap_or(0.0),
+            max_height: bound(v, "max_height")?,
         }))).collect::<PyResult<_>>()?;
     let result = compute_grid(
         &slots,
