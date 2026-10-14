@@ -111,6 +111,7 @@ def _classify_path(path: str) -> set[str]:
         return {"core", "headless", "qt", "kivy", "tkinter"}
     if path in ("tests/fixtures/grid_row_packing.json",
                 "tests/fixtures/grid_cross_axis.json",
+                "tests/fixtures/grid_constraints.json",
                 "tests/fixtures/grid_pixel_projection.json",
                 "tests/sfle/test_grid_math.py"):
         return {"sfle", "rust"}
