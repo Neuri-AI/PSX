@@ -24,7 +24,7 @@ def cases():
         if contract is None:
             continue
         props = set(contract.properties)
-        if component != "Flex":
+        if component not in ("Flex", "Grid", "GridItem"):
             props.update(FLEX_ITEM_PROPS)
         for name in sorted(props):
             rows.append((component, name))
@@ -79,7 +79,7 @@ def test_advertised_property_has_positive_and_invalid_classes(component, propert
 def test_all_public_property_names_are_in_executable_value_corpus():
     expected = sum(
         len(set(definition.contract.properties) |
-            (set() if name == "Flex" else FLEX_ITEM_PROPS))
+            (set() if name in ("Flex", "Grid", "GridItem") else FLEX_ITEM_PROPS))
         for name, definition in builtin_component_registry().snapshot().items()
         if definition.contract is not None
     )
