@@ -141,5 +141,69 @@ class DeclarativeListsTests(unittest.TestCase):
         reconciler.unmount()
 
 
+    def test_conditional_map_branches_require_keys_on_every_emitted_node(self):
+        markup = ('<Flex>{items.map((item) => '
+                  'item.enabled ? <Text key={item.id} value={item.label} /> : '
+                  '<Text key={item.id} value="Disabled" />)}</Flex>')
+        view, _ = transformed_view(markup)
+        output = view([{"id": "a", "label": "Active", "enabled": True},
+                       {"id": "b", "label": "Hidden", "enabled": False}])
+        self.assertEqual(tuple(child.key for child in output.children), ("a", "b"))
+        self.assertEqual(tuple(child.props["value"] for child in output.children),
+                         ("Active", "Disabled"))
+        missing, _ = transformed_view(
+            '<Flex>{items.map((item) => item.enabled ? '
+            '<Text key={item.id} /> : <Text />)}</Flex>')
+        with self.assertRaisesRegex(MarkupSyntaxError, "stable"):
+            missing([{"id": "x", "enabled": False}])
+
+    def test_unkeyed_mapped_fragment_fails_before_mount(self):
+        view, _ = transformed_view(
+            '<Flex>{items.map((item) => <><Text key={item.id} /></>)}</Flex>')
+        with self.assertRaisesRegex(MarkupSyntaxError, "stable"):
+            view([{"id": "a"}])
+
+    def test_failed_generator_keeps_previous_native_tree_unmodified(self):
+        view, _ = transformed_view(self.MARKUP)
+        renderer = HeadlessRenderer(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(640, True), AvailableSize(480, True)),
+            engine=PythonLayoutEngine(),
+            measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+        )
+        reconciler = Reconciler(renderer)
+        original = reconciler.render(view([{"id": "a", "label": "Stable"}]))
+        original_handle = original.children[0].handle
+
+        def broken():
+            yield {"id": "b", "label": "Transient"}
+            raise RuntimeError("generator failed")
+
+        with self.assertRaisesRegex(RuntimeError, "generator failed"):
+            reconciler.render(view(broken()))
+        self.assertIs(reconciler.root, original)
+        self.assertIs(reconciler.root.children[0].handle, original_handle)
+        reconciler.unmount()
+
+    def test_duplicate_key_after_partial_generator_consumption_never_commits(self):
+        view, _ = transformed_view(self.MARKUP)
+        renderer = HeadlessRenderer(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(640, True), AvailableSize(480, True)),
+            engine=PythonLayoutEngine(),
+            measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+        )
+        reconciler = Reconciler(renderer)
+        original = reconciler.render(view([{"id": "original", "label": "Original"}]))
+        def duplicates():
+            yield {"id": "dup", "label": "First"}
+            yield {"id": "dup", "label": "Second"}
+        with self.assertRaisesRegex(MarkupSyntaxError, "Duplicate"):
+            reconciler.render(view(duplicates()))
+        self.assertIs(reconciler.root, original)
+        self.assertEqual(reconciler.root.children[0].node.key, "original")
+        reconciler.unmount()
+
+
 if __name__ == "__main__":
     unittest.main()
