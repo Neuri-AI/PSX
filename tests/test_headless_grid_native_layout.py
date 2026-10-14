@@ -358,3 +358,38 @@ def test_alternating_grid_flex_grid_uses_cinnamon_at_each_depth(request):
             "bounded_reflow_identity", applicability="partial_native"), True)
     finally:
         reconciler.unmount()
+
+
+def test_mixed_headless_grid_siblings_keyed_reorder_preserves_handles(request):
+    from psx import Flex
+    renderer = make_renderer()
+    reconciler = Reconciler(renderer)
+
+    def scene(order):
+        return Flex(*(
+            Grid(GridItem(Text(label), key="item", span=12),
+                 key=label, gap=4)
+            for label in order
+        ), direction="column", width="100%", height=100,
+            align_items="stretch")
+
+    try:
+        mounted = reconciler.render(scene(("a", "b")))
+        handles = {node.node.key: (node.handle, node.children[0].handle,
+                                  node.children[0].children[0].handle)
+                   for node in mounted.children}
+        changed = reconciler.render(scene(("b", "a")))
+        for child in changed.children:
+            assert (child.handle, child.children[0].handle,
+                    child.children[0].children[0].handle) == handles[child.node.key]
+            assert child.children[0].handle.geometry.width == 800
+        renderer.set_sfle_constraints(viewport(767))
+        renderer.commit_layout(changed)
+        for child in changed.children:
+            assert child.children[0].handle.geometry.width == 767
+        assert renderer.grid_result[1].max_readback_error == 0
+        assert_feature(request, Feature(
+            "Grid", "headless", "interaction", "mixed_keyed_siblings",
+            "reorder_identity_readback", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
