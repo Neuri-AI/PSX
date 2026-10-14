@@ -600,6 +600,8 @@ jobs:
             --sha "${{ github.sha }}" \
             --require-contract-component Grid \
             --require-contract-component GridItem \
+            --require-native-component Grid \
+            --require-native-component GridItem \
             "${files[@]}"
       - uses: actions/upload-artifact@v4
         if: always()
