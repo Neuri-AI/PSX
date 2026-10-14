@@ -383,7 +383,7 @@ def test_headless_rejects_unsupported_grid_mount_before_side_effects(component, 
     node = Grid(GridItem(Text("x"))) if component == "Grid" else GridItem(Text("x"))
     renderer = (HeadlessRenderer(sfle_constraints=LayoutConstraints(AvailableSize(800, True), AvailableSize(600, True)))
                 if sfle_enabled else HeadlessRenderer())
-    with pytest.raises(RendererCapabilityError, match=r"Native SFLE .* SFLE geometry not certified for .(?:Grid|GridItem)."):
+    with pytest.raises(RendererCapabilityError, match="requires an SFLE Grid layout backend"):
         renderer.create(node, None)
     assert renderer.operations == []
 
