@@ -12,7 +12,7 @@ from typing import Protocol
 from collections.abc import Callable
 from threading import get_ident
 
-from psx.core.grid_contract import normalize_grid_props, normalize_grid_item_props, resolve_grid_item_props
+from psx.core.grid_contract import GRID_BREAKPOINTS, normalize_grid_props, normalize_grid_item_props, resolve_grid_item_props
 from psx.core.layout_tree import NormalizedLayoutNode
 from psx.core.vnode import NodeKind
 
@@ -43,6 +43,7 @@ def measure_grid_native(
     constraints: Mapping[str, object] | None = None,
     rtl: bool = False,
     allow_nested: bool = False,
+    breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
 ) -> PreparedGridMeasurement:
     """Perform real width-aware native measurement, then run Cinnamon Grid.
 
@@ -78,7 +79,10 @@ def measure_grid_native(
         ):
             raise GridPackingError("Composite GridItem measurement is not yet supported.")
         identifier = path_identity(child.path)
-        values = resolve_grid_item_props(normalize_grid_item_props(child.source.props), content_width)
+        values = resolve_grid_item_props(
+            normalize_grid_item_props(child.source.props), content_width,
+            breakpoints=breakpoints,
+        )
         slots.append(GridSlot(identifier, values["span"], values["offset"]))
         ids.append(identifier)
     if len(set(ids)) != len(ids) or set(revisions) != set(ids):
@@ -118,6 +122,7 @@ def measure_grid_native(
         grid, content_width=content_width, measurements=receipts,
         mounted_ids=mounted_ids, generation=generation,
         current_generation=current_generation, constraints=constraints, rtl=rtl,
+        breakpoints=breakpoints,
     )
 
 
