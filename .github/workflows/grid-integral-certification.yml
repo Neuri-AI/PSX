@@ -1,8 +1,5 @@
 name: Grid integral certification
 on:
-  push:
-    branches: [feature/grid-native-renderer-integration]
-    paths-ignore: ["docs/**", "**/*.md"]
   workflow_dispatch:
   pull_request:
     branches: [develop]
@@ -11,9 +8,14 @@ permissions:
   contents: read
 concurrency:
   group: grid-integral-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
+  docs-impact:
+    uses: ./.github/workflows/docs-delta.yml
+
   native-ui:
+    needs: docs-impact
+    if: needs.docs-impact.outputs.run_checks == 'true'
     name: Grid live UI + public contracts (Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -41,6 +43,8 @@ jobs:
       - name: Public API and impact selectors
         run: python -m pytest -q tests/test_public_behavior_census.py tests/test_ci_impact.py
   rust-python:
+    needs: docs-impact
+    if: needs.docs-impact.outputs.run_checks == 'true'
     name: Rust Python differential and Grid
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -54,6 +58,8 @@ jobs:
       - run: cargo test --manifest-path rust/sfle-core/Cargo.toml --all-targets --no-fail-fast
       - run: python -m pytest -q tests/interop/test_sfle_differential.py tests/interop/test_sfle_final_certification.py tests/interop/test_sfle_capability_parity.py tests/interop/test_sfle_negative_fuzz_regression.py tests/sfle/test_grid_math.py
   chromium:
+    needs: docs-impact
+    if: needs.docs-impact.outputs.run_checks == 'true'
     name: Chromium reference overlap
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -67,6 +73,8 @@ jobs:
       - run: python -m playwright install --with-deps chromium
       - run: python -m pytest -q tests/browser/test_sfle_chromium_version.py tests/browser/test_sfle_chromium.py tests/browser/test_sfle_engine_chromium.py tests/browser/test_sfle_css_reference_matrix.py tests/browser/test_sfle_rtl_regression.py tests/browser/test_sfle_wrap_fixed_regression.py
   native-platform:
+    needs: docs-impact
+    if: needs.docs-impact.outputs.run_checks == 'true'
     name: Native wheel and frozen ABI ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 50
@@ -102,8 +110,8 @@ jobs:
           if-no-files-found: warn
   required:
     name: Grid integral required conclusion
-    if: always()
-    needs: [native-ui, rust-python, chromium, native-platform]
+    if: always() && needs.docs-impact.outputs.run_checks == 'true'
+    needs: [docs-impact, native-ui, rust-python, chromium, native-platform]
     runs-on: ubuntu-latest
     steps:
       - name: All integral domains must have executed and succeeded
@@ -114,6 +122,6 @@ jobs:
           import json, os
           results = json.loads(os.environ["RESULTS"])
           print(json.dumps(results, indent=2))
-          assert set(results) == {"native-ui", "rust-python", "chromium", "native-platform"}
+          assert set(results) == {"docs-impact", "native-ui", "rust-python", "chromium", "native-platform"}
           assert all(v["result"] == "success" for v in results.values())
           PY
