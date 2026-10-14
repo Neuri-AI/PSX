@@ -41,6 +41,19 @@ Every **new F4 capability** must include, in the same increment:
 
 For every closure: review code and contracts; run targeted tests; fix root causes, not assertions that conceal defects; confirm all required Actions SUCCESS on the intended immutable source/checkout; confirm scoped receipts and applicability; record SHA, workflow, coverage, known exclusions and next increment **here**. A workflow that merely starts or passes only some jobs is not CLOSED.
 
+## G1 closure audit — 2026-10-14 (NOT CLOSED)
+
+The last reviewed native-layout run `38550633487` is **SUCCESS** for all required selected jobs, and its Grid/GridItem scoped contract certificate reports **57/57 executed, zero pending**. These facts are necessary but insufficient for declaring the full G1 contract complete.
+
+**Concrete gaps found in repository code and tests:**
+
+- **Application settings integration is absent from the reviewed Grid implementation.** `psx/core/grid_contract.py` provides `validate_grid_breakpoints(...)` and `resolve_grid_item_props(..., breakpoints=GRID_BREAKPOINTS)` with a caller-supplied table, but no actual application settings field or configuration-to-resolution wiring is demonstrated. The approved contract explicitly requires globally customizable breakpoints in settings and says their schema must be documented before shipping G1. This is a G1 acceptance blocker, not G2 geometry.
+- **Kivy-specific negative coverage is missing.** The renderer contains a fail-closed guard in `psx/renderers/kivy/kivy.py::_adapter_create` for Grid/GridItem, but `tests/test_kivy_public_behavior.py` and `tests/certification/kivy_public_behavior_driver.py` contain no Grid test/receipt, and `tests/certification/public_behavior_census.py` has no `kivy_fail_closed` inventory row. The current 57/57 certificate therefore **does not cover Kivy Grid mounting**.
+- **Native no-side-effect assertion is not proven by the existing Qt/Tk Grid tests.** Their `test_grid_mount_fails_before_native_widget_creation` cases assert that an exception is raised and emit a receipt, but do not directly assert that no widget was created or attached. Review all renderers and add meaningful pre/post state assertions where applicable.
+- **CI checkout SHA differs from source SHA.** The successful aggregate uses `00173edcf31287abc78bfeebed8cd4bb0c240bb2` while the reviewed source commit was `a6b04aca29d374f4b686d2cf49702aa9a95d456a`. Verify the PR merge checkout and retain both identities in the formal certificate; do not substitute one for the other.
+
+**Disposition:** F4-G1 remains **IN PROGRESS**. Implement missing settings integration and native negative evidence, route tests in `scripts/ci/impact.py`, add real census receipts, rerun selected Actions and certify the resulting immutable code/checkout. Only then change G1 to CLOSED. The documentation-only audit commit must not trigger product test suites.
+
 ## Immediate next actions for the incoming agent
 
 1. Inspect actual branch HEAD, PR #16, workflow statuses, `docs/architecture/responsive-grid-contract.md` and `docs/architecture/responsive-grid-implementation-handoff.md`. Verify whether the reviewed source SHA is still HEAD and why the successful census uses a distinct checkout SHA.
