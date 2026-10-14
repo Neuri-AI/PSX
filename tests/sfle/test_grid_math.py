@@ -80,3 +80,45 @@ def test_grid_rejects_duplicate_ids_and_nonsequence_inputs():
         pack_grid_rows([GridSlot("same"), GridSlot("same")])
     with pytest.raises(GridPackingError):
         pack_grid_rows(None)
+
+
+PIXEL_CASES = json.loads(
+    (Path(__file__).resolve().parents[1] / "fixtures" / "grid_pixel_projection.json")
+    .read_text(encoding="utf-8")
+)["cases"]
+
+
+@pytest.mark.parametrize("case", PIXEL_CASES, ids=lambda item: item["name"])
+def test_fixed_point_pixel_projection_matches_shared_rust_fixtures(case):
+    from psx.sfle.grid_math import project_grid_rows
+    rows = pack_grid_rows([GridSlot(**item) for item in case["items"]])
+    if case.get("error") == "invalid":
+        with pytest.raises(GridPackingError):
+            project_grid_rows(rows, case["width"], case["gap"])
+        return
+    actual = project_grid_rows(rows, case["width"], case["gap"])
+    assert [
+        [{"id": box.id, "x_raw": box.x_raw, "width_raw": box.width_raw}
+         for box in row.items] for row in actual
+    ] == case["rows"]
+
+
+@pytest.mark.parametrize("width,gap", (
+    (float("nan"), 0), (-1, 0), (True, 0),
+    (100, float("inf")), (100, -1), (100, True),
+))
+def test_pixel_projection_rejects_invalid_constraints(width, gap):
+    from psx.sfle.grid_math import project_grid_rows
+    rows = pack_grid_rows([GridSlot("a", "auto")])
+    with pytest.raises(GridPackingError):
+        project_grid_rows(rows, width, gap)
+
+
+def test_pixel_projection_does_not_accumulate_edge_drift():
+    from psx.sfle.grid_math import project_grid_rows
+    rows = pack_grid_rows([GridSlot(str(index), "auto") for index in range(11)])
+    projection = project_grid_rows(rows, 109.17, 0.31)[0].items
+    gap_raw = round(0.31 * 64)
+    assert all(left.x_raw + left.width_raw + gap_raw == right.x_raw
+               for left, right in zip(projection, projection[1:]))
+    assert projection[-1].x_raw + projection[-1].width_raw == round(109.17 * 64)
