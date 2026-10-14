@@ -29,11 +29,11 @@ EXTERNAL = frozenset({"Native"})
 # MUST be classified, otherwise CI fails rather than silently turning it red
 # or accidentally green when it is not part of the reviewed scope.
 UNPORTED_BY_BACKEND = MappingProxyType({
-    "qt": frozenset(),
-    "tk": frozenset(),
-    "kivy": frozenset(),
+    "qt": frozenset({"Grid", "GridItem"}),
+    "tk": frozenset({"Grid", "GridItem"}),
+    "kivy": frozenset({"Grid", "GridItem"}),
     "headless": frozenset({
-        "Checkbox", "Input", "TextArea", "Slider", "Spacer", "Divider",
+        "Grid", "GridItem", "Checkbox", "Input", "TextArea", "Slider", "Spacer", "Divider",
         "Image", "ProgressBar", "Radio", "RadioGroup", "Select", "Switch",
         "Link", "Badge", "SpinBox", "Scroll", "Box",
     }),
