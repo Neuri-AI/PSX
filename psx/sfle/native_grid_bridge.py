@@ -105,6 +105,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 measure_leaf=measure_leaf,
                 is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
                 breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
+                engine=renderer._sfle_engine,
             )
             prepared = composed.prepared
             batch, commit_widgets, composed_heights = compose_geometry_batch(
