@@ -92,7 +92,15 @@ def View():
         set_active(lambda value: not value)
     return psx('<Flex><Button label="Toggle" on_click={toggle} />{active && <Text value="Shown" />}</Flex>')
 """)
-        renderer = HeadlessRenderer()
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+        renderer = HeadlessRenderer(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(640, True), AvailableSize(480, True)
+            ),
+            engine=PythonLayoutEngine(),
+            measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+        )
         root = Reconciler(renderer).render(namespace["View"]())
         flex = root.children[0].handle
         self.assertEqual(len(flex.children), 1)
