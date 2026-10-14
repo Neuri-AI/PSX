@@ -287,7 +287,8 @@ def collect_executed_receipts(rows: tuple[Feature, ...], artifacts: tuple[Path, 
 
 def merge_executed_manifests(rows: tuple[Feature, ...], manifests: tuple[Path, ...],
                              *, sha: str, require_complete: bool = False,
-                             require_contract_components: tuple[str, ...] = ()) -> dict:
+                             require_contract_components: tuple[str, ...] = (),
+                             require_native_components: tuple[str, ...] = ()) -> dict:
     """Recheck original JUnit files after downloading per-platform artifacts.
 
     Receipt manifests are transport metadata, never independently trusted
@@ -336,6 +337,29 @@ def merge_executed_manifests(rows: tuple[Feature, ...], manifests: tuple[Path, .
         if missing:
             raise ValueError(f"Incomplete component contract certification: "
                              f"{sorted(missing)[:12]} ({len(missing)} missing)")
+    if require_native_components:
+        selected = set(require_native_components)
+        scoped = {feature_key(row) for row in rows
+                  if row.component in selected and row.backend != CONTRACT
+                  and row.applicability == "partial_native"}
+        expected_backends = {"headless", "pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"}
+        observed_backends = {row.backend for row in rows
+                             if row.component in selected and row.applicability == "partial_native"}
+        observed_components = {row.component for row in rows
+                               if row.component in selected and row.applicability == "partial_native"}
+        if observed_backends != expected_backends or observed_components != selected:
+            raise ValueError("Incomplete native Grid inventory for the required toolkit matrix.")
+        passed = {feature_key(row) for row in receipts
+                  if row.get("status") == "executed_pass"}
+        missing = scoped - passed
+        report["native_scope"] = {
+            "components": sorted(selected), "backends": sorted(expected_backends),
+            "required": len(scoped), "executed_pass": len(scoped - missing),
+            "pending": len(missing), "complete": not missing,
+        }
+        if missing:
+            raise ValueError(f"Incomplete native Grid certification: {sorted(missing)[:12]} "
+                             f"({len(missing)} missing)")
     if require_complete and not report["complete"]:
         raise ValueError(
             f"Final public behavior certificate incomplete: "
@@ -352,6 +376,7 @@ def main() -> None:
     parser.add_argument("--receipt-file", type=Path, action="append", default=[])
     parser.add_argument("--require-complete", action="store_true")
     parser.add_argument("--require-contract-component", action="append", default=[])
+    parser.add_argument("--require-native-component", action="append", default=[])
     args = parser.parse_args()
     rows = inventory()
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -367,15 +392,17 @@ def main() -> None:
         report = merge_executed_manifests(
             rows, tuple(args.receipt_file), sha=args.sha,
             require_complete=args.require_complete,
-            require_contract_components=tuple(args.require_contract_component))
+            require_contract_components=tuple(args.require_contract_component),
+            require_native_components=tuple(args.require_native_component))
         args.out.with_name(args.out.stem + "-final-report.json").write_text(
             json.dumps(report, indent=2) + "\n", encoding="utf-8")
-        if args.require_contract_component:
+        if args.require_contract_component or args.require_native_component:
             # Preserve full global audit in JSON, but emit the *requested*
             # scoped acceptance result instead of unrelated historic gaps.
             print(json.dumps({"certificate": "scoped_public_contract",
                               "sha": report["sha"],
-                              "contract_scope": report["contract_scope"],
+                              **({"contract_scope": report["contract_scope"]} if args.require_contract_component else {}),
+                              **({"native_scope": report["native_scope"]} if args.require_native_component else {}),
                               "global_inventory_artifact":
                                   args.out.with_name(args.out.stem + "-final-report.json").name},
                              sort_keys=True))
