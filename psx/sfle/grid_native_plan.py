@@ -8,7 +8,7 @@ readback; an incomplete batch is rejected before the first native mutation.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 
 from .fixed_point import I32_MAX
 from .grid_math import GridConstrainedRect, GridPackingError
@@ -45,7 +45,7 @@ def plan_grid_native_geometry(
     if generation != current_generation:
         raise GridPackingError("Stale Grid geometry generation.")
     expected = tuple(expected_ids)
-    if not expected or any(type(value) is not str or not value for value in expected):
+    if any(type(value) is not str or not value for value in expected):
         raise GridPackingError("Grid requires nonempty unique child identities.")
     if len(set(expected)) != len(expected):
         raise GridPackingError("Duplicate Grid child identities.")
