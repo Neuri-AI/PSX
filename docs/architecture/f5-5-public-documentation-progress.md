@@ -64,3 +64,12 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Known discrepancy:** Historical reports gave 56/59 root exports. The inspected SHA has 57. `pyproject.toml` names package `velto`, while actual Python imports remain `psx`. `App.settings` accepts grid metadata only. `load_plugins` discovery defaults to off.
 - **Gate status:** **G1 IN PROGRESS**, not technically certified. G2–G6 NOT STARTED. **F5.5 NOT CLOSED.** Scope intentionally excludes F6/M8 and postponed ecosystem integrations.
 - **Three immediate next steps:** (1) complete the source/test/backend census beyond `psx.__all__` with exact signatures, props, child policies, events and test links; (2) run the new root census workflow and route/fix failures, record exact job/run URLs and immutable SHA; (3) build and validate Mintlify IA/six templates before publishing runnable beginner pages.
+
+
+### 2026-10-14 — F5.5-G1-C1 — CI audit and packaging repair
+- **Source SHA:** `83d30afc68de5e21b736b1299185d5efaf86bf9b`; prior implementation SHA `1122873485e4a4442c9c01e90e0fcf3141098a12`.
+- **Observed evidence:** dedicated API inventory [run 38633268766](https://github.com/Neuri-AI/PSX/actions/runs/38633268766) completed **SUCCESS**, `root-export-inventory` successful. Main selective native [run 38633268245](https://github.com/Neuri-AI/PSX/actions/runs/38633268245) **FAILURE** in core and G4, blocked at editable build: Poetry could not locate `velto` because project distribution name and actual `psx/` package differ. Commit-subject [run 38633268518](https://github.com/Neuri-AI/PSX/actions/runs/38633268518) **FAILURE** because scope `f5.5` is invalid under the workflow's Conventional Commit regular expression.
+- **Repair:** changed `pyproject.toml` to explicitly declare `[tool.poetry] packages = [{ include = "psx" }]` without renaming the public package or changing runtime semantics. Commit `8a2cca160331387865d8f9d3d53cff268d6bf247`. New commit subject uses valid scope `packaging`.
+- **Execution status:** Must recheck GitHub Actions on latest exact SHA after this progress commit, including wheel/editable install. The old green audit run does not certify the new SHA.
+- **G1-C1 disposition:** **IN PROGRESS pending green required CI on final immutable SHA**; full G1 census remains incomplete. Native renderer coverage unverified.
+- **Next three steps:** verify build/test workflow after metadata repair; pin new SHA and evidence; continue per-symbol contracts/test/backend census.
