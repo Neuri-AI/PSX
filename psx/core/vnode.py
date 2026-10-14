@@ -636,3 +636,34 @@ def Badge(
     )
     BADGE_CONTRACT.validate_builder(options)
     return create_element("Badge", key=key, ref=ref, **options)
+
+
+def Grid(*children: object, columns: int = 12, gap: object = 0,
+         row_gap: object | None = None, column_gap: object | None = None,
+         key: Key | None = None, ref: object | None = None,
+         **props: object) -> VNode:
+    """Declare a future native Grid; geometry is unavailable until G2/G3."""
+    from .grid_contract import normalize_grid_props
+    options = dict(columns=columns, gap=gap, row_gap=row_gap,
+                   column_gap=column_gap, **props)
+    validated = dict(normalize_grid_props(options))
+    resolved = normalize_children(children)
+    for child in resolved:
+        if child.kind is NodeKind.HOST and child.type != "GridItem":
+            raise InvalidChildError("Grid requires direct GridItem children.")
+        if child.kind not in (NodeKind.HOST, NodeKind.COMPONENT):
+            raise InvalidChildError("Grid requires GridItem or a component resolving to GridItem.")
+    return create_element("Grid", *resolved, key=key, ref=ref, **validated)
+
+
+def GridItem(*children: object, span: object = "auto", offset: object = 0,
+             key: Key | None = None, ref: object | None = None,
+             **props: object) -> VNode:
+    """Declare a planned grid item; requires one portable component root."""
+    from .grid_contract import normalize_grid_item_props
+    validated = dict(normalize_grid_item_props(
+        dict(span=span, offset=offset, **props)))
+    resolved = normalize_children(children)
+    if len(resolved) != 1:
+        raise InvalidChildError("GridItem requires exactly one component root.")
+    return create_element("GridItem", *resolved, key=key, ref=ref, **validated)
