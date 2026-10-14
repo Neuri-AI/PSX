@@ -251,3 +251,91 @@ def layout_grid_rects(
         if row.items:
             y += max(heights[item.id] for item in row.items) + gap
     return tuple(result)
+
+
+@dataclass(frozen=True, slots=True)
+class GridItemConstraints:
+    """Resolved nonnegative content-box min/max limits; None means unbounded."""
+    min_width: float = 0
+    max_width: float | None = None
+    min_height: float = 0
+    max_height: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class GridConstrainedRect:
+    """Immutable allocated rectangle and independently constrained used size."""
+    id: str
+    x_raw: int
+    y_raw: int
+    width_raw: int
+    height_raw: int
+    used_width_raw: int
+    used_height_raw: int
+    overflow_x: bool
+    overflow_y: bool
+
+
+def compute_grid(
+    slots: tuple[GridSlot, ...] | list[GridSlot],
+    content_width: int | float,
+    column_gap: int | float = 0,
+    row_gap: int | float = 0,
+    item_heights: dict[str, int | float] | None = None,
+    constraints: dict[str, GridItemConstraints] | None = None,
+    *,
+    rtl: bool = False,
+) -> tuple[tuple[GridConstrainedRect, ...], ...]:
+    """Cinnamon pure Grid entry point; never changes spans to satisfy min/max.
+
+    Intrinsic heights must already be measured. Allocations remain fixed;
+    minimum size overflow is explicit, not an implicit row-wrap request.
+    """
+    from .fixed_point import LayoutUnit, I32_MAX
+
+    rows = pack_grid_rows(slots)
+    limits = {} if constraints is None else constraints
+    if not isinstance(limits, dict) or any(
+        key not in {item.id for item in slots} for key in limits
+    ):
+        raise GridPackingError("Grid constraints must reference declared item IDs.")
+    resolved: dict[str, tuple[int, int | None, int, int | None]] = {}
+    for item in slots:
+        bound = limits.get(item.id, GridItemConstraints())
+        if not isinstance(bound, GridItemConstraints):
+            raise GridPackingError("Grid item constraints must be GridItemConstraints.")
+        values = (bound.min_width, bound.max_width, bound.min_height, bound.max_height)
+        for value in values:
+            if value is None:
+                continue
+            if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value) or value < 0 or value * 64 > I32_MAX):
+                raise GridPackingError("Grid min/max must be finite representable nonnegative lengths.")
+        if bound.max_width is not None and bound.max_width < bound.min_width:
+            raise GridPackingError("Grid max_width cannot be smaller than min_width.")
+        if bound.max_height is not None and bound.max_height < bound.min_height:
+            raise GridPackingError("Grid max_height cannot be smaller than min_height.")
+        resolved[item.id] = (
+            LayoutUnit.from_nearest(bound.min_width).raw,
+            None if bound.max_width is None else LayoutUnit.from_nearest(bound.max_width).raw,
+            LayoutUnit.from_nearest(bound.min_height).raw,
+            None if bound.max_height is None else LayoutUnit.from_nearest(bound.max_height).raw,
+        )
+    rects = layout_grid_rects(rows, content_width, column_gap, row_gap, item_heights, rtl=rtl)
+    output = []
+    for row in rects:
+        constrained = []
+        for rect in row:
+            min_w, max_w, min_h, max_h = resolved[rect.id]
+            used_w = max(rect.width_raw, min_w)
+            used_h = max(rect.height_raw, min_h)
+            if max_w is not None:
+                used_w = min(used_w, max_w)
+            if max_h is not None:
+                used_h = min(used_h, max_h)
+            constrained.append(GridConstrainedRect(
+                rect.id, rect.x_raw, rect.y_raw, rect.width_raw, rect.height_raw,
+                used_w, used_h, used_w > rect.width_raw, used_h > rect.height_raw,
+            ))
+        output.append(tuple(constrained))
+    return tuple(output)
