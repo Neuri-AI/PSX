@@ -15,6 +15,11 @@ class RoutingTests(unittest.TestCase):
                          {'core', 'qt', 'kivy', 'tkinter', 'headless'})
         self.assertEqual(self.selected('docs/architecture/responsive-grid-contract.md'), set())
 
+    def test_headless_mounted_grid_routes_headless_validation(self):
+        for path in ("psx/sfle/headless_grid_bridge.py", "tests/test_headless_grid_native_layout.py"):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), {"core", "sfle", "headless"})
+
     def test_grid_native_commit_routes_all_geometry_consumers(self):
         expected = {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
         for path in ("psx/sfle/grid_native_commit.py", "tests/sfle/test_grid_native_commit.py"):
