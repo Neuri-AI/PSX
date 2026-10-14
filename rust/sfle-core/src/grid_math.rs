@@ -405,3 +405,19 @@ mod cross_axis_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod overflow_tests {
+    use super::*;
+    #[test]
+    fn rejects_dimensions_outside_layout_unit_range() {
+        let rows = pack_grid_rows(&[GridSlot {
+            id: "a".into(), span: Some(12), offset: 0, order: 0
+        }]).unwrap();
+        assert!(project_grid_rows(&rows, 40_000_000.0, 0.0).is_err());
+        assert!(project_grid_rows(&rows, 100.0, 40_000_000.0).is_err());
+        let mut heights = std::collections::HashMap::new();
+        heights.insert("a".to_string(), 40_000_000.0);
+        assert!(layout_grid_rects(&rows, 100.0, 0.0, 0.0, &heights, false).is_err());
+    }
+}
