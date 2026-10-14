@@ -112,3 +112,15 @@ def test_native_plan_preserves_fractional_layout_unit_precision():
     assert placements[0].width * 64 == rows[0][0].width_raw
     assert placements[1].x * 64 == rows[0][1].x_raw
     assert placements[0].used_height == 1.5
+
+
+@pytest.mark.parametrize("change", (
+    {"x_raw": 2_147_483_640, "width_raw": 20},
+    {"y_raw": 2_147_483_640, "height_raw": 20},
+    {"id": ""},
+))
+def test_native_plan_rejects_forged_edges_and_invalid_identity(change):
+    rows = constrained_rows()
+    corrupt = replace(rows[0][0], **change)
+    with pytest.raises(GridPackingError):
+        batch(((corrupt, rows[0][1]),))
