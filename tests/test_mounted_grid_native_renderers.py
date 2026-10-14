@@ -162,7 +162,7 @@ def test_grid_under_flex_fails_closed_without_fallback(request):
     try:
         with pytest.raises(RendererCapabilityError, match="Nested Grid"):
             tree.render(Flex(view(), width="800px", height="200px"))
-        assert renderer.grid_result is None
+        assert getattr(renderer, "grid_result", None) is None
         assert_feature(request, Feature("Grid", binding, "interaction",
                                         "nested_container", "fails_closed",
                                         applicability="partial_native"), True)
