@@ -6,13 +6,13 @@
 
 ## 1. Objective and invariants
 
-Enable React-like declarative syntax inside Python-authored PSX markup without embedding a JavaScript runtime or browser. The static lexical transformer (M4B) is the primary authority for new expressions; Python remains the runtime. The explicit-scope M4A parser/compiler must remain safe and backward compatible, without executing expressions received from strings or using `eval`/`exec`. F5 must not change Cinnamon geometry or backend-owned widget layout.
+Enable React-like declarative syntax inside Python-authored PSX markup without embedding a JavaScript runtime or browser. The static lexical transformer (M4B) is the primary authority for new expressions; Python remains the runtime. The explicit-scope PSX Runtime parser/compiler must remain safe and backward compatible, without executing expressions received from strings or using `eval`/`exec`. F5 must not change Cinnamon geometry or backend-owned widget layout.
 
 Preserve existing host/component registries, VNode construction, renderer identities, reconciliation keys, lifecycle, scheduler, hook order, closure semantics, source maps and exception reporting. M4B transforms authored source before Python execution; the developer does not pass a manually assembled `scope` to `psx()`.
 
 ## Literal attributes and expression braces — owner clarification (2026-10-14)
 
-**Binding grammar rule:** Curly braces in PSX Markup are reserved for variable references, mappings/list transforms, conditional expressions and arrow callbacks. **Static values are quoted, including numbers.** `<Flex gap="12" padding="50" />` is valid; `<Flex gap={12} />` is invalid and must produce a source-spanned `MarkupSyntaxError`, not silently accept a numeric constant. `<Flex gap={spacing} />` is valid only if `spacing` resolves in the authored lexical scope (M4B) or explicitly provided trusted mapping (M4A); an undefined identifier raises a diagnostic. No `eval`, `exec` or Python frame inspection may be used for lookup.
+**Binding grammar rule:** Curly braces in PSX Markup are reserved for variable references, mappings/list transforms, conditional expressions and arrow callbacks. **Static values are quoted, including numbers.** `<Flex gap="12" padding="50" />` is valid; `<Flex gap={12} />` is invalid and must produce a source-spanned `MarkupSyntaxError`, not silently accept a numeric constant. `<Flex gap={spacing} />` is valid only if `spacing` resolves in the authored lexical scope (M4B) or explicitly provided trusted mapping (PSX Runtime); an undefined identifier raises a diagnostic. No `eval`, `exec` or Python frame inspection may be used for lookup.
 
 Quoted numeric attributes pass through the existing registry-backed coercion/validation: known integer-valued props are converted as appropriate, while string/text props remain strings. This preserves markup schema authority rather than guessing types from braces. Boolean presence syntax and established string props are unchanged.
 
@@ -67,13 +67,13 @@ The grammar and source-spanned AST are implemented in `psx/markup/expressive_ast
 - **List callback:** precisely `.map((item) => expression)` at this initial grammar level, with a required `key` for a directly returned JSX element; indexed callback, destructuring and implicit keys are not approved
 - **Literal attributes:** `gap="12"`, never `gap={12}`; braces are for lexical names and validated expressive syntax only
 
-M4A remains restrictive and cannot import or invoke the new authored M4B expression grammar. The parser builds a **non-executing AST** only; G2–G4 provide the transforms that will make those constructs render, including state semantics and native event integration. No `eval`, `exec`, frame reflection or JS runtime is needed or authorized.
+PSX Runtime remains restrictive and cannot import or invoke the new authored M4B expression grammar. The parser builds a **non-executing AST** only; G2–G4 provide the transforms that will make those constructs render, including state semantics and native event integration. No `eval`, `exec`, frame reflection or JS runtime is needed or authorized.
 
 ## 3. Compiler and runtime architecture
 
 **M4B source → expressive grammar/AST → validated Python AST → existing VNode factories/reconciler → native backends.** Keep existing M4B transform before execution, static template caching keyed to grammar/compiler version, source maps for every transformed expression, and registry-defined component validation. Do not use dynamic frame inspection.
 
-M4A explicit scope remains restricted and unchanged; markup from untrusted or dynamic strings must not gain expression-evaluation privileges. Generated ordinary Python callbacks may execute author-written application functions, but compiler-produced expression parsing is scoped to explicitly accepted constructs. Maintain the current component boundary and `use_state` calling-order invariants: hooks inside dynamic list callbacks or conditionally invoked component bodies must obey reconciler rules; component-owned hooks remain inside mounted child components.
+PSX Runtime explicit scope remains restricted and unchanged; markup from untrusted or dynamic strings must not gain expression-evaluation privileges. Generated ordinary Python callbacks may execute author-written application functions, but compiler-produced expression parsing is scoped to explicitly accepted constructs. Maintain the current component boundary and `use_state` calling-order invariants: hooks inside dynamic list callbacks or conditionally invoked component bodies must obey reconciler rules; component-owned hooks remain inside mounted child components.
 
 New parser nodes and syntax must have unambiguous precedence for `&&`, `? :`, arrows, `.map()`, equality, grouping and nesting. Reject ambiguity instead of attempting JavaScript coercion. Explicit security tests must cover inaccessible attributes, template injection, invalid callback syntax and attempted escapes from the expression subset.
 
@@ -83,11 +83,11 @@ Every gate starts **NOT STARTED**, and may be CLOSED only with implemented funct
 
 | Gate | Delivery | Acceptance / mandatory evidence | Depends |
 | --- | --- | --- | --- |
-| **G1 — Expressive grammar and compiler contract** | Normative syntax, AST, precedence, source mapping, falsy and error taxonomy | Approved examples, positive/negative grammar fixtures, M4A/M4B isolation tests and explicit unsupported diagnostics; no claims of native rendering | F4 closure |
+| **G1 — Expressive grammar and compiler contract** | Normative syntax, AST, precedence, source mapping, falsy and error taxonomy | Approved examples, positive/negative grammar fixtures, PSX Runtime/M4B isolation tests and explicit unsupported diagnostics; no claims of native rendering | F4 closure |
 | **G2 — Conditional expressions** | `&&`, `? :` and nested branches in M4B | Each branch evaluated only when active, falsy produces no node, comparisons `==`/`!=`, stable VNodes and exact source diagnostics; compiler/Headless tests and routing | G1 |
 | **G3 — Declarative `.map()` lists** | Compiler transform to Python iteration, keyed child production and nested forms | Empty/insert/remove/reorder/duplicate-key, nested map, index/closure behavior and identity retained under reconciliation; explicit negative cases | G2 |
 | **G4 — Arrow functions** | Lexically captured callbacks in markup/event attributes and list items | Zero/one argument, capture/rebinding, deferred invocation, lifecycle/disabled/teardown, invalid-arrow diagnostics and cross-platform event evidence | G3 |
-| **G5 — Composition, lifecycle and security** | Cross-feature combinations with reconciliation/hook invariants and safe M4A boundary | Adversarial nested ternary + maps + arrows, mixed native tree, state and key preservation, malformed/untrusted expressions, rollback, source-map integrity and F1–F4 regressions | G4 |
+| **G5 — Composition, lifecycle and security** | Cross-feature combinations with reconciliation/hook invariants and safe PSX Runtime boundary | Adversarial nested ternary + maps + arrows, mixed native tree, state and key preservation, malformed/untrusted expressions, rollback, source-map integrity and F1–F4 regressions | G4 |
 | **G6 — Integral F5 certification** | Complete executable acceptance matrix | All applicable Qt bindings/Tkinter/Kivy/Headless functional suites, compiler and safety tests, intelligent CI coverage, executed public census receipts, exact immutable SHA, unsupported-cell dispositions and explicit owner signoff | G1–G5 |
 
 ## 5. Three mandatory artifacts with every change

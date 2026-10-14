@@ -265,7 +265,7 @@ margins/padding/gaps is property-specific.
   declarative value grammar. Invalid units such as `"12furlongs"` fail.
 - Markup `width="50%"` is already a quoted string lexically, but the
   component/parent-aware validation rules must admit it.
-- The current M4A parser accepts quoted strings and positive `{number}`
+- The current PSX Runtime parser accepts quoted strings and positive `{number}`
   literals. A negative literal or complex `{expression}` is **not**
   automatically supported; use quoted lengths or a future parser extension.
 - No arbitrary `calc()` execution, `eval`, CSS cascade, or unbounded

@@ -1,6 +1,6 @@
 # M4B static lexical transform
 
-**F5 design note (2026-10-14):** Current behavior below describes the implemented lexical baseline. The future F5 Expressive Markup syntax (conditional `&&` and `? :`, statically compiled `.map()` lists, arrow callbacks, Python `==`/`!=` and conditional falsy suppression) is approved **but not implemented**. See [normative F5 contract](architecture/f5-expressive-markup-contract.md). The M4A explicit-scope untrusted-template safety boundary remains unchanged; M8 Hot Reloading is postponed to F6.
+**F5 design note (2026-10-14):** Current behavior below describes the implemented lexical baseline. The future F5 Expressive Markup syntax (conditional `&&` and `? :`, statically compiled `.map()` lists, arrow callbacks, Python `==`/`!=` and conditional falsy suppression) is approved **but not implemented**. See [normative F5 contract](architecture/f5-expressive-markup-contract.md). The PSX Runtime explicit-scope untrusted-template safety boundary remains unchanged; M8 Hot Reloading is postponed to F6.
 
 M4B enables ergonomic inline developer-authored markup without runtime frame
 inspection. Transform a Python module before running, testing, or packaging it:
@@ -45,14 +45,14 @@ markup compiler follows only the declared attribute segments. A callback such as
 Missing roots and attributes produce `MarkupSyntaxError` diagnostics at the
 original markup location.
 
-M4A is unchanged: calls with `scope=` remain explicit-scope templates and permit
+PSX Runtime is unchanged: calls with `scope=` remain explicit-scope templates and permit
 dotted access only through mappings. M4B is the opt-in static transform for
 Python lexical names and object attributes. Neither mode evaluates arbitrary
 Python expressions, captures frames, or uses `eval`/`exec`.
 
 Only direct `psx("literal")` calls without `scope=` are transformed. Dynamic
-templates and explicit-scope calls remain M4A calls. The transform has no
-security role for external templates; those must continue using M4A's restricted
+templates and explicit-scope calls remain PSX Runtime calls. The transform has no
+security role for external templates; those must continue using PSX Runtime's restricted
 explicit-scope language.
 
 M8's `psx-dev` supervisor applies this same static transform to a temporary
