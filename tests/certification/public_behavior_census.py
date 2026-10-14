@@ -109,10 +109,10 @@ def inventory() -> tuple[Feature, ...]:
             if component == "Grid":
                 for scenario in ("geometry_readback", "resize_reflow", "keyed_reorder", "teardown"):
                     rows.append(Feature(component, "headless", "interaction",
-                                        "native_root", scenario, applicability="native"))
+                                        "native_root", scenario, applicability="partial_native"))
             if component == "GridItem":
                 rows.append(Feature(component, "headless", "interaction",
-                                    "native_child", "geometry_readback", applicability="native"))
+                                    "native_child", "geometry_readback", applicability="partial_native"))
             for prop in sorted(props):
                 for scenario in PROPERTY_SCENARIOS:
                     rows.append(Feature(component, CONTRACT, "property", prop,
