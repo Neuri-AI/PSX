@@ -69,7 +69,7 @@ def inventory() -> tuple[Feature, ...]:
         contract = definition.contract
         if contract is not None:
             props = set(contract.properties)
-            if component != "Flex":
+            if component not in ("Flex", "Grid", "GridItem"):
                 props.update(FLEX_ITEM_PROPS)
             rows.append(Feature(component, CONTRACT, "child_policy",
                                 contract.child_policy, "validate", applicability="shared"))
