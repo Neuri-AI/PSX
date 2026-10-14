@@ -6,6 +6,7 @@ from psx.core.errors import MarkupSyntaxError
 from psx.markup.compile import psx
 from psx.markup.expressive_syntax import ExpressiveOperator, inspect_expressive_expression
 from psx.markup.transform import transform_source
+from psx.markup.expressive_ast import Arrow, Call, Compare, ConditionalAnd, Element, Fragment, Map, Member, Ternary, parse_expressive_expression
 
 
 class ExpressiveGrammarTests(unittest.TestCase):
@@ -108,6 +109,59 @@ class ExpressiveGrammarTests(unittest.TestCase):
         result = transform_source(source, filename="unknown_local.py")
         self.assertEqual(result.transformed_calls, 1)
         self.assertIn("unknown_local", result.source)
+
+
+    def test_parsed_comparison_precedes_conditional_and(self):
+        tree = parse_expressive_expression("ready == True && <Text />")
+        self.assertIsInstance(tree, ConditionalAnd)
+        self.assertIsInstance(tree.left, Compare)
+        self.assertIsInstance(tree.right, Element)
+
+    def test_parsed_nested_ternary_is_right_associative(self):
+        tree = parse_expressive_expression("first ? <A /> : second ? <B /> : <C />")
+        self.assertIsInstance(tree, Ternary)
+        self.assertIsInstance(tree.no, Ternary)
+
+    def test_parsed_nested_jsx_and_fragment(self):
+        tree = parse_expressive_expression("<Flex><><Text>{user.name}</Text></><Button /></Flex>")
+        self.assertIsInstance(tree, Element)
+        self.assertIsInstance(tree.children[0], Fragment)
+        self.assertIsInstance(tree.children[0].children[0].children[0], Member)
+
+    def test_parsed_map_arrow_item_scope_structure(self):
+        tree = parse_expressive_expression("items.map((item) => <Text key={item.id}>{item.name}</Text>)")
+        self.assertIsInstance(tree, Map)
+        self.assertEqual(tree.callback.parameters, ("item",))
+        self.assertIsInstance(tree.callback.body, Element)
+
+    def test_parsed_zero_argument_arrow(self):
+        tree = parse_expressive_expression("() => save()")
+        self.assertIsInstance(tree, Arrow)
+        self.assertEqual(tree.parameters, ())
+        self.assertIsInstance(tree.body, Call)
+
+    def test_parsed_arrow_attribute(self):
+        tree = parse_expressive_expression("<Button on_click={(value) => save(value)} />")
+        self.assertIsInstance(tree.attributes[0][1], Arrow)
+
+    def test_parsed_invalid_grammar_is_rejected(self):
+        for source in ("items.map((item, idx) => <Text />)", "items.map(save)",
+                       "async () => save()", "ready === True", "ready !== True",
+                       "<Flex><Text /></Button>", "items.map((item) => <Text />"):
+            with self.subTest(source=source):
+                with self.assertRaises(MarkupSyntaxError):
+                    parse_expressive_expression(source)
+
+    def test_parsed_source_positions(self):
+        node = parse_expressive_expression("ready ?\n  <Text /> : <Button />",
+                                          filename="screen.psx", line=12, column=5)
+        self.assertEqual((node.yes.location.line, node.yes.location.column), (13, 3))
+
+    def test_parser_does_not_evaluate_calls_or_escape_m4a(self):
+        tree = parse_expressive_expression("dangerous() && <Text />")
+        self.assertIsInstance(tree.left, Call)
+        with self.assertRaises(MarkupSyntaxError):
+            psx("<Flex>{dangerous() && <Text />}</Flex>", scope={})
 
     def test_existing_static_lexical_pipeline_is_untouched(self):
         result = transform_source(
