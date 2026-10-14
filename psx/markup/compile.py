@@ -333,7 +333,7 @@ _QUOTED_NUMERIC_PROPS = frozenset({
     "max_width", "max_height", "layout_width", "layout_height",
     "layout_min_width", "layout_min_height", "layout_max_width",
     "layout_max_height", "flex_grow", "flex_shrink", "flex_basis",
-    "order", "thickness", "decimals",
+    "order", "thickness", "decimals", "span", "offset",
 })
 
 
