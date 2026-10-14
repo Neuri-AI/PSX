@@ -113,6 +113,14 @@ def inventory() -> tuple[Feature, ...]:
             if component == "GridItem":
                 rows.append(Feature(component, "headless", "interaction",
                                     "native_child", "geometry_readback", applicability="partial_native"))
+            if component in ("Grid", "GridItem"):
+                for native_backend in ("pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"):
+                    operations = (("geometry_readback", "resize_reflow", "keyed_reorder", "teardown")
+                                  if component == "Grid" else ("geometry_readback",))
+                    for scenario in operations:
+                        rows.append(Feature(component, native_backend, "interaction",
+                                            "native_root" if component == "Grid" else "native_child",
+                                            scenario, applicability="partial_native"))
             for prop in sorted(props):
                 for scenario in PROPERTY_SCENARIOS:
                     rows.append(Feature(component, CONTRACT, "property", prop,
