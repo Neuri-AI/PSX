@@ -89,6 +89,7 @@ class HeadlessRenderer:
         # Published only after a successful geometry transaction.
         self._sfle_intrinsic_cache = {}
         self._sfle_owner_thread = get_ident()
+        self.grid_result = None
         self.sfle_result: LayoutResult | None = None
         self.operations: list[tuple[object, ...]] = []
         self._pending: list[Callable[[], None]] = []
@@ -96,7 +97,7 @@ class HeadlessRenderer:
         self.adapters = RendererAdapterRegistry()
         self._default_adapter = DelegatingAdapter()
         for component in (
-            "Fragment", "Flex",
+            "Fragment", "Flex", "Grid", "GridItem",
             "Text", "Button", "Input", "TextArea", "Checkbox", "Slider",
             "Spacer", "Divider", "Image", "ProgressBar",
             "Radio", "RadioGroup", "Select", "Switch", "Link", "Badge", "SpinBox", "Scroll", "Box", "Native",
@@ -156,8 +157,12 @@ class HeadlessRenderer:
     def commit_layout(self, root: object) -> None:
         """Commit actual SFLE geometry for the mounted root (if enabled)."""
         if self._sfle_constraints is not None:
-            from psx.sfle.headless_layout_bridge import commit_headless_sfle
-            commit_headless_sfle(self, root)
+            from psx.sfle.headless_grid_bridge import is_mounted_grid_root, commit_headless_grid
+            if is_mounted_grid_root(root):
+                commit_headless_grid(self, root)
+            else:
+                from psx.sfle.headless_layout_bridge import commit_headless_sfle
+                commit_headless_sfle(self, root)
             self._sfle_mounted_root = root
             self._sfle_measurement_invalidations.acknowledge(
                 self._sfle_measurement_invalidations.epoch)
@@ -168,6 +173,7 @@ class HeadlessRenderer:
         self._sfle_measurement_invalidations.cancel()
         self._sfle_intrinsic_cache.clear()
         self._sfle_mounted_root = None
+        self.grid_result = None
         if self._sfle_constraints is not None:
             self._sfle_generation += 1
             self.sfle_result = None
@@ -177,10 +183,9 @@ class HeadlessRenderer:
         return adapter.create(self, node, parent)  # type: ignore[return-value]
 
     def _adapter_create(self, node: VNode, parent: object | None) -> HeadlessHandle:
-        if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
+        if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem") and self._sfle_constraints is None:
             raise RendererCapabilityError(
-                f"{node.type} requires an SFLE Grid layout backend; "
-                "Headless Grid mounting is not implemented.")
+                f"{node.type} requires an explicit SFLE viewport and native geometry backend.")
         if self._sfle_constraints is not None:
             if node.kind is NodeKind.NATIVE:
                 raise RendererCapabilityError(
