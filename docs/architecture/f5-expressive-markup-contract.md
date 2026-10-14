@@ -55,6 +55,20 @@ No `{#if}`, `{:else}`, `{#each}`, or other template control directives. No JavaS
 - Evaluate the callback body **only when the event invokes the function**. It must not run while creating markup.
 - Preserve event binding, rebinding, native disabled behavior, teardown, hook compatibility and per-item closure identity. Diagnostics must reference the original authored source.
 
+### 2.4. Certified F5-G1 grammar and precedence (2026-10-14)
+
+The grammar and source-spanned AST are implemented in `psx/markup/expressive_ast.py`. Technical certificate: `842719ace30a9cf8acf9b900ef6b404a88532503`; [14/14 executed selected CI jobs GREEN](https://github.com/Neuri-AI/PSX/actions/runs/38611373011). Formal G1 closure and negative cases: [expressive markup progress](expressive-markup-progress.md).
+
+- **Highest:** parentheses, lexical/member access, ordinary calls, compiler-recognized `.map()`, recursive JSX elements/fragments
+- **Comparisons:** Python `==` and `!=` (not `===` or `!==`)
+- **Boolean node conjunction:** left-associative `&&`
+- **Conditional:** right-associative `? :`
+- **Callback arrow:** `() => expression` or `(item) => expression`, no statement block or async
+- **List callback:** precisely `.map((item) => expression)` at this initial grammar level, with a required `key` for a directly returned JSX element; indexed callback, destructuring and implicit keys are not approved
+- **Literal attributes:** `gap="12"`, never `gap={12}`; braces are for lexical names and validated expressive syntax only
+
+M4A remains restrictive and cannot import or invoke the new authored M4B expression grammar. The parser builds a **non-executing AST** only; G2–G4 provide the transforms that will make those constructs render, including state semantics and native event integration. No `eval`, `exec`, frame reflection or JS runtime is needed or authorized.
+
 ## 3. Compiler and runtime architecture
 
 **M4B source → expressive grammar/AST → validated Python AST → existing VNode factories/reconciler → native backends.** Keep existing M4B transform before execution, static template caching keyed to grammar/compiler version, source maps for every transformed expression, and registry-defined component validation. Do not use dynamic frame inspection.
