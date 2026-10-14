@@ -97,8 +97,9 @@ def inventory() -> tuple[Feature, ...]:
                                         "responsive_resolution", scenario,
                                         applicability="shared"))
             if component in ("Grid", "GridItem"):
-                for scenario in ("headless_fail_closed", "qt_fail_closed",
-                                 "tkinter_fail_closed"):
+                for scenario in ("headless_fail_closed", "pyside6_fail_closed",
+                                 "pyqt6_fail_closed", "pyqt5_fail_closed",
+                                 "pyside2_fail_closed", "tkinter_fail_closed"):
                     rows.append(Feature(component, CONTRACT, "interaction",
                                         "unsupported_mount", scenario,
                                         applicability="shared"))
