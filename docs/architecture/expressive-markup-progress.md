@@ -126,7 +126,7 @@ The owner clarified that `<Flex gap="12" />` is the approved literal syntax; num
 - Existing reconciler remains responsible for keyed insert/delete/move and native identity; no alternative reconciliation engine is introduced.
 - `tests/test_declarative_list_rendering.py` covers empty, ordering, insert, removal, nested lists, lexical captures, conditional maps, invalid keys and Headless keyed identity; `scripts/ci/impact.py`, routing regression and executable native-layout core/Headless jobs include the tests.
 
-**Acceptance still required:** certifying required GitHub Actions jobs on an immutable **code SHA** and reviewing adversarial situations (conditional JSX branches returning keys, nested fragment keys, duplicate keys across separate maps, generator errors and rollback). G3 is **IN PROGRESS** until those are evidenced; do not mark CLOSED based on implementation alone.
+**Acceptance still required:** certifying required GitHub Actions jobs on an immutable **code SHA** and reviewing adversarial situations (conditional JSX branches returning keys, nested fragment keys, duplicate keys across separate maps, generator errors and rollback). G3's acceptance was subsequently evidenced by the immutable-SHA certification below; technical gate CLOSED.
 
 **F5 gate count:** G1 and G2 CLOSED; G3-G6 remain (four gates including G3). M8/F6 not part of this work.
 
@@ -139,3 +139,14 @@ The previously missing executable cases were added to `tests/test_declarative_li
 **Normalization decision:** direct mapped items must produce keyed VNodes, or absent conditional nodes; an unkeyed fragment returned as the mapped root is rejected. Nested mapped trees can use keyed container elements whose children are independently validated. An exception raised while materializing the list propagates before `Reconciler.render` is called, preserving the prior mounted tree. These are G3 test obligations, not new public props/events/methods; source-derived public census remains unchanged. Broader reconciliation rollback for native failures belongs to G5.
 
 **Status:** G3 IN PROGRESS while the new SHA's selected CI jobs run. G4 must not be marked started on the basis of the prior green SHA alone.
+
+## F5-G3 — Technical gate CLOSED (2026-10-14)
+
+**Immutable implementation SHA:** `7628a4d2f0aac93ac3c4e38530da5ac7e3434882`.
+**Certification:** [Native layout selective validation #38618906346](https://github.com/Neuri-AI/PSX/actions/runs/38618906346), latest attempt (rerun failed/cancelled jobs) **SUCCESS**, including the mandatory final conclusion. The initial attempt was interrupted when a later documentation-only commit was pushed; its cancelled job is not counted as a pass. The subsequent documentation-only run #38618977192 was green but skipped product suites and **is not** the certification basis.
+
+**Executed verification:** Core and registry **604 passed + 23 subtests passed**, public core census **757 passed**, Headless **113 passed, 8 skipped + 6 subtests passed**. Required final CI conclusion **SUCCESS**. New public event/prop/method operations: **none**; the existing source-derived core census ran and reported 1716 executed receipt passes and zero failures, while the separate selective public evidence aggregate job was impact-skipped, not misreported as executed. The Headless job also completed its existing public native receipt collection.
+
+**Coverage:** ordered, empty, inserted, removed, reordered, nested and conditional mapped elements; lexical binding; generated iterable consumption; strict keys and duplicate rejection; sibling-map collisions at reconciliation; per-key native Headless handle identity; conditional keyed/unkeyed branches; unkeyed fragment rejection; generator exception and late duplicate failure without committing the proposed tree. G3 stays on the existing reconciler and static M4B compiler; no dynamic Python source evaluator or M4A escape is introduced.
+
+**Disposition:** **F5-G3 CLOSED (technical gate)**. G1, G2, G3 CLOSED = **3/6**. G4 (arrow callbacks) next; G5, G6 pending. PR #27 remains in draft unless independently changed or merged. This is a scoped technical certificate, **not** the all-backend integral F5-G6 certificate or owner signoff.
