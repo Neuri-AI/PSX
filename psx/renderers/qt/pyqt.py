@@ -765,6 +765,9 @@ class QtRenderer:
 
     def _adapter_create(self, node: VNode, parent: object | None) -> QtHandle:
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
+            if self._sfle_constraints is None:
+                raise RendererCapabilityError(
+                    f"Native SFLE {self._sfle_backend} SFLE geometry not certified for {node.type!r}.")
             if node.type == "GridItem" and (parent is None or _handle(parent).node_type != "Grid"):
                 raise RendererCapabilityError("GridItem must be a direct child of a mounted Grid.")
             if node.type == "Grid" and parent is not None:
