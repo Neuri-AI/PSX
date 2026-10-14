@@ -82,3 +82,25 @@ def test_grid_fails_closed_without_sfle_viewport():
     reconciler = Reconciler(renderer)
     with pytest.raises(Exception, match="SFLE Grid layout backend"):
         reconciler.render(tree())
+
+
+@pytest.mark.parametrize("start,expected", ((767, 767), (800, 398)))
+def test_grid_breakpoint_cycle_preserves_identity_and_stable_geometry(request, start, expected):
+    """Repeated breakpoint crossings remain deterministic without remounting."""
+    renderer = make_renderer()
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(tree())
+        handles = tuple((item.handle, item.children[0].handle) for item in root.children)
+        for width in (start, 800 if start == 767 else 767, start):
+            renderer.set_sfle_constraints(viewport(width))
+            renderer.commit_layout(root)
+            assert renderer.grid_result[1].max_readback_error == 0
+        assert root.children[0].handle.geometry.width == expected
+        assert root.children[1].handle.geometry.width == expected
+        assert tuple((item.handle, item.children[0].handle) for item in root.children) == handles
+        assert_feature(request, Feature(
+            "Grid", "headless", "interaction", "responsive_cycle",
+            f"width_{start}_{expected}", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
