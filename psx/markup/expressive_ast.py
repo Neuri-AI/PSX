@@ -244,6 +244,10 @@ class ExpressiveParser:
                     if not isinstance(callback, Arrow) or len(callback.parameters) != 1:
                         self.error(".map() requires one arrow callback argument", start)
                     self.expect(")")
+                    if isinstance(callback.body, Element) and not any(
+                        name == "key" for name, _ in callback.body.attributes
+                    ):
+                        self.error("Mapped JSX elements require an explicit stable key", start)
                     value = Map(value, callback, value.location)
                 else:
                     value = Member(value, name, value.location)
@@ -305,6 +309,10 @@ class ExpressiveParser:
                     value: str | Expression | bool = self._string().value
                 elif self.take("{"):
                     value = self.expression()
+                    if isinstance(value, Literal):
+                        self.error(
+                            "Literal JSX attributes must be quoted; braces are reserved for references and expressions"
+                        )
                     self.expect("}")
                 else:
                     self.error("JSX attributes require quoted literals or {expressions}")
