@@ -112,6 +112,7 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
                     renderer._sfle_measure(leaf.source, allocated_width),
                 is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
                 breakpoints=breakpoints,
+                engine=renderer._sfle_engine,
             )
 
         def intrinsic_grid(node_id, width):
