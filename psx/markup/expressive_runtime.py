@@ -29,6 +29,13 @@ def lexical(thunk: Callable[[], object], name: str, filename: str, line: int, co
 
 
 def member(value: object, attribute: str, filename: str, line: int, column: int) -> object:
+    # Expressive markup only supports public model fields; never expose
+    # Python runtime/introspection internals through JSX member syntax.
+    if attribute.startswith("_"):
+        raise MarkupSyntaxError(
+            f"Private lexical attribute {attribute!r} is not accessible",
+            filename=filename, line=line, column=column,
+        )
     if isinstance(value, Mapping):
         if attribute in value:
             return value[attribute]
