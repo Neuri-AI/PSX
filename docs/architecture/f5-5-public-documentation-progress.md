@@ -73,3 +73,15 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Execution status:** Must recheck GitHub Actions on latest exact SHA after this progress commit, including wheel/editable install. The old green audit run does not certify the new SHA.
 - **G1-C1 disposition:** **IN PROGRESS pending green required CI on final immutable SHA**; full G1 census remains incomplete. Native renderer coverage unverified.
 - **Next three steps:** verify build/test workflow after metadata repair; pin new SHA and evidence; continue per-symbol contracts/test/backend census.
+
+
+### 2026-10-14 — F5.5-G1-C1 — immutable CI recertification receipt
+- **Certified tested SHA:** `f50e78a80f4a8d20195e83f86161660b66a7764c`.
+- **Inventory checks:** [GitHub Actions #38633534961](https://github.com/Neuri-AI/PSX/actions/runs/38633534961) **SUCCESS** (`root-export-inventory` executed and passed).
+- **Commit subject:** [#38633535032](https://github.com/Neuri-AI/PSX/actions/runs/38633535032) **SUCCESS** (commit-message validation executed and passed).
+- **Selective CI:** [#38633534963](https://github.com/Neuri-AI/PSX/actions/runs/38633534963) **SUCCESS** for classifier and required conclusion; product/native jobs **SKIPPED** by impact selection, not independently executed/certified.
+- **Grid integral workflow:** [#38633535066](https://github.com/Neuri-AI/PSX/actions/runs/38633535066) **SUCCESS** for docs impact; native/grid verification **SKIPPED**.
+- **Flex contract workflow:** [#38633534945](https://github.com/Neuri-AI/PSX/actions/runs/38633534945) **SUCCESS** at workflow level (not a claim of native tests having run).
+- **C1 disposition:** **TECHNICALLY CERTIFIED** for the specific root export inventory and its fail-closed checks at the tested SHA; excludes exhaustive submodule APIs and native compatibility. **G1 remains IN PROGRESS**, G2–G6 remain NOT STARTED.
+- **This receipt ledger update creates a newer documentation-only commit**; the immutable executed CI SHA above remains the technical audit authority, and this newer commit must not be misrepresented as independently executed certification.
+- **Next three steps:** complete every submodule/component export and contract census; attach actual tests and backend support to inventory records; certify complete G1 before proceeding to G2.
