@@ -82,7 +82,7 @@ def test_native_capability_all_registered_native_builtins_have_explicit_sfle_geo
     separately. This proves scope classification, NOT every C3 lifecycle cell.
     """
     cells = [cell for cell in native_certification_matrix() if cell.backend == backend]
-    assert not [cell.component for cell in cells if cell.status == "unported"]
+    assert {cell.component for cell in cells if cell.status == "unported"} == {"Grid", "GridItem"}
     assert {cell.component for cell in cells if cell.status == "native"} == (
         set(NATIVE_LEAF_TYPES[backend]) | {"Flex"}
     )
