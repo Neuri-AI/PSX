@@ -1,4 +1,6 @@
 # Grid public contract — first G1 implementation handoff
+> **Historical first-increment instructions, not the current progress state.** For the actual F4/G1 increment ledger, last certified CI evidence, blockers and next action, read [`responsive-grid-progress.md`](responsive-grid-progress.md) **first**. Update that ledger at every increment closure. Do not restart C1 solely because this handoff begins with the first increment.
+
 
 **Planning status:** owner-approved F4 contract; this handoff is documentation only and does not authorize claiming production Grid support, a passing test, or an increment closure.
 
