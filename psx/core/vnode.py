@@ -199,7 +199,17 @@ def create_element(
     else:
         raise TypeError(
             "PSX element type must be a host name, Fragment, NativeWidget, or @component value.")
-    return VNode(kind, node_type, key, _freeze_props(props), normalize_children(children))
+    resolved = normalize_children(children)
+    if node_type == "Grid":
+        for child in resolved:
+            if child.kind is NodeKind.HOST and child.type != "GridItem":
+                raise InvalidChildError("Grid requires direct GridItem children.")
+            if child.kind not in (NodeKind.HOST, NodeKind.COMPONENT):
+                raise InvalidChildError("Grid requires GridItem or a component resolving to GridItem.")
+    elif node_type == "GridItem":
+        if len(resolved) != 1 or resolved[0].kind not in (NodeKind.HOST, NodeKind.COMPONENT):
+            raise InvalidChildError("GridItem requires exactly one component root.")
+    return VNode(kind, node_type, key, _freeze_props(props), resolved)
 
 
 class _Fragment:
