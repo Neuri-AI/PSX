@@ -66,3 +66,8 @@ def test_kivy_native_resource_and_canvas_property_updates(request, component):
 
 def test_kivy_radio_value_update_reindexes_native_group_and_event_payload(request):
     run_driver(request, 'Radio', 'radio_value')
+
+
+@pytest.mark.parametrize('component', ('Grid', 'GridItem'))
+def test_kivy_grid_unsupported_mount_fails_before_native_allocation(request, component):
+    run_driver(request, component, 'grid_unsupported_mount')
