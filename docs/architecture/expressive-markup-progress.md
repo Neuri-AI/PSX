@@ -60,6 +60,10 @@ C. Verify change-router selection and public-census applicability; execute relev
 
 **State:** specification groundwork recorded; no new parser behavior is claimed as shipped or certified.
 
+## Literal-versus-reference grammar clarification (2026-10-14)
+
+The owner clarified that `<Flex gap="12" />` is the approved literal syntax; numeric `gap={12}` must fail because braces are reserved for named references/expressions. The parser's old numeric-brace exception has been removed. Quoted integers use the existing component property coercion, preserving previously supported VNode values; unknown `{name}` continues to fail through M4A explicit-scope lookup or M4B lexical lookup with source coordinates. This is a behavior-changing parser correction with accompanying tests and CI regression verification. No dynamic `eval` or frame lookup is added. **G1 remains IN PROGRESS until the full expressive AST is implemented.**
+
 ## First executable grammar increment — CERTIFIED, G1 STILL OPEN (2026-10-14)
 
 **Immutable implementation SHA:** `949d45d0d252dec4fcc108c6644322352380eff3`. **Required native selective CI:** https://github.com/Neuri-AI/PSX/actions/runs/38606480969 — SUCCESS (14/14 executed jobs, including final mandatory conclusion); four unrelated Rust/Chromium/SFLE/wheel jobs impact-skipped and are **not** represented as executed. PR: https://github.com/Neuri-AI/PSX/pull/25 (draft, targeting `develop`). CI core job reports **558 passed** plus 5 passed subtests including new grammar fixtures; public core suite **757 passed**. Legacy scoped public census Grid/GridItem **62/62** and native Grid/GridItem **150/150** executed unchanged; these **are not receipts for unshipped F5 interactions**.
