@@ -54,6 +54,12 @@ The last reviewed native-layout run `38550633487` is **SUCCESS** for all require
 
 **Disposition:** F4-G1 remains **IN PROGRESS**. Implement missing settings integration and native negative evidence, route tests in `scripts/ci/impact.py`, add real census receipts, rerun selected Actions and certify the resulting immutable code/checkout. Only then change G1 to CLOSED. The documentation-only audit commit must not trigger product test suites.
 
+## C4 remediation submitted — 2026-10-14 (CI PENDING, NOT CLOSED)
+
+Code SHA `b842f20e49d1a221f478ca52a693a6a36031002c` adds a Kivy native negative-mount driver and contract census receipts (`kivy_fail_closed` for both Grid and GridItem), plus native widget allocation assertions in Qt and Tk tests. The Kivy driver checks no Kivy Widget constructor runs during rejection. Existing impact routing already selects Kivy for changes to `tests/test_kivy_public_behavior.py` and the shared census and Qt/Tk tests select their respective jobs; confirm actual selection and run success before closure.
+
+New Actions run `38551782482` was pending at the time of this update: https://github.com/Neuri-AI/PSX/actions/runs/38551782482 . **Do not call C4 CLOSED** until this run and its mandatory jobs are successful, the new Grid/GridItem scoped census has zero pending, and any test failures are corrected. Global settings integration remains a separate G1 acceptance gap; do not conflate it with C4's fail-closed native mount scope.
+
 ## Immediate next actions for the incoming agent
 
 1. Inspect actual branch HEAD, PR #16, workflow statuses, `docs/architecture/responsive-grid-contract.md` and `docs/architecture/responsive-grid-implementation-handoff.md`. Verify whether the reviewed source SHA is still HEAD and why the successful census uses a distinct checkout SHA.
