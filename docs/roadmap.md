@@ -58,14 +58,14 @@ fix(sfle): correct fixed-point overflow in the core engine
 | M5 | Pydux Integration | implemented baseline |
 | M6 | Qyro Integration | implemented baseline |
 | M7 | Tkinter Renderer | implemented; native macOS smoke testing remains environment-dependent |
-| M8 | Intelligent Hot Reloading | vertical slice implemented |
+| M8 | Intelligent Hot Reloading | existing vertical slice; remaining work postponed to F6 |
 | M9 | Kivy & Qt Variants | implemented; native graphical smoke remains environment-dependent |
 | M10 | Advanced UI & Native Interoperability | implemented; native adapter smoke is renderer-dependent |
 | M11 | Alpha Release | alpha release candidate |
 | M12 | PSX Playground & Visual Layout Inspector | implemented standalone React semantic development slice |
 | M13 | PSX Visual UI Builder | planned |
 
-## M8 — current scope
+## M8 — existing implementation baseline (remaining work deferred to F6)
 
 Dependencies: M3 scheduling/disposal, M4B source transforms, and renderer
 ownership. The implemented dev-only baseline uses a dependency-free polling
@@ -310,32 +310,17 @@ Flex and direct-child layout property architecture is approved. Future design
 cards should settle those choices before any implementation. Do not add
 automated tests as part of the current component DX-first rollout.
 
-## Pending — expressive PSX markup (design not approved)
+## F5 — Expressive Markup (architecture approved, implementation not started)
 
-These are future compiler/runtime capabilities, **not supported today**.
-Design and prioritize them separately from portable UI components such as Badge.
+**Owner approval:** 2026-10-14. **Normative specification:** [F5 expressive markup contract](architecture/f5-expressive-markup-contract.md). F5 contains **only** expressive markup; **M8 Intelligent Hot Reloading belongs to F6 and is postponed** pending owner-led changes to Qyro CLI and Qyro Engine.
 
-- **Conditional rendering — React/JSX-style syntax confirmed:** support
-  `{condition && <Element />}` and `{condition ? <A /> : <B />}`,
-  including nested ternaries and component expressions inside interpolation.
-  Do **not** introduce `{#if}`/`{:else}` markup directives. A future compiler
-  transformation should parse JSX-like syntax into safe Python-compatible
-  expressions; this is not JavaScript runtime execution. Decide and document
-  details of `===` comparisons, falsy scalar rendering (especially zero),
-  short-circuit semantics, type constraints, precedence, and preservation of
-  VDOM identity and hook ordering before implementation.
-- **Inline lambda expressions:** explore supporting lambdas in attribute
-  expressions and event handlers, subject to lexical scope resolution,
-  callable safety and documented restrictions. Do not assume arbitrary
-  Python execution is permitted by the current expression evaluator.
-- **Declarative list rendering / JS-like `.map()`:** offer a natural syntax
-  for mapping collections to repeated VNodes, potentially via Python
-  comprehensions, `map(...)`, or a dedicated PSX directive. Python lists
-  do not have JavaScript's `Array.map()`, so literal `items.map(...)`
-  would require an explicit compiler transform or wrapper API.
-- **Acceptance requirements:** correctly capture local variables, preserve
-  stable `key` identity when reordering, reconcile add/remove/conditional
-  branches, and preserve hook ordering rules and expression security.
+The approved M4B developer-authored syntax is `{condition && <Element />}`, `{condition ? <A /> : <B />}`, `{items.map((item) => <Element key={item.id} />)}`, and `on_click={() => handler()}` arrow callbacks. `==`/`!=` retain Python comparison semantics; `===`/`!==` are rejected. Falsy conditional results produce **no VNode**, including numeric zero. Static compilation produces ordinary Python AST and must retain lexical captures, source maps, security boundaries and native reconciliation. No JavaScript engine is introduced.
 
-All syntax, error handling, transform strategy and rollout order remain
-pending a dedicated design decision.
+**Approved F5 gate plan:** G1 grammar and semantics; G2 conditional compilation; G3 `.map()` list transforms; G4 arrow functions; G5 reconciliation/security/composition; G6 integral immutable-SHA certification and owner signoff. **0/6 gates CLOSED; none is claimed implemented merely because architecture is approved.** Functional tests, `scripts/ci/impact.py` routing and executed public census receipts are required where applicable. See the normative contract for acceptance requirements, error behavior and exclusions.
+
+## F6 — Intelligent Hot Reloading (future, postponed)
+
+**Assigned milestone:** M8; not part of F5. **Status:** POSTPONED / NOT AUTHORIZED FOR NEW IMPLEMENTATION. Qyro CLI and Qyro Engine are currently being modified by the owner. Do not integrate or alter these external systems for hot reload until that work is ready and a separate F6 specification is approved.
+
+**Existing baseline only:** `psx.devtools` watcher, debounce, safe process restart, constrained component refresh, and Qyro component reloader remain as currently implemented. The unfinished goals—safe in-process refresh across changes, stronger dependency invalidation and module rebind, automatic snapshot restoration, integrated CLI launch/flags, recovery, diagnostics, cross-backend certifications—remain in F6 for later review. They are **not** F5 blockers. See [M8 hot-reloading implementation boundaries](m8-hot-reloading.md). F6 gate count has not been approved.
+
