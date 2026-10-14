@@ -10,6 +10,7 @@ from psx import Grid, GridItem, Text
 from psx.core.reconcile import Reconciler
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.model import AvailableSize, LayoutConstraints
+from tests.certification.public_behavior_census import Feature, assert_feature
 
 
 def viewport(width):
@@ -58,9 +59,14 @@ def rectangle(widget, backend):
     return (*widget.pos, *widget.size)
 
 
-def test_mounted_grid_native_parentage_reflow_keyed_reorder_and_teardown():
+def test_mounted_grid_native_parentage_reflow_keyed_reorder_and_teardown(request):
     backend = os.environ["PSX_GRID_BACKEND"]
     renderer, close = make_renderer(backend)
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    def receipt(component, name, scenario):
+        assert_feature(request, Feature(component, binding, "interaction", name,
+                                        scenario, applicability="partial_native"), True)
     reconciler = Reconciler(renderer)
     try:
         root = reconciler.render(view())
@@ -82,16 +88,22 @@ def test_mounted_grid_native_parentage_reflow_keyed_reorder_and_teardown():
         assert rectangle(bw, backend)[2] == pytest.approx(398, abs=1)
         assert rectangle(al, backend)[2] == pytest.approx(398, abs=1)
         assert renderer.grid_result[1].max_readback_error <= 1
+        receipt("Grid", "native_root", "geometry_readback")
+        receipt("GridItem", "native_child", "geometry_readback")
         renderer.set_sfle_constraints(viewport(767))
         renderer.commit_layout(root)
         assert rectangle(aw, backend)[2] == pytest.approx(767, abs=1)
         assert renderer.grid_result[1].max_readback_error <= 1
+        receipt("Grid", "native_root", "resize_reflow")
         reordered = reconciler.render(view(("b", "a")))
         assert reordered.children[0].handle.widget is bw
         assert reordered.children[1].handle.widget is aw
         assert reordered.children[0].children[0].handle.widget is bl
         assert reordered.children[1].children[0].handle.widget is al
         assert renderer.grid_result[1].max_readback_error <= 1
+        receipt("Grid", "native_root", "keyed_reorder")
     finally:
         reconciler.unmount()
+        assert reconciler.root is None
         close()
+    receipt("Grid", "native_root", "teardown")
