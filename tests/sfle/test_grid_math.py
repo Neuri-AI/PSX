@@ -122,3 +122,44 @@ def test_pixel_projection_does_not_accumulate_edge_drift():
     assert all(left.x_raw + left.width_raw + gap_raw == right.x_raw
                for left, right in zip(projection, projection[1:]))
     assert projection[-1].x_raw + projection[-1].width_raw == round(109.17 * 64)
+
+
+CROSS_AXIS_CASES = json.loads(
+    (Path(__file__).resolve().parents[1] / "fixtures" / "grid_cross_axis.json")
+    .read_text(encoding="utf-8")
+)["cases"]
+
+
+@pytest.mark.parametrize("case", CROSS_AXIS_CASES, ids=lambda item: item["name"])
+def test_grid_rtl_and_cross_axis_shared_fixtures(case):
+    from psx.sfle.grid_math import layout_grid_rects
+    rows = pack_grid_rows([GridSlot(**item) for item in case["items"]])
+    if case.get("error") == "invalid":
+        with pytest.raises(GridPackingError):
+            layout_grid_rects(rows, case["width"], case["gap"],
+                              case["row_gap"], case["heights"], rtl=case["rtl"])
+        return
+    actual = layout_grid_rects(rows, case["width"], case["gap"],
+                               case["row_gap"], case["heights"], rtl=case["rtl"])
+    assert [
+        [{"id": rect.id, "x_raw": rect.x_raw, "y_raw": rect.y_raw,
+          "width_raw": rect.width_raw, "height_raw": rect.height_raw}
+         for rect in row] for row in actual
+    ] == case["rows"]
+
+
+@pytest.mark.parametrize("row_gap,heights,rtl", (
+    (-1, {"a": 10}, False),
+    (float("inf"), {"a": 10}, False),
+    (True, {"a": 10}, False),
+    (0, {"a": -1}, False),
+    (0, {"a": float("nan")}, False),
+    (0, {"a": True}, False),
+    (0, {}, False),
+    (0, {"a": 10}, 1),
+))
+def test_grid_cross_axis_rejects_invalid_input(row_gap, heights, rtl):
+    from psx.sfle.grid_math import layout_grid_rects
+    rows = pack_grid_rows([GridSlot("a", 12)])
+    with pytest.raises(GridPackingError):
+        layout_grid_rects(rows, 120, 0, row_gap, heights, rtl=rtl)
