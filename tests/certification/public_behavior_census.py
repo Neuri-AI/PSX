@@ -111,9 +111,10 @@ def inventory() -> tuple[Feature, ...]:
                     rows.append(Feature(component, "headless", "interaction",
                                         "native_root", scenario, applicability="partial_native"))
             if component == "Grid":
-                rows.append(Feature("Grid", "headless", "interaction",
-                                    "semantic_epoch", "post_commit_rollback_recovery",
-                                    applicability="partial_native"))
+                for reason in ("resource", "dpi"):
+                    rows.append(Feature("Grid", "headless", "interaction",
+                                        "semantic_epoch", f"post_commit_{reason}_rollback_recovery",
+                                        applicability="partial_native"))
                 rows.append(Feature("Grid", "headless", "interaction",
                                     "grid_flex_grid", "nested_reflow_identity",
                                     applicability="partial_native"))
@@ -165,9 +166,10 @@ def inventory() -> tuple[Feature, ...]:
                         rows.append(Feature("Grid", native_backend, "interaction",
                                             "mixed_multi_grid", "second_batch_atomic_rollback",
                                             applicability="partial_native"))
-                        rows.append(Feature("Grid", native_backend, "interaction",
-                                            "semantic_epoch", "late_resource_rollback",
-                                            applicability="partial_native"))
+                        for reason in ("resource", "dpi"):
+                            rows.append(Feature("Grid", native_backend, "interaction",
+                                                "semantic_epoch", f"late_{reason}_rollback",
+                                                applicability="partial_native"))
                         for name, scenario in (("mixed_scroll", "offset_retained_reflow"),
                                                ("mixed_transaction", "rollback_and_recovery")):
                             rows.append(Feature("Grid", native_backend, "interaction",
