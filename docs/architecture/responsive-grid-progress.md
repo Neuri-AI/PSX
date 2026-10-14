@@ -6,7 +6,7 @@
 
 ## Where to resume
 
-**F4 / G1 / C4 — CLOSED (certified native fail-closed contract). G1 overall remains IN PROGRESS pending global settings integration.** Do **not** restart G1 at its first increment and do **not** begin G2 until G1 acceptance is explicitly certified.
+**F4 / G1 — CLOSED (public contract, metadata normalization, app settings and fail-closed certification). Next: G2 Cinnamon Grid mathematics.** Do **not** restart G1 at its first increment and do **not** begin G2 until G1 acceptance is explicitly certified.
 
 The last reviewed source commit was `a6b04aca29d374f4b686d2cf49702aa9a95d456a` (`test(grid): bind unsupported mount receipts to actual Qt runtime`). Its pull-request Actions run `38550633487` passed, including all selected Qt bindings, Tkinter, Kivy, Headless, core, impact-router tests, public-behavior aggregate, and mandatory CI conclusion. Other commit checks (commit subject, package boundaries, Flex certification) also passed.
 
@@ -52,7 +52,7 @@ The last reviewed native-layout run `38550633487` is **SUCCESS** for all require
 - **Native no-side-effect assertion is not proven by the existing Qt/Tk Grid tests.** Their `test_grid_mount_fails_before_native_widget_creation` cases assert that an exception is raised and emit a receipt, but do not directly assert that no widget was created or attached. Review all renderers and add meaningful pre/post state assertions where applicable.
 - **CI checkout SHA differs from source SHA.** The successful aggregate uses `00173edcf31287abc78bfeebed8cd4bb0c240bb2` while the reviewed source commit was `a6b04aca29d374f4b686d2cf49702aa9a95d456a`. Verify the PR merge checkout and retain both identities in the formal certificate; do not substitute one for the other.
 
-**Updated disposition (2026-10-14):** C4 native negative evidence has since been completed and certified (see section below). F4-G1 overall remains **IN PROGRESS** because global settings integration is still missing. The earlier findings in this historical audit are retained for traceability. The documentation-only audit commit must not trigger product test suites.
+**Updated disposition (2026-10-14):** C4 and application settings integration have since been certified (see sections below); **G1 is CLOSED**. Earlier findings are retained as historical audit context. The documentation-only audit commit must not trigger product test suites.
 
 ## C4 remediation certified — 2026-10-14 (CLOSED)
 
@@ -60,16 +60,16 @@ Code SHA `b842f20e49d1a221f478ca52a693a6a36031002c` adds a Kivy native negative-
 
 **Final evidence:** re-ran cancelled code workflow `38551782482` (attempt 2) without modifying the certified source. All selected native jobs (Kivy, Qt all four bindings, Tkinter, Headless), core, router, public behavior aggregate, and mandatory conclusion completed SUCCESS. Scoped Grid/GridItem certificate: **59/59 executed_pass, pending=0, complete=true**, checkout SHA `84b5eef90c6828d55dfea72ed88aef557f38b887`. Source commit: `b842f20e49d1a221f478ca52a693a6a36031002c`. Evidence: https://github.com/Neuri-AI/PSX/actions/runs/38551782482/attempts/2 and aggregate job `115813083147`. The later documentation-only commit had a successful workflow with skipped product jobs; that run is **not** used as C4 evidence. Global settings integration remains a separate G1 acceptance gap.
 
-## G1 settings integration — implementation submitted, certification pending (2026-10-14)
+## G1 settings integration and final acceptance — CERTIFIED CLOSED (2026-10-14)
 
 Application-level `App(..., settings={"grid": {"breakpoints": ...}})` is implemented in `psx/app.py` with immutable validated thresholds and `app.resolve_grid_item_props(...)` for G1 metadata resolution. The schema is frozen in `responsive-grid-contract.md`. The implementation does not claim native Grid geometry or automatic runtime resize; those are later gates. Added behavioral receipts for default/custom settings, invalid rejection and isolation in `tests/test_grid_contract.py`, census inventory entries in `tests/certification/public_behavior_census.py`, explicit routing in `scripts/ci/impact.py` and routing regressions in `tests/test_ci_impact.py`.
 
-**Do not declare G1 CLOSED** until the final code SHA passes required CI, Grid/GridItem scoped receipts are complete, and C1–C4 acceptance is reviewed against current evidence. If a newer commit cancels the product run, rerun the relevant code-SHA workflow; a docs-only green run is not product certification.
+**Final acceptance:** source code SHA `1d0c246c69e218fb18debb35caa460f4488ea440`; PR CI checkout SHA `c63a67827914c92b6969412fb01926fcc01670c9`. Actions run `38552980373` completed successfully with selected native Qt (four bindings), Kivy, Tkinter, Headless, core, router, public behavior aggregate and required conclusion all **SUCCESS**. Grid/GridItem scoped certificate **62/62 executed_pass, 0 pending, complete=true**, aggregate job `115816083677`. Evidence: https://github.com/Neuri-AI/PSX/actions/runs/38552980373 . This current code-SHA contract certificate supersedes the historical C1–C3 checkpoint counts for G1 closure. Scope is metadata contracts, responsive resolution, per-application settings, explicit native unsupported rejection; native Grid geometry, automatic runtime resize and nesting remain G2–G4 work.
 
 ## Immediate next actions for the incoming agent
 
-1. Inspect current branch HEAD, PR #16, latest Actions and the approved contract. Preserve C4's certified source/checkout SHA distinction.
-2. Implement and certify application-wide customizable Grid breakpoint settings and wiring to responsive resolution, with focused tests, CI impact routing and public census receipts as applicable.
-3. Audit all remaining G1 acceptance items and certify G1 on a new immutable SHA before starting G2 mathematical Grid geometry.
+1. Preserve G1's certified code SHA `1d0c246c69e218fb18debb35caa460f4488ea440` and checkout SHA `c63a67827914c92b6969412fb01926fcc01670c9`; subsequent documentation commits are not retests.
+2. Begin G2 with a machine-testable row-packing fixture format and freeze mixed auto/explicit grouping and overflow/projection semantics from the approved contract.
+3. Implement Rust-primary and Python-fallback Grid mathematics with deterministic fixtures, differential certification and CI impact routes; do not claim native Grid mounting before G3.
 
 **Roadmap boundary:** G1 public contract and normalization → G2 SFLE/Cinnamon Grid mathematics → G3 native integration → G4 responsive/nested runtime → G5 adversarial verification → G6 final certification. `Grid` is not yet a supported native geometry container merely because fail-closed checks pass.
