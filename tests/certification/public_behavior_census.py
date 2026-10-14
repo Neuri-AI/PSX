@@ -111,6 +111,9 @@ def inventory() -> tuple[Feature, ...]:
                     rows.append(Feature(component, "headless", "interaction",
                                         "native_root", scenario, applicability="partial_native"))
             if component == "Grid":
+                rows.append(Feature("Grid", "headless", "interaction",
+                                    "nested_content_width", "independent_breakpoint_reflow",
+                                    applicability="partial_native"))
                 for scenario in ("width_767_767", "width_800_398"):
                     rows.append(Feature(component, "headless", "interaction",
                                         "responsive_cycle", scenario, applicability="partial_native"))
@@ -131,6 +134,9 @@ def inventory() -> tuple[Feature, ...]:
                             rows.append(Feature("GridItem", native_backend, "interaction",
                                                 feature_name, scenario, applicability="partial_native"))
                     if component == "Grid":
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "nested_content_width", "independent_breakpoint_reflow",
+                                            applicability="partial_native"))
                         for value in ("width_767_767", "width_800_398"):
                             rows.append(Feature("Grid", native_backend, "interaction",
                                                 "responsive_cycle", value,
