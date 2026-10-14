@@ -150,3 +150,13 @@ The previously missing executable cases were added to `tests/test_declarative_li
 **Coverage:** ordered, empty, inserted, removed, reordered, nested and conditional mapped elements; lexical binding; generated iterable consumption; strict keys and duplicate rejection; sibling-map collisions at reconciliation; per-key native Headless handle identity; conditional keyed/unkeyed branches; unkeyed fragment rejection; generator exception and late duplicate failure without committing the proposed tree. G3 stays on the existing reconciler and static M4B compiler; no dynamic Python source evaluator or M4A escape is introduced.
 
 **Disposition:** **F5-G3 CLOSED (technical gate)**. G1, G2, G3 CLOSED = **3/6**. G4 (arrow callbacks) next; G5, G6 pending. PR #27 remains in draft unless independently changed or merged. This is a scoped technical certificate, **not** the all-backend integral F5-G6 certificate or owner signoff.
+
+## F5-G4 — Deferred lexical arrow callbacks (implementation in review, 2026-10-14)
+
+**Branch:** `feature/expressive-arrow-callbacks`. **Draft PR:** [#28](https://github.com/Neuri-AI/PSX/pull/28), targeting `develop`, stacked on the still-unmerged G3 branch.
+
+**Implemented:** `psx/markup/expressive_lower.py` lowers owner-approved zero/one-positional-parameter `Arrow` expression AST to a native Python `ast.Lambda`; the body remains deferred and resolves lexical names when invoked. `psx/markup/transform.py` activates M4B static lowering for arrow tokens inside JSX expression braces. No production `eval`, `exec`, general JS interpreter, or frame inspection is introduced.
+
+**Regression fixtures:** `tests/test_arrow_callback_rendering.py` covers no eager invocation, zero/one argument callbacks, item-specific closures inside keyed maps, native-like Headless event invocation and rebinding, unsupported two-parameter signatures and M4A explicit-scope isolation. An old G2 fixture that explicitly rejected all arrows now checks invalid two-parameter syntax rather than contradicting the approved G4 feature. `scripts/ci/impact.py`, `tests/test_ci_impact.py`, and executable core/Headless workflow commands include G4 fixtures.
+
+**Acceptance still outstanding:** CI green on immutable code SHA, native Qt/Kivy/Tkinter event evidence, disabled/rebind/teardown tests and lifecycle adversarial cases. Review hook and source-map error boundaries; add executed public census cells only if public interactions actually expand. **G4 IN PROGRESS**, **NOT CLOSED**. No G5/G6 or deferred F6/M8 work is claimed.
