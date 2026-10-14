@@ -45,11 +45,11 @@ def test_mounted_grid_native_geometry_and_intrinsic_readback(request):
     assert a.children[0].handle.geometry.width == 398
     assert a.children[0].handle.geometry.height == 10
     assert renderer.grid_result[1].max_readback_error == 0
-    assert_feature(request, Feature("Grid", "headless", "interaction", "native_root", "geometry_readback", applicability="native"), True)
-    assert_feature(request, Feature("GridItem", "headless", "interaction", "native_child", "geometry_readback", applicability="native"), True)
+    assert_feature(request, Feature("Grid", "headless", "interaction", "native_root", "geometry_readback", applicability="partial_native"), True)
+    assert_feature(request, Feature("GridItem", "headless", "interaction", "native_child", "geometry_readback", applicability="partial_native"), True)
     reconciler.unmount()
     assert renderer.grid_result is None
-    assert_feature(request, Feature("Grid", "headless", "interaction", "native_root", "teardown", applicability="native"), True)
+    assert_feature(request, Feature("Grid", "headless", "interaction", "native_root", "teardown", applicability="partial_native"), True)
 
 
 def test_mounted_grid_reflow_and_keyed_reorder_preserve_handles(request):
@@ -61,12 +61,12 @@ def test_mounted_grid_reflow_and_keyed_reorder_preserve_handles(request):
     renderer.commit_layout(root)
     assert root.children[0].handle.geometry.width == 767
     assert root.children[1].handle.geometry.y == 14
-    assert_feature(request, Feature("Grid", "headless", "interaction", "native_root", "resize_reflow", applicability="native"), True)
+    assert_feature(request, Feature("Grid", "headless", "interaction", "native_root", "resize_reflow", applicability="partial_native"), True)
     reordered = reconciler.render(tree(("b", "a")))
     assert reordered.children[0].handle is handles["b"]
     assert reordered.children[1].handle is handles["a"]
     assert reordered.children[0].handle.geometry.y == 0
-    assert_feature(request, Feature("Grid", "headless", "interaction", "native_root", "keyed_reorder", applicability="native"), True)
+    assert_feature(request, Feature("Grid", "headless", "interaction", "native_root", "keyed_reorder", applicability="partial_native"), True)
     reconciler.unmount()
 
 
