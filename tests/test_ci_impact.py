@@ -22,7 +22,8 @@ class RoutingTests(unittest.TestCase):
 
     def test_grid_native_commit_routes_all_geometry_consumers(self):
         expected = {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
-        for path in ("psx/sfle/grid_native_commit.py", "tests/sfle/test_grid_native_commit.py"):
+        for path in ("psx/sfle/grid_native_commit.py", "psx/sfle/native_grid_bridge.py",
+                     "tests/sfle/test_grid_native_commit.py"):
             with self.subTest(path=path):
                 self.assertEqual(self.selected(path), expected)
 
