@@ -427,7 +427,8 @@ def test_grid_flex_grid_nested_reflow_and_stale_generation_recovery(request):
         reconciler.unmount()
 
 
-def test_grid_root_semantic_invalidation_after_child_commit_rolls_back_and_recovers(request, monkeypatch):
+@pytest.mark.parametrize("reason", ("resource", "dpi"))
+def test_grid_root_semantic_invalidation_after_child_commit_rolls_back_and_recovers(request, monkeypatch, reason):
     """Late content/resource invalidation must not leave stale child geometry."""
     from psx.sfle import headless_grid_bridge
     from psx.sfle.errors import SFLEError
@@ -443,7 +444,7 @@ def test_grid_root_semantic_invalidation_after_child_commit_rolls_back_and_recov
         with monkeypatch.context() as patch:
             def mutate_then_invalidate(*args, **kwargs):
                 receipt = implementation(*args, **kwargs)
-                renderer._sfle_measurement_invalidations.request("resource")
+                renderer._sfle_measurement_invalidations.request(reason)
                 return receipt
             patch.setattr(headless_grid_bridge, "commit_grid_native_geometry",
                           mutate_then_invalidate)
@@ -455,6 +456,6 @@ def test_grid_root_semantic_invalidation_after_child_commit_rolls_back_and_recov
         assert renderer.grid_result[1].max_readback_error == 0
         assert_feature(request, Feature(
             "Grid", "headless", "interaction", "semantic_epoch",
-            "post_commit_rollback_recovery", applicability="partial_native"), True)
+            f"post_commit_{reason}_rollback_recovery", applicability="partial_native"), True)
     finally:
         tree_instance.unmount()
