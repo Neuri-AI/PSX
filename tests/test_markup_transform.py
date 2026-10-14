@@ -59,12 +59,12 @@ def Counter(prefix):
         renderer.flush()
         self.assertEqual(label.props["value"], "1")
 
-    def test_static_numeric_markup_literals_need_no_lexical_scope_entry(self) -> None:
+    def test_quoted_numeric_markup_literals_need_no_lexical_scope_entry(self) -> None:
         result = transform_source(
             """
 from psx import psx
 def view():
-    return psx('<Flex direction="column" padding={50} gap={12}><Text value="Ready" /></Flex>')
+    return psx('<Flex direction="column" padding="50" gap="12"><Text value="Ready" /></Flex>')
 """,
             filename="numeric_markup.py",
         )

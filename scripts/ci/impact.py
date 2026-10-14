@@ -119,7 +119,7 @@ def _classify_path(path: str) -> set[str]:
         return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
     if path in ("psx/__init__.py", "psx/core/native.py") or path.startswith("psx/core/"):
         return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
-    if path.startswith("psx/markup/"):
+    if path.startswith("psx/markup/") or path == "tests/test_expressive_markup_syntax.py":
         return {"core", "headless"}
     if path.startswith("psx/"):
         return {"core", "headless", "qt", "kivy", "tkinter"}

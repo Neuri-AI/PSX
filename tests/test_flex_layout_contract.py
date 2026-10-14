@@ -65,9 +65,9 @@ def test_markup_and_builder_flex_are_semantically_identical() -> None:
     from psx import Button, psx
 
     markup = psx("""
-        <Flex direction="column" gap={8} width="640px" key="root">
+        <Flex direction="column" gap="8" width="640px" key="root">
             <Text key="label">Hello</Text>
-            <Flex direction="row" gap={12} key="actions">
+            <Flex direction="row" gap="12" key="actions">
                 <Button label="Save" key="save" />
             </Flex>
         </Flex>

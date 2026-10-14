@@ -285,11 +285,11 @@ class QtSFLEGeometryTests(unittest.TestCase):
             <Flex direction="column" width="160px" height="80px"
                   align_items="flex-start">
                 <Flex direction="row" width="120px" height="40px"
-                      gap={6} align_items="flex-start">
+                      gap="6" align_items="flex-start">
                     <Button label="A" key="a" layout_width="30px"
-                            layout_height="15px" flex_basis="30px" flex_shrink={0} />
+                            layout_height="15px" flex_basis="30px" flex_shrink="0" />
                     <Button label="B" key="b" layout_width="20px"
-                            layout_height="15px" flex_basis="20px" flex_shrink={0} />
+                            layout_height="15px" flex_basis="20px" flex_shrink="0" />
                 </Flex>
             </Flex>
         """))

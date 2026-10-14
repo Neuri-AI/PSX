@@ -74,8 +74,8 @@ def test_public_grid_builders_and_registry_resolve_to_equivalent_markup():
     assert registry.contains("Grid") and registry.contains("GridItem")
     built = Grid(GridItem(Text("Hello"), span=6), gap=8)
     parsed = psx("""
-        <Grid gap={8}>
-            <GridItem span={6}><Text>Hello</Text></GridItem>
+        <Grid gap="8">
+            <GridItem span="6"><Text>Hello</Text></GridItem>
         </Grid>
     """)
     assert built == parsed

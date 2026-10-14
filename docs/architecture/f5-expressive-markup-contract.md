@@ -10,13 +10,21 @@ Enable React-like declarative syntax inside Python-authored PSX markup without e
 
 Preserve existing host/component registries, VNode construction, renderer identities, reconciliation keys, lifecycle, scheduler, hook order, closure semantics, source maps and exception reporting. M4B transforms authored source before Python execution; the developer does not pass a manually assembled `scope` to `psx()`.
 
+## Literal attributes and expression braces — owner clarification (2026-10-14)
+
+**Binding grammar rule:** Curly braces in PSX Markup are reserved for variable references, mappings/list transforms, conditional expressions and arrow callbacks. **Static values are quoted, including numbers.** `<Flex gap="12" padding="50" />` is valid; `<Flex gap={12} />` is invalid and must produce a source-spanned `MarkupSyntaxError`, not silently accept a numeric constant. `<Flex gap={spacing} />` is valid only if `spacing` resolves in the authored lexical scope (M4B) or explicitly provided trusted mapping (M4A); an undefined identifier raises a diagnostic. No `eval`, `exec` or Python frame inspection may be used for lookup.
+
+Quoted numeric attributes pass through the existing registry-backed coercion/validation: known integer-valued props are converted as appropriate, while string/text props remain strings. This preserves markup schema authority rather than guessing types from braces. Boolean presence syntax and established string props are unchanged.
+
+For expressive F5 conditional, map and arrow constructs, braces delimit *validated compiled expressions* rather than an arbitrary Python evaluator. This is the **only extension** to simple references; bare literal expressions `{12}` in attributes remain invalid. A referenced variable can have any schema-valid value, including zero.
+
 ## 2. Owner-approved syntax
 
 | Capability | Approved syntax | Interpretation |
 | --- | --- | --- |
 | Conditional AND | `{condition && <Element />}` | JSX-like short circuit, transformed to Python AST |
 | Conditional branches | `{condition ? <A /> : <B />}` | JSX-like ternary, including nested ternaries |
-| Lists | `{items.map((item) => <Row key={item.id} />)}` | `.map()` is compiler syntax, **not** an assumed Python `list.map` method |
+| Lists | `{items.map((item) => <Text key={item.id}>{item.label}</Text>)}` | `.map()` is compiler syntax, **not** an assumed Python `list.map` method |
 | Inline callbacks | `on_click={() => increment()}` or `on_click={(value) => set_value(value)}` | Arrow functions are statically transformed into Python closures |
 | Equality | `==`, `!=` | Python equality semantics; `===` and `!==` are **not supported** |
 | Conditional falsy | `False`, `None`, `0`, `""` and other falsy values | **No VNode** in conditional position; no React-style visible zero |
@@ -46,6 +54,20 @@ No `{#if}`, `{:else}`, `{#each}`, or other template control directives. No JavaS
 - Support initially zero or one positional argument; further parameter forms and block bodies require a separate approved contract. The right-hand side is an expression, not an arbitrary JS statement block.
 - Evaluate the callback body **only when the event invokes the function**. It must not run while creating markup.
 - Preserve event binding, rebinding, native disabled behavior, teardown, hook compatibility and per-item closure identity. Diagnostics must reference the original authored source.
+
+### 2.4. Certified F5-G1 grammar and precedence (2026-10-14)
+
+The grammar and source-spanned AST are implemented in `psx/markup/expressive_ast.py`. Technical certificate: `842719ace30a9cf8acf9b900ef6b404a88532503`; [14/14 executed selected CI jobs GREEN](https://github.com/Neuri-AI/PSX/actions/runs/38611373011). Formal G1 closure and negative cases: [expressive markup progress](expressive-markup-progress.md).
+
+- **Highest:** parentheses, lexical/member access, ordinary calls, compiler-recognized `.map()`, recursive JSX elements/fragments
+- **Comparisons:** Python `==` and `!=` (not `===` or `!==`)
+- **Boolean node conjunction:** left-associative `&&`
+- **Conditional:** right-associative `? :`
+- **Callback arrow:** `() => expression` or `(item) => expression`, no statement block or async
+- **List callback:** precisely `.map((item) => expression)` at this initial grammar level, with a required `key` for a directly returned JSX element; indexed callback, destructuring and implicit keys are not approved
+- **Literal attributes:** `gap="12"`, never `gap={12}`; braces are for lexical names and validated expressive syntax only
+
+M4A remains restrictive and cannot import or invoke the new authored M4B expression grammar. The parser builds a **non-executing AST** only; G2–G4 provide the transforms that will make those constructs render, including state semantics and native event integration. No `eval`, `exec`, frame reflection or JS runtime is needed or authorized.
 
 ## 3. Compiler and runtime architecture
 

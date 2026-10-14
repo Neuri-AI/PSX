@@ -27,9 +27,9 @@ def _prepare(tree, *, generation=17, measurements=(), **options):
 
 def test_real_sfle_solver_consumes_markup_without_native_layout() -> None:
     markup = psx("""
-        <Flex direction="row" width="120px" height="40px" gap={8}>
-            <Flex width="40px" height="10px" flex_basis="40px" flex_shrink={0} />
-            <Flex width="30px" height="10px" flex_basis="30px" flex_shrink={0} />
+        <Flex direction="row" width="120px" height="40px" gap="8">
+            <Flex width="40px" height="10px" flex_basis="40px" flex_shrink="0" />
+            <Flex width="30px" height="10px" flex_basis="30px" flex_shrink="0" />
         </Flex>
     """)
     prepared = _prepare(markup)
@@ -47,8 +47,8 @@ def test_real_sfle_solver_consumes_markup_without_native_layout() -> None:
 
 def test_builder_markup_styles_and_identity_are_identical() -> None:
     markup = psx("""
-        <Flex direction="column" gap="8px" padding={12} key="root">
-            <Text key="header" flex_grow={1} layout_width="50%"
+        <Flex direction="column" gap="8px" padding="12" key="root">
+            <Text key="header" flex_grow="1" layout_width="50%"
                   layout_margin_top="-2px">Welcome</Text>
             <Button key="save" label="Save" />
         </Flex>

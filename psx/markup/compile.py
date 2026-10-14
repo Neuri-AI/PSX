@@ -189,6 +189,7 @@ def _element(
         definition = ComponentDefinition(element.name, candidate)
     constructor = definition.constructor
     key = props.pop("key", None)
+    props = _coerce_props(definition, props, filename, element.span)
     contract = definition.contract
     if contract is not None and contract.child_policy == "none-or-single":
         meaningful = _meaningful_children(element.children)
@@ -199,7 +200,6 @@ def _element(
                 element.span,
             )
         children = _nodes(meaningful, scope, resolver, filename, lexical=lexical)
-        props = _coerce_props(definition, props, filename, element.span)
         return constructor(*children, key=key, **props)
     if contract is not None and contract.content_property is not None:
         property_name = contract.content_property
@@ -221,7 +221,6 @@ def _element(
     if contract is not None and contract.child_policy == "none" and element.children:
         _error(f"{definition.name} does not accept child content; use its props instead", filename, element.span)
     children = _nodes(element.children, scope, resolver, filename, lexical=lexical)
-    props = _coerce_props(definition, props, filename, element.span)
     return constructor(*children, key=key, **props)
 
 
@@ -327,9 +326,28 @@ def _text_value(value: object, filename: str, span: object) -> str | int | float
     return value
 
 
+_QUOTED_NUMERIC_PROPS = frozenset({
+    "gap", "row_gap", "column_gap", "spacing", "padding",
+    "font_size", "width", "height", "min_width", "min_height",
+    "max_width", "max_height", "layout_width", "layout_height",
+    "layout_min_width", "layout_min_height", "layout_max_width",
+    "layout_max_height", "flex_grow", "flex_shrink", "flex_basis",
+    "order", "thickness", "decimals", "span", "offset",
+})
+
+
 def _coerce_props(
     definition: ComponentDefinition, props: dict[str, object], filename: str, span: object
 ) -> dict[str, object]:
+    # Attribute braces are references, not literal markers. Preserve numeric
+    # properties' existing Python values when the developer uses quoted,
+    # unitless literals (gap="12"); unit-bearing lengths remain strings.
+    for prop, value in tuple(props.items()):
+        if prop not in _QUOTED_NUMERIC_PROPS or not isinstance(value, str):
+            continue
+        import re
+        if re.fullmatch(r"[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)", value):
+            props[prop] = float(value) if "." in value else int(value)
     for prop in definition.markup_integer_properties:
         if not isinstance(props.get(prop), str):
             continue
