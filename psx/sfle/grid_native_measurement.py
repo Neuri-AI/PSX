@@ -8,8 +8,9 @@ No widget is created, moved or committed here.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import Protocol
+from collections.abc import Callable
+from threading import get_ident
 
 from psx.core.grid_contract import normalize_grid_props, normalize_grid_item_props, resolve_grid_item_props
 from psx.core.layout_tree import NormalizedLayoutNode
@@ -115,3 +116,49 @@ def measure_grid_native(
         mounted_ids=mounted_ids, generation=generation,
         current_generation=current_generation, constraints=constraints, rtl=rtl,
     )
+
+
+class HeadlessGridMeasurementSource:
+    """Use HeadlessRenderer's explicit intrinsic callback, never a size guess.
+
+    The supplied callback receives the actual mounted leaf VNode and its
+    Cinnamon allocated width. It must return IntrinsicSizes; unknown native
+    controls are unsupported rather than assigned arbitrary default sizes.
+    """
+
+    def __init__(
+        self, nodes: Mapping[str, object],
+        measure_intrinsic: Callable[[object, float], IntrinsicSizes],
+    ) -> None:
+        from psx.core.vnode import VNode
+        if any(not isinstance(node, VNode) for node in nodes.values()):
+            raise TypeError("Headless Grid measurements require mounted VNodes.")
+        if not callable(measure_intrinsic):
+            raise TypeError("Headless Grid requires an explicit intrinsic callback.")
+        self._nodes = dict(nodes)
+        self._measure_intrinsic = measure_intrinsic
+        self._owner_thread = get_ident()
+
+    def is_ui_thread(self) -> bool:
+        return get_ident() == self._owner_thread
+
+    def measure_width(self, node_id: str, width: float) -> IntrinsicSizes:
+        from .errors import DiagnosticCode, SFLEError
+        if not self.is_ui_thread():
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Headless Grid measured off owner thread.")
+        node = self._nodes.get(node_id)
+        if node is None:
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Headless Grid leaf.")
+        intrinsic = self._measure_intrinsic(node, width)
+        if not isinstance(intrinsic, IntrinsicSizes):
+            raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Headless Grid requires real intrinsic metrics.")
+        return intrinsic
+
+    def port(self) -> NativeMeasurementPort:
+        def measure(request: MeasurementRequest) -> MeasuredBox:
+            width = request.constraints.width.value
+            return MeasuredBox(
+                request.node_id, self.measure_width(request.node_id, width),
+                request.constraints, request.revision,
+            )
+        return NativeMeasurementPort(self.is_ui_thread, measure)
