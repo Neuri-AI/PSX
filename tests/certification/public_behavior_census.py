@@ -106,6 +106,100 @@ def inventory() -> tuple[Feature, ...]:
                     rows.append(Feature(component, CONTRACT, "interaction",
                                         "unsupported_mount", scenario,
                                         applicability="shared"))
+            if component == "Grid":
+                for scenario in ("geometry_readback", "resize_reflow", "keyed_reorder", "teardown"):
+                    rows.append(Feature(component, "headless", "interaction",
+                                        "native_root", scenario, applicability="partial_native"))
+            if component == "Grid":
+                for reason in ("resource", "dpi"):
+                    rows.append(Feature("Grid", "headless", "interaction",
+                                        "semantic_epoch", f"post_commit_{reason}_rollback_recovery",
+                                        applicability="partial_native"))
+                rows.append(Feature("Grid", "headless", "interaction",
+                                    "grid_flex_grid", "nested_reflow_identity",
+                                    applicability="partial_native"))
+                for name, scenario in (("mixed_scroll", "geometry_and_identity"),
+                                       ("mixed_transaction", "rollback_and_recovery")):
+                    rows.append(Feature("Grid", "headless", "interaction",
+                                        name, scenario, applicability="partial_native"))
+                rows.append(Feature("Grid", "headless", "interaction",
+                                    "mixed_keyed_siblings", "reorder_identity_readback",
+                                    applicability="partial_native"))
+                rows.append(Feature("Grid", "headless", "interaction",
+                                    "alternating_composition", "bounded_reflow_identity",
+                                    applicability="partial_native"))
+                rows.append(Feature("Grid", "headless", "interaction",
+                                    "mixed_flex", "allocated_width_reflow",
+                                    applicability="partial_native"))
+                rows.append(Feature("Grid", "headless", "interaction",
+                                    "configured_container_breakpoints", "isolated_nested_resolution",
+                                    applicability="partial_native"))
+                rows.append(Feature("Grid", "headless", "interaction",
+                                    "nested_content_width", "independent_breakpoint_reflow",
+                                    applicability="partial_native"))
+                for scenario in ("width_767_767", "width_800_398"):
+                    rows.append(Feature(component, "headless", "interaction",
+                                        "responsive_cycle", scenario, applicability="partial_native"))
+            if component == "GridItem":
+                rows.append(Feature(component, "headless", "interaction",
+                                    "flex_content", "measured_children_readback",
+                                    applicability="partial_native"))
+                rows.append(Feature(component, "headless", "interaction",
+                                    "native_child", "geometry_readback", applicability="partial_native"))
+            if component in ("Grid", "GridItem"):
+                for native_backend in ("pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"):
+                    operations = (("geometry_readback", "resize_reflow", "keyed_reorder", "teardown")
+                                  if component == "Grid" else ("geometry_readback",))
+                    for scenario in operations:
+                        rows.append(Feature(component, native_backend, "interaction",
+                                            "native_root" if component == "Grid" else "native_child",
+                                            scenario, applicability="partial_native"))
+                    if component == "GridItem":
+                        rows.append(Feature("GridItem", native_backend, "interaction",
+                                            "flex_content", "measured_children_readback",
+                                            applicability="partial_native"))
+                        for feature_name, scenario in (("component_boundary", "keyed_update_readback"),
+                                                       ("composite_content", "fails_closed")):
+                            rows.append(Feature("GridItem", native_backend, "interaction",
+                                                feature_name, scenario, applicability="partial_native"))
+                    if component == "Grid":
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "mixed_multi_grid", "second_batch_atomic_rollback",
+                                            applicability="partial_native"))
+                        for reason in ("resource", "dpi"):
+                            rows.append(Feature("Grid", native_backend, "interaction",
+                                                "semantic_epoch", f"late_{reason}_rollback",
+                                                applicability="partial_native"))
+                        for name, scenario in (("mixed_scroll", "offset_retained_reflow"),
+                                               ("mixed_transaction", "rollback_and_recovery")):
+                            rows.append(Feature("Grid", native_backend, "interaction",
+                                                name, scenario, applicability="partial_native"))
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "mixed_keyed_siblings", "reorder_identity_readback",
+                                            applicability="partial_native"))
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "alternating_composition", "bounded_reflow_identity",
+                                            applicability="partial_native"))
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "mixed_flex", "allocated_width_reflow",
+                                            applicability="partial_native"))
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "configured_container_breakpoints", "isolated_nested_resolution",
+                                            applicability="partial_native"))
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "nested_content_width", "independent_breakpoint_reflow",
+                                            applicability="partial_native"))
+                        for value in ("width_767_767", "width_800_398"):
+                            rows.append(Feature("Grid", native_backend, "interaction",
+                                                "responsive_cycle", value,
+                                                applicability="partial_native"))
+                    if component == "Grid" and native_backend != "headless":
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "native_root", "failed_commit_root_rollback",
+                                            applicability="partial_native"))
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "nested_container", "fails_closed",
+                                            applicability="partial_native"))
             for prop in sorted(props):
                 for scenario in PROPERTY_SCENARIOS:
                     rows.append(Feature(component, CONTRACT, "property", prop,
@@ -272,7 +366,8 @@ def collect_executed_receipts(rows: tuple[Feature, ...], artifacts: tuple[Path, 
 
 def merge_executed_manifests(rows: tuple[Feature, ...], manifests: tuple[Path, ...],
                              *, sha: str, require_complete: bool = False,
-                             require_contract_components: tuple[str, ...] = ()) -> dict:
+                             require_contract_components: tuple[str, ...] = (),
+                             require_native_components: tuple[str, ...] = ()) -> dict:
     """Recheck original JUnit files after downloading per-platform artifacts.
 
     Receipt manifests are transport metadata, never independently trusted
@@ -321,6 +416,29 @@ def merge_executed_manifests(rows: tuple[Feature, ...], manifests: tuple[Path, .
         if missing:
             raise ValueError(f"Incomplete component contract certification: "
                              f"{sorted(missing)[:12]} ({len(missing)} missing)")
+    if require_native_components:
+        selected = set(require_native_components)
+        scoped = {feature_key(row) for row in rows
+                  if row.component in selected and row.backend != CONTRACT
+                  and row.applicability == "partial_native"}
+        expected_backends = {"headless", "pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"}
+        observed_backends = {row.backend for row in rows
+                             if row.component in selected and row.applicability == "partial_native"}
+        observed_components = {row.component for row in rows
+                               if row.component in selected and row.applicability == "partial_native"}
+        if observed_backends != expected_backends or observed_components != selected:
+            raise ValueError("Incomplete native Grid inventory for the required toolkit matrix.")
+        passed = {feature_key(row) for row in receipts
+                  if row.get("status") == "executed_pass"}
+        missing = scoped - passed
+        report["native_scope"] = {
+            "components": sorted(selected), "backends": sorted(expected_backends),
+            "required": len(scoped), "executed_pass": len(scoped - missing),
+            "pending": len(missing), "complete": not missing,
+        }
+        if missing:
+            raise ValueError(f"Incomplete native Grid certification: {sorted(missing)[:12]} "
+                             f"({len(missing)} missing)")
     if require_complete and not report["complete"]:
         raise ValueError(
             f"Final public behavior certificate incomplete: "
@@ -337,6 +455,7 @@ def main() -> None:
     parser.add_argument("--receipt-file", type=Path, action="append", default=[])
     parser.add_argument("--require-complete", action="store_true")
     parser.add_argument("--require-contract-component", action="append", default=[])
+    parser.add_argument("--require-native-component", action="append", default=[])
     args = parser.parse_args()
     rows = inventory()
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -352,15 +471,17 @@ def main() -> None:
         report = merge_executed_manifests(
             rows, tuple(args.receipt_file), sha=args.sha,
             require_complete=args.require_complete,
-            require_contract_components=tuple(args.require_contract_component))
+            require_contract_components=tuple(args.require_contract_component),
+            require_native_components=tuple(args.require_native_component))
         args.out.with_name(args.out.stem + "-final-report.json").write_text(
             json.dumps(report, indent=2) + "\n", encoding="utf-8")
-        if args.require_contract_component:
+        if args.require_contract_component or args.require_native_component:
             # Preserve full global audit in JSON, but emit the *requested*
             # scoped acceptance result instead of unrelated historic gaps.
             print(json.dumps({"certificate": "scoped_public_contract",
                               "sha": report["sha"],
-                              "contract_scope": report["contract_scope"],
+                              **({"contract_scope": report["contract_scope"]} if args.require_contract_component else {}),
+                              **({"native_scope": report["native_scope"]} if args.require_native_component else {}),
                               "global_inventory_artifact":
                                   args.out.with_name(args.out.stem + "-final-report.json").name},
                              sort_keys=True))

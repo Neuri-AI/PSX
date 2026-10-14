@@ -15,6 +15,67 @@ class RoutingTests(unittest.TestCase):
                          {'core', 'qt', 'kivy', 'tkinter', 'headless'})
         self.assertEqual(self.selected('docs/architecture/responsive-grid-contract.md'), set())
 
+    def test_headless_mounted_grid_routes_headless_validation(self):
+        for path in ("psx/sfle/headless_grid_bridge.py", "tests/test_headless_grid_native_layout.py"):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), {"core", "sfle", "headless"})
+
+    def test_grid_native_commit_routes_all_geometry_consumers(self):
+        expected = {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
+        for path in ("psx/sfle/grid_native_commit.py", "psx/sfle/native_grid_bridge.py",
+                     "psx/sfle/grid_native_composition.py",
+                     "psx/sfle/mixed_grid_native.py",
+                     "psx/sfle/grid_flex_composition.py",
+                     "tests/sfle/test_grid_native_commit.py"):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), expected)
+
+    def test_grid_native_source_measurement_routes_all_geometry_consumers(self):
+        expected = {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
+        for path in ("psx/sfle/grid_native_measurement.py",
+                     "tests/sfle/test_grid_native_measurement.py"):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), expected)
+
+    def test_grid_measurement_handoff_routes_all_geometry_consumers(self):
+        expected = {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
+        for path in ("psx/sfle/grid_tree_measurement.py",
+                     "tests/sfle/test_grid_tree_measurement.py"):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), expected)
+
+    def test_grid_native_preflight_routes_all_geometry_consumers(self):
+        expected = {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
+        for path in ("psx/sfle/grid_native_plan.py",
+                     "tests/sfle/test_grid_native_plan.py"):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), expected)
+
+    def test_grid_row_solver_routes_both_language_parity_suites(self):
+        expected = {"sfle", "rust"}
+        for path in (
+            "psx/sfle/grid_math.py",
+            "rust/sfle-core/src/grid_math.rs",
+            "tests/sfle/test_grid_math.py",
+            "tests/fixtures/grid_row_packing.json",
+            "tests/fixtures/grid_cross_axis.json",
+                "tests/fixtures/grid_constraints.json",
+                "tests/fixtures/grid_pixel_projection.json",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), expected)
+        self.assertEqual(
+            self.selected("docs/architecture/responsive-grid-mathematics.md"), set()
+        )
+        self.assertEqual(
+            self.selected("psx/sfle/grid_math.py", "docs/architecture/README.md"),
+            expected,
+        )
+        self.assertEqual(
+            self.selected("psx/sfle/grid_math.py", "psx/renderers/kivy/kivy.py"),
+            {"sfle", "rust", "kivy"},
+        )
+
     def test_grid_contract_code_and_tests_route_to_executable_core_suite(self):
         self.assertGreaterEqual(
             self.selected("psx/core/grid_contract.py"),
@@ -69,6 +130,10 @@ class RoutingTests(unittest.TestCase):
 
     def test_headless_only(self):
         self.assertEqual(self.selected("psx/renderers/headless.py"), {"headless"})
+
+    def test_mounted_grid_lifecycle_runs_all_native_toolkits(self):
+        self.assertEqual(self.selected("tests/test_mounted_grid_native_renderers.py"),
+                         {"core", "qt", "kivy", "tkinter"})
 
     def test_shared_scroll_involves_all_backends(self):
         self.assertGreaterEqual(

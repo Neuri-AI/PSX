@@ -21,6 +21,11 @@ class App:
         self.root = root() if isinstance(root, ComponentType) else root
         self.providers = providers
         self.renderer = self._resolve_renderer(renderer)
+        # Native Cinnamon/Grid uses the same immutable application breakpoint
+        # table as the public metadata resolver. Custom renderer protocols are
+        # unaffected unless they opt into the SFLE viewport capability.
+        if hasattr(self.renderer, "_sfle_constraints"):
+            self.renderer._grid_breakpoints = self.grid_breakpoints
         self.reconciler = Reconciler(self.renderer)
 
     @staticmethod

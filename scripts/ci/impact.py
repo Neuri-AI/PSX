@@ -48,8 +48,28 @@ def _classify_path(path: str) -> set[str]:
         return result
     if path == "pyproject.toml" or path in ("setup.cfg", "setup.py"):
         return {"core", "sfle", "rust", "qt", "kivy", "tkinter", "native"}
+    if path == "rust/sfle-core/src/grid_math.rs":
+        # This isolated mathematical contract is exercised by Rust and
+        # Python fixtures; it does not yet change native geometry.
+        return {"sfle", "rust"}
     if path.startswith("rust/sfle-core/"):
         return {"sfle", "rust", "chromium", "native"}
+    if path == "tests/test_mounted_grid_native_renderers.py":
+        return {"core", "qt", "kivy", "tkinter"}
+    if path in ("psx/sfle/headless_grid_bridge.py", "tests/test_headless_grid_native_layout.py"):
+        return {"core", "sfle", "headless"}
+    if path in ("psx/sfle/grid_native_commit.py", "psx/sfle/native_grid_bridge.py",
+                 "psx/sfle/grid_native_composition.py",
+                 "psx/sfle/mixed_grid_native.py",
+                 "psx/sfle/grid_flex_composition.py",
+                 "tests/sfle/test_grid_native_commit.py",
+                 "psx/sfle/grid_native_measurement.py", "tests/sfle/test_grid_native_measurement.py",
+                 "psx/sfle/grid_tree_measurement.py", "tests/sfle/test_grid_tree_measurement.py"):
+        return {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
+    if path == "psx/sfle/grid_native_plan.py":
+        return {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
+    if path == "psx/sfle/grid_math.py":
+        return {"sfle", "rust"}
     if path.startswith("psx/sfle/"):
         name = PurePosixPath(path).name
         # Production Native layout bridges must route to the real toolkit consumer, not
@@ -103,6 +123,14 @@ def _classify_path(path: str) -> set[str]:
         return {"core", "headless"}
     if path.startswith("psx/"):
         return {"core", "headless", "qt", "kivy", "tkinter"}
+    if path == "tests/sfle/test_grid_native_plan.py":
+        return {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
+    if path in ("tests/fixtures/grid_row_packing.json",
+                "tests/fixtures/grid_cross_axis.json",
+                "tests/fixtures/grid_constraints.json",
+                "tests/fixtures/grid_pixel_projection.json",
+                "tests/sfle/test_grid_math.py"):
+        return {"sfle", "rust"}
     if path.startswith("tests/browser/"):
         return {"chromium"}
     if path.startswith("tests/ui/"):
