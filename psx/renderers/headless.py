@@ -183,9 +183,14 @@ class HeadlessRenderer:
         return adapter.create(self, node, parent)  # type: ignore[return-value]
 
     def _adapter_create(self, node: VNode, parent: object | None) -> HeadlessHandle:
-        if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem") and self._sfle_constraints is None:
-            raise RendererCapabilityError(
-                f"{node.type} requires an explicit SFLE viewport and native geometry backend.")
+        if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
+            if self._sfle_constraints is None:
+                raise RendererCapabilityError(
+                    f"{node.type} requires an SFLE Grid layout backend with an explicit viewport.")
+            if node.type == "GridItem" and (parent is None or _handle(parent).type != "Grid"):
+                raise RendererCapabilityError("GridItem must be a direct child of a mounted Grid.")
+            if node.type == "Grid" and parent is not None:
+                raise RendererCapabilityError("Nested Grid requires the later container integration.")
         if self._sfle_constraints is not None:
             if node.kind is NodeKind.NATIVE:
                 raise RendererCapabilityError(
