@@ -61,6 +61,7 @@ def _classify_path(path: str) -> set[str]:
     if path in ("psx/sfle/grid_native_commit.py", "psx/sfle/native_grid_bridge.py",
                  "psx/sfle/grid_native_composition.py",
                  "psx/sfle/mixed_grid_native.py",
+                 "psx/sfle/grid_flex_composition.py",
                  "tests/sfle/test_grid_native_commit.py",
                  "psx/sfle/grid_native_measurement.py", "tests/sfle/test_grid_native_measurement.py",
                  "psx/sfle/grid_tree_measurement.py", "tests/sfle/test_grid_tree_measurement.py"):
