@@ -208,3 +208,78 @@ def test_flex_grid_mixed_headless_width_allocation_readback_and_identity(request
             "allocated_width_reflow", applicability="partial_native"), True)
     finally:
         reconciler.unmount()
+
+
+def test_headless_grid_inside_scroll_flex_preserves_layout_identity(request):
+    """Headless certifies geometry, not native wheel/keyboard interactions."""
+    from psx import Flex, Scroll
+    from psx.sfle.model import IntrinsicSizes
+    def metric(node, allocated_width=None):
+        if node.type == "Text":
+            width = allocated_width if allocated_width is not None else 20
+            return IntrinsicSizes(0, width, 0, 10, width, 10)
+        return IntrinsicSizes(0, 0, 0, 0, 0, 0)
+    renderer = HeadlessRenderer(
+        sfle_constraints=viewport(800),
+        engine=PythonLayoutEngine(), measure_intrinsic=metric,
+    )
+    def scene(width):
+        return Flex(
+            Scroll(
+                Flex(tree(), direction="column", width=width, height="240px",
+                     key="content", align_items="stretch"),
+                key="viewport", direction="both",
+                layout_width="120px", layout_height="80px",
+                flex_basis="120px", flex_shrink=0,
+            ),
+            direction="row", width="800px", height="100px",
+            align_items="flex-start",
+        )
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(scene("800px"))
+        grid = mounted.children[0].children[0].children[0]
+        original = grid.children[0].handle
+        assert grid.handle.geometry.width == 800
+        assert original.geometry.width == 398
+        changed = reconciler.render(scene("600px"))
+        grid = changed.children[0].children[0].children[0]
+        assert grid.children[0].handle is original
+        assert grid.handle.geometry.width == 600
+        assert original.geometry.width == 600
+        assert renderer.grid_result[1].max_readback_error == 0
+        assert_feature(request, Feature(
+            "Grid", "headless", "interaction", "mixed_scroll",
+            "geometry_and_identity", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
+
+
+def test_headless_mixed_grid_rollback_and_recovery(request, monkeypatch):
+    """Mixed root and Grid descendants share one rollback boundary."""
+    from psx import Flex
+    from psx.sfle import headless_layout_bridge
+    renderer = make_renderer()
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(Flex(tree(), direction="column", width="100%", height=100))
+        grid = mounted.children[0]
+        leaf = grid.children[0].children[0].handle
+        first = grid.children[0].handle
+        renderer.set_sfle_constraints(viewport(767))
+        previous = (grid.handle.geometry, first.geometry, leaf.geometry)
+        with monkeypatch.context() as patch:
+            def fail(*args, **kwargs):
+                raise RuntimeError("simulated mixed Headless Grid failure")
+            patch.setattr(headless_layout_bridge, "commit_grid_native_geometry", fail)
+            with pytest.raises(RuntimeError, match="simulated mixed Headless"):
+                renderer.commit_layout(mounted)
+        assert (grid.handle.geometry, first.geometry, leaf.geometry) == previous
+        renderer.commit_layout(mounted)
+        assert first.geometry.width == 767
+        assert renderer.grid_result[1].max_readback_error == 0
+        assert_feature(request, Feature(
+            "Grid", "headless", "interaction", "mixed_transaction",
+            "rollback_and_recovery", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
