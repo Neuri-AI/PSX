@@ -239,8 +239,6 @@ def test_composite_grid_item_fails_closed_without_false_native_receipt(request):
 @pytest.mark.parametrize("width,expected", [
     (767, 767),
     (800, 398),
-    (767, 767),
-    (800, 398),
 ])
 def test_grid_responsive_threshold_cycle_preserves_native_identity(
     request, width, expected,
@@ -257,8 +255,9 @@ def test_grid_responsive_threshold_cycle_preserves_native_identity(
         second = root.children[1].handle.widget
         first_leaf = root.children[0].children[0].handle.widget
         second_leaf = root.children[1].children[0].handle.widget
-        renderer.set_sfle_constraints(viewport(width))
-        renderer.commit_layout(root)
+        for target in (width, 800 if width == 767 else 767, width):
+            renderer.set_sfle_constraints(viewport(target))
+            renderer.commit_layout(root)
         assert rectangle(first, backend)[2] == pytest.approx(expected, abs=1)
         assert rectangle(second, backend)[2] == pytest.approx(expected, abs=1)
         assert root.children[0].handle.widget is first
