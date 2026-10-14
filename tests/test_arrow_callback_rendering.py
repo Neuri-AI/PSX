@@ -53,7 +53,7 @@ class ArrowCallbacksTests(unittest.TestCase):
 
     def test_headless_event_dispatch_and_rebind(self):
         calls = []
-        view, _ = compiled('<Button label="Save" on_click={() => handler()} />')
+        view, _ = compiled('<Flex><Button label="Save" on_click={() => handler()} /></Flex>')
         from psx.sfle.engine import PythonLayoutEngine
         from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
         renderer = HeadlessRenderer(
@@ -64,9 +64,9 @@ class ArrowCallbacksTests(unittest.TestCase):
         )
         reconciler = Reconciler(renderer)
         mounted = reconciler.render(view(lambda: calls.append("old")))
-        mounted.handle.events["on_click"].invoke()
+        mounted.children[0].handle.events["on_click"].invoke()
         reconciler.render(view(lambda: calls.append("new")))
-        mounted.handle.events["on_click"].invoke()
+        mounted.children[0].handle.events["on_click"].invoke()
         self.assertEqual(calls, ["old", "new"])
         reconciler.unmount()
 
