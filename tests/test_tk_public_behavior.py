@@ -250,7 +250,8 @@ def test_grid_mount_fails_before_native_widget_creation(tk_tree, request, compon
     from psx.core.errors import RendererCapabilityError
     from tests.certification.public_behavior_census import CONTRACT
     node = Grid(GridItem(Text("x"))) if component == "Grid" else GridItem(Text("x"))
-    root, renderer, _ = tk_tree
+    root, _, _ = tk_tree
+    renderer = TkinterRenderer(root=root)
     before = tuple(root.winfo_children())
     with pytest.raises(RendererCapabilityError, match=r"Native SFLE .* SFLE geometry not certified for .(?:Grid|GridItem)."):
         renderer.create(node, None)

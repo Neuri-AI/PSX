@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+from threading import get_ident
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from psx.sfle.model import LayoutConstraints, LayoutResult
@@ -381,6 +382,7 @@ class QtRenderer:
         self._sfle_invalidation_lifetime = 0
         self._sfle_mounted_root = None
         self._sfle_in_commit = False
+        self._sfle_owner_thread = get_ident()
         self._sfle_mounted_root = None
         self._sfle_watched_widget = None
         self._sfle_resize_filter = None
@@ -652,6 +654,8 @@ class QtRenderer:
     def commit_layout(self, root: object) -> None:
         if self._sfle_constraints is None:
             return
+        from psx.sfle.native_grid_bridge import is_mounted_native_grid_root, commit_native_grid
+        from psx.sfle.grid_native_commit import GridCommitBackend
         from psx.sfle.qt_layout_bridge import commit_qt_sfle
         # Native style/texture signals can arrive while measuring. Retry a
         # bounded number of times using the latest semantic epoch; never
@@ -659,7 +663,10 @@ class QtRenderer:
         from psx.sfle.errors import SFLEError
         for attempt in range(3):
             try:
-                commit_qt_sfle(self, root)
+                if is_mounted_native_grid_root(root):
+                    commit_native_grid(self, root, backend=GridCommitBackend.QT)
+                else:
+                    commit_qt_sfle(self, root)
                 break
             except SFLEError as error:
                 if ("Stale semantic invalidation" not in str(error)
@@ -747,9 +754,9 @@ class QtRenderer:
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
-            if port is None and node.type != "Flex":
+            if port is None and node.type not in ("Flex", "Grid", "GridItem"):
                 native_leaf_needs_measurement(node, backend="qt")
-            if node.type != "Flex":
+            if node.type not in ("Flex", "Grid", "GridItem"):
                 node = VNode(node.kind, node.type, node.key,
                              {k: v for k, v in node.props.items() if k not in FLEX_ITEM_PROPS},
                              node.children)
@@ -758,9 +765,14 @@ class QtRenderer:
 
     def _adapter_create(self, node: VNode, parent: object | None) -> QtHandle:
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
-            raise RendererCapabilityError(
-                f"{node.type} requires an SFLE Grid layout backend; "
-                "Qt Grid mounting is not implemented.")
+            if self._sfle_constraints is None:
+                raise RendererCapabilityError(
+                    f"Native SFLE {self._sfle_backend} SFLE geometry not certified for {node.type!r}.")
+            if node.type == "GridItem" and (parent is None or _handle(parent).node_type != "Grid"):
+                raise RendererCapabilityError("GridItem must be a direct child of a mounted Grid.")
+            if node.type == "Grid" and parent is not None and _handle(parent).node_type not in ("GridItem", "Flex"):
+                raise RendererCapabilityError("Nested Grid must be the direct content root of GridItem.")
+            return QtHandle(node.type, self._widget(), props=dict(node.props))
         if node.kind is NodeKind.HOST and node.type == "Flex":
             raise RendererCapabilityError(
                 "Flex requires the Native SFLE SFLE geometry adapter for Qt; "
@@ -806,6 +818,11 @@ class QtRenderer:
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _handle(handle)
+        if target.node_type in ("Grid", "GridItem"):
+            target.props.update(changed)
+            for name in removed:
+                target.props.pop(name, None)
+            return
         if target.native is not None:
             _update_native(target, changed, removed)
             return
@@ -826,6 +843,9 @@ class QtRenderer:
         self._default_insert(parent, child, index)
 
     def _default_insert(self, parent: object, child: object, index: int) -> None:
+        if _handle(parent).node_type in ("Grid", "GridItem"):
+            _handle(child).widget.setParent(_handle(parent).widget)
+            return
         _layout(_handle(parent)).insertWidget(index, _handle(child).widget)
 
     def move(self, parent: object, child: object, index: int) -> None:
@@ -835,6 +855,8 @@ class QtRenderer:
         self._default_move(parent, child, index)
 
     def _default_move(self, parent: object, child: object, index: int) -> None:
+        if _handle(parent).node_type in ("Grid", "GridItem"):
+            return
         layout = _layout(_handle(parent))
         widget = _handle(child).widget
         layout.removeWidget(widget)
@@ -848,6 +870,9 @@ class QtRenderer:
 
     def _default_remove(self, parent: object, child: object) -> None:
         item = _handle(child)
+        if _handle(parent).node_type in ("Grid", "GridItem"):
+            item.widget.setParent(None)
+            return
         _layout(_handle(parent)).removeWidget(item.widget)
         _release(item)
 

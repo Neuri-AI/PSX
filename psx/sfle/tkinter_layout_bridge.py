@@ -12,6 +12,8 @@ from threading import get_ident
 from typing import TYPE_CHECKING
 
 from psx.core.layout_tree import normalize_flex_tree
+from psx.sfle.mixed_grid_native import MountedMixedGrid
+from psx.sfle.grid_native_commit import GridCommitBackend
 from psx.core.vnode import NodeKind
 from psx.sfle.adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from psx.sfle.errors import DiagnosticCode, SFLEError
@@ -81,6 +83,9 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
 
         gather(root)
         normalized = normalize_flex_tree(root.node, component_roots=components)
+        mixed_grid = MountedMixedGrid(
+            renderer, normalized, handles, GridCommitBackend.TK, generation,
+        )
         prepared = prepare_native_layout_snapshot(
             normalized, renderer._sfle_constraints, generation=generation,
         )
@@ -116,7 +121,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             node_id: widgets[node_id]
             for node_id, source in prepared.identities
             if source.kind is NodeKind.HOST
-            and source.type not in ("Flex", "Box", "RadioGroup", "Scroll")
+            and source.type not in ("Flex", "Box", "RadioGroup", "Scroll", "Grid")
             and not (source.type == "Divider" and source.children)
             and node_id not in external
         }
@@ -171,6 +176,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             ))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external tk measurement.")
+        readings.extend(mixed_grid.seed_measurements())
         snapshot = replace(prepared.snapshot, measurements=tuple(readings))
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
@@ -199,11 +205,14 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                     ).intrinsic,
                     )
                 )
+        dependent.update(mixed_grid.width_dependencies())
         snapshot = seed_unconstrained_width_measurements(snapshot, frozenset(dependent))
         result = compute_width_dependent(
             renderer._sfle_engine, snapshot, dependent,
             current_generation=lambda: renderer._sfle_generation,
         )
+
+        mixed_plans = mixed_grid.plan(dict(result.boxes))
 
         def read_widget(node_id, handle):
             port = external.get(node_id)
@@ -261,11 +270,13 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         }
         from psx.sfle.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
         scroll_before = capture_scroll_hosts("tk", widgets)
+        mixed_before = mixed_grid.snapshot()
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
         try:
             # F2 checks signed 1/64px precision before mutating a single child.
             committer(result)
+            mixed_receipts = mixed_grid.commit(mixed_plans)
             for node in snapshot.nodes:
                 if node.parent_id is not None:
                     parent = widgets[node.parent_id]
@@ -336,6 +347,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
         except BaseException:
             restore_scroll_hosts(scroll_before)
+            mixed_grid.restore(mixed_before)
             for node_id, old_wrap in previous_wraps.items():
                 if widgets[node_id].winfo_exists():
                     widgets[node_id].configure(wraplength=old_wrap)
@@ -356,6 +368,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             raise
         renderer._sfle_physical_commit_error = physical_error_maximum
         renderer.sfle_result = replace(result, geometry_commit_error=error)
+        if mixed_receipts:
+            renderer.grid_result = mixed_receipts[-1]
         native_round.publish()
     finally:
         renderer._sfle_in_commit = False

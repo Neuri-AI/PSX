@@ -44,12 +44,18 @@ def test_source_derived_inventory_separates_shared_and_native():
                 "tk" if backend == "tkinter" else backend)
             subset = [r for r in records if r.backend == backend and r.component == component]
             assert subset
-            assert all(r.applicability == native[(family, component)] for r in subset)
+            partial_grid = backend in ("headless", "pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy") and component in ("Grid", "GridItem")
+            assert all(r.applicability == native[(family, component)] or (
+                partial_grid and r.applicability == "partial_native"
+            ) for r in subset)
             assert not any(r.scenario_id in ("default", "valid_boundary", "invalid_rejection")
                            for r in subset)
             if native[(family, component)] == "unported":
-                assert len(subset) == 1
-                assert subset[0].scenario_id == "classification_review"
+                classification = [r for r in subset if r.applicability == "unported"]
+                assert len(classification) == 1
+                assert classification[0].scenario_id == "classification_review"
+                if not partial_grid:
+                    assert len(subset) == 1
 
 
 def test_unexecuted_behavior_remains_pending():
@@ -283,3 +289,20 @@ def test_scoped_contract_certificate_fails_closed_without_every_applicable_case(
     with pytest.raises(ValueError, match="Unknown contract certification"):
         merge_executed_manifests((covered, other), (manifest,), sha=SHA,
                                  require_contract_components=("GridItem",))
+
+
+def test_grid_native_certificate_requires_executed_backend_receipts(tmp_path):
+    from tests.certification.public_behavior_census import merge_executed_manifests
+    grid_rows = tuple(row for row in inventory()
+                      if row.component in ("Grid", "GridItem")
+                      and row.applicability == "partial_native")
+    assert {row.backend for row in grid_rows} == {
+        "headless", "pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"
+    }
+    assert len(grid_rows) == 150
+    manifest = tmp_path / "no-native-receipts.json"
+    manifest.write_text(json.dumps({"summary": {"sha": SHA}, "receipts": []}))
+    with pytest.raises(ValueError, match="Incomplete native Grid certification"):
+        merge_executed_manifests(
+            tuple(inventory()), (manifest,), sha=SHA,
+            require_native_components=("Grid", "GridItem"))
