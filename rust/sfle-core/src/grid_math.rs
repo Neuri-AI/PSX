@@ -556,6 +556,7 @@ mod grid_constraint_tests {
             let expected = case["rows"].as_array().unwrap();
             assert_eq!(actual.len(), expected.len(), "{name}");
             for (row, target) in actual.iter().zip(expected) {
+                assert_eq!(row.len(), target.as_array().unwrap().len(), "{name}: item count");
                 for (rect, item) in row.iter().zip(target.as_array().unwrap()) {
                     assert_eq!(rect.id, item["id"].as_str().unwrap(), "{name}");
                     for (value, field) in [
