@@ -121,6 +121,11 @@ def inventory() -> tuple[Feature, ...]:
                         rows.append(Feature(component, native_backend, "interaction",
                                             "native_root" if component == "Grid" else "native_child",
                                             scenario, applicability="partial_native"))
+                    if component == "GridItem":
+                        for feature_name, scenario in (("component_boundary", "keyed_update_readback"),
+                                                       ("composite_content", "fails_closed")):
+                            rows.append(Feature("GridItem", native_backend, "interaction",
+                                                feature_name, scenario, applicability="partial_native"))
                     if component == "Grid" and native_backend != "headless":
                         rows.append(Feature("Grid", native_backend, "interaction",
                                             "native_root", "failed_commit_root_rollback",
