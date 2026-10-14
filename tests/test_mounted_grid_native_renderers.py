@@ -271,3 +271,62 @@ def test_grid_responsive_threshold_cycle_preserves_native_identity(
     finally:
         reconciler.unmount()
         close()
+
+
+def nested_view():
+    return Grid(
+        GridItem(
+            Grid(
+                GridItem(Text("inner A"), key="inner-a",
+                         span={"base": 12, "md": 6}),
+                GridItem(Text("inner B"), key="inner-b",
+                         span={"base": 12, "md": 6}),
+                gap=4,
+            ),
+            key="outer-a", span={"base": 12, "md": 6},
+        ),
+        GridItem(Text("outer B"), key="outer-b",
+                 span={"base": 12, "md": 6}),
+        gap=4,
+    )
+
+
+def test_nested_grid_reflows_at_independent_content_width(request):
+    """A nested Grid crosses md when its own content box does, not the window."""
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(nested_view())
+        outer = root.children[0]
+        nested_grid = outer.children[0]
+        inner_a, inner_b = nested_grid.children
+        first_widget = inner_a.handle.widget
+        second_widget = inner_b.handle.widget
+        first_leaf = inner_a.children[0].handle.widget
+        assert rectangle(outer.handle.widget, backend)[2] == pytest.approx(398, abs=1)
+        assert rectangle(first_widget, backend)[2] == pytest.approx(398, abs=1)
+        assert renderer.grid_result[1].max_readback_error <= 1
+
+        renderer.set_sfle_constraints(viewport(1600))
+        renderer.commit_layout(root)
+        assert rectangle(outer.handle.widget, backend)[2] == pytest.approx(798, abs=1)
+        assert rectangle(first_widget, backend)[2] == pytest.approx(397, abs=1)
+        assert rectangle(second_widget, backend)[2] == pytest.approx(397, abs=1)
+        assert inner_a.handle.widget is first_widget
+        assert inner_b.handle.widget is second_widget
+        assert inner_a.children[0].handle.widget is first_leaf
+        assert renderer.grid_result[1].max_readback_error <= 1
+
+        renderer.set_sfle_constraints(viewport(800))
+        renderer.commit_layout(root)
+        assert rectangle(first_widget, backend)[2] == pytest.approx(398, abs=1)
+        assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(request, Feature(
+            "Grid", binding, "interaction", "nested_content_width",
+            "independent_breakpoint_reflow", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
+        close()
