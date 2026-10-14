@@ -40,6 +40,7 @@ def commit_grid_native_geometry(
     current_generation: Callable[[], int],
     is_ui_thread: Callable[[], bool],
     parent_height: float | None = None,
+    parent_heights: Mapping[str, float] | None = None,
     readback_tolerance: float = 1.0,
 ) -> GridNativeCommitReceipt:
     """Commit a complete mounted Grid batch, verifying every native readback.
@@ -63,11 +64,15 @@ def commit_grid_native_geometry(
     ):
         raise GridPackingError("Kivy Grid requires a definite parent height.")
 
+    if parent_heights is not None and backend is not GridCommitBackend.KIVY:
+        raise GridPackingError("Per-widget parent heights are only valid for Kivy.")
     ids = tuple(p.node_id for p in placements)
     if any(not isinstance(p, GridNativePlacement) for p in placements):
         raise GridPackingError("Grid commit requires preflighted Cinnamon placements.")
     if len(set(ids)) != len(ids) or set(ids) != set(widgets) or len(ids) != len(widgets):
         raise GridPackingError("Grid native geometry identities do not match mounted widgets.")
+    if parent_heights is not None and set(parent_heights) != set(ids):
+        raise GridPackingError("Kivy parent heights must cover exactly the mounted placements.")
     target: dict[str, Rect] = {}
     for placement in placements:
         values = (placement.x, placement.y, placement.width, placement.height)
@@ -77,7 +82,13 @@ def commit_grid_native_geometry(
             placement.overflow_y != (placement.used_height > placement.height)
         ):
             raise GridPackingError("Grid overflow receipt is inconsistent.")
-        y = (parent_height - placement.y - placement.height
+        local_height = (parent_heights[placement.node_id]
+                        if parent_heights is not None else parent_height)
+        if backend is GridCommitBackend.KIVY and (
+            type(local_height) not in (int, float) or not isfinite(local_height) or local_height < 0
+        ):
+            raise GridPackingError("Kivy parent height must be finite and nonnegative.")
+        y = (local_height - placement.y - placement.height
              if backend is GridCommitBackend.KIVY else placement.y)
         if y < 0:
             raise GridPackingError("Grid rectangle exceeds Kivy parent content height.")
