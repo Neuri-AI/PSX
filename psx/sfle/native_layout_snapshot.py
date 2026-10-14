@@ -163,8 +163,12 @@ def prepare_native_layout_snapshot(
             name = "Flex"
         nodes.append(LayoutNode(identifier, parent_id, name, _style(node.source)))
         origins.append((identifier, node.source))
-        for child in node.effective_children:
-            visit(child, identifier)
+        # A Grid participates in the enclosing Flex solver as one measured
+        # leaf. Its descendants are resolved by Cinnamon Grid at the actual
+        # width assigned to this box, never by the Flex solver or a toolkit.
+        if name != "Grid":
+            for child in node.effective_children:
+                visit(child, identifier)
 
     visit(roots[0], None)
     snapshot = LayoutInput(
