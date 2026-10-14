@@ -45,7 +45,7 @@ def test_contract_declared_events_are_properties_and_not_magic_methods(name):
     assert contract.events <= contract.properties
     assert all(event.startswith("on_") for event in contract.events)
     assert contract.child_policy in {
-        "none", "text", "text-only", "none-or-single", "multiple"
+        "none", "text", "text-only", "none-or-single", "multiple", "single"
     }
 
 
@@ -65,7 +65,20 @@ def test_public_child_policy_accepts_legal_content_and_rejects_illegal_content(n
     assert contract is not None
     policy = contract.child_policy
     attributes = {'Image': ' source="missing.png"', 'Radio': ' value="first"'}.get(name, '')
-    if policy == 'none':
+    if name == 'Grid':
+        from psx import GridItem
+        node = definition.constructor(GridItem(Text('child')))
+        assert node.children[0].type == 'GridItem'
+        with pytest.raises(InvalidChildError):
+            definition.constructor(Text('illegal'))
+    elif policy == 'single':
+        node = definition.constructor(Text('child'))
+        assert len(node.children) == 1
+        with pytest.raises(InvalidChildError):
+            definition.constructor()
+        with pytest.raises(InvalidChildError):
+            definition.constructor(Text('a'), Text('b'))
+    elif policy == 'none':
         node = psx(f'<{name}{attributes} />')
         assert node.type == name and node.children == ()
         with pytest.raises(MarkupSyntaxError):
