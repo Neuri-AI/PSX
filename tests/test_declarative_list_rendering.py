@@ -62,6 +62,32 @@ class DeclarativeListsTests(unittest.TestCase):
         self.assertEqual(tuple(child.props["value"] for child in result.children),
                          ("First", "Last"))
 
+    def test_generator_is_consumed_once_per_render(self):
+        view, _ = transformed_view(self.MARKUP)
+        consumed = []
+        def generate():
+            for item in ({"id": 1, "label": "A"}, {"id": 2, "label": "B"}):
+                consumed.append(item["id"])
+                yield item
+        node = view(generate())
+        self.assertEqual(consumed, [1, 2])
+        self.assertEqual(tuple(child.key for child in node.children), (1, 2))
+
+    def test_duplicate_sibling_keys_across_mapped_lists_fail_reconciliation(self):
+        from psx.core.errors import DuplicateKeyError
+        view, _ = transformed_view(
+            '<Flex>{items.map((item) => <Text key={item.id} value={item.label} />)}'
+            '{items.map((item) => <Text key={item.id} value={item.label} />)}</Flex>')
+        node = view([{"id": "a", "label": "A"}])
+        renderer = HeadlessRenderer(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(640, True), AvailableSize(480, True)),
+            engine=PythonLayoutEngine(),
+            measure_intrinsic=lambda vnode: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+        )
+        with self.assertRaises(DuplicateKeyError):
+            Reconciler(renderer).render(node)
+
     def test_nested_maps_keep_independent_item_scopes(self):
         view, _ = transformed_view(
             '<Flex>{items.map((item) => <Flex key={item.id}>'
