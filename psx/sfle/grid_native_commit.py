@@ -113,6 +113,8 @@ def commit_grid_native_geometry(
 
     # Capture all original native states before the first mutation.
     originals = {node_id: read(widgets[node_id]) for node_id in ids}
+    absent_headless = ({node_id for node_id in ids if widgets[node_id].geometry is None}
+                       if backend is GridCommitBackend.HEADLESS else set())
     unplaced = ({node_id for node_id in ids if not widgets[node_id].place_info()}
                 if backend is GridCommitBackend.TK else set())
     if current_generation() != generation or not is_ui_thread():
@@ -135,7 +137,10 @@ def commit_grid_native_geometry(
     except BaseException:
         for node_id in reversed(ids):
             try:
-                write(widgets[node_id], originals[node_id], restore_unplaced=node_id in unplaced)
+                if node_id in absent_headless:
+                    widgets[node_id].geometry = None
+                else:
+                    write(widgets[node_id], originals[node_id], restore_unplaced=node_id in unplaced)
             except Exception:
                 pass
         raise
