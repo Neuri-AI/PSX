@@ -106,3 +106,75 @@ def pack_grid_rows(items: tuple[GridSlot, ...] | list[GridSlot]) -> tuple[Packed
     if current:
         rows.append(_finalize(current))
     return tuple(rows)
+
+
+@dataclass(frozen=True, slots=True)
+class GridPixelItem:
+    """Projected horizontal box; coordinates are exact signed 1/64px units."""
+    id: str
+    x_raw: int
+    width_raw: int
+
+
+@dataclass(frozen=True, slots=True)
+class GridPixelRow:
+    items: tuple[GridPixelItem, ...]
+
+
+def _nearest_positive_fraction(numerator: int, denominator: int) -> int:
+    return (numerator * 2 + denominator) // (2 * denominator)
+
+
+def project_grid_rows(
+    rows: tuple[PackedGridRow, ...] | list[PackedGridRow],
+    content_width: int | float,
+    column_gap: int | float = 0,
+) -> tuple[GridPixelRow, ...]:
+    """Project logical Grid rows onto deterministic 1/64px edges.
+
+    Gaps occur only between *rendered siblings*, never at empty offsets.
+    The logical twelve-column capacity is scaled from the remaining width
+    after the actual between-widget gaps. Adjacent edges use a single shared
+    rounding origin, preventing per-item cumulative drift.
+    """
+    from .fixed_point import LayoutUnit
+
+    for name, value in (("content_width", content_width),
+                        ("column_gap", column_gap)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or (
+            not math.isfinite(value) or value < 0
+        ):
+            raise GridPackingError(f"{name} must be a finite nonnegative number.")
+    if not isinstance(rows, (tuple, list)) or any(
+        not isinstance(row, PackedGridRow) for row in rows
+    ):
+        raise GridPackingError("Grid pixel projection requires packed rows.")
+    width = LayoutUnit.from_nearest(content_width).raw
+    gap = LayoutUnit.from_nearest(column_gap).raw
+    result: list[GridPixelRow] = []
+    for row in rows:
+        count = len(row.items)
+        if count == 0:
+            result.append(GridPixelRow(()))
+            continue
+        required_gaps = (count - 1) * gap
+        if required_gaps > width:
+            raise GridPackingError("Grid column gaps exceed content width.")
+        usable = width - required_gaps
+        boxes: list[GridPixelItem] = []
+        previous_end = 0
+        for index, item in enumerate(row.items):
+            if not all(math.isfinite(value) for value in (item.start, item.span)):
+                raise GridPackingError("Grid logical geometry must be finite.")
+            if item.start < 0 or item.span <= 0 or item.start + item.span > 12 + 1e-9:
+                raise GridPackingError("Grid logical geometry exceeds twelve columns.")
+            start_units = _nearest_positive_fraction(round(item.start * 1_000_000_000) * usable, 12_000_000_000)
+            end_units = _nearest_positive_fraction(round((item.start + item.span) * 1_000_000_000) * usable, 12_000_000_000)
+            x = start_units + index * gap
+            end = end_units + index * gap
+            if x < previous_end or end < x:
+                raise GridPackingError("Grid projected edges overlap or invert.")
+            boxes.append(GridPixelItem(item.id, x, end - x))
+            previous_end = end
+        result.append(GridPixelRow(tuple(boxes)))
+    return tuple(result)
