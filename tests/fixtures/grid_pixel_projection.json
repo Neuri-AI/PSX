@@ -253,6 +253,62 @@
           }
         ]
       ]
+    },
+    {
+      "name": "layoutunit_max_exact",
+      "items": [
+        {
+          "id": "a",
+          "span": 12
+        }
+      ],
+      "width": 33554431.984375,
+      "gap": 0,
+      "rows": [
+        [
+          {
+            "id": "a",
+            "x_raw": 0,
+            "width_raw": 2147483647
+          }
+        ]
+      ]
+    },
+    {
+      "name": "layoutunit_one_quantum_over",
+      "items": [
+        {
+          "id": "a",
+          "span": 12
+        }
+      ],
+      "width": 33554432,
+      "gap": 0,
+      "error": "invalid"
+    },
+    {
+      "name": "gap_one_quantum_over",
+      "items": [
+        {
+          "id": "a",
+          "span": 12
+        }
+      ],
+      "width": 100,
+      "gap": 33554432,
+      "error": "invalid"
+    },
+    {
+      "name": "large_width_rejected",
+      "items": [
+        {
+          "id": "a",
+          "span": 12
+        }
+      ],
+      "width": 40000000,
+      "gap": 0,
+      "error": "invalid"
     }
   ]
 }
