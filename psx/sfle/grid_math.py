@@ -168,8 +168,8 @@ def project_grid_rows(
                 raise GridPackingError("Grid logical geometry must be finite.")
             if item.start < 0 or item.span <= 0 or item.start + item.span > 12 + 1e-9:
                 raise GridPackingError("Grid logical geometry exceeds twelve columns.")
-            start_units = _nearest_positive_fraction(round(item.start * 1_000_000_000) * usable, 12_000_000_000)
-            end_units = _nearest_positive_fraction(round((item.start + item.span) * 1_000_000_000) * usable, 12_000_000_000)
+            start_units = _nearest_positive_fraction(math.floor(item.start * 1_000_000_000 + 0.5) * usable, 12_000_000_000)
+            end_units = _nearest_positive_fraction(math.floor((item.start + item.span) * 1_000_000_000 + 0.5) * usable, 12_000_000_000)
             x = start_units + index * gap
             end = end_units + index * gap
             if x < previous_end or end < x:
