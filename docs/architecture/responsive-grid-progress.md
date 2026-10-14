@@ -105,3 +105,7 @@ Application-level `App(..., settings={"grid": {"breakpoints": ...}})` is impleme
 3. Implement Rust-primary and Python-fallback Grid mathematics with deterministic fixtures, differential certification and CI impact routes; do not claim native Grid mounting before G3.
 
 **Roadmap boundary:** G1 public contract and normalization → G2 SFLE/Cinnamon Grid mathematics → G3 native integration → G4 responsive/nested runtime → G5 adversarial verification → G6 final certification. `Grid` is not yet a supported native geometry container merely because fail-closed checks pass.
+
+## Current G2 increment: fixed-point overflow hardening
+
+Implemented strict Rust/Python rejection of nonrepresentable widths, gaps, heights, and accumulated vertical extents. Added focused regression tests. Product CI is still running; do not mark this increment certified before the immutable code-SHA workflow completes. G2 remains open for min/max constraint policy and engine integration.
