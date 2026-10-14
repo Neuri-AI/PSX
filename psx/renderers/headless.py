@@ -189,7 +189,7 @@ class HeadlessRenderer:
                     f"{node.type} requires an SFLE Grid layout backend with an explicit viewport.")
             if node.type == "GridItem" and (parent is None or _handle(parent).type != "Grid"):
                 raise RendererCapabilityError("GridItem must be a direct child of a mounted Grid.")
-            if node.type == "Grid" and parent is not None and _handle(parent).type != "GridItem":
+            if node.type == "Grid" and parent is not None and _handle(parent).type not in ("GridItem", "Flex"):
                 raise RendererCapabilityError("Nested Grid must be the direct content root of GridItem.")
         if self._sfle_constraints is not None:
             if node.kind is NodeKind.NATIVE:
