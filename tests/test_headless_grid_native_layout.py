@@ -8,6 +8,7 @@ from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+from tests.certification.public_behavior_census import Feature, assert_feature
 
 
 def viewport(width):
@@ -33,7 +34,7 @@ def tree(order=("a", "b")):
     ), gap=4)
 
 
-def test_mounted_grid_native_geometry_and_intrinsic_readback():
+def test_mounted_grid_native_geometry_and_intrinsic_readback(request):
     renderer = make_renderer()
     reconciler = Reconciler(renderer)
     root = reconciler.render(tree())
@@ -44,11 +45,14 @@ def test_mounted_grid_native_geometry_and_intrinsic_readback():
     assert a.children[0].handle.geometry.width == 398
     assert a.children[0].handle.geometry.height == 10
     assert renderer.grid_result[1].max_readback_error == 0
+    assert_feature(request, Feature("Grid", "headless", "interaction", "native_root", "geometry_readback", applicability="native"), True)
+    assert_feature(request, Feature("GridItem", "headless", "interaction", "native_child", "geometry_readback", applicability="native"), True)
     reconciler.unmount()
     assert renderer.grid_result is None
+    assert_feature(request, Feature("Grid", "headless", "interaction", "native_root", "teardown", applicability="native"), True)
 
 
-def test_mounted_grid_reflow_and_keyed_reorder_preserve_handles():
+def test_mounted_grid_reflow_and_keyed_reorder_preserve_handles(request):
     renderer = make_renderer()
     reconciler = Reconciler(renderer)
     root = reconciler.render(tree())
@@ -57,10 +61,12 @@ def test_mounted_grid_reflow_and_keyed_reorder_preserve_handles():
     renderer.commit_layout(root)
     assert root.children[0].handle.geometry.width == 767
     assert root.children[1].handle.geometry.y == 14
+    assert_feature(request, Feature("Grid", "headless", "interaction", "native_root", "resize_reflow", applicability="native"), True)
     reordered = reconciler.render(tree(("b", "a")))
     assert reordered.children[0].handle is handles["b"]
     assert reordered.children[1].handle is handles["a"]
     assert reordered.children[0].handle.geometry.y == 0
+    assert_feature(request, Feature("Grid", "headless", "interaction", "native_root", "keyed_reorder", applicability="native"), True)
     reconciler.unmount()
 
 
