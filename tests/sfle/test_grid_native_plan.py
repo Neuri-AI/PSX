@@ -32,6 +32,10 @@ def test_placement_batch_preserves_allocations_and_overflow_receipts():
     assert tuple(item.node_id for item in placements) == ("a", "b")
     assert (placements[0].x, placements[0].width) == (0, 60)
     assert (placements[1].x, placements[1].width) == (60, 60)
+    assert placements[0].used_width == 70
+    assert placements[0].width == 60
+    assert placements[0].used_height == 10
+    assert placements[1].used_width == 60
     assert placements[0].overflow_x and not placements[1].overflow_x
 
 
@@ -83,3 +87,28 @@ def test_rtl_coordinates_remain_solver_owned():
     placements = batch(rows)
     assert placements[0].x == 90
     assert placements[1].x == 60
+
+
+def test_native_plan_keeps_max_constrained_used_size_separate_from_allocation():
+    rows = compute_grid(
+        [GridSlot("a", 6), GridSlot("b", 6)], 120,
+        item_heights={"a": 20, "b": 20},
+        constraints={"a": GridItemConstraints(max_width=35, max_height=8)},
+    )
+    placements = batch(rows)
+    assert (placements[0].width, placements[0].used_width) == (60, 35)
+    assert (placements[0].height, placements[0].used_height) == (20, 8)
+    assert placements[1].x == 60
+    assert not placements[0].overflow_x
+    assert not placements[0].overflow_y
+
+
+def test_native_plan_preserves_fractional_layout_unit_precision():
+    rows = compute_grid(
+        [GridSlot("a", 6), GridSlot("b", 6)], 101,
+        item_heights={"a": 1.5, "b": 1.5},
+    )
+    placements = batch(rows)
+    assert placements[0].width * 64 == rows[0][0].width_raw
+    assert placements[1].x * 64 == rows[0][1].x_raw
+    assert placements[0].used_height == 1.5
