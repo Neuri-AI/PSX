@@ -1,8 +1,10 @@
 # Public behavior certification: reusable execution, exact evidence
 
-F3's final functional gate uses the source-derived census in
-`tests/certification/public_behavior_census.py`. This is a certification
-mechanism, **not** evidence that the functional gate has passed.
+F3's final functional gate used the source-derived census in
+`tests/certification/public_behavior_census.py`. The owner accepted the
+successful cross-platform local certification matrix as the final G5 signoff
+on 2026-10-14. The census remains a certification and future-coverage
+mechanism; its unfinished rows do not reopen the owner-closed F3 gate.
 
 ## Semantic partitioning
 
@@ -50,7 +52,7 @@ This produces the full pending inventory and a separate receipt JSON with
 verified `executed_pass`, `pending`, `failed`, and exclusions. The
 GitHub Actions core suite also archives the JUnit and census artifacts.
 
-## Required next steps for the final G5 signoff
+## Continuing coverage work
 
 1. Complete native behavior drivers across Qt bindings, Kivy, Tkinter and
    Headless, using parametrized tests with feature-specific real assertions
@@ -80,7 +82,5 @@ GitHub Actions core suite also archives the JUnit and census artifacts.
    native integration, Scroll and G4 retirement on **the same immutable SHA**.
 
 Incremental CI remains impact-selective, including zero product suites for
-documentation-only changes. An incomplete development census is allowed to
-emit a report; **only the formal final gate** may demand
-`complete == true`. The report cannot certify a requirement merely
-because an older native/lifecycle workflow passed.
+documentation-only changes. The owner-authorized F3 closure does not remove
+the value of completing the census before later feature work.
