@@ -258,7 +258,7 @@ def test_headless_grid_inside_scroll_flex_preserves_layout_identity(request):
 def test_headless_mixed_grid_rollback_and_recovery(request, monkeypatch):
     """Mixed root and Grid descendants share one rollback boundary."""
     from psx import Flex
-    from psx.sfle import headless_layout_bridge
+    from psx.sfle import grid_native_commit
     renderer = make_renderer()
     reconciler = Reconciler(renderer)
     try:
