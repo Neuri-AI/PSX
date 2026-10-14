@@ -75,7 +75,8 @@ def inventory() -> tuple[Feature, ...]:
                                 contract.child_policy, "validate", applicability="shared"))
             if component in ("Grid", "GridItem"):
                 for scenario in ("builder", "markup", "direct_element",
-                                 "registry", "invalid_property", "key_identity"):
+                                 "registry", "invalid_property", "key_identity",
+                                 "invalid_children"):
                     rows.append(Feature(component, CONTRACT, "public_api",
                                         "declaration", scenario, applicability="shared"))
             for prop in sorted(props):
