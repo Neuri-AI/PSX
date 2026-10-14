@@ -48,8 +48,14 @@ def _classify_path(path: str) -> set[str]:
         return result
     if path == "pyproject.toml" or path in ("setup.cfg", "setup.py"):
         return {"core", "sfle", "rust", "qt", "kivy", "tkinter", "native"}
+    if path == "rust/sfle-core/src/grid_math.rs":
+        # This isolated mathematical contract is exercised by Rust and
+        # Python fixtures; it does not yet change native geometry.
+        return {"sfle", "rust"}
     if path.startswith("rust/sfle-core/"):
         return {"sfle", "rust", "chromium", "native"}
+    if path == "psx/sfle/grid_math.py":
+        return {"sfle", "rust"}
     if path.startswith("psx/sfle/"):
         name = PurePosixPath(path).name
         # Production Native layout bridges must route to the real toolkit consumer, not
@@ -103,6 +109,9 @@ def _classify_path(path: str) -> set[str]:
         return {"core", "headless"}
     if path.startswith("psx/"):
         return {"core", "headless", "qt", "kivy", "tkinter"}
+    if path in ("tests/fixtures/grid_row_packing.json",
+                "tests/sfle/test_grid_math.py"):
+        return {"sfle", "rust"}
     if path.startswith("tests/browser/"):
         return {"chromium"}
     if path.startswith("tests/ui/"):
