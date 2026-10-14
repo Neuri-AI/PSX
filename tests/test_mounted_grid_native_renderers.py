@@ -693,7 +693,7 @@ def test_native_grid_root_late_resource_invalidation_is_atomic(request, monkeypa
                 renderer.commit_layout(root)
         current = tuple(rectangle(widget, backend) for widget in handles)
         assert all(actual == pytest.approx(old, abs=1)
-                   for actual, old in zip(current, previous))
+                   for actual, old in zip(current, previous)), list(zip(previous, current))
         renderer.commit_layout(root)
         assert rectangle(children[0][0], backend)[2] == pytest.approx(767, abs=1)
         assert renderer.grid_result[1].max_readback_error <= 1
@@ -746,7 +746,7 @@ def test_multiple_mixed_grids_rollback_all_committed_siblings(request, monkeypat
         assert count[0] == 2
         after = tuple(rectangle(widget, backend) for widget in handles)
         assert all(actual == pytest.approx(previous, abs=1)
-                   for actual, previous in zip(after, before))
+                   for actual, previous in zip(after, before)), list(zip(before, after))
         renderer.commit_layout(mounted)
         assert all(rectangle(grid.children[0].handle.widget, backend)[2]
                    == pytest.approx(767, abs=1) for grid in mounted.children)
