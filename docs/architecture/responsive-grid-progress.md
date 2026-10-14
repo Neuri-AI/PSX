@@ -129,3 +129,16 @@ Implemented Rust/Python `compute_grid` math with resolved per-item min/max const
 **Completed G2 scope:** 12-column logical packing, auto/explicit spans, offsets and stable ordering; fixed-point pixel projection and gutters; RTL and row cross-axis placement; overflow rejection at signed LayoutUnit boundaries; resolved min/max used sizes with explicit overflow flags; shared Rust/Python constraint fixtures; pure Cinnamon mathematical entry point through `PythonLayoutEngine.compute_grid` and Rust `grid_math::compute_grid`/PyO3 `compute_grid_json`. Bounds never silently reflow spans or move adjacent allocations.
 
 **Strict boundary:** this is a mathematical solver certification. Automatic dispatch from the general `LayoutInput` snapshot, native measurement, mounting, widget geometry readback, lifecycle and public Grid rendering are **not** claimed or certified; they must be completed in **G3**, followed by G4 responsive/nested runtime. G1 and G2 are closed; G3 is the next gate. Do not interpret green generic native regression jobs as proof of Grid native rendering.
+
+
+## G3 — native renderer integration (stacked work branch)
+
+**Branch:** `feature/grid-native-renderer-integration`, stacked on certified G2 `feature/grid-mathematical-solver`. Keep G1/G2 immutable until their PRs land in order.
+
+### Native geometry preflight — implementation awaiting CI
+
+Added `psx/sfle/grid_native_plan.py` to convert the existing Cinnamon constrained rectangles into an immutable native placement batch. It checks stable child identities, measured/mounted membership, duplicate and missing items, stale generation, signed fixed-point range and consistency of overflow receipts **before** any toolkit mutation. It deliberately commits *allocated* sibling rectangles rather than minimum-constrained used sizes, so overflow cannot shift adjacent boxes. The empty Grid case is supported.
+
+Functional tests: `tests/sfle/test_grid_native_plan.py` covers placement, RTL, min-size overflow, identity mismatch, stale generations, duplicate and forged geometry. `scripts/ci/impact.py` routes the new production module and tests to SFLE, core, Headless, Qt, Kivy and Tkinter; `tests/test_ci_impact.py` asserts that route.
+
+**Not yet supported:** actual Grid/GridItem widget mounting, real toolkit measurement, native placement/readback, lifecycle updates or public geometry receipts. Existing fail-closed Grid mounting guards remain in place until each renderer has end-to-end certified integration. No new public props/events/methods/interactions in this internal increment, so the G1 public census is unchanged. G3 is IN PROGRESS.
