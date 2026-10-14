@@ -111,6 +111,15 @@ def _classify_path(path: str) -> set[str]:
         if "native_wheel" in path or "frozen" in path:
             return {"native"}
         return {"rust", "sfle"}
+    if path in (
+        "tests/test_grid_contract.py",
+        "tests/test_public_behavior_census.py",
+        "tests/test_public_contract_census.py",
+        "tests/test_public_property_validation.py",
+    ) or path.startswith("tests/certification/public_"):
+        # Public-census assertions and its schema require receipts from every
+        # backend, even after a previously green partial-PR optimization.
+        return {"core", "qt", "kivy", "tkinter", "headless"}
     if path.startswith("tests/"):
         name = PurePosixPath(path).name
         if "kivy" in name:
