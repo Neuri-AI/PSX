@@ -17,6 +17,36 @@ def _view(source: str):
 
 
 class ConditionalMarkupTests(unittest.TestCase):
+    def test_static_markup_with_quoted_question_mark_uses_legacy_m4b(self):
+        namespace, result = _view("""
+from psx import psx
+def view():
+    return psx('<Text value="Why?" />')
+""")
+        self.assertEqual(result.transformed_calls, 1)
+        self.assertIn("_psx_template_0.render_lexical", result.source)
+        self.assertEqual(namespace["view"]().props["value"], "Why?")
+
+    def test_quoted_ampersands_and_plain_text_do_not_activate_expressions(self):
+        namespace, result = _view("""
+from psx import psx
+def view():
+    return psx('<Text value="A && B" />')
+""")
+        self.assertEqual(result.transformed_calls, 1)
+        self.assertIn("_psx_template_0.render_lexical", result.source)
+        self.assertEqual(namespace["view"]().props["value"], "A && B")
+
+    def test_plain_numeric_text_interpolation_preserves_zero(self):
+        namespace, _ = _view("""
+from psx import psx
+def view(enabled, count):
+    return psx('<Flex><Text>{count}</Text>{enabled && <Text value="Extra" />}</Flex>')
+""")
+        node = namespace["view"](False, 0)
+        self.assertEqual(node.children[0].props["value"], "0")
+        self.assertEqual(len(node.children), 1)
+
     def test_conditional_false_true_and_zero_emit_no_child(self):
         namespace, result = _view("""
 from psx import psx
