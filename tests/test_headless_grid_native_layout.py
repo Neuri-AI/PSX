@@ -104,3 +104,40 @@ def test_grid_breakpoint_cycle_preserves_identity_and_stable_geometry(request, s
             f"width_{start}_{expected}", applicability="partial_native"), True)
     finally:
         reconciler.unmount()
+
+
+def test_nested_grid_independent_content_breakpoint_and_lifecycle(request):
+    renderer = make_renderer()
+    reconciler = Reconciler(renderer)
+    nested = Grid(
+        GridItem(
+            Grid(
+                GridItem(Text("nested a"), key="a", span={"base": 12, "md": 6}),
+                GridItem(Text("nested b"), key="b", span={"base": 12, "md": 6}),
+                gap=4,
+            ),
+            key="nested", span={"base": 12, "md": 6},
+        ),
+        GridItem(Text("outer"), key="outer", span={"base": 12, "md": 6}),
+        gap=4,
+    )
+    try:
+        root = reconciler.render(nested)
+        subgrid = root.children[0].children[0]
+        first = subgrid.children[0].handle
+        second = subgrid.children[1].handle
+        assert first.geometry.width == 398
+        renderer.set_sfle_constraints(viewport(1600))
+        renderer.commit_layout(root)
+        assert first.geometry.width == 397
+        assert second.geometry.width == 397
+        assert subgrid.children[0].handle is first
+        renderer.set_sfle_constraints(viewport(800))
+        renderer.commit_layout(root)
+        assert first.geometry.width == 398
+        assert renderer.grid_result[1].max_readback_error == 0
+        assert_feature(request, Feature(
+            "Grid", "headless", "interaction", "nested_content_width",
+            "independent_breakpoint_reflow", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
