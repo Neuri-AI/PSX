@@ -73,6 +73,11 @@ def inventory() -> tuple[Feature, ...]:
                 props.update(FLEX_ITEM_PROPS)
             rows.append(Feature(component, CONTRACT, "child_policy",
                                 contract.child_policy, "validate", applicability="shared"))
+            if component in ("Grid", "GridItem"):
+                for scenario in ("builder", "markup", "direct_element",
+                                 "registry", "invalid_property", "key_identity"):
+                    rows.append(Feature(component, CONTRACT, "public_api",
+                                        "declaration", scenario, applicability="shared"))
             for prop in sorted(props):
                 for scenario in PROPERTY_SCENARIOS:
                     rows.append(Feature(component, CONTRACT, "property", prop,
