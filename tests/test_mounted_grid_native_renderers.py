@@ -615,3 +615,50 @@ def test_alternating_grid_flex_grid_recurses_without_oscillation(request):
     finally:
         tree.unmount()
         close()
+
+
+def test_keyed_flex_grid_siblings_reorder_without_native_remount(request):
+    """Multiple Grid roots in one Flex retain their own keyed native subtrees."""
+    from psx import Flex
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def scene(order=("first", "second")):
+        return Flex(*(
+            Grid(
+                GridItem(Text(label, key="leaf"), span=12, key="item"),
+                key=label, gap=4,
+            )
+            for label in order
+        ), direction="column", width="100%", height=200,
+            align_items="stretch")
+
+    try:
+        first = reconciler.render(scene())
+        saved = {
+            node.node.key: (node.handle.widget,
+                            node.children[0].handle.widget,
+                            node.children[0].children[0].handle.widget)
+            for node in first.children
+        }
+        swapped = reconciler.render(scene(("second", "first")))
+        for node in swapped.children:
+            assert (node.handle.widget, node.children[0].handle.widget,
+                    node.children[0].children[0].handle.widget) == saved[node.node.key]
+            assert rectangle(node.children[0].handle.widget, backend)[2] == pytest.approx(800, abs=1)
+        renderer.set_sfle_constraints(viewport(767))
+        renderer.commit_layout(swapped)
+        for node in swapped.children:
+            assert (node.handle.widget, node.children[0].handle.widget,
+                    node.children[0].children[0].handle.widget) == saved[node.node.key]
+            assert rectangle(node.children[0].handle.widget, backend)[2] == pytest.approx(767, abs=1)
+        assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(request, Feature(
+            "Grid", binding, "interaction", "mixed_keyed_siblings",
+            "reorder_identity_readback", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
+        close()
