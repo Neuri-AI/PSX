@@ -10,7 +10,7 @@
 | Gate | Deliverable | Status | Immutable implementation SHA / CI evidence |
 | --- | --- | --- | --- |
 | G1 | Develop API census / verified support matrix | NOT STARTED | — |
-| G2 | Mintlify IA, docs.json and six template families | IN PROGRESS (PR #33) | pending pinned Mintlify validation CI |
+| G2 | Mintlify IA, docs.json and six template families | CLOSED (technical documentation gate, PR #33 pending merge) | `41efd58151bd5b0e43158609ea96649f1b932992`; Actions #38638621796 |
 | G3 | Complete independent beginner-first tutorials | NOT STARTED | — |
 | G4 | Exhaustive verified API and component reference | NOT STARTED | — |
 | G5 | Real runnable example projects and native DX | NOT STARTED | — |
@@ -98,3 +98,12 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **CI:** GitHub Actions workflow `F5.5 public documentation validation` added; outcome and immutable SHA pending. Do not claim G2 certified until observed.
 - **Gate status:** G2 IN PROGRESS pending successful Mintlify/structural checks. G1 accepted baseline tracked separately in PR #32.
 - **Next three steps:** (1) review G2 CI jobs and repair real validation errors; (2) capture passing immutable SHA, update this ledger and roadmap, mark PR ready; (3) merge G1/G2 with ledger reconciliation, then begin G3 reproducible lessons.
+
+### 2026-10-14 — F5.5-G2 — technical certification and closeout
+- **Source baseline:** `develop` at `e8b8e24de6937fa4875d830c8cdf442c54f69544`; **immutable tested G2 SHA:** `41efd58151bd5b0e43158609ea96649f1b932992`.
+- **Initial red receipt:** [Actions #38638373235](https://github.com/Neuri-AI/PSX/actions/runs/38638373235): `docs-structure` SUCCESS, `mintlify` FAILURE only at `mint a11y` because `colors.dark=#6D28D9` had insufficient dark-background contrast (2.76:1). `mint validate` and `mint broken-links --check-anchors` already passed. Fixed actual contrast in `docs/public/docs.json` to `#8B5CF6`; no tests were weakened.
+- **Green certification:** [Actions #38638621796](https://github.com/Neuri-AI/PSX/actions/runs/38638621796) **SUCCESS**, both `docs-structure` and `mintlify` jobs executed and passed. Mintlify strict build, anchor-aware links and accessibility checks passed using pinned `mint@4.2.988`; structural unit tests and nav checks passed.
+- **Documentation coverage:** seven navigable MDX pages (intro, getting started overview, concept overview and architecture, component overview, Python reference overview, examples overview); six non-published reusable page-family templates. No runnable applications or exhaustive API reference claimed.
+- **Backend coverage:** no new native behavior asserted or tested in this documentation-only gate; G3/G4/G5 will link specific native receipts where claims arise.
+- **Status:** **G2 CLOSED — technically certified for Mintlify architecture and standards**, pending merge into `develop`. **G6 owner signoff still required for F5.5 overall**.
+- **Next three steps:** (1) merge G1 PR #32 then G2 PR #33, reconcile progress ledger conflicts with `develop`; (2) create G3 clean-environment beginner tutorials and full example projects; (3) add behavioral tests and renderer-specific evidence for each published runnable guide.
