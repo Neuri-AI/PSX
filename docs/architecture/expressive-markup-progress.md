@@ -73,3 +73,16 @@ The owner clarified that `<Flex gap="12" />` is the approved literal syntax; num
 **Remaining before G1 CLOSE:** define and implement a full expression AST/grammar with nested JSX structural parsing, operator precedence and right-associative ternaries; validate narrow `.map` callback parameter grammar, legal arrow parameter/body shape and lexical name resolution boundaries; complete accurate markup-to-Python source spans and unsupported diagnostics for malformed nested branches; test attribute-expression containment and additional M4A negative cases. The current lexical token preflight is an initial contract foundation **not a completed grammar compiler**. No new F5 public runtime operations exist yet, so public census new-operation receipts are not applicable for this increment; revisit at G2–G4 when interactions ship.
 
 **Gate F5-G1: IN PROGRESS.** No work on M8/F6, Qyro CLI, or Qyro Engine.
+
+
+## Quoted-literal attribute grammar — CERTIFIED (2026-10-14)
+
+**Owner decision:** Literal values in PSX Markup must be quoted (`<Flex gap="12" />`); braces are reserved for lexical references or F5 compiler-recognized expressive syntax. Numeric-braced static attributes (`gap={12}`, `padding={50}`) now deterministically fail with source-spanned `MarkupSyntaxError`. `gap={spacing}` still resolves only a supplied M4A mapping name or an existing M4B Python lexical binding; missing names fail rather than dynamically evaluating expressions.
+
+**Implementation:** `psx/markup/parser.py` rejects numeric-braced literals. `psx/markup/compile.py` converts quoted, unitless numeric strings *only for known numeric/length-related props*, before all child/content policy paths; unit-bearing CSS-like values remain strings and text props stay strings. Numeric GridItem `span` and `offset`, Flex metadata, and native widget child metadata retain their typed numerical contract. This is deliberately not an `eval()`/`exec()` feature or frame introspection.
+
+**Test migration:** existing positive fixtures for Flex, Grid, GridItem, CSS metadata and live Qt/Tk/Kivy markup were migrated from `{number}` to `"number"`, without changing geometry expectations or weakening negative tests. `tests/test_expressive_markup_syntax.py` additionally rejects braced numeric forms, confirms quoted numeric typing and explicit-scope missing-name failure, and characterizes static M4B source transformation.
+
+**Certified immutable implementation SHA:** `c98af793417bfda905dbb170810ef76505a338f2`; [Native layout selective validation #38609247155](https://github.com/Neuri-AI/PSX/actions/runs/38609247155) **SUCCESS**, **14/14 executed jobs succeeded** including the mandatory conclusion. Rust differential, native-wheel, SFLE geometry and Chromium oracle jobs were impact-skipped and are not reported as executed. This is a scoped grammar/typing regression certificate, not G1 completion.
+
+**Current gate:** F5-G1 **IN PROGRESS**; full grammar AST and expressive compilation remain future increments. No changes to M8/F6, Qyro CLI or Engine.
