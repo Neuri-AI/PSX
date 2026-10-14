@@ -251,7 +251,7 @@ def test_grid_mount_fails_before_native_widget_creation(tk_tree, request, compon
     from tests.certification.public_behavior_census import CONTRACT
     node = Grid(GridItem(Text("x"))) if component == "Grid" else GridItem(Text("x"))
     renderer = tk_tree[1]
-    with pytest.raises(RendererCapabilityError, match="requires a Cinnamon Grid layout backend"):
+    with pytest.raises(RendererCapabilityError, match=r"Native SFLE .* SFLE geometry not certified for .(?:Grid|GridItem)."):
         renderer.create(node, None)
     assert_feature(request, Feature(component, CONTRACT, "interaction",
                                     "unsupported_mount", "tkinter_fail_closed",
