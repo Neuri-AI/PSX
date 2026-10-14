@@ -93,6 +93,10 @@ def _classify_path(path: str) -> set[str]:
         return {"headless"}
     if path.startswith("psx/renderers/"):
         return {"core", "qt", "kivy", "tkinter", "headless"}
+    if path == "psx/app.py":
+        # Application-level Grid settings affect portable resolution and every
+        # backend consumer even before native Grid geometry ships.
+        return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
     if path in ("psx/__init__.py", "psx/core/native.py") or path.startswith("psx/core/"):
         return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
     if path.startswith("psx/markup/"):
