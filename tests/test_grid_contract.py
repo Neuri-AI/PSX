@@ -434,6 +434,9 @@ def test_grid_application_settings_are_validated_and_used(scenario, request):
             {"grid": {"unknown": 1}},
             {"unknown": 1},
             {"grid": []},
+            {"grid": {"breakpoints": None}},
+            {"grid": {"breakpoints": {**custom, "xl": 900}}},
+            {"grid": {"breakpoints": {**custom, "sm": -1}}},
         ):
             with pytest.raises((RendererCapabilityError, RendererConfigurationError)):
                 App(Text("root"), renderer="headless", settings=invalid)
