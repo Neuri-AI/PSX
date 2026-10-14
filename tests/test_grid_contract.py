@@ -379,9 +379,9 @@ def test_grid_responsive_resolution_receipts(scenario, request):
 def test_headless_rejects_unsupported_grid_mount_before_side_effects(component, sfle_enabled):
     from psx import Grid, GridItem, Text
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.model import LayoutConstraints
+    from psx.sfle.model import LayoutConstraints, AvailableSize
     node = Grid(GridItem(Text("x"))) if component == "Grid" else GridItem(Text("x"))
-    renderer = (HeadlessRenderer(sfle_constraints=LayoutConstraints(800, 600))
+    renderer = (HeadlessRenderer(sfle_constraints=LayoutConstraints(AvailableSize(800, True), AvailableSize(600, True)))
                 if sfle_enabled else HeadlessRenderer())
     with pytest.raises(RendererCapabilityError, match="requires a Cinnamon Grid layout backend"):
         renderer.create(node, None)
