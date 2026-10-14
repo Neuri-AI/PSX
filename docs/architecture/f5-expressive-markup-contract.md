@@ -16,7 +16,7 @@ Preserve existing host/component registries, VNode construction, renderer identi
 | --- | --- | --- |
 | Conditional AND | `{condition && <Element />}` | JSX-like short circuit, transformed to Python AST |
 | Conditional branches | `{condition ? <A /> : <B />}` | JSX-like ternary, including nested ternaries |
-| Lists | `{items.map((item) => <Row key={item.id} />)}` | `.map()` is compiler syntax, **not** an assumed Python `list.map` method |
+| Lists | `{items.map((item) => <Text key={item.id}>{item.label}</Text>)}` | `.map()` is compiler syntax, **not** an assumed Python `list.map` method |
 | Inline callbacks | `on_click={() => increment()}` or `on_click={(value) => set_value(value)}` | Arrow functions are statically transformed into Python closures |
 | Equality | `==`, `!=` | Python equality semantics; `===` and `!==` are **not supported** |
 | Conditional falsy | `False`, `None`, `0`, `""` and other falsy values | **No VNode** in conditional position; no React-style visible zero |
