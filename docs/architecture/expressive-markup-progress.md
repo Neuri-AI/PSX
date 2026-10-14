@@ -129,3 +129,13 @@ The owner clarified that `<Flex gap="12" />` is the approved literal syntax; num
 **Acceptance still required:** certifying required GitHub Actions jobs on an immutable **code SHA** and reviewing adversarial situations (conditional JSX branches returning keys, nested fragment keys, duplicate keys across separate maps, generator errors and rollback). G3 is **IN PROGRESS** until those are evidenced; do not mark CLOSED based on implementation alone.
 
 **F5 gate count:** G1 and G2 CLOSED; G3-G6 remain (four gates including G3). M8/F6 not part of this work.
+
+### G3 adversarial validation increment (2026-10-14)
+
+**Code SHA:** `7628a4d2f0aac93ac3c4e38530da5ac7e3434882`. **CI run:** [Native layout selective validation #38618906346](https://github.com/Neuri-AI/PSX/actions/runs/38618906346). The new CI run must finish successfully on this exact code SHA before G3 can close.
+
+The previously missing executable cases were added to `tests/test_declarative_list_rendering.py`: both keyed branches of mapped conditional JSX; failure of an unkeyed alternate branch; rejection of an unkeyed mapped fragment; generator exception after yielding an item without changing the previously mounted native tree; and duplicate-key failure after partial generator consumption without native commit. Existing sibling key collision and stable Headless reorder identity cases remain present.
+
+**Normalization decision:** direct mapped items must produce keyed VNodes, or absent conditional nodes; an unkeyed fragment returned as the mapped root is rejected. Nested mapped trees can use keyed container elements whose children are independently validated. An exception raised while materializing the list propagates before `Reconciler.render` is called, preserving the prior mounted tree. These are G3 test obligations, not new public props/events/methods; source-derived public census remains unchanged. Broader reconciliation rollback for native failures belongs to G5.
+
+**Status:** G3 IN PROGRESS while the new SHA's selected CI jobs run. G4 must not be marked started on the basis of the prior green SHA alone.
