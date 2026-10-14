@@ -43,7 +43,7 @@ PORTABLE = {
 
 def test_registry_metadata_census_is_complete() -> None:
     names = set(builtin_component_registry().snapshot())
-    assert names - {"Flex", "Fragment", "Box", "Native"} == set(PORTABLE)
+    assert names - {"Flex", "Grid", "GridItem", "Fragment", "Box", "Native"} == set(PORTABLE)
 
 
 @pytest.mark.parametrize("name", sorted(PORTABLE))
