@@ -372,3 +372,17 @@ G4 is closed on its historical certified SHA. G5 is **not certified or closed**.
 **Technical gate verdict: INTEGRAL TEST MATRIX CERTIFIED / NO TECHNICAL PENDING CELLS.** **Formal G6 gate: AWAITING EXPLICIT OWNER SIGNOFF**, as specifically required in `responsive-grid-contract.md` §5. Do **not** assert the owner has approved this release or label F4-G6 CLOSED merely because GitHub Actions is green. The owner's explicit approval is the last acceptance action; preserve this distinction for future agents. No PR merge has been requested or performed.
 
 **Post-signoff closure process:** on explicit release-owner approval, record the signoff referencing immutable SHA `03fbbfad084312580e2267b88bd6b985b9871ecd` and both workflows above, then set F4-G6 and F4 to CLOSED in tracking docs. Documentation-only closure updates must not rerun product tests or be represented as a new code certificate.
+
+
+## F4-G6 AND F4 — FORMALLY CLOSED (owner signoff 2026-10-14)
+
+**Release owner approval:** The project owner explicitly authorized the formal closure of both G6 and F4 in the project conversation on 2026-10-14, after reviewing the completed integral evidence. This satisfies the final owner-signoff requirement of `responsive-grid-contract.md` §5. The earlier **AWAITING EXPLICIT OWNER SIGNOFF** checkpoint is superseded by this recorded approval.
+
+**Immutable code/workflow SHA approved:** `03fbbfad084312580e2267b88bd6b985b9871ecd`.
+- **Integral full mandatory matrix:** https://github.com/Neuri-AI/PSX/actions/runs/38597809023 — SUCCESS; Linux native UI and F3 regressions, Rust/Python differential, Chromium reference overlap, Windows 2022 and both macOS 15 native wheel/frozen ABI platforms; final required conclusion SUCCESS.
+- **Native selective regression and public census:** https://github.com/Neuri-AI/PSX/actions/runs/38597808439 — SUCCESS; 15/15 selected jobs, mandatory aggregate and conclusion SUCCESS, scoped Grid/GridItem contract 62/62 executed with zero pending and native behavior 150/150 executed with zero pending across Headless, Kivy, Tkinter and PySide2/PySide6/PyQt5/PyQt6.
+- **PR merge checkout SHA** `0dcd10c32ef30bacc49b07b2e549ecd05f9b4356` in public census evidence differs from the immutable feature source SHA; the distinction remains explicit.
+
+**Final disposition:** G1, G2, G3, G4, G5 and G6 are all **CLOSED** under the explicitly approved F4 contract. **F4 — CLOSED (6/6 gates).** The technical matrix was executed on the approved immutable source SHA, and the release owner signoff was supplied separately as required. No unsupported CSS feature, generalized Grid track semantics or deferred SFLE-CSS-01/02 capability was silently promoted into scope. All limitations and negative applicability dispositions documented in the preceding G6 checkpoint remain in force.
+
+**Scope of authorization:** This is a formal stage/acceptance closure only. It does **not** authorize merging stacked PRs #18/#21, changing a release tag, deploying, publishing a package, or implying the entire Velto ecosystem is production-stable. Those remain independent actions requiring their own checks and approvals. This documentation-only closure commit does not replace the approved code SHA or require the product certification suite to rerun.
