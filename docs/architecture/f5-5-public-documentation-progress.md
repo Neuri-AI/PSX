@@ -1,6 +1,6 @@
 # F5.5 — Public Developer Documentation Progress and Handoff Ledger
 
-**Status:** CONTRACT APPROVED / G1 NOT STARTED (2026-10-14).  
+**Status:** G1 DOCUMENTATION BASELINE ACCEPTED BY OWNER (2026-10-14); G2–G6 pending.  
 **Canonical target branch:** `develop`. **Documentation root:** `docs/public/`.  
 **Normative contract:** [F5.5 Public Developer Documentation Contract](f5-5-public-documentation-contract.md).  
 **Owner's decisions:** canonical English beginner-first Mintlify MDX; exhaustively grounded in `develop`; real reproducible tested examples; exhaustive current public API; future ecosystem integrations deferred; progress tracked under `docs/`.
@@ -9,7 +9,7 @@
 
 | Gate | Deliverable | Status | Immutable implementation SHA / CI evidence |
 | --- | --- | --- | --- |
-| G1 | Develop API census / verified support matrix | NOT STARTED | — |
+| G1 | Declared API inventory and component contract baseline | CLOSED (owner-approved documentation baseline; limitations below) | `226110f66f325e0d16a0b7a43c5461e46a27cf06`; Actions #38637541555 |
 | G2 | Mintlify IA, docs.json and six template families | NOT STARTED | — |
 | G3 | Complete independent beginner-first tutorials | NOT STARTED | — |
 | G4 | Exhaustive verified API and component reference | NOT STARTED | — |
@@ -120,3 +120,11 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Implemented audit subset:** root/package explicit exports, signatures, source links where introspectable, supplemental declarations, builtin component registry and contract metadata, candidate tests. Test-name matching does not establish behavior-specific exercised evidence.
 - **Closure decision:** **Machine-readable declared-surface inventory TECHNICALLY CERTIFIED at checked SHA**. **The full approved G1 remains IN PROGRESS** because precise tests/native compatibility and exhaustive public-submodule review are not verified. Marking full G1 CLOSED would contradict the owner-approved F5.5 contract. No production runtime behavior or F6 scope modified.
 - **Next three steps:** review candidate test assertions against each public behavior; record actual backend/platform cell evidence and exclusions; regenerate final manifest with coverage completeness checks and certify G1 on its final SHA.
+
+### 2026-10-14 — Owner-directed G1 documentation closeout (scope clarification)
+- **Owner directive:** Treat F5.5 G1 as a documentation/source-inventory milestone; do not demand recertification of the already certified PSX runtime/native engine solely because docs and audit tooling changed.
+- **G1 status:** **CLOSED for the owner-accepted declared API/documentation baseline**. This is *not* a claim of an exhaustive behavior-proven/native compatibility matrix and does not alter historical native certificates.
+- **Checked immutable SHA:** `226110f66f325e0d16a0b7a43c5461e46a27cf06`. [Declared API audit #38637541555](https://github.com/Neuri-AI/PSX/actions/runs/38637541555), [root inventory #38637541595](https://github.com/Neuri-AI/PSX/actions/runs/38637541595), [subject #38637541800](https://github.com/Neuri-AI/PSX/actions/runs/38637541800), [native selective #38637541544](https://github.com/Neuri-AI/PSX/actions/runs/38637541544) and [Grid integral #38637541930](https://github.com/Neuri-AI/PSX/actions/runs/38637541930) all completed SUCCESS at workflow level; selected native verification may have been SKIPPED.
+- **Acceptance exception (transparent):** The source inventory covers declared root exports and selected public submodules, builtin registry metadata and candidate tests; it does **not** establish individual behavioral assertions, exhaustive undocumented submodule APIs or OS/Python native matrices. These remain mandatory accuracy checks in G4/G5/G6 *before* publishing precise compatibility assertions or claiming final F5.5 closure.
+- **Final documentation SHA:** to be determined by PR #32 merge into `develop`. This closeout change itself is documentation-only and does not modify the tested audit code.
+- **Next steps:** (1) merge PR #32 into `develop`; (2) start G2 Mintlify IA and page conventions from latest `develop`; (3) during G4/G5 trace each public API and native claim to current source/test evidence.
