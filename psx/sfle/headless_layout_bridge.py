@@ -80,6 +80,45 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             node_id: handles[id(source)]
             for node_id, source in prepared.identities
         }
+        # Mixed Flex/Grid uses the existing width-dependent Cinnamon solver.
+        # The Grid is one atomic Flex leaf; its own native children are
+        # computed independently at the width allocated by Flex.
+        from psx.sfle.grid_native_composition import (
+            prepare_composed_grid, compose_geometry_batch,
+        )
+        from psx.sfle.grid_native_commit import GridCommitBackend, commit_grid_native_geometry
+        from psx.sfle.model import IntrinsicSizes, AvailableSize, LayoutConstraints
+        from psx.sfle.width_dependent_intrinsic_measurement import compute_width_dependent
+        from psx.sfle.native_layout_snapshot import path_identity
+        from psx.core.grid_contract import GRID_BREAKPOINTS
+        grid_nodes = {}
+
+        def gather_grids(node):
+            if node.kind is NodeKind.HOST and node.type == "Grid":
+                grid_nodes[path_identity(node.path)] = node
+                return
+            for child in node.effective_children:
+                gather_grids(child)
+
+        gather_grids(normalized)
+        breakpoints = getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS)
+
+        def compose_grid(node_id, width):
+            grid = grid_nodes[node_id]
+            return prepare_composed_grid(
+                grid, content_width=width, generation=generation,
+                current_generation=renderer._sfle_generation,
+                measure_leaf=lambda item_id, leaf, allocated_width:
+                    renderer._sfle_measure(leaf.source, allocated_width),
+                is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
+                breakpoints=breakpoints,
+                engine=renderer._sfle_engine,
+            )
+
+        def intrinsic_grid(node_id, width):
+            height = compose_grid(node_id, width).content_height
+            return IntrinsicSizes(0, width, 0, height, width, height)
+
         metrics: list[MeasuredBox] = []
         next_cache = {}
         invalidations = renderer._sfle_measurement_invalidations
@@ -91,6 +130,16 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
         if renderer._sfle_measure is not None:
             for node_id, source in prepared.identities:
                 if source.kind is NodeKind.HOST and source.type == "Flex":
+                    continue
+                if node_id in grid_nodes:
+                    width = constraints.width.value
+                    if not constraints.width.definite or width is None:
+                        raise SFLEError(DiagnosticCode.LAYOUT_CONSTRAINT,
+                                        "Mixed Grid requires a definite initial content width.")
+                    intrinsic = intrinsic_grid(node_id, width)
+                    metrics.append(MeasuredBox(node_id, intrinsic,
+                        LayoutConstraints(AvailableSize(None, False), AvailableSize(None, False)),
+                        generation))
                     continue
                 handle_id = id(node_handles[node_id])
                 signature = (dict(source.props), constraints)
@@ -109,7 +158,12 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             normalized, constraints, generation=generation,
             measurements=tuple(metrics),
         ).snapshot
-        result = renderer._sfle_engine.compute(snapshot)
+        result = (compute_width_dependent(
+            renderer._sfle_engine, snapshot,
+            {node_id: (lambda width, node_id=node_id: intrinsic_grid(node_id, width))
+             for node_id in grid_nodes},
+            current_generation=lambda: renderer._sfle_generation,
+        ) if grid_nodes else renderer._sfle_engine.compute(snapshot))
         ports = SFLEAdapterPorts(
             current_generation=lambda: renderer._sfle_generation,
             nodes_alive=lambda ids: all(
@@ -142,11 +196,26 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             placements[node_id] = rect
 
         before = {node_id: handle.geometry for node_id, handle in node_handles.items()}
+        descendants_before = {id(handle): (handle, handle.geometry)
+                              for handle in handles.values()}
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before geometry.")
         try:
             for node_id, rect in placements.items():
                 node_handles[node_id].geometry = rect
+            grid_receipts = []
+            for node_id in grid_nodes:
+                box = dict(result.boxes)[node_id].content
+                composed = compose_grid(node_id, box.width)
+                batch, widget_map, _ = compose_geometry_batch(
+                    composed, handles=handles, root_height=box.height)
+                receipt = commit_grid_native_geometry(
+                    batch, backend=GridCommitBackend.HEADLESS,
+                    widgets=widget_map, generation=generation,
+                    current_generation=lambda: renderer._sfle_generation,
+                    is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
+                )
+                grid_receipts.append((composed.prepared, receipt))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale geometry commit.")
             if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
@@ -172,8 +241,12 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
         except BaseException:
             for node_id, old in before.items():
                 node_handles[node_id].geometry = old
+            for handle, old in descendants_before.values():
+                handle.geometry = old
             raise
         renderer.sfle_result = replace(result, geometry_commit_error=error)
+        if grid_nodes:
+            renderer.grid_result = grid_receipts[-1]
         # Publish the cache only after the layout and native readback pass.
         renderer._sfle_intrinsic_cache = next_cache
     finally:

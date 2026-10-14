@@ -54,6 +54,20 @@ def _classify_path(path: str) -> set[str]:
         return {"sfle", "rust"}
     if path.startswith("rust/sfle-core/"):
         return {"sfle", "rust", "chromium", "native"}
+    if path == "tests/test_mounted_grid_native_renderers.py":
+        return {"core", "qt", "kivy", "tkinter"}
+    if path in ("psx/sfle/headless_grid_bridge.py", "tests/test_headless_grid_native_layout.py"):
+        return {"core", "sfle", "headless"}
+    if path in ("psx/sfle/grid_native_commit.py", "psx/sfle/native_grid_bridge.py",
+                 "psx/sfle/grid_native_composition.py",
+                 "psx/sfle/mixed_grid_native.py",
+                 "psx/sfle/grid_flex_composition.py",
+                 "tests/sfle/test_grid_native_commit.py",
+                 "psx/sfle/grid_native_measurement.py", "tests/sfle/test_grid_native_measurement.py",
+                 "psx/sfle/grid_tree_measurement.py", "tests/sfle/test_grid_tree_measurement.py"):
+        return {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
+    if path == "psx/sfle/grid_native_plan.py":
+        return {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
     if path == "psx/sfle/grid_math.py":
         return {"sfle", "rust"}
     if path.startswith("psx/sfle/"):
@@ -109,6 +123,8 @@ def _classify_path(path: str) -> set[str]:
         return {"core", "headless"}
     if path.startswith("psx/"):
         return {"core", "headless", "qt", "kivy", "tkinter"}
+    if path == "tests/sfle/test_grid_native_plan.py":
+        return {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
     if path in ("tests/fixtures/grid_row_packing.json",
                 "tests/fixtures/grid_cross_axis.json",
                 "tests/fixtures/grid_constraints.json",

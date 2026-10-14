@@ -13,6 +13,8 @@ from threading import get_ident
 from typing import TYPE_CHECKING
 
 from psx.core.layout_tree import normalize_flex_tree
+from psx.sfle.mixed_grid_native import MountedMixedGrid
+from psx.sfle.grid_native_commit import GridCommitBackend
 from psx.core.vnode import NodeKind
 from psx.sfle.adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from psx.sfle.errors import DiagnosticCode, SFLEError
@@ -77,6 +79,9 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         gather(root)
         normalized = normalize_flex_tree(
             root.node, component_roots=component_roots)
+        mixed_grid = MountedMixedGrid(
+            renderer, normalized, handles, GridCommitBackend.KIVY, generation,
+        )
         prepared = prepare_native_layout_snapshot(
             normalized, renderer._sfle_constraints, generation=generation,
         )
@@ -113,7 +118,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             node_id: bindings[node_id].widget
             for node_id, source in prepared.identities
             if source.kind is NodeKind.HOST
-            and source.type not in ("Flex", "Box", "RadioGroup", "Scroll")
+            and source.type not in ("Flex", "Box", "RadioGroup", "Scroll", "Grid")
             and not (source.type == "Divider" and source.children)
             and node_id not in external
             and native_leaf_needs_measurement(source, backend="kivy")
@@ -196,6 +201,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Stale external kivy measurement.")
+        readings.extend(mixed_grid.seed_measurements())
         snapshot = replace(prepared.snapshot, measurements=tuple(readings))
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
@@ -225,12 +231,15 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                         ).intrinsic,
                     )
                 )
+        dependent.update(mixed_grid.width_dependencies())
         snapshot = seed_unconstrained_width_measurements(
             snapshot, frozenset(dependent))
         result = compute_width_dependent(
             renderer._sfle_engine, snapshot, dependent,
             current_generation=lambda: renderer._sfle_generation,
         )
+        mixed_plans = mixed_grid.plan(dict(result.boxes))
+
         def read_widget(node_id, handle):
             port = external.get(node_id)
             if port is not None:
@@ -294,6 +303,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         }
         from psx.sfle.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
         scroll_before = capture_scroll_hosts("kivy", bindings)
+        mixed_before = mixed_grid.snapshot()
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                             "Stale semantic invalidation before native geometry.")
@@ -301,6 +311,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             # F2 already validates the fixed-point grid and applies a pure
             # parent-relative bottom-left transform in precomputed order.
             committer(result)
+            mixed_receipts = mixed_grid.commit(mixed_plans)
             for node in snapshot.nodes:
                 if node.parent_id is not None:
                     parent = bindings[node.parent_id].widget
@@ -375,6 +386,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                                 "Stale generation during native readback.")
         except BaseException:
             restore_scroll_hosts(scroll_before)
+            mixed_grid.restore(mixed_before)
             for node_id, previous in previous_text_sizes.items():
                 widget = bindings[node_id].widget
                 widget.text_size = previous
@@ -390,6 +402,8 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             raise
         renderer._sfle_physical_commit_error = physical_maximum
         renderer.sfle_result = replace(result, geometry_commit_error=maximum)
+        if mixed_receipts:
+            renderer.grid_result = mixed_receipts[-1]
         native_round.publish()
     finally:
         renderer._sfle_in_commit = False

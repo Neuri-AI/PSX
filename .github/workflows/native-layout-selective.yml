@@ -255,7 +255,7 @@ jobs:
       - name: Install pinned Pydux dependency required by existing PySide6 integration tests
         run: |
           python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@56e6df858bc0e1ae598cd1cab0aa384c921cf253"
-      - run: python -m pytest -q tests/test_pyside6_renderer.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_native_layout.py tests/test_pyside6_external_native_ports.py --junitxml=scroll-qt-operations.xml
+      - run: python -m pytest -q tests/test_pyside6_renderer.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_native_layout.py tests/test_pyside6_external_native_ports.py tests/sfle/test_grid_native_measurement.py tests/sfle/test_grid_native_commit.py --junitxml=scroll-qt-operations.xml
       - run: python -m tests.certification.scroll_operation_receipts --backend qt --junit scroll-qt-operations.xml --out scroll-qt-operations.json
       - uses: actions/upload-artifact@v4
         with:
@@ -308,7 +308,7 @@ jobs:
       - name: Check binding and native SFLE parity (no skip)
         run: |
           python -c "import importlib; p={'pyside6':'PySide6','pyqt6':'PyQt6','pyqt5':'PyQt5','pyside2':'PySide2'}['${{ matrix.binding }}']; importlib.import_module(p+'.QtWidgets')"
-          python -m pytest -q -rs tests/test_qt_native_component_lifecycle.py --junitxml=native-layout-qt.xml
+          PSX_GRID_BACKEND=qt python -m pytest -q -rs tests/test_qt_native_component_lifecycle.py tests/test_mounted_grid_native_renderers.py --junitxml=native-layout-qt.xml
           python -m psx.sfle.native_operation_receipts --backend qt --junit native-layout-qt.xml --out native-layout-qt-certification.json
           python -m tests.certification.native_acceptance_receipts --backend qt --junit native-layout-qt.xml --out native-layout-qt-c6.json
           python -m tests.certification.native_invalidation_receipts --backend qt --junit native-layout-qt.xml --out native-layout-qt-c5.json
@@ -316,14 +316,14 @@ jobs:
           # A fresh process is required: Qt consumes QT_SCALE_FACTOR at
           # QApplication initialization, and Qt 5/6 may round the reported
           # physical DPR differently. The geometry must stay in QWidget DIPs.
-          QT_SCALE_FACTOR=1.5 python -m pytest -q -rs tests/test_qt_native_component_lifecycle.py --junitxml=native-layout-qt-dpi.xml
+          QT_SCALE_FACTOR=1.5 PSX_GRID_BACKEND=qt python -m pytest -q -rs tests/test_qt_native_component_lifecycle.py tests/test_mounted_grid_native_renderers.py --junitxml=native-layout-qt-dpi.xml
           python -m psx.sfle.native_operation_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-certification.json
           python -m tests.certification.native_acceptance_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c6.json
           python -m tests.certification.native_invalidation_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c5.json
           python -m psx.sfle.native_external_ownership_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c4.json
       - name: Certify public native Qt property behavior with semantic JUnit evidence
         run: |
-          python -m pytest -q tests/test_qt_public_behavior.py --junitxml=public-native-qt.xml
+          PSX_GRID_BACKEND=qt python -m pytest -q tests/test_qt_public_behavior.py tests/test_mounted_grid_native_renderers.py --junitxml=public-native-qt.xml
           python -m tests.certification.public_behavior_census --out public-native-qt-inventory.json --junit public-native-qt.xml --sha "${{ github.sha }}" --environment "ubuntu-qt-${{ matrix.binding }}-python-${{ matrix.python }}"
       - uses: actions/upload-artifact@v4
         with:
@@ -366,7 +366,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb xauth libmtdev1 libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-ttf-2.0-0
       - run: python -m pip install -e '.[kivy]' pytest
-      - run: xvfb-run -a python -m pytest -q tests/test_kivy_renderer.py tests/test_kivy_native_layout.py --junitxml=native-layout-kivy.xml
+      - run: xvfb-run -a python -m pytest -q tests/test_kivy_renderer.py tests/test_kivy_native_layout.py tests/sfle/test_grid_native_measurement.py tests/sfle/test_grid_native_commit.py --junitxml=native-layout-kivy.xml
+      - run: PSX_GRID_BACKEND=kivy xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py
       - run: |
           python -m tests.certification.scroll_operation_receipts --backend kivy --junit native-layout-kivy.xml --out scroll-kivy-operations.json
           python -m psx.sfle.native_operation_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-certification.json
@@ -375,7 +376,7 @@ jobs:
           python -m psx.sfle.native_external_ownership_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-c4.json
       - name: Certify Kivy public native updates through real SDL2 widgets
         run: |
-          xvfb-run -a python -m pytest -q tests/test_kivy_public_behavior.py --junitxml=public-native-kivy.xml
+          PSX_GRID_BACKEND=kivy xvfb-run -a python -m pytest -q tests/test_kivy_public_behavior.py tests/test_mounted_grid_native_renderers.py --junitxml=public-native-kivy.xml
           python -m tests.certification.public_behavior_census --out public-native-kivy-inventory.json --junit public-native-kivy.xml --sha "${{ github.sha }}" --environment "ubuntu-kivy-python-3.12"
       - uses: actions/upload-artifact@v4
         with:
@@ -413,7 +414,8 @@ jobs:
       # Pillow supplies arbitrary scaling/cropping for the optional Tk Image
       # renderer; plain Tk PhotoImage still supports natural-size PNG.
       - run: python -m pip install -e . pytest Pillow
-      - run: xvfb-run -a python -m pytest -q tests/test_tkinter_renderer.py tests/test_tkinter_native_layout.py tests/test_tkinter_external_native_ports.py --junitxml=native-layout-tk.xml
+      - run: xvfb-run -a python -m pytest -q tests/test_tkinter_renderer.py tests/test_tkinter_native_layout.py tests/test_tkinter_external_native_ports.py tests/sfle/test_grid_native_measurement.py tests/sfle/test_grid_native_commit.py --junitxml=native-layout-tk.xml
+      - run: PSX_GRID_BACKEND=tk xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py
       - run: |
           python -m tests.certification.scroll_operation_receipts --backend tk --junit native-layout-tk.xml --out scroll-tk-operations.json
           python -m psx.sfle.native_operation_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-certification.json
@@ -422,7 +424,7 @@ jobs:
           python -m psx.sfle.native_external_ownership_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-c4.json
       - name: Certify Tk native public properties with feature-level JUnit
         run: |
-          xvfb-run -a python -m pytest -q tests/test_tk_public_behavior.py --junitxml=public-native-tk.xml
+          PSX_GRID_BACKEND=tk xvfb-run -a python -m pytest -q tests/test_tk_public_behavior.py tests/test_mounted_grid_native_renderers.py --junitxml=public-native-tk.xml
           python -m tests.certification.public_behavior_census --out public-native-tk-inventory.json --junit public-native-tk.xml --sha "${{ github.sha }}" --environment "ubuntu-tkinter-python-3.12"
       - uses: actions/upload-artifact@v4
         with:
@@ -455,7 +457,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e . pytest
-      - run: python -m pytest -q tests/test_core.py tests/test_renderer_adapters.py tests/test_headless_native_layout.py tests/test_scroll_offsets.py --junitxml=native-layout-headless.xml
+      - run: python -m pytest -q tests/test_core.py tests/test_renderer_adapters.py tests/test_headless_native_layout.py tests/test_scroll_offsets.py tests/sfle/test_grid_native_measurement.py tests/sfle/test_grid_native_commit.py tests/test_headless_grid_native_layout.py --junitxml=native-layout-headless.xml
       - run: |
           python -m tests.certification.scroll_operation_receipts --backend headless --junit native-layout-headless.xml --out scroll-headless-operations.json
           python -m psx.sfle.native_operation_receipts --backend headless --junit native-layout-headless.xml --out native-layout-headless-certification.json
@@ -463,7 +465,7 @@ jobs:
           python -m tests.certification.native_invalidation_receipts --backend headless --junit native-layout-headless.xml --out native-layout-headless-c5.json
       - name: Certify native-like Headless public behavior with exact JUnit
         run: |
-          python -m pytest -q tests/test_headless_public_behavior.py --junitxml=public-native-headless.xml
+          python -m pytest -q tests/test_headless_public_behavior.py tests/test_headless_grid_native_layout.py --junitxml=public-native-headless.xml
           python -m tests.certification.public_behavior_census --out public-native-headless-inventory.json --junit public-native-headless.xml --sha "${{ github.sha }}" --environment "ubuntu-headless-python-3.12"
       - uses: actions/upload-artifact@v4
         with:
@@ -598,6 +600,8 @@ jobs:
             --sha "${{ github.sha }}" \
             --require-contract-component Grid \
             --require-contract-component GridItem \
+            --require-native-component Grid \
+            --require-native-component GridItem \
             "${files[@]}"
       - uses: actions/upload-artifact@v4
         if: always()
