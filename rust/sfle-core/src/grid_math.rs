@@ -338,3 +338,59 @@ pub fn layout_grid_rects(
     }
     Ok(result)
 }
+
+
+#[cfg(test)]
+mod cross_axis_tests {
+    use super::*;
+    use std::collections::HashMap;
+    use serde_json::Value;
+
+    #[test]
+    fn shared_rtl_and_row_geometry_fixtures() {
+        let fixtures: Value = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/grid_cross_axis.json"
+        )).unwrap();
+        assert_eq!(fixtures["schema_version"], 1);
+        for case in fixtures["cases"].as_array().unwrap() {
+            let name = case["name"].as_str().unwrap();
+            let slots: Vec<GridSlot> = case["items"].as_array().unwrap().iter().map(|item| {
+                GridSlot {
+                    id: item["id"].as_str().unwrap().to_owned(),
+                    span: if item["span"] == "auto" || item["span"].is_null() {
+                        None
+                    } else { Some(item["span"].as_u64().unwrap() as u8) },
+                    offset: item["offset"].as_u64().unwrap_or(0) as u8,
+                    order: item["order"].as_i64().unwrap_or(0) as i32,
+                }
+            }).collect();
+            let heights: HashMap<String, f64> = case["heights"].as_object().unwrap()
+                .iter().map(|(key, value)| (key.clone(), value.as_f64().unwrap()))
+                .collect();
+            let rows = pack_grid_rows(&slots).unwrap();
+            let result = layout_grid_rects(
+                &rows, case["width"].as_f64().unwrap(),
+                case["gap"].as_f64().unwrap(),
+                case["row_gap"].as_f64().unwrap(),
+                &heights, case["rtl"].as_bool().unwrap(),
+            );
+            if case["error"] == "invalid" {
+                assert!(result.is_err(), "{name}: expected error");
+                continue;
+            }
+            let actual = result.unwrap_or_else(|err| panic!("{name}: {err:?}"));
+            let expected = case["rows"].as_array().unwrap();
+            assert_eq!(actual.len(), expected.len(), "{name}: rows");
+            for (row, target_row) in actual.iter().zip(expected) {
+                assert_eq!(row.len(), target_row.as_array().unwrap().len(), "{name}");
+                for (rect, target) in row.iter().zip(target_row.as_array().unwrap()) {
+                    assert_eq!(rect.id, target["id"].as_str().unwrap(), "{name}");
+                    assert_eq!(rect.x_raw, target["x_raw"].as_i64().unwrap() as i32, "{name}");
+                    assert_eq!(rect.y_raw, target["y_raw"].as_i64().unwrap() as i32, "{name}");
+                    assert_eq!(rect.width_raw, target["width_raw"].as_i64().unwrap() as i32, "{name}");
+                    assert_eq!(rect.height_raw, target["height_raw"].as_i64().unwrap() as i32, "{name}");
+                }
+            }
+        }
+    }
+}
