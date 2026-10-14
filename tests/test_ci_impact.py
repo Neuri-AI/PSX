@@ -128,6 +128,10 @@ class RoutingTests(unittest.TestCase):
     def test_headless_only(self):
         self.assertEqual(self.selected("psx/renderers/headless.py"), {"headless"})
 
+    def test_mounted_grid_lifecycle_runs_all_native_toolkits(self):
+        self.assertEqual(self.selected("tests/test_mounted_grid_native_renderers.py"),
+                         {"core", "qt", "kivy", "tkinter"})
+
     def test_shared_scroll_involves_all_backends(self):
         self.assertGreaterEqual(
             self.selected("psx/renderers/components/scroll.py"),
