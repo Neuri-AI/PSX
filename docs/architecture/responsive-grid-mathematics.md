@@ -59,3 +59,12 @@ The pure solver now offers `project_grid_rows(rows, content_width, column_gap)` 
 ## Overflow hardening
 
 Both solvers reject unrepresentable horizontal dimensions, gutters, item heights, and accumulated vertical rectangle extents rather than silently returning saturated fixed-point geometry. Rust and Python tests exercise the rejection. This is internal math only; native Grid mounting remains unsupported. CI certification is pending.
+
+
+## Constrained Grid mathematics and Cinnamon entry point
+
+The pure `compute_grid` entry point in Python (`psx.sfle.grid_math` and `PythonLayoutEngine.compute_grid`) and Rust (`sfle_core::grid_math::compute_grid`) composes row packing, horizontal projection, RTL and vertical geometry with resolved `GridItemConstraints`. It accepts previously measured definite item heights and resolved nonnegative min/max content sizes; native measurement and geometry commit are intentionally **not** performed here.
+
+Each returned `GridConstrainedRect` retains its original `x_raw/y_raw/width_raw/height_raw` allocation and independently exposes `used_width_raw/used_height_raw`, `overflow_x` and `overflow_y`. A minimum greater than the allocated box produces explicit overflow rather than modifying a logical span, wrapping the item again, or shifting adjacent boxes. Maximum constraints may reduce the used content size without changing allocation. Contradictory, unknown-ID, negative, nonfinite and nonrepresentable bounds fail closed. These are **pure solver receipts**, not native widget overflow handling.
+
+Both kernels consume `tests/fixtures/grid_constraints.json`; Python also tests `PythonLayoutEngine.compute_grid`. `scripts/ci/impact.py` routes fixture changes to Rust and SFLE. G3 remains responsible for translating native measurements and mounting widgets; G4 for runtime resize and nesting. This integration is the **pure mathematical Cinnamon entry point**, not automatic `LayoutInput` snapshot dispatch, which still needs explicit integration work before native Grid support.
