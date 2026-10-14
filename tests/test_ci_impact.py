@@ -8,6 +8,13 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_application_grid_settings_change_routes_all_native_consumers(self):
+        self.assertGreaterEqual(self.selected('psx/app.py'),
+                                {'core', 'qt', 'kivy', 'tkinter', 'headless'})
+        self.assertEqual(self.selected('tests/test_grid_contract.py'),
+                         {'core', 'qt', 'kivy', 'tkinter', 'headless'})
+        self.assertEqual(self.selected('docs/architecture/responsive-grid-contract.md'), set())
+
     def test_grid_contract_code_and_tests_route_to_executable_core_suite(self):
         self.assertGreaterEqual(
             self.selected("psx/core/grid_contract.py"),
