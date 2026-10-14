@@ -212,3 +212,46 @@ def test_public_grid_declaration_entry_points_are_executed(component, scenario, 
         raise AssertionError(scenario)
     assert_feature(request, Feature(component, CONTRACT, "public_api",
                                     "declaration", scenario, applicability="shared"), True)
+
+
+@pytest.mark.parametrize("gap", ("0px", ".5px", "2.px", " 4PX ", 2.5))
+def test_grid_gap_uses_cinnamon_pixel_grammar(gap):
+    from psx.sfle.lengths import LengthKind, parse_length
+    normalized = normalize_grid_props({"gap": gap})
+    assert parse_length(normalized["gap"]).kind is LengthKind.PX
+    assert normalized["row_gap"] == gap
+    assert normalized["column_gap"] == gap
+
+
+@pytest.mark.parametrize("gap", ("-1px", "10%", "auto", "none", "calc(1px)", "1em",
+                                  float("inf"), float("-inf"), True, None))
+def test_grid_gap_rejects_unsupported_or_nonfinite_lengths(gap):
+    if gap is None:
+        # None is the documented inheritance sentinel only for row/column gaps.
+        assert normalize_grid_props({"row_gap": None})["row_gap"] == 0
+        with pytest.raises(RendererCapabilityError):
+            normalize_grid_props({"gap": None})
+    else:
+        with pytest.raises(RendererCapabilityError):
+            normalize_grid_props({"gap": gap})
+
+
+@pytest.mark.parametrize("span,offset", (
+    ({"base": 12, "md": 8}, {"base": 0, "md": 5}),
+    ({"base": 8, "lg": 12}, {"base": 0, "md": 1}),
+    (12, {"base": 0, "sm": 1}),
+    ({"base": 12, "xl": 6}, 1),
+    ({"base": 6, "md": 12}, {"base": 0, "sm": 1}),
+))
+def test_grid_item_rejects_overflow_at_every_inherited_breakpoint(span, offset):
+    with pytest.raises(RendererCapabilityError, match="span \\+ offset"):
+        normalize_grid_item_props({"span": span, "offset": offset})
+
+
+def test_grid_item_accepts_independently_inherited_responsive_values():
+    result = normalize_grid_item_props({
+        "span": {"base": 12, "md": 8, "xl": 6},
+        "offset": {"base": 0, "sm": 0, "lg": 3},
+    })
+    assert dict(result["span"]) == {"base": 12, "md": 8, "xl": 6}
+    assert dict(result["offset"]) == {"base": 0, "sm": 0, "lg": 3}
