@@ -396,3 +396,124 @@ def test_flex_grid_native_geometry_and_resize_reconciliation(request):
     finally:
         reconciler.unmount()
         close()
+
+
+def mixed_scroll_scene(content_width="800px"):
+    from psx import Flex, Scroll
+    return Flex(
+        Scroll(
+            Flex(
+                view(), direction="column", key="content",
+                width=content_width, height="240px",
+                align_items="stretch",
+            ),
+            key="viewport", direction="both",
+            layout_width="120px", layout_height="80px",
+            flex_basis="120px", flex_shrink=0,
+        ),
+        direction="row", width="800px", height="200px",
+        align_items="flex-start",
+    )
+
+
+def native_scroll_offset(scroll, backend):
+    if backend == "qt":
+        return (float(scroll.horizontalScrollBar().value()),
+                float(scroll.verticalScrollBar().value()))
+    if backend == "tk":
+        return (float(scroll._psx_canvas.canvasx(0)),
+                float(scroll._psx_canvas.canvasy(0)))
+    max_x = max(0, scroll._psx_content.width - scroll.width)
+    max_y = max(0, scroll._psx_content.height - scroll.height)
+    return (scroll.scroll_x * max_x, (1 - scroll.scroll_y) * max_y)
+
+
+def set_native_scroll_offset(scroll, backend, x, y):
+    if backend == "qt":
+        scroll.horizontalScrollBar().setValue(round(x))
+        scroll.verticalScrollBar().setValue(round(y))
+    elif backend == "tk":
+        scroll._psx_canvas.xview_moveto(x / scroll._psx_scroll_region[2])
+        scroll._psx_canvas.yview_moveto(y / scroll._psx_scroll_region[3])
+        scroll.update_idletasks()
+    else:
+        max_x = max(0, scroll._psx_content.width - scroll.width)
+        max_y = max(0, scroll._psx_content.height - scroll.height)
+        scroll.scroll_x = x / max_x if max_x else 0
+        scroll.scroll_y = 1 - y / max_y if max_y else 1
+
+
+def test_grid_inside_scroll_flex_preserves_native_offsets_and_reflows(request):
+    """Scroll keeps clipping and native offsets; Cinnamon owns nested Grid."""
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(mixed_scroll_scene())
+        scroll = mounted.children[0].handle.widget
+        inner_flex = mounted.children[0].children[0]
+        grid = inner_flex.children[0]
+        first = grid.children[0].handle.widget
+        first_leaf = grid.children[0].children[0].handle.widget
+        assert rectangle(grid.handle.widget, backend)[2] == pytest.approx(800, abs=1)
+        assert rectangle(first, backend)[2] == pytest.approx(398, abs=1)
+        assert renderer.grid_result[1].max_readback_error <= 1
+        set_native_scroll_offset(scroll, backend, 32, 24)
+        before = native_scroll_offset(scroll, backend)
+        assert before[0] > 0 and before[1] > 0
+        renderer.commit_layout(mounted)
+        assert native_scroll_offset(scroll, backend) == pytest.approx(before, abs=2)
+        assert renderer.grid_result[1].max_readback_error <= 1
+        changed = reconciler.render(mixed_scroll_scene("600px"))
+        grid_new = changed.children[0].children[0].children[0]
+        assert grid_new.children[0].handle.widget is first
+        assert grid_new.children[0].children[0].handle.widget is first_leaf
+        assert rectangle(grid_new.handle.widget, backend)[2] == pytest.approx(600, abs=1)
+        assert rectangle(first, backend)[2] == pytest.approx(600, abs=1)
+        assert native_scroll_offset(scroll, backend) == pytest.approx(before, abs=2)
+        assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(request, Feature(
+            "Grid", binding, "interaction", "mixed_scroll",
+            "offset_retained_reflow", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_mixed_flex_grid_transaction_failure_restores_all_native_geometry(request, monkeypatch):
+    """A failed Grid batch cannot leave an already committed Flex rectangle."""
+    from psx import Flex
+    from psx.sfle import mixed_grid_native
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    tree = Reconciler(renderer)
+    try:
+        mounted = tree.render(Flex(view(), direction="column", width="100%", height=200))
+        grid = mounted.children[0]
+        first = grid.children[0].handle.widget
+        leaf = grid.children[0].children[0].handle.widget
+        renderer.set_sfle_constraints(viewport(767))
+        before = (rectangle(grid.handle.widget, backend),
+                  rectangle(first, backend), rectangle(leaf, backend))
+        with monkeypatch.context() as patch:
+            def reject(*args, **kwargs):
+                raise RuntimeError("simulated mixed Grid readback failure")
+            patch.setattr(mixed_grid_native, "commit_grid_native_geometry", reject)
+            with pytest.raises(RuntimeError, match="simulated mixed Grid"):
+                renderer.commit_layout(mounted)
+        after = (rectangle(grid.handle.widget, backend),
+                 rectangle(first, backend), rectangle(leaf, backend))
+        assert after == pytest.approx(before, abs=1)
+        renderer.commit_layout(mounted)
+        assert rectangle(first, backend)[2] == pytest.approx(767, abs=1)
+        assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(request, Feature(
+            "Grid", binding, "interaction", "mixed_transaction",
+            "rollback_and_recovery", applicability="partial_native"), True)
+    finally:
+        tree.unmount()
+        close()
