@@ -70,6 +70,34 @@ class ArrowCallbacksTests(unittest.TestCase):
         self.assertEqual(calls, ["old", "new"])
         reconciler.unmount()
 
+    def test_unmount_disposes_arrow_event_slot(self):
+        calls = []
+        view, _ = compiled('<Flex><Button label="Save" on_click={() => handler()} /></Flex>')
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+        renderer = HeadlessRenderer(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(640, True), AvailableSize(480, True)),
+            engine=PythonLayoutEngine(),
+            measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+        )
+        reconciler = Reconciler(renderer)
+        mounted = reconciler.render(view(lambda: calls.append("called")))
+        slot = mounted.children[0].handle.events["on_click"]
+        slot.invoke()
+        reconciler.unmount()
+        self.assertIsNone(slot.invoke())
+        self.assertEqual(calls, ["called"])
+
+    def test_disabled_attribute_remains_native_prop_with_deferred_callback(self):
+        calls = []
+        view, _ = compiled(
+            '<Button label="Save" disabled="true" on_click={() => handler()} />')
+        node = view(lambda: calls.append("clicked"))
+        self.assertEqual(calls, [])
+        self.assertTrue(node.props["disabled"])
+        self.assertTrue(callable(node.props["on_click"]))
+
     def test_invalid_two_arg_arrow_fails_closed(self):
         with self.assertRaises(MarkupSyntaxError):
             compiled('<Button on_click={(a, b) => handler(a)} />')
