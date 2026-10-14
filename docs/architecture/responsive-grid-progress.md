@@ -60,6 +60,12 @@ Code SHA `b842f20e49d1a221f478ca52a693a6a36031002c` adds a Kivy native negative-
 
 **Final evidence:** re-ran cancelled code workflow `38551782482` (attempt 2) without modifying the certified source. All selected native jobs (Kivy, Qt all four bindings, Tkinter, Headless), core, router, public behavior aggregate, and mandatory conclusion completed SUCCESS. Scoped Grid/GridItem certificate: **59/59 executed_pass, pending=0, complete=true**, checkout SHA `84b5eef90c6828d55dfea72ed88aef557f38b887`. Source commit: `b842f20e49d1a221f478ca52a693a6a36031002c`. Evidence: https://github.com/Neuri-AI/PSX/actions/runs/38551782482/attempts/2 and aggregate job `115813083147`. The later documentation-only commit had a successful workflow with skipped product jobs; that run is **not** used as C4 evidence. Global settings integration remains a separate G1 acceptance gap.
 
+## G1 settings integration — implementation submitted, certification pending (2026-10-14)
+
+Application-level `App(..., settings={"grid": {"breakpoints": ...}})` is implemented in `psx/app.py` with immutable validated thresholds and `app.resolve_grid_item_props(...)` for G1 metadata resolution. The schema is frozen in `responsive-grid-contract.md`. The implementation does not claim native Grid geometry or automatic runtime resize; those are later gates. Added behavioral receipts for default/custom settings, invalid rejection and isolation in `tests/test_grid_contract.py`, census inventory entries in `tests/certification/public_behavior_census.py`, explicit routing in `scripts/ci/impact.py` and routing regressions in `tests/test_ci_impact.py`.
+
+**Do not declare G1 CLOSED** until the final code SHA passes required CI, Grid/GridItem scoped receipts are complete, and C1–C4 acceptance is reviewed against current evidence. If a newer commit cancels the product run, rerun the relevant code-SHA workflow; a docs-only green run is not product certification.
+
 ## Immediate next actions for the incoming agent
 
 1. Inspect current branch HEAD, PR #16, latest Actions and the approved contract. Preserve C4's certified source/checkout SHA distinction.
