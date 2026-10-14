@@ -574,3 +574,25 @@ mod grid_constraint_tests {
         }
     }
 }
+
+
+#[cfg(test)]
+mod invalid_grid_constraints_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn invalid_min_max_rejects_without_reallocating_rows() {
+        let slots = [GridSlot { id: "a".into(), span: Some(12), offset: 0, order: 0 }];
+        let heights = HashMap::from([("a".to_owned(), 10.0)]);
+        for invalid in [
+            GridItemConstraints { min_width: -1.0, ..Default::default() },
+            GridItemConstraints { min_width: f64::INFINITY, ..Default::default() },
+            GridItemConstraints { min_width: 40_000_000.0, ..Default::default() },
+            GridItemConstraints { min_height: 11.0, max_height: Some(10.0), ..Default::default() },
+        ] {
+            let limits = HashMap::from([("a".to_owned(), invalid)]);
+            assert!(compute_grid(&slots, 100.0, 0.0, 0.0, &heights, &limits, false).is_err());
+        }
+    }
+}
