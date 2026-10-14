@@ -327,7 +327,17 @@ def main() -> None:
             require_contract_components=tuple(args.require_contract_component))
         args.out.with_name(args.out.stem + "-final-report.json").write_text(
             json.dumps(report, indent=2) + "\n", encoding="utf-8")
-        print(json.dumps(report, sort_keys=True))
+        if args.require_contract_component:
+            # Preserve full global audit in JSON, but emit the *requested*
+            # scoped acceptance result instead of unrelated historic gaps.
+            print(json.dumps({"certificate": "scoped_public_contract",
+                              "sha": report["sha"],
+                              "contract_scope": report["contract_scope"],
+                              "global_inventory_artifact":
+                                  args.out.with_name(args.out.stem + "-final-report.json").name},
+                             sort_keys=True))
+        else:
+            print(json.dumps(report, sort_keys=True))
     elif args.junit:
         if not args.sha or not args.environment:
             parser.error("--junit requires --sha and --environment")
