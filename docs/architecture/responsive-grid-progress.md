@@ -142,3 +142,7 @@ Added `psx/sfle/grid_native_plan.py` to convert the existing Cinnamon constraine
 Functional tests: `tests/sfle/test_grid_native_plan.py` covers placement, RTL, min-size overflow, identity mismatch, stale generations, duplicate and forged geometry. `scripts/ci/impact.py` routes the new production module and tests to SFLE, core, Headless, Qt, Kivy and Tkinter; `tests/test_ci_impact.py` asserts that route.
 
 **Not yet supported:** actual Grid/GridItem widget mounting, real toolkit measurement, native placement/readback, lifecycle updates or public geometry receipts. Existing fail-closed Grid mounting guards remain in place until each renderer has end-to-end certified integration. No new public props/events/methods/interactions in this internal increment, so the G1 public census is unchanged. G3 is IN PROGRESS.
+
+### G3 preflight audit correction
+
+The placement batch now retains **both** the allocated border-box width/height and the min/max-constrained used width/height, as well as overflow flags. Native adapters must use the allocated origin for stable sibling placement while explicitly deciding and certifying the actual used widget dimensions, including clipping/overflow policy. Regression tests cover min and max constraints and fractional fixed-point coordinates. **This is not yet a native geometry commit or readback certification.**
