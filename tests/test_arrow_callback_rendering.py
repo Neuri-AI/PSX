@@ -54,7 +54,14 @@ class ArrowCallbacksTests(unittest.TestCase):
     def test_headless_event_dispatch_and_rebind(self):
         calls = []
         view, _ = compiled('<Button label="Save" on_click={() => handler()} />')
-        renderer = HeadlessRenderer()
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+        renderer = HeadlessRenderer(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(640, True), AvailableSize(480, True)),
+            engine=PythonLayoutEngine(),
+            measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+        )
         reconciler = Reconciler(renderer)
         mounted = reconciler.render(view(lambda: calls.append("old")))
         mounted.handle.events["on_click"].invoke()
