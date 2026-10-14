@@ -666,7 +666,7 @@ class KivyRenderer:
     def _adapter_create(self, node: VNode, parent: object | None) -> KivyHandle:
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             raise RendererCapabilityError(
-                f"{node.type} requires a Cinnamon Grid layout backend; "
+                f"{node.type} requires an SFLE Grid layout backend; "
                 "Kivy Grid mounting is not implemented.")
         if node.kind is NodeKind.HOST and node.type == "Flex":
             raise RendererCapabilityError(
