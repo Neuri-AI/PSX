@@ -75,8 +75,8 @@ class MarkupM4ATests(unittest.TestCase):
         tree = psx('<Flex direction="column" gap="16px"><Text value="Hello" /></Flex>')
         self.assertEqual(tree.props["gap"], "16px")
 
-    def test_braced_numeric_literals_are_safe_static_attribute_values(self) -> None:
-        tree = psx('<Flex direction="column" padding={50} gap={12}><Text value="Ready" /></Flex>')
+    def test_quoted_numeric_literals_are_safe_static_attribute_values(self) -> None:
+        tree = psx('<Flex direction="column" padding="50" gap="12"><Text value="Ready" /></Flex>')
         self.assertEqual(tree.props["padding"], 50)
         self.assertEqual(tree.props["gap"], 12)
 
