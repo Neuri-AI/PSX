@@ -217,15 +217,16 @@ def test_component_boundaries_participate_in_native_grid(request):
 
 def test_composite_grid_item_fails_closed_without_false_native_receipt(request):
     """G4 composite measurement must not be guessed or delegated to toolkits."""
-    from psx.sfle.grid_math import GridPackingError
+    from psx import Flex
+    from psx.core.errors import RendererCapabilityError
     backend = os.environ["PSX_GRID_BACKEND"]
     binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
         "tkinter" if backend == "tk" else "kivy")
     renderer, close = make_renderer(backend)
     tree = Reconciler(renderer)
     try:
-        with pytest.raises(GridPackingError, match="one mounted leaf|Composite GridItem"):
-            tree.render(Grid(GridItem(Text("a"), Text("b"))))
+        with pytest.raises(RendererCapabilityError, match="Flex requires"):
+            tree.render(Grid(GridItem(Flex(Text("a"), Text("b")))))
         assert getattr(renderer, "grid_result", None) is None
         assert_feature(request, Feature(
             "GridItem", binding, "interaction", "composite_content",
