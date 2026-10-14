@@ -350,10 +350,20 @@ def main() -> None:
                                           indent=2) + "\n", encoding="utf-8")
         if args.require_complete and not report["complete"]:
             raise ValueError(f"Public behavior coverage incomplete: {report}")
-        print(json.dumps(report, sort_keys=True))
+        # Per-backend collection is an evidence producer, not a global release gate.
+        # Keep the complete coverage report in the receipts manifest.
+        print(json.dumps({"certificate": "receipt_collection",
+                          "sha": report["sha"],
+                          "executed_pass": report["executed_pass"],
+                          "failed": report["failed"],
+                          "receipt_manifest": report_path.name}, sort_keys=True))
     else:
-        print(json.dumps({"public_behavior_rows": len(rows), "pending": len(rows),
-                          "by_backend": dict(sorted(counts.items()))}))
+        # Inventory generation must not imply that every unexecuted cell is a
+        # failure of the incremental capability under test.
+        print(json.dumps({"certificate": "inventory_generated",
+                          "public_behavior_rows": len(rows),
+                          "by_backend": dict(sorted(counts.items()))},
+                         sort_keys=True))
 
 
 if __name__ == "__main__":
