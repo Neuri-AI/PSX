@@ -115,6 +115,35 @@ def view():
         self.assertIn("Unknown lexical identifier 'unknown'", str(error.exception))
         self.assertIn("conditional_view.py", str(error.exception))
 
+    def test_not_equal_python_comparison_in_conditional(self):
+        namespace, _ = _view("""
+from psx import psx
+def view(status):
+    return psx('<Flex>{status != "ready" && <Text value="Waiting" />}</Flex>')
+""")
+        self.assertEqual(len(namespace["view"]("ready").children), 0)
+        self.assertEqual(namespace["view"]("pending").children[0].props["value"], "Waiting")
+
+    def test_nested_widget_inside_text_only_content_is_rejected(self):
+        namespace, _ = _view("""
+from psx import psx
+def view(visible):
+    return psx('<Flex>{visible && <Text><Button label="Invalid" /></Text>}</Flex>')
+""")
+        with self.assertRaisesRegex(MarkupSyntaxError, "textual content"):
+            namespace["view"](True)
+
+    def test_future_map_and_arrow_lowering_are_not_silently_enabled(self):
+        sources = (
+            '<Flex>{visible && items.map((item) => <Text key={item.id} />)}</Flex>',
+            '<Flex>{visible && <Button on_click={() => save()} />}</Flex>',
+        )
+        for markup in sources:
+            with self.subTest(markup=markup):
+                module = "from psx import psx\\ndef view(visible, items=None):\\n    return psx(" + repr(markup) + ")\\n"
+                with self.assertRaises(MarkupSyntaxError):
+                    transform_source(module, filename="future_syntax.py")
+
     def test_explicit_scope_m4a_remains_unchanged(self):
         with self.assertRaises(MarkupSyntaxError):
             psx('<Flex>{enabled && <Text value="X" />}</Flex>',
