@@ -162,7 +162,7 @@ def test_grid_requires_explicit_scroll_flex_content(request):
     renderer, close = make_renderer(backend)
     tree = Reconciler(renderer)
     try:
-        with pytest.raises(RendererCapabilityError, match="Nested Grid"):
+        with pytest.raises(RendererCapabilityError, match="explicit Flex content root"):
             tree.render(Scroll(view(), height=200))
         assert getattr(renderer, "grid_result", None) is None
         assert_feature(request, Feature("Grid", binding, "interaction",
