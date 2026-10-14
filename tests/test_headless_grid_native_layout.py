@@ -393,3 +393,35 @@ def test_mixed_headless_grid_siblings_keyed_reorder_preserves_handles(request):
             "reorder_identity_readback", applicability="partial_native"), True)
     finally:
         reconciler.unmount()
+
+
+def test_grid_flex_grid_nested_reflow_and_stale_generation_recovery(request):
+    """Cinnamon must own all three layout levels, including Headless Flex."""
+    from psx import Flex
+    renderer = make_renderer()
+    reconciler = Reconciler(renderer)
+    scene = Grid(
+        GridItem(Flex(
+            Grid(
+                GridItem(Text("a"), key="a", span={"base": 12, "md": 6}),
+                GridItem(Text("b"), key="b", span={"base": 12, "md": 6}),
+                gap=4,
+            ), direction="column", width="100%", align_items="stretch",
+        ), key="outer", span=12),
+        gap=4,
+    )
+    try:
+        mounted = reconciler.render(scene)
+        nested = mounted.children[0].children[0].children[0]
+        first = nested.children[0].handle
+        assert first.geometry.width == 398
+        renderer.set_sfle_constraints(viewport(767))
+        renderer.commit_layout(mounted)
+        assert nested.children[0].handle is first
+        assert first.geometry.width == 767
+        assert renderer.grid_result[1].max_readback_error == 0
+        assert_feature(request, Feature(
+            "Grid", "headless", "interaction", "grid_flex_grid",
+            "nested_reflow_identity", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
