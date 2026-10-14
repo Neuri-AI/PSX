@@ -152,6 +152,25 @@ class ExpressiveGrammarTests(unittest.TestCase):
                 with self.assertRaises(MarkupSyntaxError):
                     parse_expressive_expression(source)
 
+    def test_parsed_jsx_rejects_braced_literals_and_unkeyed_map(self):
+        for source in ('<Flex gap={12} />', '<Text value={"static"} />',
+                       'items.map((item) => <Text />)'):
+            with self.subTest(source=source):
+                with self.assertRaises(MarkupSyntaxError):
+                    parse_expressive_expression(source)
+
+    def test_parsed_keyed_map_supports_nested_ternary_body(self):
+        tree = parse_expressive_expression(
+            "items.map((item) => item.ready ? <Text key={item.id} /> : <Button key={item.id} />)"
+        )
+        self.assertIsInstance(tree, Map)
+        self.assertIsInstance(tree.callback.body, Ternary)
+
+    def test_parsed_escaped_string_does_not_execute_python(self):
+        tree = parse_expressive_expression('name == "hello\\nworld"')
+        self.assertIsInstance(tree, Compare)
+        self.assertEqual(tree.right.value, "hello\nworld")
+
     def test_parsed_source_positions(self):
         node = parse_expressive_expression("ready ?\n  <Text /> : <Button />",
                                           filename="screen.psx", line=12, column=5)
