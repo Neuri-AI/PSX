@@ -98,3 +98,10 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Discrepancies:** `psx.markup` and `psx.renderers` have their own `__all__`; package-root exports alone did not cover those. Builtin registry includes `Box` (internal) not in `psx.__all__`. `psx.core.errors` contains exception types not necessarily re-exported by the root, including `DuplicateComponentError` and `UnknownComponentError`. Optional Qyro integration exports must be reviewed without assuming they are part of the new ecosystem integration milestone.
 - **Status:** **G1 IN PROGRESS**, no claim of full G1 closure or native certification; PR branch not canonical until merged.
 - **Next three steps:** (1) audit remaining public submodules not exposing `__all__` with accurate test mappings; (2) execute and verify workflow on immutable PR SHA and address failures; (3) assemble source-to-test/native backend evidence and only then request G1 certification.
+
+
+### 2026-10-14 — F5.5-G1 — executable audit correction
+- **RED CI receipt:** [Actions #38635440815](https://github.com/Neuri-AI/PSX/actions/runs/38635440815) failed two precise source-tracing assertions: `psx.Fragment` is a callable instance whose source belongs to its class; `PLUGIN_ENTRY_POINT_GROUP` is a scalar constant lacking Python inspect source location.
+- **Cause and correction:** introspection now dereferences callable instances to their defining classes; scalar constants remain legitimate API exports but source location is not invented. Corrected on `9d240c7fd407ce69dbc959594d1d542f54c25eca` and `f4ee62077ed53ce8914975c1ade7cfa023d64e5b`.
+- **Re-execution:** [Actions #38635580750](https://github.com/Neuri-AI/PSX/actions/runs/38635580750) queued on `f4ee62077ed53ce8914975c1ade7cfa023d64e5b` at inspection; **not yet a GREEN certification**.
+- **Remaining G1 blockers:** public submodules without `__all__` not fully covered; per-symbol behavioral test receipts and supported native renderer cells remain outstanding.
