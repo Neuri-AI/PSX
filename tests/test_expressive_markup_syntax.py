@@ -76,6 +76,39 @@ class ExpressiveGrammarTests(unittest.TestCase):
             psx("<Text value={items.map((item) => item)} />",
                 scope={"items": [1, 2]})
 
+    def test_braced_literal_number_is_rejected_in_markup_attributes(self):
+        for declaration in ('<Flex gap={12} />', '<Flex gap={0.5} />'):
+            with self.subTest(declaration=declaration):
+                with self.assertRaisesRegex(
+                    MarkupSyntaxError, "Braces are reserved for references"
+                ):
+                    psx(declaration, filename="literal.psx")
+
+    def test_quoted_numeric_literal_is_coerced_by_existing_schema(self):
+        tree = psx('<Flex gap="12" padding="50"><Text value="Ready" /></Flex>')
+        self.assertEqual(tree.props["gap"], 12)
+        self.assertEqual(tree.props["padding"], 50)
+
+    def test_defined_reference_can_resolve_numeric_attribute(self):
+        tree = psx('<Flex gap={spacing} />', scope={"spacing": 12})
+        self.assertEqual(tree.props["gap"], 12)
+
+    def test_undefined_reference_has_precise_source_diagnostic(self):
+        with self.assertRaises(MarkupSyntaxError) as error:
+            psx('<Flex gap={missing_spacing} />', filename="unknown.psx")
+        self.assertEqual(error.exception.filename, "unknown.psx")
+        self.assertIn("Unknown identifier 'missing_spacing'", str(error.exception))
+
+    def test_braces_do_not_evaluate_undefined_lexical_identifier(self):
+        source = (
+            "from psx import psx\\n"
+            "def view():\\n"
+            "    return psx('<Flex gap={unknown_local} />')\\n"
+        )
+        result = transform_source(source, filename="unknown_local.py")
+        self.assertEqual(result.transformed_calls, 1)
+        self.assertIn("unknown_local", result.source)
+
     def test_existing_static_lexical_pipeline_is_untouched(self):
         result = transform_source(
             "from psx import psx\ndef view():\n    return psx('<Text value={title} />')\n",
