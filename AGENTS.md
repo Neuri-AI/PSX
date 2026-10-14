@@ -20,6 +20,23 @@ Put optional traceability labels (`Phase: F3`, `Gate: G2`, `Block: C3`) in the c
 
 Retain selective CI and exact-SHA certification requirements. A docs-only update must not trigger product tests. Do not claim a workflow's skipped tests are executed evidence. Do not mark a gate CLOSED without its full evidence.
 
+## New capability acceptance: functional tests + CI routing + public census
+
+**Mandatory from F4 onward:** every newly implemented capability must include
+(1) behavior-specific functional tests, (2) correct impacted-backend and
+dependency routing in `scripts/ci/impact.py` with selector tests in
+`tests/test_ci_impact.py`, and (3) executed public-behavior census cases and
+receipts whenever public props, events, methods or interactions are added.
+
+No capability is complete if one applicable part is missing. Do not treat
+skipped tests, documentation references or unrelated tests as executed evidence.
+Explicitly justify census N/A for changes with no new public behavior.
+Documentation-only diffs continue to select ZERO product tests.
+
+**Read and follow**
+[Capability certification policy](docs/architecture/capability-certification-policy.md)
+before implementing or reviewing any new F4+ capability.
+
 ## Runtime versus certification code
 
 Read [Runtime and certification module boundaries](docs/architecture/runtime-certification-boundaries.md) before adding or moving modules. Keep test-only contracts, evidence matrices, oracles and JUnit validators under `tests/certification/`, not `psx/`. Preserve actual runtime adapters. Never add new `f*_g*_...receipts`, `...matrix`, `...evidence` or `...contracts` modules to production. CI enforces a finite legacy exception list; do not extend it.
