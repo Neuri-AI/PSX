@@ -195,3 +195,17 @@ def test_grid_cross_axis_rejects_accumulated_vertical_overflow():
     rows = pack_grid_rows([GridSlot("a", 12), GridSlot("b", 12)])
     with pytest.raises(GridPackingError, match="vertical geometry"):
         layout_grid_rects(rows, 100, 0, 10, {"a": 20_000_000, "b": 20_000_000})
+
+
+def test_grid_fixed_point_maximum_is_not_silently_clamped():
+    from psx.sfle.grid_math import project_grid_rows, layout_grid_rects
+    limit = 2_147_483_647 / 64
+    rows = pack_grid_rows([GridSlot("a", 12)])
+    assert project_grid_rows(rows, limit)[0].items[0].width_raw == 2_147_483_647
+    assert layout_grid_rects(
+        rows, 100, 0, 0, {"a": limit}
+    )[0][0].height_raw == 2_147_483_647
+    with pytest.raises(GridPackingError):
+        project_grid_rows(rows, limit + 1 / 64)
+    with pytest.raises(GridPackingError):
+        layout_grid_rects(rows, 100, 0, 0, {"a": limit + 1 / 64})
