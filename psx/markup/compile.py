@@ -189,6 +189,7 @@ def _element(
         definition = ComponentDefinition(element.name, candidate)
     constructor = definition.constructor
     key = props.pop("key", None)
+    props = _coerce_props(definition, props, filename, element.span)
     contract = definition.contract
     if contract is not None and contract.child_policy == "none-or-single":
         meaningful = _meaningful_children(element.children)
@@ -199,7 +200,6 @@ def _element(
                 element.span,
             )
         children = _nodes(meaningful, scope, resolver, filename, lexical=lexical)
-        props = _coerce_props(definition, props, filename, element.span)
         return constructor(*children, key=key, **props)
     if contract is not None and contract.content_property is not None:
         property_name = contract.content_property
@@ -221,7 +221,6 @@ def _element(
     if contract is not None and contract.child_policy == "none" and element.children:
         _error(f"{definition.name} does not accept child content; use its props instead", filename, element.span)
     children = _nodes(element.children, scope, resolver, filename, lexical=lexical)
-    props = _coerce_props(definition, props, filename, element.span)
     return constructor(*children, key=key, **props)
 
 
