@@ -151,3 +151,123 @@ mod tests {
         assert!(pack_grid_rows(&[invalid]).is_err());
     }
 }
+
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GridPixelItem {
+    pub id: String,
+    /// Horizontal origin in signed 1/64px units.
+    pub x_raw: i32,
+    pub width_raw: i32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GridPixelRow { pub items: Vec<GridPixelItem> }
+
+/// Deterministically project twelve-column units to physical LTR edges.
+/// One gutter is inserted per adjacent pair of actual widgets. A logical
+/// empty offset does not acquire an extra gap.
+pub fn project_grid_rows(
+    rows: &[PackedGridRow],
+    content_width: f64,
+    column_gap: f64,
+) -> Result<Vec<GridPixelRow>, GridPackingError> {
+    use crate::layout_unit::LayoutUnit;
+    if !content_width.is_finite() || content_width < 0.0 ||
+        !column_gap.is_finite() || column_gap < 0.0 {
+        return Err(GridPackingError::InvalidInput("Invalid Grid content width or gap"));
+    }
+    let width = LayoutUnit::from_nearest(content_width)
+        .map_err(|_| GridPackingError::InvalidInput("Invalid Grid width"))?.raw() as i64;
+    let gap = LayoutUnit::from_nearest(column_gap)
+        .map_err(|_| GridPackingError::InvalidInput("Invalid Grid gap"))?.raw() as i64;
+    let mut result = Vec::with_capacity(rows.len());
+    for row in rows {
+        let count = row.items.len();
+        if count == 0 {
+            result.push(GridPixelRow { items: vec![] });
+            continue;
+        }
+        let gaps = (count as i64 - 1) * gap;
+        if gaps > width {
+            return Err(GridPackingError::InvalidInput("Grid gaps exceed content width"));
+        }
+        let usable = width - gaps;
+        let mut boxes = Vec::with_capacity(count);
+        let mut previous_end = 0_i64;
+        for (index, item) in row.items.iter().enumerate() {
+            if !item.start.is_finite() || !item.span.is_finite() ||
+                item.start < 0.0 || item.span <= 0.0 ||
+                item.start + item.span > 12.0 + 1e-9 {
+                return Err(GridPackingError::InvalidInput("Grid logical extent outside row"));
+            }
+            // Quantize logical values at one-billionth of a column before
+            // projecting, mirroring the Python implementation's shared origin.
+            let first = (item.start * 1_000_000_000.0).round() as i128;
+            let last = ((item.start + item.span) * 1_000_000_000.0).round() as i128;
+            let denom = 12_000_000_000_i128;
+            let start = ((2 * first * usable as i128 + denom) / (2 * denom)) as i64;
+            let end = ((2 * last * usable as i128 + denom) / (2 * denom)) as i64;
+            let x = start + index as i64 * gap;
+            let right = end + index as i64 * gap;
+            if x < previous_end || right < x || x > i32::MAX as i64 ||
+               right > i32::MAX as i64 {
+                return Err(GridPackingError::InvalidInput("Grid projected edges invalid"));
+            }
+            boxes.push(GridPixelItem {
+                id: item.id.clone(), x_raw: x as i32,
+                width_raw: (right - x) as i32,
+            });
+            previous_end = right;
+        }
+        result.push(GridPixelRow { items: boxes });
+    }
+    Ok(result)
+}
+
+#[cfg(test)]
+mod pixel_projection_tests {
+    use super::*;
+    use serde_json::Value;
+
+    #[test]
+    fn shared_pixel_edge_fixtures() {
+        let fixtures: Value = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/grid_pixel_projection.json"
+        )).unwrap();
+        assert_eq!(fixtures["schema_version"], 1);
+        for fixture in fixtures["cases"].as_array().unwrap() {
+            let name = fixture["name"].as_str().unwrap();
+            let slots: Vec<GridSlot> = fixture["items"].as_array().unwrap().iter().map(|item| {
+                GridSlot {
+                    id: item["id"].as_str().unwrap().to_string(),
+                    span: if item["span"] == "auto" || item["span"].is_null() {
+                        None
+                    } else { Some(item["span"].as_u64().unwrap() as u8) },
+                    offset: item["offset"].as_u64().unwrap_or(0) as u8,
+                    order: item["order"].as_i64().unwrap_or(0) as i32,
+                }
+            }).collect();
+            let rows = pack_grid_rows(&slots).unwrap();
+            let outcome = project_grid_rows(
+                &rows,
+                fixture["width"].as_f64().unwrap(),
+                fixture["gap"].as_f64().unwrap(),
+            );
+            if fixture["error"] == "invalid" {
+                assert!(outcome.is_err(), "{name} should reject impossible gutters");
+                continue;
+            }
+            let computed = outcome.unwrap_or_else(|err| panic!("{name}: {err:?}"));
+            let expected = fixture["rows"].as_array().unwrap();
+            assert_eq!(computed.len(), expected.len(), "{name}");
+            for (row, targets) in computed.iter().zip(expected) {
+                for (box_, target) in row.items.iter().zip(targets.as_array().unwrap()) {
+                    assert_eq!(box_.id, target["id"].as_str().unwrap(), "{name}");
+                    assert_eq!(box_.x_raw, target["x_raw"].as_i64().unwrap() as i32, "{name}");
+                    assert_eq!(box_.width_raw, target["width_raw"].as_i64().unwrap() as i32, "{name}");
+                }
+            }
+        }
+    }
+}
