@@ -113,3 +113,47 @@ def normalize_grid_item_props(props: Mapping[str, object]) -> Mapping[str, objec
             raise RendererCapabilityError(
                 f"GridItem span + offset exceeds 12 columns at {breakpoint}.")
     return MappingProxyType(values)
+
+
+def validate_grid_breakpoints(breakpoints: Mapping[str, object]) -> Mapping[str, int]:
+    """Validate an ordered, complete application-level breakpoint table."""
+    if not isinstance(breakpoints, Mapping) or set(breakpoints) != _BREAKPOINT_NAMES:
+        raise RendererCapabilityError(
+            "Grid breakpoints require exactly base, sm, md, lg and xl.")
+    ordered: dict[str, int] = {}
+    previous = -1
+    for name in GRID_BREAKPOINTS:
+        value = breakpoints[name]
+        if type(value) is not int or value < 0 or (name == "base" and value != 0):
+            raise RendererCapabilityError(
+                f"Grid breakpoint {name} must be a nonnegative integer; base must be zero.")
+        if value <= previous:
+            raise RendererCapabilityError("Grid breakpoints must be strictly increasing.")
+        ordered[name] = value
+        previous = value
+    return MappingProxyType(ordered)
+
+
+def resolve_grid_item_props(
+    props: Mapping[str, object],
+    content_width: int | float,
+    *,
+    breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
+) -> Mapping[str, object]:
+    """Resolve validated metadata at a definite Grid content width, without layout.
+
+    The caller supplies the Grid content-box width, never window width.
+    Geometry, DPI invalidation and native updates belong to later gates.
+    """
+    if isinstance(content_width, bool) or not isinstance(content_width, (int, float)):
+        raise RendererCapabilityError("Grid content width must be a finite nonnegative number.")
+    if not math.isfinite(content_width) or content_width < 0:
+        raise RendererCapabilityError("Grid content width must be a finite nonnegative number.")
+    thresholds = validate_grid_breakpoints(breakpoints)
+    values = normalize_grid_item_props(props)
+    active = next(name for name in reversed(thresholds)
+                  if content_width >= thresholds[name])
+    return MappingProxyType({
+        "span": _at_breakpoint(values["span"], active),
+        "offset": _at_breakpoint(values["offset"], active),
+    })
