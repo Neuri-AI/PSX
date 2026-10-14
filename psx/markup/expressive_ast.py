@@ -6,7 +6,6 @@ source-spanned syntax tree only; executable lowering belongs to later gates.
 
 from __future__ import annotations
 
-import ast as python_ast
 from dataclasses import dataclass
 
 from psx.core.errors import MarkupSyntaxError
@@ -223,8 +222,8 @@ class ExpressiveParser:
                 self.pos += 1
             raw = self.source[start:self.pos]
             try:
-                value = python_ast.literal_eval(raw)
-            except (SyntaxError, ValueError):
+                value = float(raw) if '.' in raw else int(raw)
+            except ValueError:
                 self.error("Invalid numeric expression literal", start)
             return Literal(value, self.location(start))
         name = self.identifier()
@@ -263,19 +262,25 @@ class ExpressiveParser:
         start = self.pos
         quote = self.source[self.pos]
         self.pos += 1
+        chars: list[str] = []
+        escapes = {"n": "\n", "r": "\r", "t": "\t", "\\": "\\", quote: quote}
         while self.pos < len(self.source):
             char = self.source[self.pos]
-            if char == "\\":
-                self.pos += 2
-                continue
             self.pos += 1
             if char == quote:
-                raw = self.source[start:self.pos]
-                try:
-                    parsed = python_ast.literal_eval(raw)
-                except (SyntaxError, ValueError):
-                    self.error("Invalid string literal", start)
-                return Literal(parsed, self.location(start))
+                return Literal("".join(chars), self.location(start))
+            if char == "\\":
+                if self.pos >= len(self.source):
+                    self.error("Unterminated string escape", start)
+                escaped = self.source[self.pos]
+                self.pos += 1
+                if escaped not in escapes:
+                    self.error("Unsupported string escape sequence", self.pos - 2)
+                chars.append(escapes[escaped])
+            else:
+                if char == "\n":
+                    self.error("Unescaped newline in string literal", self.pos - 1)
+                chars.append(char)
         self.error("Unterminated quoted string", start)
 
     def jsx(self) -> Expression:
