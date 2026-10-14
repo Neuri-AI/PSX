@@ -1,0 +1,111 @@
+name: Grid integral certification
+on:
+  push:
+    branches: [feature/grid-native-renderer-integration]
+    paths-ignore: ["docs/**", "**/*.md"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: grid-integral-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native-ui:
+    name: Grid live UI + public contracts (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      QT_QPA_PLATFORM: offscreen
+      KIVY_NO_ARGS: "1"
+      KIVY_NO_CONSOLELOG: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install live toolkit dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth python3-tk libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libmtdev1 libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-ttf-2.0-0
+          python -m pip install -e '.[qt,kivy]' pytest
+      - name: Live Grid and existing F3 regressions
+        run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py tests/test_headless_grid_native_layout.py tests/sfle/test_grid_native_commit.py tests/sfle/test_grid_native_measurement.py tests/sfle/test_grid_tree_measurement.py tests/ui/test_sfle_real_toolkit_geometry.py
+      - name: Public API and impact selectors
+        run: python -m pytest -q tests/test_public_behavior_census.py tests/test_ci_impact.py
+  rust-python:
+    name: Rust Python differential and Grid
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python -m pip install -e . pytest
+      - run: cargo test --manifest-path rust/sfle-core/Cargo.toml --all-targets --no-fail-fast
+      - run: python -m pytest -q tests/interop/test_sfle_differential.py tests/interop/test_sfle_final_certification.py tests/interop/test_sfle_capability_parity.py tests/interop/test_sfle_negative_fuzz_regression.py tests/sfle/test_grid_math.py
+  chromium:
+    name: Chromium reference overlap
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python -m pip install -e . pytest playwright==1.63.0
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m pytest -q tests/browser/test_sfle_chromium_version.py tests/browser/test_sfle_chromium.py tests/browser/test_sfle_engine_chromium.py tests/browser/test_sfle_css_reference_matrix.py tests/browser/test_sfle_rtl_regression.py tests/browser/test_sfle_wrap_fixed_regression.py
+  native-platform:
+    name: Native wheel and frozen ABI ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, macos-15-intel, macos-15]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python -m pip install -e . pytest "maturin>=1.8,<2" "pyinstaller>=6.9"
+      - run: |
+          maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
+          python -m pip install --no-deps --find-links wheelhouse "psx-sfle-native==0.1.0"
+          python -c "import _sfle_native as native; assert native.schema_version()==1"
+      - run: python -m pytest -q tests/interop/test_sfle_native_wheel.py tests/sfle/test_native_selector_regression.py tests/sfle/test_missing_native_fallback_regression.py
+      - run: |
+          pyinstaller --noconfirm --clean --onefile --name sfle-native-probe --hidden-import _sfle_native --distpath dist-native --workpath build-native tests/interop/sfle_frozen_probe.py
+          EXT=""
+          if [[ "${{ runner.os }}" == "Windows" ]]; then EXT=".exe"; fi
+          "./dist-native/sfle-native-probe${EXT}" rust
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integral-native-wheel-${{ matrix.os }}
+          path: wheelhouse/*.whl
+          if-no-files-found: warn
+  required:
+    name: Grid integral required conclusion
+    if: always()
+    needs: [native-ui, rust-python, chromium, native-platform]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All integral domains must have executed and succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python - <<'PY'
+          import json, os
+          results = json.loads(os.environ["RESULTS"])
+          print(json.dumps(results, indent=2))
+          assert set(results) == {"native-ui", "rust-python", "chromium", "native-platform"}
+          assert all(v["result"] == "success" for v in results.values())
+          PY
