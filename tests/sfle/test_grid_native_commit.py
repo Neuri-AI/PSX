@@ -132,3 +132,53 @@ def test_kivy_real_widget_geometry_projection_and_readback():
     assert receipt.max_readback_error == 0
     assert widgets["a"].pos == [0, 80]
     assert widgets["b"].pos == [40, 60]
+
+
+def test_headless_readback_corruption_restores_all_previous_rectangles():
+    class CorruptWidget:
+        def __init__(self):
+            self._geometry = Rect(1, 2, 3, 4)
+            self.written = False
+
+        @property
+        def geometry(self):
+            if self.written:
+                return Rect(999, 999, 10, 10)
+            return self._geometry
+
+        @geometry.setter
+        def geometry(self, value):
+            self._geometry = value
+            self.written = value != Rect(1, 2, 3, 4)
+
+    widgets = {"a": HeadlessWidget(Rect(1, 2, 3, 4)), "b": CorruptWidget()}
+    with pytest.raises(SFLEError, match="readback"):
+        commit((placement("a", 0, 0), placement("b", 40, 0)), widgets)
+    assert widgets["a"].geometry == Rect(1, 2, 3, 4)
+    assert widgets["b"].geometry == Rect(1, 2, 3, 4)
+
+
+def test_headless_uninitialized_geometry_is_restored_to_none_on_failure():
+    state = {"generation": 3}
+    class InvalidatingWidget:
+        def __init__(self):
+            self._geometry = None
+            self.once = True
+
+        @property
+        def geometry(self):
+            return self._geometry
+
+        @geometry.setter
+        def geometry(self, value):
+            self._geometry = value
+            if self.once:
+                self.once = False
+                state["generation"] = 4
+
+    widgets = {"a": InvalidatingWidget(), "b": HeadlessWidget()}
+    with pytest.raises(SFLEError):
+        commit((placement("a", 0, 0), placement("b", 40, 0)), widgets,
+               current_generation=lambda: state["generation"])
+    assert widgets["a"].geometry is None
+    assert widgets["b"].geometry is None
