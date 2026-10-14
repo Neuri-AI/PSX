@@ -79,6 +79,16 @@ def inventory() -> tuple[Feature, ...]:
                                  "invalid_children"):
                     rows.append(Feature(component, CONTRACT, "public_api",
                                         "declaration", scenario, applicability="shared"))
+            if component == "Grid":
+                for scenario in ("canonical_pixel_grammar", "axis_gap_inheritance",
+                                 "invalid_primary_gap"):
+                    rows.append(Feature(component, CONTRACT, "interaction",
+                                        "gap_normalization", scenario, applicability="shared"))
+            elif component == "GridItem":
+                for scenario in ("breakpoint_inheritance", "responsive_overflow_rejection",
+                                 "responsive_valid_combination"):
+                    rows.append(Feature(component, CONTRACT, "interaction",
+                                        "span_offset", scenario, applicability="shared"))
             for prop in sorted(props):
                 for scenario in PROPERTY_SCENARIOS:
                     rows.append(Feature(component, CONTRACT, "property", prop,
