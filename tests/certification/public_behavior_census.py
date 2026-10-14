@@ -298,7 +298,7 @@ def main() -> None:
             rows, tuple(args.receipt_file), sha=args.sha,
             require_complete=args.require_complete)
         args.out.with_name(args.out.stem + "-final-report.json").write_text(
-            json.dumps(report, indent=2) + "\\n", encoding="utf-8")
+            json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, sort_keys=True))
     elif args.junit:
         if not args.sha or not args.environment:
