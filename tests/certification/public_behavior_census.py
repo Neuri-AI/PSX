@@ -116,6 +116,9 @@ def inventory() -> tuple[Feature, ...]:
                     rows.append(Feature("Grid", "headless", "interaction",
                                         name, scenario, applicability="partial_native"))
                 rows.append(Feature("Grid", "headless", "interaction",
+                                    "alternating_composition", "bounded_reflow_identity",
+                                    applicability="partial_native"))
+                rows.append(Feature("Grid", "headless", "interaction",
                                     "mixed_flex", "allocated_width_reflow",
                                     applicability="partial_native"))
                 rows.append(Feature("Grid", "headless", "interaction",
@@ -154,6 +157,9 @@ def inventory() -> tuple[Feature, ...]:
                                                ("mixed_transaction", "rollback_and_recovery")):
                             rows.append(Feature("Grid", native_backend, "interaction",
                                                 name, scenario, applicability="partial_native"))
+                        rows.append(Feature("Grid", native_backend, "interaction",
+                                            "alternating_composition", "bounded_reflow_identity",
+                                            applicability="partial_native"))
                         rows.append(Feature("Grid", native_backend, "interaction",
                                             "mixed_flex", "allocated_width_reflow",
                                             applicability="partial_native"))
