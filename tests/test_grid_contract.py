@@ -184,7 +184,8 @@ def test_public_grid_declaration_entry_points_are_executed(component, scenario, 
                           lambda: create_element(component, child, __invalid_grid_prop__=True)):
             with pytest.raises(RendererCapabilityError):
                 construct()
-        with pytest.raises((RendererCapabilityError, ValueError, TypeError)):
+        from psx.core.errors import MarkupSyntaxError
+        with pytest.raises((RendererCapabilityError, MarkupSyntaxError, ValueError, TypeError)):
             psx(markup.replace(f"<{component}>",
                                f"<{component} __invalid_grid_prop__={{True}}>"))
     elif scenario == "key_identity":
