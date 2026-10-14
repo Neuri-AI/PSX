@@ -1,4 +1,6 @@
 # Grid public contract — first G1 implementation handoff
+> **Historical first-increment instructions, not the current progress state.** For the actual F4/G1 increment ledger, last certified CI evidence, blockers and next action, read [`responsive-grid-progress.md`](responsive-grid-progress.md) **first**. Update that ledger at every increment closure. Do not restart C1 solely because this handoff begins with the first increment.
+
 
 **Continuity status (2026-10-14):** owner-approved F4 contract merged into `develop` by PR #15; the former documentation branch was deleted. G1 product implementation is in progress in `feature/responsive-grid-public-contract` (draft PR #16), and remains uncertified. This handoff is documentation only: do not claim a passing test or closure without same-SHA executed evidence.
 

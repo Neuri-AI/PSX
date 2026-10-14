@@ -242,3 +242,19 @@ def test_tk_password_and_placeholder_preserve_value(tk_tree, request):
                    widget.get() == "secret" and str(widget.cget("show")) == "*" and calls == [])
     assert_feature(request, Feature("Input", "tkinter", "interaction", "placeholder__value", "paired_native", applicability="native"),
                    widget.get() == "secret" and not widget._psx_hint_label.winfo_ismapped() and calls == [])
+
+
+@pytest.mark.parametrize("component", ("Grid", "GridItem"))
+def test_grid_mount_fails_before_native_widget_creation(tk_tree, request, component):
+    from psx import Grid, GridItem, Text
+    from psx.core.errors import RendererCapabilityError
+    from tests.certification.public_behavior_census import CONTRACT
+    node = Grid(GridItem(Text("x"))) if component == "Grid" else GridItem(Text("x"))
+    root, renderer, _ = tk_tree
+    before = tuple(root.winfo_children())
+    with pytest.raises(RendererCapabilityError, match=r"Native SFLE .* SFLE geometry not certified for .(?:Grid|GridItem)."):
+        renderer.create(node, None)
+    assert tuple(root.winfo_children()) == before, "Grid rejection allocated native Tk widgets"
+    assert_feature(request, Feature(component, CONTRACT, "interaction",
+                                    "unsupported_mount", "tkinter_fail_closed",
+                                    applicability="shared"), True)

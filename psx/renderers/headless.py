@@ -177,6 +177,10 @@ class HeadlessRenderer:
         return adapter.create(self, node, parent)  # type: ignore[return-value]
 
     def _adapter_create(self, node: VNode, parent: object | None) -> HeadlessHandle:
+        if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
+            raise RendererCapabilityError(
+                f"{node.type} requires an SFLE Grid layout backend; "
+                "Headless Grid mounting is not implemented.")
         if self._sfle_constraints is not None:
             if node.kind is NodeKind.NATIVE:
                 raise RendererCapabilityError(

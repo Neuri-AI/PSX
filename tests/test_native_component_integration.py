@@ -50,7 +50,7 @@ def test_native_acceptance_all_registry_backend_pairs_are_classified_without_pha
             elif cell.component in EXTERNAL:
                 assert cell.status == "external_port_required"
             elif cell.status == "unported":
-                assert backend == "headless", (backend, cell.component)
+                assert backend == "headless" or cell.component in {"Grid", "GridItem"}, (backend, cell.component)
                 assert cell.component not in native
             else:
                 assert cell.status == "native"

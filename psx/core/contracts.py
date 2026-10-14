@@ -57,7 +57,7 @@ class ComponentContract:
 
     def _validate(self, props: Mapping[str, object], *, builder: bool) -> None:
         validator = (self.builder_validator or self.validator) if builder else self.validator
-        if self.name == "Flex":
+        if self.name in ("Flex", "Grid", "GridItem"):
             # Legacy layouts keep their old contract until F3-G4 removal;
             # Flex validates its own closed syntax and shared item metadata.
             validator(props)
@@ -218,4 +218,21 @@ SPINBOX_CONTRACT = ComponentContract(
 SCROLL_CONTRACT = ComponentContract(
     "Scroll", SCROLL_PROPS, SCROLL_DEFAULTS,
     frozenset(), "multiple", validate_scroll_props,
+)
+
+
+# Grid public declarations are intentionally separate from the existing
+# Flex item metadata namespace; native mounting is not yet supported.
+from .grid_contract import (
+    GRID_PROPS, GRID_ITEM_PROPS, GRID_DEFAULTS, GRID_ITEM_DEFAULTS,
+    normalize_grid_props, normalize_grid_item_props,
+)
+
+GRID_CONTRACT = ComponentContract(
+    "Grid", GRID_PROPS, GRID_DEFAULTS, frozenset(),
+    "multiple", normalize_grid_props,
+)
+GRID_ITEM_CONTRACT = ComponentContract(
+    "GridItem", GRID_ITEM_PROPS, GRID_ITEM_DEFAULTS, frozenset(),
+    "single", normalize_grid_item_props,
 )

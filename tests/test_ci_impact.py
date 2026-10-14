@@ -8,6 +8,42 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_application_grid_settings_change_routes_all_native_consumers(self):
+        self.assertGreaterEqual(self.selected('psx/app.py'),
+                                {'core', 'qt', 'kivy', 'tkinter', 'headless'})
+        self.assertEqual(self.selected('tests/test_grid_contract.py'),
+                         {'core', 'qt', 'kivy', 'tkinter', 'headless'})
+        self.assertEqual(self.selected('docs/architecture/responsive-grid-contract.md'), set())
+
+    def test_grid_contract_code_and_tests_route_to_executable_core_suite(self):
+        self.assertGreaterEqual(
+            self.selected("psx/core/grid_contract.py"),
+            {"core", "headless", "qt", "kivy", "tkinter", "legacy"},
+        )
+        self.assertEqual(self.selected("tests/test_grid_contract.py"),
+                         {"core", "qt", "kivy", "tkinter", "headless"})
+        self.assertEqual(
+            self.selected("docs/architecture/responsive-grid-contract.md"),
+            set(),
+        )
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("tests/test_grid_contract.py", workflow)
+
+    def test_public_census_changes_require_all_evidence_producers(self):
+        expected = {"core", "qt", "kivy", "tkinter", "headless"}
+        for path in (
+            "tests/test_grid_contract.py",
+            "tests/test_public_behavior_census.py",
+            "tests/test_public_contract_census.py",
+            "tests/test_public_property_validation.py",
+            "tests/certification/public_behavior_census.py",
+            "tests/certification/public_property_cases.py",
+        ):
+            self.assertEqual(self.selected(path), expected)
+
     def test_documentation_only_has_zero_tests(self):
         result = classify(["docs/architecture/sfle-f3-implementation.md", "README.md"])
         self.assertTrue(result["docs_only"])
@@ -158,7 +194,8 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(self.selected("scripts/ci/impact.py"), {"router"})
 
     def test_native_layout_workflow_must_exercise_qt_family_matrix(self):
-        self.assertEqual(self.selected(".github/workflows/native-layout-selective.yml"), {"router", "qt"})
+        self.assertEqual(self.selected(".github/workflows/native-layout-selective.yml"),
+                         {"router", "core", "qt", "kivy", "tkinter", "headless"})
 
     def test_qt_layout_bridge_binding_parity_module_routes_to_qt_not_core(self):
         self.assertEqual(self.selected("tests/test_qt_native_component_lifecycle.py"), {"qt"})

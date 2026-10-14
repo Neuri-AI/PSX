@@ -69,10 +69,43 @@ def inventory() -> tuple[Feature, ...]:
         contract = definition.contract
         if contract is not None:
             props = set(contract.properties)
-            if component != "Flex":
+            if component not in ("Flex", "Grid", "GridItem"):
                 props.update(FLEX_ITEM_PROPS)
             rows.append(Feature(component, CONTRACT, "child_policy",
                                 contract.child_policy, "validate", applicability="shared"))
+            if component in ("Grid", "GridItem"):
+                for scenario in ("builder", "markup", "direct_element",
+                                 "registry", "invalid_property", "key_identity",
+                                 "invalid_children"):
+                    rows.append(Feature(component, CONTRACT, "public_api",
+                                        "declaration", scenario, applicability="shared"))
+            if component == "Grid":
+                for scenario in ("canonical_pixel_grammar", "axis_gap_inheritance",
+                                 "invalid_primary_gap"):
+                    rows.append(Feature(component, CONTRACT, "interaction",
+                                        "gap_normalization", scenario, applicability="shared"))
+            elif component == "GridItem":
+                for scenario in ("breakpoint_inheritance", "responsive_overflow_rejection",
+                                 "responsive_valid_combination"):
+                    rows.append(Feature(component, CONTRACT, "interaction",
+                                        "span_offset", scenario, applicability="shared"))
+            if component == "GridItem":
+                for scenario in ("inclusive_threshold", "custom_thresholds",
+                                 "inherited_values", "invalid_width",
+                                 "invalid_thresholds", "application_settings",
+                                 "application_settings_invalid",
+                                 "application_settings_isolated"):
+                    rows.append(Feature(component, CONTRACT, "interaction",
+                                        "responsive_resolution", scenario,
+                                        applicability="shared"))
+            if component in ("Grid", "GridItem"):
+                for scenario in ("headless_fail_closed", "pyside6_fail_closed",
+                                 "pyqt6_fail_closed", "pyqt5_fail_closed",
+                                 "pyside2_fail_closed", "tkinter_fail_closed",
+                                 "kivy_fail_closed"):
+                    rows.append(Feature(component, CONTRACT, "interaction",
+                                        "unsupported_mount", scenario,
+                                        applicability="shared"))
             for prop in sorted(props):
                 for scenario in PROPERTY_SCENARIOS:
                     rows.append(Feature(component, CONTRACT, "property", prop,
@@ -238,7 +271,8 @@ def collect_executed_receipts(rows: tuple[Feature, ...], artifacts: tuple[Path, 
 
 
 def merge_executed_manifests(rows: tuple[Feature, ...], manifests: tuple[Path, ...],
-                             *, sha: str, require_complete: bool = False) -> dict:
+                             *, sha: str, require_complete: bool = False,
+                             require_contract_components: tuple[str, ...] = ()) -> dict:
     """Recheck original JUnit files after downloading per-platform artifacts.
 
     Receipt manifests are transport metadata, never independently trusted
@@ -267,6 +301,26 @@ def merge_executed_manifests(rows: tuple[Feature, ...], manifests: tuple[Path, .
                 receipt["junit_artifact"] = str(resolved)
             receipts.append(receipt)
     report = validate_receipts(rows, receipts, sha=sha)
+    if require_contract_components:
+        required_components = set(require_contract_components)
+        scoped_rows = {feature_key(row) for row in rows
+                       if row.backend == CONTRACT and row.component in required_components}
+        found_components = {row.component for row in rows if row.backend == CONTRACT
+                            and row.component in required_components}
+        if found_components != required_components or not scoped_rows:
+            raise ValueError(f"Unknown contract certification components: "
+                             f"{sorted(required_components - found_components)}")
+        passed = {feature_key(receipt) for receipt in receipts
+                  if receipt.get("status") == "executed_pass"}
+        missing = scoped_rows - passed
+        report["contract_scope"] = {
+            "components": sorted(required_components), "required": len(scoped_rows),
+            "executed_pass": len(scoped_rows - missing), "pending": len(missing),
+            "complete": not missing,
+        }
+        if missing:
+            raise ValueError(f"Incomplete component contract certification: "
+                             f"{sorted(missing)[:12]} ({len(missing)} missing)")
     if require_complete and not report["complete"]:
         raise ValueError(
             f"Final public behavior certificate incomplete: "
@@ -282,6 +336,7 @@ def main() -> None:
     parser.add_argument("--environment")
     parser.add_argument("--receipt-file", type=Path, action="append", default=[])
     parser.add_argument("--require-complete", action="store_true")
+    parser.add_argument("--require-contract-component", action="append", default=[])
     args = parser.parse_args()
     rows = inventory()
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -296,10 +351,21 @@ def main() -> None:
             parser.error("--receipt-file requires --sha")
         report = merge_executed_manifests(
             rows, tuple(args.receipt_file), sha=args.sha,
-            require_complete=args.require_complete)
+            require_complete=args.require_complete,
+            require_contract_components=tuple(args.require_contract_component))
         args.out.with_name(args.out.stem + "-final-report.json").write_text(
             json.dumps(report, indent=2) + "\n", encoding="utf-8")
-        print(json.dumps(report, sort_keys=True))
+        if args.require_contract_component:
+            # Preserve full global audit in JSON, but emit the *requested*
+            # scoped acceptance result instead of unrelated historic gaps.
+            print(json.dumps({"certificate": "scoped_public_contract",
+                              "sha": report["sha"],
+                              "contract_scope": report["contract_scope"],
+                              "global_inventory_artifact":
+                                  args.out.with_name(args.out.stem + "-final-report.json").name},
+                             sort_keys=True))
+        else:
+            print(json.dumps(report, sort_keys=True))
     elif args.junit:
         if not args.sha or not args.environment:
             parser.error("--junit requires --sha and --environment")
@@ -311,10 +377,20 @@ def main() -> None:
                                           indent=2) + "\n", encoding="utf-8")
         if args.require_complete and not report["complete"]:
             raise ValueError(f"Public behavior coverage incomplete: {report}")
-        print(json.dumps(report, sort_keys=True))
+        # Per-backend collection is an evidence producer, not a global release gate.
+        # Keep the complete coverage report in the receipts manifest.
+        print(json.dumps({"certificate": "receipt_collection",
+                          "sha": report["sha"],
+                          "executed_pass": report["executed_pass"],
+                          "failed": report["failed"],
+                          "receipt_manifest": report_path.name}, sort_keys=True))
     else:
-        print(json.dumps({"public_behavior_rows": len(rows), "pending": len(rows),
-                          "by_backend": dict(sorted(counts.items()))}))
+        # Inventory generation must not imply that every unexecuted cell is a
+        # failure of the incremental capability under test.
+        print(json.dumps({"certificate": "inventory_generated",
+                          "public_behavior_rows": len(rows),
+                          "by_backend": dict(sorted(counts.items()))},
+                         sort_keys=True))
 
 
 if __name__ == "__main__":

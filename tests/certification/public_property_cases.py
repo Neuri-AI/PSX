@@ -16,6 +16,16 @@ ENUMS = {
 
 def value_classes(component: str, name: str) -> tuple[tuple[object, ...], tuple[object, ...]]:
     """Return positive classes and rejection classes, independently of defaults."""
+    if component == "Grid":
+        if name == "columns":
+            return (12,), (0, 11, 13, True)
+        if name in ("gap", "row_gap", "column_gap"):
+            return (0, 2, "4px"), (-1, True, "calc(1px)", float("nan"))
+    if component == "GridItem":
+        if name == "span":
+            return ("auto", 1, 12, {"base": 12, "md": 6}), (0, 13, True, {"md": 6})
+        if name == "offset":
+            return (0, 1, 11, {"base": 0, "md": 2}), (-1, 12, True, {"tablet": 2})
     if name.startswith('on_'):
         return (None, lambda *args: args, print), (False, 1, 'callback')
     if name == 'direction':

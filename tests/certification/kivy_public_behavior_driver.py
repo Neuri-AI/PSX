@@ -471,9 +471,39 @@ def radio_value():
     tree.unmount()
     return [['property', 'value', 'live_update'], ['property', 'value', 'native_readback']]
 
+def grid_unsupported_mount(component):
+    """Verify the native Kivy renderer rejects Grid before any widget allocation."""
+    from psx.core.errors import RendererCapabilityError
+    from kivy.uix.widget import Widget
+
+    native = renderer()
+    node = (psx.Grid(psx.GridItem(psx.Text('content')))
+            if component == 'Grid' else psx.GridItem(psx.Text('content')))
+    created = []
+    original_init = Widget.__init__
+
+    def traced_init(widget, *args, **kwargs):
+        created.append(widget)
+        return original_init(widget, *args, **kwargs)
+
+    Widget.__init__ = traced_init
+    try:
+        try:
+            native.create(node, None)
+        except RendererCapabilityError as exc:
+            assert 'Grid' in str(exc) and 'SFLE' in str(exc), str(exc)
+        else:
+            raise AssertionError(f'{component} mounted without Grid geometry support')
+    finally:
+        Widget.__init__ = original_init
+    assert not created, f'{component} created {len(created)} native Kivy widgets before rejection'
+    return [['interaction', 'unsupported_mount', 'kivy_fail_closed']]
+
+
 if __name__ == '__main__':
     mode, component, *rest = sys.argv[1:]
-    verified = (properties(component) if mode == 'property' else
+    verified = (grid_unsupported_mount(component) if mode == 'grid_unsupported_mount' else
+                properties(component) if mode == 'property' else
                 lifecycle(component) if mode == 'lifecycle' else
                 interactions(component) if mode == 'interaction' else
                 decoration(component) if mode == 'decoration' else

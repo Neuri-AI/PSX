@@ -315,3 +315,20 @@ def test_native_radiogroup_selection_tracks_updated_radio_values(qt_tree):
     assert mutable.isChecked() and not other.isChecked()
     tree.render(view("after", None))
     assert not mutable.isChecked() and not other.isChecked()
+
+
+@pytest.mark.parametrize("component", ("Grid", "GridItem"))
+def test_grid_mount_fails_before_native_widget_creation(qt_tree, request, component):
+    from psx import Grid, GridItem, Text
+    from psx.core.errors import RendererCapabilityError
+    from tests.certification.public_behavior_census import CONTRACT
+    node = Grid(GridItem(Text("x"))) if component == "Grid" else GridItem(Text("x"))
+    renderer = qt_tree[0]
+    widgets = importlib.import_module(f"{renderer._binding_package}.QtWidgets")
+    before = set(widgets.QApplication.allWidgets())
+    with pytest.raises(RendererCapabilityError, match=r"Native SFLE .* SFLE geometry not certified for .(?:Grid|GridItem)."):
+        renderer.create(node, None)
+    assert set(widgets.QApplication.allWidgets()) == before, "Grid rejection allocated native Qt widgets"
+    assert_feature(request, Feature(component, CONTRACT, "interaction",
+                                    "unsupported_mount", f"{BINDING}_fail_closed",
+                                    applicability="shared"), True)

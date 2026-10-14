@@ -34,7 +34,7 @@ def _classify_path(path: str) -> set[str]:
         if name == "native-layout-selective.yml":
             # Changes to the shared Native layout workflow must exercise the Qt parity
             # matrix; don't certify its new required job with router-only CI.
-            result.add("qt")
+            result.update({"core", "qt", "kivy", "tkinter", "headless"})
         elif name == "sfle-chromium.yml":
             result.add("chromium")
         elif name == "sfle-ui-certification.yml":
@@ -93,6 +93,10 @@ def _classify_path(path: str) -> set[str]:
         return {"headless"}
     if path.startswith("psx/renderers/"):
         return {"core", "qt", "kivy", "tkinter", "headless"}
+    if path == "psx/app.py":
+        # Application-level Grid settings affect portable resolution and every
+        # backend consumer even before native Grid geometry ships.
+        return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
     if path in ("psx/__init__.py", "psx/core/native.py") or path.startswith("psx/core/"):
         return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
     if path.startswith("psx/markup/"):
@@ -111,6 +115,15 @@ def _classify_path(path: str) -> set[str]:
         if "native_wheel" in path or "frozen" in path:
             return {"native"}
         return {"rust", "sfle"}
+    if path in (
+        "tests/test_grid_contract.py",
+        "tests/test_public_behavior_census.py",
+        "tests/test_public_contract_census.py",
+        "tests/test_public_property_validation.py",
+    ) or path.startswith("tests/certification/public_"):
+        # Public-census assertions and its schema require receipts from every
+        # backend, even after a previously green partial-PR optimization.
+        return {"core", "qt", "kivy", "tkinter", "headless"}
     if path.startswith("tests/"):
         name = PurePosixPath(path).name
         if "kivy" in name:

@@ -24,7 +24,7 @@ def cases():
         if contract is None:
             continue
         props = set(contract.properties)
-        if component != "Flex":
+        if component not in ("Flex", "Grid", "GridItem"):
             props.update(FLEX_ITEM_PROPS)
         for name in sorted(props):
             rows.append((component, name))
@@ -42,7 +42,8 @@ def test_advertised_property_has_positive_and_invalid_classes(component, propert
     if component == "Flex" and property_name.startswith("layout_"):
         baseline.pop(property_name.removeprefix("layout_"), None)
     valid, invalid = value_classes(component, property_name)
-    assert len(valid) >= 2 and len(invalid) >= 2
+    minimum_valid = 1 if component == "Grid" and property_name == "columns" else 2
+    assert len(valid) >= minimum_valid and len(invalid) >= 2
     for value in valid:
         variant = {**baseline, property_name: value}
         resolved = contract.with_defaults(variant)
@@ -50,7 +51,7 @@ def test_advertised_property_has_positive_and_invalid_classes(component, propert
         assert resolved[property_name] is value or resolved[property_name] == value
     assert_feature(request, Feature(component, CONTRACT, "property", property_name,
                                     "valid_boundary", applicability="shared"),
-                   len(valid) >= 2)
+                   len(valid) >= minimum_valid)
 
     omitted = {key: value for key, value in baseline.items() if key != property_name}
     if property_name in REQUIRED.get(component, {}):
@@ -79,7 +80,7 @@ def test_advertised_property_has_positive_and_invalid_classes(component, propert
 def test_all_public_property_names_are_in_executable_value_corpus():
     expected = sum(
         len(set(definition.contract.properties) |
-            (set() if name == "Flex" else FLEX_ITEM_PROPS))
+            (set() if name in ("Flex", "Grid", "GridItem") else FLEX_ITEM_PROPS))
         for name, definition in builtin_component_registry().snapshot().items()
         if definition.contract is not None
     )
