@@ -79,13 +79,15 @@ class Parser:
             self._advance()
             value = self._current()
             if value.kind == "NUMBER":
-                self._advance()
-                self._expect("RBRACE")
-                return float(value.value) if "." in value.value else int(value.value)
+                self._error(
+                    "Braces are reserved for references and expressions; "
+                    "write literal values as quoted attributes (e.g. gap=\"12\")",
+                    value.span,
+                )
             name = self._expect("NAME")
             self._expect("RBRACE")
             return _reference(name.value, name.span, self.filename)
-        self._error("Expected quoted string, {reference}, or {number} attribute value", token.span)
+        self._error("Expected quoted literal or {reference} attribute value", token.span)
 
     def _current(self) -> Token:
         return self.tokens[self.index]
