@@ -54,6 +54,8 @@ def _classify_path(path: str) -> set[str]:
         return {"sfle", "rust"}
     if path.startswith("rust/sfle-core/"):
         return {"sfle", "rust", "chromium", "native"}
+    if path == "tests/test_mounted_grid_native_renderers.py":
+        return {"core", "qt", "kivy", "tkinter"}
     if path in ("psx/sfle/headless_grid_bridge.py", "tests/test_headless_grid_native_layout.py"):
         return {"core", "sfle", "headless"}
     if path in ("psx/sfle/grid_native_commit.py", "psx/sfle/native_grid_bridge.py",
