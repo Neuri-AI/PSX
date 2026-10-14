@@ -6,7 +6,7 @@
 
 ## Where to resume
 
-**F4 / G1 / C4 — IN PROGRESS (implementation checks green; formal closure still needs an acceptance audit).** Do **not** restart G1 at its first increment and do **not** begin G2 until G1 acceptance is explicitly certified.
+**F4 / G1 / C4 — CLOSED (certified native fail-closed contract). G1 overall remains IN PROGRESS pending global settings integration.** Do **not** restart G1 at its first increment and do **not** begin G2 until G1 acceptance is explicitly certified.
 
 The last reviewed source commit was `a6b04aca29d374f4b686d2cf49702aa9a95d456a` (`test(grid): bind unsupported mount receipts to actual Qt runtime`). Its pull-request Actions run `38550633487` passed, including all selected Qt bindings, Tkinter, Kivy, Headless, core, impact-router tests, public-behavior aggregate, and mandatory CI conclusion. Other commit checks (commit subject, package boundaries, Flex certification) also passed.
 
@@ -21,7 +21,7 @@ The last reviewed source commit was `a6b04aca29d374f4b686d2cf49702aa9a95d456a` (
 | F4-G1-C1 | Previously reported CLOSED; re-check immutable evidence before relying on formal certification | Public `Grid` / `GridItem` declarations, registration, defaults, validation and fail-closed public contract. | Preserve API/child-policy behavior. |
 | F4-G1-C2 | Previously reported CLOSED | Grid contract and gap/span/offset normalization; reported source SHA `445476ed48e2f00f1fac828729dc48c124ffedac`; scoped census `40/40` at that checkpoint. | Do not imply geometry is implemented. |
 | F4-G1-C3 | Previously reported CLOSED | Pure responsive `GridItem` value resolution and inclusive width thresholds; code SHA `30071e6cd6f9e252bab1945cceb1f3b5f7d06f0a`, integration SHA `190c246227269022e9de0226f7b4f25280142f13`; scoped census `45/45` at that checkpoint. | Resolution is metadata-only, not native geometry or persistent settings. |
-| F4-G1-C4 | **IN PROGRESS; selected CI now GREEN** | Explicit unsupported native Grid/GridItem mount rejection for Headless, Qt and Tkinter; Kivy guard implemented. Native test coverage and census integration have been incrementally corrected. Latest reviewed scoped census `57/57`. | Audit Kivy-specific negative assertion/receipt, no native side effects, breakpoint settings ownership and any remaining G1 acceptance items; then record a formal closure SHA and move to the next planned increment. |
+| F4-G1-C4 | **CLOSED; certified 2026-10-14** | Native unsupported Grid/GridItem mounts fail closed across Headless, four Qt bindings, Tkinter and Kivy; Kivy driver verifies no native widget allocation, Qt/Tk tests assert no new widgets. Scoped census **59/59 executed_pass, pending=0** on CI checkout SHA `84b5eef90c6828d55dfea72ed88aef557f38b887`, source code SHA `b842f20e49d1a221f478ca52a693a6a36031002c`. Re-run Actions `38551782482` (attempt 2): all selected functional jobs, aggregate and required CI conclusion SUCCESS. | Proceed to remaining G1 global breakpoint settings integration; do not claim G1 CLOSED or native Grid geometry support. |
 
 Historical checkpoint SHAs/counts are recorded to help locate evidence; **they are not a substitute for rerunning or validating the current required gates**. If the branch changes, supersede the reviewed SHA/run rather than silently relabeling old results as current.
 
@@ -52,18 +52,18 @@ The last reviewed native-layout run `38550633487` is **SUCCESS** for all require
 - **Native no-side-effect assertion is not proven by the existing Qt/Tk Grid tests.** Their `test_grid_mount_fails_before_native_widget_creation` cases assert that an exception is raised and emit a receipt, but do not directly assert that no widget was created or attached. Review all renderers and add meaningful pre/post state assertions where applicable.
 - **CI checkout SHA differs from source SHA.** The successful aggregate uses `00173edcf31287abc78bfeebed8cd4bb0c240bb2` while the reviewed source commit was `a6b04aca29d374f4b686d2cf49702aa9a95d456a`. Verify the PR merge checkout and retain both identities in the formal certificate; do not substitute one for the other.
 
-**Disposition:** F4-G1 remains **IN PROGRESS**. Implement missing settings integration and native negative evidence, route tests in `scripts/ci/impact.py`, add real census receipts, rerun selected Actions and certify the resulting immutable code/checkout. Only then change G1 to CLOSED. The documentation-only audit commit must not trigger product test suites.
+**Updated disposition (2026-10-14):** C4 native negative evidence has since been completed and certified (see section below). F4-G1 overall remains **IN PROGRESS** because global settings integration is still missing. The earlier findings in this historical audit are retained for traceability. The documentation-only audit commit must not trigger product test suites.
 
-## C4 remediation submitted — 2026-10-14 (CI PENDING, NOT CLOSED)
+## C4 remediation certified — 2026-10-14 (CLOSED)
 
 Code SHA `b842f20e49d1a221f478ca52a693a6a36031002c` adds a Kivy native negative-mount driver and contract census receipts (`kivy_fail_closed` for both Grid and GridItem), plus native widget allocation assertions in Qt and Tk tests. The Kivy driver checks no Kivy Widget constructor runs during rejection. Existing impact routing already selects Kivy for changes to `tests/test_kivy_public_behavior.py` and the shared census and Qt/Tk tests select their respective jobs; confirm actual selection and run success before closure.
 
-New Actions run `38551782482` was pending at the time of this update: https://github.com/Neuri-AI/PSX/actions/runs/38551782482 . **Do not call C4 CLOSED** until this run and its mandatory jobs are successful, the new Grid/GridItem scoped census has zero pending, and any test failures are corrected. Global settings integration remains a separate G1 acceptance gap; do not conflate it with C4's fail-closed native mount scope.
+**Final evidence:** re-ran cancelled code workflow `38551782482` (attempt 2) without modifying the certified source. All selected native jobs (Kivy, Qt all four bindings, Tkinter, Headless), core, router, public behavior aggregate, and mandatory conclusion completed SUCCESS. Scoped Grid/GridItem certificate: **59/59 executed_pass, pending=0, complete=true**, checkout SHA `84b5eef90c6828d55dfea72ed88aef557f38b887`. Source commit: `b842f20e49d1a221f478ca52a693a6a36031002c`. Evidence: https://github.com/Neuri-AI/PSX/actions/runs/38551782482/attempts/2 and aggregate job `115813083147`. The later documentation-only commit had a successful workflow with skipped product jobs; that run is **not** used as C4 evidence. Global settings integration remains a separate G1 acceptance gap.
 
 ## Immediate next actions for the incoming agent
 
-1. Inspect actual branch HEAD, PR #16, workflow statuses, `docs/architecture/responsive-grid-contract.md` and `docs/architecture/responsive-grid-implementation-handoff.md`. Verify whether the reviewed source SHA is still HEAD and why the successful census uses a distinct checkout SHA.
-2. Audit C4 acceptance against production behavior and tests, especially Kivy-specific fail-closed coverage, the no-side-effects claim, and global breakpoint settings integration. Add any missing tests, impact routes and census receipts before claiming closure.
-3. If C4 is fully accepted, record its exact immutable certification evidence here and proceed with the next G1 increment. Finish G1 before starting G2's mathematical Grid geometry.
+1. Inspect current branch HEAD, PR #16, latest Actions and the approved contract. Preserve C4's certified source/checkout SHA distinction.
+2. Implement and certify application-wide customizable Grid breakpoint settings and wiring to responsive resolution, with focused tests, CI impact routing and public census receipts as applicable.
+3. Audit all remaining G1 acceptance items and certify G1 on a new immutable SHA before starting G2 mathematical Grid geometry.
 
 **Roadmap boundary:** G1 public contract and normalization → G2 SFLE/Cinnamon Grid mathematics → G3 native integration → G4 responsive/nested runtime → G5 adversarial verification → G6 final certification. `Grid` is not yet a supported native geometry container merely because fail-closed checks pass.
