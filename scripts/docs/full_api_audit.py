@@ -29,9 +29,10 @@ def _describe(obj: object) -> dict[str, object]:
     except (TypeError, ValueError):
         signature = None
     try:
-        file = inspect.getsourcefile(obj) or inspect.getfile(obj)
+        source_object = type(obj) if callable(obj) and not (inspect.isclass(obj) or inspect.isfunction(obj) or inspect.ismethod(obj)) else obj
+        file = inspect.getsourcefile(source_object) or inspect.getfile(source_object)
         source = str(Path(file).resolve().relative_to(ROOT))
-        _, line = inspect.getsourcelines(obj)
+        _, line = inspect.getsourcelines(source_object)
     except (TypeError, OSError, ValueError):
         source, line = None, None
     return {
