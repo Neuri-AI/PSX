@@ -21,6 +21,8 @@ class GridNativePlacement:
     y: float
     width: float
     height: float
+    used_width: float
+    used_height: float
     overflow_x: bool
     overflow_y: bool
 
@@ -69,6 +71,7 @@ def plan_grid_native_geometry(
             placements.append(GridNativePlacement(
                 rect.id, rect.x_raw / 64, rect.y_raw / 64,
                 rect.width_raw / 64, rect.height_raw / 64,
+                rect.used_width_raw / 64, rect.used_height_raw / 64,
                 rect.overflow_x, rect.overflow_y,
             ))
     if len(placements) != len(expected) or set(p.node_id for p in placements) != set(expected):
