@@ -137,7 +137,7 @@ Implemented Rust/Python `compute_grid` math with resolved per-item min/max const
 
 ### Native geometry preflight — implementation awaiting CI
 
-Added `psx/sfle/grid_native_plan.py` to convert the existing Cinnamon constrained rectangles into an immutable native placement batch. It checks stable child identities, measured/mounted membership, duplicate and missing items, stale generation, signed fixed-point range and consistency of overflow receipts **before** any toolkit mutation. It deliberately commits *allocated* sibling rectangles rather than minimum-constrained used sizes, so overflow cannot shift adjacent boxes. The empty Grid case is supported.
+Added `psx/sfle/grid_native_plan.py` to convert the existing Cinnamon constrained rectangles into an immutable native placement batch. It checks stable child identities, measured/mounted membership, duplicate and missing items, stale generation, signed fixed-point range and consistency of overflow receipts **before** any toolkit mutation. It preserves allocated sibling rectangles and separately records min/max-constrained used sizes; no native commit is performed by this module. The empty Grid case is supported.
 
 Functional tests: `tests/sfle/test_grid_native_plan.py` covers placement, RTL, min-size overflow, identity mismatch, stale generations, duplicate and forged geometry. `scripts/ci/impact.py` routes the new production module and tests to SFLE, core, Headless, Qt, Kivy and Tkinter; `tests/test_ci_impact.py` asserts that route.
 
@@ -146,3 +146,7 @@ Functional tests: `tests/sfle/test_grid_native_plan.py` covers placement, RTL, m
 ### G3 preflight audit correction
 
 The placement batch now retains **both** the allocated border-box width/height and the min/max-constrained used width/height, as well as overflow flags. Native adapters must use the allocated origin for stable sibling placement while explicitly deciding and certifying the actual used widget dimensions, including clipping/overflow policy. Regression tests cover min and max constraints and fractional fixed-point coordinates. **This is not yet a native geometry commit or readback certification.**
+
+### CI execution caveat for stacked G3 PR
+
+The selective native layout workflow currently listens only to pull requests targeting `develop`, whereas G3 PR #18 targets the G2 feature branch. A successful `Runtime package boundaries` check on this stacked PR is **not** evidence that the SFLE/native geometry tests ran. G3 preflight remains uncertified until the relevant functional suite runs against an immutable source SHA. Do not change the workflow target filters merely to make an individual stacked PR green; run the existing required workflow explicitly or certify after the prerequisite PRs are merged.
