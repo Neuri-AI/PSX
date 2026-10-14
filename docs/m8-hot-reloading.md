@@ -1,6 +1,6 @@
 # M8 — Intelligent Hot Reloading
 
-**Status:** vertical slice implemented. **Production:** disabled by default.
+**Status:** existing vertical slice implemented; remaining M8 work formally postponed to **F6 — Intelligent Hot Reloading** (owner decision 2026-10-14). **Production:** disabled by default. F6 work is blocked pending owner-led Qyro CLI and Qyro Engine changes. F5 covers Expressive Markup only; none of the documented M8 limitations are F5 acceptance blockers. F6 implementation and gate design require separate authorization.
 
 `psx.devtools` provides a conservative development supervisor. Run an entry
 point with:
