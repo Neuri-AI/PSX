@@ -70,7 +70,7 @@ class _Transformer(ast.NodeTransformer):
         template_filename = f"{self.filename}:{node.lineno}:{node.col_offset + 1}"
         # Only statically authored M4B source may use expressive JSX operators.
         # Dynamic and explicitly scoped M4A calls remain on the old safe path.
-        if "&&" in source or "?" in source:
+        if _has_conditional_interpolation(source):
             tree = parse_expressive_expression(source, filename=template_filename)
             replacement = lower(tree, filename=template_filename)
             self.expressive_count += 1
@@ -114,6 +114,37 @@ class _Transformer(ast.NodeTransformer):
             keywords=[],
         )
         return ast.copy_location(replacement, node)
+
+
+def _has_conditional_interpolation(source: str) -> bool:
+    """Find conditional operators in markup expressions, not in quoted literals.
+
+    Only expression braces activate G2. Text and quoted attributes containing
+    question marks or ampersands keep their existing M4B template behavior.
+    """
+    depth = 0
+    quoted: str | None = None
+    index = 0
+    while index < len(source):
+        ch = source[index]
+        if quoted is not None:
+            if ch == "\\":
+                index += 2
+                continue
+            if ch == quoted:
+                quoted = None
+            index += 1
+            continue
+        if ch in ("'", '"'):
+            quoted = ch
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth = max(depth - 1, 0)
+        elif depth and (source.startswith("&&", index) or ch == "?"):
+            return True
+        index += 1
+    return False
 
 
 def transform_source(source: str, *, filename: str = "<module>") -> TransformResult:
