@@ -174,6 +174,10 @@ def create_element(
 
     if node_type == "Text":
         TEXT_CONTRACT.validate(props)
+    if node_type == "Grid":
+        GRID_CONTRACT.validate(props)
+    elif node_type == "GridItem":
+        GRID_ITEM_CONTRACT.validate(props)
     if key is not None and (isinstance(key, bool) or not isinstance(key, (str, int))):
         raise TypeError("PSX keys must be str, int, or None (not bool).")
     if ref is not None:
