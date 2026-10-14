@@ -4,6 +4,10 @@
 >
 > Last evidence review: 2026-10-14. Working branch: `feature/responsive-grid-public-contract`; draft PR #16 to `develop`. The SHA and workflow results below describe **the reviewed execution**, not a promise that the branch has not advanced. Always inspect current HEAD and PR checks first.
 
+### G2 RTL and cross-axis CI certification — CLOSED (2026-10-14)
+
+Source SHA `c445770b60d6db1a8e96901e39778a38fcc8c836` passed required Actions run `38556168341`: 20/20 jobs SUCCESS, including Rust/Python differential (292 Python tests passed), SFLE geometry contracts (624 tests passed), native Qt/Kivy/Tk/Headless/Chromium regressions, change router, aggregate and mandatory CI conclusion. The Grid/GridItem scoped census remains **62/62 executed_pass, 0 pending**; aggregate checkout SHA `7a2bae9e9db0da4f5a749a6ad0a06054cd8aff90` (distinct from source SHA). Evidence: https://github.com/Neuri-AI/PSX/actions/runs/38556168341 . This closes the *RTL/row-height/row-gap math sub-increment only*, not G2 overall. Cross-axis fixture `tests/fixtures/grid_cross_axis.json` and Rust/Python tests cover RTL, explicit heights, offsets, row gaps and invalid heights. Native Grid mounting and runtime reflow are still unsupported. Next: min/max constraints, overflow/saturation, full engine integration and final adversarial differential audit.
+
 ## G2 — Cinnamon mathematical Grid solver (new stacked branch)
 
 **Branch:** `feature/grid-mathematical-solver` forked from G1 immutable closure `8044d5423ac69fecbce5b171e6c35905d2b9b031`; review as a **stacked PR targeting G1**, not as changes to the certified G1 branch. G1's 62/62 receipt certificate remains unchanged.
