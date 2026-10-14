@@ -23,6 +23,7 @@ class RoutingTests(unittest.TestCase):
             "tests/sfle/test_grid_math.py",
             "tests/fixtures/grid_row_packing.json",
             "tests/fixtures/grid_cross_axis.json",
+                "tests/fixtures/grid_pixel_projection.json",
         ):
             with self.subTest(path=path):
                 self.assertEqual(self.selected(path), expected)
