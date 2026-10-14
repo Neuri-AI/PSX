@@ -106,3 +106,40 @@ def test_public_declarations_preserve_key_identity():
     node = Grid(GridItem(Text("one"), key="one"), key="outer")
     assert node.key == "outer"
     assert node.children[0].key == "one"
+
+
+def test_grid_contract_rejects_flex_metadata_at_all_entry_points():
+    from psx import Grid, GridItem, Text
+    from psx.core.registry import builtin_component_registry
+    from psx.core.vnode import create_element
+    registry = builtin_component_registry()
+    for name, constructor, child in (
+        ("Grid", Grid, GridItem(Text("content"))),
+        ("GridItem", GridItem, Text("content")),
+    ):
+        contract = registry.resolve(name).contract
+        assert contract is not None
+        with pytest.raises(RendererCapabilityError):
+            contract.validate({"flex_grow": 1})
+        with pytest.raises(RendererCapabilityError):
+            contract.validate_builder({"flex_grow": 1})
+        with pytest.raises(RendererCapabilityError):
+            constructor(child, flex_grow=1)
+        with pytest.raises(RendererCapabilityError):
+            create_element(name, child, flex_grow=1)
+
+
+def test_grid_registry_is_isolated_and_contracts_are_explicit():
+    from psx.core.registry import builtin_component_registry
+    first = builtin_component_registry()
+    second = builtin_component_registry()
+    for name, policy, props in (
+        ("Grid", "multiple", {"columns", "gap", "row_gap", "column_gap"}),
+        ("GridItem", "single", {"span", "offset"}),
+    ):
+        contract = first.resolve(name).contract
+        assert contract is not None
+        assert contract.child_policy == policy
+        assert contract.properties == props
+        assert contract.events == frozenset()
+        assert first.resolve(name) is not second.resolve(name)
