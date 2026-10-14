@@ -770,8 +770,8 @@ class QtRenderer:
                     f"Native SFLE {self._sfle_backend} SFLE geometry not certified for {node.type!r}.")
             if node.type == "GridItem" and (parent is None or _handle(parent).node_type != "Grid"):
                 raise RendererCapabilityError("GridItem must be a direct child of a mounted Grid.")
-            if node.type == "Grid" and parent is not None:
-                raise RendererCapabilityError("Nested Grid requires the later container integration.")
+            if node.type == "Grid" and parent is not None and _handle(parent).node_type != "GridItem":
+                raise RendererCapabilityError("Nested Grid must be the direct content root of GridItem.")
             return QtHandle(node.type, self._widget(), props=dict(node.props))
         if node.kind is NodeKind.HOST and node.type == "Flex":
             raise RendererCapabilityError(
