@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from types import MappingProxyType
+
 from psx.core.component import ComponentType
 from psx.core.errors import RendererConfigurationError
+from psx.core.grid_contract import GRID_BREAKPOINTS, resolve_grid_item_props, validate_grid_breakpoints
 from psx.core.reconcile import Reconciler
 from psx.core.vnode import VNode
 from psx.renderers.headless import HeadlessRenderer
@@ -11,11 +15,38 @@ from psx.renderers.protocol import Renderer
 
 
 class App:
-    def __init__(self, root: VNode | ComponentType, *, renderer: str | Renderer | None = None, providers: tuple[object, ...] = ()) -> None:
+    def __init__(self, root: VNode | ComponentType, *, renderer: str | Renderer | None = None, providers: tuple[object, ...] = (), settings: Mapping[str, object] | None = None) -> None:
+        self.settings = self._validate_settings(settings)
+        self.grid_breakpoints = self.settings['grid']['breakpoints']
         self.root = root() if isinstance(root, ComponentType) else root
         self.providers = providers
         self.renderer = self._resolve_renderer(renderer)
         self.reconciler = Reconciler(self.renderer)
+
+    @staticmethod
+    def _validate_settings(settings: Mapping[str, object] | None) -> Mapping[str, object]:
+        """Validate application-level Grid settings before creating native widgets."""
+        if settings is None:
+            settings = {}
+        if not isinstance(settings, Mapping) or set(settings) - {'grid'}:
+            raise RendererConfigurationError("App settings support only the 'grid' section.")
+        grid = settings.get('grid', {})
+        if not isinstance(grid, Mapping) or set(grid) - {'breakpoints'}:
+            raise RendererConfigurationError("App.settings.grid supports only 'breakpoints'.")
+        thresholds = validate_grid_breakpoints(grid.get('breakpoints', GRID_BREAKPOINTS))
+        return MappingProxyType({'grid': MappingProxyType({'breakpoints': thresholds})})
+
+    def resolve_grid_item_props(
+        self, props: Mapping[str, object], content_width: int | float,
+    ) -> Mapping[str, object]:
+        """Resolve GridItem metadata using this application's configured breakpoints.
+
+        This does not mount Grid or compute geometry; later runtime gates will
+        connect content-box width invalidation to the native layout engine.
+        """
+        return resolve_grid_item_props(
+            props, content_width, breakpoints=self.grid_breakpoints,
+        )
 
     @staticmethod
     def _resolve_renderer(renderer: str | Renderer | None) -> Renderer:
