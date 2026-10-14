@@ -92,7 +92,9 @@ def inventory() -> tuple[Feature, ...]:
             if component == "GridItem":
                 for scenario in ("inclusive_threshold", "custom_thresholds",
                                  "inherited_values", "invalid_width",
-                                 "invalid_thresholds"):
+                                 "invalid_thresholds", "application_settings",
+                                 "application_settings_invalid",
+                                 "application_settings_isolated"):
                     rows.append(Feature(component, CONTRACT, "interaction",
                                         "responsive_resolution", scenario,
                                         applicability="shared"))
