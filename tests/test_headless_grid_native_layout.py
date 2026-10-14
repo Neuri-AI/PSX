@@ -141,3 +141,38 @@ def test_nested_grid_independent_content_breakpoint_and_lifecycle(request):
             "independent_breakpoint_reflow", applicability="partial_native"), True)
     finally:
         reconciler.unmount()
+
+
+def test_nested_grid_observes_application_breakpoint_configuration(request):
+    from psx.app import App
+
+    def nested_tree():
+        return Grid(
+            GridItem(Grid(
+                GridItem(Text("a"), key="a", span={"base": 12, "md": 6}),
+                GridItem(Text("b"), key="b", span={"base": 12, "md": 6}),
+                gap=4,
+            ), key="nested", span={"base": 12, "md": 6}),
+            GridItem(Text("right"), key="right", span={"base": 12, "md": 6}),
+            gap=4,
+        )
+
+    renderer = make_renderer()
+    application = App(nested_tree(), renderer=renderer, settings={
+        "grid": {"breakpoints": {"base": 0, "sm": 100, "md": 350,
+                                  "lg": 700, "xl": 900}},
+    })
+    try:
+        root = application.reconciler.render(application.root)
+        nested_a = root.children[0].children[0].children[0].handle
+        assert nested_a.geometry.width == 197
+        renderer.set_sfle_constraints(viewport(600))
+        renderer.commit_layout(root)
+        assert nested_a.geometry.width == 298
+        assert root.children[0].children[0].children[0].handle is nested_a
+        assert renderer.grid_result[1].max_readback_error == 0
+        assert_feature(request, Feature(
+            "Grid", "headless", "interaction", "configured_container_breakpoints",
+            "isolated_nested_resolution", applicability="partial_native"), True)
+    finally:
+        application.unmount()
