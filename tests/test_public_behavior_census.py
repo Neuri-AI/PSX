@@ -34,7 +34,7 @@ def test_source_derived_inventory_separates_shared_and_native():
             assert not shared
         else:
             advertised = set(contract.properties)
-            if component != "Flex":
+            if component not in ("Flex", "Grid", "GridItem"):
                 advertised.update(FLEX_ITEM_PROPS)
             assert {r.feature_name for r in shared if r.feature_kind == "property"} == advertised
             assert all(r.scenario_id in ("default", "valid_boundary", "invalid_rejection")
