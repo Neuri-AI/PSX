@@ -421,3 +421,90 @@ mod overflow_tests {
         assert!(layout_grid_rects(&rows, 100.0, 0.0, 0.0, &heights, false).is_err());
     }
 }
+
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GridItemConstraints {
+    pub min_width: f64,
+    pub max_width: Option<f64>,
+    pub min_height: f64,
+    pub max_height: Option<f64>,
+}
+
+impl Default for GridItemConstraints {
+    fn default() -> Self {
+        Self { min_width: 0.0, max_width: None, min_height: 0.0, max_height: None }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GridConstrainedRect {
+    pub id: String,
+    pub x_raw: i32,
+    pub y_raw: i32,
+    pub width_raw: i32,
+    pub height_raw: i32,
+    pub used_width_raw: i32,
+    pub used_height_raw: i32,
+    pub overflow_x: bool,
+    pub overflow_y: bool,
+}
+
+/// Renderer-neutral Cinnamon Grid entry point; constraints do not alter spans.
+pub fn compute_grid(
+    slots: &[GridSlot],
+    content_width: f64,
+    column_gap: f64,
+    row_gap: f64,
+    item_heights: &std::collections::HashMap<String, f64>,
+    constraints: &std::collections::HashMap<String, GridItemConstraints>,
+    rtl: bool,
+) -> Result<Vec<Vec<GridConstrainedRect>>, GridPackingError> {
+    use crate::layout_unit::LayoutUnit;
+    let rows = pack_grid_rows(slots)?;
+    let ids: HashSet<&str> = slots.iter().map(|item| item.id.as_str()).collect();
+    if constraints.keys().any(|id| !ids.contains(id.as_str())) {
+        return Err(GridPackingError::InvalidInput("Unknown Grid constraint item ID"));
+    }
+    let mut resolved = std::collections::HashMap::new();
+    for slot in slots {
+        let bounds = constraints.get(&slot.id).copied().unwrap_or_default();
+        for value in [Some(bounds.min_width), bounds.max_width,
+                      Some(bounds.min_height), bounds.max_height].into_iter().flatten() {
+            if !value.is_finite() || value < 0.0 || value * 64.0 > i32::MAX as f64 {
+                return Err(GridPackingError::InvalidInput("Invalid Grid min/max"));
+            }
+        }
+        if bounds.max_width.is_some_and(|v| v < bounds.min_width) ||
+           bounds.max_height.is_some_and(|v| v < bounds.min_height) {
+            return Err(GridPackingError::InvalidInput("Grid max is below min"));
+        }
+        let raw = |value: f64| LayoutUnit::from_nearest(value)
+            .map(|v| v.raw()).map_err(|_| GridPackingError::InvalidInput("Invalid Grid bound"));
+        resolved.insert(slot.id.as_str(), (
+            raw(bounds.min_width)?, bounds.max_width.map(raw).transpose()?,
+            raw(bounds.min_height)?, bounds.max_height.map(raw).transpose()?,
+        ));
+    }
+    let rects = layout_grid_rects(&rows, content_width, column_gap, row_gap, item_heights, rtl)?;
+    let mut result = Vec::with_capacity(rects.len());
+    for row in rects {
+        let mut constrained = Vec::with_capacity(row.len());
+        for rect in row {
+            let (min_w, max_w, min_h, max_h) = resolved[rect.id.as_str()];
+            let mut used_w = rect.width_raw.max(min_w);
+            let mut used_h = rect.height_raw.max(min_h);
+            if let Some(maximum) = max_w { used_w = used_w.min(maximum); }
+            if let Some(maximum) = max_h { used_h = used_h.min(maximum); }
+            constrained.push(GridConstrainedRect {
+                id: rect.id, x_raw: rect.x_raw, y_raw: rect.y_raw,
+                width_raw: rect.width_raw, height_raw: rect.height_raw,
+                used_width_raw: used_w, used_height_raw: used_h,
+                overflow_x: used_w > rect.width_raw,
+                overflow_y: used_h > rect.height_raw,
+            });
+        }
+        result.push(constrained);
+    }
+    Ok(result)
+}
