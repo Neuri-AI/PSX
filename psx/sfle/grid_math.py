@@ -178,3 +178,68 @@ def project_grid_rows(
             previous_end = end
         result.append(GridPixelRow(tuple(boxes)))
     return tuple(result)
+
+
+@dataclass(frozen=True, slots=True)
+class GridRect:
+    """Projected Grid item geometry in 1/64px units."""
+    id: str
+    x_raw: int
+    y_raw: int
+    width_raw: int
+    height_raw: int
+
+
+def layout_grid_rects(
+    rows: tuple[PackedGridRow, ...] | list[PackedGridRow],
+    content_width: int | float,
+    column_gap: int | float = 0,
+    row_gap: int | float = 0,
+    item_heights: dict[str, int | float] | None = None,
+    *,
+    rtl: bool = False,
+) -> tuple[tuple[GridRect, ...], ...]:
+    """Project horizontal direction and row cross-axis without native mounting.
+
+    Row height is the maximum declared item height. Heights are required for
+    every item; intrinsic measurement belongs to later integration stages.
+    """
+    from .fixed_point import LayoutUnit
+
+    if type(rtl) is not bool:
+        raise GridPackingError("rtl must be a boolean.")
+    if not isinstance(row_gap, (int, float)) or isinstance(row_gap, bool) or (
+        not math.isfinite(row_gap) or row_gap < 0
+    ):
+        raise GridPackingError("row_gap must be finite and nonnegative.")
+    if not isinstance(item_heights, dict):
+        raise GridPackingError("item_heights must map every item ID to a height.")
+    projected = project_grid_rows(rows, content_width, column_gap)
+    width = LayoutUnit.from_nearest(content_width).raw
+    gap = LayoutUnit.from_nearest(row_gap).raw
+    heights: dict[str, int] = {}
+    for row in projected:
+        for item in row.items:
+            if item.id not in item_heights:
+                raise GridPackingError(f"Missing height for Grid item {item.id!r}.")
+            value = item_heights[item.id]
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or (
+                not math.isfinite(value) or value < 0
+            ):
+                raise GridPackingError("Grid item height must be finite and nonnegative.")
+            heights[item.id] = LayoutUnit.from_nearest(value).raw
+    y = 0
+    result: list[tuple[GridRect, ...]] = []
+    for row in projected:
+        result.append(tuple(
+            GridRect(
+                item.id,
+                width - item.x_raw - item.width_raw if rtl else item.x_raw,
+                y,
+                item.width_raw,
+                heights[item.id],
+            ) for item in row.items
+        ))
+        if row.items:
+            y += max(heights[item.id] for item in row.items) + gap
+    return tuple(result)
