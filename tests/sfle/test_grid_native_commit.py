@@ -1,0 +1,134 @@
+"""Grid native geometry write/readback and rollback contract."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from threading import Thread
+
+import pytest
+
+from psx.sfle.errors import SFLEError
+from psx.sfle.grid_math import GridPackingError
+from psx.sfle.grid_native_plan import GridNativePlacement
+from psx.sfle.grid_native_commit import GridCommitBackend, commit_grid_native_geometry
+from psx.sfle.model import Rect
+
+
+def placement(node_id, x, y, width=40, height=20):
+    return GridNativePlacement(node_id, x, y, width, height, width, height, False, False)
+
+
+@dataclass
+class HeadlessWidget:
+    geometry: Rect | None = None
+    fail: bool = False
+
+
+def commit(items, widgets, **kwargs):
+    return commit_grid_native_geometry(
+        items, backend=GridCommitBackend.HEADLESS, widgets=widgets,
+        generation=3, current_generation=kwargs.get("current_generation", lambda: 3),
+        is_ui_thread=kwargs.get("is_ui_thread", lambda: True),
+    )
+
+
+def test_headless_commits_cinnamon_geometry_and_reads_back():
+    widgets = {"a": HeadlessWidget(), "b": HeadlessWidget()}
+    receipt = commit((placement("a", 0, 0), placement("b", 40, 0)), widgets)
+    assert receipt.node_ids == ("a", "b")
+    assert receipt.max_readback_error == 0
+    assert widgets["b"].geometry == Rect(40, 0, 40, 20)
+
+
+def test_headless_rolls_back_on_generation_change_during_commit():
+    state = {"generation": 3}
+    class InvalidatingWidget:
+        def __init__(self, trigger=False):
+            self._geometry = Rect(1, 2, 3, 4)
+            self.trigger = trigger
+
+        @property
+        def geometry(self):
+            return self._geometry
+
+        @geometry.setter
+        def geometry(self, rect):
+            self._geometry = rect
+            if self.trigger:
+                self.trigger = False
+                state["generation"] = 4
+
+    widgets = {"a": InvalidatingWidget(True), "b": InvalidatingWidget()}
+    with pytest.raises(SFLEError):
+        commit((placement("a", 0, 0), placement("b", 40, 0)),
+               widgets, current_generation=lambda: state["generation"])
+    assert all(w.geometry == Rect(1, 2, 3, 4) for w in widgets.values())
+
+
+@pytest.mark.parametrize("mode", ["stale", "thread", "missing", "duplicate"])
+def test_rejects_invalid_transaction_before_mutating_widgets(mode):
+    widgets = {"a": HeadlessWidget(Rect(1, 2, 3, 4))}
+    items = (placement("a", 0, 0),)
+    options = {}
+    if mode == "stale":
+        options["current_generation"] = lambda: 4
+    elif mode == "thread":
+        options["is_ui_thread"] = lambda: False
+    elif mode == "missing":
+        widgets["b"] = HeadlessWidget()
+    else:
+        items = items * 2
+    with pytest.raises((SFLEError, GridPackingError)):
+        commit(items, widgets, **options)
+    assert widgets["a"].geometry == Rect(1, 2, 3, 4)
+
+
+def test_qt_real_widget_geometry_roundtrip():
+    qt = pytest.importorskip("PySide6.QtWidgets")
+    app = qt.QApplication.instance() or qt.QApplication([])
+    parent = qt.QWidget()
+    widgets = {"a": qt.QWidget(parent), "b": qt.QWidget(parent)}
+    try:
+        receipt = commit_grid_native_geometry(
+            (placement("a", 1, 2), placement("b", 50, 2)),
+            backend=GridCommitBackend.QT, widgets=widgets,
+            generation=1, current_generation=lambda: 1, is_ui_thread=lambda: True,
+        )
+        assert receipt.max_readback_error == 0
+        assert widgets["b"].geometry().x() == 50
+    finally:
+        parent.deleteLater()
+
+
+def test_tk_real_widget_geometry_roundtrip():
+    import os
+    if not os.environ.get("DISPLAY"):
+        pytest.skip("Tk requires X11")
+    import tkinter as tk
+    root = tk.Tk()
+    root.withdraw()
+    widgets = {"a": tk.Label(root), "b": tk.Label(root)}
+    try:
+        receipt = commit_grid_native_geometry(
+            (placement("a", 1, 2), placement("b", 50, 2)),
+            backend=GridCommitBackend.TK, widgets=widgets,
+            generation=1, current_generation=lambda: 1, is_ui_thread=lambda: True,
+        )
+        assert receipt.max_readback_error == 0
+        assert round(float(widgets["b"].place_info()["x"])) == 50
+    finally:
+        root.destroy()
+
+
+def test_kivy_real_widget_geometry_projection_and_readback():
+    pytest.importorskip("kivy")
+    from kivy.uix.widget import Widget
+    widgets = {"a": Widget(), "b": Widget()}
+    receipt = commit_grid_native_geometry(
+        (placement("a", 0, 0), placement("b", 40, 20)),
+        backend=GridCommitBackend.KIVY, widgets=widgets,
+        generation=1, current_generation=lambda: 1, is_ui_thread=lambda: True,
+        parent_height=100,
+    )
+    assert receipt.max_readback_error == 0
+    assert widgets["a"].pos == [0, 80]
+    assert widgets["b"].pos == [40, 60]
