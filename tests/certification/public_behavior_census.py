@@ -89,6 +89,13 @@ def inventory() -> tuple[Feature, ...]:
                                  "responsive_valid_combination"):
                     rows.append(Feature(component, CONTRACT, "interaction",
                                         "span_offset", scenario, applicability="shared"))
+            if component == "GridItem":
+                for scenario in ("inclusive_threshold", "custom_thresholds",
+                                 "inherited_values", "invalid_width",
+                                 "invalid_thresholds"):
+                    rows.append(Feature(component, CONTRACT, "interaction",
+                                        "responsive_resolution", scenario,
+                                        applicability="shared"))
             for prop in sorted(props):
                 for scenario in PROPERTY_SCENARIOS:
                     rows.append(Feature(component, CONTRACT, "property", prop,
