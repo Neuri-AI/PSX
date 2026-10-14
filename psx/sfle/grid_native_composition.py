@@ -7,7 +7,8 @@ native layout manager estimate. Native ports supply only terminal leaf metrics.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from psx.core.grid_contract import GRID_BREAKPOINTS
 from typing import Protocol
 
 from psx.core.layout_tree import NormalizedLayoutNode
@@ -42,6 +43,7 @@ def prepare_composed_grid(
     current_generation: int,
     measure_leaf: NativeLeafMeasurement,
     is_ui_thread: Callable[[], bool],
+    breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
 ) -> ComposedGrid:
     """Measure nested Grid children bottom-up using parent-allocated widths.
 
@@ -83,6 +85,7 @@ def prepare_composed_grid(
                     child, content_width=width, generation=generation,
                     current_generation=current_generation,
                     measure_leaf=measure_leaf, is_ui_thread=is_ui_thread,
+                    breakpoints=breakpoints,
                 )
                 nested[identifier] = subgrid
                 height = subgrid.content_height
@@ -99,7 +102,7 @@ def prepare_composed_grid(
         grid, content_width=content_width, source=Source(),
         mounted_ids=ids, revisions={identifier: generation for identifier in ids},
         generation=generation, current_generation=current_generation,
-        allow_nested=True,
+        allow_nested=True, breakpoints=breakpoints,
     )
     height = max((placement.y + placement.height for placement in prepared.placements),
                  default=0.0)
