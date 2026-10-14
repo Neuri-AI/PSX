@@ -78,6 +78,7 @@ class MountedMixedGrid:
             current_generation=self.renderer._sfle_generation,
             measure_leaf=measure_leaf, is_ui_thread=self._on_thread,
             breakpoints=self.breakpoints,
+            engine=self.renderer._sfle_engine,
         )
 
     def intrinsic(self, node_id, width):
