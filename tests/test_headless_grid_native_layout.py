@@ -283,3 +283,41 @@ def test_headless_mixed_grid_rollback_and_recovery(request, monkeypatch):
             "rollback_and_recovery", applicability="partial_native"), True)
     finally:
         reconciler.unmount()
+
+
+def test_grid_item_supports_cinnamon_flex_content_and_native_children(request):
+    from psx import Flex
+    renderer = make_renderer()
+    reconciler = Reconciler(renderer)
+    def scene():
+        return Grid(
+            GridItem(
+                Flex(
+                    Text("a", key="a", layout_width="80px", layout_height="20px",
+                         flex_basis="80px", flex_shrink=0),
+                    Text("b", key="b", layout_width="80px", layout_height="20px",
+                         flex_basis="80px", flex_shrink=0),
+                    direction="row", width="100%", height="50px",
+                    align_items="flex-start", gap=4,
+                ),
+                key="flex", span=12,
+            ), gap=4,
+        )
+    try:
+        mounted = reconciler.render(scene())
+        flex = mounted.children[0].children[0]
+        a, b = flex.children
+        assert flex.handle.geometry.width == 800
+        assert a.handle.geometry.width == 80
+        assert b.handle.geometry.x > a.handle.geometry.x
+        old_a, old_b = a.handle, b.handle
+        renderer.set_sfle_constraints(viewport(767))
+        renderer.commit_layout(mounted)
+        assert flex.handle.geometry.width == 767
+        assert a.handle is old_a and b.handle is old_b
+        assert renderer.grid_result[1].max_readback_error == 0
+        assert_feature(request, Feature(
+            "GridItem", "headless", "interaction", "flex_content",
+            "measured_children_readback", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
