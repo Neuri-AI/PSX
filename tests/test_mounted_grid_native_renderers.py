@@ -107,3 +107,43 @@ def test_mounted_grid_native_parentage_reflow_keyed_reorder_and_teardown(request
         assert reconciler.root is None
         close()
     receipt("Grid", "native_root", "teardown")
+
+
+def test_grid_root_geometry_is_restored_when_native_batch_fails(request, monkeypatch):
+    """A rejected native commit must not leave the resized root behind."""
+    from psx.sfle import native_grid_bridge
+    from psx.sfle.errors import SFLEError
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+        "tkinter" if backend == "tk" else "kivy")
+    renderer, close = make_renderer(backend)
+    tree = Reconciler(renderer)
+    try:
+        first = tree.render(view())
+        parent_widget = first.handle.widget
+        before = rectangle(parent_widget, backend)
+        a_widget = first.children[0].handle.widget
+        child_before = rectangle(a_widget, backend)
+        renderer.set_sfle_constraints(viewport(767))
+
+        def fail_commit(*args, **kwargs):
+            raise RuntimeError("simulated native commit rejection")
+
+        with monkeypatch.context() as patch:
+            patch.setattr(native_grid_bridge, "commit_grid_native_geometry", fail_commit)
+            with pytest.raises(RuntimeError, match="simulated native commit rejection"):
+                renderer.commit_layout(first)
+        assert rectangle(parent_widget, backend) == pytest.approx(before, abs=1)
+        assert rectangle(a_widget, backend) == pytest.approx(child_before, abs=1)
+        renderer.commit_layout(first)
+        assert rectangle(parent_widget, backend)[2] == pytest.approx(767, abs=1)
+        assert renderer.grid_result[1].max_readback_error <= 1
+        assert_feature(
+            request, Feature("Grid", binding, "interaction", "native_root",
+                             "failed_commit_root_rollback", applicability="partial_native"),
+            True,
+        )
+    finally:
+        tree.unmount()
+        close()
