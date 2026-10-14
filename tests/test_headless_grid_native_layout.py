@@ -271,7 +271,7 @@ def test_headless_mixed_grid_rollback_and_recovery(request, monkeypatch):
         with monkeypatch.context() as patch:
             def fail(*args, **kwargs):
                 raise RuntimeError("simulated mixed Headless Grid failure")
-            patch.setattr(headless_layout_bridge, "commit_grid_native_geometry", fail)
+            patch.setattr(grid_native_commit, "commit_grid_native_geometry", fail)
             with pytest.raises(RuntimeError, match="simulated mixed Headless"):
                 renderer.commit_layout(mounted)
         assert (grid.handle.geometry, first.geometry, leaf.geometry) == previous
