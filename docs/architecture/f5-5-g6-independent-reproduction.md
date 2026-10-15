@@ -39,3 +39,17 @@ The existing G5 jobs establish Ubuntu Linux Headless and bounded native mounting
 The owner must explicitly accept the final F5.5 documentation release *after* the independent review and all required CI are green at an immutable SHA. No assistant or agent may infer, fabricate or grant this approval.
 
 **Owner signoff: PENDING. Overall F5.5: OPEN.**
+
+## Additional clean-room automation (not an independent human review)
+
+The workflow `.github/workflows/f5-5-clean-room-reproduction.yml` now provisions a **new Python virtual environment** on GitHub-hosted Ubuntu, macOS and Windows. It follows the beginner import, Hello World, Counter and Task Board terminal commands and executes their behavioral tests on Python 3.11 and 3.12. It specifically expands **cross-OS Headless reproducibility**, not native Qt/Tkinter/Kivy interactivity.
+
+**Review classification:** even six green clean-room jobs are automated author-configured checks. They do not meet the contract's separate reviewer criterion. The human/independent-agent receipt above remains NOT REVIEWED until that distinct reviewer supplies actual observed evidence. Similarly native GUI screenshots and owner approval remain pending.
+
+### Reviewer execution order (do not use implementation notes as instructions)
+
+1. Check out the SHA to be certified using only the linked public guide.
+2. Execute `getting-started/installation`, `first-app`, and `state-and-events`; capture exact terminal output and any missing steps.
+3. Execute each public project from its guide, including native GUI controls on a physical or graphical desktop session. Capture genuine window screenshots and manual event observations.
+4. Compare any errors with the pages' troubleshooting instructions. File issues when instructions need unstated steps.
+5. Record results in the receipt template and sign explicitly as an independent reviewer. Only then request owner acceptance.
