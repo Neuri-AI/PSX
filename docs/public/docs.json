@@ -61,7 +61,8 @@
           "reference/component-contracts",
           "reference/errors",
           "reference/extensions-and-native",
-          "reference/root-symbols"
+          "reference/root-symbols",
+          "reference/component-defaults"
         ]
       },
       {
