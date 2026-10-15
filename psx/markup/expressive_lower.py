@@ -36,6 +36,12 @@ def _raise_unsupported(node: syntax.Expression, filename: str, name: str) -> Non
 def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast.expr:
     if isinstance(node, syntax.Literal):
         return ast.Constant(value=node.value)
+    if isinstance(node, syntax.InterpolatedString):
+        return ast.JoinedStr(values=[
+            ast.Constant(value=part.value) if isinstance(part, syntax.Literal)
+            else ast.FormattedValue(value=lower(part, filename=filename), conversion=-1)
+            for part in node.parts
+        ])
     if isinstance(node, syntax.Name):
         # Author's ordinary Python lexical name remains in its own scope.
         thunk = ast.Lambda(
