@@ -32,6 +32,7 @@ The reproducible repository project has two complete source files:
 ```text
 examples/f5_5_task_board/
 ├── app.py
+├── native_qt.py
 └── test_app.py
 ```
 
@@ -51,6 +52,25 @@ The tests assert that toggling the first task changes its text to `[x]` and decr
 <Note>
   The current example proves stateful Headless behavior only. It does not support claims about native window screenshots, automatic persistence or OS-specific layout. G5 native project coverage must be verified in a separate workflow before being described as available.
 </Note>
+
+## Run the same application with a native Qt renderer
+
+The same `TaskBoard` component can be mounted through PySide6 without changing its state logic. The complete native entry point is [native_qt.py](https://github.com/Neuri-AI/PSX/blob/5330f06d9cb2a75a47afa70ec3f0783344d9f825/examples/f5_5_task_board/native_qt.py).
+
+From the repository root, run:
+
+```bash
+python -m pip install -e ".[pyside6]"
+python examples/f5_5_task_board/native_qt.py
+```
+
+On Linux with Qt offscreen support, run the bounded native smoke:
+
+```bash
+QT_QPA_PLATFORM=offscreen python examples/f5_5_task_board/native_qt.py --smoke
+```
+
+Expected CI smoke output: `Native Qt task board mounted: PASS`. This mounts the actual Qt widget tree and unmounts it. The separate Headless tests exercise toggle and clear behavior; the native smoke itself does **not** simulate clicks or verify screenshot geometry. Use a graphical desktop session for interactive evaluation.
 
 ## Troubleshooting and variation
 
