@@ -11,7 +11,7 @@
 | --- | --- | --- | --- |
 | G1 | Declared API inventory and component contract baseline | CLOSED (owner-approved documentation baseline; limitations below) | `226110f66f325e0d16a0b7a43c5461e46a27cf06`; Actions #38637541555 |
 | G2 | Mintlify IA, docs.json and six template families | NOT STARTED | — |
-| G3 | Complete independent beginner-first tutorials | NOT STARTED | — |
+| G3 | Complete independent beginner-first tutorials | IN PROGRESS (PR #34) | Headless example CI pending; G2 page integration pending |
 | G4 | Exhaustive verified API and component reference | NOT STARTED | — |
 | G5 | Real runnable example projects and native DX | NOT STARTED | — |
 | G6 | End-to-end evidence and explicit owner signoff | NOT STARTED | — |
@@ -128,3 +128,13 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Acceptance exception (transparent):** The source inventory covers declared root exports and selected public submodules, builtin registry metadata and candidate tests; it does **not** establish individual behavioral assertions, exhaustive undocumented submodule APIs or OS/Python native matrices. These remain mandatory accuracy checks in G4/G5/G6 *before* publishing precise compatibility assertions or claiming final F5.5 closure.
 - **Final documentation SHA:** to be determined by PR #32 merge into `develop`. This closeout change itself is documentation-only and does not modify the tested audit code.
 - **Next steps:** (1) merge PR #32 into `develop`; (2) start G2 Mintlify IA and page conventions from latest `develop`; (3) during G4/G5 trace each public API and native claim to current source/test evidence.
+
+### 2026-10-14 — F5.5-G3 — first runnable beginner examples
+- **Canonical starting develop SHA:** `eb1f589a75a22a7d5a5c0cd35a7bc8f7d5b96e61`.
+- **Branch and PR:** `docs/f5-5-g3-beginner-path`, [PR #34](https://github.com/Neuri-AI/PSX/pull/34).
+- **Source-backed examples:** `examples/f5_5_beginner/hello_world.py`, `counter.py`, `test_examples.py`; tests exercise real `psx.App`, `@component`, portable VNodes, `use_state`, `on_click`, Headless flush and reconciliation. Each program prints expected output.
+- **Commands:** `python -m pip install -e .`; `python examples/f5_5_beginner/hello_world.py`; `python examples/f5_5_beginner/counter.py`; `cd examples/f5_5_beginner && python -m unittest -v test_examples`.
+- **CI:** `.github/workflows/f5-5-beginner-examples.yml` tests Python 3.10–3.13 in Ubuntu. **Pending actual workflow results**; no native Qt/Tkinter/Kivy execution.
+- **Dependency:** G2 PR #33's `docs/public/docs.json` is not present in this start SHA of `develop`. Publish actual MDX tutorials and navigation only after G2 merge to avoid cross-branch speculation.
+- **Gate:** **G3 IN PROGRESS; not closed or certified.** No independent newcomer/native smoke review yet.
+- **Next three steps:** merge G2, add full beginner-first Mintlify tutorials; run headless Python matrix and repair failures; run and capture native app screenshots and reproducibility receipts.
