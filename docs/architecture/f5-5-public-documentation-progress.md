@@ -178,3 +178,13 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Native support:** This docs-only increment does not change or recertify native renderers. G4 must avoid asserting unsupported parity.
 - **Gate status:** **G4 IN PROGRESS**; G5/G6 untouched.
 - **Next three steps:** generate and audit source-derived signatures/defaults for each symbol and component; attach individual behavioral tests/backend receipts; validate MDX and navigation/links in CI and close G4 after coverage enforcement.
+
+### 2026-10-14 — F5.5-G4 — expanded source-grounded catalog and CI repair
+- **Single branch retained:** `docs/f5-5-public-api-reference`. Initial PR #37 was merged into `develop` by the owner before G4 was complete. Continued on the **same branch** with [PR #38](https://github.com/Neuri-AI/PSX/pull/38), not a new branch; fast-forwarded to updated canonical `develop` before further changes.
+- **Baseline:** `develop` at `18a1cab5d8d6a059170c666313119530a4394b6f`.
+- **Added:** `docs/public/reference/root-symbols.mdx` (57 source-linked root-export entries), `component-defaults.mdx` (source-derived defaults/child policy entries), `submodules.mdx` (the explicit markup and renderer export namespaces); navigation updated.
+- **Guard:** `scripts/docs/validate_api_reference.py` now checks every root export has an actual detailed heading in the directory, as well as root importability and exact census parity.
+- **CI root cause:** prior G4 workflow #38689710020 failed `ModuleNotFoundError: psx` due to missing installation in isolated GitHub runner. Fixed job by installing the checked-out package via `python -m pip install -e .`. [G4 coverage #38690765043](https://github.com/Neuri-AI/PSX/actions/runs/38690765043) **SUCCESS**; [Mintlify #38690765209](https://github.com/Neuri-AI/PSX/actions/runs/38690765209) **SUCCESS**, both on SHA `5774861250499a4497dcdf32f59dfbb0d975a88f` (before latest submodule page).
+- **Coverage limitations:** The 57 root entries are a complete exported-*name* directory, NOT exhaustive individually verified per-member behavior, complete exception/return/lifecycle semantics or source-to-assertion/native platform receipts. The additional submodule list is for explicit module exports. No framework runtime was changed.
+- **G4 disposition:** IN PROGRESS pending final gate's detailed per-symbol testing/native evidence standards; do not silently mark all API behavior certified because root indexing and Mintlify pass.
+- **Next three steps:** finalize per-symbol runtime/property/error/lifecycle details; connect actual CI behavior receipts by renderer; validate the final source+MDX snapshot and close G4 only after all contractual reference criteria are met.
