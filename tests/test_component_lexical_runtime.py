@@ -50,10 +50,17 @@ app = App(Counter, renderer=renderer)
 app.mount()
 column = app.reconciler.root.children[0].handle
 label, button = column.children
+original_window_handle = app.reconciler.root.native_handle()
+original_label = label
+original_button = button
 assert label.props["value"] == "Counter: 0", label.props
 assert button.props["label"] == "Click me! (0)", button.props
 button.events["on_click"].invoke()
 renderer.flush()
+assert app.reconciler.root.native_handle() is original_window_handle
+assert app.reconciler.root.children[0].handle is column
+assert column.children[0] is original_label
+assert column.children[1] is original_button
 assert label.props["value"] == "Counter: 1", label.props
 assert button.props["label"] == "Click me! (1)", button.props
 assert events == ["start:0", "stop:0", "start:1"], events
