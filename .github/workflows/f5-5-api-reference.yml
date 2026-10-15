@@ -29,6 +29,9 @@ jobs:
         run: |
           python -m scripts.docs.generate_g4_reference --write
           python -m scripts.docs.generate_g4_reference --check
+          echo "===G4_REFERENCE_BEGIN==="
+          cat docs/public/reference/generated-contracts.mdx
+          echo "===G4_REFERENCE_END==="
       - uses: actions/upload-artifact@v4
         with:
           name: g4-generated-api-contracts
