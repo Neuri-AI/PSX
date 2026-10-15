@@ -1,0 +1,413 @@
+---
+title: "Complete root symbol directory"
+description: "All declared psx root exports with source locations and callable declarations."
+---
+
+# Complete root symbol directory
+
+This directory covers **all 57 names** in the root `psx.__all__` manifest. It is pinned to the [checked-in census](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/docs/architecture/f5-5-api-exports.json) and the source revision `18a1cab5d8d6a059170c666313119530a4394b6f`. Names are organized alphabetically; callable syntax below is extracted from the corresponding source declaration when directly available. Some values are callable instances, constants or re-exported types, so the canonical linked source remains authoritative. Backend capability must be confirmed separately; **do not infer native support from a declared export**.
+
+## `App`
+
+- **Import:** `from psx import App`
+- **Declared in:** [`psx/app.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/app.py)
+- **Declaration:** `class App`
+- **Category:** everyday application API
+
+## `Badge`
+
+- **Import:** `from psx import Badge`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Badge( label: str = "", *, variant: str = "neutral", appearance: str = "filled", size: str = "medium", shape: str = "rounded", enabled: bool = True, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `Button`
+
+- **Import:** `from psx import Button`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Button( label: str | int | float, *, font_size: int | float = 14, on_click: Callable[[], None] | None = None, enabled: bool = True, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `Checkbox`
+
+- **Import:** `from psx import Checkbox`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Checkbox(*, checked: bool = False, enabled: bool = True, on_change: Callable[[bool], None] | None = None, key: str | int | None = None, ref: object | None = None, **props: object) -> VNode`
+- **Category:** portable component/layout
+
+## `ComponentAdapter`
+
+- **Import:** `from psx import ComponentAdapter`
+- **Declared in:** [`psx/renderers/__init__.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/renderers/__init__.py)
+- **Declaration:** `(see linked implementation)`
+- **Category:** advanced extension or public infrastructure
+
+## `ComponentDefinition`
+
+- **Import:** `from psx import ComponentDefinition`
+- **Declared in:** [`psx/core/registry.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/registry.py)
+- **Declaration:** `class ComponentDefinition`
+- **Category:** advanced extension or public infrastructure
+
+## `ComponentRegistry`
+
+- **Import:** `from psx import ComponentRegistry`
+- **Declared in:** [`psx/core/registry.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/registry.py)
+- **Declaration:** `class ComponentRegistry`
+- **Category:** advanced extension or public infrastructure
+
+## `Divider`
+
+- **Import:** `from psx import Divider`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Divider( *children: object, orientation: str = "horizontal", thickness: int = 1, color: str | None = None, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `DuplicateKeyError`
+
+- **Import:** `from psx import DuplicateKeyError`
+- **Declared in:** [`psx/core/errors.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/errors.py)
+- **Declaration:** `class DuplicateKeyError(PSXError, ValueError)`
+- **Category:** public exception
+
+## `Flex`
+
+- **Import:** `from psx import Flex`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Flex( *children: object, direction: str = "row", wrap: str = "nowrap", justify_content: str = "flex-start", align_items: str = "stretch", align_content: str = "normal", gap: int | float | str = 0, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `Fragment`
+
+- **Import:** `from psx import Fragment`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `(see linked implementation)`
+- **Category:** portable component/layout
+
+## `Grid`
+
+- **Import:** `from psx import Grid`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Grid(*children: object, columns: int = 12, gap: object = 0, row_gap: object | None = None, column_gap: object | None = None, key: Key | None = None, ref: object | None = None, **props: object) -> VNode`
+- **Category:** portable component/layout
+
+## `GridItem`
+
+- **Import:** `from psx import GridItem`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def GridItem(*children: object, span: object = "auto", offset: object = 0, key: Key | None = None, ref: object | None = None, **props: object) -> VNode`
+- **Category:** portable component/layout
+
+## `HookOrderError`
+
+- **Import:** `from psx import HookOrderError`
+- **Declared in:** [`psx/core/errors.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/errors.py)
+- **Declaration:** `class HookOrderError(PSXError)`
+- **Category:** public exception
+
+## `Image`
+
+- **Import:** `from psx import Image`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Image( source: str, *, fit: str = "contain", width: int | None = None, height: int | None = None, alt: str = "", enabled: bool = True, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `Input`
+
+- **Import:** `from psx import Input`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Input( *, value: str = "", placeholder: str = "", font_size: int | float = 14, enabled: bool = True, read_only: bool = False, password: bool = False, on_change: Callable[[str], None] | None = None, on_submit: Callable[[], None] | None = None, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `InvalidChildError`
+
+- **Import:** `from psx import InvalidChildError`
+- **Declared in:** [`psx/core/errors.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/errors.py)
+- **Declaration:** `class InvalidChildError(PSXError, TypeError)`
+- **Category:** public exception
+
+## `Link`
+
+- **Import:** `from psx import Link`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Link( label: str = "", *, href: str | None = None, on_click: Callable[[], None] | None = None, color: str | None = None, underline: bool = True, enabled: bool = True, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `MarkupSyntaxError`
+
+- **Import:** `from psx import MarkupSyntaxError`
+- **Declared in:** [`psx/core/errors.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/errors.py)
+- **Declaration:** `class MarkupSyntaxError(PSXError)`
+- **Category:** public exception
+
+## `Native`
+
+- **Import:** `from psx import Native`
+- **Declared in:** [`psx/core/native.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/native.py)
+- **Declaration:** `def Native( widget: object, *, props: Mapping[str, object] | None = None, signals: Mapping[str, Callable[..., object] | None] | None = None, renderer: str | None = None, sfle_port: object | None = None, key: str | int | None = None, ref: object | None = None, **attributes: object, )`
+- **Category:** advanced extension or public infrastructure
+
+## `NativeOwnership`
+
+- **Import:** `from psx import NativeOwnership`
+- **Declared in:** [`psx/core/native.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/native.py)
+- **Declaration:** `class NativeOwnership(str, Enum)`
+- **Category:** advanced extension or public infrastructure
+
+## `NativeWidget`
+
+- **Import:** `from psx import NativeWidget`
+- **Declared in:** [`psx/core/native.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/native.py)
+- **Declaration:** `class NativeWidget`
+- **Category:** advanced extension or public infrastructure
+
+## `PLUGIN_ENTRY_POINT_GROUP`
+
+- **Import:** `from psx import PLUGIN_ENTRY_POINT_GROUP`
+- **Declared in:** [`psx/plugins.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/plugins.py)
+- **Declaration:** `(see linked implementation)`
+- **Category:** advanced extension or public infrastructure
+
+## `PSXComponent`
+
+- **Import:** `from psx import PSXComponent`
+- **Declared in:** [`psx/integrations/qyro.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/integrations/qyro.py)
+- **Declaration:** `class PSXComponent(_QyroComponent)`
+- **Category:** advanced extension or public infrastructure
+
+## `PSXError`
+
+- **Import:** `from psx import PSXError`
+- **Declared in:** [`psx/core/errors.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/errors.py)
+- **Declaration:** `class PSXError(Exception)`
+- **Category:** public exception
+
+## `Plugin`
+
+- **Import:** `from psx import Plugin`
+- **Declared in:** [`psx/plugins.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/plugins.py)
+- **Declaration:** `class Plugin(Protocol)`
+- **Category:** advanced extension or public infrastructure
+
+## `PluginAPI`
+
+- **Import:** `from psx import PluginAPI`
+- **Declared in:** [`psx/plugins.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/plugins.py)
+- **Declaration:** `class PluginAPI`
+- **Category:** advanced extension or public infrastructure
+
+## `ProgressBar`
+
+- **Import:** `from psx import ProgressBar`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def ProgressBar( *, value: float = 0.0, min: float = 0.0, max: float = 100.0, indeterminate: bool = False, orientation: str = "horizontal", enabled: bool = True, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `Radio`
+
+- **Import:** `from psx import Radio`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Radio( value: str | int, *, label: str = "", enabled: bool = True, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `RadioGroup`
+
+- **Import:** `from psx import RadioGroup`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def RadioGroup( *children: object, value: str | int | None = None, on_change: Callable[[str | int], None] | None = None, orientation: str = "vertical", spacing: int = 0, padding: int | tuple[int, int] | tuple[int, int, int, int] = 0, enabled: bool = True, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `Ref`
+
+- **Import:** `from psx import Ref`
+- **Declared in:** [`psx/core/hooks.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/hooks.py)
+- **Declaration:** `class Ref(Generic[T])`
+- **Category:** everyday application API
+
+## `RendererAdapterRegistry`
+
+- **Import:** `from psx import RendererAdapterRegistry`
+- **Declared in:** [`psx/renderers/__init__.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/renderers/__init__.py)
+- **Declaration:** `(see linked implementation)`
+- **Category:** advanced extension or public infrastructure
+
+## `RendererCapabilities`
+
+- **Import:** `from psx import RendererCapabilities`
+- **Declared in:** [`psx/plugins.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/plugins.py)
+- **Declaration:** `class RendererCapabilities`
+- **Category:** advanced extension or public infrastructure
+
+## `RendererCapabilityError`
+
+- **Import:** `from psx import RendererCapabilityError`
+- **Declared in:** [`psx/core/errors.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/errors.py)
+- **Declaration:** `class RendererCapabilityError(PSXError)`
+- **Category:** public exception
+
+## `RendererConfigurationError`
+
+- **Import:** `from psx import RendererConfigurationError`
+- **Declared in:** [`psx/core/errors.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/errors.py)
+- **Declaration:** `class RendererConfigurationError(PSXError)`
+- **Category:** public exception
+
+## `Scroll`
+
+- **Import:** `from psx import Scroll`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Scroll( *children: object, direction: str = "vertical", content_direction: str = "vertical", scrollbar: str = "auto", width: int | float | None = None, height: int | float | None = None, spacing: int = 0, padding: int | tuple[int, int] | tuple[int, int, int, int] = 0, enabled: bool = True, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `Select`
+
+- **Import:** `from psx import Select`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Select( *, options: tuple[object, ...] | list[object] = (), value: str | int | None = None, placeholder: str = "", enabled: bool = True, on_change: Callable[[str | int], None] | None = None, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `Slider`
+
+- **Import:** `from psx import Slider`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Slider( *, value: float = 0.0, min: float = 0.0, max: float = 100.0, step: float = 0.0, orientation: str = "horizontal", enabled: bool = True, on_change: Callable[[float], None] | None = None, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `Spacer`
+
+- **Import:** `from psx import Spacer`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Spacer(*, key: Key | None = None, ref: object | None = None, **props: object) -> VNode`
+- **Category:** portable component/layout
+
+## `SpinBox`
+
+- **Import:** `from psx import SpinBox`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def SpinBox( *, value: int | float = 0, min: int | float = 0, max: int | float = 100, step: int | float = 1, decimals: int = 0, enabled: bool = True, on_change: Callable[[int | float], None] | None = None, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `Switch`
+
+- **Import:** `from psx import Switch`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Switch( *, checked: bool = False, enabled: bool = True, label: str = "", size: str = "medium", color: str = "#16A34A", on_change: Callable[[bool], None] | None = None, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `Text`
+
+- **Import:** `from psx import Text`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def Text( value: str | int | float, *, font_size: int | float = 16, bold: bool = False, italic: bool = False, color: str | None = None, align: str = "left", enabled: bool = True, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `TextArea`
+
+- **Import:** `from psx import TextArea`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def TextArea( value: str = "", *, placeholder: str = "", font_size: int | float = 14, enabled: bool = True, read_only: bool = False, on_change: Callable[[str], None] | None = None, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** portable component/layout
+
+## `ThreadViolationError`
+
+- **Import:** `from psx import ThreadViolationError`
+- **Declared in:** [`psx/core/errors.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/errors.py)
+- **Declaration:** `class ThreadViolationError(PSXError)`
+- **Category:** public exception
+
+## `VNode`
+
+- **Import:** `from psx import VNode`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `class VNode`
+- **Category:** advanced extension or public infrastructure
+
+## `builtin_component_registry`
+
+- **Import:** `from psx import builtin_component_registry`
+- **Declared in:** [`psx/core/registry.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/registry.py)
+- **Declaration:** `def builtin_component_registry() -> ComponentRegistry`
+- **Category:** advanced extension or public infrastructure
+
+## `component`
+
+- **Import:** `from psx import component`
+- **Declared in:** [`psx/core/component.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/component.py)
+- **Declaration:** `def component(function: Callable[..., object]) -> ComponentType`
+- **Category:** everyday application API
+
+## `create_element`
+
+- **Import:** `from psx import create_element`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def create_element( node_type: VNodeType, *children: object, key: Key | None = None, ref: object | None = None, **props: object, ) -> VNode`
+- **Category:** advanced extension or public infrastructure
+
+## `load_plugins`
+
+- **Import:** `from psx import load_plugins`
+- **Declared in:** [`psx/plugins.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/plugins.py)
+- **Declaration:** `def load_plugins( registry: ComponentRegistry, *, renderers: Mapping[str, object] | None = None, plugins: Iterable[Plugin | object] = (), discover: bool = False, group: str = PLUGIN_ENTRY_POINT_GROUP, namespace: str | None = None, ) -> tuple[Plugin, ...]`
+- **Category:** advanced extension or public infrastructure
+
+## `native_widget`
+
+- **Import:** `from psx import native_widget`
+- **Declared in:** [`psx/core/vnode.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/vnode.py)
+- **Declaration:** `def native_widget( widget: NativeWidget, *, key: Key | None = None, ref: object | None = None, **props: object ) -> VNode`
+- **Category:** advanced extension or public infrastructure
+
+## `psx`
+
+- **Import:** `from psx import psx`
+- **Declared in:** [`psx/markup/__init__.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/markup/__init__.py)
+- **Declaration:** `(see linked implementation)`
+- **Category:** everyday application API
+
+## `register_adapter`
+
+- **Import:** `from psx import register_adapter`
+- **Declared in:** [`psx/plugins.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/plugins.py)
+- **Declaration:** `def register_adapter( renderer: object, component: str, adapter: ComponentAdapter, *, replace: bool = False, ) -> None`
+- **Category:** advanced extension or public infrastructure
+
+## `register_component`
+
+- **Import:** `from psx import register_component`
+- **Declared in:** [`psx/plugins.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/plugins.py)
+- **Declaration:** `def register_component( registry: ComponentRegistry, name: str, constructor: ComponentConstructor, *, namespace: str | None = None, contract: ComponentContract | None = None, ) -> ComponentDefinition`
+- **Category:** advanced extension or public infrastructure
+
+## `renderer_capabilities`
+
+- **Import:** `from psx import renderer_capabilities`
+- **Declared in:** [`psx/plugins.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/plugins.py)
+- **Declaration:** `def renderer_capabilities(renderer: object) -> RendererCapabilities`
+- **Category:** advanced extension or public infrastructure
+
+## `use_effect`
+
+- **Import:** `from psx import use_effect`
+- **Declared in:** [`psx/core/hooks.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/hooks.py)
+- **Declaration:** `def use_effect( callback: Callable[[], Callable[[], None] | None], dependencies: Sequence[object] | None = None ) -> None`
+- **Category:** everyday application API
+
+## `use_ref`
+
+- **Import:** `from psx import use_ref`
+- **Declared in:** [`psx/core/hooks.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/hooks.py)
+- **Declaration:** `def use_ref(initial: T | None = None) -> Ref[T]`
+- **Category:** everyday application API
+
+## `use_state`
+
+- **Import:** `from psx import use_state`
+- **Declared in:** [`psx/core/hooks.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/hooks.py)
+- **Declaration:** `def use_state(initial: T | Callable[[], T]) -> tuple[T, Callable[[T | Callable[[T], T]], None]]`
+- **Category:** everyday application API
+
+## Important accuracy boundaries
+
+- Component property/default/event/child-policy data are defined in [portable contracts](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/contracts.py), not safely inferred from abbreviated signatures.
+- A source declaration does not prove a native backend or OS/Python combination was behavior-tested.
+- Public submodules `psx.markup` and `psx.renderers` also expose names not all present in the root; this list is scoped to `psx.__all__`. Read [the conceptual API index](/reference/api-index) for topic-based navigation.

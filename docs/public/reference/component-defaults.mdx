@@ -1,0 +1,286 @@
+---
+title: "All portable component defaults and child policies"
+description: "Source-derived default dictionaries for portable Velto components."
+---
+
+# Portable component defaults
+
+The values below are transcribed from [`psx/core/defaults.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/defaults.py) and contract declarations in [`psx/core/contracts.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/contracts.py), pinned to source SHA `18a1cab5d8d6a059170c666313119530a4394b6f`. Not every default applies identically to every native renderer. For per-component restrictions read the source validator and its behavioral tests.
+
+## Text
+
+**Child policy:** `text-only`. **Defaults:**
+
+```python
+{
+    "font_size": 16,
+    "bold": False,
+    "italic": False,
+    "color": None,
+    "align": "left",
+    "enabled": True
+}
+```
+
+## Button
+
+**Child policy:** `text-only`. **Defaults:**
+
+```python
+{
+    "font_size": 14,
+    "enabled": True,
+    "on_click": None
+}
+```
+
+## Checkbox
+
+**Child policy:** `none`. **Defaults:**
+
+```python
+{"checked": False, "enabled": True, "on_change": None}
+```
+
+## TextArea
+
+**Child policy:** `text`. **Defaults:**
+
+```python
+{
+    "value": "",
+    "placeholder": "",
+    "font_size": 14,
+    "enabled": True,
+    "read_only": False,
+    "on_change": None,
+}
+```
+
+## Input
+
+**Child policy:** `none`. **Defaults:**
+
+```python
+{
+    "value": "",
+    "placeholder": "",
+    "font_size": 14,
+    "enabled": True,
+    "read_only": False,
+    "password": False,
+    "on_change": None,
+    "on_submit": None,
+}
+```
+
+## Flex
+
+**Child policy:** `multiple`. **Defaults:**
+
+```python
+{
+    "direction": "row", "wrap": "nowrap",
+    "justify_content": "flex-start", "align_items": "stretch",
+    "align_content": "normal", "gap": 0,
+    "width": "auto", "height": "auto",
+    "min_width": "auto", "min_height": "auto",
+    "max_width": "none", "max_height": "none", "padding": 0,
+}
+```
+
+## Slider
+
+**Child policy:** `none`. **Defaults:**
+
+```python
+{
+    "value": 0.0,
+    "min": 0.0,
+    "max": 100.0,
+    "step": 0.0,
+    "orientation": "horizontal",
+    "enabled": True,
+    "on_change": None,
+}
+```
+
+## Spacer
+
+**Child policy:** `none`. **Defaults:**
+
+```python
+{}
+```
+
+## Divider
+
+**Child policy:** `none-or-single`. **Defaults:**
+
+```python
+{
+    "orientation": "horizontal",
+    "thickness": 1,
+    "color": None,
+}
+```
+
+## Image
+
+**Child policy:** `none`. **Defaults:**
+
+```python
+{
+    "fit": "contain",
+    "width": None,
+    "height": None,
+    "alt": "",
+    "enabled": True,
+}
+```
+
+## ProgressBar
+
+**Child policy:** `none`. **Defaults:**
+
+```python
+{
+    "value": 0.0,
+    "min": 0.0,
+    "max": 100.0,
+    "indeterminate": False,
+    "orientation": "horizontal",
+    "enabled": True,
+}
+```
+
+## Radio
+
+**Child policy:** `none`. **Defaults:**
+
+```python
+{
+    "label": "",
+    "enabled": True,
+}
+```
+
+## RadioGroup
+
+**Child policy:** `multiple`. **Defaults:**
+
+```python
+{
+    "value": None,
+    "on_change": None,
+    "orientation": "vertical",
+    "spacing": 0,
+    "padding": 0,
+    "enabled": True,
+}
+```
+
+## Select
+
+**Child policy:** `none`. **Defaults:**
+
+```python
+{
+    "options": (),
+    "value": None,
+    "placeholder": "",
+    "enabled": True,
+    "on_change": None,
+}
+```
+
+## Switch
+
+**Child policy:** `none`. **Defaults:**
+
+```python
+{
+    "checked": False,
+    "enabled": True,
+    "label": "",
+    "size": "medium",
+    "color": "#16A34A",
+    "on_change": None,
+}
+```
+
+## Link
+
+**Child policy:** `text-only`. **Defaults:**
+
+```python
+{
+    "href": None,
+    "label": "",
+    "on_click": None,
+    "color": None,
+    "underline": True,
+    "enabled": True,
+}
+```
+
+## Badge
+
+**Child policy:** `text-only`. **Defaults:**
+
+```python
+{
+    "label": "", "variant": "neutral", "appearance": "filled",
+    "size": "medium", "shape": "rounded", "enabled": True,
+}
+```
+
+## SpinBox
+
+**Child policy:** `none`. **Defaults:**
+
+```python
+{
+    "value": 0,
+    "min": 0,
+    "max": 100,
+    "step": 1,
+    "decimals": 0,
+    "enabled": True,
+    "on_change": None,
+}
+```
+
+## Scroll
+
+**Child policy:** `multiple`. **Defaults:**
+
+```python
+{
+    "direction": "vertical", "content_direction": "vertical",
+    "scrollbar": "auto", "width": None, "height": None,
+    "spacing": 0, "padding": 0, "enabled": True,
+}
+```
+
+## Grid
+
+**Child policy:** `multiple`. **Defaults:**
+
+```python
+Defined by its own contract module (see source).
+```
+
+## GridItem
+
+**Child policy:** `single`. **Defaults:**
+
+```python
+Defined by its own contract module (see source).
+```
+
+## Notes
+
+- Events are callable properties whose names and payload contracts must be checked against validators and renderer adapters.
+- Additional Flex item metadata may apply to child controls; accepted names are defined in `psx/core/props.py`.
+- `Grid` and `GridItem` have separate normalized defaults in `psx/core/grid_contract.py` and require Cinnamon geometry; this page does not invent their defaults.
