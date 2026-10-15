@@ -1,0 +1,51 @@
+---
+title: "Kivy native UI"
+description: "Build and mount a Kivy application using portable Velto UI components."
+---
+
+# Native Kivy application
+
+This complete example uses the actual `kivy` renderer with native Kivy widgets, **not** Headless or Chromium. The [source file](https://github.com/Neuri-AI/PSX/blob/df5eff3e9fd8d2af0775fd1576f9c76ac66ef619/examples/f5_5_native_gallery/kivy_app.py) contains a label and button and an explicit unmount cleanup path.
+
+## Prerequisites
+
+Use a supported desktop Python installation with working Kivy and graphics libraries. On the documented Linux smoke route, a display server or Xvfb is required. Start with a clean checkout and virtual environment:
+
+```bash
+git clone https://github.com/Neuri-AI/PSX.git
+cd PSX
+git checkout df5eff3e9fd8d2af0775fd1576f9c76ac66ef619
+python -m venv .venv
+```
+
+Activate with `source .venv/bin/activate` on macOS/Linux or `.venv\Scripts\Activate.ps1` on Windows PowerShell. Then:
+
+```bash
+python -m pip install -e ".[kivy]"
+python examples/f5_5_native_gallery/kivy_app.py
+```
+
+Project files:
+
+```text
+examples/f5_5_native_gallery/
+├── app.py
+├── qt_app.py
+└── kivy_app.py
+```
+
+No separate settings file or PSX compilation step is necessary: the Python source creates VNodes directly and explicitly selects the renderer.
+
+## Observable result
+
+The renderer mounts Kivy text and button controls. The button callback prints `Kivy clicked` when activated. Closing the native application exits the Kivy event loop.
+
+On Linux with Xvfb, smoke-test the real widget mount using:
+
+```bash
+xvfb-run -a python examples/f5_5_native_gallery/kivy_app.py --smoke
+```
+
+The expected smoke message is `Kivy native mount: PASS`. It certifies mounting and teardown only if it is actually observed in CI. A successful smoke does **not** prove visual accuracy, desktop interaction or compatibility across all other Python/OS combinations.
+
+If the Kivy graphics initialization fails, verify the installed Kivy version and system graphics dependencies before attributing it to Velto. See [Tkinter](/examples/native-gallery) and [Qt](/examples/qt-gallery) for independent renderer variants.

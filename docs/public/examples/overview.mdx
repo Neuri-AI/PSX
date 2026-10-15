@@ -1,12 +1,24 @@
 ---
 title: "Reproducible applications"
-description: "Evidence requirements for runnable native examples."
+description: "Build source-verified Velto projects and understand the actual backend coverage."
 ---
 
 # Reproducible applications
 
-An example is **runnable** only when its repository directory includes the full project, installation instructions, settings, entry point, commands, tests, expected behavior and evidence for the renderer it claims to support.
+The following projects live inside the repository and can be executed directly after installing the checked-out `psx` package. They exercise distinct capabilities, so **do not interpret success in one backend as support in every backend**.
 
-Applications and screenshots are planned for G5. No screenshots or sample output are represented here as tested. Headless test success does not imply native renderer success.
+## Stateful task board
 
-Before trying an application, consult its compatibility matrix and pinned commit SHA. Return to [Getting started](/getting-started/overview).
+[Build the Task Board](/examples/task-board) to learn `use_state`, stable keys, event handlers, keyed reconciliation, toggling and removal. The checked-in behavioral tests run on Headless for Python 3.10–3.13; the same component also has a separate PySide6 native mount smoke.
+
+## Native controls gallery
+
+The gallery has runnable backends for [Tkinter](/examples/native-gallery), [PySide6](/examples/qt-gallery) and [Kivy](/examples/kivy-gallery). Each selects its renderer explicitly. The Qt example additionally mounts a backend-specific native `QLabel` through `Native` to demonstrate native interop.
+
+## What is verified?
+
+The projects have dedicated GitHub Actions jobs for source execution and native mounting/teardown. These are **Linux runner** tests, with Xvfb for Tkinter/Kivy and Qt offscreen for PySide6. A native smoke does not verify manual GUI interactions, visual geometry, or other operating systems.
+
+The application pages provide installation prerequisites, file paths, precise commands, expected output, troubleshooting and scope of evidence. For independently reviewed screenshots and OS-by-OS GUI acceptance, consult the eventual G6 integral validation records.
+
+Begin with [installation](/getting-started/installation) if you are new to the framework.

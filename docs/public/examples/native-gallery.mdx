@@ -1,0 +1,58 @@
+---
+title: "Native controls gallery"
+description: "Build and mount a real Tkinter application with portable text, input and button controls."
+---
+
+# Native controls gallery
+
+This complete application renders portable `Text`, `Input` and `Button` controls using **Tkinter**, not Chromium or Headless. It is a small native interactivity exercise, separate from the [headless task board](/examples/task-board).
+
+## Prerequisites
+
+Install Git, a desktop Python 3.10–3.13 build with Tkinter support, and a graphical environment. Linux CI uses Xvfb to mount actual Tkinter controls without an interactive display. Mac and Windows desktop execution require a Python build with its matching Tk libraries.
+
+Clone the project and set up an isolated environment:
+
+```bash
+git clone https://github.com/Neuri-AI/PSX.git
+cd PSX
+git checkout df5eff3e9fd8d2af0775fd1576f9c76ac66ef619
+python -m venv .venv
+```
+
+Activate with `source .venv/bin/activate` on macOS/Linux or `.venv\Scripts\Activate.ps1` in Windows PowerShell. Then run:
+
+```bash
+python -m pip install -e .
+python -c "import tkinter; print('Tkinter available')"
+python examples/f5_5_native_gallery/app.py
+```
+
+## Complete project tree
+
+```text
+examples/f5_5_native_gallery/
+└── app.py
+```
+
+All source is contained in [app.py](https://github.com/Neuri-AI/PSX/blob/df5eff3e9fd8d2af0775fd1576f9c76ac66ef619/examples/f5_5_native_gallery/app.py). No additional assets, settings file, or PSX static compilation are needed. The program selects `renderer="tkinter"` explicitly.
+
+## What to expect
+
+A native toolkit window contains a heading, an editable text field initially displaying **Welcome**, a **Confirm** button and a second text label. Clicking Confirm writes `Confirmed` to the terminal. Close the window with the native window control.
+
+On Linux with Xvfb installed, the noninteractive native mount test is:
+
+```bash
+xvfb-run -a python examples/f5_5_native_gallery/app.py --smoke
+```
+
+The expected message is `Native gallery mount: PASS`. A successful smoke verifies that the renderer mounted and cleaned up native widgets, **not** the visual appearance, manual interaction or the accuracy of screenshots.
+
+## Troubleshooting
+
+If importing Tkinter fails, use a Python installation built with Tcl/Tk. A Linux `no display name` error requires a graphical session or Xvfb; don't interpret it as proof of a Velto defect. If another native renderer is desired, choose its documented optional dependency and compatibility matrix rather than assuming identical backend behavior.
+
+## Next
+
+Learn how [Cinnamon layout works](/learn/native-layout), then compare the [task-board state and key logic](/examples/task-board).
