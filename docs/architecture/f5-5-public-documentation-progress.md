@@ -257,3 +257,10 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Implementation commit SHAs:** installation `f9fd6bc02d851b9916ecc6fe51cbbc4762aedd39`; first-app `9dde544760964fa32cd63808c42bdccf14d2ed48`. This ledger update will have a subsequent SHA.
 - **Status:** Implemented, NOT CERTIFIED. F5.5 page-by-page approval remains mandatory.
 - **Open issues / next three steps:** (1) verify `velto-cli` released flags, templates and addon installation behavior against CLI source; (2) independently reproduce dependency installation and `python main.py` on supported native backend, collect evidence; (3) run Mintlify validation, links and accessibility CI and record immutable SHA before declaring pages complete. Stop pending owner's next page selection.
+
+### 2026-10-15 — F5.5 manual review — Getting Started overview correction
+- **Owner correction:** The canonical page under review was `docs/public/getting-started/overview.mdx`, not just the linked `installation.mdx` and `first-app.mdx`.
+- **Change:** Replaced outdated source-clone/editable-install, manually constructed Qt `App`/Cinnamon sample with the approved end-to-end CLI-generated `VeltoContext` + PSX Hello World journey. Kept installation and first-app pages as supporting guides.
+- **Commit:** `54ea178bd1e0f3a0ff36fb36c35fe815f9821891` on `feature/docs`.
+- **Verification:** GitHub content update only; Mintlify and native execution remain UNVERIFIED. Exact template dependency install command still requires source-backed confirmation. Do not certify.
+- **Next:** Verify CLI and template commands; reproduce native run; run Mintlify validation and obtain owner review.
