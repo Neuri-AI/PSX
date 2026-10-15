@@ -1,165 +1,147 @@
 ---
 title: "Getting started"
-description: "Install Velto, create a PySide6 window, and run your first native Python interface."
+description: "Install Velto and run your first native Python application."
 ---
 
-In a few minutes, you'll create your first **native desktop window** with Velto. You'll install the framework, write a small PSX Markup interface and open a real native window. Everything you need is on this page.
+Build your first **native desktop application** with Velto in just a few steps.
 
-We'll use **PySide6 (Qt 6)** for the first example. Velto also integrates with PyQt6, PyQt5, PySide2, Tkinter and Kivy.
+We'll use **PySide6 (Qt 6)** and PSX Markup to display a simple Hello World window. No previous experience with Velto is required.
 
-## 1. Prepare Python
+## 1. Prepare your environment
 
-You need **Python 3.10–3.13**, a terminal and a graphical desktop environment on Windows, macOS or Linux.
+You'll need **Python 3.10–3.13**, an Internet connection, and a graphical desktop environment on Windows, macOS, or Linux.
 
-Create a folder for your project and an isolated Python environment:
+Create a workspace and a virtual environment:
 
 ```bash
-mkdir my-velto-app
-cd my-velto-app
+mkdir my-velto-projects
+cd my-velto-projects
 python -m venv .venv
 ```
 
-Activate it on macOS or Linux:
+Activate your environment:
+
+<Tabs>
+  <Tab title="macOS / Linux">
+
+    ```bash
+    source .venv/bin/activate
+    ```
+
+  </Tab>
+  <Tab title="Windows PowerShell">
+
+    ```powershell
+    .venv\Scripts\Activate.ps1
+    ```
+
+  </Tab>
+  <Tab title="Windows CMD">
+
+    ```bat
+    .venv\Scripts\activate.bat
+    ```
+
+  </Tab>
+</Tabs>
+
+## 2. Install Velto
+
+Install Velto using pip:
 
 ```bash
-source .venv/bin/activate
+pip install velto
 ```
 
-Or on Windows PowerShell:
+## 3. Create your first application
 
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-## 2. Install Velto and PySide6
-
-Once Velto is available on PyPI, the installation command will be:
+Use the CLI to generate a new PySide6 project:
 
 ```bash
-pip install "velto[pyside6]"
+velto init --name my-first-velto-app --framework pyside6
 ```
 
-<Note>
-  **Publication status:** the package is not yet published on PyPI. To try the current source version today, clone the repository and install it with `pip install -e ".[pyside6]"` from the repository root. The commands below use the current `psx` import namespace; the planned `velto` namespace is not implemented yet.
-</Note>
+Follow the prompts if the CLI asks for additional information.
 
-For the current source checkout, use:
+Once initialization is complete, open your project:
 
 ```bash
-git clone https://github.com/Neuri-AI/PSX.git
-cd PSX
-pip install -e ".[pyside6]"
+cd my-first-velto-app
 ```
 
-## 3. Create your first application with PSX Markup
+<Tip>
+  Velto automatically generates the application structure, configuration, resources, and starter code. You don't need to create these files manually.
+</Tip>
 
-Create an `app.py` file in the repository root. This example uses **PSX Markup** for the interface and **PySide6** to display real native widgets.
+## 4. Run your application
+
+Start the application:
+
+```bash
+velto start
+```
+
+Your first native window should appear:
+
+![Native Velto application displaying Hello World](/screenshots/velto-hello-world.png)
+
+## 5. Understand your first application
+
+Open `main.py`. The generated application looks like this:
 
 ```python
-from psx import App, psx
-from psx.renderers.qt.pyside import PySide6Renderer
-from psx.sfle.model import AvailableSize, LayoutConstraints
+import sys
+from qyro import VeltoContext
+from psx import psx
 
-view = psx("""
-    <Flex direction="column" gap="12">
-        <Text>Hello, Velto!</Text>
-        <Button>Click me</Button>
-    </Flex>
-""")
-
-renderer = PySide6Renderer(
-    sfle_constraints=LayoutConstraints(
-        width=AvailableSize(800, definite=True),
-        height=AvailableSize(600, definite=True),
-    )
-)
-
-app = App(view, renderer=renderer)
+class MyFirstVeltoApp(VeltoContext):
+    def render(self):
+        return psx("""
+            <Flex>
+                <Text>Hello, World!</Text>
+            </Flex>
+        """)
 
 if __name__ == "__main__":
-    handle = app.mount()
-    handle.widget.resize(800, 600)
-    handle.widget.setWindowTitle("My first Velto app")
-    handle.widget.show()
-    app.renderer.run()
+    sys.exit(MyFirstVeltoApp().run())
 ```
 
-<Note>
-  This example uses the **current native Cinnamon integration**. Window sizing and showing still require access to the mounted Qt widget; this is a temporary onboarding workaround, not the intended final public window-settings API.
-</Note>
+There are only three things you need to understand for now:
 
-## 4. Run it
+- **`VeltoContext`** manages your application's lifecycle.
+- **`render()` and `psx()`** describe the interface using PSX Markup.
+- **`run()`** starts the native application.
 
-From the directory containing `app.py`, run:
+The `<Flex>` component provides a layout, while `<Text>` displays the greeting.
+
+## 6. Make it yours
+
+Change the greeting in `main.py`:
+
+```xml
+<Flex>
+    <Text>My first Velto application!</Text>
+</Flex>
+```
+
+Save your changes, close the application, and run it again:
 
 ```bash
-python app.py
+velto start
 ```
 
-You should see an 800 × 600 native Qt window containing the greeting and a button. The button has no click handler yet; this example focuses on the first visible interface.
+Your window will now display your updated message.
 
-For this static markup, **you do not need to run `psx.markup.transform`**. The public `psx()` function parses and renders it directly. More advanced lexical expressions may require the separate static transformation workflow.
-
-## 5. Why does this example use `<Flex>`?
-
-Cinnamon calculates layout from the available viewport dimensions. Here, `LayoutConstraints` supplies an 800 × 600 available area; the Qt window is resized separately to match it.
-
-**In the current native Cinnamon implementation, the participating layout tree must have exactly one explicit `<Flex>` root.** A standalone `<Text>` does not satisfy that requirement.
-
-You may be familiar with JSX fragments:
-
-```jsx
-<>
-    <Text>Hello, Velto!</Text>
-    <Button>Click me</Button>
-</>
-```
-
-Fragments group elements **without introducing a layout box**. They are different from `<Flex>`, which defines a layout container. The current normalization treats fragments as transparent, but the native Cinnamon root contract still requires one explicit `<Flex>` participant. A fragment containing multiple top-level elements is **not currently a working substitute** for the root `<Flex>`.
-
-### Planned fragment-friendly behavior (not implemented yet)
-
-Velto should eventually allow a fragment, a single `<Text>`, or other valid markup at the application root. The runtime would provide an internal viewport layout root, while fragments remain structurally transparent and do not create extra native widgets. Cinnamon would still be responsible for geometry. **Do not use the fragment-only example above as a runnable Cinnamon application today.**
-
-## 6. Understand what you wrote
-
-- **`psx("""...""")`** defines the interface in markup.
-- **`<Flex direction="column" gap="12">`** supplies the explicit layout root required today and arranges children vertically.
-- **`<Text>`** and **`<Button>`** describe native UI elements.
-- **`AvailableSize(..., definite=True)`** gives Cinnamon definite viewport dimensions.
-- **`app.mount()`**, **`handle.widget.show()`**, and **`app.renderer.run()`** mount, display, and run the current Qt integration.
-
-Try changing the greeting or adding another `<Text>` inside the `<Flex>`, then rerun `python app.py`.
-
-Continue with [PSX Markup](/learn/psx-markup) for the syntax and expression rules.
-
-## Other supported UI bindings
-
-PySide6 is the default for this tutorial, not the only option.
-
-| Binding | Toolkit | Install extra |
-| --- | --- | --- |
-| **PySide6** | Qt 6 | `velto[pyside6]` |
-| PyQt6 | Qt 6 | `velto[pyqt6]` |
-| PyQt5 | Qt 5 | `velto[pyqt5]` |
-| PySide2 | Qt 5 | `velto[pyside2]` (Python 3.10 only) |
-| Tkinter | Tk | Included with many Python installations |
-| Kivy | Kivy | `velto[kivy]` |
-
-These are the intended published-package installation forms; while using a source checkout, replace `velto[...]` with `.[...]` and install from the repository root. Backend support for individual components may vary.
-
-## Troubleshooting
-
-**Python can't import `psx` or `PySide6`:** activate your virtual environment and verify that the installation completed in that environment.
-
-**No window opens:** make sure you're using a graphical desktop session. A server terminal without a display cannot show a Qt window. With the current Qt integration, you must also call `handle.widget.show()` after mounting.
-
-**Cinnamon reports `Native SFLE requires one explicit Flex root`:** keep a single top-level `<Flex>` in the current native Cinnamon example; a bare `<Text>` is not enough.
-
-**Cinnamon rejects a fragment root:** fragments are transparent structural groups, but they are not currently a substitute for the required native `<Flex>` root.
-
-**You edited the code but see the old result:** close the running application and run `python app.py` again.
+You've just built and modified your first native Python interface with Velto!
 
 ## What's next?
 
-You've created a real native interface. Now you can explore [PSX Markup](/learn/psx-markup), [components](/learn/components), or [how Velto uses a Virtual DOM and native renderers](/concepts/architecture). You can also consult the [more detailed first-application walkthrough](/getting-started/first-app) when you want a longer example.
+Now that your application is running, explore the next guides:
+
+- [Project structure](/getting-started/project-structure) — Understand the generated files and configuration.
+- [How Velto works](/getting-started/how-velto-works) — Learn how PSX becomes native UI.
+- [PSX Markup](/learn/psx-markup) — Build more complex interfaces using declarative components.
+
+<Note>
+  If you encounter installation or startup problems, see [Install Velto](/getting-started/installation) for additional setup guidance.
+</Note>
