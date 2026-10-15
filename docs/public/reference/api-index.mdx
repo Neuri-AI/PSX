@@ -1,0 +1,36 @@
+---
+title: "Public Python API index"
+description: "The 57 declared top-level PSX exports, grouped by audience and linked to their source."
+---
+
+# Public Python API index
+
+The Python import namespace is `psx`, although the distribution is named `velto`. This inventory is pinned to `develop` commit `6243911ebb65668793fe412af0720053a239fbb2` and [the exact root export snapshot](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/docs/architecture/f5-5-api-exports.json).
+
+## Everyday UI building
+
+`App`, `component`, `psx`, `VNode`, `create_element`, `Fragment`, `use_state`, `use_ref`, `use_effect`, `Ref`.
+
+Read [application and state](/reference/application-and-state) for mount, scheduling and hook restrictions.
+
+## Portable components and layout
+
+`Badge`, `Button`, `Checkbox`, `Divider`, `Flex`, `Grid`, `GridItem`, `Image`, `Input`, `Link`, `ProgressBar`, `Radio`, `RadioGroup`, `Scroll`, `Select`, `Slider`, `Spacer`, `SpinBox`, `Switch`, `Text`, `TextArea`.
+
+See [portable component contracts](/reference/component-contracts). A registered component is not proof of every native backend's support.
+
+## Advanced extensions and native interoperability
+
+`ComponentAdapter`, `ComponentDefinition`, `ComponentRegistry`, `Native`, `NativeOwnership`, `NativeWidget`, `PLUGIN_ENTRY_POINT_GROUP`, `PSXComponent`, `Plugin`, `PluginAPI`, `RendererAdapterRegistry`, `RendererCapabilities`, `builtin_component_registry`, `load_plugins`, `native_widget`, `register_adapter`, `register_component`, `renderer_capabilities`.
+
+See [advanced extensions](/reference/extensions-and-native). `PSXComponent` belongs to the existing optional Qyro integration; this is not a promise that a future ecosystem release is available.
+
+## Root-exported errors
+
+`DuplicateKeyError`, `HookOrderError`, `InvalidChildError`, `MarkupSyntaxError`, `PSXError`, `RendererCapabilityError`, `RendererConfigurationError`, `ThreadViolationError`.
+
+Read [exceptions and troubleshooting](/reference/errors). Additional errors defined in submodules may not be root-exported; inspect the corresponding module before importing them.
+
+<Note>
+  This is an exact **export index**, not yet a fully certified per-symbol signature, default, native compatibility and behavioral test matrix. Do not mistake its completeness as a list for completion of all G4 reference acceptance criteria.
+</Note>
