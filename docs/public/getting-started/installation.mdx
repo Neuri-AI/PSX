@@ -1,0 +1,37 @@
+---
+title: "Install Velto from source"
+description: "Create a clean Python environment and install the real PSX import package."
+---
+
+# Install Velto from source
+
+The published distribution is named `velto`, but the Python imports currently start with `psx`. These instructions install this repository checkout, rather than assuming any particular release is on PyPI.
+
+## Prerequisites
+
+You need Git, Python **3.10–3.13**, pip and a terminal. The exercises on the following pages run against the **Headless** renderer, which requires no windowing toolkit. They do not demonstrate a native desktop window; renderer-specific GUI guides will be verified separately.
+
+## Create an environment
+
+Clone the repository and change into its root:
+
+```bash
+git clone https://github.com/Neuri-AI/PSX.git
+cd PSX
+git checkout 91f78831ca6c81d278a9e7cc9ea7eb1fe923c2b2
+python -m venv .venv
+```
+
+On macOS/Linux activate with `source .venv/bin/activate`. On Windows PowerShell use `.venv\Scripts\Activate.ps1`.
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e .
+python -c "from psx import App, Text; print('Velto import OK')"
+```
+
+## Check your environment
+
+Expected output: `Velto import OK`. If importing `psx` fails, verify that `pip` belongs to the activated environment with `python -m pip --version`. If editable installation fails, verify the checked-out SHA and supported Python version.
+
+Read [your first application](/getting-started/first-app) next.
