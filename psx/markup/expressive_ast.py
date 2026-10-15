@@ -25,6 +25,12 @@ class Literal:
 
 
 @dataclass(frozen=True, slots=True)
+class InterpolatedString:
+    parts: tuple["Literal | Expression", ...]
+    location: Location
+
+
+@dataclass(frozen=True, slots=True)
 class Name:
     value: str
     location: Location
@@ -108,7 +114,7 @@ class Fragment:
     location: Location
 
 
-Expression = Literal | Name | Member | Call | Compare | ConditionalAnd | ConditionalOr | LogicalNot | Ternary | Arrow | Map | Element | Fragment
+Expression = Literal | InterpolatedString | Name | Member | Call | Compare | ConditionalAnd | ConditionalOr | LogicalNot | Ternary | Arrow | Map | Element | Fragment
 
 
 class ExpressiveParser:
@@ -242,6 +248,8 @@ class ExpressiveParser:
             return self._postfix(result)
         if self.source.startswith("<", self.pos):
             return self.jsx()
+        if self.source.startswith(("f\"", "f'", "F\"", "F'"), self.pos):
+            return self._fstring()
         if self.source.startswith(('"', "'"), self.pos):
             return self._string()
         if self.pos < len(self.source) and self.source[self.pos].isdigit():
@@ -313,6 +321,62 @@ class ExpressiveParser:
                     self.error("Unescaped newline in string literal", self.pos - 1)
                 chars.append(char)
         self.error("Unterminated quoted string", start)
+
+    def _fstring(self) -> InterpolatedString:
+        """Parse Python-like f-strings as bounded PSX expressions, never Python source."""
+        start = self.pos
+        quote = self.source[self.pos + 1]
+        self.pos += 2
+        parts: list[Literal | Expression] = []
+        chars: list[str] = []
+        escapes = {"n": "\\n", "r": "\\r", "t": "\\t", "\\\\": "\\\\", quote: quote}
+
+        def flush() -> None:
+            if chars:
+                parts.append(Literal("".join(chars), self.location(start)))
+                chars.clear()
+
+        while self.pos < len(self.source):
+            char = self.source[self.pos]
+            if char == quote:
+                self.pos += 1
+                flush()
+                return InterpolatedString(tuple(parts), self.location(start))
+            if char == "\\\\":
+                self.pos += 1
+                if self.pos >= len(self.source):
+                    self.error("Unterminated f-string escape", start)
+                escaped = self.source[self.pos]
+                if escaped not in escapes:
+                    self.error("Unsupported f-string escape", self.pos - 1)
+                chars.append(escapes[escaped])
+                self.pos += 1
+                continue
+            if self.source.startswith("{{", self.pos):
+                chars.append("{")
+                self.pos += 2
+                continue
+            if self.source.startswith("}}", self.pos):
+                chars.append("}")
+                self.pos += 2
+                continue
+            if char == "{":
+                flush()
+                self.pos += 1
+                self.skip()
+                if self.source.startswith("}", self.pos):
+                    self.error("Empty f-string interpolation")
+                value = self.expression()
+                self.expect("}")
+                parts.append(value)
+                continue
+            if char == "}":
+                self.error("Unmatched '}' in f-string")
+            if char == "\\n":
+                self.error("Unescaped newline in f-string", self.pos)
+            chars.append(char)
+            self.pos += 1
+        self.error("Unterminated f-string", start)
 
     def jsx(self) -> Expression:
         self.skip()
