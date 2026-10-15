@@ -23,7 +23,8 @@
           "getting-started/installation",
           "getting-started/first-app",
           "getting-started/project-structure",
-          "getting-started/how-velto-works"
+          "getting-started/how-velto-works",
+          "getting-started/native-tkinter"
         ]
       },
       {
