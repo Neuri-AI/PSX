@@ -1,0 +1,21 @@
+---
+title: "Project structure"
+description: "Organize a small Velto learning project"
+---
+
+# Project structure
+
+The checked-in examples live in `examples/f5_5_beginner/`. Each file is an entry point, and `test_examples.py` verifies the behavior through the Headless renderer. In these lessons `App` owns the mount, `@component` declares the tree, and `unmount()` cleans it up.
+
+```text
+examples/f5_5_beginner/
+├── hello_world.py
+├── counter.py
+└── test_examples.py
+```
+
+After [installation](/getting-started/installation), run `python examples/f5_5_beginner/hello_world.py` from the repository root. This folder needs no separate settings file because each script explicitly selects `renderer="headless"`. Desktop window settings belong to the relevant native host/runtime, not a markup `<Window>` component.
+
+## Verify and continue
+
+After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.
