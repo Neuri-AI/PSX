@@ -1,68 +1,73 @@
 ---
 title: "Your first Velto application"
-description: "Build a complete Hello World component and verify its rendered output."
+description: "Run a real PySide6 window with text, a button, and a native Qt widget."
 ---
 
-# Your first Velto application
+Let's open your first **real desktop window** with Velto.
 
-You will build a component that produces the text **Hello, Velto!** and mount it using the deterministic Headless renderer. Headless deliberately does not create a desktop window.
+We'll use **PySide6**, a Python binding for Qt 6. The example creates a window containing text, a button, and a native Qt label. You can click the button and close the window normally.
 
-## Prerequisites
+## 1. Install the dependencies
 
-Complete [installation](/getting-started/installation) first. Run all commands from the repository root with your virtual environment activated.
-
-## Files
-
-This lesson uses a checked-in source file:
-
-```text
-examples/
-  f5_5_beginner/
-    hello_world.py
-    counter.py
-    test_examples.py
-```
-
-The complete Hello World source is [hello_world.py](https://github.com/Neuri-AI/PSX/blob/59525d63f3a662a6d14eb207d91310288f282bfa/examples/f5_5_beginner/hello_world.py). You can copy it as-is without adding another configuration file.
-
-```python
-from psx import App, Fragment, Text, component
-
-@component
-def Hello():
-    return Fragment(Text("Hello, Velto!"))
-
-def main() -> int:
-    app = App(Hello(), renderer="headless")
-    try:
-        handle = app.mount()
-        assert handle.type == "Fragment"
-        assert handle.children[0].props["value"] == "Hello, Velto!"
-        print(handle.children[0].props["value"])
-        return 0
-    finally:
-        app.unmount()
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-```
-
-## Run and verify
+Complete [Install Velto](/getting-started/installation) first. In particular, install the PySide6 extra:
 
 ```bash
-python examples/f5_5_beginner/hello_world.py
-cd examples/f5_5_beginner
-python -m unittest -v test_examples
+pip install -e ".[pyside6]"
 ```
 
-The application prints `Hello, Velto!`. The test asserts the value of the actual mounted Headless handle. `App(..., renderer="headless")` explicitly selects a deterministic renderer; `@component` declares a component function; `Fragment` groups nodes without requesting layout geometry; `Text` creates a portable text node. `app.unmount()` releases the mounted tree.
+## 2. Run the application
 
-<Note>
-  The tests exercise Headless, not native UI rendering. No screenshot is included because this example has no desktop window. Native app screenshots and manual GUI verification belong to the later backend lessons.
-</Note>
+From the root of the cloned repository:
 
-Next, learn [state and events](/learn/state-and-events).
+```bash
+python examples/f5_5_native_gallery/qt_app.py
+```
+
+A **native Qt window** should appear. It contains the text **Velto + PySide6**, a button labeled **Hello Qt**, and a Qt label displaying **Native QLabel via Velto**.
+
+Click **Hello Qt**. The application prints `Qt clicked` in the terminal. Close the window using your desktop's close control.
+
+## 3. Understand the code
+
+The complete, runnable source is [qt_app.py on GitHub](https://github.com/Neuri-AI/PSX/blob/develop/examples/f5_5_native_gallery/qt_app.py). The central part is:
+
+```python
+from PySide6.QtWidgets import QLabel
+from psx import App, Text, Button, Fragment, Native
+
+app = App(
+    Fragment(
+        Text("Velto + PySide6"),
+        Button("Hello Qt", on_click=lambda: print("Qt clicked")),
+        Native(QLabel, props={"text": "Native QLabel via Velto"}),
+    ),
+    renderer="pyside6",
+)
+
+app.run()
+```
+
+- **`App(..., renderer="pyside6")`** selects the native Qt renderer.
+- **`Fragment`** groups the three elements.
+- **`Text`** creates a portable text element.
+- **`Button`** creates a clickable control; `on_click` is its event handler.
+- **`Native(QLabel, ...)`** demonstrates embedding a toolkit-specific Qt widget when you need one.
+- **`app.run()`** starts the application and keeps its window open until it is closed.
+
+This is a **Python component API** example. Velto also supports **PSX Markup**, its HTML/JSX-inspired syntax. You'll learn how to express UI structure with markup in [PSX Markup](/learn/psx-markup), including its source transformation step. We are using the existing, runnable native example here so your first experience is a real window rather than a mockup.
+
+## 4. Try changing something
+
+Open `examples/f5_5_native_gallery/qt_app.py` in your editor. Change the text `Velto + PySide6` to a greeting of your choice. Save the file, close the existing window if it is still open, and run the command again.
+
+You've just modified a native Python interface using Velto.
 
 ## Troubleshooting
 
-If Python cannot import `psx`, confirm that your virtual environment is activated and reinstall the checked-out source with `python -m pip install -e .`. If the unit test cannot import `hello_world`, change to `examples/f5_5_beginner` before running the test command. This Headless example does not open a native window; follow [native Tkinter](/getting-started/native-tkinter) for the graphical path.
+**No window appears:** make sure you're running in a graphical desktop session rather than a headless terminal or CI runner.
+
+**`ModuleNotFoundError: PySide6`:** activate the environment from installation and run `pip install -e ".[pyside6]"` again.
+
+**Qt platform plugin error on Linux:** verify that your desktop display and required Qt platform libraries are available.
+
+Next: [**Learn PSX Markup →**](/learn/psx-markup).
