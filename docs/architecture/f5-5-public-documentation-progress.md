@@ -138,3 +138,10 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Dependency:** G2 PR #33's `docs/public/docs.json` is not present in this start SHA of `develop`. Publish actual MDX tutorials and navigation only after G2 merge to avoid cross-branch speculation.
 - **Gate:** **G3 IN PROGRESS; not closed or certified.** No independent newcomer/native smoke review yet.
 - **Next three steps:** merge G2, add full beginner-first Mintlify tutorials; run headless Python matrix and repair failures; run and capture native app screenshots and reproducibility receipts.
+
+### 2026-10-14 — F5.5-G3 — headless regression receipt and draft public lessons
+- **Initial failure:** [Actions #38687528222](https://github.com/Neuri-AI/PSX/actions/runs/38687528222) failed at mount because `Flex` requires an explicit Cinnamon/SFLE viewport; the initial geometry-free Headless example incorrectly supplied none. This was an example defect, **not a framework regression**.
+- **Correction:** changed Headless tutorial roots to `Fragment` where no layout geometry is required; preserved full state/events behavior without bypassing renderer guards.
+- **Verified CI:** [Actions #38687611062](https://github.com/Neuri-AI/PSX/actions/runs/38687611062) **SUCCESS** on immutable SHA `765a55b69404aeaa8274ceb7cee8e2b1393a11d2`; 4/4 Headless jobs Python 3.10, 3.11, 3.12, 3.13 executed and passed. This certifies only these two example behaviors under Linux/Headless.
+- **New MDX draft pages:** `docs/public/getting-started/installation.mdx`, `first-app.mdx`, `docs/public/learn/state-and-events.mdx`. These were written after the passing CI SHA and have not been Mintlify-validated or attached to a merged G2 navigation yet. Source file links currently point to the G3 PR branch, not canonical `develop`; update to immutable source commit before publishing.
+- **G3 status:** **IN PROGRESS**, not closed. G3 native introductory application, broader curriculum (markup, conditionals, lists/keys, effects, layout) and independent reproduction remain open.
