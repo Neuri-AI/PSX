@@ -1,0 +1,28 @@
+name: F5.5 G4 reference coverage
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "docs/public/reference/**"
+      - "docs/architecture/f5-5-api-exports.json"
+      - "scripts/docs/validate_api_reference.py"
+      - "tests/test_docs_api_reference.py"
+      - ".github/workflows/f5-5-api-reference.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  root-api-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify API inventory and index
+        run: |
+          python scripts/docs/validate_api_reference.py
+          python -m unittest discover -s tests -p test_docs_api_reference.py -v
