@@ -240,3 +240,8 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Evidence:** [Actions #38697044668](https://github.com/Neuri-AI/PSX/actions/runs/38697044668) queued at this ledger update. Its results must be observed before claiming pass.
 - **Review worksheet:** updated `docs/architecture/f5-5-g6-independent-reproduction.md`; independent reviewer signoff and genuine GUI screenshot receipts remain **PENDING**, separate from CI.
 - **Gate:** G6 IN PROGRESS, overall F5.5 OPEN; final owner approval not received.
+
+### 2026-10-15 — G6 — successful clean-room reproducibility evidence
+- **CI verified:** [Actions #38697044668](https://github.com/Neuri-AI/PSX/actions/runs/38697044668), **6/6 SUCCESS**: new venv, editable installation, import, Hello World, Counter and Task Board entry points plus behavior tests on Ubuntu, macOS and Windows using Python 3.11 and 3.12.
+- **Immutable tested SHA:** `24d427bbecd1c5395286adc336a980e3fe20bfe3` (this test predates this progress-ledger-only update).
+- **Limits:** cross-OS **Headless** beginner commands are verified; macOS/Windows native GUI screenshot/interactivity and independent human or independent agent walkthrough are **not** thereby verified. Owner signoff remains pending.
