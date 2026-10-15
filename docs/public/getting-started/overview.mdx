@@ -3,7 +3,7 @@ title: "Getting started"
 description: "Install Velto, create a PySide6 window, and run your first native Python interface."
 ---
 
-In a few minutes, you'll create your first **native desktop window** with Velto. You'll install the framework, write a small Python application, run it, and click a real button. Everything you need is on this page.
+In a few minutes, you'll create your first **native desktop window** with Velto. You'll install the framework, write a small PSX Markup interface, transform it, and open a real window. Everything you need is on this page.
 
 We'll use **PySide6 (Qt 6)** for the first example. Velto also integrates with PyQt6, PyQt5, PySide2, Tkinter and Kivy.
 
@@ -51,78 +51,48 @@ cd PSX
 pip install -e ".[pyside6]"
 ```
 
-## 3. Create your first application
+## 3. Create your first application with PSX Markup
 
-Create a file named `app.py` in your project folder and paste in this code:
+Create a file named `app.py` in the repository root and paste in this code:
 
 ```python
-from psx import App, Button, Fragment, Text
+from psx import App, psx
 
+view = psx("""
+    <Text>Hello, Velto!</Text>
+""")
 
-def greet() -> None:
-    print("Hello from Velto!")
-
-
-app = App(
-    Fragment(
-        Text("Hello, Velto!"),
-        Button("Click me", on_click=greet),
-    ),
-    renderer="pyside6",
-)
+app = App(view, renderer="pyside6")
 
 if __name__ == "__main__":
     app.run()
 ```
 
-This is a **complete native application** using Velto's Python component API. It does not require a browser or a Headless renderer.
+Notice the interface is defined with **PSX Markup**, using the `<Text>` tag. Python handles the application startup; the UI itself is expressed in markup.
 
-## 4. Run it
+## 4. Transform the markup and run it
 
-From the folder containing `app.py`, run:
+The current PSX Markup implementation has a **static transformation step**. Transform your source into runnable Python before launching it:
 
 ```bash
-python app.py
+python -m psx.markup.transform app.py -o app_generated.py
+python app_generated.py
 ```
 
-A Qt window should open showing **Hello, Velto!** and a **Click me** button.
+A real PySide6 window should open displaying **Hello, Velto!**. Close it with your desktop window controls.
 
-Click the button. You should see this in your terminal:
-
-```text
-Hello from Velto!
-```
-
-Close the window using its usual window controls. You have now created and run a native Python UI with Velto.
+The transformer processes the markup without using unrestricted Python `eval`. It generates Python code that builds Velto's interface representation.
 
 ## 5. Understand what you wrote
 
-- **`Text("Hello, Velto!")`** describes the text in the window.
-- **`Button("Click me", on_click=greet)`** creates a button and connects it to your Python function.
-- **`Fragment(...)`** groups multiple elements into one interface tree.
-- **`renderer="pyside6"`** tells Velto to use native Qt widgets through PySide6.
-- **`app.run()`** starts the application and its event loop.
+- **`psx("""...""")`** is where you write the markup.
+- **`<Text>Hello, Velto!</Text>`** describes a text element with familiar opening and closing tags.
+- **`App(view, renderer="pyside6")`** connects the resulting UI tree to the PySide6 native renderer.
+- **`app.run()`** starts the native application.
 
-Try changing the button label or the greeting, then run `python app.py` again to see your change.
+Try changing the text inside `<Text>`, then run both commands again. You should see your new message in the window.
 
-## 6. Where does PSX Markup fit in?
-
-Velto also has **PSX Markup**, an HTML/JSX-inspired way to describe the same kind of interface using tags:
-
-```python
-from psx import psx
-
-view = psx("""
-    <Fragment>
-        <Text>Hello, Velto!</Text>
-        <Button>Click me</Button>
-    </Fragment>
-""")
-```
-
-This snippet shows the **markup syntax**, not another complete runnable program. Currently, authored PSX Markup uses a static transformation step before Python execution. The working application above uses the Python component API so you can run it immediately without that extra step.
-
-To learn how markup is transformed, and how to use values and event handlers in tags, continue with [PSX Markup](/learn/psx-markup).
+As you progress, you can nest elements, add attributes, handle events and build more interactive interfaces. See [PSX Markup](/learn/psx-markup) for the syntax and expression rules.
 
 ## Other supported UI bindings
 
