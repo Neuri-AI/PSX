@@ -160,3 +160,10 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Scope exclusions:** Native Tkinter GUI screenshot/independent human beginner walkthrough not yet captured; page explicitly distinguishes Xvfb smoke from visual inspection. Mark these **G6 pre-release review items** and do not represent Tkinter smoke as a cross-platform visual certification. Markup/conditional/list/effect snippets are labeled illustrative, not misrepresented as independently runnable projects.
 - **Gate disposition:** **G3 CLOSED for the owner-directed beginner documentation deliverable, with G6 independent GUI/visual review pending**. No F6/M8 or runtime API changes.
 - **Next three steps:** (1) merge PR #35 to `develop` after green final CI; (2) complete G4 exhaustive API reference, with per-symbol source signatures; (3) G5/G6 broaden native app execution and screenshot/independent review.
+
+
+### 2026-10-14 — F5.5-G3 — final CI rerun on documentation closeout SHA
+- **Validated immutable SHA:** `cbe9b7406871fb76c8204ccf05c0db2fb26521a9`.
+- **Executed validation:** [public Mintlify docs #38688625908](https://github.com/Neuri-AI/PSX/actions/runs/38688625908) **SUCCESS** (structural and Mintlify jobs both executed and passed); [beginner examples #38688625611](https://github.com/Neuri-AI/PSX/actions/runs/38688625611) **SUCCESS**, including four Ubuntu Headless Python-version jobs and Tkinter Xvfb native mount smoke.
+- **GitHub PR:** [#35](https://github.com/Neuri-AI/PSX/pull/35) marked ready for review, original divergent [#34](https://github.com/Neuri-AI/PSX/pull/34) closed as superseded. Source docs and roadmap updated. This final progress-only commit is not falsely presented as an independently tested code SHA.
+- **Disposition:** G3 documentation curriculum CLOSED for the agreed technical scope; no G6 independent visual/user trial has been claimed or waived.
