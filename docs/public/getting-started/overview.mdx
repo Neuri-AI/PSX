@@ -1,16 +1,57 @@
 ---
 title: "Getting started"
-description: "The planned, reproducible path from Python to a native Velto application."
+description: "Open your first real native Velto window with PySide6, then explore PSX Markup and other renderers."
 ---
 
-# Getting started
+Welcome to Velto! This guide takes you from a fresh Python environment to a **real desktop window**. No simulated UI or terminal-only demo is required.
 
-You should already know how to create a Python virtual environment and run a Python script. You do **not** need to know Qt, Kivy, Tkinter, VNodes or reconciliation.
+Velto brings an HTML/JSX-inspired markup experience to native Python interfaces. You can use familiar tags and nested components to describe what appears on screen, while a native renderer creates the actual widgets.
 
-Begin with [installation](/getting-started/installation), continue to [first app](/getting-started/first-app) and [the Tkinter native window](/getting-started/native-tkinter). The learning section covers components, markup, state, events, conditionals, keyed lists, effects and native layout. Some concept fragments are deliberately non-standalone; the checked-in Headless examples and native Tkinter smoke provide executable entry points.
+## Your first result: a native window
 
-<Warning>
-  The Headless tutorial and Tkinter native smoke have distinct coverage. Follow their individual environment steps and validation receipts; passing Headless does not certify graphical behavior.
-</Warning>
+We'll start with **PySide6 (Qt)**, our default choice for this tutorial. You'll see a window containing text and a button. Clicking the button prints a message to the terminal.
 
-In the meantime, [learn the mental model](/concepts/architecture) and [read the component catalog policy](/components/overview).
+You only need basic Python, a terminal, and a graphical desktop session.
+
+<Steps>
+  <Step title="Install Velto and PySide6">
+    Follow [Installation](/getting-started/installation) to prepare Python and install the PySide6 renderer.
+
+    **You'll finish with:** a working Python environment that can create Qt widgets.
+  </Step>
+  <Step title="Run your first native application">
+    Open [Your first Velto application](/getting-started/first-app). Run the complete PySide6 example and click its button.
+
+    **You'll finish with:** a visible desktop window you can interact with.
+  </Step>
+  <Step title="Learn the markup">
+    Continue with [PSX Markup](/learn/psx-markup). Learn how tags, attributes and nesting express the interface, and how markup is processed into Velto's virtual UI tree.
+
+    **You'll finish with:** an understanding of the HTML/JSX-like syntax at the heart of Velto.
+  </Step>
+</Steps>
+
+## Which UI toolkit does Velto use?
+
+Velto is not limited to PySide6. It supports several renderer integrations, so you can choose the toolkit that fits your application.
+
+| Renderer | Python toolkit | Notes |
+| --- | --- | --- |
+| **PySide6** | Qt 6 | **Default for this guide** |
+| **PyQt6** | Qt 6 | Alternative Qt 6 binding |
+| **PyQt5** | Qt 5 | Qt 5 binding |
+| **PySide2** | Qt 5 | Legacy Qt binding; requires Python 3.10 under current dependency constraints |
+| **Tkinter** | Tk | Uses the Tk support provided by your Python installation |
+| **Kivy** | Kivy | Native application backend with its own widget system |
+
+The renderer determines which toolkit creates the widgets; it does **not** change the core purpose of PSX Markup. Support for particular components and properties may differ by backend.
+
+For a first project, **use PySide6** and follow the examples exactly. Once you're comfortable, you can explore the other renderers without learning the entire framework again.
+
+## What's happening under the hood?
+
+Your interface becomes a tree of **virtual nodes (VNodes)** in Velto's Virtual DOM. The reconciler manages updates, Cinnamon calculates supported layout geometry, and the selected renderer creates and updates real toolkit widgets.
+
+You don't need to understand those internals to get started. They're explained in [How Velto works](/concepts/architecture).
+
+Ready? [**Install Velto and PySide6 →**](/getting-started/installation).
