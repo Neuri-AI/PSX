@@ -14,7 +14,7 @@
 | G3 | Beginner learning path, Headless reproducibility and native Tkinter smoke | CLOSED (documentary/technical scope; visual review deferred to G6) | Actions #38688458633 and #38688458691 |
 | G4 | Source-backed public API and component contract reference | CLOSED (documentation scope, limits below) | `c076660a881734efb0252858453af7337a5f503e`; Actions #38691305243, #38691305079 |
 | G5 | Real runnable example projects and native DX | CLOSED (verified Linux examples; G6 review exclusions) | Actions #38694276669, #38694276599, #38694276666, #38694276833, #38694276532 |
-| G6 | End-to-end evidence and explicit owner signoff | NOT STARTED | — |
+| G6 | End-to-end evidence and explicit owner signoff | IN PROGRESS — owner/independent review pending | Aggregate CI pending |
 
 ## What has happened
 
@@ -219,3 +219,29 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Important limits:** These are Ubuntu/Linux jobs. Headless tests establish stateful behavior; native smoke establishes mount/unmount and explicit Qt native QLabel text, **not** manually clicked interactive GUI or pixel-level screenshots. macOS/Windows, UI screenshot provenance and independent newcomer reproduction remain G6 verification items, not claimed as passed.
 - **Disposition:** **G5 CLOSED for its reproducible application portfolio and tested native integration scope**; G6 must independently verify final coverage, visual/native matrix, source receipts and owner signoff before F5.5 as a whole can close.
 - **Next:** merge PR #39; open G6 on its own one-gate branch after canonical `develop` update; complete independent and native-platform review.
+
+### 2026-10-15 — F5.5-G6 — integral certification preflight kickoff
+- **Starting canonical develop SHA:** `99309877c05dcfc743d287464407342c5e346d3a` (G1–G5 recorded as completed documentation milestones).
+- **Branch:** `docs/f5-5-integral-certification` — one branch for all G6 work and CI repairs; no parallel G6 branches.
+- **Artifacts:** `docs/architecture/f5-5-g6-example-manifest.json` (six example pages, concrete source/commands/backend CI coverage); `docs/architecture/f5-5-g6-independent-reproduction.md` (independent reviewer, real screenshots, platform/OS limits and owner acceptance checklist); `scripts/docs/validate_f5_5_integral.py` (fail-closed structural coverage); `.github/workflows/f5-5-integral-certification.yml` (aggregate API, docs, headless and Linux-native smoke checks).
+- **Expected command:** `python -m scripts.docs.validate_f5_5_integral`. Source snapshot pinned; generated G4 reference checked for drift. Passing automated checks **cannot** substitute for independent beginner review, Mac/Windows native verification or explicit project-owner signoff.
+- **Evidence status:** CI runs not yet confirmed at this commit. Neither unreviewed pages nor unsupported native cells are certified by this entry.
+- **Gate:** **G6 IN PROGRESS, overall F5.5 OPEN.** Next: repair any true CI failures, acquire independent native beginner reproduction with receipts, obtain explicit owner acceptance after reviewing final evidence.
+
+### 2026-10-15 — F5.5-G6 — first successful integral preflight
+- **Initial RED:** [Actions #38696615099](https://github.com/Neuri-AI/PSX/actions/runs/38696615099) correctly blocked three real tutorial omissions: absent troubleshooting sections in `getting-started/first-app`, `examples/qt-gallery` and `examples/kivy-gallery`. The public pages were fixed; tests not weakened.
+- **GREEN:** [Actions #38696710624](https://github.com/Neuri-AI/PSX/actions/runs/38696710624) **SUCCESS**, all eight jobs executed: source-backed API and docs static preflight, G4 generated-reference drift check, documentation unit tests, Headless Python 3.10–3.13, and native Linux Tkinter/PySide6/Kivy smoke on Python 3.12. **Immutable tested SHA:** `807b51ed00ebaa245e1ad9922187e5a59aeffd80`.
+- **Scope:** This validates automated reproducibility and bounded Linux native mounting; still NO independent beginner reviewer transcript, manual native screenshots, macOS/Windows trial or explicit final owner acceptance.
+- **Gate remains G6 IN PROGRESS.** Overall F5.5 is not CLOSED. Next action: independent reviewer executes public pages on a fresh checkout and records real observations; assess OS/native gaps; request explicit owner signoff after reviewing full evidence.
+
+### 2026-10-15 — G6 — clean-room cross-OS reproduction increment
+- **Same G6 branch and PR:** `docs/f5-5-integral-certification`; [PR #40](https://github.com/Neuri-AI/PSX/pull/40). No new branch.
+- **New CI:** `.github/workflows/f5-5-clean-room-reproduction.yml`, fresh virtual environments on Ubuntu/macOS/Windows, Python 3.11 and 3.12. The workflow executes published beginner imports and full entry point/test commands rather than relying on previously installed packages.
+- **Evidence:** [Actions #38697044668](https://github.com/Neuri-AI/PSX/actions/runs/38697044668) queued at this ledger update. Its results must be observed before claiming pass.
+- **Review worksheet:** updated `docs/architecture/f5-5-g6-independent-reproduction.md`; independent reviewer signoff and genuine GUI screenshot receipts remain **PENDING**, separate from CI.
+- **Gate:** G6 IN PROGRESS, overall F5.5 OPEN; final owner approval not received.
+
+### 2026-10-15 — G6 — successful clean-room reproducibility evidence
+- **CI verified:** [Actions #38697044668](https://github.com/Neuri-AI/PSX/actions/runs/38697044668), **6/6 SUCCESS**: new venv, editable installation, import, Hello World, Counter and Task Board entry points plus behavior tests on Ubuntu, macOS and Windows using Python 3.11 and 3.12.
+- **Immutable tested SHA:** `24d427bbecd1c5395286adc336a980e3fe20bfe3` (this test predates this progress-ledger-only update).
+- **Limits:** cross-OS **Headless** beginner commands are verified; macOS/Windows native GUI screenshot/interactivity and independent human or independent agent walkthrough are **not** thereby verified. Owner signoff remains pending.

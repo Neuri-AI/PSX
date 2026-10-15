@@ -49,3 +49,7 @@ xvfb-run -a python examples/f5_5_native_gallery/kivy_app.py --smoke
 The expected smoke message is `Kivy native mount: PASS`. It certifies mounting and teardown only if it is actually observed in CI. A successful smoke does **not** prove visual accuracy, desktop interaction or compatibility across all other Python/OS combinations.
 
 If the Kivy graphics initialization fails, verify the installed Kivy version and system graphics dependencies before attributing it to Velto. See [Tkinter](/examples/native-gallery) and [Qt](/examples/qt-gallery) for independent renderer variants.
+
+## Troubleshooting
+
+Kivy may consume program arguments while importing; the checked-in `kivy_app.py` sets `KIVY_NO_ARGS=1` before importing `psx` so `--smoke` reaches the application. If native mounting fails with a display or OpenGL error, install the Linux graphics dependencies and run Xvfb as documented, or run the app from an actual graphical desktop. Passing Xvfb does not verify rendered pixels or manual interactions.

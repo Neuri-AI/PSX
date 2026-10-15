@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "source_baseline": "99309877c05dcfc743d287464407342c5e346d3a",
+  "examples": [
+    {
+      "slug": "getting-started/first-app",
+      "entry": "examples/f5_5_beginner/hello_world.py",
+      "test_paths": [
+        "examples/f5_5_beginner/test_examples.py"
+      ],
+      "commands": [
+        "python examples/f5_5_beginner/hello_world.py",
+        "cd examples/f5_5_beginner && python -m unittest -v test_examples"
+      ],
+      "coverage": [
+        {
+          "backend": "headless",
+          "os": "ubuntu-latest",
+          "python": [
+            "3.10",
+            "3.11",
+            "3.12",
+            "3.13"
+          ],
+          "workflow": ".github/workflows/f5-5-beginner-examples.yml"
+        }
+      ]
+    },
+    {
+      "slug": "getting-started/native-tkinter",
+      "entry": "examples/f5_5_beginner/native_tkinter.py",
+      "test_paths": [
+        "examples/f5_5_beginner/native_tkinter.py"
+      ],
+      "commands": [
+        "xvfb-run -a python examples/f5_5_beginner/native_tkinter.py --smoke"
+      ],
+      "coverage": [
+        {
+          "backend": "tkinter",
+          "os": "ubuntu-latest",
+          "python": [
+            "3.12"
+          ],
+          "workflow": ".github/workflows/f5-5-beginner-examples.yml"
+        }
+      ]
+    },
+    {
+      "slug": "examples/task-board",
+      "entry": "examples/f5_5_task_board/app.py",
+      "test_paths": [
+        "examples/f5_5_task_board/test_app.py",
+        "examples/f5_5_task_board/native_qt.py"
+      ],
+      "commands": [
+        "python examples/f5_5_task_board/app.py",
+        "cd examples/f5_5_task_board && python -m unittest -v test_app",
+        "QT_QPA_PLATFORM=offscreen python examples/f5_5_task_board/native_qt.py --smoke"
+      ],
+      "coverage": [
+        {
+          "backend": "headless",
+          "os": "ubuntu-latest",
+          "python": [
+            "3.10",
+            "3.11",
+            "3.12",
+            "3.13"
+          ],
+          "workflow": ".github/workflows/f5-5-task-board.yml"
+        },
+        {
+          "backend": "pyside6",
+          "os": "ubuntu-latest",
+          "python": [
+            "3.12"
+          ],
+          "workflow": ".github/workflows/f5-5-task-board.yml"
+        }
+      ]
+    },
+    {
+      "slug": "examples/native-gallery",
+      "entry": "examples/f5_5_native_gallery/app.py",
+      "test_paths": [
+        "examples/f5_5_native_gallery/app.py"
+      ],
+      "commands": [
+        "xvfb-run -a python examples/f5_5_native_gallery/app.py --smoke"
+      ],
+      "coverage": [
+        {
+          "backend": "tkinter",
+          "os": "ubuntu-latest",
+          "python": [
+            "3.10",
+            "3.11",
+            "3.12",
+            "3.13"
+          ],
+          "workflow": ".github/workflows/f5-5-native-gallery.yml"
+        }
+      ]
+    },
+    {
+      "slug": "examples/qt-gallery",
+      "entry": "examples/f5_5_native_gallery/qt_app.py",
+      "test_paths": [
+        "examples/f5_5_native_gallery/qt_app.py"
+      ],
+      "commands": [
+        "QT_QPA_PLATFORM=offscreen python examples/f5_5_native_gallery/qt_app.py --smoke"
+      ],
+      "coverage": [
+        {
+          "backend": "pyside6",
+          "os": "ubuntu-latest",
+          "python": [
+            "3.11",
+            "3.12",
+            "3.13"
+          ],
+          "workflow": ".github/workflows/f5-5-qt-gallery.yml"
+        }
+      ]
+    },
+    {
+      "slug": "examples/kivy-gallery",
+      "entry": "examples/f5_5_native_gallery/kivy_app.py",
+      "test_paths": [
+        "examples/f5_5_native_gallery/kivy_app.py"
+      ],
+      "commands": [
+        "xvfb-run -a python examples/f5_5_native_gallery/kivy_app.py --smoke"
+      ],
+      "coverage": [
+        {
+          "backend": "kivy",
+          "os": "ubuntu-latest",
+          "python": [
+            "3.11",
+            "3.12"
+          ],
+          "workflow": ".github/workflows/f5-5-kivy-gallery.yml"
+        }
+      ]
+    }
+  ]
+}

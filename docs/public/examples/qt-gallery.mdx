@@ -48,3 +48,7 @@ Expected output is `PySide6 native mount: PASS`. The `Native` declaration owns i
 ## Next step
 
 Compare the native Tkinter [control gallery](/examples/native-gallery) and the stateful Headless [task board](/examples/task-board). Each example has a different test scope and different dependencies.
+
+## Troubleshooting
+
+An error mentioning `libEGL.so.1` on Linux indicates a missing system library; install the distribution's `libegl1` and `libgl1` packages before testing Qt offscreen. If PySide6 cannot load its platform plugin, verify the desktop session and run `QT_QPA_PLATFORM=offscreen` only for a noninteractive smoke. Use the documented Python environment with `.[pyside6]`; a Headless renderer cannot validate the native `QLabel` property.
