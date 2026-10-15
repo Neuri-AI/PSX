@@ -1,5 +1,9 @@
 """Native Kivy example with a deterministic mount/teardown smoke."""
+import os
 import sys
+
+# Kivy parses CLI arguments during import; retain this app's --smoke argument.
+os.environ.setdefault("KIVY_NO_ARGS", "1")
 
 from psx import App, Text, Button, Fragment
 
