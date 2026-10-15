@@ -1,0 +1,58 @@
+---
+title: "Build a task board"
+description: "Create and test a complete stateful Velto task board with keyed rows and event callbacks."
+---
+
+# Build a task board
+
+This example implements an interactive **task board** with three tasks, toggle buttons and a **Clear completed** action. It teaches list reconciliation, stable keys, state updates and portable components. Its deterministic Headless renderer makes behavior reproducible without a desktop environment; it is **not a graphical native application**.
+
+## Prerequisites
+
+Install Git and Python 3.10–3.13. Clone the repository, create a virtual environment and install the checked-out package:
+
+```bash
+git clone https://github.com/Neuri-AI/PSX.git
+cd PSX
+python -m venv .venv
+```
+
+On macOS/Linux run `source .venv/bin/activate`; on Windows PowerShell run `.venv\Scripts\Activate.ps1`. Then:
+
+```bash
+python -m pip install -e .
+python examples/f5_5_task_board/app.py
+cd examples/f5_5_task_board
+python -m unittest -v test_app
+```
+
+The reproducible repository project has two complete source files:
+
+```text
+examples/f5_5_task_board/
+├── app.py
+└── test_app.py
+```
+
+Read the full source in [app.py](https://github.com/Neuri-AI/PSX/blob/develop/examples/f5_5_task_board/app.py) and its [behavior tests](https://github.com/Neuri-AI/PSX/blob/develop/examples/f5_5_task_board/test_app.py). The files contain all required project source; no application settings or static PSX compilation is needed because the example uses Python constructors and explicitly chooses Headless.
+
+## Expected result
+
+Running `app.py` prints:
+
+```text
+Velto Task Board
+Remaining: 3
+```
+
+The tests assert that toggling the first task changes its text to `[x]` and decrements the remaining count, and that clearing completed tasks removes its row. The `key` on each task row identifies that row across reconciliation. The example closes the mounted tree in a `finally` block.
+
+<Note>
+  The current example proves stateful Headless behavior only. It does not support claims about native window screenshots, automatic persistence or OS-specific layout. G5 native project coverage must be verified in a separate workflow before being described as available.
+</Note>
+
+## Troubleshooting and variation
+
+If imports fail, confirm that `python -m pip install -e .` ran in the activated environment from the repository root. If your test invocation cannot find `app`, run tests from `examples/f5_5_task_board` as shown above. To add another task, extend `INITIAL_TASKS` with a unique integer identifier; avoid duplicate keys.
+
+Next, review [native Tkinter setup](/getting-started/native-tkinter) to run an actual desktop renderer.
