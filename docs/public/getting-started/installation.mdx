@@ -1,37 +1,72 @@
 ---
-title: "Install Velto from source"
-description: "Create a clean Python environment and install the real PSX import package."
+title: "Install Velto"
+description: "Set up Python and PySide6 to run your first real native Velto application."
 ---
 
-# Install Velto from source
+You'll install Velto and **PySide6**, the Qt binding used in our first tutorial. By the end, your computer will be ready to open a native desktop window.
 
-The published distribution is named `velto`, but the Python imports currently start with `psx`. These instructions install this repository checkout, rather than assuming any particular release is on PyPI.
+## Before you begin
 
-## Prerequisites
+You'll need **Python 3.10–3.13**, Git, a terminal, and a graphical desktop session on Windows, macOS, or Linux. The commands below install the current project source so they match the examples in this documentation.
 
-You need Git, Python **3.10–3.13**, pip and a terminal. The exercises on the following pages run against the **Headless** renderer, which requires no windowing toolkit. They do not demonstrate a native desktop window; renderer-specific GUI guides will be verified separately.
-
-## Create an environment
-
-Clone the repository and change into its root:
+## 1. Get the project
 
 ```bash
 git clone https://github.com/Neuri-AI/PSX.git
 cd PSX
-git checkout 59525d63f3a662a6d14eb207d91310288f282bfa
+```
+
+## 2. Create a virtual environment
+
+```bash
 python -m venv .venv
 ```
 
-On macOS/Linux activate with `source .venv/bin/activate`. On Windows PowerShell use `.venv\Scripts\Activate.ps1`.
+Activate it on **macOS or Linux**:
 
 ```bash
-python -m pip install --upgrade pip
-python -m pip install -e .
-python -c "from psx import App, Text; print('Velto import OK')"
+source .venv/bin/activate
 ```
 
-## Check your environment
+Or on **Windows PowerShell**:
 
-Expected output: `Velto import OK`. If importing `psx` fails, verify that `pip` belongs to the activated environment with `python -m pip --version`. If editable installation fails, verify the checked-out SHA and supported Python version.
+```powershell
+.venv\Scripts\Activate.ps1
+```
 
-Read [your first application](/getting-started/first-app) next.
+A virtual environment keeps your project's Python dependencies separate from other applications.
+
+## 3. Install Velto with PySide6
+
+```bash
+pip install --upgrade pip
+pip install -e ".[pyside6]"
+```
+
+The `[pyside6]` extra installs the Qt binding needed for the first window. You can install a different supported binding later.
+
+## 4. Verify the installation
+
+```bash
+python -c "from psx import App, Text; from PySide6.QtWidgets import QApplication; print('Velto and PySide6 are ready!')"
+```
+
+Expected output:
+
+```text
+Velto and PySide6 are ready!
+```
+
+<Note>
+  The current source distribution is called `velto`, while its Python import namespace is still `psx`. The intended future import style is `from velto import ...`; until that migration is implemented, follow the working imports in these examples.
+</Note>
+
+## Other supported renderers
+
+The [Getting started overview](/getting-started/overview) lists all supported UI toolkits: **PySide6, PySide2, PyQt5, PyQt6, Tkinter, and Kivy**. This guide uses PySide6 so you can follow one consistent path from installation to your first window.
+
+## Troubleshooting
+
+If `python` is not found, check your Python installation and try `python3` where appropriate. If imports fail, make sure your virtual environment is active and rerun the install command from the repository root. On Linux, opening Qt windows requires a working graphical display and the platform libraries needed by Qt.
+
+Next: [**Run your first native Velto application →**](/getting-started/first-app).
