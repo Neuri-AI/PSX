@@ -1,0 +1,25 @@
+---
+title: "Meet Velto"
+description: "Understand what Velto is, what runs natively, and where to begin."
+---
+
+# Meet Velto
+
+Velto is a Python UI framework for describing interfaces declaratively. You describe the components you want; Velto builds and updates **native widgets** through the selected renderer rather than displaying a browser.
+
+The published Python distribution is named `velto`, while its current import namespace is `psx`. The two names serve different purposes; don't assume `from velto import ...` is available.
+
+## What Velto does
+
+- **Components** describe user-interface elements as a tree.
+- **State and hooks** help component functions respond to changes.
+- **Cinnamon** calculates layout geometry; renderer adapters create and update native widgets.
+- **Renderers** include Qt bindings, Tkinter, Kivy and Headless, with feature-specific compatibility restrictions. Registration alone does not guarantee every component works on every backend.
+
+## What to read next
+
+<Note>
+  This site is in its documentation architecture stage. Complete, tested beginner applications will be added in G3; detailed API and compatibility references follow in G4–G5. Do not treat architecture examples as executable projects.
+</Note>
+
+Read [Getting started](/getting-started/overview) for the learning path, or [How Velto works](/concepts/architecture) for the compile-time/runtime distinction.
