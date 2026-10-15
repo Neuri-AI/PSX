@@ -14,7 +14,7 @@ Install Git and Python 3.10–3.13. Clone the repository, create a virtual envir
 ```bash
 git clone https://github.com/Neuri-AI/PSX.git
 cd PSX
-git checkout 4bd32c1be20b02bf4e85d4cf83efe30a631088e9
+git checkout df5eff3e9fd8d2af0775fd1576f9c76ac66ef619
 python -m venv .venv
 ```
 
@@ -36,7 +36,7 @@ examples/f5_5_task_board/
 └── test_app.py
 ```
 
-Read the full source in [app.py](https://github.com/Neuri-AI/PSX/blob/4bd32c1be20b02bf4e85d4cf83efe30a631088e9/examples/f5_5_task_board/app.py) and its [behavior tests](https://github.com/Neuri-AI/PSX/blob/4bd32c1be20b02bf4e85d4cf83efe30a631088e9/examples/f5_5_task_board/test_app.py). The files contain all required project source; no application settings or static PSX compilation is needed because the example uses Python constructors and explicitly chooses Headless.
+Read the full source in [app.py](https://github.com/Neuri-AI/PSX/blob/df5eff3e9fd8d2af0775fd1576f9c76ac66ef619/examples/f5_5_task_board/app.py) and its [behavior tests](https://github.com/Neuri-AI/PSX/blob/df5eff3e9fd8d2af0775fd1576f9c76ac66ef619/examples/f5_5_task_board/test_app.py). The files contain all required project source; no application settings or static PSX compilation is needed because the example uses Python constructors and explicitly chooses Headless.
 
 ## Expected result
 
@@ -55,7 +55,7 @@ The tests assert that toggling the first task changes its text to `[x]` and decr
 
 ## Run the same application with a native Qt renderer
 
-The same `TaskBoard` component can be mounted through PySide6 without changing its state logic. The complete native entry point is [native_qt.py](https://github.com/Neuri-AI/PSX/blob/5330f06d9cb2a75a47afa70ec3f0783344d9f825/examples/f5_5_task_board/native_qt.py).
+The same `TaskBoard` component can be mounted through PySide6 without changing its state logic. The complete native entry point is [native_qt.py](https://github.com/Neuri-AI/PSX/blob/df5eff3e9fd8d2af0775fd1576f9c76ac66ef619/examples/f5_5_task_board/native_qt.py).
 
 From the repository root, run:
 
