@@ -54,11 +54,23 @@ def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast
             keywords=[],
         )
     if isinstance(node, syntax.Compare):
-        operator: ast.cmpop = ast.Eq() if node.operator == "==" else ast.NotEq()
+        operators: dict[str, type[ast.cmpop]] = {
+            "==": ast.Eq, "!=": ast.NotEq,
+            ">": ast.Gt, "<": ast.Lt, ">=": ast.GtE, "<=": ast.LtE,
+        }
+        operator = operators[node.operator]()
         return ast.Compare(
             left=lower(node.left, filename=filename), ops=[operator],
             comparators=[lower(node.right, filename=filename)],
         )
+    if isinstance(node, syntax.LogicalNot):
+        return ast.UnaryOp(op=ast.Not(), operand=lower(node.operand, filename=filename))
+    if isinstance(node, syntax.ConditionalOr):
+        branch = ast.BoolOp(
+            op=ast.Or(), values=[lower(node.left, filename=filename),
+                                   lower(node.right, filename=filename, child=child)],
+        )
+        return _helper("conditional", branch) if child else branch
     if isinstance(node, syntax.ConditionalAnd):
         branch = ast.IfExp(
             test=lower(node.left, filename=filename),
