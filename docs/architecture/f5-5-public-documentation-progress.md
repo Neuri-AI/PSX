@@ -272,3 +272,12 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Implementation commit:** `6966c317532843b20a36fbd1b0828e8c1faaa999`.
 - **Validation:** GitHub write and screenshot path existence verified. No native run, package install, or Mintlify build performed; `velto` CLI command behavior remains unverified in this session. **Not certified.**
 - **Next:** Verify CLI/template behavior, run Mintlify validation and native reproduction, await owner-selected next page.
+
+
+### 2026-10-15 — F5.5 manual review — detailed Install Velto revision approved
+- **Owner approval:** Approved complete installation draft, then explicitly approved the corrected What's next? links (Project structure, How Velto works, PSX Markup) without routing back to already-completed Getting started/first app.
+- **Branch/file:** `feature/docs`, `docs/public/getting-started/installation.mdx`; no other public pages changed.
+- **Content:** Python 3.10–3.13 from `pyproject.toml`, core-only pip install, backend extras including Tkinter without extra, PySide2 Python 3.10 restriction, owner-reported Kivy 2.3.1 test version, Pydux/Qyro/dev extras, combined extras, GitHub/editable installation, optional CLI, import checks and troubleshooting.
+- **Commit:** `e801d40276f49cb08e45f849024d17c7039f54df`.
+- **Verification:** GitHub source and branch content reviewed and file committed. No Mintlify build, package installation, CLI runtime check, native GUI test or GitHub Actions certification performed in this session. CLI distribution/entrypoint naming remains to be reconciled with the separate CLI repository before certification.
+- **Status:** Implemented and owner-approved draft, NOT CERTIFIED. Continue manual page-by-page review only upon owner's next selection.
