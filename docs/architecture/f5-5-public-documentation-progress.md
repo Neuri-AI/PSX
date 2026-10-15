@@ -264,3 +264,11 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Commit:** `54ea178bd1e0f3a0ff36fb36c35fe815f9821891` on `feature/docs`.
 - **Verification:** GitHub content update only; Mintlify and native execution remain UNVERIFIED. Exact template dependency install command still requires source-backed confirmation. Do not certify.
 - **Next:** Verify CLI and template commands; reproduce native run; run Mintlify validation and obtain owner review.
+
+### 2026-10-15 — F5.5 manual review — lightweight Getting Started overview approved
+- **Owner approval:** Explicit approval of the concise six-step Mintlify overview.
+- **Changed file:** `docs/public/getting-started/overview.mdx` on `feature/docs`.
+- **Change:** Replaced lengthy CLI/architecture tutorial with concise environment, `pip install velto`, `velto init`, `velto start`, generated `main.py`, and edit-and-rerun walkthrough. Added repository screenshot `/screenshots/velto-hello-world.png` (verified file exists on branch). Advanced topics link to dedicated guides.
+- **Implementation commit:** `6966c317532843b20a36fbd1b0828e8c1faaa999`.
+- **Validation:** GitHub write and screenshot path existence verified. No native run, package install, or Mintlify build performed; `velto` CLI command behavior remains unverified in this session. **Not certified.**
+- **Next:** Verify CLI/template behavior, run Mintlify validation and native reproduction, await owner-selected next page.
