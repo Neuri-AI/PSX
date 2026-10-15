@@ -12,7 +12,7 @@ We'll use **PySide6**, a Python binding for Qt 6. The example creates a window c
 Complete [Install Velto](/getting-started/installation) first. In particular, install the PySide6 extra:
 
 ```bash
-python -m pip install -e ".[pyside6]"
+pip install -e ".[pyside6]"
 ```
 
 ## 2. Run the application
@@ -66,7 +66,7 @@ You've just modified a native Python interface using Velto.
 
 **No window appears:** make sure you're running in a graphical desktop session rather than a headless terminal or CI runner.
 
-**`ModuleNotFoundError: PySide6`:** activate the environment from installation and run `python -m pip install -e ".[pyside6]"` again.
+**`ModuleNotFoundError: PySide6`:** activate the environment from installation and run `pip install -e ".[pyside6]"` again.
 
 **Qt platform plugin error on Linux:** verify that your desktop display and required Qt platform libraries are available.
 
