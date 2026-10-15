@@ -63,7 +63,8 @@
           "reference/extensions-and-native",
           "reference/root-symbols",
           "reference/component-defaults",
-          "reference/submodules"
+          "reference/submodules",
+          "reference/generated-contracts"
         ]
       },
       {
