@@ -1,0 +1,64 @@
+---
+title: "Your first Velto application"
+description: "Build a complete Hello World component and verify its rendered output."
+---
+
+# Your first Velto application
+
+You will build a component that produces the text **Hello, Velto!** and mount it using the deterministic Headless renderer. Headless deliberately does not create a desktop window.
+
+## Prerequisites
+
+Complete [installation](/getting-started/installation) first. Run all commands from the repository root with your virtual environment activated.
+
+## Files
+
+This lesson uses a checked-in source file:
+
+```text
+examples/
+  f5_5_beginner/
+    hello_world.py
+    counter.py
+    test_examples.py
+```
+
+The complete Hello World source is [hello_world.py](https://github.com/Neuri-AI/PSX/blob/91f78831ca6c81d278a9e7cc9ea7eb1fe923c2b2/examples/f5_5_beginner/hello_world.py). You can copy it as-is without adding another configuration file.
+
+```python
+from psx import App, Fragment, Text, component
+
+@component
+def Hello():
+    return Fragment(Text("Hello, Velto!"))
+
+def main() -> int:
+    app = App(Hello(), renderer="headless")
+    try:
+        handle = app.mount()
+        assert handle.type == "Fragment"
+        assert handle.children[0].props["value"] == "Hello, Velto!"
+        print(handle.children[0].props["value"])
+        return 0
+    finally:
+        app.unmount()
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+```
+
+## Run and verify
+
+```bash
+python examples/f5_5_beginner/hello_world.py
+cd examples/f5_5_beginner
+python -m unittest -v test_examples
+```
+
+The application prints `Hello, Velto!`. The test asserts the value of the actual mounted Headless handle. `App(..., renderer="headless")` explicitly selects a deterministic renderer; `@component` declares a component function; `Fragment` groups nodes without requesting layout geometry; `Text` creates a portable text node. `app.unmount()` releases the mounted tree.
+
+<Note>
+  The tests exercise Headless, not native UI rendering. No screenshot is included because this example has no desktop window. Native app screenshots and manual GUI verification belong to the later backend lessons.
+</Note>
+
+Next, learn [state and events](/learn/state-and-events).
