@@ -13,7 +13,7 @@
 | G2 | Mintlify IA, docs.json and six template families | CLOSED | Actions #38638621796 |
 | G3 | Beginner learning path, Headless reproducibility and native Tkinter smoke | CLOSED (documentary/technical scope; visual review deferred to G6) | Actions #38688458633 and #38688458691 |
 | G4 | Source-backed public API and component contract reference | CLOSED (documentation scope, limits below) | `c076660a881734efb0252858453af7337a5f503e`; Actions #38691305243, #38691305079 |
-| G5 | Real runnable example projects and native DX | IN PROGRESS (one G5 branch) | Task board CI pending |
+| G5 | Real runnable example projects and native DX | CLOSED (verified Linux examples; G6 review exclusions) | Actions #38694276669, #38694276599, #38694276666, #38694276833, #38694276532 |
 | G6 | End-to-end evidence and explicit owner signoff | NOT STARTED | — |
 
 ## What has happened
@@ -208,3 +208,14 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **CI:** `.github/workflows/f5-5-task-board.yml`, Python 3.10–3.13 on Ubuntu. Pending workflow execution; no claim of tested native visuals.
 - **Gate status:** **G5 IN PROGRESS**, not closed. Qt/Kivy/Tkinter advanced application examples, independent native developer-experience reproduction, graphics evidence and platform compatibility still to come.
 - **Next steps:** verify and repair observed Headless CI; create a complete native application with native smoke coverage; collect actual end-to-end receipts and cross-platform matrix before G5 closeout.
+
+### 2026-10-15 — F5.5-G5 — complete application portfolio and executed native tests
+- **Single branch:** `docs/f5-5-real-world-applications`, [PR #39](https://github.com/Neuri-AI/PSX/pull/39). No per-backend or per-change branches were created.
+- **Source code snapshot:** `df5eff3e9fd8d2af0775fd1576f9c76ac66ef619`; runnable documentation URLs pin to this SHA. All example sources and GitHub Actions checks are in this project.
+- **Projects:** Stateful Task Board (`app.py` plus three behavior assertions and `native_qt.py`); native Tkinter control gallery (`app.py`); Qt control gallery with `Native(QLabel)` and asserted live QLabel text property (`qt_app.py`); Kivy control gallery (`kivy_app.py`).
+- **Public pages:** `docs/public/examples/task-board.mdx`, `native-gallery.mdx`, `qt-gallery.mdx`, `kivy-gallery.mdx`, with their complete source links, clean venv/install/run/smoke steps, expected outputs, troubleshooting and explicit limitations. Updated Mintlify navigation and `examples/overview.mdx`.
+- **Native CI red-to-green:** Qt failed initially for missing OS library `libEGL.so.1`; workflow now installs libegl1/libgl1/libopengl0. Kivy initially consumed `--smoke` via its own argument parser; example sets `KIVY_NO_ARGS=1` before importing `psx`. Changes fix real causes, do not weaken tests.
+- **Executed evidence:** [Task Board #38694276669](https://github.com/Neuri-AI/PSX/actions/runs/38694276669): 4/4 Headless Python 3.10–3.13 plus native PySide6 TaskBoard smoke **SUCCESS**; [Tkinter #38694276599](https://github.com/Neuri-AI/PSX/actions/runs/38694276599): 4/4 Xvfb Python 3.10–3.13 **SUCCESS**; [Qt #38694276666](https://github.com/Neuri-AI/PSX/actions/runs/38694276666): 3/3 native PySide6 Python 3.11–3.13, including actual `QLabel` property readback, **SUCCESS**; [Kivy #38694276833](https://github.com/Neuri-AI/PSX/actions/runs/38694276833): 2/2 native Kivy Python 3.11–3.12 **SUCCESS**; [Mintlify #38694276532](https://github.com/Neuri-AI/PSX/actions/runs/38694276532): schema/build/links/accessibility and structural checks **SUCCESS**.
+- **Important limits:** These are Ubuntu/Linux jobs. Headless tests establish stateful behavior; native smoke establishes mount/unmount and explicit Qt native QLabel text, **not** manually clicked interactive GUI or pixel-level screenshots. macOS/Windows, UI screenshot provenance and independent newcomer reproduction remain G6 verification items, not claimed as passed.
+- **Disposition:** **G5 CLOSED for its reproducible application portfolio and tested native integration scope**; G6 must independently verify final coverage, visual/native matrix, source receipts and owner signoff before F5.5 as a whole can close.
+- **Next:** merge PR #39; open G6 on its own one-gate branch after canonical `develop` update; complete independent and native-platform review.
