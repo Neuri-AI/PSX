@@ -1,0 +1,26 @@
+---
+title: "Advanced extensions and native APIs"
+description: "Understand optional registry, plugin, renderer adapter and native widget APIs."
+---
+
+# Advanced extensions and native APIs
+
+These names are part of the root `psx` exports and serve advanced library and native integration use cases. Consult [source exports](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/psx/__init__.py) and [registry](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/psx/core/registry.py) for exact contracts.
+
+## Component registration
+
+`ComponentDefinition`, `ComponentRegistry`, `builtin_component_registry`, `register_component`: definitions and registration mechanisms. A registered name alone does not prove a renderer can mount it. Never replace built-ins or mutate a global registry without reviewing collision behavior.
+
+## Renderer adapters
+
+`ComponentAdapter`, `RendererAdapterRegistry`, `register_adapter`, `RendererCapabilities`, `renderer_capabilities`: backend adapter contracts and capability discovery. Capability information must be interpreted for the actual renderer and version, not inferred from documentation navigation.
+
+## Native widget declarations
+
+`Native`, `NativeWidget`, `NativeOwnership`, `native_widget`: integrate native controls with explicit ownership and renderer constraints. Native widgets belong to a toolkit and are not implicitly portable across different backends.
+
+## Plugins and Qyro compatibility
+
+`Plugin`, `PluginAPI`, `PLUGIN_ENTRY_POINT_GROUP`, `load_plugins` are extension APIs. `PSXComponent` is currently exported for existing optional Qyro integration. F5.5 does not add new Qyro Engine, Pydux or CLI functionality and does not certify their upcoming releases.
+
+These are **orientation entries**, not complete signature and lifecycle contracts; G4 remains open until each advanced symbol has its own verified API details and test evidence.
