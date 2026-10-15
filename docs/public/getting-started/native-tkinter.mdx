@@ -1,0 +1,66 @@
+---
+title: "First native Tkinter window"
+description: "Run Velto with a genuine desktop renderer rather than a Headless record."
+---
+
+# First native Tkinter window
+
+This example uses Tkinter, the optional windowing toolkit shipped with many desktop Python installations. It creates a **real native window**. The Headless exercises in earlier lessons do not create one.
+
+## Prerequisites
+
+Complete [installation](/getting-started/installation), then verify Tkinter is available:
+
+```bash
+python -c "import tkinter; print('Tkinter import OK')"
+```
+
+On Linux a graphical display (or Xvfb for automated smoke checks) is required. On macOS and Windows you need a desktop session. These instructions require Python 3.10–3.13 and the repository checkout that contains this example.
+
+## Complete source
+
+File: `examples/f5_5_beginner/native_tkinter.py`
+
+```python
+import sys
+from psx import App, Text
+
+def main() -> int:
+    app = App(Text("Hello from native Tkinter"), renderer="tkinter")
+    if "--smoke" in sys.argv:
+        try:
+            widget = app.mount()
+            assert widget is not None
+            print("Tkinter native mount: PASS")
+            return 0
+        finally:
+            app.unmount()
+    return app.run()
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+```
+
+## Run
+
+From the repository root:
+
+```bash
+python examples/f5_5_beginner/native_tkinter.py
+```
+
+Expected interaction: a Tkinter window displaying **Hello from native Tkinter**. Close the window using your desktop window controls.
+
+For an automated Linux smoke test, after installing `xvfb`:
+
+```bash
+xvfb-run -a python examples/f5_5_beginner/native_tkinter.py --smoke
+```
+
+Expected smoke output is `Tkinter native mount: PASS`. The smoke checks native mounting and teardown, **not** the appearance, sizing or human-visible screenshot of the window. See the GitHub Actions `tkinter-smoke` job for real executed coverage once that job passes.
+
+## Troubleshooting
+
+If `import tkinter` fails, install a Python distribution with Tk support. If you see an unavailable display error on Linux, run in a desktop session or use Xvfb for smoke testing. If a renderer raises `RendererConfigurationError`, verify the selected renderer and optional prerequisites.
+
+Follow [native layout](/learn/native-layout) to understand why a layout component may additionally require Cinnamon viewport constraints.
