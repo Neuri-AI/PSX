@@ -5,7 +5,7 @@ description: "Run a complete native Qt application using Velto components and a 
 
 # A native PySide6 application
 
-The runnable project is [qt_app.py](https://github.com/Neuri-AI/PSX/blob/4bd32c1be20b02bf4e85d4cf83efe30a631088e9/examples/f5_5_native_gallery/qt_app.py). It mounts a `Text` label and `Button` through a **native PySide6 renderer**. It does not use a browser.
+The runnable project is [qt_app.py](https://github.com/Neuri-AI/PSX/blob/4bd32c1be20b02bf4e85d4cf83efe30a631088e9/examples/f5_5_native_gallery/qt_app.py). It mounts portable `Text` and `Button` controls, plus a real backend-specific `QLabel` through `Native(QLabel, props={...})`, using the **native PySide6 renderer**. It does not use a browser.
 
 ## Prerequisites and installation
 
@@ -33,7 +33,7 @@ examples/f5_5_native_gallery/
 └── qt_app.py
 ```
 
-No separate settings file or markup transform is used. The example explicitly selects `renderer="pyside6"` and produces two native controls; clicking the button prints `Qt clicked` to the terminal.
+No separate settings file or markup transform is used. The example explicitly selects `renderer="pyside6"` and produces three native controls; clicking the button prints `Qt clicked` to the terminal.
 
 ## Run the automated native smoke
 
@@ -43,7 +43,7 @@ On a Linux runner with Qt offscreen support:
 QT_QPA_PLATFORM=offscreen python examples/f5_5_native_gallery/qt_app.py --smoke
 ```
 
-Expected output is `PySide6 native mount: PASS`. This mounts and tears down real Qt widgets but does not visually inspect the GUI. Avoid treating an offscreen smoke as evidence for macOS or Windows. If the `xcb` platform plugin fails, use the offscreen mode for smoke testing or install required Linux graphical libraries for an interactive session.
+Expected output is `PySide6 native mount: PASS`. The `Native` declaration owns its `QLabel` and applies its text via the Qt adapter; this is a deliberately backend-specific escape hatch. This mounts and tears down real Qt widgets but does not visually inspect the GUI. Avoid treating an offscreen smoke as evidence for macOS or Windows. If the `xcb` platform plugin fails, use the offscreen mode for smoke testing or install required Linux graphical libraries for an interactive session.
 
 ## Next step
 
