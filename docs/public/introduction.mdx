@@ -7,7 +7,7 @@ description: "Write native Python interfaces with familiar HTML/JSX-like markup�
 
 That is the idea behind **Velto**: a Python UI framework centered on **PSX Markup**, a markup syntax for describing interfaces using tags, attributes, and nested elements.
 
-You write the structure of your interface in a familiar, readable format. Velto interprets that structure and uses a supported Python UI toolkit to create real desktop widgets. **There is no browser or HTML DOM between your markup and the native UI.**
+You write the structure of your interface in a familiar, readable format. Velto processes that structure into a **Virtual DOM (VDOM)**: a tree of **virtual nodes (VNodes)** representing the interface. A **reconciler** compares interface descriptions when they change, and a supported native renderer applies the necessary updates to real desktop widgets. **There is no browser or HTML DOM between your markup and the native UI.**
 
 ## A familiar way to write interfaces
 
@@ -56,7 +56,7 @@ The tags are **Velto components**, not browser HTML elements. They are designed 
     Describe the interface using nested tags, attributes and supported expressions.
   </Step>
   <Step title="Velto processes the markup">
-    Velto builds the interface representation and manages its updates. Where layout calculations are required, Cinnamon provides the layout geometry.
+    Velto produces a **Virtual DOM** made of **VNodes**. Its reconciler manages changes to that virtual tree. Cinnamon calculates layout geometry where required.
   </Step>
   <Step title="A native renderer creates widgets">
     A selected renderer connects the interface to a supported toolkit such as Qt, Tkinter or Kivy. The result is a desktop UI, not a web page embedded in Chromium.
@@ -65,9 +65,9 @@ The tags are **Velto components**, not browser HTML elements. They are designed 
 
 **HTML/JSX in a browser:** markup or components → browser DOM → browser rendering.
 
-**PSX Markup in Velto:** markup → Velto UI system → native toolkit widgets.
+**PSX Markup in Velto:** markup → VNodes / Virtual DOM → reconciliation and layout → native renderer → native toolkit widgets.
 
-The resemblance is about the **developer experience**, not about reusing the browser as a rendering engine.
+The **VDOM is not the browser DOM**. It is Velto's in-memory description of the interface; the final controls are native widgets. The resemblance to HTML/JSX is about the **developer experience**, not about reusing a browser as a rendering engine.
 
 ## Markup does not force a programming style
 
