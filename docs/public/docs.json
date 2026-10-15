@@ -60,7 +60,8 @@
           "reference/application-and-state",
           "reference/component-contracts",
           "reference/errors",
-          "reference/extensions-and-native"
+          "reference/extensions-and-native",
+          "reference/root-symbols"
         ]
       },
       {
