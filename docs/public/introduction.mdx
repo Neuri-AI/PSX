@@ -1,25 +1,135 @@
 ---
 title: "Meet Velto"
-description: "Understand what Velto is, what runs natively, and where to begin."
+description: "Build native Python interfaces with components, state, and a declarative approach—starting with your first working example."
 ---
 
-# Meet Velto
+Build desktop interfaces in Python without having to manage every widget update yourself.
 
-Velto is a Python UI framework for describing interfaces declaratively. You describe the components you want; Velto builds and updates **native widgets** through the selected renderer rather than displaying a browser.
+**Velto is a declarative UI framework for Python.** Instead of telling a toolkit how to create each widget and manually change it whenever your data changes, you describe **what the interface should look like**. Velto manages the component tree and updates the underlying native widgets through a selected renderer.
 
-The published Python distribution is named `velto`, while its current import namespace is `psx`. The two names serve different purposes; don't assume `from velto import ...` is available.
+If you have used Tkinter, Qt, or Kivy, think of Velto as a different way to *author* the interface—not another web page displayed inside a desktop window.
 
-## What Velto does
+## The idea: describe the interface, not every update
 
-- **Components** describe user-interface elements as a tree.
-- **State and hooks** help component functions respond to changes.
-- **Cinnamon** calculates layout geometry; renderer adapters create and update native widgets.
-- **Renderers** include Qt bindings, Tkinter, Kivy and Headless, with feature-specific compatibility restrictions. Registration alone does not guarantee every component works on every backend.
+Imagine a counter with a label and a button.
 
-## What to read next
+In an imperative UI, you typically create a label, create a button, connect its callback, and explicitly update the label whenever the counter changes.
+
+In Velto, the counter value belongs to **state**. The component describes the label and button using that state. When the state changes, Velto updates the rendered interface.
+
+Here is a **real example from the repository**, not pseudocode:
+
+```python
+from psx import App, Button, Fragment, Text, component, use_state
+
+
+@component
+def Counter():
+    count, set_count = use_state(0)
+
+    def increment() -> None:
+        set_count(lambda current: current + 1)
+
+    return Fragment(
+        Text(f"Count: {count}"),
+        Button("Increment", on_click=increment),
+    )
+
+
+def main() -> int:
+    app = App(Counter(), renderer="headless")
+    try:
+        root = app.mount()
+        print(root.children[0].props["value"])
+        root.children[1].props["on_click"]()
+        app.renderer.flush()
+        print(root.children[0].props["value"])
+        return 0
+    finally:
+        app.unmount()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+```
+
+This example uses the **Headless renderer**, which lets us test component behavior without opening a desktop window. The component itself is written using the same declarative concepts used by native renderers.
+
+### Read the code one piece at a time
+
+1. **`@component`** marks `Counter` as a UI component. A component is a Python function that describes part of an interface.
+2. **`use_state(0)`** gives the component a value (`count`, initially `0`) and a function to update it (`set_count`).
+3. **`Text(...)`** describes the text that should be shown. It uses the current value of `count`.
+4. **`Button(..., on_click=increment)`** describes a button and what happens when it is activated.
+5. **`Fragment(...)`** groups the two elements without adding an extra visible control.
+6. **`App(...)`** creates the application using the chosen renderer. Mounting creates its rendered tree; unmounting cleans it up.
+
+The callback does **not** directly modify a label. It changes the state. Velto then processes the resulting update.
+
+### What will you see?
+
+When you run this specific Headless example, the terminal prints:
+
+```text
+Count: 0
+Count: 1
+```
+
+The second line appears because the example invokes the button's callback and flushes the pending update. **There is no desktop window in this example.** You will build and run a real native window in the [Tkinter walkthrough](/getting-started/native-tkinter).
+
+## Try it yourself
+
+You need Python, Git, and a terminal. From a fresh checkout:
+
+```bash
+git clone https://github.com/Neuri-AI/PSX.git
+cd PSX
+python -m venv .venv
+```
+
+Activate the environment:
+
+- **macOS or Linux:** `source .venv/bin/activate`
+- **Windows PowerShell:** `.venv\Scripts\Activate.ps1`
+
+Then install the project and run the checked-in example:
+
+```bash
+python -m pip install -e .
+python examples/f5_5_beginner/counter.py
+```
+
+You can inspect the [complete Counter source](https://github.com/Neuri-AI/PSX/blob/develop/examples/f5_5_beginner/counter.py) and follow the [installation guide](/getting-started/installation) for platform-specific prerequisites and troubleshooting. If `import psx` fails, confirm that the environment is activated and that you installed from the repository root.
 
 <Note>
-  The beginner learning path contains tested Headless examples and a Tkinter native mounting smoke. Detailed API references and advanced example projects remain G4–G5 work. Treat illustrative code fragments as non-standalone unless explicitly labeled executable.
+  The Python package is distributed as `velto`, but the current public Python import namespace is `psx`. That is why the examples use `from psx import ...`. The package name and import name are not interchangeable.
 </Note>
 
-Read [Getting started](/getting-started/overview) for the learning path, or [How Velto works](/concepts/architecture) for the compile-time/runtime distinction.
+## Native UI, without a browser in the middle
+
+Velto's UI description is independent of any single desktop toolkit. A **renderer** is the integration layer that turns that description into real toolkit widgets and keeps them in sync.
+
+- **Qt renderers** target supported Python Qt bindings.
+- **Tkinter** targets Python's Tk-based desktop widgets.
+- **Kivy** targets Kivy's widget system.
+- **Headless** represents the rendered tree without a graphical window, making it useful for deterministic tests.
+
+The core idea stays the same: **you write components; the renderer manages toolkit-specific widgets.** Individual components and features can have backend-specific support limitations, which are documented in the [component reference](/reference/component-contracts).
+
+### Where does Cinnamon fit?
+
+Cinnamon is Velto's layout calculation engine. It determines how supported layouts should be arranged; the native renderer is responsible for creating and updating the actual toolkit widgets. You do **not** need to learn Cinnamon internals to build your first application.
+
+For a deeper explanation of the component tree, updates, layout and rendering, see [How Velto works](/concepts/architecture).
+
+## What should you learn next?
+
+Start small and build toward a complete application:
+
+1. [**Install Velto**](/getting-started/installation) — prepare Python and your development environment.
+2. [**Create your first application**](/getting-started/first-app) — understand components and the application lifecycle.
+3. [**Open a native Tkinter window**](/getting-started/native-tkinter) — see real desktop widgets instead of a Headless test.
+4. [**Learn state and events**](/learn/state-and-events) — make interfaces respond to user actions.
+5. [**Explore complete examples**](/examples/overview) — move from individual concepts to working projects.
+
+You do not need to understand Qt, Kivy, Tkinter, Cinnamon or the internals of the reconciler before starting. Begin with a component, see what it renders, and add interactivity one step at a time.
