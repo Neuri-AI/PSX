@@ -11,7 +11,7 @@ class BeginnerExamplesTests(unittest.TestCase):
         app = App(Hello(), renderer="headless")
         try:
             node = app.mount()
-            self.assertEqual(node.type, "Flex")
+            self.assertEqual(node.type, "Fragment")
             self.assertEqual(node.children[0].props["value"], "Hello, Velto!")
         finally:
             app.unmount()
