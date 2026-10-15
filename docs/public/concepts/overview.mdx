@@ -1,0 +1,12 @@
+---
+title: "Core concepts"
+description: "A plain-language map of Velto concepts and their boundaries."
+---
+
+# Core concepts
+
+A **component** describes what should appear in the interface. A **VNode** is an intermediate description of that interface, not a native widget. **Reconciliation** compares descriptions so the runtime can update existing widgets when possible. A **renderer** performs the backend-specific widget operations.
+
+Cinnamon computes layout geometry. Backends perform their own measurement and widget operations but must not introduce competing layout geometry authorities.
+
+Start with [How Velto works](/concepts/architecture). The [Python reference](/reference/overview) will link every documented behavior to source evidence.
