@@ -60,6 +60,19 @@ class ConditionalAnd:
 
 
 @dataclass(frozen=True, slots=True)
+class ConditionalOr:
+    left: "Expression"
+    right: "Expression"
+    location: Location
+
+
+@dataclass(frozen=True, slots=True)
+class LogicalNot:
+    operand: "Expression"
+    location: Location
+
+
+@dataclass(frozen=True, slots=True)
 class Ternary:
     condition: "Expression"
     yes: "Expression"
@@ -95,7 +108,7 @@ class Fragment:
     location: Location
 
 
-Expression = Literal | Name | Member | Call | Compare | ConditionalAnd | Ternary | Arrow | Map | Element | Fragment
+Expression = Literal | Name | Member | Call | Compare | ConditionalAnd | ConditionalOr | LogicalNot | Ternary | Arrow | Map | Element | Fragment
 
 
 class ExpressiveParser:
@@ -179,7 +192,7 @@ class ExpressiveParser:
             return None
 
     def ternary(self) -> Expression:
-        condition = self.conjunction()
+        condition = self.disjunction()
         self.skip()
         if not self.take("?"):
             return condition
@@ -187,6 +200,13 @@ class ExpressiveParser:
         self.expect(":")
         no = self.expression()
         return Ternary(condition, yes, no, condition.location)
+
+    def disjunction(self) -> Expression:
+        left = self.conjunction()
+        while self.take("||"):
+            right = self.conjunction()
+            left = ConditionalOr(left, right, left.location)
+        return left
 
     def conjunction(self) -> Expression:
         left = self.comparison()
@@ -196,15 +216,22 @@ class ExpressiveParser:
         return left
 
     def comparison(self) -> Expression:
-        left = self.primary()
+        left = self.unary()
         self.skip()
         if self.source.startswith(("===", "!=="), self.pos):
-            self.error("Use Python == or !=, not JavaScript strict equality")
-        if self.take("=="):
-            return Compare(left, "==", self.primary(), left.location)
-        if self.take("!="):
-            return Compare(left, "!=", self.primary(), left.location)
+            self.error("Use == or !=, not JavaScript strict equality")
+        for operator in ("==", "!=", ">=", "<=", ">", "<"):
+            if self.take(operator):
+                return Compare(left, operator, self.unary(), left.location)
         return left
+
+    def unary(self) -> Expression:
+        self.skip()
+        start = self.pos
+        if self.source.startswith("!", self.pos) and not self.source.startswith("!=", self.pos):
+            self.pos += 1
+            return LogicalNot(self.unary(), self.location(start))
+        return self.primary()
 
     def primary(self) -> Expression:
         self.skip()
