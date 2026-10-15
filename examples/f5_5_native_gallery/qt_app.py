@@ -3,7 +3,9 @@
 Requires pip install -e '.[pyside6]'. Uses real Qt widgets.
 """
 import sys
-from psx import App, Text, Button, Fragment
+from PySide6.QtWidgets import QLabel
+
+from psx import App, Text, Button, Fragment, Native
 
 
 def make_app() -> App:
@@ -11,6 +13,7 @@ def make_app() -> App:
         Fragment(
             Text("Velto + PySide6"),
             Button("Hello Qt", on_click=lambda: print("Qt clicked")),
+            Native(QLabel, props={"text": "Native QLabel via Velto"}),
         ),
         renderer="pyside6",
     )
