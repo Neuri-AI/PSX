@@ -1,0 +1,27 @@
+name: F5.5 Qt native gallery
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "examples/f5_5_native_gallery/qt_app.py"
+      - "docs/public/examples/qt-gallery.mdx"
+      - ".github/workflows/f5-5-qt-gallery.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pyside6-native-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install -e ".[pyside6]"
+      - run: QT_QPA_PLATFORM=offscreen python examples/f5_5_native_gallery/qt_app.py --smoke
