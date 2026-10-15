@@ -233,3 +233,10 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **GREEN:** [Actions #38696710624](https://github.com/Neuri-AI/PSX/actions/runs/38696710624) **SUCCESS**, all eight jobs executed: source-backed API and docs static preflight, G4 generated-reference drift check, documentation unit tests, Headless Python 3.10–3.13, and native Linux Tkinter/PySide6/Kivy smoke on Python 3.12. **Immutable tested SHA:** `807b51ed00ebaa245e1ad9922187e5a59aeffd80`.
 - **Scope:** This validates automated reproducibility and bounded Linux native mounting; still NO independent beginner reviewer transcript, manual native screenshots, macOS/Windows trial or explicit final owner acceptance.
 - **Gate remains G6 IN PROGRESS.** Overall F5.5 is not CLOSED. Next action: independent reviewer executes public pages on a fresh checkout and records real observations; assess OS/native gaps; request explicit owner signoff after reviewing full evidence.
+
+### 2026-10-15 — G6 — clean-room cross-OS reproduction increment
+- **Same G6 branch and PR:** `docs/f5-5-integral-certification`; [PR #40](https://github.com/Neuri-AI/PSX/pull/40). No new branch.
+- **New CI:** `.github/workflows/f5-5-clean-room-reproduction.yml`, fresh virtual environments on Ubuntu/macOS/Windows, Python 3.11 and 3.12. The workflow executes published beginner imports and full entry point/test commands rather than relying on previously installed packages.
+- **Evidence:** [Actions #38697044668](https://github.com/Neuri-AI/PSX/actions/runs/38697044668) queued at this ledger update. Its results must be observed before claiming pass.
+- **Review worksheet:** updated `docs/architecture/f5-5-g6-independent-reproduction.md`; independent reviewer signoff and genuine GUI screenshot receipts remain **PENDING**, separate from CI.
+- **Gate:** G6 IN PROGRESS, overall F5.5 OPEN; final owner approval not received.
