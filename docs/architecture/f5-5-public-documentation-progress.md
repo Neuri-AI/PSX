@@ -14,7 +14,7 @@
 | G3 | Beginner learning path, Headless reproducibility and native Tkinter smoke | CLOSED (documentary/technical scope; visual review deferred to G6) | Actions #38688458633 and #38688458691 |
 | G4 | Source-backed public API and component contract reference | CLOSED (documentation scope, limits below) | `c076660a881734efb0252858453af7337a5f503e`; Actions #38691305243, #38691305079 |
 | G5 | Real runnable example projects and native DX | CLOSED (verified Linux examples; G6 review exclusions) | Actions #38694276669, #38694276599, #38694276666, #38694276833, #38694276532 |
-| G6 | End-to-end evidence and explicit owner signoff | NOT STARTED | — |
+| G6 | End-to-end evidence and explicit owner signoff | IN PROGRESS — owner/independent review pending | Aggregate CI pending |
 
 ## What has happened
 
@@ -219,3 +219,11 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Important limits:** These are Ubuntu/Linux jobs. Headless tests establish stateful behavior; native smoke establishes mount/unmount and explicit Qt native QLabel text, **not** manually clicked interactive GUI or pixel-level screenshots. macOS/Windows, UI screenshot provenance and independent newcomer reproduction remain G6 verification items, not claimed as passed.
 - **Disposition:** **G5 CLOSED for its reproducible application portfolio and tested native integration scope**; G6 must independently verify final coverage, visual/native matrix, source receipts and owner signoff before F5.5 as a whole can close.
 - **Next:** merge PR #39; open G6 on its own one-gate branch after canonical `develop` update; complete independent and native-platform review.
+
+### 2026-10-15 — F5.5-G6 — integral certification preflight kickoff
+- **Starting canonical develop SHA:** `99309877c05dcfc743d287464407342c5e346d3a` (G1–G5 recorded as completed documentation milestones).
+- **Branch:** `docs/f5-5-integral-certification` — one branch for all G6 work and CI repairs; no parallel G6 branches.
+- **Artifacts:** `docs/architecture/f5-5-g6-example-manifest.json` (six example pages, concrete source/commands/backend CI coverage); `docs/architecture/f5-5-g6-independent-reproduction.md` (independent reviewer, real screenshots, platform/OS limits and owner acceptance checklist); `scripts/docs/validate_f5_5_integral.py` (fail-closed structural coverage); `.github/workflows/f5-5-integral-certification.yml` (aggregate API, docs, headless and Linux-native smoke checks).
+- **Expected command:** `python -m scripts.docs.validate_f5_5_integral`. Source snapshot pinned; generated G4 reference checked for drift. Passing automated checks **cannot** substitute for independent beginner review, Mac/Windows native verification or explicit project-owner signoff.
+- **Evidence status:** CI runs not yet confirmed at this commit. Neither unreviewed pages nor unsupported native cells are certified by this entry.
+- **Gate:** **G6 IN PROGRESS, overall F5.5 OPEN.** Next: repair any true CI failures, acquire independent native beginner reproduction with receipts, obtain explicit owner acceptance after reviewing final evidence.
