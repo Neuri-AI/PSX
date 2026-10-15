@@ -15,6 +15,8 @@ class ComponentLexicalRuntimeTests(unittest.TestCase):
         source = '''
 from psx import App, component, psx, use_effect, use_ref, use_state
 from psx.renderers.headless import HeadlessRenderer
+from psx.sfle.engine import PythonLayoutEngine
+from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
 events = []
 
@@ -39,7 +41,11 @@ def Counter():
         </Flex>
     """)
 
-renderer = HeadlessRenderer()
+renderer = HeadlessRenderer(
+    sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)),
+    engine=PythonLayoutEngine(),
+    measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+)
 app = App(Counter, renderer=renderer)
 app.mount()
 column = app.reconciler.root.children[0].handle
