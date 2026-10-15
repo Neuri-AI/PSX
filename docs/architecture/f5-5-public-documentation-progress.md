@@ -13,7 +13,7 @@
 | G2 | Mintlify IA, docs.json and six template families | CLOSED | Actions #38638621796 |
 | G3 | Beginner learning path, Headless reproducibility and native Tkinter smoke | CLOSED (documentary/technical scope; visual review deferred to G6) | Actions #38688458633 and #38688458691 |
 | G4 | Source-backed public API and component contract reference | CLOSED (documentation scope, limits below) | `c076660a881734efb0252858453af7337a5f503e`; Actions #38691305243, #38691305079 |
-| G5 | Real runnable example projects and native DX | NOT STARTED | — |
+| G5 | Real runnable example projects and native DX | IN PROGRESS (one G5 branch) | Task board CI pending |
 | G6 | End-to-end evidence and explicit owner signoff | NOT STARTED | — |
 
 ## What has happened
@@ -198,3 +198,13 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Remaining evidence carried to G5/G6:** independently execute complete advanced example projects; verify actual native Qt/Tkinter/Kivy per-behavior/platform claims and independent visual review. Candidate test references are **not behavior certifications**. This G4 closeout does **not** waive F5.5/G6 comprehensive source-to-test and native evidence rules, or assert complete verification of every public API interaction.
 - **Disposition:** **G4 CLOSED for owner-directed reference publication/metadata coverage**, not integral F5.5 certification. G5 and G6 remain OPEN.
 - **Next steps:** merge PR #38, build verified practical applications in G5, complete comprehensive external/native CI and owner signoff in G6.
+
+### 2026-10-15 — F5.5-G5 — reproducible task board starting increment
+- **Canonical develop SHA at start:** `e20c18a430366ec47bf362f6b0e1dc261acb3e54`.
+- **Single G5 working branch:** `docs/f5-5-real-world-applications`. All future G5 increments and CI fixes remain on this branch; do not split by example or backend.
+- **Project:** `examples/f5_5_task_board/app.py`, `test_app.py`. Immutable `Task` dataclasses; deterministic Headless stateful `TaskBoard`; keyed rows; toggle, remaining count and clear completed events; explicit unmount cleanup. No hidden Pydux/Qyro dependency.
+- **Public page:** `docs/public/examples/task-board.mdx` with clean installation, tree, source links, entry/test commands, expected output, troubleshooting, and coverage caveats; Mintlify navigation updated.
+- **Run:** `python examples/f5_5_task_board/app.py`; `cd examples/f5_5_task_board && python -m unittest -v test_app`.
+- **CI:** `.github/workflows/f5-5-task-board.yml`, Python 3.10–3.13 on Ubuntu. Pending workflow execution; no claim of tested native visuals.
+- **Gate status:** **G5 IN PROGRESS**, not closed. Qt/Kivy/Tkinter advanced application examples, independent native developer-experience reproduction, graphics evidence and platform compatibility still to come.
+- **Next steps:** verify and repair observed Headless CI; create a complete native application with native smoke coverage; collect actual end-to-end receipts and cross-platform matrix before G5 closeout.
