@@ -1,16 +1,90 @@
 ---
 title: "Getting started"
-description: "The planned, reproducible path from Python to a native Velto application."
+description: "Your first steps with Velto: install it, understand PSX Markup, and build your first Python interface."
 ---
 
-# Getting started
+Welcome! In this guide, you'll go from a fresh Python environment to your first working Velto application.
 
-You should already know how to create a Python virtual environment and run a Python script. You do **not** need to know Qt, Kivy, Tkinter, VNodes or reconciliation.
+You don't need to know Qt, Tkinter, Kivy, or how Velto works internally. If you're comfortable with basic Python—functions, imports, and running a script—you have enough to begin. If HTML or JSX looks familiar, PSX Markup will feel familiar too.
 
-Begin with [installation](/getting-started/installation), continue to [first app](/getting-started/first-app) and [the Tkinter native window](/getting-started/native-tkinter). The learning section covers components, markup, state, events, conditionals, keyed lists, effects and native layout. Some concept fragments are deliberately non-standalone; the checked-in Headless examples and native Tkinter smoke provide executable entry points.
+## What you'll learn
 
-<Warning>
-  The Headless tutorial and Tkinter native smoke have distinct coverage. Follow their individual environment steps and validation receipts; passing Headless does not certify graphical behavior.
-</Warning>
+By the end of this getting-started path, you'll understand how to:
 
-In the meantime, [learn the mental model](/concepts/architecture) and [read the component catalog policy](/components/overview).
+1. **Prepare your Python environment** and install Velto.
+2. **Read a PSX Markup interface** using tags, attributes, and nested elements.
+3. **Run a working example** and see what Velto creates.
+4. **Open a native desktop interface** using a supported renderer.
+5. **Choose what to learn next**, from components and events to state and layout.
+
+You won't need to memorize the framework's architecture before writing your first line of markup.
+
+## First, get a feel for PSX Markup
+
+Velto lets you express an interface with markup inspired by HTML and JSX.
+
+```python
+from psx import psx
+
+view = psx("""
+    <Flex direction="column" gap="12">
+        <Text>Hello, Velto!</Text>
+        <Button>Get started</Button>
+    </Flex>
+""")
+```
+
+Read this from the outside in:
+
+- `Flex` is the parent layout container.
+- `direction="column"` tells the layout to arrange its children vertically.
+- `gap="12"` describes the spacing between those children.
+- `Text` and `Button` are two elements inside that container.
+
+That's the central idea: **describe the structure of your interface using readable tags**. Velto processes the resulting interface tree and can render it through a native Python UI toolkit.
+
+<Note>
+  This snippet demonstrates the appearance of PSX Markup. It is not a complete application and does not open a window on its own. The linked tutorials provide complete source files and the commands needed to run them.
+</Note>
+
+## Your path to a working application
+
+<Steps>
+  <Step title="1. Install Velto">
+    Start with [Install Velto](/getting-started/installation). You'll create an isolated Python environment, install the project, and verify that Python can import it.
+
+    **Result:** your development environment is ready.
+  </Step>
+  <Step title="2. Run your first component">
+    Continue with [Your first Velto application](/getting-started/first-app). You'll run a complete Hello World example, learn what a component is, and inspect the rendered result.
+
+    **Result:** you'll see `Hello, Velto!` in your terminal and understand why it appears.
+  </Step>
+  <Step title="3. Open a native window">
+    Follow [Your first native Tkinter application](/getting-started/native-tkinter). This is where you move beyond the terminal and start working with real desktop widgets.
+
+    **Result:** you'll run Velto using a native UI backend.
+  </Step>
+</Steps>
+
+## Why does the first example run in a terminal?
+
+Velto supports a **Headless renderer** as well as native renderers.
+
+Headless is useful for learning and testing because it builds an inspectable interface tree **without opening a window**. That makes it easy to confirm that a component produced the expected result.
+
+A native renderer takes the next step: it creates widgets through a desktop toolkit such as Tkinter or Qt. Both approaches use Velto's UI concepts, but only the native renderer creates a graphical window.
+
+You'll encounter both in this guide, in that order, so each new concept has a clear purpose.
+
+## After your first application
+
+Once you've completed the three steps above, explore the concepts that help you build more substantial interfaces:
+
+- [**Components**](/learn/components) — organize an interface into reusable pieces.
+- [**State and events**](/learn/state-and-events) — respond to actions and changing values.
+- [**How Velto works**](/concepts/architecture) — understand the Virtual DOM, reconciliation, Cinnamon, and native rendering.
+
+You can return to the deeper architecture whenever you're curious. **You do not need to understand it all before you begin.**
+
+Ready? Start with [**Install Velto →**](/getting-started/installation).
