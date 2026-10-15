@@ -1,6 +1,6 @@
 # F5.5 — Public Developer Documentation Progress and Handoff Ledger
 
-**Status:** CONTRACT APPROVED / G1 NOT STARTED (2026-10-14).  
+**Status:** G1 DOCUMENTATION BASELINE ACCEPTED BY OWNER (2026-10-14); G2–G6 pending.  
 **Canonical target branch:** `develop`. **Documentation root:** `docs/public/`.  
 **Normative contract:** [F5.5 Public Developer Documentation Contract](f5-5-public-documentation-contract.md).  
 **Owner's decisions:** canonical English beginner-first Mintlify MDX; exhaustively grounded in `develop`; real reproducible tested examples; exhaustive current public API; future ecosystem integrations deferred; progress tracked under `docs/`.
@@ -9,8 +9,8 @@
 
 | Gate | Deliverable | Status | Immutable implementation SHA / CI evidence |
 | --- | --- | --- | --- |
-| G1 | Develop API census / verified support matrix | NOT STARTED | — |
-| G2 | Mintlify IA, docs.json and six template families | CLOSED (technical documentation gate, PR #33 pending merge) | `41efd58151bd5b0e43158609ea96649f1b932992`; Actions #38638621796 |
+| G1 | Declared API inventory and component contract baseline | CLOSED (owner-approved documentation baseline; limitations below) | `226110f66f325e0d16a0b7a43c5461e46a27cf06`; Actions #38637541555 |
+| G2 | Mintlify IA, docs.json and six template families | NOT STARTED | — |
 | G3 | Complete independent beginner-first tutorials | NOT STARTED | — |
 | G4 | Exhaustive verified API and component reference | NOT STARTED | — |
 | G5 | Real runnable example projects and native DX | NOT STARTED | — |
@@ -107,3 +107,45 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Backend coverage:** no new native behavior asserted or tested in this documentation-only gate; G3/G4/G5 will link specific native receipts where claims arise.
 - **Status:** **G2 CLOSED — technically certified for Mintlify architecture and standards**, pending merge into `develop`. **G6 owner signoff still required for F5.5 overall**.
 - **Next three steps:** (1) merge G1 PR #32 then G2 PR #33, reconcile progress ledger conflicts with `develop`; (2) create G3 clean-environment beginner tutorials and full example projects; (3) add behavioral tests and renderer-specific evidence for each published runnable guide.
+
+### 2026-10-14 — F5.5-G1 — declared API and builtin component audit expansion
+- **Starting develop SHA:** `e8b8e24de6937fa4875d830c8cdf442c54f69544` (includes merged PR #31).
+- **PR:** [#32](https://github.com/Neuri-AI/PSX/pull/32), branch `docs/f5-5-g1-complete-api-audit`, initially draft.
+- **Changed files:** `scripts/docs/full_api_audit.py`, `tests/test_docs_full_api_audit.py`, `.github/workflows/f5-5-g1-audit.yml`, this ledger.
+- **Source scope audited:** explicit exports of `psx`, `psx.markup`, `psx.renderers`; all builtin registry names including internal `Box`; component contract properties, defaults (repr snapshots), events and children policy. These findings are machine generated against the exact checked-out code and archived as GitHub Actions artifact.
+- **Commands:** `python scripts/docs/full_api_audit.py --write /tmp/f5-5-g1-declared-surface.json`; `python scripts/docs/full_api_audit.py --check /tmp/f5-5-g1-declared-surface.json`; `python -m unittest discover -s tests -p test_docs_full_api_audit.py -v`.
+- **Execution evidence:** Workflow `F5.5 G1 declared surface audit` introduced. **No verified passing run or immutable execution SHA at the time of this entry.** This document must be amended from the actual GitHub Actions results.
+- **Backend matrix:** Qt, Tkinter, Kivy, Headless and supported Python/OS combinations remain **not certified** by introspection. Registration is not native renderer proof. No new runnable examples.
+- **Discrepancies:** `psx.markup` and `psx.renderers` have their own `__all__`; package-root exports alone did not cover those. Builtin registry includes `Box` (internal) not in `psx.__all__`. `psx.core.errors` contains exception types not necessarily re-exported by the root, including `DuplicateComponentError` and `UnknownComponentError`. Optional Qyro integration exports must be reviewed without assuming they are part of the new ecosystem integration milestone.
+- **Status:** **G1 IN PROGRESS**, no claim of full G1 closure or native certification; PR branch not canonical until merged.
+- **Next three steps:** (1) audit remaining public submodules not exposing `__all__` with accurate test mappings; (2) execute and verify workflow on immutable PR SHA and address failures; (3) assemble source-to-test/native backend evidence and only then request G1 certification.
+
+
+### 2026-10-14 — F5.5-G1 — executable audit correction
+- **RED CI receipt:** [Actions #38635440815](https://github.com/Neuri-AI/PSX/actions/runs/38635440815) failed two precise source-tracing assertions: `psx.Fragment` is a callable instance whose source belongs to its class; `PLUGIN_ENTRY_POINT_GROUP` is a scalar constant lacking Python inspect source location.
+- **Cause and correction:** introspection now dereferences callable instances to their defining classes; scalar constants remain legitimate API exports but source location is not invented. Corrected on `9d240c7fd407ce69dbc959594d1d542f54c25eca` and `f4ee62077ed53ce8914975c1ade7cfa023d64e5b`.
+- **Re-execution:** [Actions #38635580750](https://github.com/Neuri-AI/PSX/actions/runs/38635580750) queued on `f4ee62077ed53ce8914975c1ade7cfa023d64e5b` at inspection; **not yet a GREEN certification**.
+- **Remaining G1 blockers:** public submodules without `__all__` not fully covered; per-symbol behavioral test receipts and supported native renderer cells remain outstanding.
+
+
+### 2026-10-14 — F5.5-G1 — supplemental source and candidate-test census
+- **Changed file:** `scripts/docs/full_api_audit.py` updated to include top-level non-private class/function declarations in `psx.plugins`, `psx.core.errors`, `psx.core.hooks`, `psx.core.registry`, `psx.core.native`, `psx.core.vnode`, and `psx.integrations.qyro` alongside the prior explicit package exports and registry.
+- **Traceability:** candidate test file paths identified by matching declared API names in `tests/test_*.py` contents. **A candidate reference is NOT proof of a behavior-specific assertion or executed native test.** Source-to-test coverage must be reviewed per API before G1 closure.
+- **Previous verified execution:** [#38635580750](https://github.com/Neuri-AI/PSX/actions/runs/38635580750) **SUCCESS** on `f4ee62077ed53ce8914975c1ade7cfa023d64e5b` for declared exports and contract scanner. New supplemental scan commit `2b22d6dc241c2368ef52bc3fbd060f4869f664fa` requires its own CI result.
+- **Gate status:** G1 IN PROGRESS pending tests of expanded scanner, explicit reviewed API boundaries and native capability receipts.
+
+
+### 2026-10-14 — F5.5-G1 — executed CI evidence and closure disposition
+- **Checked SHA:** `bbb18a54f9b591b12ad8bbdb5f1e06462f35c876` (immutable commit on PR #32).
+- **Required observed workflows:** [G1 declared surface audit #38635720430](https://github.com/Neuri-AI/PSX/actions/runs/38635720430) SUCCESS; [root public inventory #38635720362](https://github.com/Neuri-AI/PSX/actions/runs/38635720362) SUCCESS; [commit subject #38635720493](https://github.com/Neuri-AI/PSX/actions/runs/38635720493) SUCCESS; [selective native workflow #38635720546](https://github.com/Neuri-AI/PSX/actions/runs/38635720546) SUCCESS; [Grid integral #38635720996](https://github.com/Neuri-AI/PSX/actions/runs/38635720996) SUCCESS. Workflow-level SUCCESS is not proof that every optional native job executed.
+- **Implemented audit subset:** root/package explicit exports, signatures, source links where introspectable, supplemental declarations, builtin component registry and contract metadata, candidate tests. Test-name matching does not establish behavior-specific exercised evidence.
+- **Closure decision:** **Machine-readable declared-surface inventory TECHNICALLY CERTIFIED at checked SHA**. **The full approved G1 remains IN PROGRESS** because precise tests/native compatibility and exhaustive public-submodule review are not verified. Marking full G1 CLOSED would contradict the owner-approved F5.5 contract. No production runtime behavior or F6 scope modified.
+- **Next three steps:** review candidate test assertions against each public behavior; record actual backend/platform cell evidence and exclusions; regenerate final manifest with coverage completeness checks and certify G1 on its final SHA.
+
+### 2026-10-14 — Owner-directed G1 documentation closeout (scope clarification)
+- **Owner directive:** Treat F5.5 G1 as a documentation/source-inventory milestone; do not demand recertification of the already certified PSX runtime/native engine solely because docs and audit tooling changed.
+- **G1 status:** **CLOSED for the owner-accepted declared API/documentation baseline**. This is *not* a claim of an exhaustive behavior-proven/native compatibility matrix and does not alter historical native certificates.
+- **Checked immutable SHA:** `226110f66f325e0d16a0b7a43c5461e46a27cf06`. [Declared API audit #38637541555](https://github.com/Neuri-AI/PSX/actions/runs/38637541555), [root inventory #38637541595](https://github.com/Neuri-AI/PSX/actions/runs/38637541595), [subject #38637541800](https://github.com/Neuri-AI/PSX/actions/runs/38637541800), [native selective #38637541544](https://github.com/Neuri-AI/PSX/actions/runs/38637541544) and [Grid integral #38637541930](https://github.com/Neuri-AI/PSX/actions/runs/38637541930) all completed SUCCESS at workflow level; selected native verification may have been SKIPPED.
+- **Acceptance exception (transparent):** The source inventory covers declared root exports and selected public submodules, builtin registry metadata and candidate tests; it does **not** establish individual behavioral assertions, exhaustive undocumented submodule APIs or OS/Python native matrices. These remain mandatory accuracy checks in G4/G5/G6 *before* publishing precise compatibility assertions or claiming final F5.5 closure.
+- **Final documentation SHA:** to be determined by PR #32 merge into `develop`. This closeout change itself is documentation-only and does not modify the tested audit code.
+- **Next steps:** (1) merge PR #32 into `develop`; (2) start G2 Mintlify IA and page conventions from latest `develop`; (3) during G4/G5 trace each public API and native claim to current source/test evidence.
