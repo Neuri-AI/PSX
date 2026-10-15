@@ -1,171 +1,369 @@
 ---
 title: "Install Velto"
-description: "Set up Python and PySide6 to run your first real native Velto application."
+description: "Install Velto with pip, choose a native UI backend, and configure optional dependencies."
 ---
 
-You'll install Velto and **PySide6**, the Qt binding used in our first tutorial. By the end, your computer will be ready to open a native desktop window.
+You can install Velto directly into an existing Python project or use **Velto CLI** to generate a complete application. The CLI is optional.
 
-## Before you begin
+## Requirements
 
-You'll need **Python 3.10–3.13**, Git, a terminal, and a graphical desktop session on Windows, macOS, or Linux. The commands below install the current project source so they match the examples in this documentation.
+Velto supports **Python 3.10–3.13** on Windows, macOS, and Linux.
 
-## 1. Create a virtual environment
+Before installing, make sure you have:
 
-Create a workspace for your first application:
+- Python 3.10–3.13
+- pip, Python's package manager
+- A terminal
+- A graphical desktop environment to run native applications
+
+We recommend using a virtual environment to keep your project dependencies isolated.
+
+Create one in your project directory:
 
 ```bash
-mkdir my-velto-projects
-cd my-velto-projects
 python -m venv .venv
 ```
 
-Activate the environment on **macOS or Linux**:
+Activate it for your operating system:
+
+<Tabs>
+  <Tab title="macOS / Linux">
+
+    ```bash
+    source .venv/bin/activate
+    ```
+
+  </Tab>
+  <Tab title="Windows PowerShell">
+
+    ```powershell
+    .venv\Scripts\Activate.ps1
+    ```
+
+  </Tab>
+  <Tab title="Windows CMD">
+
+    ```bat
+    .venv\Scripts\activate.bat
+    ```
+
+  </Tab>
+</Tabs>
+
+## Install Velto
+
+Install the core framework using pip:
 
 ```bash
-source .venv/bin/activate
+python -m pip install velto
 ```
 
-On **Windows PowerShell**:
+This installs Velto without an optional native UI backend.
 
-```powershell
-.venv\Scripts\Activate.ps1
+If you already have a Python project, you can install Velto directly into its existing environment. You don't need to generate a new project or install Velto CLI.
+
+<Note>
+  The package is distributed as `velto`, but its current Python import namespace is `psx`.
+</Note>
+
+## Choose a UI backend
+
+Velto supports several native UI backends. Install the dependency group corresponding to the framework you want to use.
+
+| Backend | Installation |
+| --- | --- |
+| PySide6 | `pip install "velto[pyside6]"` |
+| PyQt6 | `pip install "velto[pyqt6]"` |
+| PyQt5 | `pip install "velto[pyqt5]"` |
+| PySide2 | `pip install "velto[pyside2]"` |
+| Kivy | `pip install "velto[kivy]"` |
+| Tkinter | `pip install velto` |
+
+For example, to install Velto with PySide6:
+
+```bash
+python -m pip install "velto[pyside6]"
 ```
 
-On **Windows Command Prompt**:
+<Tip>
+  We recommend **PySide6** if you're new to Velto. It's the backend used in the Getting Started tutorial.
+</Tip>
 
-```bat
-.venv\Scripts\activate.bat
+### Backend compatibility
+
+Backend compatibility depends on the Python version and the availability of native dependencies.
+
+| Backend | Python compatibility | Notes |
+| --- | --- | --- |
+| PySide6 | 3.10–3.13 | Qt 6 |
+| PyQt6 | 3.10–3.13 | Qt 6 |
+| PyQt5 | 3.10–3.13 | Qt 5 |
+| PySide2 | 3.10 | Qt 5; restricted to Python below 3.11 |
+| Kivy | Depends on the installed release | Tested with Kivy 2.3.1 |
+| Tkinter | Depends on your Python distribution | No Velto extra required |
+
+<Note>
+  Velto has been tested with **Kivy 2.3.1**. Compatibility with other Kivy versions has not been verified.
+</Note>
+
+<Warning>
+  PySide2 is restricted to Python 3.10 by the current dependency configuration. Use a compatible Python environment if your application requires PySide2.
+</Warning>
+
+### Installing Tkinter
+
+Tkinter is included with many Python distributions, so you don't need a separate Velto extra.
+
+Install Velto normally:
+
+```bash
+python -m pip install velto
 ```
 
-A virtual environment isolates Python packages from other projects. Keep it activated for the following steps.
+Check whether Tkinter is available:
 
-## 2. Install Velto CLI
+```bash
+python -m tkinter
+```
 
-Install the project initialization tool inside the active environment:
+If Tkinter is missing, you may need to install it through your operating system's package manager.
+
+### Install multiple backends
+
+You can install more than one backend in the same environment:
+
+```bash
+python -m pip install "velto[pyside6,pyqt6,kivy]"
+```
+
+You only need the backends your application actually uses.
+
+## Optional integrations
+
+Velto provides additional dependency groups for other tools and development workflows.
+
+| Extra | Dependency | Purpose |
+| --- | --- | --- |
+| `pydux` | `pydux` | State management |
+| `qyro` | `qyro-engine` | Application runtime integration |
+| `dev` | `pytest`, `build`, `ruff` | Development and testing |
+
+### Pydux
+
+Install the Pydux integration dependencies:
+
+```bash
+python -m pip install "velto[pydux]"
+```
+
+### Qyro
+
+Install the Qyro runtime integration dependencies:
+
+```bash
+python -m pip install "velto[qyro]"
+```
+
+### Development tools
+
+If you're contributing to Velto or running its test suite, install the development dependencies:
+
+```bash
+python -m pip install "velto[dev]"
+```
+
+### Combine optional dependencies
+
+You can combine backend and integration extras in one command:
+
+```bash
+python -m pip install "velto[pyside6,pydux,qyro]"
+```
+
+This installs Velto with PySide6, Pydux, and the Qyro runtime dependencies.
+
+<Note>
+  Installing an optional dependency makes it available to your application. It does not automatically configure or activate every integration.
+</Note>
+
+## Install from GitHub
+
+You can install Velto directly from its GitHub repository.
+
+### Install the development version
+
+To install from the `develop` branch with PySide6:
+
+```bash
+python -m pip install "velto[pyside6] @ git+https://github.com/Neuri-AI/PSX.git@develop"
+```
+
+<Warning>
+  The `develop` branch may contain unreleased changes. For reproducible installations, prefer a tagged release or a specific commit.
+</Warning>
+
+### Install in editable mode
+
+If you want to contribute to Velto or modify its source code, clone the repository:
+
+```bash
+git clone https://github.com/Neuri-AI/PSX.git
+cd PSX
+```
+
+Switch to the development branch if needed:
+
+```bash
+git switch develop
+```
+
+Install the package in editable mode:
+
+```bash
+python -m pip install -e ".[pyside6,dev]"
+```
+
+Editable mode allows Python source changes in your checkout to be reflected in the installed package without reinstalling it after every edit.
+
+## Velto CLI (optional)
+
+**Velto CLI is not required to install or use Velto.**
+
+It provides commands for generating application projects, preparing their configuration, and running development workflows.
+
+If you prefer a ready-made project structure, install the CLI separately:
 
 ```bash
 python -m pip install velto-cli
 ```
 
-Check that its command is available:
+You can then generate a project using the CLI's `velto` command:
 
 ```bash
-velto-cli --help
+velto init --name my-first-velto-app --framework pyside6
 ```
 
-<Note>
-  The CLI is a project creation tool. The generated Python application uses `qyro.VeltoContext` and the current `psx` import namespace.
-</Note>
-
-## 3. Initialize your first project
-
-For this tutorial, select **PySide6** (Qt 6):
-
-```bash
-velto-cli init --name my-first-velto-app --framework pyside6
-```
-
-The CLI may open an interactive **Initialize a project** form for any remaining configuration. Follow its prompts.
-
-You can also start with only a framework:
-
-```bash
-velto-cli init --framework pyside6
-```
-
-Or select a template version explicitly:
-
-```bash
-velto-cli init \
-  --name my-first-velto-app \
-  --framework pyside6 \
-  --template-version 1.0.x
-```
-
-- `--name` names the new project.
-- `--framework` selects its native UI binding.
-- `--template-version` selects the requested template release series.
-
-Velto CLI downloads the selected project template from **GitHub**. The template provides your application entry point, settings, resources, and project metadata.
-
-<Note>
-  The commands above are alternative ways to initialize a project, not consecutive steps. Run one of them in an empty destination.
-</Note>
-
-## 4. Other supported UI frameworks
-
-| Framework | Native toolkit |
-| --- | --- |
-| `pyside6` | Qt 6 via PySide6 |
-| `pyqt6` | Qt 6 via PyQt6 |
-| `pyqt5` | Qt 5 via PyQt5 |
-| `pyside2` | Qt 5 via PySide2 |
-| `tkinter` | Python's Tk toolkit |
-| `kivy` | Kivy |
-
-The rest of Getting Started uses **PySide6**. Backend support and Python compatibility can differ, so choose a binding compatible with your environment.
-
-## 5. Non-interactive initialization
-
-When writing scripts or preparing repeatable project setups, provide the configuration directly and add `--yes`:
-
-```bash
-velto-cli init \
-  --name my-first-velto-app \
-  --target-platform desktop \
-  --framework pyside6 \
-  --app-name "My First Velto App" \
-  --version 1.0.0 \
-  --author "Your Name" \
-  --addon pydux \
-  --addon requests \
-  --yes
-```
-
-| Option | Meaning |
-| --- | --- |
-| `--target-platform` | Target platform, here `desktop` |
-| `--app-name` | Human-readable application name |
-| `--version` | Initial application version |
-| `--author` | Author metadata |
-| `--addon` | Optional Python library to include in the project |
-| `--yes` | Non-interactive initialization |
-
-**Addons** extend your application's functionality. For example, `pydux` provides state-management utilities and `requests` is an HTTP client. Repeat `--addon` to request multiple libraries. Addons do not replace your selected UI framework.
-
-## 6. What happens during initialization?
-
-```mermaid
-flowchart TD
-    A["velto-cli init"] --> B["Collect configuration"]
-    B --> C["Select framework and template version"]
-    C --> D["Download template from GitHub"]
-    D --> E["Create project files"]
-    E --> F["Project ready for the first-app tutorial"]
-```
-
-The CLI creates a project based on the chosen template; it does not require you to clone the Velto framework source repository manually.
-
-## 7. Open your project
-
-After initialization succeeds, enter the generated directory:
+Navigate into your new project:
 
 ```bash
 cd my-first-velto-app
 ```
 
-You should find `main.py`, `pyproject.toml`, and directories for components, views, resources, and settings. The next page shows how these pieces fit together and how to start your native application.
+Start the application:
+
+```bash
+velto start
+```
+
+For a complete walkthrough, see [Getting started](/getting-started/overview).
+
+## Verify your installation
+
+Once Velto is installed, verify that Python can import it:
+
+```bash
+python -c "import psx; print('Velto installed successfully!')"
+```
+
+Expected output:
+
+```text
+Velto installed successfully!
+```
+
+If you installed PySide6, you can also verify the backend:
+
+```bash
+python -c "from PySide6.QtWidgets import QApplication; print('PySide6 is ready!')"
+```
+
+Expected output:
+
+```text
+PySide6 is ready!
+```
+
+These checks confirm that the packages can be imported. They don't launch a native application.
+
+You can also inspect your installed version:
+
+```bash
+python -m pip show velto
+```
 
 ## Troubleshooting
 
-**Python is not recognized:** verify the Python installation. Depending on your system, use `python3` or the Windows `py` launcher.
+<AccordionGroup>
+  <Accordion title="Unsupported Python version">
 
-**The environment does not activate:** check the shell-specific command. PowerShell execution policy may prevent script activation.
+    Check your Python version:
 
-**`velto-cli` is not recognized:** reactivate the environment and check `python -m pip show velto-cli`.
+    ```bash
+    python --version
+    ```
 
-**The template cannot be downloaded:** check Internet access, GitHub connectivity, and the requested template version.
+    Velto currently supports Python 3.10–3.13. If you're using another version, create a virtual environment with a compatible Python interpreter.
 
-**Project creation fails:** verify that the destination is suitable for initialization and that your Python version supports the chosen framework.
+  </Accordion>
+  <Accordion title="No matching distribution found">
 
-Next: [**Run your first native Velto application →**](/getting-started/first-app).
+    This may indicate that your Python version, operating system, or architecture isn't supported by the requested package.
+
+    Verify your Python version and the compatibility of your selected backend.
+
+  </Accordion>
+  <Accordion title="ModuleNotFoundError: psx">
+
+    Verify that Velto is installed in your active environment:
+
+    ```bash
+    python -m pip show velto
+    ```
+
+    If the package isn't installed, run:
+
+    ```bash
+    python -m pip install velto
+    ```
+
+  </Accordion>
+  <Accordion title="Missing native UI backend">
+
+    Install the extra for your selected backend. For example:
+
+    ```bash
+    python -m pip install "velto[pyside6]"
+    ```
+
+    Restart your application after installation.
+
+  </Accordion>
+  <Accordion title="Tkinter is unavailable">
+
+    Tkinter may be distributed separately by your operating system.
+
+    Check whether it's available:
+
+    ```bash
+    python -m tkinter
+    ```
+
+    If it isn't available, consult your Python distribution's installation instructions.
+
+  </Accordion>
+  <Accordion title="Native window doesn't open">
+
+    Make sure you're running your application in a graphical desktop environment.
+
+    Some Linux environments may require additional system libraries or display-server configuration for Qt or Kivy.
+
+  </Accordion>
+</AccordionGroup>
+
+## What's next?
+
+Velto is now installed and ready to use.
+
+- [Project structure](/getting-started/project-structure) — Learn how to organize your application and manage its files.
+- [How Velto works](/getting-started/how-velto-works) — Understand how Velto transforms PSX Markup into native interfaces.
+- [PSX Markup](/learn/psx-markup) — Explore components, attributes, and interface composition.
