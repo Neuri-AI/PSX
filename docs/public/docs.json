@@ -71,7 +71,8 @@
         "group": "Applications and examples",
         "pages": [
           "examples/overview",
-          "examples/task-board"
+          "examples/task-board",
+          "examples/native-gallery"
         ]
       }
     ]
