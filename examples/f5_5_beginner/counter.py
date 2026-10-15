@@ -1,5 +1,5 @@
 """Stateful component in a deterministic Headless renderer."""
-from psx import App, Button, Flex, Text, component, use_state
+from psx import App, Button, Fragment, Text, component, use_state
 
 
 @component
@@ -9,11 +9,9 @@ def Counter():
     def increment() -> None:
         set_count(lambda current: current + 1)
 
-    return Flex(
+    return Fragment(
         Text(f"Count: {count}"),
         Button("Increment", on_click=increment),
-        direction="column",
-        gap=12,
     )
 
 
