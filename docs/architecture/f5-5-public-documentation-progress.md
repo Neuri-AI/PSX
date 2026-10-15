@@ -12,7 +12,7 @@
 | G1 | Declared API inventory and component contract baseline | CLOSED (owner-approved documentation baseline; limitations below) | `226110f66f325e0d16a0b7a43c5461e46a27cf06`; Actions #38637541555 |
 | G2 | Mintlify IA, docs.json and six template families | CLOSED | Actions #38638621796 |
 | G3 | Beginner learning path, Headless reproducibility and native Tkinter smoke | CLOSED (documentary/technical scope; visual review deferred to G6) | Actions #38688458633 and #38688458691 |
-| G4 | Exhaustive verified API and component reference | NOT STARTED | — |
+| G4 | Exhaustive verified API and component reference | IN PROGRESS (single G4 branch) | coverage check and Mintlify CI pending |
 | G5 | Real runnable example projects and native DX | NOT STARTED | — |
 | G6 | End-to-end evidence and explicit owner signoff | NOT STARTED | — |
 
@@ -167,3 +167,14 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Executed validation:** [public Mintlify docs #38688625908](https://github.com/Neuri-AI/PSX/actions/runs/38688625908) **SUCCESS** (structural and Mintlify jobs both executed and passed); [beginner examples #38688625611](https://github.com/Neuri-AI/PSX/actions/runs/38688625611) **SUCCESS**, including four Ubuntu Headless Python-version jobs and Tkinter Xvfb native mount smoke.
 - **GitHub PR:** [#35](https://github.com/Neuri-AI/PSX/pull/35) marked ready for review, original divergent [#34](https://github.com/Neuri-AI/PSX/pull/34) closed as superseded. Source docs and roadmap updated. This final progress-only commit is not falsely presented as an independently tested code SHA.
 - **Disposition:** G3 documentation curriculum CLOSED for the agreed technical scope; no G6 independent visual/user trial has been claimed or waived.
+
+### 2026-10-14 — F5.5-G4 — source-grounded public API reference kickoff
+- **Canonical starting develop SHA:** `6243911ebb65668793fe412af0720053a239fbb2`.
+- **Branch policy (owner-approved):** ONE branch `docs/f5-5-public-api-reference` for the entire G4 gate. All incremental edits, CI fixes and partial reviews will stay on the same branch; no G4 child branches.
+- **Changed paths:** `docs/public/reference/{api-index,application-and-state,component-contracts,errors,extensions-and-native}.mdx`, `docs/public/docs.json`, `scripts/docs/validate_api_reference.py`, `tests/test_docs_api_reference.py`, `.github/workflows/f5-5-api-reference.yml`, this progress ledger.
+- **Source evidence:** `psx/__init__.py`, `psx/app.py`, `psx/core/hooks.py`, `psx/core/contracts.py`, `psx/core/vnode.py`, `psx/core/errors.py`, `psx/markup/transform.py`, `docs/architecture/f5-5-api-exports.json` on pinned develop SHA.
+- **Validation command:** `python scripts/docs/validate_api_reference.py` and `python -m unittest discover -s tests -p test_docs_api_reference.py -v`. Dedicated Actions workflow added; results pending.
+- **Scope:** Every one of the 57 root-export names is indexed into beginner/component/advanced/error groups. Thematic references describe verified hooks, App lifecycle and policies. This is **not yet the exhaustive per-symbol reference** (exact defaults, errors, backend matrix and test traces outstanding).
+- **Native support:** This docs-only increment does not change or recertify native renderers. G4 must avoid asserting unsupported parity.
+- **Gate status:** **G4 IN PROGRESS**; G5/G6 untouched.
+- **Next three steps:** generate and audit source-derived signatures/defaults for each symbol and component; attach individual behavioral tests/backend receipts; validate MDX and navigation/links in CI and close G4 after coverage enforcement.

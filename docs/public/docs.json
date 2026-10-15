@@ -55,7 +55,12 @@
       {
         "group": "Python reference",
         "pages": [
-          "reference/overview"
+          "reference/overview",
+          "reference/api-index",
+          "reference/application-and-state",
+          "reference/component-contracts",
+          "reference/errors",
+          "reference/extensions-and-native"
         ]
       },
       {

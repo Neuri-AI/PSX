@@ -1,0 +1,34 @@
+---
+title: "Public exceptions"
+description: "Use the actual PSX exception hierarchy to diagnose renderer, hook, child and markup failures."
+---
+
+# Public exceptions
+
+The following exception names are publicly exported from `psx`. See [the source definitions](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/psx/core/errors.py).
+
+| Import | Meaning |
+| --- | --- |
+| `PSXError` | Framework base exception. |
+| `InvalidChildError` | Child cannot be normalized to an allowed VNode. |
+| `DuplicateKeyError` | Sibling VNodes reuse a key. |
+| `RendererCapabilityError` | Selected renderer cannot honor an operation. |
+| `RendererConfigurationError` | Cannot select or configure the renderer/application. |
+| `HookOrderError` | Hooks changed in count or order, or are invoked outside render. |
+| `ThreadViolationError` | Disallowed synchronous mutation during render. |
+| `MarkupSyntaxError` | Markup error with source filename, line and column. |
+
+`MarkupSyntaxError(message: str, *, filename: str, line: int, column: int)` includes location information in its message. `InvalidChildError` is also a `TypeError`; `DuplicateKeyError` is also a `ValueError`. `RendererConfigurationError` is raised when a required optional renderer binding is missing or the named renderer is unavailable.
+
+## Handling errors
+
+```python
+from psx import InvalidChildError, Text, create_element
+
+try:
+    create_element("Text", True)
+except InvalidChildError as exc:
+    print(f"Invalid child: {exc}")
+```
+
+This example is a **small illustrative exception handler**, not a complete application. Use the [first app](/getting-started/first-app) for reproducible end-to-end behavior.
