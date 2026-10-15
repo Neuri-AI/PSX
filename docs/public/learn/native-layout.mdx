@@ -1,0 +1,20 @@
+---
+title: "Native layout with Cinnamon"
+description: "Understand geometry, Flex and Grid boundaries"
+---
+
+# Native layout with Cinnamon
+
+Cinnamon is Velto's renderer-neutral layout authority. Renderer adapters measure and mount actual backend widgets but do not replace the layout calculation with an independent browser engine. The native renderer and viewport constraints are essential inputs when a layout primitive requires geometry.
+
+```python
+from psx import Flex, Text
+
+node = Flex(Text("Item"), direction="column", gap=12)
+```
+
+This is a **VNode declaration fragment**, not a standalone mounted application. In particular, mounting `Flex` with Headless **without explicit Cinnamon/SFLE viewport constraints raises `RendererCapabilityError`**. The [Hello World](/getting-started/first-app) example deliberately uses `Fragment` for a geometry-free Headless lesson. Responsive `Grid`/ `GridItem` require their documented structural child policies and native geometry support; a registry entry alone does not guarantee availability.
+
+## Verify and continue
+
+After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.

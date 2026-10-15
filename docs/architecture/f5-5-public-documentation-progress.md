@@ -1,6 +1,6 @@
 # F5.5 — Public Developer Documentation Progress and Handoff Ledger
 
-**Status:** G1 DOCUMENTATION BASELINE ACCEPTED BY OWNER (2026-10-14); G2–G6 pending.  
+**Status:** G1 and G2 closed; G3 beginner curriculum implemented and technically validated; G4–G6 pending.  
 **Canonical target branch:** `develop`. **Documentation root:** `docs/public/`.  
 **Normative contract:** [F5.5 Public Developer Documentation Contract](f5-5-public-documentation-contract.md).  
 **Owner's decisions:** canonical English beginner-first Mintlify MDX; exhaustively grounded in `develop`; real reproducible tested examples; exhaustive current public API; future ecosystem integrations deferred; progress tracked under `docs/`.
@@ -10,8 +10,8 @@
 | Gate | Deliverable | Status | Immutable implementation SHA / CI evidence |
 | --- | --- | --- | --- |
 | G1 | Declared API inventory and component contract baseline | CLOSED (owner-approved documentation baseline; limitations below) | `226110f66f325e0d16a0b7a43c5461e46a27cf06`; Actions #38637541555 |
-| G2 | Mintlify IA, docs.json and six template families | NOT STARTED | — |
-| G3 | Complete independent beginner-first tutorials | NOT STARTED | — |
+| G2 | Mintlify IA, docs.json and six template families | CLOSED | Actions #38638621796 |
+| G3 | Beginner learning path, Headless reproducibility and native Tkinter smoke | CLOSED (documentary/technical scope; visual review deferred to G6) | Actions #38688458633 and #38688458691 |
 | G4 | Exhaustive verified API and component reference | NOT STARTED | — |
 | G5 | Real runnable example projects and native DX | NOT STARTED | — |
 | G6 | End-to-end evidence and explicit owner signoff | NOT STARTED | — |
@@ -149,3 +149,21 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **Acceptance exception (transparent):** The source inventory covers declared root exports and selected public submodules, builtin registry metadata and candidate tests; it does **not** establish individual behavioral assertions, exhaustive undocumented submodule APIs or OS/Python native matrices. These remain mandatory accuracy checks in G4/G5/G6 *before* publishing precise compatibility assertions or claiming final F5.5 closure.
 - **Final documentation SHA:** to be determined by PR #32 merge into `develop`. This closeout change itself is documentation-only and does not modify the tested audit code.
 - **Next steps:** (1) merge PR #32 into `develop`; (2) start G2 Mintlify IA and page conventions from latest `develop`; (3) during G4/G5 trace each public API and native claim to current source/test evidence.
+
+### 2026-10-14 — F5.5-G3 — complete beginner curriculum with executable evidence
+- **Source:** `develop` commit `cfbb93cd6a5990bc5ad38df82b28205270ae060f` after G2 merge; G3 delivered on [PR #35](https://github.com/Neuri-AI/PSX/pull/35), branch `docs/f5-5-g3-complete`, superseding original divergent draft PR #34.
+- **Public pages:** installation, first app, project structure, how Velto works, native Tkinter, components, markup, state/events, conditional rendering, lists/keys, effects and native layout. Navigation updated; older scaffold placeholders corrected. Six G2 family templates untouched.
+- **Complete executable projects:** `examples/f5_5_beginner/hello_world.py`, `counter.py` and `native_tkinter.py`; `test_examples.py` checks observable Headless rendered state/event behavior.
+- **Known red receipt:** [Actions #38687528222](https://github.com/Neuri-AI/PSX/actions/runs/38687528222) initially failed because a geometry-free `Flex` mount is disallowed by Cinnamon. Corrected examples to use `Fragment`; no runtime guards or assertions were bypassed.
+- **Verified Headless behavior:** [Actions #38688458691](https://github.com/Neuri-AI/PSX/actions/runs/38688458691): 4/4 Python 3.10–3.13 Headless jobs SUCCESS plus real Tkinter mounted/unmounted under Xvfb SUCCESS. Execution SHA `59525d63f3a662a6d14eb207d91310288f282bfa`. Tkinter smoke is on Ubuntu/Python 3.12 only; no unsupported Qt/Kivy claims.
+- **Verified MDX and links:** [Actions #38688458633](https://github.com/Neuri-AI/PSX/actions/runs/38688458633) both structural and Mintlify jobs SUCCESS (build/configuration, links/anchors, accessibility) on the same execution SHA. Subsequent text-only improvements require final CI receipt before merge.
+- **Scope exclusions:** Native Tkinter GUI screenshot/independent human beginner walkthrough not yet captured; page explicitly distinguishes Xvfb smoke from visual inspection. Mark these **G6 pre-release review items** and do not represent Tkinter smoke as a cross-platform visual certification. Markup/conditional/list/effect snippets are labeled illustrative, not misrepresented as independently runnable projects.
+- **Gate disposition:** **G3 CLOSED for the owner-directed beginner documentation deliverable, with G6 independent GUI/visual review pending**. No F6/M8 or runtime API changes.
+- **Next three steps:** (1) merge PR #35 to `develop` after green final CI; (2) complete G4 exhaustive API reference, with per-symbol source signatures; (3) G5/G6 broaden native app execution and screenshot/independent review.
+
+
+### 2026-10-14 — F5.5-G3 — final CI rerun on documentation closeout SHA
+- **Validated immutable SHA:** `cbe9b7406871fb76c8204ccf05c0db2fb26521a9`.
+- **Executed validation:** [public Mintlify docs #38688625908](https://github.com/Neuri-AI/PSX/actions/runs/38688625908) **SUCCESS** (structural and Mintlify jobs both executed and passed); [beginner examples #38688625611](https://github.com/Neuri-AI/PSX/actions/runs/38688625611) **SUCCESS**, including four Ubuntu Headless Python-version jobs and Tkinter Xvfb native mount smoke.
+- **GitHub PR:** [#35](https://github.com/Neuri-AI/PSX/pull/35) marked ready for review, original divergent [#34](https://github.com/Neuri-AI/PSX/pull/34) closed as superseded. Source docs and roadmap updated. This final progress-only commit is not falsely presented as an independently tested code SHA.
+- **Disposition:** G3 documentation curriculum CLOSED for the agreed technical scope; no G6 independent visual/user trial has been claimed or waived.

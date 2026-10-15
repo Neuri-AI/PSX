@@ -1,0 +1,23 @@
+---
+title: "Conditional rendering"
+description: "Choose the UI for the current state in ordinary Python"
+---
+
+# Conditional rendering
+
+For ordinary Python components, choose a value or subtree with normal Python conditional expressions. **Do not call hooks conditionally**: they must appear in the same order on every render.
+
+```python
+from psx import Text, component, use_state
+
+@component
+def Status():
+    online, set_online = use_state(False)
+    return Text("Online" if online else "Offline")
+```
+
+This is an **illustrative fragment**, not a standalone application: the setter is deliberately unused. The full mounted, tested model of state updates appears in [state and events](/learn/state-and-events). The static expressive markup compiler separately supports its documented restricted conditional expressions; do not assume arbitrary Python execution inside template braces.
+
+## Verify and continue
+
+After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.

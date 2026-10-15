@@ -1,0 +1,22 @@
+---
+title: "Components"
+description: "Understand portable constructors and component functions"
+---
+
+# Components
+
+A **component** is a reusable function returning a VNode. `@component` wraps the function so the reconciler can track its identity and hooks. A **portable component** such as `Text` or `Button` has a backend-independent contract, but support for individual properties still depends on validated contracts and native receipts.
+
+```python
+from psx import Fragment, Text, component
+
+@component
+def Greeting():
+    return Fragment(Text("Welcome"))
+```
+
+This code is an **illustrative fragment**; the runnable project is [Hello World](/getting-started/first-app). The real `Text` constructor accepts a value and optional formatting arguments. `Fragment` groups children but does not calculate layout geometry. Components must return a valid VNode.
+
+## Verify and continue
+
+After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.

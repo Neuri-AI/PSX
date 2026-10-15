@@ -1,0 +1,49 @@
+---
+title: "State and events"
+description: "Learn how hooks and event callbacks update the rendered component tree."
+---
+
+# State and events
+
+A **hook** is a function you call while a component renders to connect the component to a runtime feature such as state. Velto's `use_state` returns the current value and a setter.
+
+## Try the tested counter
+
+The complete source is [counter.py](https://github.com/Neuri-AI/PSX/blob/59525d63f3a662a6d14eb207d91310288f282bfa/examples/f5_5_beginner/counter.py). Run it from the repository root:
+
+```bash
+python examples/f5_5_beginner/counter.py
+```
+
+Expected terminal output:
+
+```text
+Count: 0
+Count: 1
+```
+
+The component uses `@component`, `use_state(0)`, a `Button` with an `on_click` callback, and `Text` to display the current value. Clicking the button calls `set_count(lambda current: current + 1)`. In the Headless example, the callback is invoked directly and `app.renderer.flush()` processes queued updates.
+
+```python
+@component
+def Counter():
+    count, set_count = use_state(0)
+
+    def increment() -> None:
+        set_count(lambda current: current + 1)
+
+    return Fragment(
+        Text(f"Count: {count}"),
+        Button("Increment", on_click=increment),
+    )
+```
+
+<Note>
+  This is an illustrative fragment from the full checked-in source, not a standalone program. The full example contains the imports, mount/flush and cleanup.
+</Note>
+
+## What can go wrong?
+
+Hooks must always be called in the same order. Calling `use_state` conditionally can raise `HookOrderError`. Calling a state setter while the component is rendering raises `ThreadViolationError`. State updates should happen inside events or other supported runtime callbacks.
+
+For a complete behavior check, run `cd examples/f5_5_beginner && python -m unittest -v test_examples`. See [your first app](/getting-started/first-app) for the file tree and environment prerequisites.

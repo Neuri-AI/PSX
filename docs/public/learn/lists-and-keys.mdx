@@ -1,0 +1,21 @@
+---
+title: "Lists and stable keys"
+description: "Render dynamic collections without confusing component identity"
+---
+
+# Lists and stable keys
+
+For a list of values, create one VNode per item with a stable `key`. Keys are local to siblings and may be strings or integers, but not booleans. Duplicate sibling keys are rejected by reconciliation.
+
+```python
+from psx import Fragment, Text
+
+labels = ["Alpha", "Beta"]
+node = Fragment(*(Text(label, key=label) for label in labels))
+```
+
+This is a **standalone VNode construction fragment**, not a mounted application. A real interactive example is linked from [first app](/getting-started/first-app). Use durable IDs from the underlying data for keys; do not use changing positions when elements can be reordered. A changed key intentionally allows subtree identity to change.
+
+## Verify and continue
+
+After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.
