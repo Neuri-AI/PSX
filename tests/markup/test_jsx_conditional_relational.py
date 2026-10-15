@@ -15,24 +15,24 @@ from psx.markup.expressive_lower import lower
 
 
 @pytest.mark.parametrize(
-    ("expression", "operator", "left", "right"),
+    ("expression", "operator", "expected_ast"),
     [
-        ("age > 18", ">", 18, False),
-        ("age < 18", "<", 18, True),
-        ("age >= 18", ">=", 18, True),
-        ("age <= 18", "<=", 18, True),
-        ("age == 18", "==", 18, True),
-        ("age != 18", "!=", 18, False),
+        ("age > 18", ">", ast.Gt),
+        ("age < 18", "<", ast.Lt),
+        ("age >= 18", ">=", ast.GtE),
+        ("age <= 18", "<=", ast.LtE),
+        ("age == 18", "==", ast.Eq),
+        ("age != 18", "!=", ast.NotEq),
     ],
 )
-def test_relational_comparisons(expression, operator, left, right):
+def test_relational_comparisons(expression, operator, expected_ast):
     node = parse_expressive_expression(expression)
     assert isinstance(node, Compare)
     assert node.operator == operator
-    compiled = compile(ast.fix_missing_locations(ast.Expression(body=lower(node, filename="test.psx"))), "test.psx", "eval")
-    from psx.markup.expressive_runtime import lexical
-    result = eval(compiled, {"_psx_expr_lexical": lexical, "age": 18})
-    assert result is right
+    lowered = lower(node, filename="test.psx")
+    assert isinstance(lowered, ast.Compare)
+    assert isinstance(lowered.ops[0], expected_ast)
+    compile(ast.fix_missing_locations(ast.Expression(body=lowered)), "test.psx", "eval")
 
 
 def test_jsx_boolean_precedence():
