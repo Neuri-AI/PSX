@@ -19,7 +19,11 @@
       {
         "group": "Getting started",
         "pages": [
-          "getting-started/overview"
+          "getting-started/overview",
+          "getting-started/installation",
+          "getting-started/first-app",
+          "getting-started/project-structure",
+          "getting-started/how-velto-works"
         ]
       },
       {
@@ -27,6 +31,18 @@
         "pages": [
           "concepts/overview",
           "concepts/architecture"
+        ]
+      },
+      {
+        "group": "Learn Velto",
+        "pages": [
+          "learn/components",
+          "learn/psx-markup",
+          "learn/state-and-events",
+          "learn/conditional-rendering",
+          "learn/lists-and-keys",
+          "learn/effects",
+          "learn/native-layout"
         ]
       },
       {
