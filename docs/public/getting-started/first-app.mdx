@@ -62,3 +62,7 @@ The application prints `Hello, Velto!`. The test asserts the value of the actual
 </Note>
 
 Next, learn [state and events](/learn/state-and-events).
+
+## Troubleshooting
+
+If Python cannot import `psx`, confirm that your virtual environment is activated and reinstall the checked-out source with `python -m pip install -e .`. If the unit test cannot import `hello_world`, change to `examples/f5_5_beginner` before running the test command. This Headless example does not open a native window; follow [native Tkinter](/getting-started/native-tkinter) for the graphical path.
