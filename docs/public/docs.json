@@ -72,7 +72,8 @@
         "pages": [
           "examples/overview",
           "examples/task-board",
-          "examples/native-gallery"
+          "examples/native-gallery",
+          "examples/qt-gallery"
         ]
       }
     ]
