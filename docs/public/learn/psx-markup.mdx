@@ -1,0 +1,28 @@
+---
+title: "PSX markup"
+description: "Learn static markup transformation and quoted attributes"
+---
+
+# PSX markup
+
+PSX markup is JSX-like syntax compiled into ordinary Python expressions. **Static authored templates** are transformed by the CLI before running; this avoids unrestricted `eval` or hidden local-variable discovery.
+
+```python
+from psx import psx
+
+message = "Hello, Velto!"
+node = psx("<Text>{message}</Text>")
+```
+
+This is an **illustrative source fragment**, **not runnable directly** without the static transformation step. Put the snippet in a module and transform it from the repository root with:
+
+```bash
+python -m psx.markup.transform path/to/source.py -o path/to/generated.py
+python path/to/generated.py
+```
+
+To run a complete, behavior-tested example without transformation, begin with [first app](/getting-started/first-app). For static properties, write `gap="12"`, **not** `gap={12}`. Braces denote supported references/expressions, not arbitrary constant wrappers. The dynamic explicitly scoped template route has a separate, more restricted contract.
+
+## Verify and continue
+
+After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.
