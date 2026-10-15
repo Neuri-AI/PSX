@@ -3,7 +3,7 @@ title: "Getting started"
 description: "Install Velto, create a PySide6 window, and run your first native Python interface."
 ---
 
-In a few minutes, you'll create your first **native desktop window** with Velto. You'll install the framework, write a small PSX Markup interface, transform it, and open a real window. Everything you need is on this page.
+In a few minutes, you'll create your first **native desktop window** with Velto. You'll install the framework, write a small PSX Markup interface and open a real native window. Everything you need is on this page.
 
 We'll use **PySide6 (Qt 6)** for the first example. Velto also integrates with PyQt6, PyQt5, PySide2, Tkinter and Kivy.
 
@@ -53,46 +53,85 @@ pip install -e ".[pyside6]"
 
 ## 3. Create your first application with PSX Markup
 
-Create a file named `app.py` in the repository root and paste in this code:
+Create an `app.py` file in the repository root. This example uses **PSX Markup** for the interface and **PySide6** to display real native widgets.
 
 ```python
 from psx import App, psx
+from psx.renderers.qt.pyside import PySide6Renderer
+from psx.sfle.model import AvailableSize, LayoutConstraints
 
 view = psx("""
-    <Text>Hello, Velto!</Text>
+    <Flex direction="column" gap="12">
+        <Text>Hello, Velto!</Text>
+        <Button>Click me</Button>
+    </Flex>
 """)
 
-app = App(view, renderer="pyside6")
+renderer = PySide6Renderer(
+    sfle_constraints=LayoutConstraints(
+        width=AvailableSize(800, definite=True),
+        height=AvailableSize(600, definite=True),
+    )
+)
+
+app = App(view, renderer=renderer)
 
 if __name__ == "__main__":
-    app.run()
+    handle = app.mount()
+    handle.widget.resize(800, 600)
+    handle.widget.setWindowTitle("My first Velto app")
+    handle.widget.show()
+    app.renderer.run()
 ```
 
-Notice the interface is defined with **PSX Markup**, using the `<Text>` tag. Python handles the application startup; the UI itself is expressed in markup.
+<Note>
+  This example uses the **current native Cinnamon integration**. Window sizing and showing still require access to the mounted Qt widget; this is a temporary onboarding workaround, not the intended final public window-settings API.
+</Note>
 
-## 4. Transform the markup and run it
+## 4. Run it
 
-The current PSX Markup implementation has a **static transformation step**. Transform your source into runnable Python before launching it:
+From the directory containing `app.py`, run:
 
 ```bash
-python -m psx.markup.transform app.py -o app_generated.py
-python app_generated.py
+python app.py
 ```
 
-A real PySide6 window should open displaying **Hello, Velto!**. Close it with your desktop window controls.
+You should see an 800 × 600 native Qt window containing the greeting and a button. The button has no click handler yet; this example focuses on the first visible interface.
 
-The transformer processes the markup without using unrestricted Python `eval`. It generates Python code that builds Velto's interface representation.
+For this static markup, **you do not need to run `psx.markup.transform`**. The public `psx()` function parses and renders it directly. More advanced lexical expressions may require the separate static transformation workflow.
 
-## 5. Understand what you wrote
+## 5. Why does this example use `<Flex>`?
 
-- **`psx("""...""")`** is where you write the markup.
-- **`<Text>Hello, Velto!</Text>`** describes a text element with familiar opening and closing tags.
-- **`App(view, renderer="pyside6")`** connects the resulting UI tree to the PySide6 native renderer.
-- **`app.run()`** starts the native application.
+Cinnamon calculates layout from the available viewport dimensions. Here, `LayoutConstraints` supplies an 800 × 600 available area; the Qt window is resized separately to match it.
 
-Try changing the text inside `<Text>`, then run both commands again. You should see your new message in the window.
+**In the current native Cinnamon implementation, the participating layout tree must have exactly one explicit `<Flex>` root.** A standalone `<Text>` does not satisfy that requirement.
 
-As you progress, you can nest elements, add attributes, handle events and build more interactive interfaces. See [PSX Markup](/learn/psx-markup) for the syntax and expression rules.
+You may be familiar with JSX fragments:
+
+```jsx
+<>
+    <Text>Hello, Velto!</Text>
+    <Button>Click me</Button>
+</>
+```
+
+Fragments group elements **without introducing a layout box**. They are different from `<Flex>`, which defines a layout container. The current normalization treats fragments as transparent, but the native Cinnamon root contract still requires one explicit `<Flex>` participant. A fragment containing multiple top-level elements is **not currently a working substitute** for the root `<Flex>`.
+
+### Planned fragment-friendly behavior (not implemented yet)
+
+Velto should eventually allow a fragment, a single `<Text>`, or other valid markup at the application root. The runtime would provide an internal viewport layout root, while fragments remain structurally transparent and do not create extra native widgets. Cinnamon would still be responsible for geometry. **Do not use the fragment-only example above as a runnable Cinnamon application today.**
+
+## 6. Understand what you wrote
+
+- **`psx("""...""")`** defines the interface in markup.
+- **`<Flex direction="column" gap="12">`** supplies the explicit layout root required today and arranges children vertically.
+- **`<Text>`** and **`<Button>`** describe native UI elements.
+- **`AvailableSize(..., definite=True)`** gives Cinnamon definite viewport dimensions.
+- **`app.mount()`**, **`handle.widget.show()`**, and **`app.renderer.run()`** mount, display, and run the current Qt integration.
+
+Try changing the greeting or adding another `<Text>` inside the `<Flex>`, then rerun `python app.py`.
+
+Continue with [PSX Markup](/learn/psx-markup) for the syntax and expression rules.
 
 ## Other supported UI bindings
 
@@ -113,7 +152,11 @@ These are the intended published-package installation forms; while using a sourc
 
 **Python can't import `psx` or `PySide6`:** activate your virtual environment and verify that the installation completed in that environment.
 
-**No window opens:** make sure you're using a graphical desktop session. A server terminal without a display cannot show a Qt window.
+**No window opens:** make sure you're using a graphical desktop session. A server terminal without a display cannot show a Qt window. With the current Qt integration, you must also call `handle.widget.show()` after mounting.
+
+**Cinnamon reports `Native SFLE requires one explicit Flex root`:** keep a single top-level `<Flex>` in the current native Cinnamon example; a bare `<Text>` is not enough.
+
+**Cinnamon rejects a fragment root:** fragments are transparent structural groups, but they are not currently a substitute for the required native `<Flex>` root.
 
 **You edited the code but see the old result:** close the running application and run `python app.py` again.
 
