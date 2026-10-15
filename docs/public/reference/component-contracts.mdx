@@ -1,0 +1,27 @@
+---
+title: "Portable component contracts"
+description: "How to interpret portable properties, child policies, events and Cinnamon requirements."
+---
+
+# Portable component contracts
+
+The canonical property sets, defaults, events and child policies come from [`psx/core/contracts.py`](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/psx/core/contracts.py), with Grid's additional normalized contract in `psx/core/grid_contract.py`. Constructor signatures live in `psx/core/vnode.py`.
+
+| Component | Child policy | Events |
+| --- | --- | --- |
+| `Text`, `Button`, `Link`, `Badge` | text-only | `Button`/`Link`: `on_click` |
+| `Checkbox`, `Slider`, `Select`, `Switch`, `SpinBox` | none | `on_change` |
+| `Input` | none | `on_change`, `on_submit` |
+| `TextArea` | text | `on_change` |
+| `Radio`, `Image`, `ProgressBar`, `Spacer` | none | none |
+| `RadioGroup`, `Scroll`, `Flex`, `Grid` | multiple | `RadioGroup`: `on_change` |
+| `Divider` | none-or-single | none |
+| `GridItem` | single | none |
+
+**How to interpret policies:** `none` rejects declarative children; `multiple` allows more than one; `Grid` requires direct `GridItem` children and `GridItem` exactly one supported component root. Text-only and text child handling must follow the actual parser and builder contracts—do not generalize from HTML.
+
+<Warning>
+  Native support differs among Qt variants, Tkinter, Kivy and Headless. This table describes **portable declaration contracts**, not universal native feature parity. Layout primitives may require Cinnamon viewport constraints. Event payload semantics and defaults must be checked against the specific component's constructor and validator before use.
+</Warning>
+
+A runnable introductory component sample is [Hello World](/getting-started/first-app); the stateful `Button` example is in [state and events](/learn/state-and-events).
