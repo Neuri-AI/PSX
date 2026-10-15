@@ -73,7 +73,8 @@
           "examples/overview",
           "examples/task-board",
           "examples/native-gallery",
-          "examples/qt-gallery"
+          "examples/qt-gallery",
+          "examples/kivy-gallery"
         ]
       }
     ]
