@@ -1,73 +1,223 @@
 ---
 title: "Your first Velto application"
-description: "Run a real PySide6 window with text, a button, and a native Qt widget."
+description: "Explore your generated project, understand PSX Markup, and run your first native PySide6 window."
 ---
 
-Let's open your first **real desktop window** with Velto.
+You've installed Velto CLI and initialized a PySide6 project. Now you'll explore the generated files, understand the entry point, and launch a native window displaying **Hello, World!**
 
-We'll use **PySide6**, a Python binding for Qt 6. The example creates a window containing text, a button, and a native Qt label. You can click the button and close the window normally.
+## 1. Open the generated project
 
-## 1. Install the dependencies
-
-Complete [Install Velto](/getting-started/installation) first. In particular, install the PySide6 extra:
+Complete [Install Velto](/getting-started/installation) first. With the virtual environment activated, enter your application directory if you have not already:
 
 ```bash
-pip install -e ".[pyside6]"
+cd my-first-velto-app
 ```
 
-## 2. Run the application
+The project template has a structure like this (the icon files are included with the template):
 
-From the root of the cloned repository:
-
-```bash
-python examples/f5_5_native_gallery/qt_app.py
+```text
+my-first-velto-app/
+├── components/
+│   └── .gitkeep
+├── resources/
+│   ├── base/
+│   │   └── icons/
+│   │       ├── 16.png
+│   │       ├── 24.png
+│   │       ├── 32.png
+│   │       ├── 64.png
+│   │       ├── Icon.ico
+│   │       ├── install.ico
+│   │       └── uninstall.ico
+│   ├── linux/
+│   │   └── icons/
+│   │       ├── 1024.png
+│   │       ├── 128.png
+│   │       ├── 256.png
+│   │       └── 512.png
+│   └── mac/
+│       ├── icons/
+│       │   ├── 1024.png
+│       │   ├── 128.png
+│       │   ├── 256.png
+│       │   ├── 32.png
+│       │   ├── 512.png
+│       │   └── 64.png
+│       └── release/
+│           └── dmg-background.png
+├── settings/
+│   ├── base.json
+│   ├── linux.json
+│   ├── mac.json
+│   ├── release.json
+│   ├── secrets.json
+│   ├── sign.json
+│   └── windows.json
+├── views/
+│   └── .gitkeep
+├── .gitignore
+├── LICENSE
+├── README.md
+├── main.py
+└── pyproject.toml
 ```
 
-A **native Qt window** should appear. It contains the text **Velto + PySide6**, a button labeled **Hello Qt**, and a Qt label displaying **Native QLabel via Velto**.
+| Path | Purpose |
+| --- | --- |
+| `main.py` | Application entry point and first interface |
+| `components/` | Reusable interface components |
+| `views/` | Application views and screens |
+| `resources/` | Icons and platform-specific assets |
+| `settings/` | Base, platform, release, and signing configuration |
+| `pyproject.toml` | Python project metadata and dependencies |
 
-Click **Hello Qt**. The application prints `Qt clicked` in the terminal. Close the window using your desktop's close control.
+<Note>
+  `.gitkeep` files allow initially empty folders to be tracked by Git. You do not need to edit the resource or release files for this first application.
+</Note>
 
-## 3. Understand the code
+## 2. Meet your first application
 
-The complete, runnable source is [qt_app.py on GitHub](https://github.com/Neuri-AI/PSX/blob/develop/examples/f5_5_native_gallery/qt_app.py). The central part is:
+Open **`main.py`** in your editor. The generated entry point follows this pattern:
 
 ```python
-from PySide6.QtWidgets import QLabel
-from psx import App, Text, Button, Fragment, Native
+import sys
+from qyro import VeltoContext
+from psx import psx
 
-app = App(
-    Fragment(
-        Text("Velto + PySide6"),
-        Button("Hello Qt", on_click=lambda: print("Qt clicked")),
-        Native(QLabel, props={"text": "Native QLabel via Velto"}),
-    ),
-    renderer="pyside6",
-)
+class MyFirstVeltoApp(VeltoContext):
+    def render(self):
+        return psx("""
+            <Flex>
+                <Text>Hello, World!</Text>
+            </Flex>
+        """)
 
-app.run()
+if __name__ == "__main__":
+    sys.exit(MyFirstVeltoApp().run())
 ```
 
-- **`App(..., renderer="pyside6")`** selects the native Qt renderer.
-- **`Fragment`** groups the three elements.
-- **`Text`** creates a portable text element.
-- **`Button`** creates a clickable control; `on_click` is its event handler.
-- **`Native(QLabel, ...)`** demonstrates embedding a toolkit-specific Qt widget when you need one.
-- **`app.run()`** starts the application and keeps its window open until it is closed.
+This is a complete Python entry point, not an HTML document.
 
-This is a **Python component API** example. Velto also supports **PSX Markup**, its HTML/JSX-inspired syntax. You'll learn how to express UI structure with markup in [PSX Markup](/learn/psx-markup), including its source transformation step. We are using the existing, runnable native example here so your first experience is a real window rather than a mockup.
+### `VeltoContext` manages the application
 
-## 4. Try changing something
+```python
+from qyro import VeltoContext
 
-Open `examples/f5_5_native_gallery/qt_app.py` in your editor. Change the text `Velto + PySide6` to a greeting of your choice. Save the file, close the existing window if it is still open, and run the command again.
+class MyFirstVeltoApp(VeltoContext):
+    ...
+```
 
-You've just modified a native Python interface using Velto.
+`VeltoContext` integrates your Velto interface with the Qyro application runtime. Your subclass defines the application-specific UI through `render()`.
+
+### `render()` describes what appears
+
+```python
+def render(self):
+    return psx("""
+        <Flex>
+            <Text>Hello, World!</Text>
+        </Flex>
+    """)
+```
+
+The `render()` method returns a PSX interface description. `Flex` is the layout container and `Text` displays the greeting. PSX Markup resembles HTML or JSX, but its elements are rendered through the selected native UI backend, not a browser.
+
+### `run()` starts the application
+
+```python
+if __name__ == "__main__":
+    sys.exit(MyFirstVeltoApp().run())
+```
+
+The `__main__` guard ensures this entry point runs when you execute the file directly. `run()` starts the application lifecycle, and `sys.exit()` forwards its exit status to the operating system.
+
+## 3. Understand where the window is configured
+
+You won't find a `<Window>` tag in PSX Markup. Window properties such as its title and size belong to the project's **`settings/`** configuration, not to the component tree.
+
+Start by inspecting `settings/base.json`, then the configuration for your operating system. Do not change signing or release settings for this tutorial.
+
+## 4. Install project dependencies
+
+The CLI and your application are separate concerns: the CLI initializes the template, while the application uses the packages declared by that template.
+
+With your environment active and your terminal inside the generated project, inspect `README.md` and `pyproject.toml` for the template's dependency installation instructions. Follow those instructions before running the entry point.
+
+<Note>
+  This section requires confirmation of the exact dependency-install command from the released PySide6 template. The CLI's template download alone should not be taken as proof that all runtime dependencies have been installed.
+</Note>
+
+## 5. Run your first native application
+
+From the project directory, with its dependencies installed and a graphical desktop session available, run:
+
+```bash
+python main.py
+```
+
+The expected result is a **native application window** containing:
+
+```text
+Hello, World!
+```
+
+Close the window using your operating system's normal window controls.
+
+<Note>
+  This is the direct Python entry-point command for the shown `main.py`. The released template's recommended CLI launch command, if different, must be confirmed before certification.
+</Note>
+
+## 6. Make your first change
+
+Open `main.py` and change the text inside the `Text` element:
+
+```python
+def render(self):
+    return psx("""
+        <Flex>
+            <Text>My first Velto application!</Text>
+        </Flex>
+    """)
+```
+
+This is a fragment of the same `MyFirstVeltoApp` class, not a second standalone program.
+
+Save the file, close the running application if necessary, and run it again:
+
+```bash
+python main.py
+```
+
+Your window should now display **My first Velto application!**
+
+You have completed the essential development cycle: edit PSX Markup, launch the Python application, and observe the result in a native window.
+
+## 7. How the pieces fit together
+
+```mermaid
+flowchart TD
+    A["main.py"] --> B["MyFirstVeltoApp / VeltoContext"]
+    B --> C["render()"]
+    C --> D["psx() / PSX Markup"]
+    D --> E["Velto native rendering"]
+    E --> F["PySide6 window"]
+    G["settings/"] --> B
+```
+
+The Python entry point controls startup, `render()` provides the component tree, and the native renderer displays the interface. Settings configure application and window behavior separately.
 
 ## Troubleshooting
 
-**No window appears:** make sure you're running in a graphical desktop session rather than a headless terminal or CI runner.
+**`ModuleNotFoundError: qyro` or `psx`:** verify that the generated project's dependencies are installed in the active virtual environment.
 
-**`ModuleNotFoundError: PySide6`:** activate the environment from installation and run `pip install -e ".[pyside6]"` again.
+**No window appears:** make sure you're running in a graphical desktop session rather than a headless terminal.
 
-**Qt platform plugin error on Linux:** verify that your desktop display and required Qt platform libraries are available.
+**Qt platform plugin error on Linux:** check your display server and the system libraries required by the selected Qt binding.
+
+**Changes don't appear:** save `main.py`, close the old process, and run the entry point again. This tutorial does not assume hot reloading.
+
+## What's next?
+
+You have initialized a project, explored its structure, understood the application entry point, and launched your first native interface.
 
 Next: [**Learn PSX Markup →**](/learn/psx-markup).
