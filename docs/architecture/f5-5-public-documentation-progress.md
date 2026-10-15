@@ -245,3 +245,15 @@ User has explicitly approved the contract; **do not ask for approval again**. Fo
 - **CI verified:** [Actions #38697044668](https://github.com/Neuri-AI/PSX/actions/runs/38697044668), **6/6 SUCCESS**: new venv, editable installation, import, Hello World, Counter and Task Board entry points plus behavior tests on Ubuntu, macOS and Windows using Python 3.11 and 3.12.
 - **Immutable tested SHA:** `24d427bbecd1c5395286adc336a980e3fe20bfe3` (this test predates this progress-ledger-only update).
 - **Limits:** cross-OS **Headless** beginner commands are verified; macOS/Windows native GUI screenshot/interactivity and independent human or independent agent walkthrough are **not** thereby verified. Owner signoff remains pending.
+
+
+### 2026-10-15 — F5.5 manual review — Install Velto and First App (owner approved)
+- **Branch:** `feature/docs` (branched from `develop`).
+- **Owner authorization:** Explicitly approved both installation and first-app documentation in the conversation; no other public pages authorized.
+- **Changed public files:** `docs/public/getting-started/installation.mdx`, `docs/public/getting-started/first-app.mdx`.
+- **Documentation:** Preserved the owner-specified introduction verbatim; replaced source-clone/editable install with virtual environment + `velto-cli` + GitHub template initialization, optional framework/version/addons and non-interactive mode. First app now teaches generated project structure, `qyro.VeltoContext`, `psx()`, `render()`, settings and direct Python startup.
+- **Source of examples:** Owner-provided generated entry point and directory tree. CLI behavior and generated template runtime dependencies were not independently executable/verified in this session; documentation marks that limitation explicitly.
+- **Verification:** GitHub file read/write completed. No Mintlify CLI, Python native GUI execution, dependency installation or GitHub Actions run performed; do not claim certification.
+- **Implementation commit SHAs:** installation `f9fd6bc02d851b9916ecc6fe51cbbc4762aedd39`; first-app `9dde544760964fa32cd63808c42bdccf14d2ed48`. This ledger update will have a subsequent SHA.
+- **Status:** Implemented, NOT CERTIFIED. F5.5 page-by-page approval remains mandatory.
+- **Open issues / next three steps:** (1) verify `velto-cli` released flags, templates and addon installation behavior against CLI source; (2) independently reproduce dependency installation and `python main.py` on supported native backend, collect evidence; (3) run Mintlify validation, links and accessibility CI and record immutable SHA before declaring pages complete. Stop pending owner's next page selection.
