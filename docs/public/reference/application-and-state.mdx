@@ -1,0 +1,48 @@
+---
+title: "Application, hooks and markup APIs"
+description: "Learn the verified App lifecycle, ordered hooks, and safe PSX markup boundaries."
+---
+
+# Application, hooks and markup APIs
+
+Source: [application facade](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/psx/app.py), [hooks](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/psx/core/hooks.py), and [markup transform](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/psx/markup/transform.py).
+
+## `App`
+
+```python
+App(root: VNode | ComponentType, *, renderer: str | Renderer | None = None, providers: tuple[object, ...] = (), settings: Mapping[str, object] | None = None)
+```
+
+`mount()` returns the renderer handle; `unmount()` tears down the tree; `run()` mounts and enters the renderer's run loop, returning an integer. Select a renderer explicitly when not using Qyro. The `settings` accepted by `App` currently support only `grid.breakpoints`; they are **not** a generic window configuration schema. Invalid settings or missing renderer configuration raise `RendererConfigurationError`.
+
+## `use_state`
+
+```python
+use_state(initial: T | Callable[[], T]) -> tuple[T, Callable[[T | Callable[[T], T]], None]]
+```
+
+Returns the current value and a setter. A setter accepts a replacement value or a function from the previous state to the next state; updates that are equal for supported scalars do not trigger a new render. State setters must not run during component rendering (`ThreadViolationError`), and disposed component setters do nothing.
+
+## `use_ref` and `Ref`
+
+```python
+use_ref(initial: T | None = None) -> Ref[T]
+```
+
+The returned `Ref` has a mutable `current` field and remains associated with the hook's position in the component.
+
+## `use_effect`
+
+```python
+use_effect(callback: Callable[[], Callable[[], None] | None], dependencies: Sequence[object] | None = None) -> None
+```
+
+An effect is queued after rendering. The optional cleanup function runs before the next applicable effect and on teardown; changing the order or number of hooks raises `HookOrderError`. Hook functions may only be used while a function component is rendering.
+
+## `psx` markup
+
+For authored Python source, use the static transform to resolve lexical bindings; don't teach arbitrary runtime `eval`. Static attribute values such as `gap="12"` are quoted, while braces are reserved for supported references/expressions. See the [markup lesson](/learn/psx-markup).
+
+## Complete executable example
+
+The tested [Headless counter](/learn/state-and-events) demonstrates `App`, `@component`, `use_state` and `on_click`, including queued updates and teardown. These hooks are not general-purpose functions to call outside a component.
