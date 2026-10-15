@@ -22,7 +22,10 @@ def check() -> None:
     missing = [name for name in names if f"`{name}`" not in doc]
     if missing:
         raise ValueError(f"Public exports missing from reference index: {missing}")
+    directory = (ROOT / "docs/public/reference/root-symbols.mdx").read_text(encoding="utf-8")
     for name in names:
+        if f"## `{name}`" not in directory:
+            raise ValueError(f"Missing detailed export section: {name}")
         if not hasattr(psx, name):
             raise ValueError(f"Public name is not importable: {name}")
     print(f"G4 public root names indexed and importable: {len(names)}")
