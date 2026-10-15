@@ -34,6 +34,9 @@ def component(function: Callable[..., object]) -> ComponentType:
     later schedules that boundary through the normal reconciler. Ordinary
     component declarations retain the same public API.
     """
+    from psx.markup.component_compiler import compile_component
+
+    function = compile_component(function)
     key = (function.__module__, function.__qualname__)
     existing = _COMPONENT_REGISTRY.get(key)
     if existing is not None:
