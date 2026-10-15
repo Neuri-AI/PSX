@@ -1,57 +1,152 @@
 ---
 title: "Getting started"
-description: "Open your first real native Velto window with PySide6, then explore PSX Markup and other renderers."
+description: "Install Velto, create a PySide6 window, and run your first native Python interface."
 ---
 
-Welcome to Velto! This guide takes you from a fresh Python environment to a **real desktop window**. No simulated UI or terminal-only demo is required.
+In a few minutes, you'll create your first **native desktop window** with Velto. You'll install the framework, write a small Python application, run it, and click a real button. Everything you need is on this page.
 
-Velto brings an HTML/JSX-inspired markup experience to native Python interfaces. You can use familiar tags and nested components to describe what appears on screen, while a native renderer creates the actual widgets.
+We'll use **PySide6 (Qt 6)** for the first example. Velto also integrates with PyQt6, PyQt5, PySide2, Tkinter and Kivy.
 
-## Your first result: a native window
+## 1. Prepare Python
 
-We'll start with **PySide6 (Qt)**, our default choice for this tutorial. You'll see a window containing text and a button. Clicking the button prints a message to the terminal.
+You need **Python 3.10–3.13**, a terminal and a graphical desktop environment on Windows, macOS or Linux.
 
-You only need basic Python, a terminal, and a graphical desktop session.
+Create a folder for your project and an isolated Python environment:
 
-<Steps>
-  <Step title="Install Velto and PySide6">
-    Follow [Installation](/getting-started/installation) to prepare Python and install the PySide6 renderer.
+```bash
+mkdir my-velto-app
+cd my-velto-app
+python -m venv .venv
+```
 
-    **You'll finish with:** a working Python environment that can create Qt widgets.
-  </Step>
-  <Step title="Run your first native application">
-    Open [Your first Velto application](/getting-started/first-app). Run the complete PySide6 example and click its button.
+Activate it on macOS or Linux:
 
-    **You'll finish with:** a visible desktop window you can interact with.
-  </Step>
-  <Step title="Learn the markup">
-    Continue with [PSX Markup](/learn/psx-markup). Learn how tags, attributes and nesting express the interface, and how markup is processed into Velto's virtual UI tree.
+```bash
+source .venv/bin/activate
+```
 
-    **You'll finish with:** an understanding of the HTML/JSX-like syntax at the heart of Velto.
-  </Step>
-</Steps>
+Or on Windows PowerShell:
 
-## Which UI toolkit does Velto use?
+```powershell
+.venv\Scripts\Activate.ps1
+```
 
-Velto is not limited to PySide6. It supports several renderer integrations, so you can choose the toolkit that fits your application.
+## 2. Install Velto and PySide6
 
-| Renderer | Python toolkit | Notes |
+Once Velto is available on PyPI, the installation command will be:
+
+```bash
+pip install "velto[pyside6]"
+```
+
+<Note>
+  **Publication status:** the package is not yet published on PyPI. To try the current source version today, clone the repository and install it with `pip install -e ".[pyside6]"` from the repository root. The commands below use the current `psx` import namespace; the planned `velto` namespace is not implemented yet.
+</Note>
+
+For the current source checkout, use:
+
+```bash
+git clone https://github.com/Neuri-AI/PSX.git
+cd PSX
+pip install -e ".[pyside6]"
+```
+
+## 3. Create your first application
+
+Create a file named `app.py` in your project folder and paste in this code:
+
+```python
+from psx import App, Button, Fragment, Text
+
+
+def greet() -> None:
+    print("Hello from Velto!")
+
+
+app = App(
+    Fragment(
+        Text("Hello, Velto!"),
+        Button("Click me", on_click=greet),
+    ),
+    renderer="pyside6",
+)
+
+if __name__ == "__main__":
+    app.run()
+```
+
+This is a **complete native application** using Velto's Python component API. It does not require a browser or a Headless renderer.
+
+## 4. Run it
+
+From the folder containing `app.py`, run:
+
+```bash
+python app.py
+```
+
+A Qt window should open showing **Hello, Velto!** and a **Click me** button.
+
+Click the button. You should see this in your terminal:
+
+```text
+Hello from Velto!
+```
+
+Close the window using its usual window controls. You have now created and run a native Python UI with Velto.
+
+## 5. Understand what you wrote
+
+- **`Text("Hello, Velto!")`** describes the text in the window.
+- **`Button("Click me", on_click=greet)`** creates a button and connects it to your Python function.
+- **`Fragment(...)`** groups multiple elements into one interface tree.
+- **`renderer="pyside6"`** tells Velto to use native Qt widgets through PySide6.
+- **`app.run()`** starts the application and its event loop.
+
+Try changing the button label or the greeting, then run `python app.py` again to see your change.
+
+## 6. Where does PSX Markup fit in?
+
+Velto also has **PSX Markup**, an HTML/JSX-inspired way to describe the same kind of interface using tags:
+
+```python
+from psx import psx
+
+view = psx("""
+    <Fragment>
+        <Text>Hello, Velto!</Text>
+        <Button>Click me</Button>
+    </Fragment>
+""")
+```
+
+This snippet shows the **markup syntax**, not another complete runnable program. Currently, authored PSX Markup uses a static transformation step before Python execution. The working application above uses the Python component API so you can run it immediately without that extra step.
+
+To learn how markup is transformed, and how to use values and event handlers in tags, continue with [PSX Markup](/learn/psx-markup).
+
+## Other supported UI bindings
+
+PySide6 is the default for this tutorial, not the only option.
+
+| Binding | Toolkit | Install extra |
 | --- | --- | --- |
-| **PySide6** | Qt 6 | **Default for this guide** |
-| **PyQt6** | Qt 6 | Alternative Qt 6 binding |
-| **PyQt5** | Qt 5 | Qt 5 binding |
-| **PySide2** | Qt 5 | Legacy Qt binding; requires Python 3.10 under current dependency constraints |
-| **Tkinter** | Tk | Uses the Tk support provided by your Python installation |
-| **Kivy** | Kivy | Native application backend with its own widget system |
+| **PySide6** | Qt 6 | `velto[pyside6]` |
+| PyQt6 | Qt 6 | `velto[pyqt6]` |
+| PyQt5 | Qt 5 | `velto[pyqt5]` |
+| PySide2 | Qt 5 | `velto[pyside2]` (Python 3.10 only) |
+| Tkinter | Tk | Included with many Python installations |
+| Kivy | Kivy | `velto[kivy]` |
 
-The renderer determines which toolkit creates the widgets; it does **not** change the core purpose of PSX Markup. Support for particular components and properties may differ by backend.
+These are the intended published-package installation forms; while using a source checkout, replace `velto[...]` with `.[...]` and install from the repository root. Backend support for individual components may vary.
 
-For a first project, **use PySide6** and follow the examples exactly. Once you're comfortable, you can explore the other renderers without learning the entire framework again.
+## Troubleshooting
 
-## What's happening under the hood?
+**Python can't import `psx` or `PySide6`:** activate your virtual environment and verify that the installation completed in that environment.
 
-Your interface becomes a tree of **virtual nodes (VNodes)** in Velto's Virtual DOM. The reconciler manages updates, Cinnamon calculates supported layout geometry, and the selected renderer creates and updates real toolkit widgets.
+**No window opens:** make sure you're using a graphical desktop session. A server terminal without a display cannot show a Qt window.
 
-You don't need to understand those internals to get started. They're explained in [How Velto works](/concepts/architecture).
+**You edited the code but see the old result:** close the running application and run `python app.py` again.
 
-Ready? [**Install Velto and PySide6 →**](/getting-started/installation).
+## What's next?
+
+You've created a real native interface. Now you can explore [PSX Markup](/learn/psx-markup), [components](/learn/components), or [how Velto uses a Virtual DOM and native renderers](/concepts/architecture). You can also consult the [more detailed first-application walkthrough](/getting-started/first-app) when you want a longer example.
