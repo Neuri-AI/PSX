@@ -82,19 +82,6 @@ As you learn Velto, you will encounter two related ideas:
 
 They complement each other, but **they are not the same thing**. You can start by learning tags and attributes before learning hooks.
 
-### What about expressions in braces?
-
-Like JSX, PSX Markup supports references to values and supported expressions within braces. The important distinction is that **literal values are written as quoted attributes**:
-
-```python
-# Literal attribute values
-markup = '<Flex direction="column" gap="12"></Flex>'
-```
-
-Braces are for expressions, not for decorating every attribute. For example, `gap="12"` is the appropriate way to write a fixed gap; writing `gap={12}` as if every literal were a Python expression is not the intended PSX Markup style.
-
-For the full expression grammar, supported tags and current restrictions, follow the [markup lessons](/learn/markup) and [component documentation](/components/overview).
-
 ## What makes Velto different?
 
 Python already has powerful native UI toolkits. Velto does not replace their native rendering capabilities; it gives you a **shared authoring experience** above them.
@@ -104,8 +91,6 @@ Python already has powerful native UI toolkits. Velto does not replace their nat
 - **Reusable components:** organize an interface into smaller, understandable pieces.
 - **Python application logic:** keep behavior, data processing and application code in Python.
 - **Optional state and hooks:** adopt reactive patterns when they help, rather than treating them as the definition of the framework.
-
-Velto currently uses the Python import namespace `psx`. The distribution name is `velto`, so examples correctly use imports such as `from psx import psx`. The two names are not interchangeable.
 
 ## Start building
 
