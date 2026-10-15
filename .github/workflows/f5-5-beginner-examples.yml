@@ -32,3 +32,17 @@ jobs:
       - name: Verify observable behavior
         working-directory: examples/f5_5_beginner
         run: python -m unittest -v test_examples
+
+  tkinter-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install native window dependencies
+        run: sudo apt-get update && sudo apt-get install -y xvfb python3-tk
+      - name: Install Velto source
+        run: python -m pip install -e .
+      - name: Mount and unmount actual Tkinter widget under Xvfb
+        run: xvfb-run -a python examples/f5_5_beginner/native_tkinter.py --smoke
