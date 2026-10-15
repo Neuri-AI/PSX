@@ -1,0 +1,55 @@
+---
+title: "Public submodule exports"
+description: "Explicit exports in psx.markup and psx.renderers with source locations."
+---
+
+# Public submodule exports
+
+These names are exported by the modules' explicit `__all__` lists. The source baseline is `18a1cab5d8d6a059170c666313119530a4394b6f`. They are distinct from the 57 root-level names documented in [the root directory](/reference/root-symbols).
+
+## `psx.markup.SourceMap`
+
+**Import:** `from psx.markup import SourceMap`. **Definition:** [`psx/markup/transform.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/markup/transform.py).
+
+## `psx.markup.TransformResult`
+
+**Import:** `from psx.markup import TransformResult`. **Definition:** [`psx/markup/transform.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/markup/transform.py).
+
+## `psx.markup.clear_template_cache`
+
+**Import:** `from psx.markup import clear_template_cache`. **Definition:** [`psx/markup/compile.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/markup/compile.py).
+
+## `psx.markup.compile_template`
+
+**Import:** `from psx.markup import compile_template`. **Definition:** [`psx/markup/compile.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/markup/compile.py).
+
+## `psx.markup.psx`
+
+**Import:** `from psx.markup import psx`. **Definition:** [`psx/markup/compile.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/markup/compile.py).
+
+## `psx.markup.transform_file`
+
+**Import:** `from psx.markup import transform_file`. **Definition:** [`psx/markup/transform.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/markup/transform.py).
+
+## `psx.markup.transform_source`
+
+**Import:** `from psx.markup import transform_source`. **Definition:** [`psx/markup/transform.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/markup/transform.py).
+
+## `psx.renderers.ComponentAdapter`
+
+**Import:** `from psx.renderers import ComponentAdapter`. **Definition:** [`psx/renderers/adapters.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/renderers/adapters.py).
+
+## `psx.renderers.HeadlessRenderer`
+
+**Import:** `from psx.renderers import HeadlessRenderer`. **Definition:** [`psx/renderers/headless.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/renderers/headless.py).
+
+## `psx.renderers.RendererAdapterRegistry`
+
+**Import:** `from psx.renderers import RendererAdapterRegistry`. **Definition:** [`psx/renderers/adapters.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/renderers/adapters.py).
+
+## Important differences
+
+- `transform_source` and `transform_file` operate on statically authored Python source; they do not grant unrestricted runtime expression evaluation.
+- `compile_template` supports a separately restricted template route. Keep M4A/M4B terms and their security requirements distinct.
+- `HeadlessRenderer` records operations in memory, not genuine Qt/Tkinter/Kivy widgets. It is useful for deterministic tests but does not prove native backend parity.
+- The exact parameters and return types must be read from the linked definitions before integrating advanced APIs. This page is an export directory, not a substitute for backend-specific behavioral receipts.
