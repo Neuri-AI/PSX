@@ -56,7 +56,6 @@ def collect() -> dict[str, object]:
     additional = (
         "psx.plugins", "psx.core.errors", "psx.core.hooks",
         "psx.core.registry", "psx.core.native", "psx.core.vnode",
-        "psx.integrations.qyro",
     )
     test_files = sorted((ROOT / "tests").rglob("test_*.py"))
     test_sources = {str(p.relative_to(ROOT)): p.read_text(encoding="utf-8")

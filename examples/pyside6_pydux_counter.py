@@ -3,7 +3,7 @@
 from pydux import configure_store, create_slice
 
 from psx import App, Button, Flex, Text, component
-from psx.integrations.pydux import StoreProvider, use_dispatch, use_selector
+from pydux import StoreProvider, use_dispatch, use_selector
 
 
 counter_slice = create_slice(

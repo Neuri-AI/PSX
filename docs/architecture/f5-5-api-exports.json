@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "source": "psx/__init__.py",
-  "export_count": 57,
+  "export_count": 56,
   "exports": [
     {
       "name": "App",
@@ -94,10 +94,6 @@
     {
       "name": "PLUGIN_ENTRY_POINT_GROUP",
       "imported_from": "plugins.PLUGIN_ENTRY_POINT_GROUP"
-    },
-    {
-      "name": "PSXComponent",
-      "imported_from": "integrations.qyro.PSXComponent"
     },
     {
       "name": "PSXError",

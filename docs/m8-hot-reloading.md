@@ -49,14 +49,6 @@ module singletons. Those changes use `PROCESS_RESTART`. Automatic file-to-module
 tracking, automatic snapshot restore and richer source-map diagnostics are
 follow-up work.
 
-`PSXComponent` enables compatible refresh automatically for Qyro windows. When
-Qyro reports a non-frozen runtime, it watches the authored source supplied by
-`qyro start`, recompiles M4B factories, swaps the compatible `render` method
-and schedules the mounted boundary. No demo edit or explicit opt-in is needed.
-Candidate loading retains existing globals and executes only factories plus the
-component class, so an existing Pydux store is not recreated. Set
-`PSX_HOT_RELOAD=0` or `PSX_ENV=production` to opt out.
-
 PSX discovers static imports that resolve to `.py` files under the project root,
 including nested modules such as `features.view` and `services.api`. A new local
 module therefore requires no settings change: import it from project source and

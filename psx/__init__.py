@@ -54,7 +54,6 @@ from .core.vnode import (
     SpinBox,
     Scroll,
 )
-from .integrations.qyro import PSXComponent
 
 __all__ = [
     # Components
@@ -115,5 +114,4 @@ __all__ = [
     "use_effect",
     "use_ref",
     "use_state",
-    "PSXComponent",
 ]

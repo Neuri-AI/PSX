@@ -5,7 +5,7 @@ description: "All declared psx root exports with source locations and callable d
 
 # Complete root symbol directory
 
-This directory covers **all 57 names** in the root `psx.__all__` manifest. It is pinned to the [checked-in census](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/docs/architecture/f5-5-api-exports.json) and the source revision `18a1cab5d8d6a059170c666313119530a4394b6f`. Names are organized alphabetically; callable syntax below is extracted from the corresponding source declaration when directly available. Some values are callable instances, constants or re-exported types, so the canonical linked source remains authoritative. Backend capability must be confirmed separately; **do not infer native support from a declared export**.
+This directory covers the root `psx.__all__` manifest. It is pinned to the [checked-in census](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/docs/architecture/f5-5-api-exports.json) and the source revision `18a1cab5d8d6a059170c666313119530a4394b6f`. Names are organized alphabetically; callable syntax below is extracted from the corresponding source declaration when directly available. Some values are callable instances, constants or re-exported types, so the canonical linked source remains authoritative. Backend capability must be confirmed separately; **do not infer native support from a declared export**.
 
 ## `App`
 
@@ -166,13 +166,6 @@ This directory covers **all 57 names** in the root `psx.__all__` manifest. It is
 - **Import:** `from psx import PLUGIN_ENTRY_POINT_GROUP`
 - **Declared in:** [`psx/plugins.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/plugins.py)
 - **Declaration:** `(see linked implementation)`
-- **Category:** advanced extension or public infrastructure
-
-## `PSXComponent`
-
-- **Import:** `from psx import PSXComponent`
-- **Declared in:** [`psx/integrations/qyro.py`](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/integrations/qyro.py)
-- **Declaration:** `class PSXComponent(_QyroComponent)`
 - **Category:** advanced extension or public infrastructure
 
 ## `PSXError`

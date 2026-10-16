@@ -33,9 +33,6 @@ pyqt5 = ["PyQt5>=5.15; python_version < '3.14'"]
 pyside2 = ["PySide2>=5.15,<6; python_version < '3.11'"]
 kivy = ["Kivy>=2.3"]
 
-pydux = ["pydux>=1.0.0a1,<2.0.0"]
-qyro = ["qyro-engine>=1.0.0a1,<2.0.0"]
-
 dev = [
     "pytest>=8.0",
     "build>=1.2",

@@ -11,7 +11,7 @@ class DeclaredPublicSurfaceTests(unittest.TestCase):
     def test_root_consistency(self):
         from psx import __all__
         self.assertEqual(set(self.report["modules"]["psx"]), set(__all__))
-        self.assertEqual(len(__all__), 57)
+        self.assertEqual(len(__all__), 56)
 
     def test_every_explicit_export_has_trace(self):
         for module, names in self.report["modules"].items():

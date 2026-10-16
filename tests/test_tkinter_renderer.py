@@ -8,7 +8,6 @@ sys.path.insert(0, "src")
 
 from psx import Button, Checkbox, Flex, Text, component, use_state
 from psx.core.reconcile import Reconciler
-from psx.integrations.qyro import mount_psx
 from psx.renderers.tkinter import TkinterRenderer
 from tests.certification.tk_public_driver import configured_font_size
 
@@ -142,13 +141,6 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertEqual(label.cget("text"), "0")
         self.renderer.flush()
         self.assertEqual(label.cget("text"), "1")
-
-    def test_mount_psx_borrows_a_tk_host_without_destroying_it(self) -> None:
-        mounted = mount_psx(self.renderer.root, Text("embedded"), renderer=self.renderer)
-        self.assertIn(mounted.widget, self.renderer.root.pack_slaves())
-        mounted.unmount()
-        self.assertEqual(self.renderer.root.pack_slaves(), [])
-        self.assertTrue(self.renderer.root.winfo_exists())
 
     def test_text_portable_update_and_clean_destruction(self) -> None:
         from tkinter import ttk

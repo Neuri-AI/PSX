@@ -17,7 +17,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(root: 'VNode | ComponentType', *, renderer: 'str | Renderer | None' = None, providers: 'tuple[object, ...]' = (), settings: 'Mapping[str, object] | None' = None) -> 'None'`
 - Implementation: `psx/app.py`, line 17
 - First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/interop/test_sfle_saturation_certification.py`, `tests/sfle/test_grid_native_commit.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_qt_native_geometry.py`, `tests/sfle/test_qt_native_lifecycle.py`, `tests/sfle/test_qt_real_wrap_regression.py`, `tests/sfle/test_qt_stale_active_regression.py`, `tests/sfle/test_qt_worker_async_regression.py`, `tests/sfle/test_qt_worker_cancel_regression.py`, `tests/sfle/test_qt_worker_ui_thread_regression.py`, `tests/test_grid_contract.py`, `tests/test_headless_grid_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/interop/test_sfle_saturation_certification.py`, `tests/sfle/test_grid_native_commit.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_qt_native_geometry.py`, `tests/sfle/test_qt_native_lifecycle.py`, `tests/sfle/test_qt_real_wrap_regression.py`, `tests/sfle/test_qt_stale_active_regression.py`, `tests/sfle/test_qt_worker_async_regression.py`, `tests/sfle/test_qt_worker_cancel_regression.py`, `tests/sfle/test_qt_worker_ui_thread_regression.py`, `tests/test_component_lexical_runtime.py`, `tests/test_grid_contract.py`
 
 ### `psx.Badge`
 
@@ -33,7 +33,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(label: 'str | int | float', *, font_size: 'int | float' = 14, on_click: 'Callable[[], None] | None' = None, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 279
 - First docstring line: Portable push button with a closed, backend-independent contract.
-- Candidate tests (not behavioral certification): `tests/test_arrow_callback_rendering.py`, `tests/test_component_contracts.py`, `tests/test_component_family_policy.py`, `tests/test_component_registry.py`, `tests/test_core.py`, `tests/test_docs_full_api_audit.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_headless_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_component_contracts.py`, `tests/test_component_family_policy.py`, `tests/test_component_lexical_runtime.py`, `tests/test_component_registry.py`, `tests/test_core.py`, `tests/test_docs_full_api_audit.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`
 
 ### `psx.Checkbox`
 
@@ -161,7 +161,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(message: str, *, filename: str, line: int, column: int) -> None`
 - Implementation: `psx/core/errors.py`, line 40
 - First docstring line: A PSX markup error with source position information.
-- Candidate tests (not behavioral certification): `tests/test_arrow_callback_rendering.py`, `tests/test_declarative_list_rendering.py`, `tests/test_divider.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_markup.py`, `tests/test_markup_registry.py`, `tests/test_markup_transform.py`
+- Candidate tests (not behavioral certification): `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_declarative_list_rendering.py`, `tests/test_divider.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_markup.py`, `tests/test_markup_registry.py`
 
 ### `psx.Native`
 
@@ -174,7 +174,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 ### `psx.NativeOwnership`
 
 - Kind: `class`
-- Signature: `(*values)`
+- Signature: `(value, names=None, *, module=None, qualname=None, type=None, start=1)`
 - Implementation: `psx/core/native.py`, line 18
 - First docstring line: Who disposes the native widget when its PSX node is unmounted.
 - Candidate tests (not behavioral certification): `tests/test_external_native_geometry_ports.py`, `tests/test_kivy_native_layout.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tkinter_external_native_ports.py`
@@ -195,21 +195,13 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - First docstring line: str(object='') -> str
 - Candidate tests (not behavioral certification): none located by name match
 
-### `psx.PSXComponent`
-
-- Kind: `class`
-- Signature: `()`
-- Implementation: `psx/integrations/qyro.py`, line 122
-- First docstring line: Opt-in Qyro component mixin whose ``render()`` returns one PSX VNode.
-- Candidate tests (not behavioral certification): `tests/test_qyro_integration.py`
-
 ### `psx.PSXError`
 
 - Kind: `class`
 - Signature: `not inspectable`
 - Implementation: `psx/core/errors.py`, line 4
 - First docstring line: Base class for PSX errors.
-- Candidate tests (not behavioral certification): `tests/test_pydux_integration.py`, `tests/test_qyro_store_discovery.py`
+- Candidate tests (not behavioral certification): none located by name match
 
 ### `psx.Plugin`
 
@@ -289,7 +281,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `not inspectable`
 - Implementation: `psx/core/errors.py`, line 28
 - First docstring line: Raised when an application cannot select a renderer.
-- Candidate tests (not behavioral certification): `tests/test_grid_contract.py`, `tests/test_qyro_integration.py`
+- Candidate tests (not behavioral certification): `tests/test_grid_contract.py`
 
 ### `psx.Scroll`
 
@@ -345,7 +337,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(value: 'str | int | float', *, font_size: 'int | float' = 16, bold: 'bool' = False, italic: 'bool' = False, color: 'str | None' = None, align: 'str' = 'left', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 263
 - First docstring line: Portable plain text with a closed, backend-independent contract.
-- Candidate tests (not behavioral certification): `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/sfle/test_constraint_propagation.py`, `tests/sfle/test_cross_leaf_convergence_regression.py`, `tests/sfle/test_dependency_cycle.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_grid_tree_measurement.py`, `tests/sfle/test_intrinsic_dependencies.py`, `tests/sfle/test_measurement_plan.py`, `tests/sfle/test_measurement_round.py`, `tests/sfle/test_qt_native_lifecycle.py`
+- Candidate tests (not behavioral certification): `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/sfle/test_constraint_propagation.py`, `tests/sfle/test_cross_leaf_convergence_regression.py`, `tests/sfle/test_dependency_cycle.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_grid_tree_measurement.py`, `tests/sfle/test_intrinsic_dependencies.py`, `tests/sfle/test_measurement_plan.py`, `tests/sfle/test_measurement_round.py`
 
 ### `psx.TextArea`
 
@@ -385,7 +377,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(function: 'Callable[..., object]') -> 'ComponentType'`
 - Implementation: `psx/core/component.py`, line 29
 - First docstring line: Declare a component, preserving identity across a compatible reload.
-- Candidate tests (not behavioral certification): `tests/browser/test_sfle_engine_chromium.py`, `tests/interop/test_sfle_deferral_boundaries.py`, `tests/interop/test_sfle_differential.py`, `tests/sfle/test_a01_compute_red.py`, `tests/sfle/test_acceptance_contract_regression.py`, `tests/sfle/test_external_inventory_regression.py`, `tests/test_benchmarks.py`, `tests/test_ci_impact.py`, `tests/test_component_family_policy.py`, `tests/test_component_registry.py`, `tests/test_core.py`, `tests/test_devtools.py`
+- Candidate tests (not behavioral certification): `tests/browser/test_sfle_engine_chromium.py`, `tests/interop/test_sfle_deferral_boundaries.py`, `tests/interop/test_sfle_differential.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/sfle/test_a01_compute_red.py`, `tests/sfle/test_acceptance_contract_regression.py`, `tests/sfle/test_external_inventory_regression.py`, `tests/test_benchmarks.py`, `tests/test_ci_impact.py`, `tests/test_component_family_policy.py`, `tests/test_component_lexical_runtime.py`, `tests/test_component_registry.py`
 
 ### `psx.core.errors.DuplicateComponentError`
 
@@ -425,7 +417,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(message: str, *, filename: str, line: int, column: int) -> None`
 - Implementation: `psx/core/errors.py`, line 40
 - First docstring line: A PSX markup error with source position information.
-- Candidate tests (not behavioral certification): `tests/test_arrow_callback_rendering.py`, `tests/test_declarative_list_rendering.py`, `tests/test_divider.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_markup.py`, `tests/test_markup_registry.py`, `tests/test_markup_transform.py`
+- Candidate tests (not behavioral certification): `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_declarative_list_rendering.py`, `tests/test_divider.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_markup.py`, `tests/test_markup_registry.py`
 
 ### `psx.core.errors.PSXError`
 
@@ -433,7 +425,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `not inspectable`
 - Implementation: `psx/core/errors.py`, line 4
 - First docstring line: Base class for PSX errors.
-- Candidate tests (not behavioral certification): `tests/test_pydux_integration.py`, `tests/test_qyro_store_discovery.py`
+- Candidate tests (not behavioral certification): none located by name match
 
 ### `psx.core.errors.RendererCapabilityError`
 
@@ -449,7 +441,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `not inspectable`
 - Implementation: `psx/core/errors.py`, line 28
 - First docstring line: Raised when an application cannot select a renderer.
-- Candidate tests (not behavioral certification): `tests/test_grid_contract.py`, `tests/test_qyro_integration.py`
+- Candidate tests (not behavioral certification): `tests/test_grid_contract.py`
 
 ### `psx.core.errors.ThreadViolationError`
 
@@ -529,7 +521,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(callback: 'Callable[[], Callable[[], None] | None]', dependencies: 'Sequence[object] | None' = None) -> 'None'`
 - Implementation: `psx/core/hooks.py`, line 107
 - First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/test_hooks_scheduler.py`
+- Candidate tests (not behavioral certification): `tests/test_component_lexical_runtime.py`, `tests/test_hooks_scheduler.py`
 
 ### `psx.core.hooks.use_ref`
 
@@ -537,7 +529,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(initial: 'T | None' = None) -> 'Ref[T]'`
 - Implementation: `psx/core/hooks.py`, line 96
 - First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/test_hooks_scheduler.py`, `tests/test_ref_m0_characterization.py`
+- Candidate tests (not behavioral certification): `tests/test_component_lexical_runtime.py`, `tests/test_hooks_scheduler.py`, `tests/test_ref_m0_characterization.py`
 
 ### `psx.core.hooks.use_state`
 
@@ -545,7 +537,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(initial: 'T | Callable[[], T]') -> 'tuple[T, Callable[[T | Callable[[T], T]], None]]'`
 - Implementation: `psx/core/hooks.py`, line 71
 - First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/test_expressive_conditional_rendering.py`, `tests/test_headless_native_layout.py`, `tests/test_hooks_scheduler.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_renderer.py`, `tests/test_markup.py`, `tests/test_markup_transform.py`, `tests/test_pyqt_renderer.py`, `tests/test_pyside6_native_layout.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qyro_integration.py`
+- Candidate tests (not behavioral certification): `tests/markup/test_jsx_conditional_relational.py`, `tests/test_component_lexical_runtime.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_headless_native_layout.py`, `tests/test_hooks_scheduler.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_renderer.py`, `tests/test_markup.py`, `tests/test_markup_transform.py`, `tests/test_pyqt_renderer.py`, `tests/test_pyside6_native_layout.py`, `tests/test_pyside6_renderer.py`
 
 ### `psx.core.native.Native`
 
@@ -558,7 +550,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 ### `psx.core.native.NativeOwnership`
 
 - Kind: `class`
-- Signature: `(*values)`
+- Signature: `(value, names=None, *, module=None, qualname=None, type=None, start=1)`
 - Implementation: `psx/core/native.py`, line 18
 - First docstring line: Who disposes the native widget when its PSX node is unmounted.
 - Candidate tests (not behavioral certification): `tests/test_external_native_geometry_ports.py`, `tests/test_kivy_native_layout.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tkinter_external_native_ports.py`
@@ -617,7 +609,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(label: 'str | int | float', *, font_size: 'int | float' = 14, on_click: 'Callable[[], None] | None' = None, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 279
 - First docstring line: Portable push button with a closed, backend-independent contract.
-- Candidate tests (not behavioral certification): `tests/test_arrow_callback_rendering.py`, `tests/test_component_contracts.py`, `tests/test_component_family_policy.py`, `tests/test_component_registry.py`, `tests/test_core.py`, `tests/test_docs_full_api_audit.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_headless_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_component_contracts.py`, `tests/test_component_family_policy.py`, `tests/test_component_lexical_runtime.py`, `tests/test_component_registry.py`, `tests/test_core.py`, `tests/test_docs_full_api_audit.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`
 
 ### `psx.core.vnode.Checkbox`
 
@@ -686,9 +678,9 @@ A candidate test is only a search match and **not** proof the behavior was teste
 ### `psx.core.vnode.NodeKind`
 
 - Kind: `class`
-- Signature: `(*values)`
+- Signature: `(value, names=None, *, module=None, qualname=None, type=None, start=1)`
 - Implementation: `psx/core/vnode.py`, line 105
-- First docstring line: str(object='') -> str
+- First docstring line: An enumeration.
 - Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_text_portable.py`
 
 ### `psx.core.vnode.ProgressBar`
@@ -769,7 +761,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(value: 'str | int | float', *, font_size: 'int | float' = 16, bold: 'bool' = False, italic: 'bool' = False, color: 'str | None' = None, align: 'str' = 'left', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 263
 - First docstring line: Portable plain text with a closed, backend-independent contract.
-- Candidate tests (not behavioral certification): `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/sfle/test_constraint_propagation.py`, `tests/sfle/test_cross_leaf_convergence_regression.py`, `tests/sfle/test_dependency_cycle.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_grid_tree_measurement.py`, `tests/sfle/test_intrinsic_dependencies.py`, `tests/sfle/test_measurement_plan.py`, `tests/sfle/test_measurement_round.py`, `tests/sfle/test_qt_native_lifecycle.py`
+- Candidate tests (not behavioral certification): `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/sfle/test_constraint_propagation.py`, `tests/sfle/test_cross_leaf_convergence_regression.py`, `tests/sfle/test_dependency_cycle.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_grid_tree_measurement.py`, `tests/sfle/test_intrinsic_dependencies.py`, `tests/sfle/test_measurement_plan.py`, `tests/sfle/test_measurement_round.py`
 
 ### `psx.core.vnode.TextArea`
 
@@ -818,70 +810,6 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Implementation: `psx/core/vnode.py`, line 167
 - First docstring line: Create a VNode; all public builders delegate to this constructor.
 - Candidate tests (not behavioral certification): `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_headless_public_behavior.py`, `tests/test_kivy_native_layout.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_renderer_adapters.py`, `tests/test_text_portable.py`, `tests/test_tkinter_external_native_ports.py`
-
-### `psx.integrations.qyro.PSXComponent`
-
-- Kind: `class`
-- Signature: `()`
-- Implementation: `psx/integrations/qyro.py`, line 122
-- First docstring line: Opt-in Qyro component mixin whose ``render()`` returns one PSX VNode.
-- Candidate tests (not behavioral certification): `tests/test_qyro_integration.py`
-
-### `psx.integrations.qyro.PSXMount`
-
-- Kind: `class`
-- Signature: `(host: 'object', app: 'App', widget: 'object', _central: 'bool' = False, _packed: 'bool' = False, _disposed: 'bool' = False) -> None`
-- Implementation: `psx/integrations/qyro.py`, line 84
-- First docstring line: Owns a PSX subtree while borrowing, never destroying, its Qyro host.
-- Candidate tests (not behavioral certification): none located by name match
-
-### `psx.integrations.qyro.QyroProvider`
-
-- Kind: `callable`
-- Signature: `(child: 'VNode', *, context: 'object | None' = None, container: 'object | None' = None) -> 'VNode'`
-- Implementation: `psx/integrations/qyro.py`, line 28
-- First docstring line: Provide existing Qyro runtime objects without constructing a new engine.
-- Candidate tests (not behavioral certification): `tests/test_qyro_integration.py`
-
-### `psx.integrations.qyro.mount_psx`
-
-- Kind: `callable`
-- Signature: `(host: 'object', child: 'VNode', *, renderer: 'str | object | None' = None, context: 'object | None' = None, container: 'object | None' = None, providers: 'tuple[object, ...]' = ()) -> 'PSXMount'`
-- Implementation: `psx/integrations/qyro.py`, line 324
-- First docstring line: Mount a PSX subtree inside an existing Qyro/native Qt host.
-- Candidate tests (not behavioral certification): `tests/test_qyro_integration.py`, `tests/test_tkinter_renderer.py`
-
-### `psx.integrations.qyro.use_container`
-
-- Kind: `callable`
-- Signature: `() -> 'object'`
-- Implementation: `psx/integrations/qyro.py`, line 61
-- First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/test_qyro_integration.py`
-
-### `psx.integrations.qyro.use_qyro_context`
-
-- Kind: `callable`
-- Signature: `() -> 'object'`
-- Implementation: `psx/integrations/qyro.py`, line 53
-- First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/test_qyro_integration.py`
-
-### `psx.integrations.qyro.use_resource`
-
-- Kind: `callable`
-- Signature: `(*segments: 'str', required: 'bool' = True) -> 'str'`
-- Implementation: `psx/integrations/qyro.py`, line 78
-- First docstring line: Resolve a Qyro resource using its real resolver, including frozen-mode behavior.
-- Candidate tests (not behavioral certification): `tests/test_qyro_integration.py`
-
-### `psx.integrations.qyro.use_settings`
-
-- Kind: `callable`
-- Signature: `() -> 'dict[str, object]'`
-- Implementation: `psx/integrations/qyro.py`, line 71
-- First docstring line: Read effective Qyro settings through its existing public container use case.
-- Candidate tests (not behavioral certification): `tests/test_qyro_integration.py`
 
 ### `psx.load_plugins`
 
@@ -945,7 +873,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(source: 'str', *, filename: 'str' = '<module>') -> 'TransformResult'`
 - Implementation: `psx/markup/transform.py`, line 163
 - First docstring line: Transform statically known inline ``psx`` calls into lexical factories.
-- Candidate tests (not behavioral certification): `tests/test_arrow_callback_rendering.py`, `tests/test_declarative_list_rendering.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_markup_transform.py`
+- Candidate tests (not behavioral certification): `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_declarative_list_rendering.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_markup_transform.py`
 
 ### `psx.native_widget`
 
@@ -1065,7 +993,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(*, sfle_constraints: 'LayoutConstraints | None' = None, measure_intrinsic: 'Callable[[VNode], IntrinsicSizes | None] | None' = None, engine: 'object | None' = None) -> 'None'`
 - Implementation: `psx/renderers/headless.py`, line 63
 - First docstring line: Records native-like operations without importing a UI toolkit.
-- Candidate tests (not behavioral certification): `tests/test_arrow_callback_rendering.py`, `tests/test_checkbox.py`, `tests/test_core.py`, `tests/test_declarative_list_rendering.py`, `tests/test_devtools.py`, `tests/test_divider.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_headless_grid_native_layout.py`, `tests/test_headless_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_arrow_callback_rendering.py`, `tests/test_checkbox.py`, `tests/test_component_lexical_runtime.py`, `tests/test_core.py`, `tests/test_declarative_list_rendering.py`, `tests/test_devtools.py`, `tests/test_divider.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_headless_grid_native_layout.py`
 
 ### `psx.renderers.RendererAdapterRegistry`
 
@@ -1081,7 +1009,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(callback: 'Callable[[], Callable[[], None] | None]', dependencies: 'Sequence[object] | None' = None) -> 'None'`
 - Implementation: `psx/core/hooks.py`, line 107
 - First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/test_hooks_scheduler.py`
+- Candidate tests (not behavioral certification): `tests/test_component_lexical_runtime.py`, `tests/test_hooks_scheduler.py`
 
 ### `psx.use_ref`
 
@@ -1089,7 +1017,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(initial: 'T | None' = None) -> 'Ref[T]'`
 - Implementation: `psx/core/hooks.py`, line 96
 - First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/test_hooks_scheduler.py`, `tests/test_ref_m0_characterization.py`
+- Candidate tests (not behavioral certification): `tests/test_component_lexical_runtime.py`, `tests/test_hooks_scheduler.py`, `tests/test_ref_m0_characterization.py`
 
 ### `psx.use_state`
 
@@ -1097,7 +1025,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(initial: 'T | Callable[[], T]') -> 'tuple[T, Callable[[T | Callable[[T], T]], None]]'`
 - Implementation: `psx/core/hooks.py`, line 71
 - First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/test_expressive_conditional_rendering.py`, `tests/test_headless_native_layout.py`, `tests/test_hooks_scheduler.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_renderer.py`, `tests/test_markup.py`, `tests/test_markup_transform.py`, `tests/test_pyqt_renderer.py`, `tests/test_pyside6_native_layout.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qyro_integration.py`
+- Candidate tests (not behavioral certification): `tests/markup/test_jsx_conditional_relational.py`, `tests/test_component_lexical_runtime.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_headless_native_layout.py`, `tests/test_hooks_scheduler.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_renderer.py`, `tests/test_markup.py`, `tests/test_markup_transform.py`, `tests/test_pyqt_renderer.py`, `tests/test_pyside6_native_layout.py`, `tests/test_pyside6_renderer.py`
 
 ## Registered components
 

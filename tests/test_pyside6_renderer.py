@@ -10,12 +10,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, "src")
 
 from PySide6.QtWidgets import QLabel, QPushButton, QWidget
-from pydux import Action, Store
-
 from psx import App, Button, Checkbox, Flex, Input, Native, NativeWidget, Ref, Text, create_element, component, native_widget, psx, use_state
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
-from psx.integrations.pydux import StoreProvider, use_selector
 from psx.renderers.qt.pyside import PySide6Renderer
 from psx.renderers.qt.pyqt import QtHandle
 
@@ -197,28 +194,6 @@ class PySide6RendererTests(unittest.TestCase):
         label = label_handle.widget
         self.assertIsInstance(label, QLabel)
         worker = threading.Thread(target=lambda: captured["set"](1))
-        worker.start()
-        worker.join()
-        self.assertEqual(label.text(), "0")
-        self.renderer.application.processEvents()
-        self.assertEqual(label.text(), "1")
-
-    def test_worker_pydux_dispatch_is_committed_on_the_qt_event_loop(self) -> None:
-        def reducer(state: int, action: Action) -> int:
-            return state + 1 if action.type == "increment" else state
-
-        store = Store(reducer, 0)
-
-        @component
-        def Counter():
-            return Text(str(use_selector(lambda state: state)))
-
-        root = self.reconciler.render(StoreProvider(store, Counter()))
-        label_handle = root.children[0].children[0].handle
-        self.assertIsInstance(label_handle, QtHandle)
-        label = label_handle.widget
-        self.assertIsInstance(label, QLabel)
-        worker = threading.Thread(target=lambda: store.dispatch(Action("increment")))
         worker.start()
         worker.join()
         self.assertEqual(label.text(), "0")
