@@ -50,6 +50,22 @@ def member(value: object, attribute: str, filename: str, line: int, column: int)
     )
 
 
+def index(value: object, position: object, filename: str, line: int, column: int) -> object:
+    """Read a bounded public sequence index or mapping key in M4B markup."""
+    if isinstance(value, (list, tuple)):
+        if isinstance(position, bool) or not isinstance(position, int):
+            raise MarkupSyntaxError("Sequence indices must be integers", filename=filename, line=line, column=column)
+    elif isinstance(value, Mapping):
+        if not isinstance(position, (str, int)) or isinstance(position, bool) or (isinstance(position, str) and position.startswith("_")):
+            raise MarkupSyntaxError("Unsupported mapping key", filename=filename, line=line, column=column)
+    else:
+        raise MarkupSyntaxError("Indexing requires a list, tuple, or mapping", filename=filename, line=line, column=column)
+    try:
+        return value[position]
+    except (IndexError, KeyError, TypeError) as error:
+        raise MarkupSyntaxError("Invalid sequence index or mapping key", filename=filename, line=line, column=column) from error
+
+
 def conditional(value: object) -> object:
     """A conditional branch contributes no VNode when its result is falsy."""
     return value if value else None
