@@ -36,6 +36,16 @@ def _raise_unsupported(node: syntax.Expression, filename: str, name: str) -> Non
 def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast.expr:
     if isinstance(node, syntax.Literal):
         return ast.Constant(value=node.value)
+    if isinstance(node, syntax.Collection):
+        values = [lower(item, filename=filename) for item in node.items]
+        if node.kind == "list":
+            return ast.List(elts=values, ctx=ast.Load())
+        return ast.Tuple(elts=values, ctx=ast.Load())
+    if isinstance(node, syntax.Dictionary):
+        return ast.Dict(
+            keys=[lower(key, filename=filename) for key, _ in node.entries],
+            values=[lower(value, filename=filename) for _, value in node.entries],
+        )
     if isinstance(node, syntax.InterpolatedString):
         return ast.JoinedStr(values=[
             ast.Constant(value=part.value) if isinstance(part, syntax.Literal)
