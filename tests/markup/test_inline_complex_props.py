@@ -72,7 +72,7 @@ def test_indexed_access_to_list_and_tuple_props():
         code = ast.Expression(lower(parsed, filename="demo.psx"))
         ast.fix_missing_locations(code)
         compile(code, "demo.psx", "eval")
-        transformed = transform_source('def render():\\n    return psx(' + repr(markup) + ')\\n')
+        transformed = transform_source('def render():\n    return psx(' + repr(markup) + ')\n')
         assert transformed.transformed_calls == 1
 
 
