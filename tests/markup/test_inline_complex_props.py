@@ -57,3 +57,28 @@ def test_m4a_rejects_inline_dictionary():
 def test_braced_scalar_literal_still_rejected():
     with pytest.raises(MarkupSyntaxError):
         parse_expressive_expression('<Flex gap={12} />')
+
+
+def test_indexed_access_to_list_and_tuple_props():
+    source = '<Welcome user={{"interests": ["coding", "music"], "coords": (10, 20)}} />'
+    tree = parse_expressive_expression(source)
+    assert tree is not None
+    for markup in (
+        '<Text>{user.interests[0]}</Text>',
+        '<Text>{user.coords[1]}</Text>',
+        '<Text>{user["interests"][0]}</Text>',
+    ):
+        parsed = parse_expressive_expression(markup)
+        code = ast.Expression(lower(parsed, filename="demo.psx"))
+        ast.fix_missing_locations(code)
+        compile(code, "demo.psx", "eval")
+        transformed = transform_source('def render():\\n    return psx(' + repr(markup) + ')\\n')
+        assert transformed.transformed_calls == 1
+
+
+def test_index_diagnostics():
+    from psx.markup.expressive_runtime import index
+    with pytest.raises(MarkupSyntaxError):
+        index(["coding"], 5, "demo.psx", 1, 10)
+    with pytest.raises(MarkupSyntaxError):
+        index(["coding"], "0", "demo.psx", 1, 10)
