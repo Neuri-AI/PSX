@@ -57,6 +57,13 @@ class Member:
 
 
 @dataclass(frozen=True, slots=True)
+class Index:
+    target: "Expression"
+    index: "Expression"
+    location: Location
+
+
+@dataclass(frozen=True, slots=True)
 class Call:
     callee: "Expression"
     arguments: tuple["Expression", ...]
@@ -127,7 +134,7 @@ class Fragment:
     location: Location
 
 
-Expression = Literal | InterpolatedString | Collection | Dictionary | Name | Member | Call | Compare | ConditionalAnd | ConditionalOr | LogicalNot | Ternary | Arrow | Map | Element | Fragment
+Expression = Literal | InterpolatedString | Collection | Dictionary | Name | Member | Index | Call | Compare | ConditionalAnd | ConditionalOr | LogicalNot | Ternary | Arrow | Map | Element | Fragment
 
 
 class ExpressiveParser:
@@ -332,6 +339,10 @@ class ExpressiveParser:
                     value = Map(value, callback, value.location)
                 else:
                     value = Member(value, name, value.location)
+            elif self.take("["):
+                index = self.expression()
+                self.expect("]")
+                value = Index(value, index, self.location(start))
             elif self.take("("):
                 args: list[Expression] = []
                 if not self.take(")"):
