@@ -31,6 +31,19 @@ class InterpolatedString:
 
 
 @dataclass(frozen=True, slots=True)
+class Collection:
+    kind: str
+    items: tuple["Expression", ...]
+    location: Location
+
+
+@dataclass(frozen=True, slots=True)
+class Dictionary:
+    entries: tuple[tuple["Expression", "Expression"], ...]
+    location: Location
+
+
+@dataclass(frozen=True, slots=True)
 class Name:
     value: str
     location: Location
@@ -114,7 +127,7 @@ class Fragment:
     location: Location
 
 
-Expression = Literal | InterpolatedString | Name | Member | Call | Compare | ConditionalAnd | ConditionalOr | LogicalNot | Ternary | Arrow | Map | Element | Fragment
+Expression = Literal | InterpolatedString | Collection | Dictionary | Name | Member | Call | Compare | ConditionalAnd | ConditionalOr | LogicalNot | Ternary | Arrow | Map | Element | Fragment
 
 
 class ExpressiveParser:
@@ -242,8 +255,41 @@ class ExpressiveParser:
     def primary(self) -> Expression:
         self.skip()
         start = self.pos
+        if self.take("{"):
+            entries: list[tuple[Expression, Expression]] = []
+            if not self.take("}"):
+                while True:
+                    key = self.expression()
+                    self.expect(":")
+                    value = self.expression()
+                    entries.append((key, value))
+                    if self.take("}"):
+                        break
+                    self.expect(",")
+                    if self.take("}"):
+                        break
+            return Dictionary(tuple(entries), self.location(start))
+        if self.take("["):
+            items: list[Expression] = []
+            if not self.take("]"):
+                while True:
+                    items.append(self.expression())
+                    if self.take("]"):
+                        break
+                    self.expect(",")
+                    if self.take("]"):
+                        break
+            return Collection("list", tuple(items), self.location(start))
         if self.take("("):
             result = self.expression()
+            if self.take(","):
+                items = [result]
+                while not self.take(")"):
+                    items.append(self.expression())
+                    if self.take(")"):
+                        break
+                    self.expect(",")
+                return Collection("tuple", tuple(items), self.location(start))
             self.expect(")")
             return self._postfix(result)
         if self.source.startswith("<", self.pos):
