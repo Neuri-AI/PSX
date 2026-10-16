@@ -5,7 +5,7 @@ import os
 import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout
 
 from psx import Flex, Text
 from psx.core.native import Native
@@ -76,18 +76,31 @@ class QtExternalPortTests(unittest.TestCase):
         self.assertIn("read", calls)
         self.assertEqual(self.renderer.sfle_result.geometry_commit_error, 0.0)
 
-    def test_missing_native_port_fails_before_widget_factory(self):
-        calls = []
-        def factory():
-            calls.append("created")
-            return QLabel()
-        with self.assertRaisesRegex(RendererCapabilityError, "Native requires"):
-            self.tree.render(Flex(
-                Native(factory, renderer="pyside6",
-                       layout_width="20px", layout_height="20px"),
-                width=160, height=80,
-            ))
-        self.assertEqual(calls, [])
+    def test_native_qwidget_uses_the_default_geometry_port(self):
+        root = self.tree.render(Flex(
+            Native(QLabel, renderer="pyside6", layout_width="20px", layout_height="20px"),
+            width=160, height=80,
+        ))
+        widget = root.children[0].handle.widget
+        self.assertIsInstance(widget, QLabel)
+        self.assertEqual((widget.width(), widget.height()), (20, 20))
+
+    def test_native_leaf_may_own_an_internal_qt_layout(self):
+        class BrowserLikeWidget(QFrame):
+            def __init__(self) -> None:
+                super().__init__()
+                layout = QVBoxLayout(self)
+                layout.addWidget(QLabel("internal", self))
+
+        root = self.tree.render(Flex(
+            Native(BrowserLikeWidget, renderer="pyside6",
+                   layout_width="80px", layout_height="40px"),
+            width=160, height=80,
+        ))
+        widget = root.children[0].handle.widget
+        self.assertIsInstance(widget, BrowserLikeWidget)
+        self.assertIsNotNone(widget.layout())
+        self.assertEqual((widget.width(), widget.height()), (80, 40))
 
     def test_registered_custom_host_adapter_is_measured_and_committed(self):
         calls = []

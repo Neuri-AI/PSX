@@ -41,9 +41,6 @@ view = Flex(
     Native(
         tk.Button,
         renderer="tkinter",
-        # An explicit SFLEExternalPort is required for an external
-        # leaf in SFLE mode; configure measure/apply/read for this widget.
-        sfle_port=button_port,
         text="Run",
         layout_width="100px",
         layout_height="30px",
@@ -53,9 +50,11 @@ view = Flex(
 )
 ```
 
-`button_port` represents a developer-supplied
-`SFLEExternalPort(measure, apply, read)`. It is not a built-in implicit
-adapter or an automatic fallback to `pack`, `grid` or `place`.
+Widgets declared through `Native(...)` receive a built-in SFLE geometry port:
+Qt uses `sizeHint`/`setGeometry`, Tkinter uses requested size/`place`, and
+Kivy uses `minimum_size`/`pos`/`size`. A developer-supplied
+`SFLEExternalPort(measure, apply, read)` is only required for advanced
+`NativeWidget` declarations with custom geometry behavior.
 
 ## Unsupported: lend an existing Tkinter widget
 

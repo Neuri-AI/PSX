@@ -106,6 +106,8 @@ def Native(
     selected = selected.lower()
     if selected not in {"pyside6", "pyside2", "pyqt6", "pyqt5", "tkinter", "kivy"}:
         raise ValueError(f"Unsupported Native renderer {selected!r}.")
+    if sfle_port is None:
+        sfle_port = _default_sfle_port(selected)
     if isinstance(widget, type) or callable(widget):
         declaration = NativeWidget(
             renderer=selected,
@@ -138,6 +140,86 @@ def Native(
             raise TypeError(f"Native signal {signal!r} must be callable or None.")
         values[f"{_SIGNAL_PREFIX}{signal}"] = callback
     return native_widget(declaration, key=key, ref=ref, **values)
+
+
+def _default_sfle_port(renderer: str) -> object | None:
+    """Return the built-in geometry bridge for ordinary toolkit widgets.
+
+    ``Native`` is the ergonomic API: standard Qt, Tkinter and Kivy widgets
+    expose the operations SFLE needs. Advanced ``NativeWidget`` adapters stay
+    explicit because their geometry contract cannot be inferred.
+    """
+    from psx.sfle.external_native_geometry_ports import SFLEExternalPort
+    from psx.sfle.model import IntrinsicSizes, Rect
+
+    if renderer == "tkinter":
+        def measure_tk(widget: object, _constraints: object) -> IntrinsicSizes:
+            width = max(0, widget.winfo_reqwidth())  # type: ignore[attr-defined]
+            height = max(0, widget.winfo_reqheight())  # type: ignore[attr-defined]
+            return IntrinsicSizes(width, width, height, height, width, height)
+
+        def apply_tk(widget: object, rect: Rect) -> None:
+            widget.place(  # type: ignore[attr-defined]
+                x=round(rect.x), y=round(rect.y),
+                width=round(rect.width), height=round(rect.height),
+            )
+
+        def read_tk(widget: object) -> Rect:
+            placement = widget.place_info()  # type: ignore[attr-defined]
+            return Rect(*(float(placement[axis]) for axis in ("x", "y", "width", "height")))
+
+        return SFLEExternalPort(measure_tk, apply_tk, read_tk)
+
+    if renderer == "kivy":
+        def measure_kivy(widget: object, _constraints: object) -> IntrinsicSizes:
+            minimum = getattr(widget, "minimum_size", (0, 0))
+            preferred = getattr(widget, "size", minimum)
+            min_width, min_height = (max(0, float(value)) for value in minimum)
+            preferred_width = max(min_width, float(preferred[0]))
+            preferred_height = max(min_height, float(preferred[1]))
+            return IntrinsicSizes(
+                min_width, preferred_width, min_height, preferred_height,
+                preferred_width, preferred_height,
+            )
+
+        def apply_kivy(widget: object, rect: Rect) -> None:
+            widget.pos = (rect.x, rect.y)  # type: ignore[attr-defined]
+            widget.size = (rect.width, rect.height)  # type: ignore[attr-defined]
+
+        def read_kivy(widget: object) -> Rect:
+            return Rect(widget.x, widget.y, widget.width, widget.height)  # type: ignore[attr-defined]
+
+        return SFLEExternalPort(measure_kivy, apply_kivy, read_kivy)
+
+    if not renderer.startswith("py"):
+        return None
+
+    def measure(widget: object, _constraints: object) -> IntrinsicSizes:
+        hint = widget.sizeHint()  # type: ignore[attr-defined]
+        minimum = widget.minimumSizeHint()  # type: ignore[attr-defined]
+        min_width = max(0, minimum.width())
+        min_height = max(0, minimum.height())
+        preferred_width = max(min_width, hint.width())
+        preferred_height = max(min_height, hint.height())
+        return IntrinsicSizes(
+            min_width,
+            preferred_width,
+            min_height,
+            preferred_height,
+            preferred_width,
+            preferred_height,
+        )
+
+    def apply(widget: object, rect: Rect) -> None:
+        widget.setGeometry(  # type: ignore[attr-defined]
+            round(rect.x), round(rect.y), round(rect.width), round(rect.height)
+        )
+
+    def read(widget: object) -> Rect:
+        frame = widget.geometry()  # type: ignore[attr-defined]
+        return Rect(frame.x(), frame.y(), frame.width(), frame.height())
+
+    return SFLEExternalPort(measure, apply, read)
 
 
 def _infer_renderer(value: object) -> str | None:

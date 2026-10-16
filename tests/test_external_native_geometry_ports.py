@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from psx.core.errors import RendererCapabilityError
-from psx.core.native import NativeWidget
+from psx.core.native import Native, NativeWidget
 from psx.core.vnode import create_element, native_widget
 from psx.renderers.adapters import DelegatingAdapter, RendererAdapterRegistry
 from psx.sfle.errors import DiagnosticCode, SFLEError
@@ -55,6 +55,13 @@ def test_native_without_geometry_port_rejected_before_mount():
     decl = NativeWidget(renderer="pyside6", factory=lambda: object())
     with pytest.raises(RendererCapabilityError, match="Native requires"):
         external_port_for(native_widget(decl), fake_renderer())
+
+
+@pytest.mark.parametrize("renderer", ["pyside6", "tkinter", "kivy"])
+def test_native_supplies_a_standard_geometry_port_for_supported_toolkits(renderer):
+    node = Native(lambda: object(), renderer=renderer)
+    assert isinstance(node.type, NativeWidget)
+    assert isinstance(node.type.sfle_port, SFLEExternalPort)
 
 
 def test_native_port_is_attached_to_declaration_without_native_imports():

@@ -96,8 +96,13 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                     and getattr(handle.widget, "_psx_sfle_scroll", False)
                 )
             )
+            # External native leaves have no PSX children, so an internal Qt
+            # layout belongs to the widget's own chrome (for example
+            # QWebEngineView), not to competing declarative placement.
             if handle.layout is not None or (
-                handle.widget.layout() is not None and not internal_chrome
+                handle.widget.layout() is not None
+                and not internal_chrome
+                and node_id not in external
             ):
                 raise SFLEError(DiagnosticCode.UNSUPPORTED_FEATURE,
                                 "Qt SFLE participant is owned by a competing QLayout.", node_id)
