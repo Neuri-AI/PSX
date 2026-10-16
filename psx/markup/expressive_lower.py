@@ -63,6 +63,9 @@ def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast
     if isinstance(node, syntax.Member):
         return _helper("member", lower(node.target, filename=filename),
                        ast.Constant(node.name), *_loc(node, filename))
+    if isinstance(node, syntax.Index):
+        return _helper("index", lower(node.target, filename=filename),
+                       lower(node.index, filename=filename), *_loc(node, filename))
     if isinstance(node, syntax.Call):
         return ast.Call(
             func=lower(node.callee, filename=filename),
@@ -163,6 +166,7 @@ def helper_import() -> ast.ImportFrom:
             ast.alias(name="fragment", asname="_psx_expr_fragment"),
             ast.alias(name="lexical", asname="_psx_expr_lexical"),
             ast.alias(name="member", asname="_psx_expr_member"),
+            ast.alias(name="index", asname="_psx_expr_index"),
             ast.alias(name="conditional", asname="_psx_expr_conditional"),
             ast.alias(name="map_children", asname="_psx_expr_map_children"),
         ],
