@@ -5,7 +5,7 @@ Developer-authored PSX Markup may pass Python collection literals directly to co
 ```python
 @component
 def Welcome(user: dict):
-    return psx('<Text>{user.name}</Text>')  # Access semantics depend on the component's data model.
+    return psx('<Text>Welcome!</Text>')
 
 @component
 def Demo():
