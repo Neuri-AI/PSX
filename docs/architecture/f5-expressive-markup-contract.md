@@ -16,7 +16,11 @@ Preserve existing host/component registries, VNode construction, renderer identi
 
 Quoted numeric attributes pass through the existing registry-backed coercion/validation: known integer-valued props are converted as appropriate, while string/text props remain strings. This preserves markup schema authority rather than guessing types from braces. Boolean presence syntax and established string props are unchanged.
 
-For expressive F5 conditional, map and arrow constructs, braces delimit *validated compiled expressions* rather than an arbitrary Python evaluator. This is the **only extension** to simple references; bare literal expressions `{12}` in attributes remain invalid. A referenced variable can have any schema-valid value, including zero.
+For expressive F5 conditional, map, arrow and M4B-only inline Python collection literal constructs, braces delimit *validated compiled expressions* rather than an arbitrary Python evaluator. These are the **only extensions** to simple references; bare literal expressions `{12}` in attributes remain invalid. A referenced variable can have any schema-valid value, including zero.
+
+### M4B inline complex literal props — owner decision (2026-10-16)
+
+Optional inline collection props are permitted in statically authored M4B markup: `<Welcome user={{"name": "User", "age": 30}} />`. The approved bounded grammar includes Python dictionaries, lists, tuples, nesting, and lexical references inside collections. Python data literals use quoted keys and Python `True`/`False`/`None`. Bare braced scalar props such as `gap={12}` remain forbidden; write `gap="12"` instead. For substantial data, `user = {...}` in Python followed by `user={user}` is preferred. No arbitrary Python expression evaluator, runtime `eval`/`exec`, or M4A expansion is authorized. Preserve source-spanned errors and add positive, negative, regression and CI certification evidence.
 
 ## 2. Owner-approved syntax
 
