@@ -135,6 +135,10 @@ def _has_expressive_interpolation(source: str) -> bool:
     Only expression braces activate G2/G3. Text and quoted attributes containing
     question marks or ampersands keep their existing M4B template behavior.
     """
+    # Composite inline attribute literals require the expressive M4B path.
+    # The restricted M4A runtime never enters this transform.
+    if "={{" in source or "={[" in source or "={(" in source:
+        return True
     depth = 0
     quoted: str | None = None
     index = 0
