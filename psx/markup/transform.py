@@ -152,7 +152,10 @@ def _has_expressive_interpolation(source: str) -> bool:
                 quoted = None
             index += 1
             continue
-        if ch in ("'", '"'):
+        # Quotes only delimit literals *inside* a braced expression.  In markup
+        # text an apostrophe (for example, ``you're``) is ordinary content and
+        # must not make the scanner ignore a later ``{visible && <Text />}``.
+        if depth and ch in ("'", '"'):
             quoted = ch
         elif ch == "{":
             depth += 1

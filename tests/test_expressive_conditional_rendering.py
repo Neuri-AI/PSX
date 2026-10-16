@@ -37,6 +37,29 @@ def view():
         self.assertIn("_psx_template_0.render_lexical", result.source)
         self.assertEqual(namespace["view"]().props["value"], "A && B")
 
+    def test_apostrophe_in_text_does_not_hide_a_conditional_expression(self):
+        namespace, result = _view("""
+from psx import psx
+def view(saved):
+    return psx('''
+        <Flex>
+            <Text>Save your changes when you're ready.</Text>
+            {saved && <Text>Changes saved.</Text>}
+        </Flex>
+    ''')
+""")
+        self.assertEqual(result.transformed_calls, 1)
+        self.assertEqual(len(namespace["view"](False).children), 1)
+        self.assertEqual(len(namespace["view"](True).children), 2)
+
+    def test_bare_boolean_attribute_remains_a_bool_in_expressive_markup(self):
+        namespace, _ = _view("""
+from psx import psx
+def view(visible):
+    return psx('<Flex><Text bold>Heading</Text>{visible && <Text>Visible</Text>}</Flex>')
+""")
+        self.assertIs(namespace["view"](False).children[0].props["bold"], True)
+
     def test_plain_numeric_text_interpolation_preserves_zero(self):
         namespace, _ = _view("""
 from psx import psx
