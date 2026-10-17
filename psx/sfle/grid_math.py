@@ -159,9 +159,14 @@ def project_grid_rows(
         if count == 0:
             result.append(GridPixelRow(()))
             continue
+        # During an interactive resize the viewport can temporarily be
+        # narrower than the declared gutters.  That is still valid geometry:
+        # shrink only the between-item gutters until they fit, leaving zero
+        # usable track width at the limit.  Rejecting it used to abort Qt's
+        # resize callback for perfectly ordinary small window sizes.
+        if count > 1:
+            gap = min(gap, width // (count - 1))
         required_gaps = (count - 1) * gap
-        if required_gaps > width:
-            raise GridPackingError("Grid column gaps exceed content width.")
         usable = width - required_gaps
         boxes: list[GridPixelItem] = []
         previous_end = 0

@@ -159,7 +159,14 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 ))
                 commit_widgets[leaf_id] = leaf_handles[placement.node_id].widget
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
-            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid intrinsic measurement invalidated.")
+            # Native widget creation can synchronously publish an intrinsic
+            # invalidation (notably Tk's requested-size update).  Renderers
+            # recognise this diagnostic as retryable and measure again using
+            # the new epoch instead of publishing a stale Grid transaction.
+            raise SFLEError(
+                DiagnosticCode.INVALID_SNAPSHOT,
+                "Stale semantic invalidation during Grid intrinsic measurement.",
+            )
         # One transaction must cover the root AND every nested native child.
         # A semantic invalidation after successful child readback still needs
         # to restore the already-written children.
@@ -169,6 +176,14 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         # Capture root geometry before ANY native write. Child transaction
         # rollback alone is insufficient if commit/readback fails after resize.
         root_widget = handles[id(grid.source)].widget
+        # A root Grid may itself be the application's top-level QWidget.  Its
+        # geometry is owned by the window manager/user, not by the child Grid
+        # transaction.  Calling setGeometry(0, 0, ...) here during a resize
+        # moves the window to the desktop origin and creates a resize feedback
+        # loop. Embedded Grid roots still need their local (0, 0) rectangle.
+        top_level_qt = backend is GridCommitBackend.QT and bool(
+            getattr(root_widget, "isWindow", lambda: False)()
+        )
         if backend is GridCommitBackend.QT:
             previous_rect = root_widget.geometry()
             previous_root = (previous_rect.x(), previous_rect.y(),
@@ -186,7 +201,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                                      for placement in prepared.placements})
         try:
             # This host never delegates sibling geometry to toolkit layout.
-            if backend is GridCommitBackend.QT:
+            if backend is GridCommitBackend.QT and not top_level_qt:
                 root_widget.setGeometry(0, 0, round(width), round(height))
             elif backend is GridCommitBackend.TK:
                 root_widget.place(x=0, y=0, width=round(width), height=round(height))
@@ -209,7 +224,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             rollback_scope.restore(previous_descendants)
             # Restore the root as well as the child batch; an initially
             # unplaced Tk root must remain unplaced after failed commit.
-            if backend is GridCommitBackend.QT:
+            if backend is GridCommitBackend.QT and not top_level_qt:
                 root_widget.setGeometry(*previous_root)
             elif backend is GridCommitBackend.TK:
                 if previous_root:

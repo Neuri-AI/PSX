@@ -215,7 +215,7 @@
       ]
     },
     {
-      "name": "excess_gap_rejected",
+      "name": "excess_gap_compacts_to_fit",
       "items": [
         {
           "id": "a",
@@ -232,7 +232,13 @@
       ],
       "width": 10,
       "gap": 6,
-      "error": "invalid"
+      "rows": [
+        [
+          {"id": "a", "x_raw": 0, "width_raw": 0},
+          {"id": "b", "x_raw": 320, "width_raw": 0},
+          {"id": "c", "x_raw": 640, "width_raw": 0}
+        ]
+      ]
     },
     {
       "name": "zero_width_single_auto",

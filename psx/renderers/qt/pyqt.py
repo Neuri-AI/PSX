@@ -844,7 +844,12 @@ class QtRenderer:
 
     def _default_insert(self, parent: object, child: object, index: int) -> None:
         if _handle(parent).node_type in ("Grid", "GridItem"):
-            _handle(child).widget.setParent(_handle(parent).widget)
+            widget = _handle(child).widget
+            widget.setParent(_handle(parent).widget)
+            # A child mounted after its top-level Grid is already visible
+            # (for example, a view selected through use_state) does not
+            # inherit visibility merely by being reparented.
+            widget.show()
             return
         _layout(_handle(parent)).insertWidget(index, _handle(child).widget)
 

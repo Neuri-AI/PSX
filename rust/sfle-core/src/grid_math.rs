@@ -192,10 +192,15 @@ pub fn project_grid_rows(
             result.push(GridPixelRow { items: vec![] });
             continue;
         }
-        let gaps = (count as i64 - 1) * gap;
-        if gaps > width {
-            return Err(GridPackingError::InvalidInput("Grid gaps exceed content width"));
-        }
+        // A live viewport can be narrower than the requested gutters while
+        // the user drags a window edge.  Compact gutters in that transient
+        // geometry instead of rejecting a valid zero-track layout.
+        let effective_gap = if count > 1 {
+            gap.min(width / (count as i64 - 1))
+        } else {
+            gap
+        };
+        let gaps = (count as i64 - 1) * effective_gap;
         let usable = width - gaps;
         let mut boxes = Vec::with_capacity(count);
         let mut previous_end = 0_i64;
@@ -212,8 +217,8 @@ pub fn project_grid_rows(
             let denom = 12_000_000_000_i128;
             let start = ((2 * first * usable as i128 + denom) / (2 * denom)) as i64;
             let end = ((2 * last * usable as i128 + denom) / (2 * denom)) as i64;
-            let x = start + index as i64 * gap;
-            let right = end + index as i64 * gap;
+            let x = start + index as i64 * effective_gap;
+            let right = end + index as i64 * effective_gap;
             if x < previous_end || right < x || x > i32::MAX as i64 ||
                right > i32::MAX as i64 {
                 return Err(GridPackingError::InvalidInput("Grid projected edges invalid"));

@@ -427,6 +427,45 @@ def test_grid_flex_grid_nested_reflow_and_stale_generation_recovery(request):
         reconciler.unmount()
 
 
+def test_auto_width_flex_padding_stays_inside_its_grid_item(request):
+    """Grid placement is a border box, not a Flex content-box constraint."""
+    from psx import Button, Flex
+    renderer = HeadlessRenderer(
+        sfle_constraints=viewport(800),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda _node, width: IntrinsicSizes(
+            0, width, 0, 24, width, 24,
+        ),
+    )
+    reconciler = Reconciler(renderer)
+    scene = Grid(
+        GridItem(
+            Flex(
+                Text("Navigation", font_size=20),
+                Button("Home"),
+                Button("Projects"),
+                direction="column", padding="16px", gap="12px",
+            ),
+            span=3,
+        ),
+        GridItem(Text("Main Content", font_size=20), span=9),
+        gap="12px",
+    )
+    try:
+        root = reconciler.render(scene)
+        item = root.children[0].handle.geometry
+        sidebar = root.children[0].children[0]
+        for child in sidebar.children:
+            rect = child.handle.geometry
+            assert rect.x >= item.x + 16
+            assert rect.x + rect.width <= item.x + item.width
+        assert_feature(request, Feature(
+            "GridItem", "headless", "layout", "flex_padding",
+            "no_horizontal_clip", applicability="partial_native"), True)
+    finally:
+        reconciler.unmount()
+
+
 @pytest.mark.parametrize("reason", ("resource", "dpi"))
 def test_grid_root_semantic_invalidation_after_child_commit_rolls_back_and_recovers(request, monkeypatch, reason):
     """Late content/resource invalidation must not leave stale child geometry."""

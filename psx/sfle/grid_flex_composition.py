@@ -6,12 +6,13 @@ Native terminal measurements are passed in from the toolkit owner thread.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from collections.abc import Callable
 from psx.core.layout_tree import NormalizedLayoutNode
 from psx.core.vnode import NodeKind
 from .errors import DiagnosticCode, SFLEError
 from .grid_math import GridPackingError
+from .lengths import LengthKind, parse_length
 from .model import IntrinsicSizes, MeasuredBox, AvailableSize, LayoutConstraints
 from .native_layout_snapshot import path_identity, prepare_native_layout_snapshot
 from .width_dependent_intrinsic_measurement import compute_width_dependent
@@ -24,6 +25,72 @@ class ComposedFlex:
     result: object
     nested_grids: dict[str, object]
     content_height: float
+
+
+def _auto_root_content_width(flex: NormalizedLayoutNode, border_width: float) -> float | None:
+    """Return an auto Flex root's content width inside its GridItem border box.
+
+    A Grid placement is a border-box rectangle.  An auto-width Flex occupying
+    that placement therefore has its padding and border inside that rectangle.
+    Feeding the border width to the SFLE root as though it were a content width
+    makes every child extend by the horizontal edges and lets native parents
+    clip the right side.
+    """
+    props = flex.source.props
+    if props.get("width", "auto") != "auto" or "layout_width" in props:
+        return None
+
+    def shorthand(value: object) -> tuple[object, object, object, object]:
+        values = tuple(value) if isinstance(value, (tuple, list)) else (value,)
+        if len(values) == 1:
+            return values * 4
+        if len(values) == 2:
+            return values[0], values[1], values[0], values[1]
+        if len(values) == 4:
+            return values
+        raise GridPackingError("Flex padding must have 1, 2, or 4 edges.")
+
+    padding = shorthand(props.get("padding", 0))
+
+    def edge(name: str, fallback: object) -> float:
+        value = props.get(name, fallback)
+        parsed = parse_length(value)
+        if parsed.kind is LengthKind.PX:
+            return float(parsed.value)
+        if parsed.kind is LengthKind.PERCENT:
+            return border_width * float(parsed.value)
+        raise GridPackingError(f"GridItem Flex {name} must be a concrete length.")
+
+    horizontal = (
+        edge("layout_padding_left", padding[3])
+        + edge("layout_padding_right", padding[1])
+        + edge("layout_border_left", 0)
+        + edge("layout_border_right", 0)
+    )
+    return max(0.0, border_width - horizontal)
+
+
+def _with_auto_root_content_width(prepared, flex: NormalizedLayoutNode,
+                                  border_width: float):
+    """Pin only the root content box; retain the outer Grid constraint.
+
+    The Grid bridge's outer constraint is also used by Qt while negotiating a
+    top-level window resize.  Replacing that constraint with the content box
+    made the native size-hint feedback loop unstable.  Giving the root an
+    explicit resolved ``layout_width`` instead preserves the Grid border-box
+    contract while making the inner Flex children honor padding.
+    """
+    width = _auto_root_content_width(flex, border_width)
+    if width is None:
+        return prepared
+    root, *rest = prepared.snapshot.nodes
+    style = dict(root.style)
+    style["layout_width"] = width
+    snapshot = replace(
+        prepared.snapshot,
+        nodes=(replace(root, style=tuple(sorted(style.items()))), *rest),
+    )
+    return replace(prepared, snapshot=snapshot)
 
 
 def prepare_composed_flex(
@@ -45,7 +112,10 @@ def prepare_composed_flex(
     constraints = LayoutConstraints(
         AvailableSize(content_width, True), AvailableSize(None, False),
     )
-    prepared = prepare_native_layout_snapshot(flex, constraints, generation=generation)
+    prepared = _with_auto_root_content_width(
+        prepare_native_layout_snapshot(flex, constraints, generation=generation),
+        flex, content_width,
+    )
     all_nodes = {}
 
     def visit(node):

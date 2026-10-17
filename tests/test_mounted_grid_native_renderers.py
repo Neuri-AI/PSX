@@ -109,6 +109,118 @@ def test_mounted_grid_native_parentage_reflow_keyed_reorder_and_teardown(request
     receipt("Grid", "native_root", "teardown")
 
 
+def test_top_level_qt_grid_resize_preserves_window_position():
+    """A Grid root must not take ownership of a user-positioned window."""
+    if os.environ.get("PSX_GRID_BACKEND") != "qt":
+        pytest.skip("Qt-specific top-level window geometry")
+    renderer, close = make_renderer("qt")
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(view())
+        window = root.handle.widget
+        window.move(137, 83)
+        renderer.application.processEvents()
+        renderer.set_sfle_constraints(viewport(920))
+        renderer.commit_layout(root)
+        assert (window.x(), window.y()) == (137, 83)
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_grid_item_dynamically_replaced_child_is_mounted():
+    """A state-driven GridItem replacement must be attached and laid out."""
+    from psx import Button
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        reconciler.render(Grid(GridItem(Text("Home"), span=12)))
+        updated = reconciler.render(Grid(GridItem(Button("Projects"), span=12)))
+        widget = updated.children[0].children[0].handle.widget
+        parent = updated.children[0].handle.widget
+        if backend == "qt":
+            # Qt needs show() after a late setParent() on a visible Grid.
+            assert not widget.isHidden()
+        elif backend == "tk":
+            # The native Grid commit owns placement for newly mounted children.
+            assert widget.winfo_manager() == "place"
+        else:
+            # Kivy's insertion attaches the newly created child immediately.
+            assert widget.parent is parent
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_auto_width_flex_padding_stays_inside_native_grid_item():
+    """The shared Grid→Flex snapshot must reserve the padded content box."""
+    from psx import Button, Flex
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(
+            Grid(
+                GridItem(
+                    Flex(
+                        Text("Navigation", font_size=20),
+                        Button("Home"),
+                        Button("Projects"),
+                        direction="column", padding="16px", gap="12px",
+                    ),
+                    span=3,
+                ),
+                GridItem(Text("Main content"), span=9),
+                gap="12px",
+            )
+        )
+        sidebar = root.children[0].children[0].handle.widget
+        button = root.children[0].children[0].children[1].handle.widget
+        _, _, sidebar_width, _ = rectangle(sidebar, backend)
+        button_x, _, button_width, _ = rectangle(button, backend)
+        assert button_x >= 15
+        assert button_x + button_width <= sidebar_width + 1
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_nested_grid_survives_a_tiny_viewport():
+    """Live resizes may briefly make declared Grid gaps wider than a track."""
+    from psx import Flex
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(
+            Grid(
+                GridItem(Text("Navigation"), span=4),
+                GridItem(
+                    Flex(
+                        Grid(
+                            GridItem(Text("Card 1"), span=4),
+                            GridItem(Text("Card 2"), span=4),
+                            GridItem(Text("Card 3"), span=4),
+                            gap="12px",
+                        ),
+                        direction="column", padding="16px", gap="12px",
+                    ),
+                    span=8,
+                ),
+                gap="12px",
+            )
+        )
+        renderer.set_sfle_constraints(viewport(5))
+        renderer.commit_layout(root)
+        assert renderer.grid_result is not None
+    finally:
+        reconciler.unmount()
+        close()
+
+
 def test_grid_root_geometry_is_restored_when_native_batch_fails(request, monkeypatch):
     """A rejected native commit must not leave the resized root behind."""
     from psx.sfle import native_grid_bridge
