@@ -323,6 +323,38 @@ The approved M4B developer-authored syntax is `{condition && <Element />}`, `{co
 
 **Status:** G1–G4 CLOSED; G5 reproducible projects and native Linux smoke CLOSED in PR #39 (pending merge); G6 NOT STARTED. Independent per-behavior native matrix and G6 owner signoff are still required for overall F5.5 certification. G1 does not independently certify per-API native behavior; precise cross-references and compatibility evidence remain required in G4/G5/G6. **Publication branch:** `develop`; **public Mintlify MDX:** `docs/public/`. Normative contract: [F5.5 documentation contract](architecture/f5-5-public-documentation-contract.md). Mandatory living handoff/evidence log: [F5.5 progress](architecture/f5-5-public-documentation-progress.md). First audit actual exports, code and tests on `develop`; then validate beginner-first, detailed reproducible examples, public API/component reference, Mintlify build and native CI evidence. Keep future Qyro Engine, Pydux and Velto CLI documentation integrations out of initial F5.5 implementation. **Never claim coverage or gate closure without executable evidence and immutable SHA.**
 
+## Pending — Velto Web-like UI & CSS-like Architecture (approved specification; implementation not started)
+
+**Architectural decision approved 2026-10-17; specification v1.1.** Normative source:
+[Velto Web-like UI & CSS-like Architecture Specification](architecture/velto-web-like-css-like-architecture.md).
+**Status: SPECIFICATION APPROVED / IMPLEMENTATION NOT STARTED / NO CERTIFICATION.**
+This work is a distinct future implementation track. Its phase numbering (F0–F8) is local to the architecture specification, **not** a declaration that PSX F0–F8 exist or are complete. A delivery milestone, implementation branch and official gate schedule still require owner approval. This entry does not reopen certified F3/F5 gates or authorize F6 hot-reload work.
+
+**Core contract:** PSX Markup exposes two complementary public abstraction levels:
+- **Web-like Primitives** (`div`, `span`, `p`, `input`, `label`, `button`, etc.) are the recommended compositional foundation for new applications. They provide the declared subset of HTML-like semantics and CSS-like layout/styling; they are native, not browser DOM elements.
+- **Velto Components** (`Button`, `Text`, `Flex`, `Grid`, `Checkbox`, `Radio`, `Switch`, etc.) remain supported higher-level portable abstractions, preserving documented public props, behavior, events and identities. They can compose primitives, offer convenience APIs (including integrated labels where their **verified** contracts support them), or use justified native adapters. They are **not** mere capitalization aliases.
+- Both levels share **one PSX reconciler/lifecycle, one CSS-like style resolution contract, one universal Cinnamon box/layout authority integrated inside PSX, and native Qt/Tkinter/Kivy renderers**. No parallel layout engine, browser engine or WebView is introduced as the layout foundation.
+
+**Superseded decision:** Do **not** delete, automatically deprecate or replace the existing component library. Earlier breaking-removal language is superseded by the dual-level compatibility decision (revised B1/B2/B5/D5). Existing component internals may be refactored while public compatibility is tested and retained.
+
+**Planned work packages (not yet implemented or certified):**
+
+| Specification phase | Work package | Exit evidence required |
+| --- | --- | --- |
+| F0 | Inventory and baseline | Registry/props/events/backend census, regression fixtures, supported CSS subset |
+| F1 | Universal box model | Cinnamon-owned geometry, box-sizing, intrinsic measurement and parity fixtures |
+| F2 | Web-like primitive registry | Lowercase tag semantics, defaults, text, labels and accessibility contracts |
+| F3 | CSS Core | Stylesheets, classes/IDs, selectors, specificity, cascade and diagnostics |
+| F4 | CSS Layout | Block/inline/flex/grid, dimensions, spacing, flow, positioning and overflow |
+| F5 | CSS Visual | Typography, colors, backgrounds, borders and native paint contracts |
+| F6 | CSS States | Hover/focus/active/disabled state mapping and tests |
+| F7 | CSS Advanced | Inheritance, variables, themes and advanced selectors in declared scope |
+| F8 | Compatibility and certification | Existing-component refactoring, public API regressions, backend capability matrix and Chromium differential evidence |
+
+**Dependency and release safeguards:** Freeze the actual `develop` component contract before migration; retain `Checkbox`'s currently verified `checked`/`enabled`/`on_change` API and do not claim a portable `label` prop unless implemented and tested. Preserve existing F4 responsive Grid semantics while adding CSS Grid; distinguish the two in documentation. Require deterministic layout/visual comparisons against a declared browser reference, backend-specific tests, accessibility checks and explicit unsupported-feature diagnostics. Each phase is complete only with implementation evidence and certification; approving the specification does not advertise support.
+
+**Unresolved architectural gates:** exact browser/CSS reference subset, margin collapsing, stylesheet loading API, `!important`, event propagation, stacking contexts, and release/version policy must be resolved before their affected implementation gates. See the specification's section 20.
+
 ## F6 — Intelligent Hot Reloading (future, postponed)
 
 **Assigned milestone:** M8; not part of F5. **Status:** POSTPONED / NOT AUTHORIZED FOR NEW IMPLEMENTATION. Qyro CLI and Qyro Engine are currently being modified by the owner. Do not integrate or alter these external systems for hot reload until that work is ready and a separate F6 specification is approved.
