@@ -5,15 +5,12 @@ from __future__ import annotations
 import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--no-sandbox --disable-gpu")
-
-from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtCore import QCoreApplication, QEvent
+from PySide6.QtCore import QCoreApplication, QEvent, QUrl
+from PySide6.QtWebView import QWebView
 
 from psx import Ref, psx
 from psx.core.reconcile import Reconciler
 from psx.core.registry import builtin_component_registry
-from psx.extensions.qt_webengine import WebView
 from psx.renderers.qt.pyside import PySide6Renderer
 
 
@@ -21,30 +18,31 @@ def test_webview_custom_markup_preserves_identity_events_refs_and_cleanup() -> N
     renderer = PySide6Renderer([])
     reconciler = Reconciler(renderer)
     registry = builtin_component_registry()
-    registry.register("WebView", WebView)
     ref: Ref[object] = Ref()
-    callbacks: list[tuple[str, bool]] = []
-    scope = {"url": "about:blank", "ref": ref, "loaded": lambda ok: callbacks.append(("old", ok))}
-    node = psx('<WebView key="engine" url={url} ref={ref} on_load_finished={loaded} />', scope=scope, registry=registry)
+    callbacks: list[str] = []
+    scope = {"url": "about:blank", "ref": ref, "changed": lambda url: callbacks.append(url.toString())}
+    node = psx('<WebView key="engine" url={url} width="100%" height="100%" ref={ref} on_url_changed={changed} />', scope=scope, registry=registry)
+    assert node.type.sfle_port is not None
+    assert node.props["layout_width"] == "100%"
+    assert node.props["layout_height"] == "100%"
     first = reconciler.render(node)
     widget = ref.current
-    assert isinstance(widget, QWebEngineView)
-    assert widget.url().toString() == "about:blank"
-    widget.loadFinished.emit(True)
-    assert callbacks == [("old", True)]
+    assert isinstance(widget.web_view, QWebView)
+    assert widget.web_view.url().toString() == "about:blank"
+    widget.web_view.urlChanged.emit(QUrl("https://example.test/first"))
+    assert callbacks == ["https://example.test/first"]
 
     scope["url"] = "https://example.test/next"
-    scope["loaded"] = lambda ok: callbacks.append(("new", ok))
-    second = reconciler.render(psx('<WebView key="engine" url={url} ref={ref} on_load_finished={loaded} />', scope=scope, registry=registry))
+    scope["changed"] = lambda url: callbacks.append("new:" + url.toString())
+    second = reconciler.render(psx('<WebView key="engine" url={url} ref={ref} on_url_changed={changed} />', scope=scope, registry=registry))
     assert second.handle is first.handle
     assert ref.current is widget
-    assert widget.url().toString() == "https://example.test/next"
-    widget.loadFinished.emit(True)
-    assert callbacks == [("old", True), ("new", True)]
+    assert widget.web_view.url().toString() == "https://example.test/next"
+    widget.web_view.urlChanged.emit(QUrl("https://example.test/second"))
+    assert callbacks == ["https://example.test/first", "new:https://example.test/second"]
 
     reconciler.unmount()
     assert ref.current is None
-    # Deliver Qt's deferred native destruction before pytest tears down the
-    # process; WebEngine owns a helper process while a view is alive.
+    # Deliver Qt's deferred native destruction before pytest tears down.
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     renderer.application.processEvents()

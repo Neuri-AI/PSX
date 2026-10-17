@@ -16,6 +16,7 @@ from .core.hooks import Ref, use_effect, use_ref, use_state
 from .markup import psx
 from .core.native import Native, NativeOwnership, NativeWidget
 from .core.registry import ComponentDefinition, ComponentRegistry, builtin_component_registry
+from .extensions import WebView
 from .plugins import (
     PLUGIN_ENTRY_POINT_GROUP,
     Plugin,
@@ -80,6 +81,7 @@ __all__ = [
     "Badge",
     "SpinBox",
     "Scroll",
+    "WebView",
 
     "App",
     "ComponentDefinition",

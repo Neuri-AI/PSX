@@ -412,6 +412,14 @@ class QtRenderer:
         self._primitive_classes: dict[str, type] = {}
 
         application = widgets.QApplication
+        if binding == "PySide6" and application.instance() is None:
+            try:
+                from PySide6.QtWebView import QtWebView
+            except ImportError:
+                # QtWebView is optional unless an application renders WebView.
+                pass
+            else:
+                QtWebView.initialize()
         self.application = application.instance() or application(
             argv if argv is not None else sys.argv)
         self._dispatcher = _make_dispatcher(core)

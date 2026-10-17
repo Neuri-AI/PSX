@@ -56,7 +56,7 @@ sequenceDiagram
 
 Every renderer owns an instance-scoped `RendererAdapterRegistry`. A `ComponentAdapter` implements `create`, `update`, `bind_event`, `unbind_event`, and `destroy`. Headless, PySide6, PyQt5, PyQt6, Kivy, and Tkinter use this seam.
 
-`Native` and `NativeWidget` are the native escape hatch. Declarations specify renderer, ownership, updates, and event binding. Borrowed widgets are never destroyed. `psx.extensions.WebView` is an optional PySide6 WebEngine example.
+`Native` and `NativeWidget` are the native escape hatch. Declarations specify renderer, ownership, updates, and event binding. Borrowed widgets are never destroyed. The built-in PySide6 `WebView` tag hosts Qt WebView's platform-native `QWebView` in a QWidget for Flex layout.
 
 `psx.plugins` lets external packages receive only explicit registries and named renderer instances. Entry-point discovery is opt-in.
 

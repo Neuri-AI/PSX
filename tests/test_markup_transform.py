@@ -4,11 +4,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, "src")
 
 from psx.core.reconcile import Reconciler
+from psx.core.native import NativeWidget
 from psx.core.errors import MarkupSyntaxError
+from psx.extensions.qt_webengine import WebView
 from psx.markup.transform import transform_file, transform_source
 from psx.renderers.headless import HeadlessRenderer
 
@@ -86,6 +89,30 @@ def view():
         node = _execute_transformed(result.source)["view"]()
         self.assertEqual(node.type, "TextArea")
         self.assertEqual(node.props["value"], "draft")
+
+    def test_builtin_webview_tag_does_not_require_a_python_import(self) -> None:
+        result = transform_source(
+            """
+from psx import psx
+def view():
+    return psx('<WebView url="https://example.test" />')
+""",
+            filename="webview_builtin.py",
+        )
+        self.assertNotIn("'WebView': lambda", result.source)
+
+    def test_webview_width_and_height_are_sfle_layout_dimensions(self) -> None:
+        declaration = NativeWidget(renderer="pyside6", factory=object)
+        with patch("psx.extensions.qt_webengine._declaration", return_value=declaration):
+            node = WebView(
+                url="https://example.test", width="100%", height="100%", flex_grow=1,
+            )
+        self.assertIs(node.type, declaration)
+        self.assertEqual(node.props["layout_width"], "100%")
+        self.assertEqual(node.props["layout_height"], "100%")
+        self.assertNotIn("width", node.props)
+        self.assertNotIn("height", node.props)
+        self.assertEqual(node.props["flex_grow"], 1)
 
     def test_closure_and_shadowing_follow_normal_python_lexical_rules(self) -> None:
         result = transform_source(

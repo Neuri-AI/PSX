@@ -325,6 +325,9 @@ class RoutingTests(unittest.TestCase):
     def test_qt_layout_bridge_binding_parity_module_routes_to_qt_not_core(self):
         self.assertEqual(self.selected("tests/test_qt_native_component_lifecycle.py"), {"qt"})
 
+    def test_qt_webview_extension_routes_to_qt(self):
+        self.assertEqual(self.selected("psx/extensions/qt_webengine.py"), {"qt"})
+
     def test_workflow_affecting_browser_enables_chromium(self):
         self.assertEqual(
             self.selected(".github/workflows/sfle-chromium.yml"),

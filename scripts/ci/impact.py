@@ -103,6 +103,8 @@ def _classify_path(path: str) -> set[str]:
         return {"sfle", "rust", "chromium", "headless"}
     if path.startswith("psx/renderers/qt/"):
         return {"qt"}
+    if path == "psx/extensions/qt_webengine.py":
+        return {"qt"}
     if path.startswith("psx/renderers/kivy/"):
         return {"kivy"}
     if path.startswith("psx/renderers/tkinter/"):
