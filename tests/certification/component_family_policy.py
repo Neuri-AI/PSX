@@ -27,6 +27,7 @@ _SPECIAL = {
     "Scroll": "native_viewport",
     "Fragment": "transparent",
     "Native": "external_port",
+    "WebView": "external_port",
 }
 _LEAVES = frozenset.union(*(frozenset(types) for types in NATIVE_LEAF_TYPES.values())) - set(_SPECIAL)
 FAMILY_POLICY = MappingProxyType({
