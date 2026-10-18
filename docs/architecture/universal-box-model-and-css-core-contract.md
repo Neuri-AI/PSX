@@ -1,9 +1,9 @@
-# Universal Box Model and CSS Core — Architectural Contract Proposal
+# Universal Box Model and CSS Core — Approved Architectural Contract
 
-> **Status:** DRAFT — OWNER REVIEW REQUIRED; NOT APPROVED
+> **Status:** OWNER-APPROVED ARCHITECTURAL DIRECTION (2026-10-18); detailed undecided interfaces remain explicitly open
 > **Scope:** The single phase branch `feature/universal-box-model-and-styling`.
-> **Decision authority:** Project owner. This document records proposals, not inferred approvals.
-> **Implementation status:** No runtime implementation is authorized by the existence of this proposal.
+> **Decision authority:** Project owner. Explicit approval recorded in the working conversation on 2026-10-18: “va acepto el contrato”.
+> **Implementation status:** Contract approved as architectural direction. This is not runtime implementation, native certification, or a blanket waiver of the separate global architecture approval gate.
 
 ## 1. Objective and boundaries
 
@@ -312,28 +312,28 @@ Tests are **planned, not executed**. CSS source parser, computed style or new lo
 
 **Phase exit:** old API examples continue to work; new claimed markup/styles behave according to approved contracts; backend-specific evidence, public census and no confirmed high-severity layout loops; unresolved platform gaps are explicit. Full memory-leak resolution is a separate phase and is not falsely claimed here.
 
-## 12. Decisions requiring explicit project-owner approval
+## 12. Owner-approved direction and unresolved implementation details
 
-The following are **PROPOSALS**, never assumed ratified by this file:
+**Recorded owner approval (2026-10-18):** The owner accepted this architectural contract as a whole, including the distinct legacy responsive Grid and future CSS Grid algorithms, CSS Core extensibility, Cinnamon layout ownership, native compatibility, incremental invalidation, bounded caches, and staged certification. The selections below are **approved architectural defaults where specified**, not evidence that APIs, exact syntax, rollout timing or tests have been finalized. Rows marked **DETAIL OPEN** still require a targeted follow-up decision before implementing that exact public behavior:
 
 | Decision | Recommended choice | Current status |
 | --- | --- | --- |
-| CSS engine scope | Extensible parser + selector matcher + cascade + computed style, deployed incrementally | PENDING |
-| Styling precedence | Scoped stylesheet < inline; retain legacy explicit layout precedence on existing components | PENDING |
-| First supported selectors | Type, class and ID; no combinators/pseudo-states initially | PENDING |
-| First CSS property subset | Geometry/Flex first, verified paint properties later | PENDING |
-| New lowercase box sizing | Per-tag defaults, proposed border-box generic containers, old component semantics untouched | PENDING |
-| Block and inline semantics | Dedicated contract; no fake Flex implementation | PENDING |
-| Legacy Grid versus CSS Grid | Preserve existing `<Grid>`/`<GridItem>` algorithm; separate `display: grid` track-formatting context in Cinnamon | **OWNER DIRECTION RECORDED**; detailed CSS Grid capability contract pending |
-| CSS descendant selectors | Support `.parent button` as an extensible selector form with tracked ancestor dependencies | PENDING first-release scope |
-| Overflow | Existing Scroll ownership, fail closed for unsupported overflow | PENDING |
-| Lowercase aliases | Finite registry, no generic HTML fallback | PENDING |
-| Class/style declaration API | Decide `class` vs other spellings; stylesheet attachment API and security grammar | PENDING |
-| Native renderer ports | Optional typed geometry/style capabilities; no blanket breaking Renderer protocol | PENDING |
-| Unsupported declarations | Deterministic diagnostic/fail-closed; parser recovery rules separately specified | PENDING |
+| CSS engine scope | Extensible parser + selector matcher + cascade + computed style, deployed incrementally | **APPROVED direction** |
+| Styling precedence | Scoped stylesheet < inline; retain legacy explicit layout precedence on existing components | **APPROVED direction**; exact conflict diagnostics DETAIL OPEN |
+| First supported selectors | Type, class and ID as initial subset | **APPROVED staged direction**; release selection DETAIL OPEN |
+| First CSS property subset | Geometry/Flex first, verified paint properties later | **APPROVED staged direction**; exact supported grammar DETAIL OPEN |
+| New lowercase box sizing | Per-tag defaults, proposed border-box generic containers, old component semantics untouched | **APPROVED compatibility rule**; exact per-tag defaults DETAIL OPEN |
+| Block and inline semantics | Dedicated contract; no fake Flex implementation | **APPROVED direction**; exact formatting rules DETAIL OPEN |
+| Legacy Grid versus CSS Grid | Preserve existing `<Grid>`/`<GridItem>` algorithm; separate `display: grid` track-formatting context in Cinnamon | **APPROVED direction**; CSS track algorithm DETAIL OPEN |
+| CSS descendant selectors | Support `.parent button` as an extensible selector form with tracked ancestor dependencies | **APPROVED design target**; first-release scope DETAIL OPEN |
+| Overflow | Existing Scroll ownership, fail closed for unsupported overflow | **APPROVED direction**; mode-specific backend mapping DETAIL OPEN |
+| Lowercase aliases | Finite registry, no generic HTML fallback | **APPROVED direction**; exact aliases DETAIL OPEN |
+| Class/style declaration API | Decide `class` vs other spellings; stylesheet attachment API and security grammar | **DETAIL OPEN**; no syntax approved |
+| Native renderer ports | Optional typed geometry/style capabilities; no blanket breaking Renderer protocol | **APPROVED direction**; final interface DETAIL OPEN |
+| Unsupported declarations | Deterministic diagnostic/fail-closed; parser recovery rules separately specified | **APPROVED direction**; parser recovery DETAIL OPEN |
 
-**Required review outcome:** Mark each choice APPROVED, DEFERRED (with non-impact justification), or REJECTED and record the date/revision and owner's evidence. Keep the existing `ARCHITECTURE_APPROVAL.md` global gate separately blocked until its outstanding conditions are actually disposed. Approval of this style proposal is not automatic approval of unrelated memory, packaging or hot-reload decisions.
+**Review outcome:** Owner approved the architectural direction on 2026-10-18. Resolve each **DETAIL OPEN** item with a source-backed follow-up decision before the corresponding API or runtime behavior is implemented. Keep the separate `ARCHITECTURE_APPROVAL.md` global gate explicitly blocked while its evidence and unrelated architecture decisions remain incomplete. This approval does not waive packaging, lifecycle/memory, hot reload, or same-SHA certification requirements.
 
-## 13. Current implementation authorization
+## 13. Implementation authorization and next deliverable
 
-**Documentation/design only.** This draft does not authorize changes to public style semantics, HTML-like tags, native widget layout ownership, or global cascade. The certified canonical snapshot groundwork may remain on the phase branch. The next runtime increment starts only after the relevant owner decisions have been explicitly approved and the implementation's exact baseline is rechecked.
+**Architectural direction approved, not a blanket release gate.** The owner approved this contract's approach; implementation may be planned against its approved invariants. Do not introduce a public style API, new HTML-like tags, CSS cascade semantics or native widget geometry ownership changes while the exact applicable decisions remain **DETAIL OPEN** or the separate global approval gate remains blocked. The next bounded deliverable is to reconcile and formally record the measurement/invalidation boundary and style-property precedence needed for the canonical Cinnamon integration, with baseline fixtures and explicit treatment of remaining gate blockers. Keep code and documentation claims tied to actual executed results.
