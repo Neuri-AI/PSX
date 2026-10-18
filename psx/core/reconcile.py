@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import cast
 
 from psx.renderers.protocol import Renderer
@@ -329,9 +329,11 @@ class Reconciler:
         instance.disposed = True
         errors: list[Exception] = []
 
-        def attempt(operation: object, *args: object) -> object | None:
+        def attempt(
+            operation: Callable[..., object], *args: object, **kwargs: object
+        ) -> object | None:
             try:
-                return operation(*args)  # type: ignore[operator]
+                return operation(*args, **kwargs)
             except Exception as error:
                 errors.append(error)
                 return None
@@ -344,22 +346,16 @@ class Reconciler:
             if parent_handle is not None:
                 attempt(self.renderer.remove, parent_handle, native_handle)
         # Make callbacks inert before the native widgets can be destroyed.
-        try:
-            for slot, subscription in tuple(instance.event_slots.values()):
-                try:
-                    slot.dispose()
-                finally:
-                    attempt(self.renderer.unbind_event, subscription)
-        except Exception as error:
-            errors.append(error)
-        finally:
-            instance.event_slots.clear()
+        for slot, subscription in tuple(instance.event_slots.values()):
+            attempt(slot.dispose)
+            attempt(self.renderer.unbind_event, subscription)
+        instance.event_slots.clear()
 
         if isinstance(instance.ref, Ref):
             instance.ref.current = None
         attempt(dispose_hooks, instance)
         for child in reversed(instance.children):
-            attempt(self._unmount, child, detach=False)  # type: ignore[call-arg]
+            attempt(self._unmount, child, detach=False)
         instance.children.clear()
         instance.contexts.clear()
         if instance.handle is not None:
