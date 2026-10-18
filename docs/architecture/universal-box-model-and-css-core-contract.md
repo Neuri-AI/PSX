@@ -166,6 +166,39 @@ The stylesheet attachment API (`class` vs `class_name`, scoped `css` or file imp
 - **Lifecycle:** dispose stylesheet listeners/state selectors with the owning tree, clear cache entries on unmount, preserve focus and key identity when the node is reused.
 - **Errors:** unsupported property on a backend must identify property, target and backend; no silent success. Do not convert an unsupported CSS property to a zero dimension.
 
+## 8.1. Incremental style computation and memory ownership (required design contract)
+
+**Non-negotiable performance invariant:** A local state/property change must not automatically reparse all stylesheets, rematch every selector, recompute every component style or rerun layout for an unaffected tree. The implementation must supply dependency-aware incremental work; a full invalidation is permitted only when its actual scope is global, or as a documented conservative fallback for a feature without safe fine-grained tracking. No guarantee of constant-time updates is implied.
+
+**Stages and dirty classifications:**
+
+1. **Parse:** compile stylesheet text on a changed stylesheet revision, not on each render/reconciliation; parse artifacts must be immutable or safely versioned.
+2. **Match:** derive candidates from indexed type/class/ID rules when those selector forms are supported. Track dependencies on a node's own type/class/ID, supported ancestor selectors, pseudo-state, scope and stylesheet version. Changes to an ancestor must invalidate only descendants that may be affected by supported selectors or inheritance; if precise dependency tracking is impossible, explicitly broaden that subtree.
+3. **Cascade and computed style:** reuse cached results only if every dependency (rule-set revision, relevant node attributes, inherited values, theme/environment state and property-registry revision) remains valid. Unchanged computed styles must preserve stable semantic equality so downstream stages can skip unnecessary work.
+4. **Dispatch by property effect:** distinguish **layout/measurement**, **paint**, **interaction/accessibility**, and **no semantic change**. Paint-only changes must not invoke Cinnamon or native intrinsic measurement; geometry changes must invalidate affected layout contexts and respect parent/child percentage and intrinsic dependencies.
+5. **Native commit:** batch/coalesce repeated invalidations within an event-loop turn, avoid redundant geometry writes when rectangles match, and prevent synchronous resize/measure/reconcile feedback loops. A failed commit must not publish an inconsistent cache or stale geometry generation.
+
+**Cache keys and eviction requirements:**
+
+- Separate caches where justified: parsed stylesheets, selector-match candidates, resolved/computed styles, and Cinnamon geometry/measurement. Do not use one global opaque cache that conflates all ownership domains.
+- Define explicit owner, maximum retained entries/bytes or equivalent bounded eviction policy, and revision/invalidation key for **each** cache before enabling it. Document when caches are instance-local versus shared; a shared stylesheet cache must not retain mounted component instances.
+- Prefer immutable fingerprints/IDs for keys; do **not** rely solely on Python object identity or unbounded global dictionaries. Hash collisions must not permit semantically incorrect reuse.
+- Unmount/removal must release per-node computed styles, selector dependency edges, subscriptions and native-handle references. Shared reusable immutable stylesheet entries may survive unmount **only within their documented cache bounds**. Use weak references only where their semantics and native ownership permit; weak references alone are not a complete cleanup strategy.
+- Change of stylesheet, registry, scope, theme/DPI/font resource or parent computed values must invalidate the exact dependent data or a documented safe superset. Reordering a keyed list must preserve styles by stable identity without retaining removed nodes.
+- Rust/Python engine boundaries must avoid duplicate long-lived ownership of logically retired snapshots. An invalidated generation must never be reused for a newer render.
+
+**Observability and testable acceptance criteria:**
+
+- Instrument counts for stylesheet parses, selector evaluations, cascade/computed-style evaluations, Cinnamon layout passes, native measure calls, geometry writes, invalidation expansions, cache entries/evictions and retained live-style owners. Expose diagnostics through an internal test/diagnostic seam; do not promise a public profiling API yet.
+- Repeat a local state change in a large independent sibling tree: unrelated subtrees must not be rematched, restyled, remeasured or relaid out, **except** when a supported selector/dependency legitimately requires it; the test must state the dependency graph and expected affected set.
+- Repeat a paint-only color change: assert **zero additional Cinnamon layout calculations and intrinsic measurements** attributable to that change. Native paint application may occur.
+- Repeat a dimension/ancestor font/containing-block change: assert that dependent descendants are updated and unrelated independent branches remain unchanged.
+- Mount/unmount, add/remove and reorder many keyed nodes, then quiesce native event queues and GC: assert retired node owners, match dependency links and subscriptions are released; cache residency stays within configured bounds. Test transient growth separately from retained growth.
+- Change stylesheet/scope/theme and verify no stale computed styles. Simulate failed geometry commit and check rollback plus subsequent recovery.
+- Benchmark cold vs warm style resolution, targeted updates and full-sheet replacements against pinned environment/baseline. Set quantitative regression budgets from observed results **before production certification**; do not invent generic latency or RAM ceilings.
+
+**Performance is a release gate, not a later optional optimization.** Features that require selectors or inheritance not covered by incremental invalidation tests remain unshipped, even if their styling output looks correct. The previously deferred Kivy long-duration memory regression remains tracked in the separate memory/resource phase; this clause does not claim it has been resolved.
+
 ## 9. Migration and backward compatibility matrix
 
 | Existing surface | Preserve | New capability cannot silently do |
