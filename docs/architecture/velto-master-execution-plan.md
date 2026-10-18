@@ -91,7 +91,7 @@ Produce `BASELINE.md` with repository paths, commit IDs, supported Python/backen
 
 **Goal:** Implement contract P0 in PSX/Cinnamon and every supported renderer in controlled slices.
 
-**CSS Core design track (proposal; approval pending):** [Universal Box Model and CSS Core Architectural Contract](universal-box-model-and-css-core-contract.md) captures the explicit parser, selector, cascade, computed-style and renderer-capability boundaries missing from the original six implementation slices. Its architecture is **proposed**, not approved or implemented. Before proceeding with production changes, ratify the choices in that document and reconcile them with the pending owner decision package. The six slices remain the existing execution outline; do not interpret them as complete CSS Core acceptance criteria.
+**CSS Core design track (owner-approved architectural direction, 2026-10-18):** [Universal Box Model and CSS Core Architectural Contract](universal-box-model-and-css-core-contract.md) extends this execution sequence with an internal parser, selector matcher, cascade, computed-style pipeline, incremental invalidation and native capability boundary. The architecture is **approved as direction, not implemented or fully certified**. The contract explicitly preserves existing twelve-column `Grid` / `GridItem` and treats new CSS Grid tracks as a separate future Cinnamon algorithm. Exact public API and capability subsets remain open in that contract; resolve applicable details and global approval gate conditions before production rollout. The six slices remain the execution outline, not sufficient CSS Core acceptance evidence.
 
 **Sequence**
 
