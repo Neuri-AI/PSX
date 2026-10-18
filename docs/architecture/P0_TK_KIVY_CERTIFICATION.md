@@ -56,3 +56,19 @@ xvfb-run -a python -m pytest -q tests/test_p0_kivy_native_lifecycle.py tests/tes
 4. Preserve explicit owner acceptance for AD-05 cleanup error semantics and AD-07 package graph.
 
 **Architecture Gate is still BLOCKED; merely committing tests or CI config does not certify a backend.**
+
+
+## P0.9 CI #2 — Kivy comparison failure and scoped test fix (2026-10-18)
+
+**Evidence:** owner-provided GitHub Actions run [#39134742987](https://github.com/Neuri-AI/PSX/actions/runs/39134742987) on commit `27870e5` and original failure logs for [Kivy 3.13](https://github.com/Neuri-AI/PSX/actions/runs/39134742987/job/117696952678) and [Kivy 3.11](https://github.com/Neuri-AI/PSX/actions/runs/39134742987/job/117696952452).
+
+| Matrix cell | Result |
+| --- | --- |
+| Tk 3.10 and 3.13 | **SUCCESS** (owner screenshot; 2/2 jobs) |
+| Kivy 3.11 and 3.13 | **FAILED**: 1 failed / 2 passed in each cell |
+
+Both Kivy jobs initialized real SDL2 + Mesa under Xvfb. The failure was solely `assert borrowed.size_hint == original_size_hint` after unmount; earlier assertions confirmed the borrowed widget had returned to its original parent. Kivy's `ReferenceListProperty` exposes a list-like `size_hint` whereas `original_size_hint` in the test is a tuple. The renderer already captures `tuple(widget.size_hint)` and assigns that snapshot during `destroy()`; direct list-vs-tuple equality falsely rejects numerically identical values.
+
+**Scoped correction:** [Kivy lifecycle test](../../tests/test_p0_kivy_native_lifecycle.py) now compares `tuple(borrowed.size_hint)` with the expected tuple. It additionally asserts original contents *before mount*, temporary `(None, None)` values *while mounted*, and restored contents after unmount. `pos_hint` is compared by `dict(...)`. **No Kivy renderer production code was changed.**
+
+**Verification:** source change committed and re-fetched from `develop`; **new CI conclusion is not yet available at this writing**. Don't mark Kivy native certification green until the post-fix matrix run passes, including both Python versions.
