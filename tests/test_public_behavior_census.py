@@ -299,7 +299,10 @@ def test_grid_native_certificate_requires_executed_backend_receipts(tmp_path):
     assert {row.backend for row in grid_rows} == {
         "headless", "pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"
     }
-    assert len(grid_rows) == 150
+    assert len(grid_rows) == 151
+    assert any(row.component == "GridItem" and row.backend == "headless"
+               and row.name == "flex_padding" and row.scenario == "no_horizontal_clip"
+               for row in grid_rows)
     manifest = tmp_path / "no-native-receipts.json"
     manifest.write_text(json.dumps({"summary": {"sha": SHA}, "receipts": []}))
     with pytest.raises(ValueError, match="Incomplete native Grid certification"):
