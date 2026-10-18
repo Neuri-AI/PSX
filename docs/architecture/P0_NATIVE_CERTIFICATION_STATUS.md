@@ -42,3 +42,23 @@ The available GitHub connector fetches commit-attached **pull-request** workflow
 | AD-05 / AD-07 normative approval | **PENDING owner** |
 
 **Architecture Gate: BLOCKED.** A configured job is not a run receipt.
+
+
+## CI #1 failure and targeted repair (2026-10-18)
+
+The owner supplied the failure log for the first [P0 native workflow](https://github.com/Neuri-AI/PSX/actions/workflows/p0-native-lifecycle.yml), triggered at `9432cd5`:
+
+- **PySide6 Python 3.10:** FAILED (owner screenshot).
+- **PySide6 Python 3.13:** FAILED (owner screenshot).
+- **Clean velto-core wheel build and install:** PASSED (owner screenshot).
+- **Actual test log:** `tests/test_pyside6_renderer.py::PySide6RendererTests::test_native_facade_updates_qt_properties_without_recreating_widget` failed with `AssertionError` that the second `QtHandle` was not the first; `1 failed, 20 passed in 1.32s` in the provided failing job.
+
+### Root cause — source verified
+
+The `Native(QLabel, ...)` convenience API constructs a new frozen `NativeWidget` declaration each call. Its `sfle_port` defaults to `_default_sfle_port("pyside6")`, which previously manufactured a **new SFLEExternalPort with three new function closure objects** on every call. Reconciler `_compatible` compares `old.type == new.type` for native VNodes; distinct port closure identities therefore made otherwise identical native declarations appear incompatible. This forced remount/recreation rather than a simple native `QLabel.setText` update. The log confirms distinct port function object addresses.
+
+**Scoped repair:** [`psx/core/native.py`](../../psx/core/native.py) now uses `@lru_cache(maxsize=6)` to reuse the immutable default geometry port per backend. This keeps the existing strict `NativeWidget` equality rule (including explicitly provided custom ports) while stabilizing default declaration identity and avoiding repeated creation of closure sets. Added [`test_native_facade_default_geometry_port_is_stable`](../../tests/test_pyside6_renderer.py) and preserved the original widget-reuse regression.
+
+**Risk boundary:** This intentionally does not cache NativeWidget instances or QWidget handles; merely pure geometry port callbacks for six canonical renderer names. Explicit custom `sfle_port` identity remains significant. Backend-specific native cleanup behavior remains unchanged.
+
+**Verification status:** patch and regression test committed to `develop`. **Post-fix GitHub Actions outcome has not yet been inspected**. Do not change this section to PASS until the new [P0 native lifecycle workflow](https://github.com/Neuri-AI/PSX/actions/workflows/p0-native-lifecycle.yml) completes and individual job results are captured.
