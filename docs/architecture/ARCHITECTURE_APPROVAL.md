@@ -193,3 +193,8 @@ Both Kivy jobs initialized real SDL2 + Mesa under Xvfb. The failure was solely `
 ## P0.9 Linux native matrix success (2026-10-18)
 
 Owner screenshot establishes [Tkinter/Kivy native CI #4](https://github.com/Neuri-AI/PSX/actions/workflows/p0-tk-kivy-lifecycle.yml), commit `89173a3`, **SUCCESS** across Tk Python 3.10/3.13 and Kivy Python 3.11/3.13. See [P0 Tk/Kivy certification](P0_TK_KIVY_CERTIFICATION.md#screenshot-confirmed-green-native-matrix--2026-10-18). Initial tested Linux native teardown scenarios are now green, complementing PySide6 CI. Memory-soak (long duration, heap/weakrefs/retained resources), unsupported platform cells, clean multi-repository C05 resolver and explicit decision sign-off remain **OPEN**. Full P0→P1 Architecture Gate remains **BLOCKED**.
+
+
+## P0.9 C07 memory soak instrumentation (2026-10-18)
+
+[Long-duration soak protocol](P0_MEMORY_SOAK_PROTOCOL.md), [instrumentation script](../../scripts/p0_memory_soak.py), and [dedicated Actions matrix](../../.github/workflows/p0-memory-soak.yml) are now committed. The workflow supports 1k/5k/10k cycles per native renderer; sampling covers RSS, tracemalloc, live mounted instances, weakly tracked widget wrappers, and active event slots after pending-event/GC quiescence. **These are setup artifacts, not executed results.** Global P0→P1 Gate remains **BLOCKED** until genuine 1k/5k/10k measurements and clean full-ecosystem C05 install are reviewed.
