@@ -53,3 +53,12 @@ python -m pip check
 - **H-MEM-01:** test source available; actual runtime/native evidence pending; proposed C07 exception policy owner approval pending.
 - **H-PKG-01:** source metadata/specifier incompatibility supported; wheelhouse and public-index resolver execution pending.
 - **Architecture Gate:** BLOCKED. Do not declare P1 ready or edit production code based on this handoff alone.
+
+
+## P0.7 interim execution receipt (2026-10-18)
+
+An **isolated non-GUI Python harness actually reproduced** the H-MEM-01 teardown failure using the method bodies of `Reconciler._unmount`, `Reconciler.unmount` and `dispose_hooks` from current fetched `develop` source. Normal teardown destroyed `['child', 'parent']`; injected throwing effect cleanup destroyed `[]`, left the child marked not disposed and left reconciler root attached. **It was not an in-repository test run and did not measure a real native memory leak.** Full evidence and source blob SHAs are recorded in [P0 verification §8](P0_VERIFICATION_REPORT.md#8-p07--isolated-fault-path-execution-and-current-manifests-2026-10-18).
+
+Current PSX `velto-core`, facade `velto`, Pydux and Qyro Engine project manifest version/range pairs were checked with an **actually executed** `packaging.specifiers` comparison and found incompatible for the three listed source-version pairs. Public availability and actual pip resolution remain untested. Direct GitHub checkout failed because the container could not resolve `github.com`. This handoff therefore preserves the missing **real project test, wheel-build and native** gates explicitly.
+
+**Do not convert isolated-harness evidence into a native memory-leak claim or an install-failure claim.** Keep the gate BLOCKED pending full execution, owner-approved error policy and release version alignment.
