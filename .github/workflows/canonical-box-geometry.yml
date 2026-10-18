@@ -1,0 +1,62 @@
+name: Canonical box geometry certification
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "psx/sfle/canonical_box_style.py"
+      - "psx/sfle/native_layout_snapshot.py"
+      - "psx/sfle/compute_alpha.py"
+      - "psx/sfle/native_wire.py"
+      - "rust/sfle-core/**"
+      - "tests/test_native_layout_snapshot.py"
+      - "tests/test_p1_canonical_box_style.py"
+      - "tests/interop/test_sfle_differential.py"
+      - ".github/workflows/canonical-box-geometry.yml"
+  push:
+    branches: [develop]
+    paths:
+      - "psx/sfle/canonical_box_style.py"
+      - "psx/sfle/native_layout_snapshot.py"
+      - "psx/sfle/compute_alpha.py"
+      - "psx/sfle/native_wire.py"
+      - "rust/sfle-core/**"
+      - "tests/test_native_layout_snapshot.py"
+      - "tests/test_p1_canonical_box_style.py"
+      - "tests/interop/test_sfle_differential.py"
+      - ".github/workflows/canonical-box-geometry.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  normalized-box-snapshots:
+    name: Typed box snapshots / Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m pip install -e . pytest
+      - name: Verify canonical style validation and prepared snapshot geometry
+        run: python -m pytest -q tests/test_p1_canonical_box_style.py tests/test_native_layout_snapshot.py
+
+  rust-python-box-geometry:
+    name: Rust/Python canonical box geometry agreement
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python -m pip install -e . pytest
+      - run: cargo test --manifest-path rust/sfle-core/Cargo.toml --all-targets
+      - name: Compare identical canonical snapshots across engines
+        run: python -m pytest -q tests/interop/test_sfle_differential.py
