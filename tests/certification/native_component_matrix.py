@@ -24,7 +24,7 @@ OPERATIONS = (
 TRANSPARENT = frozenset({"Fragment"})
 STRUCTURAL = frozenset({"Flex"})
 LEGACY = frozenset()
-EXTERNAL = frozenset({"Native"})
+EXTERNAL = frozenset({"Native", "WebView"})
 # Complete G2 backlog for built-ins not yet admitted. A new registry entry
 # MUST be classified, otherwise CI fails rather than silently turning it red
 # or accidentally green when it is not part of the reviewed scope.
