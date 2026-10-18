@@ -241,7 +241,8 @@ class RoutingTests(unittest.TestCase):
 
     def test_shared_native_bridges_trigger_all_downstream_consumers(self):
         all_consumers = {"core", "headless", "qt", "kivy", "tkinter"}
-        for filename in ("native_layout_snapshot.py", "external_native_geometry_ports.py"):
+        for filename in ("native_layout_snapshot.py", "canonical_box_style.py",
+                         "external_native_geometry_ports.py"):
             self.assertEqual(self.selected(f"psx/sfle/{filename}"), all_consumers)
 
     def test_shared_width_dpi_and_capability_changes_reach_native_jobs(self):
