@@ -141,3 +141,41 @@ for version, specifier in checks:
 ```
 
 **Scope:** this validates arithmetic incompatibility for exactly these three source-version/range pairs and strengthens **H-PKG-01**. It does not establish available wheel names, package index contents, environment markers, extras resolution, actual runtime compatibility, or that a resolver necessarily fails against a particular index. A clean-wheel resolver remains mandatory and **NOT RUN**.
+
+## 8. P0.7 — Isolated fault-path execution and current manifests (2026-10-18)
+
+**Execution provenance:** A local Python 3 isolated harness was run in the assistant's container, containing **the verbatim `dispose_hooks`, `Reconciler._unmount`, and `Reconciler.unmount` function bodies** as fetched from current `develop` source, with a tiny stand-in `MountedInstance`, `_EffectSlot` and recording fake renderer. **This was not a Git checkout, not the committed project test suite, not GitHub Actions, and not a native backend run.** It does provide actual deterministic fault-path output from those copied method bodies.
+
+Immutable source blob anchors: `psx/core/hooks.py` `b379cf6e1144df23f6cff2d9e9cb0a8a0eb85221`; `psx/core/reconcile.py` `914ac924b2011f20f670b7dd81658a126a3a490c`.
+
+### Observed fault-injection output
+
+```text
+normal: {'fault': False, 'exception': None,
+         'destroyed': ['child', 'parent'],
+         'root_cleared': True, 'child_disposed': True,
+         'hooks_cleared': True}
+injected: {'fault': True, 'exception': 'fault',
+           'destroyed': [], 'root_cleared': False,
+           'child_disposed': False, 'hooks_cleared': False}
+```
+
+**H-MEM-01 classification update:** `ISOLATED-HARNESS REPRODUCED`. A throwing effect disposer aborts the existing teardown algorithm before descendant or parent native destruction and before `Reconciler.root = None`. This strengthens the initial code-level hypothesis. **It is still not evidence of a permanent memory leak in a running Qt/Tk/Kivy app**, because native ownership, exception handling above reconciliation and collection roots are not measured here. The committed in-repository regression probe `tests/test_p0_teardown_diagnostics.py` has **not** been executed in a project checkout; it intentionally records the desired cleanup behavior as `expectedFailure`.
+
+### Actual metadata arithmetic
+
+The `packaging.specifiers.SpecifierSet(..., prereleases=True).contains(version)` comparison was run locally after fetching manifests. All three source version / facade declared range pairings evaluated `False`. Using `prereleases=True` did **not** repair these incompatible source versions.
+
+| Distribution source / requirement | Source metadata blob | Is compatible? |
+| --- | --- | --- |
+| `velto-core==0.1.0` (PSX source) vs facade requirement named `psx>=1.0.0a1,<2.0.0` | PSX `pyproject.toml` `c06e405a45cd8e95cfec2b55690455b6962f4a7c7` | **NO** — mismatch includes the distribution **name**, not merely its version |
+| `pydux==0.1.0` vs facade `pydux[psx]>=1.0.0a1,<2.0.0` | Pydux `pyproject.toml` `e3c03b6dd79f7776a88b0fe46c1f7f137340fae5` | **NO** at that source version |
+| `qyro-engine==1.0.0a1` vs facade `qyro-engine>=0.1.0,<0.2.0` | Qyro `pyproject.toml` `b603f2097559205de1835dbee696e0105d757671` | **NO** at that source version |
+
+Facade `pyproject.toml` blob: `0594252ce6b0d333ad16aee4342c27cb7673111f`. CLI `pyproject.toml` blob `8a65d833ed065532c0cd01b4359dff927f5b352e` requires `qyro-engine>=1.0.0a1,<2.0.0`, **also divergent from the facade**.
+
+**H-PKG-01 classification update:** `SOURCE-METADATA CONFLICT VERIFIED + LOCAL SPECIFIER CHECK EXECUTED`; wheel/build/installation resolver and current public index availability remain **NOT RUN**.
+
+### Environment constraint and next executed gates
+
+Direct `git ls-remote https://github.com/Neuri-AI/PSX.git refs/heads/develop` failed in the container with `Could not resolve host: github.com`. The linked GitHub connector supports repository file reads and writes but no workflow dispatch/full checkout. Therefore do not claim project tests or clean-wheel installs. Next execution must use a GitHub Actions workflow runner or developer machine with network/installed source: check actual `tests/test_p0_teardown_diagnostics.py`, packages and native backends at a **single immutable source SHA**, then attach stdout, CI run URL and artifact receipts.
