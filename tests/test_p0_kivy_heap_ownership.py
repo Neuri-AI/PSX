@@ -6,7 +6,7 @@ import unittest
 import weakref
 
 from scripts.p0_kivy_heap_ownership import (
-    checkpoint_histogram, referrer_summary, tracked_type, type_label,
+    checkpoint_histogram, growing_type_referrers, referrer_summary, tracked_type, type_label,
 )
 
 
@@ -24,6 +24,21 @@ class HeapOwnershipProbeTests(unittest.TestCase):
         self.assertFalse(tracked_type(expired))
         self.assertEqual(checkpoint_histogram([expired, {}, {}]).get("builtins.dict"), 2)
         self.assertEqual(referrer_summary([expired]), [])
+
+    def test_growing_type_referrers_handles_expired_proxy(self) -> None:
+        class Referent:
+            pass
+
+        referent = Referent()
+        expired = weakref.proxy(referent)
+        del referent
+        gc.collect()
+        rows = growing_type_referrers([expired, {}, []], per_type=1)
+        self.assertEqual(
+            {row["target_type"] for row in rows},
+            {"builtins.dict", "builtins.list"},
+        )
+        self.assertTrue(all("referrer_types" in row for row in rows))
 
     def test_referrer_output_does_not_include_repr(self) -> None:
         class Sample:
