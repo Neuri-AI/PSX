@@ -85,6 +85,49 @@ def test_opt_in_headless_flex_is_real_sfle_geometry_not_a_dummy_layout() -> None
     assert root.handle.destroyed
 
 
+def test_canonical_width_change_reflows_sibling_without_remeasuring_unchanged_leaf() -> None:
+    measured = []
+
+    def measure(node):
+        if node.type != "Text":
+            return None
+        measured.append(node.props["value"])
+        return IntrinsicSizes(20, 20, 16, 16, 20, 16)
+
+    renderer = new_renderer(measure_intrinsic=measure)
+    renderer.set_sfle_constraints(constraints(400, 90))
+    reconciler = Reconciler(renderer)
+
+    def view(width):
+        return Flex(
+            Text("Alpha", key="a", layout_width=f"{width}px",
+                 layout_height="20px", flex_shrink=0),
+            Text("Beta", key="b", layout_width="40px",
+                 layout_height="20px", flex_shrink=0),
+            direction="row", width="400px", height="90px",
+            gap=8, align_items="flex-start",
+        )
+
+    try:
+        root = reconciler.render(view(150))
+        first, second = (child.handle for child in root.children)
+        assert measured == ["Alpha", "Beta"]
+        assert (first.geometry.width, second.geometry.x) == (150, 158)
+        generation = renderer.sfle_result.generation
+        updated = reconciler.render(view(200))
+        assert updated.children[0].handle is first
+        assert updated.children[1].handle is second
+        assert (first.geometry.width, second.geometry.x) == (200, 208)
+        assert measured == ["Alpha", "Beta", "Alpha"], measured
+        assert renderer.sfle_result.generation > generation
+        renderer.commit_layout(updated)
+        assert measured == ["Alpha", "Beta", "Alpha"]
+        assert (first.geometry.width, second.geometry.x) == (200, 208)
+    finally:
+        reconciler.unmount()
+    assert not renderer._sfle_intrinsic_cache
+
+
 def test_keyed_reorder_and_resize_reuse_native_handle_without_remount() -> None:
     renderer = new_renderer()
     reconciler = Reconciler(renderer)
