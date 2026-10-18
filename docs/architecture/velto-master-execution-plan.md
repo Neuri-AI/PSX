@@ -292,3 +292,14 @@ A task is complete only when:
 ## 8. Immediate next action for any implementing agent
 
 **Start with BL-01.** Do not immediately rewrite core layout modules. Verify the live source state, identify contracts already accepted and implementation already present, reconcile this plan with any existing F0–F8 document, and propose the smallest P0 set of ADRs needed to eliminate ambiguity. Return the baseline and findings before making incompatible architecture changes.
+
+
+## 9. P0 audit artifacts — agent entry points (2026-10-18)
+
+The following files are committed to `develop` and are required reading before proposing C01–C12 implementation work:
+
+1. [P0 source audit](velto-p0-baseline-audit.md) — evidence-based source walkthrough and open risks.
+2. [P0.3 verification report](P0_VERIFICATION_REPORT.md) — source-confirmed findings, unexecuted test gates, H-PKG-01 packaging mismatch and H-MEM-01 teardown-exception hypothesis.
+3. [P0.4 contract index](CONTRACTS_INDEX.md) — existing normative F1–F5.5 precedence, C01–C12 mapping, conflicting decisions and parallel-agent lanes.
+
+**Current hard gate:** P0.3 and P0.4 documentation has been produced and source-verified, but **executed verification remains open**. No contract or production implementation is approved solely because these reports exist. Agents must supply current, immutable-SHA test/CI results and owner decisions before Architecture Gate sign-off.
