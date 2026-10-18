@@ -228,6 +228,16 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(self.selected("psx/sfle/tkinter_layout_bridge.py"), {"tkinter"})
         self.assertEqual(self.selected("psx/sfle/headless_layout_bridge.py"), {"headless"})
 
+    def test_canonical_tkinter_flex_changes_run_real_native_geometry_suite(self):
+        self.assertEqual(
+            self.selected("psx/sfle/tkinter_layout_bridge.py"),
+            {"tkinter"},
+        )
+        self.assertEqual(
+            self.selected("tests/test_tkinter_native_layout.py"),
+            {"tkinter"},
+        )
+
     def test_native_measurement_changes_cover_their_toolkit_and_sfle(self):
         for filename, native in (
             ("qt_measurement.py", "qt"),
