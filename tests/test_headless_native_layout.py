@@ -128,6 +128,76 @@ def test_canonical_width_change_reflows_sibling_without_remeasuring_unchanged_le
     assert not renderer._sfle_intrinsic_cache
 
 
+def test_text_color_only_skips_cinnamon_measurement_and_geometry_writes(monkeypatch) -> None:
+    from psx.renderers.headless import HeadlessHandle
+
+    class CountingEngine:
+        def __init__(self):
+            self.delegate = PythonLayoutEngine()
+            self.calls = 0
+
+        def compute(self, request):
+            self.calls += 1
+            return self.delegate.compute(request)
+
+    engine = CountingEngine()
+    measured = []
+    writes = []
+    original_setattr = HeadlessHandle.__setattr__
+
+    def record(handle, name, value):
+        if name == "geometry":
+            writes.append((id(handle), value))
+        return original_setattr(handle, name, value)
+
+    monkeypatch.setattr(HeadlessHandle, "__setattr__", record)
+
+    def measure(node):
+        if node.type != "Text":
+            return None
+        measured.append(node.props["value"])
+        return IntrinsicSizes(20, 20, 16, 16, 20, 16)
+
+    renderer = new_renderer(engine=engine, measure_intrinsic=measure)
+    reconciler = Reconciler(renderer)
+
+    def view(color, width="40px"):
+        return Flex(
+            Text("Stable text", key="text", color=color, layout_width=width,
+                 layout_height="20px"),
+            direction="row", width=120, height=60, align_items="flex-start",
+        )
+
+    try:
+        root = reconciler.render(view("#111111"))
+        handle = root.children[0].handle
+        initial_geometry = handle.geometry
+        assert engine.calls == 1
+        assert measured == ["Stable text"]
+        writes.clear()
+
+        updated = reconciler.render(view("#222222"))
+        assert updated.children[0].handle is handle
+        assert handle.props["color"] == "#222222"
+        assert handle.geometry == initial_geometry
+        assert engine.calls == 1, "Paint-only updates must bypass Cinnamon"
+        assert measured == ["Stable text"], "Paint-only updates must not remeasure"
+        assert writes == [], "Paint-only updates must not rewrite geometry"
+
+        reconciler.render(view("#222222", width="55px"))
+        assert engine.calls == 2, "Geometry changes must still run Cinnamon"
+        assert handle.geometry.width == 55
+        assert measured == ["Stable text", "Stable text"]
+
+        renderer.request_sfle_invalidation("font")
+        renderer.flush()
+        assert engine.calls == 3, "Semantic invalidation must override paint reuse"
+        assert len(measured) == 3
+    finally:
+        reconciler.unmount()
+    assert renderer._sfle_committed_signatures is None
+
+
 def test_equal_geometry_commit_does_not_write_or_trigger_resize_feedback(monkeypatch) -> None:
     from psx.renderers.headless import HeadlessHandle
 
