@@ -81,3 +81,17 @@ Owner-provided logs for both Kivy Python 3.11 and 3.13 show that the previous bo
 **Test-only correction:** [`tests/test_p0_kivy_native_lifecycle.py`](../../tests/test_p0_kivy_native_lifecycle.py) now renders `Flex(Button(...), direction="column")` and accesses the event slot via `leaf.children[0]`, preserving the existing callback and detachment assertions. Commit `89173a3`. The renderer and layout contract are unchanged.
 
 **Verification status:** source re-fetched after commit; new post-fix CI run still unverified. Tkinter 3.10/3.13 remained screenshot-confirmed green from the earlier matrix. Kivy 3.11/3.13 must pass the updated run to certify this stage.
+
+
+## Screenshot-confirmed green native matrix — 2026-10-18
+
+The owner supplied a screenshot of **P0 Tkinter Kivy native lifecycle run #4** on `develop`, commit prefix `89173a3`, with overall **SUCCESS** and four individually green jobs:
+
+| Backend | Python | GitHub Actions result |
+| --- | --- | --- |
+| Tkinter | 3.10 | SUCCESS (owner screenshot) |
+| Tkinter | 3.13 | SUCCESS (owner screenshot) |
+| Kivy | 3.11 | SUCCESS (owner screenshot) |
+| Kivy | 3.13 | SUCCESS (owner screenshot) |
+
+This closes the **initial Linux/Xvfb native lifecycle test matrix** only. Individual full job logs/test totals are not included in the screenshot. This is **not** a 1,000–10,000 cycle memory-soak or GC/weakref plateau certification, nor Windows/macOS backend parity. Remaining P0.9 work is measured memory retention testing and a clean multi-repository Velto + PSX + Pydux + Qyro package installation. No global Architecture Gate or AD-05/AD-07 owner sign-off is implied.
