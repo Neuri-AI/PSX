@@ -90,7 +90,8 @@ def _classify_path(path: str) -> set[str]:
             return {"sfle", "tkinter"}
         if name == "headless_measurement.py":
             return {"sfle", "headless"}
-        if name in ("native_layout_snapshot.py", "external_native_geometry_ports.py"):
+        if name in ("native_layout_snapshot.py", "canonical_box_style.py",
+                    "external_native_geometry_ports.py"):
             return {"core", "headless", "qt", "kivy", "tkinter"}
         if name in ("width_dependent_intrinsic_measurement.py", "native_component_capabilities.py",
                     "native_pixel_space.py"):
