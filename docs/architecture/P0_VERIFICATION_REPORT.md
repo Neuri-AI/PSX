@@ -112,3 +112,32 @@ Discover backend-specific test filenames using `git ls-files tests`; do not inve
 - The next agent must add actual evidence to this report **without changing the meaning of historical statuses**.
 - After verification and [contract inventory](CONTRACTS_INDEX.md), draft only the normative **delta** contracts that are not already frozen in existing project specifications.
 - **Architecture Gate = BLOCKED** while PKG-1, MEM-1 and the core/backend evidence requirements are unexecuted.
+
+## 7. Offline PEP 440 specifier intersection check (2026-10-18)
+
+An **isolated Python `packaging.specifiers.SpecifierSet` check was actually executed** against the literal versions/ranges extracted from the inspected source manifests. This is a numeric version-compatibility check **only**, not a pip installation or an assertion about published packages.
+
+| Source-version / facade declared requirement | Observed result |
+| --- | --- |
+| PSX source version `0.1.0` vs facade `psx>=1.0.0a1,<2.0.0` | **False** |
+| Pydux source version `0.1.0` vs facade `pydux>=1.0.0a1,<2.0.0` | **False** |
+| Qyro source version `1.0.0a1` vs facade `qyro-engine>=0.1.0,<0.2.0` | **False** |
+
+Command executed:
+
+```python
+from packaging.specifiers import SpecifierSet
+
+checks = [
+    ("0.1.0", ">=1.0.0a1,<2.0.0"),
+    ("0.1.0", ">=1.0.0a1,<2.0.0"),
+    ("1.0.0a1", ">=0.1.0,<0.2.0"),
+]
+for version, specifier in checks:
+    print(version in SpecifierSet(specifier))
+# False
+# False
+# False
+```
+
+**Scope:** this validates arithmetic incompatibility for exactly these three source-version/range pairs and strengthens **H-PKG-01**. It does not establish available wheel names, package index contents, environment markers, extras resolution, actual runtime compatibility, or that a resolver necessarily fails against a particular index. A clean-wheel resolver remains mandatory and **NOT RUN**.
