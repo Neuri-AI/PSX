@@ -36,11 +36,15 @@ def path_identity(path: LayoutPath) -> str:
 
 
 @dataclass(frozen=True, slots=True)
-class PreparedF3Snapshot:
+class PreparedNativeLayoutSnapshot:
     """Immutable SFLE input plus the exact originating PSX node identities."""
 
     snapshot: LayoutInput
     identities: tuple[tuple[str, VNode], ...]
+
+
+# Retain the old class name for existing internal imports during migration.
+PreparedF3Snapshot = PreparedNativeLayoutSnapshot
 
 
 def _edges(value: object) -> tuple[object, object, object, object]:
@@ -79,7 +83,7 @@ def _style(node: VNode) -> tuple[tuple[str, object], ...]:
                         "max_width", "max_height") and value in _SKIP_DEFAULT:
                 continue
             if name == "align_content" and value == "normal":
-                continue  # F2 alpha maps normal to stretch.
+                continue  # The layout engine treats normal alignment as stretch.
             result[name] = value
         if "gap" in props:
             result.setdefault("row_gap", props["gap"])
@@ -124,12 +128,12 @@ def prepare_native_layout_snapshot(
     generation: int,
     direction: WritingDirection = WritingDirection.LTR,
     measurements: Iterable[MeasuredBox] = (),
-) -> PreparedF3Snapshot:
+) -> PreparedNativeLayoutSnapshot:
     """Create SFLE v1 input without native imports or implicit measurement.
 
     The effective root must be one explicit Flex. Components/Fragments are
     transparent. Scroll is excluded pending the native viewport/content
-    binding in G2/G3; fail closed rather than fabricating a layout root.
+    binding; fail closed rather than fabricating a layout root.
     Consumers must supply real measured leaf metrics as MeasuredBox values.
     No guess of an intrinsic size is permitted.
     """
@@ -174,4 +178,4 @@ def prepare_native_layout_snapshot(
     snapshot = LayoutInput(
         1, generation, direction, constraints, tuple(nodes), tuple(measurements)
     )
-    return PreparedF3Snapshot(snapshot, tuple(origins))
+    return PreparedNativeLayoutSnapshot(snapshot, tuple(origins))
