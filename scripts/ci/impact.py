@@ -34,7 +34,7 @@ def _classify_path(path: str) -> set[str]:
         if name == "native-layout-selective.yml":
             # Changes to the shared Native layout workflow must exercise the Qt parity
             # matrix; don't certify its new required job with router-only CI.
-            result.update({"core", "qt", "kivy", "tkinter", "headless"})
+            result.update({"core", "sfle", "rust", "qt", "kivy", "tkinter", "headless"})
         elif name == "sfle-chromium.yml":
             result.add("chromium")
         elif name == "sfle-ui-certification.yml":
