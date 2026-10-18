@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
+from functools import lru_cache
 import importlib
 from typing import TypeAlias
 
@@ -142,6 +143,7 @@ def Native(
     return native_widget(declaration, key=key, ref=ref, **values)
 
 
+@lru_cache(maxsize=6)
 def _default_sfle_port(renderer: str) -> object | None:
     """Return the built-in geometry bridge for ordinary toolkit widgets.
 
