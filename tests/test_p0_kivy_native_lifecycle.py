@@ -98,6 +98,30 @@ class KivyNativeLifecycleTests(unittest.TestCase):
             r.unmount()
             assert slot.invoke() is None
             assert button.parent is None
+            # Owned Kivy KV rules must be unbound proactively.  A native
+            # BORROWED widget retains its own KV rules for its real owner.
+            from kivy.lang import Builder
+            from unittest.mock import patch
+            owned_uids = []
+            with patch.object(Builder, "unbind_widget", wraps=Builder.unbind_widget) as cleanup:
+                root = r.render(Flex(
+                    Button("KV teardown", on_click=lambda: None),
+                    direction="column",
+                ))
+                root_uid = root.handle.widget.uid
+                child_uid = root.children[0].handle.widget.uid
+                r.unmount()
+                cleaned_uids = [call.args[0] for call in cleanup.call_args_list]
+                assert root_uid in cleaned_uids, cleaned_uids
+                assert child_uid in cleaned_uids, cleaned_uids
+
+                retained_by_owner = Label(text="still borrowed")
+                borrowed_uid = retained_by_owner.uid
+                r.render(Flex(Native(retained_by_owner), direction="column"))
+                r.unmount()
+                cleaned_uids = [call.args[0] for call in cleanup.call_args_list]
+                assert borrowed_uid not in cleaned_uids, cleaned_uids
+                assert retained_by_owner.text == "still borrowed"
             print("P0 Kivy native lifetime assertions passed")
             """
         )
