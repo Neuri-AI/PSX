@@ -126,3 +126,10 @@ A scoped **defensive C07 production patch** is now present in `develop`, even th
 - See [P0 verification §9](P0_VERIFICATION_REPORT.md#9-p07-c07-defensive-patch-and-executable-local-probes-2026-10-18) for exact limitations.
 
 This is an **implemented partial risk mitigation**, not formal owner ratification of AD-05's complete error API and **not** evidence that memory leaks or package resolution are certified. The decision table remains PENDING; production stability and public release are not authorized merely by these commits. Before further P1/C07 expansion, get same-SHA core/native CI and explicit acceptance of the error propagation/aggregation policy.
+
+
+## Automated execution attempt and receipts — 2026-10-18
+
+A targeted [P0 core lifecycle workflow](../../.github/workflows/p0-core-lifecycle.yml) is committed to `develop` with Python 3.10/3.13 jobs and actual unit-test commands; the CI configuration and new four-case [manifest checker tests](../../tests/test_p0_dependency_graph.py) were verified as repository files. **No Actions run conclusion was accessible through the available connector during this session**, so G-P0-05 remains **NOT CERTIFIED**. See [P0 Verification §10](P0_VERIFICATION_REPORT.md#10-automated-p0-test-jobs-on-develop-2026-10-18).
+
+The six [C07 cleanup regression cases](../../tests/test_p0_teardown_diagnostics.py) still need executable same-SHA CI evidence and native adapter tests; the C05 diagnostic checker cannot substitute for wheel/pip installation. **Architecture Gate stays BLOCKED.**
