@@ -144,8 +144,8 @@ def make_backend(backend: str) -> tuple[
         reconciler = Reconciler(renderer)
 
         def create(index: int) -> tuple[Any, Any]:
-            node = reconciler.render(Text(f"cycle-{index}"))
-            reconciler.render(Text(f"updated-{index}"))
+            node = reconciler.render(Button(f"cycle-{index}", on_click=lambda: None))
+            reconciler.render(Button(f"updated-{index}", on_click=lambda: None))
             return node, node.handle.widget
 
         def flush() -> None:
