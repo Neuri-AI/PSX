@@ -120,3 +120,8 @@ The owner supplied **three GitHub Actions ZIP artifacts** for run identifier `39
 ## Kivy 5,000-cycle allocation attribution — artifact review
 
 The user provided GitHub Actions artifact `p0-kivy-allocation-sites-39144692699.zip`. Analyzed results and tracebacks are preserved in [P0 Kivy Allocation Findings](P0_KIVY_ALLOCATION_FINDINGS.md): RSS rose **75,276,288 B** from cycle 500 to 5,000, while Python-traced allocations grew net **17,604,714 B**. Six call paths through reconciliation and Kivy native widget creation account for ~99.995% of the positive traced allocations. Their **allocation sites** are known; their **retaining reference owners** remain unidentified. Do not change Kivy/Cinnamon code or close C07 until GC object/referrer and equivalent direct-Kivy controls explain the growth.
+
+
+## Direct-Kivy / Velto heap comparison at 5,000 cycles
+
+Owner-supplied native and Velto JSON artifacts (run `39145926751`) show growth in **both** fresh processes. Between cycles 500 and 5,000, direct Kivy RSS increased **15,618,048 B** and traced Python current bytes increased **5,269,998 B**; Velto+Kivy increased **49,913,856 B** RSS and **18,367,152 B** tracked Python bytes. Both report exactly **4,500 extra live `kivy.weakproxy.WeakProxy` objects** over that interval, while Velto exhibits substantially more live dict/list growth. Results and limitations are in [P0 Kivy Heap Ownership Findings](P0_KIVY_HEAP_OWNERSHIP_FINDINGS.md). Existing referrer samples were not specifically aimed at the growing types, so the retaining owner has **not** been identified. **C07 remains OPEN.**
