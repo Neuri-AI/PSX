@@ -139,3 +139,11 @@ Agents may draft **`PROPOSED`** deltas in `docs/architecture/contracts/` after t
 ## 10. Next controlled artifact
 
 After Lane A and the complete contract-to-source mapping, publish a versioned `P0_CONTRACT_DELTAS.md` or individual C01–C12 deltas with unresolved alternatives explicitly presented for owner approval. Do **not** manufacture twelve replacement contracts when existing F1–F4 agreements can be linked and extended.
+
+
+## 11. P0.5/P0.6 published handoff (2026-10-18)
+
+- [C01–C12 proposed normative deltas](P0_CONTRACT_DELTAS.md): proposed clauses, conformance vectors, open decisions AD-01–AD-12; **not owner-ratified**.
+- [Architecture Gate and approval record](ARCHITECTURE_APPROVAL.md): **BLOCKED** pending executed verification and sign-off. Never treat a published gate form as its own approval.
+
+Existing F1–F4 decisions remain binding. Continue evidence collection under [P0 Verification Report](P0_VERIFICATION_REPORT.md) before production changes.
