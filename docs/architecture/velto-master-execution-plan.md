@@ -303,3 +303,11 @@ The following files are committed to `develop` and are required reading before p
 3. [P0.4 contract index](CONTRACTS_INDEX.md) — existing normative F1–F5.5 precedence, C01–C12 mapping, conflicting decisions and parallel-agent lanes.
 
 **Current hard gate:** P0.3 and P0.4 documentation has been produced and source-verified, but **executed verification remains open**. No contract or production implementation is approved solely because these reports exist. Agents must supply current, immutable-SHA test/CI results and owner decisions before Architecture Gate sign-off.
+
+
+## 10. P0.5/P0.6 contract and approval handoff (2026-10-18)
+
+- [Proposed C01–C12 deltas](P0_CONTRACT_DELTAS.md) — complete draft map, new clauses explicitly PROPOSED, conformance fixtures and owner decisions.
+- [Architecture Gate](ARCHITECTURE_APPROVAL.md) — explicitly **BLOCKED**, pending verification, owner resolutions and ratification.
+
+**Gate discipline:** publication of drafts does not authorize code modifications. Continue evidence-only investigation until exact-SHA run receipts and owner sign-off exist.
