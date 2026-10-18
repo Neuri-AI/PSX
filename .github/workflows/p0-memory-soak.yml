@@ -17,6 +17,8 @@ on:
     paths:
       - "scripts/p0_memory_soak.py"
       - "tests/test_p0_memory_soak_probes.py"
+      - "tests/test_p0_memory_soak_report.py"
+      - "scripts/p0_memory_soak_report.py"
       - ".github/workflows/p0-memory-soak.yml"
 
 permissions:
@@ -59,7 +61,7 @@ jobs:
           python -m pip install psutil
       - name: Validate memory instrumentation
         run: |
-          python -m pytest -q tests/test_p0_memory_soak_probes.py
+          python -m pytest -q tests/test_p0_memory_soak_probes.py tests/test_p0_memory_soak_report.py
       - name: Run isolated native backend soak
         run: |
           mkdir -p artifacts
@@ -68,6 +70,16 @@ jobs:
             --cycles "${{ github.event.inputs.cycles || '1000' }}" \
             --interval 250 \
             --json-out "artifacts/${{ matrix.backend }}-memory.json"
+      - name: Summarize memory trends
+        if: always()
+        run: |
+          if [ -f "artifacts/${{ matrix.backend }}-memory.json" ]; then
+            python scripts/p0_memory_soak_report.py \
+              "artifacts/${{ matrix.backend }}-memory.json" \
+              --summary-out "artifacts/${{ matrix.backend }}-summary.json" \
+              --markdown-out "artifacts/${{ matrix.backend }}-summary.md"
+            cat "artifacts/${{ matrix.backend }}-summary.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Upload raw resource measurements
         if: always()
         uses: actions/upload-artifact@v4
