@@ -35,6 +35,33 @@ The owner has approved **deferring the Kivy/Cinnamon memory investigation**, *no
 
 **Scope boundary:** pure internal scaffolding and tests are permissible now; do not label the overall P0→P1 architecture gate APPROVED or advertise P1 as live in public documentation.
 
+## Follow-up increment: typed styles travel with prepared snapshots
+
+**Scope:** the native snapshot adapter now supplies a `box_styles` tuple on
+`PreparedNativeLayoutSnapshot`. Each entry pairs the exact stable node ID with
+a validated, immutable `CanonicalItemBoxStyle`. This includes nested
+participating hosts and retains source percentages unresolved. The former
+`PreparedF3Snapshot` name remains an internal compatibility alias.
+
+**Preserved invariant:** `LayoutInput` nodes and their specified style values
+remain unchanged; neither Python nor Rust geometry calculation is modified by
+this increment. Existing widget-native width/height remain in the originating
+VNode. Invalid recognized box metadata is rejected while preparing the snapshot
+rather than being forwarded to an engine.
+
+**Tests added:** snapshot identity/order, typed percent/margin/padding/border,
+builder/markup consistency, malformed metadata rejection. Shared adapter changes
+route to core and all native consumers through the impact selector.
+
+**Verification:** committed code has not been executed in CI or a local PSX
+checkout in this session. Treat all test outcomes as **pending**, not passing.
+This is an internal snapshot boundary, not public style API coverage; public
+behavior census is N/A for this slice.
+
+**Next:** run the tests and inspect differential Rust/Python geometry on the
+same exact commit before changing actual layout consumption. No CSS parser,
+cascade, lowercase tags, default box sizing, or renderer modifications here.
+
 ## Next step
 
 1. Validate pure IM-01 CI on the committed code.
