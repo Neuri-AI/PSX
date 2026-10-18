@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [velto, native]
+        mode: [velto, native, psx_no_cinnamon]
     env:
       KIVY_NO_FILELOG: "1"
       KIVY_NO_ARGS: "1"
