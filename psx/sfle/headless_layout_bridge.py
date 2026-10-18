@@ -154,10 +154,9 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
                     metrics.append(MeasuredBox(node_id, intrinsic, constraints, generation))
                 if renderer._sfle_generation != generation:
                     raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation after measurement.")
-        snapshot = prepare_native_layout_snapshot(
-            normalized, constraints, generation=generation,
-            measurements=tuple(metrics),
-        ).snapshot
+        # Reuse the prepared identities and canonical item lengths while
+        # preserving actual host measurements and the legacy Grid composition.
+        snapshot = replace(prepared.canonical_snapshot(), measurements=tuple(metrics))
         result = (compute_width_dependent(
             renderer._sfle_engine, snapshot,
             {node_id: (lambda width, node_id=node_id: intrinsic_grid(node_id, width))
