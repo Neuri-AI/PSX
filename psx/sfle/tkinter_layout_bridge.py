@@ -177,7 +177,9 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external tk measurement.")
         readings.extend(mixed_grid.seed_measurements())
-        snapshot = replace(prepared.snapshot, measurements=tuple(readings))
+        # Normalize explicitly declared item box lengths after native Tk
+        # measurements, retaining the existing container and Grid contracts.
+        snapshot = replace(prepared.canonical_snapshot(), measurements=tuple(readings))
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
             node_id: (lambda width, node_id=node_id: native_round.read_width(
