@@ -1,0 +1,73 @@
+name: P0 native lifecycle verification
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - "psx/core/**"
+      - "psx/renderers/qt/**"
+      - "psx/sfle/**"
+      - "tests/test_p0_pyside6_native_lifecycle.py"
+      - "tests/test_pyside6_renderer.py"
+      - "pyproject.toml"
+      - ".github/workflows/p0-native-lifecycle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pyside6-native:
+    name: PySide6 native lifetime / Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Qt host libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0 libdbus-1-3
+      - name: Install current checkout and testing extras
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,pyside6]"
+      - name: Run native lifecycle and existing Qt renderer regression tests
+        run: |
+          python -m pytest -q \
+            tests/test_p0_pyside6_native_lifecycle.py \
+            tests/test_pyside6_renderer.py
+      - name: Compile targeted files
+        run: |
+          python -m py_compile tests/test_p0_pyside6_native_lifecycle.py
+          python -m compileall -q psx/core psx/renderers/qt
+
+  wheel-smoke:
+    name: Build and install current velto-core wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel --outdir dist-p0
+      - name: Install actual built artifact in a fresh venv
+        run: |
+          python -m venv .venv-p0-wheel
+          .venv-p0-wheel/bin/python -m pip install --no-index --no-deps dist-p0/*.whl
+          .venv-p0-wheel/bin/python -m pip check
+          .venv-p0-wheel/bin/python -c "import psx; import importlib.metadata as m; assert m.version('velto-core')"
