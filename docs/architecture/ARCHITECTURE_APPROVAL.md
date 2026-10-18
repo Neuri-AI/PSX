@@ -198,3 +198,8 @@ Owner screenshot establishes [Tkinter/Kivy native CI #4](https://github.com/Neur
 ## P0.9 C07 memory soak instrumentation (2026-10-18)
 
 [Long-duration soak protocol](P0_MEMORY_SOAK_PROTOCOL.md), [instrumentation script](../../scripts/p0_memory_soak.py), and [dedicated Actions matrix](../../.github/workflows/p0-memory-soak.yml) are now committed. The workflow supports 1k/5k/10k cycles per native renderer; sampling covers RSS, tracemalloc, live mounted instances, weakly tracked widget wrappers, and active event slots after pending-event/GC quiescence. **These are setup artifacts, not executed results.** Global P0→P1 Gate remains **BLOCKED** until genuine 1k/5k/10k measurements and clean full-ecosystem C05 install are reviewed.
+
+
+## P0.9 1,000-cycle soak receipts (2026-10-18)
+
+Owner supplied a green screenshot for P0 Memory Soak #8 (commit `1d6f1d4`) and actual three backend JSON artifacts; see [P0 Memory Soak Protocol — actual 1,000-cycle artifacts](P0_MEMORY_SOAK_PROTOCOL.md#p09-actual-1000-cycle-artifacts--owner-evidence-2026-10-18). All three jobs passed and all recorded PSX mounted instances, tracked native widget wrappers, and active event slots were zero at cycle 1,000. The Kivy series nevertheless showed RSS +5,885,952 B and Python-tracked memory +3,678,821 B between cycle 250 and 1,000; investigate warmed longer trend before closing memory stability. **1,000-cycle matrix GREEN; 5,000/10,000-cycle and C05 ecosystem wheel/install checks remain OPEN; full Architecture Gate BLOCKED.**
