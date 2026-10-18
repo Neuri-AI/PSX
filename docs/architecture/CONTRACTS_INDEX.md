@@ -147,3 +147,8 @@ After Lane A and the complete contract-to-source mapping, publish a versioned `P
 - [Architecture Gate and approval record](ARCHITECTURE_APPROVAL.md): **BLOCKED** pending executed verification and sign-off. Never treat a published gate form as its own approval.
 
 Existing F1–F4 decisions remain binding. Continue evidence collection under [P0 Verification Report](P0_VERIFICATION_REPORT.md) before production changes.
+
+
+## 12. Owner-ready decision packet
+
+The [P0 owner decision package](P0_OWNER_DECISION_PACKAGE.md) maps AD-01–AD-12 to source evidence, recommended bounded alternatives, compatibility impacts and acceptance tests. **Recommendations are not ratification.** Dependency version arithmetic has been checked offline, but clean resolver/native gates stay open.
