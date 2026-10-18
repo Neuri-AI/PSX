@@ -45,6 +45,18 @@ def rss_bytes() -> int | None:
     return int(psutil.Process(os.getpid()).memory_info().rss)
 
 
+def mounted_instance_snapshot(objects: list[object]) -> list[object]:
+    """Select concrete MountedInstance objects without touching dead proxies.
+
+    Kivy and its property machinery may register dead weakref.proxy objects
+    in the GC inventory. Exact-type checks never dereference the proxy;
+    isinstance(proxy, MountedInstance) can raise ReferenceError.
+    """
+    from psx.core.instance import MountedInstance
+
+    return [obj for obj in objects if type(obj) is MountedInstance]
+
+
 def force_quiescence(flush: Callable[[], None]) -> None:
     for _ in range(3):
         flush()
@@ -58,8 +70,6 @@ def run_soak(
     """Samples live wrappers only after native-event/GC quiescence."""
     # MountedInstance is a slotted dataclass without a weakref slot.
     # Count live instances through GC instead of trying to weakref them.
-    from psx.core.instance import MountedInstance
-
     widget_refs: list[weakref.ReferenceType[Any]] = []
     samples: list[Sample] = []
     start = previous = time.perf_counter()
@@ -80,15 +90,7 @@ def run_soak(
                 force_quiescence(flush)
                 now = time.perf_counter()
                 allocated, peak = tracemalloc.get_traced_memory()
-                # Kivy may register dead weakref.proxy objects with GC.
-                # isinstance(dead_proxy, MountedInstance) dereferences that
-                # proxy and raises ReferenceError. MountedInstance is our
-                # concrete slotted container; exact type avoids dereferencing
-                # dead proxies while counting the intended allocation class.
-                live_instances = [
-                    obj for obj in gc.get_objects()
-                    if type(obj) is MountedInstance
-                ]
+                live_instances = mounted_instance_snapshot(gc.get_objects())
                 samples.append(Sample(
                     cycles=index, rss_bytes=rss_bytes(),
                     tracemalloc_current_bytes=allocated,
