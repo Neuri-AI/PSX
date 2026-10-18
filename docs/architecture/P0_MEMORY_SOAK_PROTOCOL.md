@@ -50,3 +50,20 @@ For full certification, run **each** backend at all three cycle depths (not just
 | C05 full clean ecosystem install | PENDING |
 
 **Do not close C07 long-running memory certification or P0→P1 Architecture Gate solely because this protocol and job now exist.**
+
+
+## Initial 1,000-cycle CI #3 and weak-proxy collector fix (2026-10-18)
+
+User-supplied workflow screenshot/log for the `P0 memory soak` push run #3, commit `140ee65`, establishes **PySide6 Python 3.13 SUCCESS** and **Tkinter Python 3.13 SUCCESS** for the configured 1,000-cycle job, while **Kivy Python 3.13 FAILED**. The Kivy failure was **instrumentation**, not a verified retained-object leak:
+
+```text
+scripts/p0_memory_soak.py:85
+if isinstance(obj, MountedInstance):
+ReferenceError: weakly-referenced object no longer exists
+```
+
+At a GC sample, Kivy had an expired `weakref.proxy` among `gc.get_objects()`; `isinstance` dereferenced it and raised `ReferenceError`. This cannot establish that any widget leaked.
+
+**Committed repair:** [`mounted_instance_snapshot`](../../scripts/p0_memory_soak.py) selects **only** objects whose concrete type is `MountedInstance` using `type(obj) is MountedInstance`, avoiding proxy dereferencing. This limits counts to the intended slotted instance class; subclasses are not included. [Two regression tests](../../tests/test_p0_memory_soak_probes.py) exercise an expired weak proxy and a foreign widget/proxy. The [CI workflow](../../.github/workflows/p0-memory-soak.yml) runs these tests before the native soak.
+
+**Current verification:** fix, regression tests and CI configuration committed and source-verified. **No post-fix green Kivy CI run or artifact analyzed yet.** PySide6/Tk 1,000-cycle job outcomes were green by screenshot, but raw RSS/heap/retention series have not yet been inspected. The C07 soak gate remains open; 5,000/10,000-cycle runs and full C05 install remain outstanding.
