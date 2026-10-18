@@ -128,6 +128,38 @@ def test_canonical_width_change_reflows_sibling_without_remeasuring_unchanged_le
     assert not renderer._sfle_intrinsic_cache
 
 
+def test_equal_geometry_commit_does_not_write_or_trigger_resize_feedback(monkeypatch) -> None:
+    from psx.renderers.headless import HeadlessHandle
+
+    renderer = new_renderer()
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Flex(
+        Flex(key="first", width=30, height=20),
+        Flex(key="second", width=20, height=20),
+        direction="row", gap=5, width=120, height=60,
+    ))
+    handles = tuple(child.handle for child in root.children)
+    initial = tuple(handle.geometry for handle in handles)
+    writes = []
+    original_setattr = HeadlessHandle.__setattr__
+
+    def record_setattr(handle, name, value):
+        if name == "geometry":
+            writes.append((handle, value))
+        return original_setattr(handle, name, value)
+
+    monkeypatch.setattr(HeadlessHandle, "__setattr__", record_setattr)
+    try:
+        renderer.commit_layout(root)
+        renderer.commit_layout(root)
+        assert writes == [], "Equal committed rectangles must not be rewritten"
+        assert tuple(handle.geometry for handle in handles) == initial
+        assert tuple(child.handle for child in root.children) == handles
+        assert renderer.sfle_result.geometry_commit_error == 0.0
+    finally:
+        reconciler.unmount()
+
+
 def test_keyed_reorder_and_resize_reuse_native_handle_without_remount() -> None:
     renderer = new_renderer()
     reconciler = Reconciler(renderer)
