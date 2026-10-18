@@ -85,9 +85,14 @@ class KivyNativeLifecycleTests(unittest.TestCase):
             assert dict(borrowed.pos_hint) == original_pos_hint
 
             calls = []
-            leaf = r.render(Button("Press", on_click=lambda: calls.append("click")))
-            button = leaf.handle.widget
-            slot = leaf.event_slots["on_click"][0]
+            # Native Cinnamon requires one explicit Flex root for layout.
+            leaf = r.render(Flex(
+                Button("Press", on_click=lambda: calls.append("click")),
+                direction="column",
+            ))
+            button_instance = leaf.children[0]
+            button = button_instance.handle.widget
+            slot = button_instance.event_slots["on_click"][0]
             button.dispatch("on_release")
             assert calls == ["click"]
             r.unmount()
