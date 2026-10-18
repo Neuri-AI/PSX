@@ -115,3 +115,8 @@ The owner supplied **three GitHub Actions ZIP artifacts** for run identifier `39
 **Next investigation:** [Kivy allocation tracer](../../scripts/p0_kivy_allocation_trace.py) and [dedicated CI workflow](../../.github/workflows/p0-kivy-allocation-trace.yml) were committed to profile Python allocation sites, comparing cycle 500 vs cycle 5,000 after native pending-event flush and GC. Inspect the tracebacks and repeat under a warmed control before changing production Kivy/Cinnamon code. The tracer's result is **not yet executed or available**.
 
 **C07 gate remains open** pending explanation/mitigation of Kivy's positive slopes, corroborating 10,000-cycle or warmed stable-state evidence, and final owner acceptance. C05 full clean ecosystem installation is independent and still pending.
+
+
+## Kivy 5,000-cycle allocation attribution — artifact review
+
+The user provided GitHub Actions artifact `p0-kivy-allocation-sites-39144692699.zip`. Analyzed results and tracebacks are preserved in [P0 Kivy Allocation Findings](P0_KIVY_ALLOCATION_FINDINGS.md): RSS rose **75,276,288 B** from cycle 500 to 5,000, while Python-traced allocations grew net **17,604,714 B**. Six call paths through reconciliation and Kivy native widget creation account for ~99.995% of the positive traced allocations. Their **allocation sites** are known; their **retaining reference owners** remain unidentified. Do not change Kivy/Cinnamon code or close C07 until GC object/referrer and equivalent direct-Kivy controls explain the growth.
