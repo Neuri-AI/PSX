@@ -114,3 +114,15 @@ Each agent commits **evidence-only** documentation to `develop` using convention
 2026-10-18: [P0 verification §8](P0_VERIFICATION_REPORT.md#8-p07--isolated-fault-path-execution-and-current-manifests-2026-10-18) adds **reproduced isolated-harness H-MEM-01 teardown interruption**, demonstrating that a throwing effect cleanup bypasses child/native destroy in copied current method bodies. An actually executed local `packaging` version-range check also confirms three version mismatches for the checked source manifests, including the PSX project distribution-name mismatch.
 
 **Not certified:** the real GitHub checkout test suite, a live Qt/Tk/Kivy leak, clean-wheel/pip dependency resolution, same-SHA CI, or owner approval of AD-05/AD-07. No gate row should be reclassified to PASS on the strength of these limited observations. The Architecture Gate stays **BLOCKED**.
+
+
+## P0.7 targeted remediation after owner instruction to continue
+
+A scoped **defensive C07 production patch** is now present in `develop`, even though **the global P0→P1 Architecture Gate remains BLOCKED**:
+
+- [`psx/core/hooks.py`](../../psx/core/hooks.py) and [`psx/core/reconcile.py`](../../psx/core/reconcile.py) attempt independent cleanup after hook/event/native disposer failures and surface the first error.
+- [Six regression cases](../../tests/test_p0_teardown_diagnostics.py) are committed but not yet executed inside a clone; a **four-scenario isolated cleanup harness** passed locally.
+- [Package metadata checker](../../scripts/verify_velto_dependency_graph.py) was committed; its local synthetic-fixture check identified three known incompatibilities, **not** a clean-wheel resolver failure.
+- See [P0 verification §9](P0_VERIFICATION_REPORT.md#9-p07-c07-defensive-patch-and-executable-local-probes-2026-10-18) for exact limitations.
+
+This is an **implemented partial risk mitigation**, not formal owner ratification of AD-05's complete error API and **not** evidence that memory leaks or package resolution are certified. The decision table remains PENDING; production stability and public release are not authorized merely by these commits. Before further P1/C07 expansion, get same-SHA core/native CI and explicit acceptance of the error propagation/aggregation policy.
