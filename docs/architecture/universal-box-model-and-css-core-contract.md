@@ -5,6 +5,8 @@
 > **Decision authority:** Project owner. Explicit approval recorded in the working conversation on 2026-10-18: “va acepto el contrato”.
 > **Implementation status:** Contract approved as architectural direction. This is not runtime implementation, native certification, or a blanket waiver of the separate global architecture approval gate.
 
+**Canonical geometry handoff:** [Precedence, intrinsic measurement and invalidation contract](canonical-geometry-integration-contract.md) specifies the closed technical rules for integrating existing `layout_*` metadata with Cinnamon without prematurely introducing new CSS syntax or public box-sizing semantics. This is a design/implementation handoff, not runtime or full gate certification.
+
 ## 1. Objective and boundaries
 
 Velto must provide a consistent, web-familiar box model and an extensible CSS Core inside PSX, while Cinnamon remains the **sole authoritative layout engine** and Qt, Tkinter and Kivy remain **native renderers**. PSX Markup is markup; declarative use is optional. Existing PascalCase components and their documented properties remain supported.
