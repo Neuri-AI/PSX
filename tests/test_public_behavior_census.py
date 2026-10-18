@@ -301,7 +301,7 @@ def test_grid_native_certificate_requires_executed_backend_receipts(tmp_path):
     }
     assert len(grid_rows) == 151
     assert any(row.component == "GridItem" and row.backend == "headless"
-               and row.name == "flex_padding" and row.scenario == "no_horizontal_clip"
+               and row.feature_name == "flex_padding" and row.scenario_id == "no_horizontal_clip"
                for row in grid_rows)
     manifest = tmp_path / "no-native-receipts.json"
     manifest.write_text(json.dumps({"summary": {"sha": SHA}, "receipts": []}))
