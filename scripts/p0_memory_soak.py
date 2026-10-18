@@ -31,6 +31,7 @@ class Sample:
     tracemalloc_peak_bytes: int
     retained_instances: int
     retained_widgets: int
+    active_event_slots: int
     elapsed_seconds: float
     last_segment_seconds: float
 
@@ -79,18 +80,24 @@ def run_soak(
                 force_quiescence(flush)
                 now = time.perf_counter()
                 allocated, peak = tracemalloc.get_traced_memory()
+                live_instances = [
+                    obj for obj in gc.get_objects()
+                    if isinstance(obj, MountedInstance)
+                ]
                 samples.append(Sample(
                     cycles=index, rss_bytes=rss_bytes(),
                     tracemalloc_current_bytes=allocated,
                     tracemalloc_peak_bytes=peak,
-                    retained_instances=sum(
-                        isinstance(obj, MountedInstance) for obj in gc.get_objects()
-                    ),
+                    retained_instances=len(live_instances),
                     retained_widgets=sum(ref() is not None for ref in widget_refs),
+                    active_event_slots=sum(
+                        len(obj.event_slots) for obj in live_instances
+                    ),
                     elapsed_seconds=round(now - start, 6),
                     last_segment_seconds=round(now - previous, 6),
                 ))
                 previous = now
+                del live_instances
                 # Prune dead references: otherwise the *test* memory grows
                 # linearly due to retaining weakref objects.
                 widget_refs = [ref for ref in widget_refs if ref() is not None]
@@ -103,7 +110,7 @@ def make_backend(backend: str) -> tuple[
     Callable[[int], tuple[Any, Any]], Callable[[], None], Callable[[], None],
     Callable[[], None],
 ]:
-    from psx import Text
+    from psx import Button, Flex
     from psx.core.reconcile import Reconciler
 
     if backend == "pyside6":
@@ -115,9 +122,9 @@ def make_backend(backend: str) -> tuple[
         reconciler = Reconciler(renderer)
 
         def create(index: int) -> tuple[Any, Any]:
-            node = reconciler.render(Text(f"cycle-{index}"))
+            node = reconciler.render(Button(f"cycle-{index}", on_click=lambda: None))
             # Reconcile a changed value before unmounting the same QWidget.
-            reconciler.render(Text(f"updated-{index}"))
+            reconciler.render(Button(f"updated-{index}", on_click=lambda: None))
             return node, node.handle.widget
 
         def flush() -> None:
@@ -154,7 +161,6 @@ def make_backend(backend: str) -> tuple[
 
     if backend == "kivy":
         from kivy.clock import Clock
-        from psx import Flex
         from psx.renderers.kivy.kivy import KivyRenderer
         from psx.sfle.engine import PythonLayoutEngine
         from psx.sfle.model import AvailableSize, LayoutConstraints
@@ -168,9 +174,15 @@ def make_backend(backend: str) -> tuple[
         reconciler = Reconciler(renderer)
 
         def create(index: int) -> tuple[Any, Any]:
-            root = reconciler.render(Flex(Text(f"cycle-{index}"), direction="column"))
+            root = reconciler.render(Flex(
+                Button(f"cycle-{index}", on_click=lambda: None),
+                direction="column",
+            ))
             child = root.children[0]
-            reconciler.render(Flex(Text(f"updated-{index}"), direction="column"))
+            reconciler.render(Flex(
+                Button(f"updated-{index}", on_click=lambda: None),
+                direction="column",
+            ))
             return child, child.handle.widget
 
         def flush() -> None:
@@ -213,11 +225,13 @@ def main() -> int:
         "samples": [asdict(item) for item in samples],
         "final_retained_instances": latest.retained_instances,
         "final_retained_widgets": latest.retained_widgets,
+        "final_active_event_slots": latest.active_event_slots,
         "median_segment_seconds": statistics.median(x.last_segment_seconds for x in samples),
         "status": "investigate_retention" if (
             len(samples) >= 3
             and latest.retained_instances > samples[0].retained_instances + 10
             or latest.retained_widgets > 10
+            or latest.active_event_slots > 10
         ) else "no_sustained_growth_detected_in_sample",
         "interpretation": (
             "Native toolkit allocator RSS and tracemalloc are diagnostic. "
