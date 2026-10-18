@@ -101,3 +101,103 @@ The F5.5 ledger states G6 is in progress while previous project discussions desc
 ## 7. Next gate
 
 **Next:** `P0-02 — Evidence Completion and Contract Inventory`. The current report is suitable to direct agents' inspection, but **not** sufficient to authorize contract closure or implementation. Once complete, produce `CONTRACTS_INDEX.md`, contract-specific delta specs C01–C12 and `ARCHITECTURE_APPROVAL.md` for owner signoff.
+---
+
+## 8. P0.2 — Expanded source-trace audit (2026-10-18)
+
+**Audit reference:** PSX `develop` commit `847a08035d08d3d66c0bffd2b7df3743f938f5aa` (the previously published P0 initial report commit). PSX source files in this section were fetched using **this immutable ref**, not GitHub's default-branch code search. Related repositories were read at their default branches with per-file blob identities (cross-repository commit heads remain unpinned). No local checkout, actual execution of tests, GUI session, CI artifact download, or heap profiling was performed. Accordingly, this is a **substantial static code audit, not final runtime certification**. This distinction is binding for agents.
+
+### 8.1 Evidence map — reconciliation and resources
+
+| ID | Source (PSX at pinned ref) | Direct observation | Consequence |
+| --- | --- | --- | --- |
+| E-R01 | [`psx/core/reconcile.py` lines 151–179](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/core/reconcile.py#L151-L179) | Keyed children mapped by key; unkeyed by index; unmatched old children passed to `_unmount`. | Key stability/child removal implemented; mixed-list behavior and native lifetime must be tested. |
+| E-R02 | [`psx/core/reconcile.py` lines 270–295](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/core/reconcile.py#L270-L295) | Event callbacks update via existing `EventSlot`; removal disposes slot, unbinds subscription and deletes map entry. | Explicit event-disposal machinery exists; adapters must actually disconnect. |
+| E-R03 | [`psx/core/reconcile.py` lines 299–322](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/core/reconcile.py#L299-L322) | Unmount sets `disposed`, optionally detaches, disposes/unbinds events, clears refs, disposes hooks, recursively unmounts children in reverse order and calls renderer `destroy`. | Ownership contract should formalize ordering/error policy and test cleanup if a disposer raises. |
+| E-R04 | [`psx/core/hooks.py` lines 127–133](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/core/hooks.py#L127-L133) | Effect cleanups run in reverse order; afterwards hooks list is cleared. | Cleanup **may raise**; neither this function nor `_unmount` uses an apparent per-disposer recovery/finally loop. This is a **risk requiring a deliberate fault-injection test**, not a demonstrated leak. |
+| E-R05 | [`psx/core/scheduler.py`](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/core/scheduler.py) | Dirty instances are coalesced in an identity dictionary, effect runners in a second dictionary; dictionaries clear during flush/effects. | Pending callbacks can temporarily retain instances; characterize shutdown/unmount behavior when the UI queue stops before draining. |
+| E-R06 | [`tests/test_core.py`](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/tests/test_core.py) and [`tests/test_hooks_scheduler.py`](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/tests/test_hooks_scheduler.py) | Test functions cover keyed reorder/identity, duplicate keys, unbind/destroy once, batched updates, effect cleanup, ref reset, hook-order mismatch, worker scheduling and inert unmounted setter. | These are **test definitions**, not proof of a current passing run. |
+
+**High-priority fault-injection hypothesis H-MEM-01:** if an effect cleanup or renderer event unbind raises during `Reconciler._unmount`, remaining native descendants may not be destroyed because the code continues sequentially without a finalization guard. Reproduce with a throwing disposer in Headless, then run native counterpart(s); decide and document whether failures should be aggregated, propagated after guaranteed cleanup, or treated as fatal. Never swallow exceptions silently.
+
+### 8.2 Native renderer and layout audit
+
+| ID | Source | Direct observation / gate |
+| --- | --- | --- |
+| E-N01 | [Qt renderer](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/renderers/qt/pyqt.py#L662-L740) | `commit_layout` branches for Grid vs Flex/native bridge, retries stale semantic epochs up to 3 times; post-commit installs resize/semantic event filters; `invalidate_layout` cancels pending invalidations, clears intrinsic and image watches, and removes filters. |
+| E-N02 | [Qt destroy and signal lifecycle](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/renderers/qt/pyqt.py#L892-L947) | Adapter delegates destruction; owned Qt widgets get `deleteLater()` when not released; signal callbacks are disconnected on unbind. Qt deferred delete event-loop flushing and borrowed-widget restoration still require native tests. |
+| E-N03 | [Tkinter renderer](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/renderers/tkinter/tkinter.py#L575-L660) | Layout uses corresponding native bridge and bounded epoch retries; invalidation unbinds theme/resize watchers, cancels pending `after` jobs and clears caches. |
+| E-N04 | [Tkinter destroy](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/renderers/tkinter/tkinter.py#L869-L878) | Borrowed native widgets are skipped; owned existing widgets call `destroy()`. Native host state restoration is a separate proof obligation. |
+| E-N05 | [Kivy renderer](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/renderers/kivy/kivy.py#L565-L648) | Layout commit branches Grid vs Flex; watches root size and Window resize, invalidation cancels clock events, unbinds watchers and clears caches. |
+| E-N06 | [Kivy widget destroy](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/renderers/kivy/kivy.py#L864-L893) | TextArea-specific binding is removed; optional spec destruction hook runs; borrowed widget is returned to original parent and previous size/pos hints are restored. |
+| E-N07 | [SFLE native component capabilities](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/sfle/native_component_capabilities.py) | Native intrinsic capability lists exist for qt/tk/kivy; Kivy Slider requires explicit definite bounds. |
+| E-N08 | [Qt layout bridge](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/sfle/qt_layout_bridge.py) | Bridge describes Qt sizeHint/heightForWidth measurement feeding pure SFLE computation and native rectangle projection. Full `sizeHint()` invalid-result branch test coverage has not been audited. |
+| E-N09 | [Renderer adapters](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/renderers/adapters.py) and [adapter tests](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/tests/test_renderer_adapters.py) | Instance-scoped registry and lifecycle delegation with custom adapter mount/update/unmount test definitions exist. |
+
+**Interpretation:** the earlier audit's C08 `UNVERIFIED` should now be upgraded to `PARTIAL`: concrete native invalidation state machines, cancellation and bounded retry are implemented across three major renderers. **This does not certify absence of resize loops.** All three renderers also have invalidation caches requiring retention/eviction instrumentation. Native 0-to-invalid hint policy, UI-thread measurement, and live widget counts remain unproven by execution.
+
+### 8.3 Cinnamon computational contract
+
+- [`psx/sfle/engine.py`](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/sfle/engine.py) exposes a `PythonLayoutEngine.compute` invoking `compute_alpha.compute_snapshot`, a provisional computation method, and Grid computation. Do not describe it as a standalone public Cinnamon layer.
+- [`psx/sfle/model.py`](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/psx/sfle/model.py) defines computational model types. Existing [F1 final contract](https://github.com/Neuri-AI/PSX/blob/847a08035d08d3d66c0bffd2b7df3743f938f5aa/docs/architecture/sfle-f1-final-architecture.md) is normative for fixed-point 1/64 px and Python/Rust parity, but **actual Rust/Python parity test execution and feature-completeness remain unverified**.
+- `psx/sfle/coordinator.py` does **not** exist at the inspected ref. Future agents must inventory real coordinator and bridge paths instead of inventing a module by that name.
+
+### 8.4 Related repositories — direct package source inspection (heads not pinned)
+
+| Repository | Files read | Concrete observations / cross-repository obligations |
+| --- | --- | --- |
+| [Neuri-AI/Velto](https://github.com/Neuri-AI/Velto) | `pyproject.toml`, `README.md`, `velto/__init__.py`, `velto/ui/__init__.py`, `velto/state/__init__.py`, `velto/runtime/__init__.py` | A real facade is present. It directly reexports `VeltoContext` from Qyro, PSX symbols in `velto.ui`, Pydux in `velto.state`, Qyro in `velto.runtime`. These are packages/directories, not `velto/ui.py` files. |
+| [Neuri-AI/Pydux](https://github.com/Neuri-AI/Pydux) | `pyproject.toml`, `README.md` | Pydux distribution and optional PSX/Qyro integration are declared; subscription-unmount internals and live integration behavior still uninspected. |
+| [Neuri-AI/qyro](https://github.com/Neuri-AI/qyro) | `pyproject.toml`, `README.md` | Qyro runtime is a separate distribution with broader Python version range; native toolkit version markers vary by backend. |
+| [Neuri-AI/Velto-CLI](https://github.com/Neuri-AI/Velto-CLI) | `pyproject.toml`, `README.md` | This repository's metadata declares distribution/entry point `qyro-cli` / `qyro`; its README still describes Qyro CLI. Confirm canonical repo/branch and CLI hot-reload coordination before changing F6. |
+
+**Cross-package blocker H-PKG-01: dependency constraints conflict in inspected metadata.**
+
+- PSX repository `pyproject.toml` declares distribution `velto-core==0.1.0`, package `psx`.
+- Velto facade `pyproject.toml` depends on **`psx>=1.0.0a1,<2.0.0`** and **`pydux[psx]>=1.0.0a1,<2.0.0`**.
+- Pydux `pyproject.toml` defines extra `psx` with **`velto-core>=0.1.0,<1.0.0`**, and `qyro` extra with **`qyro-engine>=1.0.0a1,<2.0.0`**.
+- Velto facade requires **`qyro-engine>=0.1.0,<0.2.0`** whereas the inspected Qyro runtime itself declares version **`1.0.0a1`**.
+
+These manifest strings are directly observable and appear mutually incompatible **for a fresh dependency resolution using the repositories as currently inspected**. A fully reproduced resolver failure is **not asserted** (no install performed). This is a release/integration contract blocker for C05, C11, C12 and should be resolved with a compatible version strategy/CI install matrix before claims that `pip install velto` is functional across backends.
+
+### 8.5 Snapshot of contract triage after P0.2 static pass
+
+| Contract | Updated classification | Specific next proof |
+| --- | --- | --- |
+| C01 Universal Box Model | PARTIAL | Map ratified sizing semantics to executable box/overflow tests |
+| C02 CSS-like Styling | PARTIAL | Verify whether cascade/inheritance/normalization exist; do not infer browser CSS |
+| C03 Cinnamon Layout | PARTIAL | Rust/Python parity, fixed-point overflow, CSS geometry execution |
+| C04 Renderer Adapter | PARTIAL | Lifecycle fault paths + native Qt/Tk/Kivy adapter exercise |
+| C05 Component Compatibility | CONFLICTING (packaging/integration) | Align facade/runtime/distribution versions; preserve currently exported components |
+| C06 Reconciliation & Identity | PARTIAL | Key churn + exception-safe cleanup + mixed keyed/unkeyed cases |
+| C07 Memory Ownership | PARTIAL | Heap/widget/task/reference measurements; exception-in-disposal tests |
+| C08 Layout Invalidation | PARTIAL (upgraded) | Native resize stress, event coalescing, idle/quiescence |
+| C09 Native Measurement | PARTIAL | Invalid Qt hints, pre-mount, intrinsic image/text/scroll, DPI |
+| C10 Hot Reload Lifecycle | PARTIAL | Supervisor/refresh/remount/restart, Qyro coordination |
+| C11 Cross-backend Parity | UNVERIFIED | Native Python/OS/backend matrix + fresh install |
+| C12 Testing & Certification | PARTIAL | Collect actual CI run URLs, rerun reproducible tests, soak benchmarks |
+
+**Terminology clarification:** `CONFLICTING` on C05 applies specifically to **cross-repository dependency/distribution integration**, not evidence that `Button` or `Flex` broke.
+
+### 8.6 Ready-to-run verification checklist for an agent with checked-out repositories
+
+```bash
+# In PSX checkout, after fetching:
+git checkout develop
+git pull --ff-only
+git rev-parse HEAD
+git ls-files > docs/architecture/p0-repository-file-inventory.txt
+python -m pytest tests/test_core.py tests/test_hooks_scheduler.py tests/test_renderer_adapters.py -q
+python -m pytest tests/ -q
+python benchmarks/psx_benchmark.py --help
+
+# Separate backend graphical/Qt/Kivy/Tk smoke suites MUST be selected
+# from discovered existing tests/workflows and run in a suitable display environment.
+# Do not publish a PASS unless the command actually ran.
+```
+
+Additional commands to execute in **isolated environments** (do not change lockfiles in the audit): install/test the `velto` facade against the explicit PSX, Pydux and Qyro distributions and compare resolver diagnostics to H-PKG-01; repeatedly mount/unmount 100–1000 component trees, pump Qt deferred-delete events, inspect QObject lifetimes, Tk widget existence, Kivy window bindings, scheduler dirty/effect queues and RSS + `tracemalloc`; stress repeated resize, font/theme/DPI changes, and intrinsic resource swaps.
+
+### 8.7 Final P0 gate still blocked
+
+This new evidence narrows the unknowns and identifies a concrete packaging/integration conflict, but it **does not finish the original P0.2 acceptance criteria**. Still missing: complete tracked-file tree; pinned heads for all related repos; execution of test and CI matrix; Pydux subscription teardown trace; Rust parity coverage; native stress/retention measurements; owner review of F5.5 G6 status and the F0–F8 web-like plan's actual location. Therefore **Contract Consolidation remains gated**. The next safe agent deliverable is a read-only executed-evidence addendum, followed by an existing-contract precedence index.
