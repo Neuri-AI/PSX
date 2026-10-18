@@ -59,7 +59,6 @@ jobs:
     env:
       KIVY_NO_FILELOG: "1"
       KIVY_NO_ARGS: "1"
-      KIVY_GL_BACKEND: mock
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
