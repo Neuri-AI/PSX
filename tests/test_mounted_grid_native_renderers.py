@@ -251,7 +251,10 @@ def test_grid_root_geometry_is_restored_when_native_batch_fails(request, monkeyp
         assert rectangle(parent_widget, backend) == pytest.approx(before, abs=1)
         assert rectangle(a_widget, backend) == pytest.approx(child_before, abs=1)
         renderer.commit_layout(first)
-        assert rectangle(parent_widget, backend)[2] == pytest.approx(767, abs=1)
+        # A top-level Qt window retains window-manager geometry; Cinnamon
+        # reflows children without changing the user-owned window rectangle.
+        target_width = before[2] if backend == "qt" and parent_widget.isWindow() else 767
+        assert rectangle(parent_widget, backend)[2] == pytest.approx(target_width, abs=1)
         assert renderer.grid_result[1].max_readback_error <= 1
         assert_feature(
             request, Feature("Grid", binding, "interaction", "native_root",
