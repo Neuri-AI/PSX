@@ -76,3 +76,20 @@ The weak-proxy `ReferenceError` instrumentation patch is committed to `develop`,
 Added [`scripts/p0_memory_soak_report.py`](../../scripts/p0_memory_soak_report.py) with three [report tests](../../tests/test_p0_memory_soak_report.py). The analyzer consumes the raw per-backend JSON and reports first-to-last and second-half deltas for RSS, Python allocations, live mounted instances, native widget wrappers and active event slots. It deliberately refuses to infer a trend from fewer than two settled samples and does not turn RSS growth alone into a leak verdict. The [CI workflow](../../.github/workflows/p0-memory-soak.yml) now runs both instrumentation/test-report suites, writes a per-job GitHub Step Summary and uploads JSON plus Markdown summary files whenever a raw artifact exists.
 
 **Next gate:** inspect the next 1,000-cycle GitHub Actions run for all three backends, download the artifacts, review the measured series, then execute the 5,000/10,000-cycle matrix only if the baseline supports it. No P0→P1 approval is implied by committing analysis tooling.
+
+
+## P0.9 actual 1,000-cycle artifacts — owner evidence (2026-10-18)
+
+The owner supplied a screenshot of successful [P0 memory soak run #8](https://github.com/Neuri-AI/PSX/actions/workflows/p0-memory-soak.yml), commit prefix `1d6f1d4`, **3/3 green** (PySide6, Tkinter, Kivy), together with all three backend raw `*-memory.json` files and their generated summaries. Each series contains four samples at 250, 500, 750 and 1,000 cycles from Linux / Python 3.13.16. **These are measured outputs, not inferred values.**
+
+| Backend | RSS at 250 | RSS at 1,000 | RSS delta 250→1,000 | tracemalloc current delta | Live instances / widget wrappers / event slots at 1,000 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| PySide6 | 94,089,216 B | 96,018,432 B | +1,929,216 B | +2,215,761 B | 0 / 0 / 0 |
+| Tkinter | 40,210,432 B | 40,210,432 B | 0 B | +999,276 B | 0 / 0 / 0 |
+| Kivy | 164,962,304 B | 170,848,256 B | +5,885,952 B | +3,678,821 B | 0 / 0 / 0 |
+
+**Second-half comparison (750→1,000):** PySide6 RSS 0 B and tracemalloc +537 B; Tkinter RSS 0 B and tracemalloc +488 B; Kivy RSS +1,691,648 B and tracemalloc +978,488 B. Kivy also grows over the 500→750 segment. **This continued increase warrants a longer trend investigation before accepting C07 as performance-stable.** None of these results independently proves a leak; Kivy/Cinnamon/Kivy-native caches or allocator behavior can create nonzero tracked memory without keeping retired PSX widgets alive. A fresh-process A/B control and 5,000-cycle Kivy run can help distinguish warmup from persistent growth.
+
+**Limitations:** zero retained objects means zero within the exact probe's observed `MountedInstance` concrete type, weakly-referenced widget wrappers, and recorded live event-slot scopes after event draining and GC. It does not count all native allocations, Kivy `Clock` observers, Rust buffers, GPU resources, or arbitrary Python global caches. The first sample is at cycle 250, **not** pre-mount baseline. Process RSS includes toolkit and SDL/OpenGL overhead and must not be called 'Velto-only RAM.' Reported success represents the script's provisional thresholds, not zero growth in RSS or `tracemalloc`.
+
+**Decision:** 1,000-cycle smoke **VERIFIED GREEN** for three Linux backends. **Long-duration C07 certification remains OPEN.** Suggested next work: Kivy 5,000 cycles with raw artifacts; PySide6 and Tk 5,000 for matched-baseline comparison; 10,000 cycles and a warmed steady-state repeat if growth persists. Record comparable hardware, SHA, Python toolkit versions, slope after warmup, and possible owning cache roots before deciding on code changes.
