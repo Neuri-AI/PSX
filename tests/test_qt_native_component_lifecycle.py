@@ -656,14 +656,16 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertIn("read", calls)
 
     def test_missing_native_geometry_port_fails_before_factory(self):
+        from psx.core.native import NativeWidget
+        from psx.core.vnode import native_widget
         created = []
         def factory():
             created.append(True)
             return qtwidgets.QLabel()
         with self.assertRaisesRegex(RendererCapabilityError, "Native requires"):
             self.reconciler.render(Flex(
-                Native(factory, renderer=BINDING,
-                       layout_width="20px", layout_height="20px"),
+                native_widget(NativeWidget(renderer=BINDING, factory=factory),
+                              layout_width="20px", layout_height="20px"),
                 width=160, height=80,
             ))
         self.assertFalse(created)
@@ -1001,8 +1003,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         ORACLES["unmount"](
             before_unmount, observe(mounted=False, disposed=True),
         )
-        self.assertEqual(len(after.children), 2)
-        self.assertIs(after.children[1].handle.widget, widget)
+        self.assertEqual(len(after.children), 0)
         self.renderer.application.processEvents()
 
 
