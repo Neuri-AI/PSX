@@ -245,3 +245,21 @@ Added [`.github/workflows/p0-core-lifecycle.yml`](../../.github/workflows/p0-cor
 Local independent checks (not project imports) from the earlier section were executed again: the manifest checker detected three incompatibilities, returning status 1 on synthetic fixtures; the simulated cleanup harness reported 4/4 assertions passing. Neither substitutes for native or exact-source checkout execution.
 
 **Next action:** inspect [GitHub Actions — P0 core lifecycle verification](https://github.com/Neuri-AI/PSX/actions/workflows/p0-core-lifecycle.yml), obtain both Python job URLs, source SHAs, counts and conclusions, and address failures before closing C07. C05 requires actual clean wheelhouse and public-index resolution.
+
+
+## 11. Screenshot-confirmed P0 core matrix results (2026-10-18)
+
+**Evidence source:** project owner provided a screenshot of the GitHub Actions workflow history at [P0 core lifecycle verification](https://github.com/Neuri-AI/PSX/actions/workflows/p0-core-lifecycle.yml). This screenshot visibly shows four successful (`green check`) `push` workflow runs on `develop`:
+
+| Workflow run number | Commit prefix | UI conclusion |
+| --- | --- | --- |
+| #1 | `2dbc439` | SUCCESS (screenshot) |
+| #2 | `6b866ad` | SUCCESS (screenshot) |
+| #3 | `8fed3b9` | SUCCESS (screenshot) |
+| #4 | `5ae8703` | SUCCESS (screenshot) |
+
+The last revision of [the workflow YAML](../../.github/workflows/p0-core-lifecycle.yml) contains the `Lifecycle Python` matrix (`3.10`, `3.13`) and a `pytest -q` invocation covering `test_p0_teardown_diagnostics.py`, `test_p0_dependency_graph.py`, `test_core.py`, `test_hooks_scheduler.py`, plus syntax checks. The latest UI success at `5ae8703` is **consistent with** this configured suite passing on both Python matrix cells, assuming the workflow file at that revision matches the inspected configuration.
+
+**Evidence classification:** `EXECUTED SUCCESS — UI screenshot confirmed` for P0 workflow overall; exact per-job test count, logs, steps, skip counts, artifact links and full run ID were **not available** from the screenshot. The GitHub connector's commit-workflow-run lookup filters to PR-triggered runs and returned none for these push commits; this is **not evidence of missing push executions**.
+
+**Gate disposition:** core lifecycle/diagnostic CI evidence upgraded from `NOT VERIFIED` to `SCREENSHOT CONFIRMED SUCCESS`. Do **not** upgrade native Qt/Tk/Kivy teardown, repeated runtime soak, actual wheel/pip resolver, cross-repo release graph, or owner AD-05/AD-07 approval; all remain pending.
