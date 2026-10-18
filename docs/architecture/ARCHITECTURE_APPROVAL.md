@@ -220,3 +220,10 @@ Committed [Kivy heap ownership and direct-toolkit control protocol](P0_KIVY_HEAP
 The owner explicitly elected to postpone the excessive memory growth observed during **Kivy + PSX/Cinnamon** mount/update/unmount stress testing, and to move forward with the next planned implementation phase. This is a **narrow waiver of immediate investigation**, not a claim that the issue was fixed, that native C07 passed, or that P0 was fully approved. Reproducible artifacts, measured deltas and the resumption protocol are recorded as **P2-MEM-KIVY-SFLE-01 (OPEN, HIGH)** in [P0.9 Closure Candidate](P0_9_CLOSURE_CANDIDATE.md).
 
 The team has started **P1 IM-01 isolated, pure normalization scaffolding only** as documented in [P1 Phase 1 Canonical Box Baseline](P1_PHASE_1_CANONICAL_BOX_BASELINE.md), with no public API change or renderer/Cinnamon integration. **This does not mark the global P0→P1 approval gate as APPROVED.** AD-01–AD-12 remain without general ratification; C05 resolver evidence still required. Do not infer acceptance for an untested memory slope or use this specific deferral as a release-readiness waiver.
+
+
+## Owner decision: universal box model and CSS Core (2026-10-18)
+
+The project owner explicitly accepted the [universal box model and CSS Core architectural contract](universal-box-model-and-css-core-contract.md) in the project discussion on 2026-10-18. Accepted architectural direction: CSS Core inside PSX, Cinnamon as the sole geometry authority, legacy responsive Grid and GridItem preserved, separate future CSS Grid tracks, incremental invalidation, bounded caches and native capability certification.
+
+This is approval of the architectural contract, **not approval of all outstanding detailed interface choices or the full global architecture gate**. Public styling syntax, exact per-tag sizing defaults, track algorithm details, native measurement ports, and remaining packaging/lifecycle/certification gates require their documented dispositions. Global gate status remains BLOCKED until its separately listed acceptance evidence is complete. No production implementation or test execution is implied by this entry.
