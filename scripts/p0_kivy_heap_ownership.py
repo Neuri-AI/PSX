@@ -175,6 +175,8 @@ def make_psx_without_cinnamon() -> tuple:
 def diagnose(mode: str, cycles: int, checkpoints: tuple[int, ...]) -> dict:
     if mode == "velto":
         make = make_backend("kivy")
+    elif mode == "velto_no_commit":
+        make = make_backend("kivy", skip_kivy_layout_commit=True)
     elif mode == "psx_no_cinnamon":
         make = make_psx_without_cinnamon()
     else:
@@ -220,6 +222,7 @@ def diagnose(mode: str, cycles: int, checkpoints: tuple[int, ...]) -> dict:
             "limitations": [
                 "Direct Kivy is an approximate workload control, not identical to PSX.",
                 "PSX without Cinnamon omits native SFLE layout and measurements.",
+                "velto_no_commit is a diagnostic broken-layout control, not a usable renderer.",
                 "RSS includes toolkit and OpenGL/SDL allocations.",
                 "Referrer samples include temporary profiler-owned containers.",
                 "GC cannot see all Cython/C-side owners; heap histograms are bounded.",
@@ -233,7 +236,7 @@ def diagnose(mode: str, cycles: int, checkpoints: tuple[int, ...]) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--mode", choices=["velto", "native", "psx_no_cinnamon"], required=True
+        "--mode", choices=["velto", "velto_no_commit", "native", "psx_no_cinnamon"], required=True
     )
     parser.add_argument("--cycles", type=int, default=5000)
     parser.add_argument("--json-out", type=Path, required=True)
