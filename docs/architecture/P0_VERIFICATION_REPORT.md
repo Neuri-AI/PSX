@@ -179,3 +179,54 @@ Facade `pyproject.toml` blob: `0594252ce6b0d333ad16aee4342c27cb7673111f`. CLI `p
 ### Environment constraint and next executed gates
 
 Direct `git ls-remote https://github.com/Neuri-AI/PSX.git refs/heads/develop` failed in the container with `Could not resolve host: github.com`. The linked GitHub connector supports repository file reads and writes but no workflow dispatch/full checkout. Therefore do not claim project tests or clean-wheel installs. Next execution must use a GitHub Actions workflow runner or developer machine with network/installed source: check actual `tests/test_p0_teardown_diagnostics.py`, packages and native backends at a **single immutable source SHA**, then attach stdout, CI run URL and artifact receipts.
+
+
+## 9. P0.7 C07 defensive patch and executable local probes (2026-10-18)
+
+**Change type:** Targeted core implementation, regression tests, and package-manifest diagnostic script. These changes were committed to `develop` following the owner's instruction to continue. This **does not** constitute sign-off of all C01–C12 proposals.
+
+### Production code modified
+
+- [`psx/core/hooks.py`](../../psx/core/hooks.py): effect cleanup now attempts remaining reverse-order disposers when one raises; hook slots are cleared before re-raising the first exception. Later failures are noted on Python versions supporting `BaseException.add_note`; Python 3.10 retains the first exception.
+- [`psx/core/reconcile.py`](../../psx/core/reconcile.py): `_unmount` attempts event unbind, effect cleanup, children, and native destroy independently. Instance event-slot and child/contexts bookkeeping are cleared. The public `unmount` clears its root and attempts layout invalidation even when cleanup raises.
+- [`tests/test_p0_teardown_diagnostics.py`](../../tests/test_p0_teardown_diagnostics.py): six **normal** assertions (removed prior `expectedFailure`) covering normal teardown, throwing effect cleanup, reverse effect ordering, failing native unbind, failing native destroy and repeated fake-renderer unmount. These **repository test cases have not run here**.
+
+### Local isolated execution receipt
+
+**Executed:** `python /mnt/data/p0_verification/probe_fixed.py` and `python -m py_compile /mnt/data/p0_verification/probe_fixed.py`.
+
+This standalone harness mirrors the modified cleanup algorithms and uses simple stand-in instances, hook slots and fake renderer, **not imported PSX source from a checkout**. Its four scenarios each passed assertions requiring child/parent destruction, cleared root, disposed child, and one invalidation, with expected exception propagation:
+
+```text
+normal (['child', 'parent'], True, True, 1, None)
+cleanup (['child', 'parent'], True, True, 1, 'hook fault')
+unbind (['child', 'parent'], True, True, 1, 'unbind fault')
+destroy (['child', 'parent'], True, True, 1, 'destroy fault')
+isolated cleanup harness: 4/4 passed
+```
+
+**Evidence limit:** No full repository pytest or unittest run, no same-SHA CI receipt, no Qt/Tk/Kivy native soak, no wheel install. This strengthens confidence in the narrow fault path, but **H-MEM-01 remains PARTIAL / NOT CERTIFIED** until in-repository and native evidence passes. The defensive patch is **not** a measured guarantee of zero leaks.
+
+### C05 diagnostic script and local fixture run
+
+Added [`scripts/verify_velto_dependency_graph.py`](../../scripts/verify_velto_dependency_graph.py). It reads supplied local `pyproject.toml` manifests, normalizes distribution names, compares declared requirements and extras against **the exact local provider versions** and returns a nonzero status on conflicts. Python 3.10 needs `tomli`; all versions need `packaging`. This is **not** a pip resolver or wheel install. It deliberately does not auto-edit version constraints.
+
+A matching script was executed locally against four **synthetic minimal TOML fixtures transcribed from current manifest names, versions and direct requirements**:
+
+```text
+CONFLICT: velto (base): psx<2.0.0,>=1.0.0a1 has no local provider
+CONFLICT: velto (base): pydux[psx]<2.0.0,>=1.0.0a1 excludes pydux==0.1.0
+CONFLICT: velto (base): qyro-engine<0.2.0,>=0.1.0 excludes qyro-engine==1.0.0a1
+Checked 4 local distributions; 3 compatibility conflicts
+expected failure exit: 1
+```
+
+**Evidence limit:** Local fixtures were reconstructed from previously fetched metadata; this is not a wheelhouse or live PyPI check. The committed script itself must still run against pinned full repository manifests.
+
+### Required next certification
+
+1. Execute `python -m unittest discover -s tests -p test_p0_teardown_diagnostics.py -v` and existing `tests/test_core.py`, `tests/test_hooks_scheduler.py` on the **updated** `develop` SHA; record failures/CI run.
+2. Run native event-loop destruction and fault injection on PySide6, Qt alternatives, Tkinter and Kivy in supported cells.
+3. Run actual manifest checker on pinned PSX, Velto, Pydux, Qyro and CLI checkouts. Build local wheels, run isolated resolver and `pip check`.
+4. Review the now-implemented limited cleanup error policy against **AD-05**, including multi-error reporting on Python 3.10; obtain owner acceptance or revise with compatible diagnostics.
+5. Keep **Architecture Gate BLOCKED** for platform/release claims until CI and owner decisions are recorded.
