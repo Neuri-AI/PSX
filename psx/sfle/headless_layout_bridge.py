@@ -80,38 +80,50 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             node_id: handles[id(source)]
             for node_id, source in prepared.identities
         }
-        # The existing Text.color property is paint-only. Cache exactly one
-        # successful mounted-tree signature per renderer; never retain nodes or
-        # handles in the signature. Every other property, identity and viewport
-        # constraint stays layout-relevant until explicitly certified otherwise.
-        # A pending semantic measurement invalidation always takes precedence.
-        layout_signature = (
-            constraints,
-            tuple(
-                (node_id, str(source.type), id(node_handles[node_id]),
-                 tuple(sorted(
-                     (name, value) for name, value in source.props.items()
-                     if not (source.type == "Text" and name == "color")
-                 )))
-                for node_id, source in prepared.identities
-            ),
-        )
-        paint_signature = tuple(
-            (node_id, source.props.get("color"))
-            for node_id, source in prepared.identities
-            if source.type == "Text"
-        )
+        # Only the existing Text.color contract is classified as paint-only.
+        # Keep one bounded, detached signature per mounted renderer. Unknown
+        # mutable or callback-valued props fail closed: they may influence
+        # native measurement and must not be retained or skipped speculatively.
+        def literal(value):
+            if value is None or isinstance(value, (str, int, float, bool)):
+                return True, value
+            if isinstance(value, tuple):
+                items = tuple(literal(item) for item in value)
+                return all(item[0] for item in items), tuple(item[1] for item in items)
+            return False, None
+
+        signature_safe = True
+        fingerprint = []
+        paint = []
+        for node_id, source in prepared.identities:
+            items = []
+            for name, value in sorted(source.props.items()):
+                if source.type == "Text" and name == "color":
+                    valid, color = literal(value)
+                    signature_safe &= valid
+                    paint.append((node_id, color))
+                    continue
+                valid, normalized_value = literal(value)
+                signature_safe &= valid
+                items.append((name, normalized_value))
+            fingerprint.append((
+                node_id, str(source.type), id(node_handles[node_id]),
+                tuple(items),
+            ))
+        layout_signature = (constraints, tuple(fingerprint))
+        paint_signature = tuple(paint)
         previous_signature = renderer._sfle_committed_signatures
         if (
-            renderer.sfle_result is not None
+            signature_safe
+            and renderer.sfle_result is not None
             and previous_signature is not None
             and previous_signature[0] == layout_signature
             and previous_signature[1] != paint_signature
             and not renderer._sfle_measurement_invalidations.needs_commit()
         ):
-            # The reconciler has already applied native paint props. Geometry
-            # and intrinsic dependencies are unchanged, so no solver/readback
-            # or native rectangle writes are needed for this specific update.
+            # Native paint props are already updated by reconciliation. No
+            # layout dependencies changed; avoid solver, intrinsic reads,
+            # geometry mutation and native readback for this isolated case.
             renderer._sfle_committed_signatures = (layout_signature, paint_signature)
             return
         # Mixed Flex/Grid uses the existing width-dependent Cinnamon solver.
@@ -287,6 +299,8 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             renderer.grid_result = grid_receipts[-1]
         # Publish the cache only after the layout and native readback pass.
         renderer._sfle_intrinsic_cache = next_cache
-        renderer._sfle_committed_signatures = (layout_signature, paint_signature)
+        renderer._sfle_committed_signatures = (
+            (layout_signature, paint_signature) if signature_safe else None
+        )
     finally:
         renderer._sfle_in_commit = False
