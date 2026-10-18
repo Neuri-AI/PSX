@@ -72,3 +72,12 @@ Both Kivy jobs initialized real SDL2 + Mesa under Xvfb. The failure was solely `
 **Scoped correction:** [Kivy lifecycle test](../../tests/test_p0_kivy_native_lifecycle.py) now compares `tuple(borrowed.size_hint)` with the expected tuple. It additionally asserts original contents *before mount*, temporary `(None, None)` values *while mounted*, and restored contents after unmount. `pos_hint` is compared by `dict(...)`. **No Kivy renderer production code was changed.**
 
 **Verification:** source change committed and re-fetched from `develop`; **new CI conclusion is not yet available at this writing**. Don't mark Kivy native certification green until the post-fix matrix run passes, including both Python versions.
+
+
+## P0.9 Kivy CI follow-up — explicit Flex root (2026-10-18)
+
+Owner-provided logs for both Kivy Python 3.11 and 3.13 show that the previous borrowed `size_hint` comparison no longer failed. The subprocess instead stopped at its final event-retirement scenario: `r.render(Button(...))` called native Cinnamon, whose certified contract requires exactly one explicit `Flex` root; `SFLECapabilityError: Native SFLE requires one explicit Flex root.`
+
+**Test-only correction:** [`tests/test_p0_kivy_native_lifecycle.py`](../../tests/test_p0_kivy_native_lifecycle.py) now renders `Flex(Button(...), direction="column")` and accesses the event slot via `leaf.children[0]`, preserving the existing callback and detachment assertions. Commit `89173a3`. The renderer and layout contract are unchanged.
+
+**Verification status:** source re-fetched after commit; new post-fix CI run still unverified. Tkinter 3.10/3.13 remained screenshot-confirmed green from the earlier matrix. Kivy 3.11/3.13 must pass the updated run to certify this stage.
