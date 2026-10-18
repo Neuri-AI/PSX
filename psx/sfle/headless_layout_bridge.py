@@ -201,7 +201,12 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before geometry.")
         try:
             for node_id, rect in placements.items():
-                node_handles[node_id].geometry = rect
+                # A paint-only reconciliation may still enter this bridge.
+                # Preserve native geometry when the committed rectangle is equal;
+                # avoid redundant writes and resize feedback without claiming
+                # the solver itself was skipped.
+                if before[node_id] != rect:
+                    node_handles[node_id].geometry = rect
             grid_receipts = []
             for node_id in grid_nodes:
                 box = dict(result.boxes)[node_id].content
