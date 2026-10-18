@@ -107,3 +107,10 @@ Each agent commits **evidence-only** documentation to `develop` using convention
 - [Batch 3 — hot reload and certification](P0_CONTRACT_REVIEW_BATCH_3.md): AD-10/11/12
 
 **Blocking gates unchanged:** H-PKG-01 actual resolver, H-MEM-01 teardown fault-injection, native/Python/Rust same-SHA matrix, and explicit owner decisions. P1 implementation **NOT AUTHORIZED**.
+
+
+## P0.7 limited executed evidence — gate remains blocked
+
+2026-10-18: [P0 verification §8](P0_VERIFICATION_REPORT.md#8-p07--isolated-fault-path-execution-and-current-manifests-2026-10-18) adds **reproduced isolated-harness H-MEM-01 teardown interruption**, demonstrating that a throwing effect cleanup bypasses child/native destroy in copied current method bodies. An actually executed local `packaging` version-range check also confirms three version mismatches for the checked source manifests, including the PSX project distribution-name mismatch.
+
+**Not certified:** the real GitHub checkout test suite, a live Qt/Tk/Kivy leak, clean-wheel/pip dependency resolution, same-SHA CI, or owner approval of AD-05/AD-07. No gate row should be reclassified to PASS on the strength of these limited observations. The Architecture Gate stays **BLOCKED**.
