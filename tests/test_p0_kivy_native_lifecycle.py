@@ -71,13 +71,18 @@ class KivyNativeLifecycleTests(unittest.TestCase):
             original_pos_hint = {"center_x": .5}
             borrowed.size_hint = original_size_hint
             borrowed.pos_hint = dict(original_pos_hint)
+            # Kivy's ReferenceListProperty exposes a list-like value even
+            # when a tuple was assigned. Compare contents, not collection type.
+            assert tuple(borrowed.size_hint) == original_size_hint
+            assert dict(borrowed.pos_hint) == original_pos_hint
             owner.add_widget(borrowed)
             r.render(Flex(Native(borrowed, key="borrowed"), direction="column"))
             assert borrowed.parent is not owner
+            assert tuple(borrowed.size_hint) == (None, None)
             r.unmount()
             assert borrowed.parent is owner
-            assert borrowed.size_hint == original_size_hint
-            assert borrowed.pos_hint == original_pos_hint
+            assert tuple(borrowed.size_hint) == original_size_hint
+            assert dict(borrowed.pos_hint) == original_pos_hint
 
             calls = []
             leaf = r.render(Button("Press", on_click=lambda: calls.append("click")))
