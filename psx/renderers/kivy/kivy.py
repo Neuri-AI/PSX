@@ -869,10 +869,14 @@ class KivyRenderer:
         # is permanently destroyed at this boundary; borrowed native widgets
         # are returned to their owner and MUST keep their KV rules.
         target = _handle(handle)
-        self._adapter_for(handle_adapter_key(handle)).destroy(self, handle)
-        if not _is_borrowed(target):
-            from kivy.lang import Builder
-            Builder.unbind_widget(target.widget.uid)
+        try:
+            self._adapter_for(handle_adapter_key(handle)).destroy(self, handle)
+        finally:
+            # KV cleanup must still run if adapter destruction throws.
+            # Reconciler aggregates native teardown exceptions separately.
+            if not _is_borrowed(target):
+                from kivy.lang import Builder
+                Builder.unbind_widget(target.widget.uid)
 
     def _adapter_destroy(self, handle: object) -> None:
         target = _handle(handle)
