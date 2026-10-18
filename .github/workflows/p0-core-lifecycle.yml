@@ -11,6 +11,8 @@ on:
       - "tests/test_core.py"
       - "tests/test_hooks_scheduler.py"
       - "tests/test_p0_teardown_diagnostics.py"
+      - "tests/test_p0_dependency_graph.py"
+      - "scripts/verify_velto_dependency_graph.py"
       - ".github/workflows/p0-core-lifecycle.yml"
   workflow_dispatch:
 
