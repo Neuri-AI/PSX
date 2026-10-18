@@ -203,3 +203,8 @@ Owner screenshot establishes [Tkinter/Kivy native CI #4](https://github.com/Neur
 ## P0.9 1,000-cycle soak receipts (2026-10-18)
 
 Owner supplied a green screenshot for P0 Memory Soak #8 (commit `1d6f1d4`) and actual three backend JSON artifacts; see [P0 Memory Soak Protocol — actual 1,000-cycle artifacts](P0_MEMORY_SOAK_PROTOCOL.md#p09-actual-1000-cycle-artifacts--owner-evidence-2026-10-18). All three jobs passed and all recorded PSX mounted instances, tracked native widget wrappers, and active event slots were zero at cycle 1,000. The Kivy series nevertheless showed RSS +5,885,952 B and Python-tracked memory +3,678,821 B between cycle 250 and 1,000; investigate warmed longer trend before closing memory stability. **1,000-cycle matrix GREEN; 5,000/10,000-cycle and C05 ecosystem wheel/install checks remain OPEN; full Architecture Gate BLOCKED.**
+
+
+## P0.9 5,000-cycle native soak artifacts and Kivy allocation investigation
+
+Owner uploaded three 5,000-cycle raw ZIP artifacts (run ID `39144005023`) for PySide6, Tkinter and Kivy; all contain complete 20-point series and zero tracked stale PSX instances, widget wrappers or active event slots. RSS after 250→5,000 cycles: PySide6 +1,949,696 B; Tkinter 0 B; **Kivy +49,426,432 B**, including +29,642,752 B over cycles 2,750→5,000. Kivy Python traced memory also increases +19,331,078 B over the full measured span; this needs attribution rather than premature certification. See [P0 Memory Soak Protocol](P0_MEMORY_SOAK_PROTOCOL.md#actual-5000-cycle-artifacts--owner-uploads-2026-10-18). A targeted [allocation-site trace workflow](../../.github/workflows/p0-kivy-allocation-trace.yml) is committed, but its results are **not yet verified**. Long-duration C07 still **OPEN**; the P0→P1 gate remains **BLOCKED**.
