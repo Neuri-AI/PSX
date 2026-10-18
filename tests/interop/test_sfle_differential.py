@@ -165,7 +165,7 @@ def test_canonical_box_lengths_match_rust_and_python_geometry(rust_binary):
 
     prepared = prepare_native_layout_snapshot(
         normalize_flex_tree(Flex(
-            Flex(width="40px", height="10px", flex_basis="40px", flex_shrink=0,
+            Flex(height="10px", flex_basis="40px", flex_shrink=0,
                  layout_width="40px", layout_padding_left="6px",
                  layout_border_right="2px", layout_margin_top="-3px"),
             width="120px", height="40px",
