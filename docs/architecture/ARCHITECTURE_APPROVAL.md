@@ -1,0 +1,93 @@
+# P0.6 — Architecture Gate and Approval Record
+
+**Date:** 2026-10-18  
+**Status:** **BLOCKED — NO OWNER APPROVAL RECORDED**  
+**Gate:** P0 → P1 (Web-like + CSS-like implementation)  
+**Target branch:** `Neuri-AI/PSX:develop`
+
+> This is a gate **checklist and proposed decision record**, not a claim of approval, certification, or authorization. Only a recorded owner decision plus executable evidence can change the status.
+
+## 1. Mandatory context for all implementing agents
+
+1. [Velto master execution plan](velto-master-execution-plan.md)
+2. [P0 source audit](velto-p0-baseline-audit.md)
+3. [P0 verification report](P0_VERIFICATION_REPORT.md)
+4. [Existing-contract index](CONTRACTS_INDEX.md)
+5. [Proposed C01–C12 deltas](P0_CONTRACT_DELTAS.md)
+
+Read F1/F2/F3/F4/F5.5 original normative sources from the index. The proposed contracts are NOT replacements for frozen decisions.
+
+## 2. Gate status (read-only audit)
+
+| Gate | Status | Required evidence / reviewer action |
+| --- | --- | --- |
+| G-P0-01 PSX exact-commit source inspection | PARTIAL | Pin full tracked tree, map every changed contract clause, verify Rust code and test coverage at source SHA |
+| G-P0-02 Cross-repository provenance | PARTIAL | Pin Velto, Pydux, Qyro Engine and CLI branch heads/manifest metadata; resolve naming/versions |
+| G-P0-03 Package graph, H-PKG-01 | **BLOCKED** | Build wheels, run fresh local/public resolver and facade import/mount tests |
+| G-P0-04 Teardown safety, H-MEM-01 | **BLOCKED** | Fault injection for user cleanup/native unbind/destroy; assert post-unmount counts |
+| G-P0-05 Core and native tests | **BLOCKED** | Same-SHA pytest + native Qt/Tk/Kivy CI, Rust/Python differential and clear skip list |
+| G-P0-06 Style + box model C01–C03 | PROPOSED | Owner adjudicates overflow/defaults/cascade/block scope; frozen F1 remains binding |
+| G-P0-07 Lifecycle C04/C06–C09 | PROPOSED | Owner approves exception policy, ownership, callbacks, measurement fallback and interface extension |
+| G-P0-08 Public API + packaging C05 | PROPOSED | Owner approves lowercase alias vocabulary and a compatible distribution matrix |
+| G-P0-09 F6, native parity + quality C10–C12 | PROPOSED | Scope/coverage/CI receipts and owner sign-off |
+| G-P0-10 F5.5 G6 status | UNVERIFIED | Resolve owner sign-off discrepancy with current progress/CI evidence |
+
+**No requirement row is an executed PASS.** Existing historical CI evidence remains available but is not a substitute for current same-SHA execution.
+
+## 3. Architecture freezes preserved pending approval
+
+- PSX **Markup** is the UI language; it must not be promoted as inherently declarative.
+- Cinnamon is integrated inside PSX; no new separate user-facing layout framework.
+- Existing `Button`, `Text`, `Flex`, `Grid`, etc. remain public; do not re-add retired `Row`/`Column` merely to satisfy a compatibility slogan.
+- F1 typed lengths, `layout_width`/`layout_height`, fixed-point 1/64px, strict property partitioning, and UI-thread native measurement continue to govern implemented scope.
+- F4 12-column Grid is not full CSS Grid.
+- Browser-complete styling/cascade and F2 deferred `aspect_ratio`/auto-wrap features are not automatically in scope.
+- Qyro Engine, CLI and Pydux require their own explicit integration/version contracts.
+
+## 4. Owner decision form (not yet signed)
+
+Use this table as a ledger **only after direct owner review**. Blank fields mean unresolved; no one may fill with inferred agreement.
+
+| ID | Decision to approve | Selected choice | Date | Owner acceptance proof / PR |
+| --- | --- | --- | --- | --- |
+| AD-01 | Overflow/Scroll subset | PENDING | — | — |
+| AD-02 | Box-sizing default for new lowercase tags | PENDING | — | — |
+| AD-03 | CSS-like style precedence and cascade | PENDING | — | — |
+| AD-04 | Block formatting scope | PENDING | — | — |
+| AD-05 | Exception-safe disposal policy | PENDING | — | — |
+| AD-06 | Lowercase markup vocabulary/compatibility | PENDING | — | — |
+| AD-07 | Package/version dependency graph | PENDING | — | — |
+| AD-08 | Fragment/mixed-key evolution | PENDING | — | — |
+| AD-09 | Measurement/invalidation adapter interface | PENDING | — | — |
+| AD-10 | F6 refresh tier classification | PENDING | — | — |
+| AD-11 | Supported backend/performance matrix | PENDING | — | — |
+| AD-12 | F5.5 G6 certification status | PENDING | — | — |
+
+## 5. Approval rule
+
+Owner approval requires **all** of:
+
+1. In-scope C01–C12 normative deltas fully reviewed and decisions AD-01–AD-12 dispositioned (approved, explicitly deferred with non-impact proof, or rejected).
+2. Every nondeferred requirement mapped to current source symbol and behavioral test at pinned SHA.
+3. H-PKG-01 and H-MEM-01 resolved to reproduced finding or explicitly falsified with logs; fixes may remain P1 tasks only if risk accepted with guardrails.
+4. Backend/Python/OS test matrix and current same-SHA receipts recorded; missing access and skips explicitly identified.
+5. Owner signs final gate with timestamp, reference/issue and revision. Do not auto-sign on their behalf.
+
+**To mark approved later:** change status to `APPROVED`, add `Approved by`, `Approved on`, applicable immutable SHA range and owner evidence. Approval of document wording does not itself certify runtime implementation.
+
+## 6. Parallelism before the gate
+
+Allowed now: read-only source/contract mapping, repro tests **without production modifications**, dependency resolver investigation, benchmark instrumentation in isolated environments, documenting proposed ADRs, reviewing test plans.
+
+Not allowed yet: breaking public aliases/components, changing cross-cutting renderer geometry/lifetime protocols, silently updating pinned contract semantics, claiming fresh native/CI passes or advertising full CSS support.
+
+## 7. Immediate handoff
+
+- **Verification agent:** execute report gates PKG-1/PKG-2 and MEM-1/MEM-2, capture source SHA and logs.
+- **Cinnamon/renderer agent:** map C01/C03/C08/C09 to actual sources and run pure/native geometry tests.
+- **API/docs agent:** enumerate current public exports; review C02/C05 markup compatibility and owner decision alternatives.
+- **Integrator/reviewer:** review dependency graph, C06/C07 failure policy and all proposed delta acceptance criteria.
+
+Each agent commits **evidence-only** documentation to `develop` using conventional commit messages. Do not claim a gate passed without a reproducible receipt.
+
+**CURRENT RESULT: P0 contract drafts available to agents; ARCHITECTURE GATE BLOCKED.**
