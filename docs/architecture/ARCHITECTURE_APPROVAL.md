@@ -91,3 +91,8 @@ Not allowed yet: breaking public aliases/components, changing cross-cutting rend
 Each agent commits **evidence-only** documentation to `develop` using conventional commit messages. Do not claim a gate passed without a reproducible receipt.
 
 **CURRENT RESULT: P0 contract drafts available to agents; ARCHITECTURE GATE BLOCKED.**
+
+
+## 8. Owner decision review package
+
+[Source-backed recommendations and alternatives for AD-01–AD-12](P0_OWNER_DECISION_PACKAGE.md) were published 2026-10-18. The recommendations are **PROPOSED** and **none are owner-approved**. An offline PEP 440 comparison was executed and recorded in [P0 verification](P0_VERIFICATION_REPORT.md#7-offline-pep-440-specifier-intersection-check-2026-10-18); actual wheel/pip/native tests remain unexecuted.
