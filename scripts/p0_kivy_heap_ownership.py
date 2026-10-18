@@ -77,6 +77,36 @@ def referrer_summary(objects: list[object], top: int = 12, samples: int = 3) -> 
     return output
 
 
+def growing_type_referrers(
+    objects: list[object], *, per_type: int = 3,
+) -> list[dict]:
+    """Sample referrers of the *growing* types without repr or recursion.
+
+    The inventory and selected samples themselves are referrers; results are
+    diagnostic type histograms, never evidence of a unique owner.
+    """
+    targets = {
+        "kivy.weakproxy.WeakProxy",
+        "builtins.dict",
+        "builtins.list",
+    }
+    sampled: Counter[str] = Counter()
+    rows: list[dict] = []
+    for obj in objects:
+        label = type_label(obj)
+        if label not in targets or sampled[label] >= per_type:
+            continue
+        sampled[label] += 1
+        types: Counter[str] = Counter()
+        for ref in gc.get_referrers(obj):
+            types[type_label(ref)] += 1
+        rows.append({
+            "target_type": label,
+            "referrer_types": dict(types.most_common(12)),
+        })
+    return rows
+
+
 def make_native_control() -> tuple[
     Callable[[int], tuple[object, object]],
     Callable[[], None], Callable[[], None], Callable[[], None],
@@ -116,8 +146,41 @@ def make_native_control() -> tuple[
     return create, release, flush, release
 
 
+def make_psx_without_cinnamon() -> tuple:
+    """PSX reconciler with Kivy's default layout; no SFLE constraints."""
+    from kivy.clock import Clock
+    from psx import Button, Flex
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.kivy.kivy import KivyRenderer
+
+    renderer = KivyRenderer()
+    reconciler = Reconciler(renderer)
+
+    def create(index: int) -> tuple:
+        root = reconciler.render(Flex(
+            Button(f"cycle-{index}", on_click=lambda: None),
+            direction="column",
+        ))
+        child = root.children[0]
+        reconciler.render(Flex(
+            Button(f"updated-{index}", on_click=lambda: None),
+            direction="column",
+        ))
+        return child, child.handle.widget
+
+    def flush() -> None:
+        Clock.tick()
+
+    return create, reconciler.unmount, flush, reconciler.unmount
+
+
 def diagnose(mode: str, cycles: int, checkpoints: tuple[int, ...]) -> dict:
-    make = make_backend("kivy") if mode == "velto" else make_native_control()
+    if mode == "velto":
+        make = make_backend("kivy")
+    elif mode == "psx_no_cinnamon":
+        make = make_psx_without_cinnamon()
+    else:
+        make = make_native_control()
     create, release, flush, close = make
     reports: list[dict] = []
     start = time.perf_counter()
@@ -136,6 +199,7 @@ def diagnose(mode: str, cycles: int, checkpoints: tuple[int, ...]) -> dict:
                 objects = gc.get_objects()
                 histogram = checkpoint_histogram(objects)
                 referrers = referrer_summary(objects) if index == cycles else []
+                growing_referrers = growing_type_referrers(objects)
                 del objects
                 reports.append({
                     "cycles": index,
@@ -144,18 +208,20 @@ def diagnose(mode: str, cycles: int, checkpoints: tuple[int, ...]) -> dict:
                     "tracemalloc_peak_bytes": peak,
                     "tracked_type_histogram": histogram,
                     "referrer_samples": referrers,
+                    "growing_type_referrers": growing_referrers,
                     "elapsed_seconds": round(time.perf_counter() - start, 3),
                 })
                 # Referrer snapshots are diagnostic and may themselves
                 # temporarily allocate objects; discard before next cycle.
-                del referrers, histogram
+                del referrers, growing_referrers, histogram
         return {
             "mode": mode,
             "cycles": cycles,
             "python": sys.version.split()[0],
             "samples": reports,
             "limitations": [
-                "Native is an approximate workload control, not identical to PSX/Cinnamon.",
+                "Direct Kivy is an approximate workload control, not identical to PSX.",
+                "PSX without Cinnamon omits native SFLE layout and measurements.",
                 "RSS includes toolkit and OpenGL/SDL allocations.",
                 "Referrer samples include temporary profiler-owned containers.",
                 "GC cannot see all Cython/C-side owners; heap histograms are bounded.",
@@ -168,7 +234,9 @@ def diagnose(mode: str, cycles: int, checkpoints: tuple[int, ...]) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=["velto", "native"], required=True)
+    parser.add_argument(
+        "--mode", choices=["velto", "native", "psx_no_cinnamon"], required=True
+    )
     parser.add_argument("--cycles", type=int, default=5000)
     parser.add_argument("--json-out", type=Path, required=True)
     args = parser.parse_args()
