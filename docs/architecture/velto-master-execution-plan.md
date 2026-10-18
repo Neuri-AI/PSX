@@ -91,6 +91,8 @@ Produce `BASELINE.md` with repository paths, commit IDs, supported Python/backen
 
 **Goal:** Implement contract P0 in PSX/Cinnamon and every supported renderer in controlled slices.
 
+**CSS Core design track (proposal; approval pending):** [Universal Box Model and CSS Core Architectural Contract](universal-box-model-and-css-core-contract.md) captures the explicit parser, selector, cascade, computed-style and renderer-capability boundaries missing from the original six implementation slices. Its architecture is **proposed**, not approved or implemented. Before proceeding with production changes, ratify the choices in that document and reconcile them with the pending owner decision package. The six slices remain the existing execution outline; do not interpret them as complete CSS Core acceptance criteria.
+
 **Sequence**
 
 1. Introduce or adapt a single normalized style/box representation; keep backend-specific native attributes inside adapters.
