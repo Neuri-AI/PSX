@@ -113,7 +113,7 @@ def run_soak(
     return samples, cycles
 
 
-def make_backend(backend: str) -> tuple[
+def make_backend(backend: str, *, skip_kivy_layout_commit: bool = False) -> tuple[
     Callable[[int], tuple[Any, Any]], Callable[[], None], Callable[[], None],
     Callable[[], None],
 ]:
@@ -178,6 +178,12 @@ def make_backend(backend: str) -> tuple[
             ),
             engine=PythonLayoutEngine(),
         )
+        if skip_kivy_layout_commit:
+            # Diagnostic only: keep SFLE-configured Kivy adapters and widget
+            # creation, while withholding the expensive geometry transaction.
+            # This intentionally violates normal layout behavior and must
+            # never be used outside controlled heap-attribution benchmarks.
+            renderer.commit_layout = lambda _root: None
         reconciler = Reconciler(renderer)
 
         def create(index: int) -> tuple[Any, Any]:
