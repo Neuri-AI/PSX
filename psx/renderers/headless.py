@@ -88,6 +88,8 @@ class HeadlessRenderer:
         # Stable native handle identity + immutable prop snapshot index.
         # Published only after a successful geometry transaction.
         self._sfle_intrinsic_cache = {}
+        # One successful layout/paint signature, owned by this renderer.
+        self._sfle_committed_signatures = None
         self._sfle_owner_thread = get_ident()
         self.grid_result = None
         self.sfle_result: LayoutResult | None = None
@@ -172,6 +174,7 @@ class HeadlessRenderer:
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
         self._sfle_intrinsic_cache.clear()
+        self._sfle_committed_signatures = None
         self._sfle_mounted_root = None
         self.grid_result = None
         if self._sfle_constraints is not None:
