@@ -149,7 +149,7 @@ def make_native_control() -> tuple[
 def make_psx_without_cinnamon() -> tuple:
     """PSX reconciler with Kivy's default layout; no SFLE constraints."""
     from kivy.clock import Clock
-    from psx import Button, Flex
+    from psx import Button, Fragment
     from psx.core.reconcile import Reconciler
     from psx.renderers.kivy.kivy import KivyRenderer
 
@@ -157,14 +157,12 @@ def make_psx_without_cinnamon() -> tuple:
     reconciler = Reconciler(renderer)
 
     def create(index: int) -> tuple:
-        root = reconciler.render(Flex(
+        root = reconciler.render(Fragment(
             Button(f"cycle-{index}", on_click=lambda: None),
-            direction="column",
         ))
         child = root.children[0]
-        reconciler.render(Flex(
+        reconciler.render(Fragment(
             Button(f"updated-{index}", on_click=lambda: None),
-            direction="column",
         ))
         return child, child.handle.widget
 
