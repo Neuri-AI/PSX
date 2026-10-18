@@ -40,6 +40,21 @@ Name things by **what they do or guarantee**, not by the milestone that paid for
 
 **Before every commit:** review changed identifiers, filenames, comments and workflow names for phase/gate tokens. If any new occurrence is not essential tracking metadata, replace it with a behavioral description. When touching existing legacy code, prefer descriptive naming for the new work; plan backwards-compatible migrations for existing public or cross-referenced symbols rather than breaking them opportunistically. Never use a phase label as a stand-in for an explanation.
 
+## Stay aligned with the overall objective
+
+Before starting **every implementation increment or stage**, read
+[the master execution plan](docs/architecture/velto-master-execution-plan.md)
+and the currently applicable approved architecture/behavior contracts.
+Explicitly establish the overall goal, the current phase's exit criteria,
+the single immediate deliverable, and what is out of scope. Recheck this
+alignment at the next increment rather than relying on conversational memory.
+
+Prefer the smallest backward-compatible change that advances the planned
+sequence. Do not silently expand a box-model/layout increment into CSS
+parsing, cascade, HTML-like tags, renderer rewrites, or unrelated memory work.
+Distinguish implemented behavior from design targets; report unexecuted tests
+and unresolved owner decisions accurately.
+
 ## Validation
 
 Retain selective CI and exact-SHA certification requirements. A docs-only update must not trigger product tests. Do not claim a workflow's skipped tests are executed evidence. Do not mark a gate CLOSED without its full evidence.
