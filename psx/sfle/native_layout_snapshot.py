@@ -7,7 +7,7 @@ never turn into invisible SFLE layout boxes.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Iterable
 
 from psx.core.layout_tree import LayoutPath, NormalizedLayoutNode
@@ -43,6 +43,37 @@ class PreparedNativeLayoutSnapshot:
     snapshot: LayoutInput
     identities: tuple[tuple[str, VNode], ...]
     box_styles: tuple[tuple[str, CanonicalItemBoxStyle], ...] = ()
+
+    def canonical_snapshot(self) -> LayoutInput:
+        """Build engine-ready typed item lengths without changing source props.
+
+        This is an explicit opt-in integration path. Existing native renderer
+        callers continue to receive the same specified snapshot until the
+        differential geometry and backend acceptance checks are certified.
+        """
+        if len(self.box_styles) != len(self.snapshot.nodes):
+            raise ValueError("Every participating layout node needs one canonical box style.")
+        origins = dict(self.identities)
+        nodes: list[LayoutNode] = []
+        for node, (identifier, box_style) in zip(self.snapshot.nodes, self.box_styles):
+            if node.node_id != identifier or identifier not in origins:
+                raise ValueError("Canonical box styles must follow snapshot node identities.")
+            source_props = origins[identifier].props
+            normalized = dict(node.style)
+            for name, length in box_style.dimensions:
+                if name in source_props and name in normalized:
+                    normalized[name] = length
+            for prefix, edges in (
+                ("layout_margin_", box_style.margin),
+                ("layout_padding_", box_style.padding),
+                ("layout_border_", box_style.border),
+            ):
+                for side in _SIDE_NAMES:
+                    name = prefix + side
+                    if name in source_props and name in normalized:
+                        normalized[name] = getattr(edges, side)
+            nodes.append(replace(node, style=tuple(sorted(normalized.items()))))
+        return replace(self.snapshot, nodes=tuple(nodes))
 
 
 # Retain the old class name for existing internal imports during migration.
