@@ -158,7 +158,8 @@ def test_text_color_only_skips_cinnamon_measurement_and_geometry_writes(monkeypa
         measured.append(node.props["value"])
         return IntrinsicSizes(20, 20, 16, 16, 20, 16)
 
-    renderer = new_renderer(engine=engine, measure_intrinsic=measure)
+    renderer = HeadlessRenderer(sfle_constraints=constraints(), engine=engine,
+                                measure_intrinsic=measure)
     reconciler = Reconciler(renderer)
 
     def view(color, width="40px"):
