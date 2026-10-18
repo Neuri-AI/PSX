@@ -141,6 +141,9 @@ def inventory() -> tuple[Feature, ...]:
                     rows.append(Feature(component, "headless", "interaction",
                                         "responsive_cycle", scenario, applicability="partial_native"))
             if component == "GridItem":
+                rows.append(Feature(component, "headless", "layout",
+                                    "flex_padding", "no_horizontal_clip",
+                                    applicability="partial_native"))
                 rows.append(Feature(component, "headless", "interaction",
                                     "flex_content", "measured_children_readback",
                                     applicability="partial_native"))
