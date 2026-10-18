@@ -248,6 +248,16 @@ class RoutingTests(unittest.TestCase):
             {"kivy"},
         )
 
+    def test_canonical_headless_flex_changes_run_mounted_geometry_suite(self):
+        self.assertEqual(
+            self.selected("psx/sfle/headless_layout_bridge.py"),
+            {"headless"},
+        )
+        self.assertEqual(
+            self.selected("tests/test_headless_native_layout.py"),
+            {"headless"},
+        )
+
     def test_native_measurement_changes_cover_their_toolkit_and_sfle(self):
         for filename, native in (
             ("qt_measurement.py", "qt"),
