@@ -1,4 +1,4 @@
-"""P1 IM-01 pure normalization characterization — no GUI runtime required."""
+"""Pure box-style normalization tests; no GUI runtime required."""
 from __future__ import annotations
 
 from types import MappingProxyType
