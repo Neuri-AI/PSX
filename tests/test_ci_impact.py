@@ -253,9 +253,11 @@ class RoutingTests(unittest.TestCase):
             self.selected("psx/sfle/headless_layout_bridge.py"),
             {"headless"},
         )
+        # The selector classifies this test module as core; the native
+        # Headless job runs its own mounted suite for bridge source changes.
         self.assertEqual(
             self.selected("tests/test_headless_native_layout.py"),
-            {"headless"},
+            {"core"},
         )
 
     def test_native_measurement_changes_cover_their_toolkit_and_sfle(self):
