@@ -7,7 +7,7 @@ on:
         description: "Mount/update/unmount cycles per backend"
         type: choice
         required: true
-        default: "1000"
+        default: "5000"
         options:
           - "1000"
           - "5000"
@@ -67,7 +67,7 @@ jobs:
           mkdir -p artifacts
           xvfb-run -a python scripts/p0_memory_soak.py \
             --backend "${{ matrix.backend }}" \
-            --cycles "${{ github.event.inputs.cycles || '1000' }}" \
+            --cycles "${{ github.event.inputs.cycles || '5000' }}" \
             --interval 250 \
             --json-out "artifacts/${{ matrix.backend }}-memory.json"
       - name: Summarize memory trends
