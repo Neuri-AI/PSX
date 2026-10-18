@@ -14,6 +14,7 @@ from psx.core.layout_tree import LayoutPath, NormalizedLayoutNode
 from psx.core.props import FLEX_ITEM_PROPS
 from psx.core.vnode import NodeKind, VNode
 
+from .canonical_box_style import CanonicalItemBoxStyle, normalize_item_box_style
 from .errors import DiagnosticCode, SFLECapabilityError, SFLEError
 from .lengths import Length
 from .model import LayoutConstraints, LayoutInput, LayoutNode, MeasuredBox, WritingDirection
@@ -41,6 +42,7 @@ class PreparedNativeLayoutSnapshot:
 
     snapshot: LayoutInput
     identities: tuple[tuple[str, VNode], ...]
+    box_styles: tuple[tuple[str, CanonicalItemBoxStyle], ...] = ()
 
 
 # Retain the old class name for existing internal imports during migration.
@@ -146,6 +148,7 @@ def prepare_native_layout_snapshot(
         )
     nodes: list[LayoutNode] = []
     origins: list[tuple[str, VNode]] = []
+    box_styles: list[tuple[str, CanonicalItemBoxStyle]] = []
     seen: set[str] = set()
 
     def visit(node: NormalizedLayoutNode, parent_id: str | None) -> None:
@@ -165,7 +168,11 @@ def prepare_native_layout_snapshot(
             name == "Divider" and node.effective_children
         ):
             name = "Flex"
+        # Preserve specified snapshot values for both layout engines while
+        # carrying an immutable, typed box representation alongside them.
+        box_style = normalize_item_box_style(node.source.props, owner=str(node.type))
         nodes.append(LayoutNode(identifier, parent_id, name, _style(node.source)))
+        box_styles.append((identifier, box_style))
         origins.append((identifier, node.source))
         # A Grid participates in the enclosing Flex solver as one measured
         # leaf. Its descendants are resolved by Cinnamon Grid at the actual
@@ -178,4 +185,4 @@ def prepare_native_layout_snapshot(
     snapshot = LayoutInput(
         1, generation, direction, constraints, tuple(nodes), tuple(measurements)
     )
-    return PreparedNativeLayoutSnapshot(snapshot, tuple(origins))
+    return PreparedNativeLayoutSnapshot(snapshot, tuple(origins), tuple(box_styles))
