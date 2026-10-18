@@ -13,6 +13,67 @@ import unittest
 
 
 class KivySFLEGeometrySubprocessTests(unittest.TestCase):
+    def test_mounted_kivy_flex_consumes_canonical_item_lengths(self):
+        script = textwrap.dedent(r"""
+            from unittest.mock import patch
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import Button, Flex
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.lengths import Length
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.sfle.native_layout_snapshot import PreparedNativeLayoutSnapshot
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(160, True), AvailableSize(80, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            original = PreparedNativeLayoutSnapshot.canonical_snapshot
+            observed = []
+
+            def record(prepared):
+                snapshot = original(prepared)
+                observed.append(snapshot)
+                return snapshot
+
+            def button(label, key, width):
+                return Button(
+                    label, key=key, layout_width=f"{width}px",
+                    layout_height="20px", flex_basis=f"{width}px",
+                    flex_shrink=0,
+                )
+
+            with patch.object(PreparedNativeLayoutSnapshot, "canonical_snapshot", record):
+                root = tree.render(Flex(
+                    button("Left", "left", 40),
+                    button("Right", "right", 30),
+                    direction="row", gap=8, width="160px", height="80px",
+                    align_items="flex-start",
+                ))
+            assert observed, "Mounted Kivy must consume canonical lengths"
+            style = dict(observed[-1].nodes[1].style)
+            assert style["layout_width"] == Length.px(40), style
+            assert style["layout_height"] == Length.px(20), style
+            left, right = (child.handle.widget for child in root.children)
+            assert tuple(left.pos) + tuple(left.size) == (0, 60, 40, 20)
+            assert tuple(right.pos) + tuple(right.size) == (48, 60, 30, 20)
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_kivy_intrinsic_controls_without_pixel_bounds(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
