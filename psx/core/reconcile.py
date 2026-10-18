@@ -14,6 +14,17 @@ from .instance import MountedInstance
 from .scheduler import Scheduler
 from .vnode import NodeKind, VNode
 
+
+
+def _raise_cleanup_error(errors: list[Exception]) -> None:
+    """Preserve the earliest failure and annotate later cleanup failures."""
+    if not errors:
+        return
+    first = errors[0]
+    if len(errors) > 1 and hasattr(first, "add_note"):
+        first.add_note(f"{len(errors) - 1} additional teardown error(s).")
+    raise first
+
 _EVENT_PREFIX = "on_"
 _RUNTIME_PROPS = frozenset({"ref"})
 
@@ -73,12 +84,23 @@ class Reconciler:
         return root
 
     def unmount(self) -> None:
-        if self.root is not None:
-            self._unmount(self.root, detach=False)
-            self.root = None
+        """Release the root and invalidate layout even if cleanup fails."""
+        errors: list[Exception] = []
+        root = self.root
+        if root is not None:
+            try:
+                self._unmount(root, detach=False)
+            except Exception as error:
+                errors.append(error)
+            finally:
+                self.root = None
         invalidate_layout = getattr(self.renderer, "invalidate_layout", None)
         if callable(invalidate_layout):
-            invalidate_layout()
+            try:
+                invalidate_layout()
+            except Exception as error:
+                errors.append(error)
+        _raise_cleanup_error(errors)
 
     def _mount(self, node: VNode, parent: MountedInstance | None) -> MountedInstance:
         instance = MountedInstance(node=node, parent=parent)
@@ -297,27 +319,52 @@ class Reconciler:
                 previous[0].update(cast(object, callback))
 
     def _unmount(self, instance: MountedInstance, *, detach: bool) -> None:
+        """Attempt independent teardown steps before propagating an error.
+
+        Native detach, event unbind, effects, descendants and own handle
+        destruction must not be skipped solely because user cleanup fails.
+        """
         if instance.disposed:
             return
         instance.disposed = True
-        native_handle = instance.native_handle(
-        ) if detach and instance.handle is None else instance.handle
+        errors: list[Exception] = []
+
+        def attempt(operation: object, *args: object) -> object | None:
+            try:
+                return operation(*args)  # type: ignore[operator]
+            except Exception as error:
+                errors.append(error)
+                return None
+
+        native_handle = instance.handle
+        if detach and native_handle is None:
+            native_handle = attempt(instance.native_handle)
         if detach and native_handle is not None:
             parent_handle = self._effective_parent_handle(instance)
             if parent_handle is not None:
-                self.renderer.remove(parent_handle, native_handle)
-        # Slots become inert before any native removal can result in stale callbacks.
-        for slot, subscription in tuple(instance.event_slots.values()):
-            slot.dispose()
-            self.renderer.unbind_event(subscription)
-        instance.event_slots.clear()
+                attempt(self.renderer.remove, parent_handle, native_handle)
+        # Make callbacks inert before the native widgets can be destroyed.
+        try:
+            for slot, subscription in tuple(instance.event_slots.values()):
+                try:
+                    slot.dispose()
+                finally:
+                    attempt(self.renderer.unbind_event, subscription)
+        except Exception as error:
+            errors.append(error)
+        finally:
+            instance.event_slots.clear()
+
         if isinstance(instance.ref, Ref):
             instance.ref.current = None
-        dispose_hooks(instance)
+        attempt(dispose_hooks, instance)
         for child in reversed(instance.children):
-            self._unmount(child, detach=False)
+            attempt(self._unmount, child, detach=False)  # type: ignore[call-arg]
+        instance.children.clear()
+        instance.contexts.clear()
         if instance.handle is not None:
-            self.renderer.destroy(instance.handle)
+            attempt(self.renderer.destroy, instance.handle)
+        _raise_cleanup_error(errors)
 
     def _effective_parent_handle(self, instance: MountedInstance) -> object | None:
         parent = instance.parent
