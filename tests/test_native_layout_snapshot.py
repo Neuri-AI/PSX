@@ -231,3 +231,35 @@ def test_native_snapshot_rejects_invalid_box_metadata_before_engine_dispatch() -
     malformed_root = immutable_replace(valid, children=(malformed,))
     with pytest.raises(RendererCapabilityError, match="layout_padding_left"):
         _prepare(malformed_root)
+
+
+def test_canonical_snapshot_uses_typed_lengths_without_mutating_original() -> None:
+    prepared = _prepare(Flex(
+        Flex(layout_width="40px", layout_padding_left="6px",
+             layout_border_right="2px", layout_margin_top="-3px",
+             height="10px", flex_basis="40px", flex_shrink=0),
+        width="120px", height="40px",
+    ))
+    original = prepared.snapshot
+    typed = prepared.canonical_snapshot()
+    assert typed is not original
+    assert typed.generation == original.generation
+    assert typed.measurements == original.measurements
+    assert typed.nodes[0] == original.nodes[0]
+    legacy_style = dict(original.nodes[1].style)
+    typed_style = dict(typed.nodes[1].style)
+    assert legacy_style["layout_width"] == "40px"
+    assert typed_style["layout_width"] == Length.px(40)
+    assert typed_style["layout_padding_left"] == Length.px(6)
+    assert typed_style["layout_border_right"] == Length.px(2)
+    assert typed_style["layout_margin_top"] == Length.px(-3)
+    assert typed_style["flex_basis"] == "40px"
+    assert PythonLayoutEngine().compute(typed).boxes == PythonLayoutEngine().compute(original).boxes
+
+
+def test_canonical_snapshot_preserves_flex_container_padding_shorthand() -> None:
+    prepared = _prepare(Flex(Flex(), padding=(4, 8)))
+    original = prepared.snapshot
+    canonical = prepared.canonical_snapshot()
+    assert canonical.nodes[0].style == original.nodes[0].style
+    assert dict(canonical.nodes[0].style)["layout_padding_left"] == 8
