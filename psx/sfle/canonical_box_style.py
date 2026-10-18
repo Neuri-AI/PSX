@@ -1,8 +1,8 @@
-"""P1 IM-01: immutable, renderer-neutral view of existing item box metadata.
+"""Immutable, renderer-neutral view of existing item box metadata.
 
-This is a *non-integrated* normalization boundary for verified F1 properties.
+This normalization boundary is not yet connected to the layout runtime.
 It does not modify legacy VNode props, resolve percentages, apply CSS cascade,
-or change Kivy/Qt/Tkinter behavior. Integration requires the P1 contract gate.
+or change Kivy/Qt/Tkinter behavior. Runtime integration requires an approved style precedence contract.
 """
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def _edge_group(props: Mapping[str, object], prefix: str) -> BoxEdges:
 def normalize_item_box_style(
     props: Mapping[str, object], *, owner: str = "Flex item",
 ) -> CanonicalItemBoxStyle:
-    """Adapt supported F1 layout-item fields without native width collisions.
+    """Adapt supported layout-item fields without native width collisions.
 
     Validation is delegated to the existing closed shared item validator, so
     unknown native/component fields remain outside this function's authority.
