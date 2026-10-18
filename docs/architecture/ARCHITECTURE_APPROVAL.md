@@ -133,3 +133,10 @@ This is an **implemented partial risk mitigation**, not formal owner ratificatio
 A targeted [P0 core lifecycle workflow](../../.github/workflows/p0-core-lifecycle.yml) is committed to `develop` with Python 3.10/3.13 jobs and actual unit-test commands; the CI configuration and new four-case [manifest checker tests](../../tests/test_p0_dependency_graph.py) were verified as repository files. **No Actions run conclusion was accessible through the available connector during this session**, so G-P0-05 remains **NOT CERTIFIED**. See [P0 Verification §10](P0_VERIFICATION_REPORT.md#10-automated-p0-test-jobs-on-develop-2026-10-18).
 
 The six [C07 cleanup regression cases](../../tests/test_p0_teardown_diagnostics.py) still need executable same-SHA CI evidence and native adapter tests; the C05 diagnostic checker cannot substitute for wheel/pip installation. **Architecture Gate stays BLOCKED.**
+
+
+## Verified-by-owner screenshot: P0 core workflow four successes
+
+On 2026-10-18 the owner provided a screenshot of four successful `develop` runs of [P0 core lifecycle verification](https://github.com/Neuri-AI/PSX/actions/workflows/p0-core-lifecycle.yml) (#1 `2dbc439`, #2 `6b866ad`, #3 `8fed3b9`, #4 `5ae8703`). The latest inspected YAML runs core lifecycle tests including six C07 regression cases and four C05 checker cases in Python 3.10/3.13. **These are screenshot-confirmed green workflow outcomes; individual job logs and detailed counts have not been inspected.** This updates the earlier entry that did not have access to push-run results.
+
+**G-P0-05 disposition:** core headless/diagnostic subset **CI GREEN (screenshot)**; full core/native acceptance **PARTIAL, NOT CLOSED**. **G-P0-03 clean-wheel/pip installation, G-P0-04 native-memory retention and owner approval remain BLOCKED.** This note does not grant global P1 gate approval. Details: [P0 verification §11](P0_VERIFICATION_REPORT.md#11-screenshot-confirmed-p0-core-matrix-results-2026-10-18).
