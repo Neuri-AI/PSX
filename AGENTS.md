@@ -16,6 +16,30 @@ Choose a real subsystem scope: `sfle` (only the renderer-neutral math engine), `
 
 Put optional traceability labels (`Phase: F3`, `Gate: G2`, `Block: C3`) in the commit body or PR, never in place of a meaningful subject. Explain why a non-obvious change was made in the body; mark breaking changes using Conventional Commits. Do not rewrite old commits just to conform to this policy.
 
+## Semantic names: roadmap identifiers are not code vocabulary
+
+**Mandatory for humans and coding agents, including fresh agent sessions.** Internal planning and certification identifiers (for example `P0`, `P0.9`, `P1`, `P2`, `F1`, `F4`, `G2`, `C07`, `IM-01`, `AD-03`) are **tracking metadata only**, not descriptive names. Never introduce these identifiers into:
+
+- Production or test **function, class, method, variable, constant, type, package, or module names**.
+- Source filenames, test filenames, CI job/workflow filenames or workflow display names.
+- Source-code docstrings, inline comments, exception messages, log entries or user-facing text **as substitutes for explaining the behavior**.
+- Public API names, imports, example snippets or documentation code blocks.
+
+Name things by **what they do or guarantee**, not by the milestone that paid for them. For example:
+
+| Avoid | Prefer |
+| --- | --- |
+| `test_p0_kivy_heap_ownership.py` | `test_kivy_heap_ownership.py` |
+| `p0_memory_soak.py` | `native_widget_memory_soak.py` |
+| `test_f1_box_model()` | `test_box_padding_excludes_content_area()` |
+| `prepare_f3_snapshot()` | `prepare_native_layout_snapshot()` |
+| `# F4 G3 fix` | `# Release native bindings before the widget is discarded.` |
+| `P1 canonical box style CI` | `Canonical box style tests` |
+
+**Permitted traceability:** phase/gate IDs may appear in planning documents, issue IDs, ADRs, historical evidence paths, release checklists, and commit/PR **bodies** when they serve as cross-references **alongside a descriptive explanation**. A technical document may keep an existing roadmap ID in its title for navigation, but its code samples and implementation names must remain semantic. Do not rename historical artifacts merely to erase valid audit trails.
+
+**Before every commit:** review changed identifiers, filenames, comments and workflow names for phase/gate tokens. If any new occurrence is not essential tracking metadata, replace it with a behavioral description. When touching existing legacy code, prefer descriptive naming for the new work; plan backwards-compatible migrations for existing public or cross-referenced symbols rather than breaking them opportunistically. Never use a phase label as a stand-in for an explanation.
+
 ## Validation
 
 Retain selective CI and exact-SHA certification requirements. A docs-only update must not trigger product tests. Do not claim a workflow's skipped tests are executed evidence. Do not mark a gate CLOSED without its full evidence.
