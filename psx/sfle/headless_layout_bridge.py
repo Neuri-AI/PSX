@@ -80,6 +80,40 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             node_id: handles[id(source)]
             for node_id, source in prepared.identities
         }
+        # The existing Text.color property is paint-only. Cache exactly one
+        # successful mounted-tree signature per renderer; never retain nodes or
+        # handles in the signature. Every other property, identity and viewport
+        # constraint stays layout-relevant until explicitly certified otherwise.
+        # A pending semantic measurement invalidation always takes precedence.
+        layout_signature = (
+            constraints,
+            tuple(
+                (node_id, str(source.type), id(node_handles[node_id]),
+                 tuple(sorted(
+                     (name, value) for name, value in source.props.items()
+                     if not (source.type == "Text" and name == "color")
+                 )))
+                for node_id, source in prepared.identities
+            ),
+        )
+        paint_signature = tuple(
+            (node_id, source.props.get("color"))
+            for node_id, source in prepared.identities
+            if source.type == "Text"
+        )
+        previous_signature = renderer._sfle_committed_signatures
+        if (
+            renderer.sfle_result is not None
+            and previous_signature is not None
+            and previous_signature[0] == layout_signature
+            and previous_signature[1] != paint_signature
+            and not renderer._sfle_measurement_invalidations.needs_commit()
+        ):
+            # The reconciler has already applied native paint props. Geometry
+            # and intrinsic dependencies are unchanged, so no solver/readback
+            # or native rectangle writes are needed for this specific update.
+            renderer._sfle_committed_signatures = (layout_signature, paint_signature)
+            return
         # Mixed Flex/Grid uses the existing width-dependent Cinnamon solver.
         # The Grid is one atomic Flex leaf; its own native children are
         # computed independently at the width allocated by Flex.
@@ -253,5 +287,6 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             renderer.grid_result = grid_receipts[-1]
         # Publish the cache only after the layout and native readback pass.
         renderer._sfle_intrinsic_cache = next_cache
+        renderer._sfle_committed_signatures = (layout_signature, paint_signature)
     finally:
         renderer._sfle_in_commit = False
