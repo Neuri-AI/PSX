@@ -21,7 +21,10 @@ import weakref
 from pathlib import Path
 from typing import Callable
 
-from p0_memory_soak import make_backend, rss_bytes
+if __package__:
+    from scripts.p0_memory_soak import make_backend, rss_bytes
+else:
+    from p0_memory_soak import make_backend, rss_bytes
 
 
 def type_label(value: object) -> str:
