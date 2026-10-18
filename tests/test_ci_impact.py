@@ -239,6 +239,13 @@ class RoutingTests(unittest.TestCase):
                 self.selected(f"psx/sfle/{filename}"), {"sfle", native}
             )
 
+    def test_shared_native_validation_workflow_selects_geometry_engines(self):
+        expected = {"router", "core", "sfle", "rust", "qt", "kivy", "tkinter", "headless"}
+        self.assertEqual(
+            self.selected(".github/workflows/native-layout-selective.yml"),
+            expected,
+        )
+
     def test_shared_native_bridges_trigger_all_downstream_consumers(self):
         all_consumers = {"core", "headless", "qt", "kivy", "tkinter"}
         for filename in ("native_layout_snapshot.py", "canonical_box_style.py",
