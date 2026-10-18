@@ -238,6 +238,16 @@ class RoutingTests(unittest.TestCase):
             {"tkinter"},
         )
 
+    def test_canonical_kivy_flex_changes_run_real_native_geometry_suite(self):
+        self.assertEqual(
+            self.selected("psx/sfle/kivy_layout_bridge.py"),
+            {"kivy"},
+        )
+        self.assertEqual(
+            self.selected("tests/test_kivy_native_layout.py"),
+            {"kivy"},
+        )
+
     def test_native_measurement_changes_cover_their_toolkit_and_sfle(self):
         for filename, native in (
             ("qt_measurement.py", "qt"),
