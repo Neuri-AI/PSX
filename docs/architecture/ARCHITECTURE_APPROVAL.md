@@ -96,3 +96,14 @@ Each agent commits **evidence-only** documentation to `develop` using convention
 ## 8. Owner decision review package
 
 [Source-backed recommendations and alternatives for AD-01–AD-12](P0_OWNER_DECISION_PACKAGE.md) were published 2026-10-18. The recommendations are **PROPOSED** and **none are owner-approved**. An offline PEP 440 comparison was executed and recorded in [P0 verification](P0_VERIFICATION_REPORT.md#7-offline-pep-440-specifier-intersection-check-2026-10-18); actual wheel/pip/native tests remain unexecuted.
+
+ 
+## P0 contract review progress — 2026-10-18
+
+**Source-backed technical reviews completed: 12/12 decisions (AD-01–AD-12). Owner approvals: 0/12. Executed full test/CI closure: pending.** This is a review metric, **not** acceptance/certification of C01–C12 or release readiness.
+
+- [Batch 1 — public semantics and compatibility](P0_CONTRACT_REVIEW_BATCH_1.md): AD-01/02/03/04/06/08
+- [Batch 2 — safety and packaging](P0_CONTRACT_REVIEW_BATCH_2.md): AD-05/07/09
+- [Batch 3 — hot reload and certification](P0_CONTRACT_REVIEW_BATCH_3.md): AD-10/11/12
+
+**Blocking gates unchanged:** H-PKG-01 actual resolver, H-MEM-01 teardown fault-injection, native/Python/Rust same-SHA matrix, and explicit owner decisions. P1 implementation **NOT AUTHORIZED**.
