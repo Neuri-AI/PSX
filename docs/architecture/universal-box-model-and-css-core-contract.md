@@ -126,7 +126,7 @@ Each published property must have a typed grammar, initial/inherited rule, targe
 | Text | `color`, `font-size`, `font-weight`, `text-align` when native adapters prove them | full font shaping/typography parity |
 | Paint | `background-color`, `border-color`, `border-radius` only when backend-specific paint is verified | arbitrary filters, transforms, shadows without contracts |
 | Overflow | `visible`, `hidden`/clip only with verified clipping; preserve existing `Scroll` for scrolling | implicit web overflow scroll ownership |
-| Grid | Preserve existing responsive twelve-column `Grid` | CSS grid tracks, areas, auto-placement |
+| Grid | Preserve existing responsive 12-column `<Grid>` / `<GridItem>` behavior and measurement | New `display: grid` selects a distinct future CSS track algorithm on approved generic containers; track sizing/auto-placement require a separate contract |
 | Position | In-flow layout only as baseline | `absolute`, `fixed`, `sticky` without separate model |
 
 First-release selection is an **approval task**, not a shipping commitment.
@@ -199,6 +199,75 @@ The stylesheet attachment API (`class` vs `class_name`, scoped `css` or file imp
 
 **Performance is a release gate, not a later optional optimization.** Features that require selectors or inheritance not covered by incremental invalidation tests remain unshipped, even if their styling output looks correct. The previously deferred Kivy long-duration memory regression remains tracked in the separate memory/resource phase; this clause does not claim it has been resolved.
 
+## 8.2. Existing responsive Grid versus CSS Grid — approved compatibility direction
+
+**Owner decision (2026-10-18):** Preserve the current `<Grid>` and `<GridItem>` rendering and measurement contract unchanged as the compatibility baseline. Introduce `display: grid` and CSS track layout as a **distinct future formatting context within Cinnamon**, not as a reinterpretation of the responsive 12-column Grid. This decision approves the architectural separation; it **does not** certify or release the new CSS Grid algorithm.
+
+### Existing PascalCase component semantics — unchanged
+
+- `<Grid>` remains the current 12-column responsive Flexbox Grid, with its approved row-packing and distributive `auto` algorithm, default/approved breakpoints and definite available **content-box width** rules. Preserve supported `gap`, `row_gap`, `column_gap`, nested Grids and RTL behavior.
+- `<GridItem>` keeps its current `span` (including `auto` and responsive mappings), `offset`, positioning, native measurement, single-effective-root and direct-child requirements. CSS style resolution must not silently alter the meaning of `span`, `offset` or `Grid.columns`.
+- Existing Qt/Tkinter/Kivy native Grid bridges continue to receive geometry calculated by Cinnamon, with no additional toolkit layout authority. No CSS styling feature may replace the approved grid packing algorithm behind existing names.
+- CSS may supply **compatible** box-model or visual properties to the legacy components when their contracts and native adapters explicitly support them (for example, padding or a verified background). It must not make `grid-template-columns`, `grid-template-rows` or `grid-auto-flow` reconfigure legacy `<Grid>`. Such incompatible declarations produce an explicit unsupported/conflict diagnostic; they are never silently ignored or reinterpreted.
+- The legacy component contract remains unchanged even if a stylesheet declares `display: grid` against an existing `<Grid>`. Matching the existing formatting type does **not** opt it into CSS Grid; switching it to another display model is a separately approved migration/API change, not implicit cascade behavior.
+- Preserve measured and committed rectangles, responsive breakpoint behavior, reorders/keys, focus, native control ownership, and supported nesting compared with pinned old-runtime fixtures. Any intentional new padding/border effect must be opt-in and explicitly versioned.
+
+### New CSS Grid formatting context — separate algorithm
+
+- On **new generic/semantic lowercase containers with an approved block/box contract**, `display: grid` selects a CSS Grid track algorithm distinct from the 12-column responsive Grid. The CSS declaration `grid-template-columns: repeat(3, 1fr)` requests three equal fractional tracks; `gap: 10px` specifies their separation.
+- Cinnamon remains the only owner of track sizing, intrinsic contributions, placement and content-box geometry. Both Rust and Python implementations must accept the same typed grid-track data and produce equivalent computed rectangles; CSS Core only parses/resolves the declarations and selects a formatting context.
+- This is a **future capability requiring its own track-sizing and auto-placement contract and test vectors**, covering definite/indefinite sizing, percentages, intrinsic tracks, `fr`, `repeat()`, later `minmax()`, nesting, overflow, RTL and error handling. Supporting `repeat(3, 1fr)` does **not** imply the full browser CSS Grid specification or support for all track functions.
+- Selectors such as `.md-4 button` require a descendant combinator; they are **not included merely by supporting class selectors**. Add the descendant combinator to the CSS Core design target, with ancestor-dependent incremental invalidation and specificity tests. Its first-release inclusion remains an explicit scope choice.
+- `display: block` requires a real block formatting contract. A button set to `display: block` must not be treated as a fake `Flex` and is not assumed supported until that contract is implemented.
+
+**Example target syntax — not runnable/currently supported:**
+
+```xml
+<div class="container">
+    <div class="grid">
+        <div class="md-4"><button>hola</button></div>
+        <div class="md-4"><button>hola</button></div>
+        <div class="md-4"><button>hola</button></div>
+    </div>
+</div>
+```
+
+```css
+.container {
+    width: 100%;
+    background: red;
+}
+.grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.md-4 button {
+    width: 100%;
+    display: block;
+}
+```
+
+**Compatibility example — existing behavior retained:**
+
+```xml
+<Grid gap="10">
+    <GridItem span="4"><Button label="Hola" /></GridItem>
+    <GridItem span="4"><Button label="Hola" /></GridItem>
+    <GridItem span="4"><Button label="Hola" /></GridItem>
+</Grid>
+```
+
+### Mandatory regression and acceptance evidence
+
+1. Pin unchanged baseline geometry for `<Grid>`/`<GridItem>` across explicit spans, `auto`, offsets, row wrapping, breakpoint thresholds and nested Grid content-box widths.
+2. Validate item width/height through Cinnamon with Rust/Python parity, supported backend native readbacks and stable keyed reconciliation after stylesheet changes.
+3. Verify style-only changes do not re-pack the legacy Grid; geometry changes may invalidate its current layout context but must not switch algorithms.
+4. Explicitly reject `grid-template-columns` on legacy `<Grid>` rather than mutating `Grid.columns` or silently dropping the rule.
+5. Add separate CSS Grid fixture cases for three `1fr` tracks, gaps, native measurement, resize and invalidation **when the new algorithm is implemented**, not to the legacy certification suite as if already supported.
+6. For `.md-4 button`, verify ancestor class changes invalidate only the relevant descendants, and that unrelated subtrees do not restyle; do not claim the combinator is supported prior to these tests.
+7. Require an explicit formatter/backend capability matrix and same-commit execution evidence for the new CSS Grid path. Passing old responsive Grid tests alone is insufficient.
+
 ## 9. Migration and backward compatibility matrix
 
 | Existing surface | Preserve | New capability cannot silently do |
@@ -206,7 +275,7 @@ The stylesheet attachment API (`class` vs `class_name`, scoped `css` or file imp
 | `Text`, `Button`, `Input`, etc. | Existing direct props, events and return values | Reinterpret native props as CSS |
 | `Image.width` + `layout_width` | Different meanings | Overwrite image dimension with container width |
 | `Flex` | Existing layout props, nesting and constraints | Change its sizing default globally |
-| `Grid`/`GridItem` | 12-column responsive model | Pretend CSS Grid track syntax is supported |
+| `Grid`/`GridItem` | Existing 12-column responsive layout, spans/offsets, auto packing, breakpoints and native geometry | Reinterpret `grid-template-columns` or `display: grid` as a change to the legacy algorithm |
 | `Scroll` | Native viewport semantics | Add implicit browser scrollbars without ownership contract |
 | `Native` and custom adapters | Existing port and owner policies | Promise internal widget CSS painting |
 | Component `key`, hooks, ref | Stable reconciliation identity | Reassign keys during style resolution |
@@ -227,7 +296,8 @@ All fixtures need initial dimensions, style sources, expected computed propertie
 9. **Reconciliation:** stable keys retain component state and no stale style selectors/handlers after unmount.
 10. **Native escape hatch:** CSS controls the external container geometry, not undocumented native subtree internals.
 11. **Alias mapping:** lowercase and original PascalCase map to the intended widget behavior while preserving keys and callbacks.
-12. **Grid/Scroll compatibility:** nested Grid/Flex/Scroll readback remains within accepted geometry tolerances.
+12. **Grid/Scroll compatibility:** nested Grid/Flex/Scroll readback remains within accepted geometry tolerances; a CSS stylesheet cannot silently alter the 12-column Grid's packing algorithm.
+13. **CSS Grid separation:** when implemented, three fractional tracks and a fixed gap use the new Cinnamon track algorithm with Rust/Python and backend readback evidence; this does not count as passing the legacy 12-column Grid suite.
 
 Tests are **planned, not executed**. CSS source parser, computed style or new lowercase APIs require functional tests, impacted-backend CI routing, and public behavior census receipts. Snapshot-only internal changes may justify census N/A.
 
@@ -254,6 +324,8 @@ The following are **PROPOSALS**, never assumed ratified by this file:
 | First CSS property subset | Geometry/Flex first, verified paint properties later | PENDING |
 | New lowercase box sizing | Per-tag defaults, proposed border-box generic containers, old component semantics untouched | PENDING |
 | Block and inline semantics | Dedicated contract; no fake Flex implementation | PENDING |
+| Legacy Grid versus CSS Grid | Preserve existing `<Grid>`/`<GridItem>` algorithm; separate `display: grid` track-formatting context in Cinnamon | **OWNER DIRECTION RECORDED**; detailed CSS Grid capability contract pending |
+| CSS descendant selectors | Support `.parent button` as an extensible selector form with tracked ancestor dependencies | PENDING first-release scope |
 | Overflow | Existing Scroll ownership, fail closed for unsupported overflow | PENDING |
 | Lowercase aliases | Finite registry, no generic HTML fallback | PENDING |
 | Class/style declaration API | Decide `class` vs other spellings; stylesheet attachment API and security grammar | PENDING |
