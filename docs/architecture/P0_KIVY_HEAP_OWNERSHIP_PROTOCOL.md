@@ -52,3 +52,10 @@ Inspect the `samples[].tracked_type_histogram` changes, final `referrer_samples`
 | C05 clean release ecosystem wheel installation | **OPEN** |
 
 **Do not certify C07 or the global P0→P1 Architecture Gate on the basis of profiler publication alone.**
+
+
+## Follow-up implementation: three-arm isolation (2026-10-18)
+
+The profiler now runs **three** independently isolated arms: `native` (direct BoxLayout/Button), `psx_no_cinnamon` (PSX Reconciler + KivyRenderer without SFLE constraints, using the supported `Fragment(Button)` root), and `velto` (PSX Reconciler + KivyRenderer with Cinnamon SFLE constraints and `Flex(Button)`). The CI matrix has three jobs and defaults to 5,000 cycles. The profiler also captures bounded `gc.get_referrers()` **type summaries** for the specifically growing `kivy.weakproxy.WeakProxy`, `builtins.dict` and `builtins.list` types at each checkpoint. It does not traverse reference chains or identify individual owning instances. Temporary GC inventory and profiler-owned references can appear in these counts.
+
+**Important comparability caveat:** `Fragment` and `Flex` are different layout constructs; this comparison isolates a supported no-SFLE renderer configuration but does not hold layout semantics constant. All results require a measured CI receipt before conclusions. The three-arm CI has been committed; **no run results yet verified**. Production renderer/Cinnamon unchanged.
