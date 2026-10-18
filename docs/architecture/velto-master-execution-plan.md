@@ -311,3 +311,8 @@ The following files are committed to `develop` and are required reading before p
 - [Architecture Gate](ARCHITECTURE_APPROVAL.md) — explicitly **BLOCKED**, pending verification, owner resolutions and ratification.
 
 **Gate discipline:** publication of drafts does not authorize code modifications. Continue evidence-only investigation until exact-SHA run receipts and owner sign-off exist.
+
+
+## 11. P0 pending-approval decisions and next gate (2026-10-18)
+
+The [owner-ready P0 decision package](P0_OWNER_DECISION_PACKAGE.md) provides AD-01–AD-12 alternatives and recommended bounded choices. **All decisions remain pending.** [P0 verification report](P0_VERIFICATION_REPORT.md) now includes an actually executed *offline* PEP 440 specifier mismatch check, distinct from the still-missing wheel/pip install tests. Source-backed contract mapping may proceed; no P1 production edits are authorized.
