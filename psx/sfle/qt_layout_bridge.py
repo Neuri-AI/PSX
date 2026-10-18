@@ -180,7 +180,9 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external qt measurement.")
         measurements.extend(mixed_grid.seed_measurements())
-        snapshot = replace(prepared.snapshot, measurements=tuple(measurements))
+        # Consume normalized item box lengths while keeping native intrinsic
+        # readings, component-owned dimensions and container styles unchanged.
+        snapshot = replace(prepared.canonical_snapshot(), measurements=tuple(measurements))
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
             node_id: (lambda width, node_id=node_id: native_round.read_width(
