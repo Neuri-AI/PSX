@@ -230,3 +230,18 @@ expected failure exit: 1
 3. Run actual manifest checker on pinned PSX, Velto, Pydux, Qyro and CLI checkouts. Build local wheels, run isolated resolver and `pip check`.
 4. Review the now-implemented limited cleanup error policy against **AD-05**, including multi-error reporting on Python 3.10; obtain owner acceptance or revise with compatible diagnostics.
 5. Keep **Architecture Gate BLOCKED** for platform/release claims until CI and owner decisions are recorded.
+
+
+## 10. Automated P0 test jobs on `develop` (2026-10-18)
+
+Added [`.github/workflows/p0-core-lifecycle.yml`](../../.github/workflows/p0-core-lifecycle.yml) with push triggers for actual core lifecycle, dependency diagnostic code and the workflow itself (plus manual `workflow_dispatch`). Two GitHub-hosted Linux jobs target Python 3.10 and 3.13, install PSX + test dependencies, and run:
+- `tests/test_p0_teardown_diagnostics.py` — six C07 normal/error-path regression checks;
+- `tests/test_p0_dependency_graph.py` — four local manifest-checker regression cases;
+- `tests/test_core.py` and `tests/test_hooks_scheduler.py` — existing core/hook/scheduler behavior;
+- source compilation checks.
+
+**Important:** at the time of this entry, GitHub commit-status lookup for the workflow-introduction commit returned no statuses, and the linked GitHub connector's workflow-run lookup only returns pull-request-triggered runs. Therefore **a successful or failed CI execution is NOT VERIFIED** by this audit. The workflow is committed; its actual invocation/results must be inspected from GitHub Actions independently. Do not mark G-P0-05 green.
+
+Local independent checks (not project imports) from the earlier section were executed again: the manifest checker detected three incompatibilities, returning status 1 on synthetic fixtures; the simulated cleanup harness reported 4/4 assertions passing. Neither substitutes for native or exact-source checkout execution.
+
+**Next action:** inspect [GitHub Actions — P0 core lifecycle verification](https://github.com/Neuri-AI/PSX/actions/workflows/p0-core-lifecycle.yml), obtain both Python job URLs, source SHAs, counts and conclusions, and address failures before closing C07. C05 requires actual clean wheelhouse and public-index resolution.
