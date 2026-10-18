@@ -93,3 +93,25 @@ The owner supplied a screenshot of successful [P0 memory soak run #8](https://gi
 **Limitations:** zero retained objects means zero within the exact probe's observed `MountedInstance` concrete type, weakly-referenced widget wrappers, and recorded live event-slot scopes after event draining and GC. It does not count all native allocations, Kivy `Clock` observers, Rust buffers, GPU resources, or arbitrary Python global caches. The first sample is at cycle 250, **not** pre-mount baseline. Process RSS includes toolkit and SDL/OpenGL overhead and must not be called 'Velto-only RAM.' Reported success represents the script's provisional thresholds, not zero growth in RSS or `tracemalloc`.
 
 **Decision:** 1,000-cycle smoke **VERIFIED GREEN** for three Linux backends. **Long-duration C07 certification remains OPEN.** Suggested next work: Kivy 5,000 cycles with raw artifacts; PySide6 and Tk 5,000 for matched-baseline comparison; 10,000 cycles and a warmed steady-state repeat if growth persists. Record comparable hardware, SHA, Python toolkit versions, slope after warmup, and possible owning cache roots before deciding on code changes.
+
+
+## Actual 5,000-cycle artifacts — owner uploads (2026-10-18)
+
+The owner supplied **three GitHub Actions ZIP artifacts** for run identifier `39144005023`, each containing the raw `*-memory.json`, summary JSON and Markdown. The following statistics were calculated by inspecting those actual raw files. Every backend has 20 samples at 250-cycle intervals, Linux / Python 3.13.16, and reports 5,000 completed cycles.
+
+| Backend | RSS at 250 cycles | RSS at 5,000 cycles | RSS delta 250→5,000 | tracemalloc current delta 250→5,000 | Tail RSS delta 2,750→5,000 | Retained instance / widget / slots |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| PySide6 | 93,855,744 B | 95,805,440 B | +1,949,696 B | +2,218,958 B | +20,480 B | 0 / 0 / 0 |
+| Tkinter | 40,050,688 B | 40,050,688 B | 0 B | +1,006,057 B | 0 B | 0 / 0 / 0 |
+| Kivy | 164,429,824 B | 213,856,256 B | **+49,426,432 B** | **+19,331,078 B** | **+29,642,752 B** | 0 / 0 / 0 |
+
+**Technical interpretation:**
+
+1. Tk and PySide6 have nearly flat RSS and traced heap after initial warmup, with zero tracked stale instances, weak widget wrappers and active event slots.
+2. Kivy continues to grow in RSS and `tracemalloc` throughout the 20 measured checkpoints; it does **not** reach a convincing steady state by 5,000 cycles. The Python-traced heap gain is ~18.44 MiB over 4,750 cycles (~4.1 KiB/cycle), separate from the total RSS gain (~47.14 MiB). Do not call the benchmark's `no_sustained_growth_detected_in_sample` string a measured assertion that Kivy memory is flat: this status currently checks specific retained instance/widget/event counts, not positive heap/RSS slopes.
+3. Kivy's zero tracked retained native widget wrappers is evidence against one specific failure mode, but does not rule out Kivy Clock/Cython native resources, binding registries, caches or allocation churn. **No ownership attribution or confirmed leak cause yet.**
+4. The three ZIP artifacts establish successful completion and available samples; they do not alone reveal full GitHub Actions job conclusion or every warning/skip. We have not claimed an inspected 5,000-cycle workflow screenshot.
+
+**Next investigation:** [Kivy allocation tracer](../../scripts/p0_kivy_allocation_trace.py) and [dedicated CI workflow](../../.github/workflows/p0-kivy-allocation-trace.yml) were committed to profile Python allocation sites, comparing cycle 500 vs cycle 5,000 after native pending-event flush and GC. Inspect the tracebacks and repeat under a warmed control before changing production Kivy/Cinnamon code. The tracer's result is **not yet executed or available**.
+
+**C07 gate remains open** pending explanation/mitigation of Kivy's positive slopes, corroborating 10,000-cycle or warmed stable-state evidence, and final owner acceptance. C05 full clean ecosystem installation is independent and still pending.
