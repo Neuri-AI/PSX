@@ -60,3 +60,14 @@ The owner also supplied a GitHub Actions screenshot showing the full `P0 memory 
 **Additional C07 diagnostic:** A fourth isolated CI arm `velto_no_commit` retains SFLE-configured Kivy widget/adapters but temporarily disables native geometry commit *only in the test harness*. Compare its memory trend with `velto` to isolate growth in the commit path. This produces intentionally invalid geometry, never production behavior.
 
 **Current status: NOT CLOSED.**
+
+
+## Owner-scoped deferral — Kivy + PSX/Cinnamon memory (2026-10-18)
+
+**Decision source:** The owner explicitly requested on 2026-10-18 to **defer the excessive Kivy + PSX/Cinnamon memory investigation and remediation** and begin the next planned phase. This is authorization to *postpone work on that specific issue*, **not** evidence that the issue is fixed, that C07 passed, or that other architecture-gate requirements were approved.
+
+**Deferred issue P2-MEM-KIVY-SFLE-01 (OPEN / HIGH):** On the 5,000-cycle owner-supplied three-arm baseline (`39146917385`) RSS rose ~14.93 MiB in direct Kivy, ~14.99 MiB with PSX without Cinnamon, and **~50.39 MiB** with PSX + Cinnamon (cycle 500→5,000). On the post-`Builder.unbind_widget` run (`39148603648`) the SFLE-enabled arm still rose **~49.83 MiB**, versus ~14.9 MiB for direct Kivy. Approx. **22,434 excess dictionaries and 22,434 excess lists** survived the same interval in the SFLE arm. This is an observed sustained allocation trend, **not proof of one unique leaking owner**. The cleanup change did not materially resolve it.
+
+**Disposition:** DEFERRED FOR INVESTIGATION, not resolved. Keep the diagnostic profilers and CI artifacts linked; do not delete the reproducible failing trend. Keep the normal owned KV binding cleanup unless it causes a demonstrated regression; no further memory performance claim until a targeted fix and post-fix native soak. Resumption gate: investigate SFLE commit/measurement ownership, compare `velto_no_commit` control, characterize Cython/GC owners, then rerun 5,000/10,000-cycle matched profiles.
+
+**Risk acceptance boundary:** P1 non-memory semantic implementation may progress in isolated, backward-compatible slices; **Kivy memory efficiency, C07 certification, P2 memory/performance exit and a production release guarantee are NOT waived or approved.** C05 resolver and the separate AD-01–AD-12 public-contract approval requirements retain their own status. P0→P1 formal architecture approval must not be rewritten as complete from this deferral.
