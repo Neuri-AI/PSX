@@ -147,3 +147,8 @@ On 2026-10-18 the owner provided a screenshot of four successful `develop` runs 
 New [P0.8 certification record](P0_NATIVE_CERTIFICATION_STATUS.md) documents an actual PySide6 native teardown regression suite and a separate [P0 native lifecycle workflow](../../.github/workflows/p0-native-lifecycle.yml) targeting PySide6 on Python 3.10/3.13 plus a clean, isolated **PSX-only** wheel smoke test. The tests and workflow are committed and fetch-verified; **no workflow result has been verified** yet. These jobs cannot close Pydux/Qyro/Velto facade resolver compatibility, Tk/Kivy retention, or the all-backend memory soak requirements.
 
 **Global Architecture Gate continues BLOCKED until same-SHA job receipts, full package graph tests and explicit AD-05/AD-07 approval.**
+
+
+## P0.8 CI failure follow-up — native handle identity
+
+Owner supplied native CI #1 log: the wheel smoke passed, but both PySide6 matrix jobs failed due to an existing `Native(QLabel)` reuse assertion (`1 failed, 20 passed` shown for one job). Inspection confirmed a freshly constructed default `SFLEExternalPort` created new callback identities on every `Native()` call, invalidating strict native VNode equality. A bounded per-backend immutable default-port cache was added to [native.py](../../psx/core/native.py), with an explicit identity regression in [test_pyside6_renderer.py](../../tests/test_pyside6_renderer.py). See [P0 native certification record](P0_NATIVE_CERTIFICATION_STATUS.md#ci-1-failure-and-targeted-repair-2026-10-18). **No green post-fix native CI result verified yet; global gate remains blocked.**
