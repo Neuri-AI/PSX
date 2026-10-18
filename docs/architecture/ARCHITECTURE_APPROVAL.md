@@ -213,3 +213,10 @@ Owner uploaded three 5,000-cycle raw ZIP artifacts (run ID `39144005023`) for Py
 ## P0.9 Kivy heap ownership and native A/B controls (2026-10-18)
 
 Committed [Kivy heap ownership and direct-toolkit control protocol](P0_KIVY_HEAP_OWNERSHIP_PROTOCOL.md), [heap profiler](../../scripts/p0_kivy_heap_ownership.py), and [two-process GitHub Actions matrix](../../.github/workflows/p0-kivy-heap-ownership.yml). Fresh Python 3.13/Xvfb jobs compare real Velto/Cinnamon mount-update-unmount against approximate direct Kivy BoxLayout/Button event churn at 500/2,500/5,000 cycles. GC histograms and bounded referrer-type samples help identify possible retaining owners of previously measured Kivy allocations. **No new CI run or ownership result is yet verified.** No production Kivy or Cinnamon behavior changed. **C07 OPEN; Architecture Gate BLOCKED pending evidence and C05.**
+
+
+## Owner decision: defer Kivy/SFLE memory; start isolated P1 groundwork (2026-10-18)
+
+The owner explicitly elected to postpone the excessive memory growth observed during **Kivy + PSX/Cinnamon** mount/update/unmount stress testing, and to move forward with the next planned implementation phase. This is a **narrow waiver of immediate investigation**, not a claim that the issue was fixed, that native C07 passed, or that P0 was fully approved. Reproducible artifacts, measured deltas and the resumption protocol are recorded as **P2-MEM-KIVY-SFLE-01 (OPEN, HIGH)** in [P0.9 Closure Candidate](P0_9_CLOSURE_CANDIDATE.md).
+
+The team has started **P1 IM-01 isolated, pure normalization scaffolding only** as documented in [P1 Phase 1 Canonical Box Baseline](P1_PHASE_1_CANONICAL_BOX_BASELINE.md), with no public API change or renderer/Cinnamon integration. **This does not mark the global P0→P1 approval gate as APPROVED.** AD-01–AD-12 remain without general ratification; C05 resolver evidence still required. Do not infer acceptance for an untested memory slope or use this specific deferral as a release-readiness waiver.
