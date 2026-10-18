@@ -16,6 +16,7 @@ on:
     branches: [develop]
     paths:
       - "scripts/p0_memory_soak.py"
+      - "tests/test_p0_memory_soak_probes.py"
       - ".github/workflows/p0-memory-soak.yml"
 
 permissions:
@@ -56,6 +57,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev,${{ matrix.backend == 'pyside6' && 'pyside6' || matrix.backend == 'kivy' && 'kivy' || 'dev' }}]"
           python -m pip install psutil
+      - name: Validate memory instrumentation
+        run: |
+          python -m pytest -q tests/test_p0_memory_soak_probes.py
       - name: Run isolated native backend soak
         run: |
           mkdir -p artifacts
