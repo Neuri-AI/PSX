@@ -185,3 +185,49 @@ def test_layout_direction_and_generation_are_not_overwritten() -> None:
     prepared = _prepare(Flex(), generation=91, direction=WritingDirection.RTL)
     assert prepared.snapshot.generation == 91
     assert prepared.snapshot.direction is WritingDirection.RTL
+
+
+
+def test_prepared_boxes_preserve_identity_and_unresolved_lengths() -> None:
+    prepared = _prepare(Flex(
+        Image("photo.png", width=80, height=30, layout_width="25%",
+              layout_margin_top="-4px", layout_padding_left="10px",
+              layout_border_right="2px"),
+    ))
+    assert tuple(identifier for identifier, _ in prepared.box_styles) == tuple(
+        node.node_id for node in prepared.snapshot.nodes
+    )
+    image_id, image_box = prepared.box_styles[1]
+    assert image_id == prepared.snapshot.nodes[1].node_id
+    assert image_box.dimension("layout_width") == Length.percent(0.25)
+    assert image_box.margin.top == Length.px(-4)
+    assert image_box.padding.left == Length.px(10)
+    assert image_box.border.right == Length.px(2)
+    assert dict(prepared.snapshot.nodes[1].style)["layout_width"] == "25%"
+    assert prepared.identities[1][1].props["width"] == 80
+
+
+def test_builder_and_markup_have_equal_typed_box_styles() -> None:
+    markup = psx("""
+        <Flex direction="column">
+            <Text layout_width="50%" layout_padding_top="8px">hello</Text>
+        </Flex>
+    """)
+    builder = Flex(Text("hello", layout_width="50%", layout_padding_top="8px"),
+                   direction="column")
+    assert _prepare(markup).box_styles == _prepare(builder).box_styles
+
+
+def test_native_snapshot_rejects_invalid_box_metadata_before_engine_dispatch() -> None:
+    from psx.core.errors import RendererCapabilityError
+    from psx.core.vnode import VNode
+
+    # A hand-built host node can bypass the builder validator; the snapshot
+    # boundary must still reject an invalid length before engine dispatch.
+    valid = Flex(Text("hello"))
+    child = valid.children[0]
+    from dataclasses import replace as immutable_replace
+    malformed = immutable_replace(child, props={**child.props, "layout_padding_left": "-2px"})
+    malformed_root = immutable_replace(valid, children=(malformed,))
+    with pytest.raises(RendererCapabilityError, match="layout_padding_left"):
+        _prepare(malformed_root)
