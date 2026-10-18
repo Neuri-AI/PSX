@@ -301,6 +301,12 @@ class PySide6RendererTests(unittest.TestCase):
         widget.click()
         self.assertEqual(calls, [("old", True), ("new", False)])
 
+    def test_native_facade_default_geometry_port_is_stable(self) -> None:
+        first = Native(QLabel, props={"text": "one"}, key="label")
+        second = Native(QLabel, props={"text": "two"}, key="label")
+        self.assertIs(first.type.sfle_port, second.type.sfle_port)
+        self.assertEqual(first.type, second.type)
+
     def test_native_facade_updates_qt_properties_without_recreating_widget(self) -> None:
         first = self.reconciler.render(Native(QLabel, props={"text": "one"}, key="label"))
         handle = first.handle
