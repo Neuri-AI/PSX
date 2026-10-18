@@ -125,12 +125,27 @@ def use_effect(
 
 
 def dispose_hooks(instance: MountedInstance) -> None:
-    """Dispose effects in reverse registration order before native destruction."""
-    for slot in reversed(instance.hooks):
-        if isinstance(slot, _EffectSlot) and slot.cleanup is not None:
-            cleanup, slot.cleanup = slot.cleanup, None
-            cleanup()
-    instance.hooks.clear()
+    """Dispose every effect, even when a user-provided cleanup raises.
+
+    Preserve reverse registration order and the first exception. Later
+    cleanups still run, and every hook slot is released before re-raising.
+    """
+    errors: list[Exception] = []
+    try:
+        for slot in reversed(instance.hooks):
+            if isinstance(slot, _EffectSlot) and slot.cleanup is not None:
+                cleanup, slot.cleanup = slot.cleanup, None
+                try:
+                    cleanup()
+                except Exception as error:
+                    errors.append(error)
+    finally:
+        instance.hooks.clear()
+    if errors:
+        first = errors[0]
+        if len(errors) > 1 and hasattr(first, "add_note"):
+            first.add_note(f"{len(errors) - 1} additional effect cleanup error(s).")
+        raise first
 
 
 def provide_context(key: object, value: object) -> None:
