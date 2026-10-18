@@ -125,6 +125,38 @@ class TkSFLEGeometryTests(unittest.TestCase):
             ("submit", None), ("textarea", "start!!"),
         ])
 
+    def test_mounted_tk_flex_consumes_canonical_item_lengths(self):
+        from unittest.mock import patch
+
+        from psx.sfle.lengths import Length
+        from psx.sfle.native_layout_snapshot import PreparedNativeLayoutSnapshot
+
+        original = PreparedNativeLayoutSnapshot.canonical_snapshot
+        snapshots = []
+
+        def record_canonical_snapshot(prepared):
+            snapshot = original(prepared)
+            snapshots.append(snapshot)
+            return snapshot
+
+        with patch.object(
+            PreparedNativeLayoutSnapshot, "canonical_snapshot",
+            record_canonical_snapshot,
+        ):
+            root = self.reconciler.render(Flex(
+                item("Left", "left", 40),
+                item("Right", "right", 30),
+                direction="row", gap=8, width="160px", height="80px",
+            ))
+
+        self.assertTrue(snapshots, "Native Tk must consume canonical item styles.")
+        style = dict(snapshots[-1].nodes[1].style)
+        self.assertEqual(style["layout_width"], Length.px(40))
+        self.assertEqual(style["layout_height"], Length.px(20))
+        self.assertEqual(rect(root.children[0].handle.widget), (0, 0, 40, 20))
+        self.assertEqual(rect(root.children[1].handle.widget), (48, 0, 30, 20))
+        self.assertEqual(root.children[0].handle.widget.winfo_manager(), "place")
+
     def test_real_ttk_widgets_use_sfle_place_not_pack_or_grid(self):
         root = self.reconciler.render(Flex(
             Text("Left", key="left", layout_width="40px", layout_height="20px",
