@@ -140,3 +140,10 @@ The six [C07 cleanup regression cases](../../tests/test_p0_teardown_diagnostics.
 On 2026-10-18 the owner provided a screenshot of four successful `develop` runs of [P0 core lifecycle verification](https://github.com/Neuri-AI/PSX/actions/workflows/p0-core-lifecycle.yml) (#1 `2dbc439`, #2 `6b866ad`, #3 `8fed3b9`, #4 `5ae8703`). The latest inspected YAML runs core lifecycle tests including six C07 regression cases and four C05 checker cases in Python 3.10/3.13. **These are screenshot-confirmed green workflow outcomes; individual job logs and detailed counts have not been inspected.** This updates the earlier entry that did not have access to push-run results.
 
 **G-P0-05 disposition:** core headless/diagnostic subset **CI GREEN (screenshot)**; full core/native acceptance **PARTIAL, NOT CLOSED**. **G-P0-03 clean-wheel/pip installation, G-P0-04 native-memory retention and owner approval remain BLOCKED.** This note does not grant global P1 gate approval. Details: [P0 verification §11](P0_VERIFICATION_REPORT.md#11-screenshot-confirmed-p0-core-matrix-results-2026-10-18).
+
+
+## P0.8 native and wheel CI work (2026-10-18)
+
+New [P0.8 certification record](P0_NATIVE_CERTIFICATION_STATUS.md) documents an actual PySide6 native teardown regression suite and a separate [P0 native lifecycle workflow](../../.github/workflows/p0-native-lifecycle.yml) targeting PySide6 on Python 3.10/3.13 plus a clean, isolated **PSX-only** wheel smoke test. The tests and workflow are committed and fetch-verified; **no workflow result has been verified** yet. These jobs cannot close Pydux/Qyro/Velto facade resolver compatibility, Tk/Kivy retention, or the all-backend memory soak requirements.
+
+**Global Architecture Gate continues BLOCKED until same-SHA job receipts, full package graph tests and explicit AD-05/AD-07 approval.**
