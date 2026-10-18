@@ -276,7 +276,7 @@ def test_canonical_snapshot_preserves_flex_container_padding_shorthand() -> None
 ])
 def test_canonical_and_legacy_boxes_agree_for_supported_item_properties(item_style):
     tree = Flex(
-        Flex(key="first", height="12px", flex_shrink=0, **item_style),
+        Flex(key="first", flex_shrink=0, **item_style),
         Flex(key="second", width="20px", height="12px", flex_shrink=0),
         direction="row", width="160px", height="90px",
         align_items="flex-start", gap=6,
