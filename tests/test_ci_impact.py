@@ -330,6 +330,16 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(self.selected(".github/workflows/native-layout-selective.yml"),
                          {"router", "core", "sfle", "rust", "qt", "kivy", "tkinter", "headless"})
 
+    def test_canonical_qt_flex_integration_routes_to_real_qt_suite(self):
+        self.assertEqual(
+            self.selected("psx/sfle/qt_layout_bridge.py"),
+            {"qt"},
+        )
+        self.assertEqual(
+            self.selected("tests/test_qt_native_component_lifecycle.py"),
+            {"qt"},
+        )
+
     def test_qt_layout_bridge_binding_parity_module_routes_to_qt_not_core(self):
         self.assertEqual(self.selected("tests/test_qt_native_component_lifecycle.py"), {"qt"})
 
