@@ -28,6 +28,43 @@ def new_renderer(**options) -> HeadlessRenderer:
                             engine=PythonLayoutEngine(), **options)
 
 
+def test_mounted_headless_flex_consumes_canonical_item_lengths(monkeypatch) -> None:
+    from psx.sfle.lengths import Length
+    from psx.sfle.native_layout_snapshot import PreparedNativeLayoutSnapshot
+
+    observed = []
+    original = PreparedNativeLayoutSnapshot.canonical_snapshot
+
+    def record(prepared):
+        snapshot = original(prepared)
+        observed.append(snapshot)
+        return snapshot
+
+    monkeypatch.setattr(PreparedNativeLayoutSnapshot, "canonical_snapshot", record)
+    renderer = new_renderer()
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(Flex(
+            Button("Left", key="left", layout_width="40px",
+                   layout_height="20px", flex_basis="40px", flex_shrink=0),
+            Button("Right", key="right", layout_width="30px",
+                   layout_height="20px", flex_basis="30px", flex_shrink=0),
+            direction="row", gap=8, width=120, height=60,
+            align_items="flex-start",
+        ))
+        assert observed, "Mounted Headless must consume canonical item lengths"
+        style = dict(observed[-1].nodes[1].style)
+        assert style["layout_width"] == Length.px(40)
+        assert style["layout_height"] == Length.px(20)
+        assert root.children[0].handle.geometry.width == 40
+        assert root.children[0].handle.geometry.height == 20
+        assert root.children[1].handle.geometry.x == 48
+        assert root.children[1].handle.geometry.width == 30
+        assert renderer.sfle_result.geometry_commit_error == 0.0
+    finally:
+        reconciler.unmount()
+
+
 def test_opt_in_headless_flex_is_real_sfle_geometry_not_a_dummy_layout() -> None:
     renderer = new_renderer()
     reconciler = Reconciler(renderer)
