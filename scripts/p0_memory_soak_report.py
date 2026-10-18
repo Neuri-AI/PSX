@@ -59,7 +59,7 @@ def markdown(summary: dict[str, Any]) -> str:
     output = [
         f"### P0 memory soak: {summary['backend']} / Python {summary['python']}",
         f"Cycles: **{summary['cycles']}**; settled samples: **{summary['sample_count']}**.",
-        f"Probe result: \`{summary['probe_status']}\`.",
+        f"Probe result: `{summary['probe_status']}`.",
         "",
         "| Metric | First-to-last delta | Last-half delta |",
         "| --- | ---: | ---: |",
@@ -67,7 +67,7 @@ def markdown(summary: dict[str, Any]) -> str:
     for key, change in summary["first_to_last_deltas_bytes_or_counts"].items():
         tail = summary["tail_half_deltas_bytes_or_counts"][key]
         output.append(
-            f"| \`{key}\` | {change if change is not None else 'N/A'} "
+            f"| `{key}` | {change if change is not None else 'N/A'} "
             f"| {tail if tail is not None else 'N/A'} |"
         )
     output.extend(("", summary["interpretation"], ""))
