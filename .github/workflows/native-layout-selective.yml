@@ -198,7 +198,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
-      - run: python -m pip install -e '.[qt]' pytest
+      - run: python -m pip install -e '.[pyside6]' pytest
       - run: python -m pytest -q -rs tests/sfle
 
   rust:
@@ -251,7 +251,7 @@ jobs:
       - run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
-      - run: python -m pip install -e '.[qt]' pytest
+      - run: python -m pip install -e '.[pyside6]' pytest
       - name: Install pinned Pydux dependency required by existing PySide6 integration tests
         run: |
           python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@56e6df858bc0e1ae598cd1cab0aa384c921cf253"
