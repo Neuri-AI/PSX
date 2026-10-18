@@ -1395,6 +1395,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert ("apply", Rect(0, 66, 30, 14)) in external_calls
             cleanup(backend, tree)
 
+            from psx.core.native import NativeWidget
+            from psx.core.vnode import native_widget
             native_created = []
             backend, tree = create()
             def bad_native_factory():
@@ -1402,8 +1404,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 return Widget()
             try:
                 tree.render(Flex(
-                    Native(bad_native_factory, renderer="kivy",
-                           layout_width="20px", layout_height="20px"),
+                    native_widget(NativeWidget(renderer="kivy", factory=bad_native_factory),
+                                  layout_width="20px", layout_height="20px"),
                     width="160px", height="80px",
                 ))
             except RendererCapabilityError as error:
