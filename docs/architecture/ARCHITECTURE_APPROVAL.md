@@ -188,3 +188,8 @@ Both Kivy jobs initialized real SDL2 + Mesa under Xvfb. The failure was solely `
 **Scoped correction:** [Kivy lifecycle test](../../tests/test_p0_kivy_native_lifecycle.py) now compares `tuple(borrowed.size_hint)` with the expected tuple. It additionally asserts original contents *before mount*, temporary `(None, None)` values *while mounted*, and restored contents after unmount. `pos_hint` is compared by `dict(...)`. **No Kivy renderer production code was changed.**
 
 **Verification:** source change committed and re-fetched from `develop`; **new CI conclusion is not yet available at this writing**. Don't mark Kivy native certification green until the post-fix matrix run passes, including both Python versions.
+
+
+## P0.9 Linux native matrix success (2026-10-18)
+
+Owner screenshot establishes [Tkinter/Kivy native CI #4](https://github.com/Neuri-AI/PSX/actions/workflows/p0-tk-kivy-lifecycle.yml), commit `89173a3`, **SUCCESS** across Tk Python 3.10/3.13 and Kivy Python 3.11/3.13. See [P0 Tk/Kivy certification](P0_TK_KIVY_CERTIFICATION.md#screenshot-confirmed-green-native-matrix--2026-10-18). Initial tested Linux native teardown scenarios are now green, complementing PySide6 CI. Memory-soak (long duration, heap/weakrefs/retained resources), unsupported platform cells, clean multi-repository C05 resolver and explicit decision sign-off remain **OPEN**. Full P0→P1 Architecture Gate remains **BLOCKED**.
