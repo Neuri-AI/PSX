@@ -13,6 +13,7 @@ on:
     branches: [develop]
     paths:
       - "scripts/p0_kivy_heap_ownership.py"
+      - "scripts/p0_memory_soak.py"
       - "psx/renderers/kivy/**"
       - "tests/test_p0_kivy_heap_ownership.py"
       - ".github/workflows/p0-kivy-heap-ownership.yml"
@@ -32,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [velto, native, psx_no_cinnamon]
+        mode: [velto, velto_no_commit, native, psx_no_cinnamon]
     env:
       KIVY_NO_FILELOG: "1"
       KIVY_NO_ARGS: "1"
