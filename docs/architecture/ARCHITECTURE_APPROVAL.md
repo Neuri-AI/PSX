@@ -152,3 +152,18 @@ New [P0.8 certification record](P0_NATIVE_CERTIFICATION_STATUS.md) documents an 
 ## P0.8 CI failure follow-up — native handle identity
 
 Owner supplied native CI #1 log: the wheel smoke passed, but both PySide6 matrix jobs failed due to an existing `Native(QLabel)` reuse assertion (`1 failed, 20 passed` shown for one job). Inspection confirmed a freshly constructed default `SFLEExternalPort` created new callback identities on every `Native()` call, invalidating strict native VNode equality. A bounded per-backend immutable default-port cache was added to [native.py](../../psx/core/native.py), with an explicit identity regression in [test_pyside6_renderer.py](../../tests/test_pyside6_renderer.py). See [P0 native certification record](P0_NATIVE_CERTIFICATION_STATUS.md#ci-1-failure-and-targeted-repair-2026-10-18). **No green post-fix native CI result verified yet; global gate remains blocked.**
+
+
+## P0.8 native CI follow-up — owner screenshot (2026-10-18)
+
+The project owner provided a screenshot of the [P0 native lifecycle verification workflow](https://github.com/Neuri-AI/PSX/actions/workflows/p0-native-lifecycle.yml) showing:
+
+| Workflow | Commit prefix | UI status |
+| --- | --- | --- |
+| #1 | `9432cd5` | FAILED (known NativeWidget identity regression) |
+| #2 | `1c19c95` | Neutral/inconclusive icon; no success asserted |
+| #3 | `74d0a47` | **SUCCESS (green check)**; 50 seconds |
+
+The #3 workflow is configured to run the PySide6 lifetime suites on Python 3.10 and 3.13 plus an isolated `velto-core` wheel build and install. **The screenshot confirms overall run success, but not individual job logs, exact test counts, native RSS stability, other backends, or the Velto/Pydux/Qyro dependency graph.**
+
+**Gate disposition:** P0.8 PySide6 native CI and single-package wheel smoke **SCREENSHOT-CONFIRMED GREEN** on the tested revision; full C07 memory soak and C05 cross-repo resolver remain OPEN. AD-05/AD-07 owner signoff remains pending. Global P0→P1 Architecture Gate remains BLOCKED.
