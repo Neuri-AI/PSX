@@ -167,3 +167,8 @@ The project owner provided a screenshot of the [P0 native lifecycle verification
 The #3 workflow is configured to run the PySide6 lifetime suites on Python 3.10 and 3.13 plus an isolated `velto-core` wheel build and install. **The screenshot confirms overall run success, but not individual job logs, exact test counts, native RSS stability, other backends, or the Velto/Pydux/Qyro dependency graph.**
 
 **Gate disposition:** P0.8 PySide6 native CI and single-package wheel smoke **SCREENSHOT-CONFIRMED GREEN** on the tested revision; full C07 memory soak and C05 cross-repo resolver remain OPEN. AD-05/AD-07 owner signoff remains pending. Global P0→P1 Architecture Gate remains BLOCKED.
+
+
+## P0.9 Tkinter/Kivy native lifecycle test matrix (2026-10-18)
+
+Published [P0.9 certification protocol](P0_TK_KIVY_CERTIFICATION.md), actual native regression probes [Tkinter](../../tests/test_p0_tkinter_native_lifecycle.py) and [Kivy](../../tests/test_p0_kivy_native_lifecycle.py), and a dedicated [Tk/Kivy CI workflow](../../.github/workflows/p0-tk-kivy-lifecycle.yml) running four Linux/Xvfb jobs. **Outcome not yet verified**; do not infer native certification from a published test file. The full architecture gate remains **BLOCKED** pending actual run receipts, long-memory soak and C05 clean ecosystem installation.
