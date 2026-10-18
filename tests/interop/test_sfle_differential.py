@@ -154,3 +154,38 @@ def test_shared_normalized_input_rust_python_and_expected_geometry(case,rust_bin
         assert math.isclose(value,expected,rel_tol=0,abs_tol=CORPUS["tolerance_px"]),(
             f"{case['id']} expected {key}={expected}, computed={value}"
         )
+
+
+def test_canonical_box_lengths_match_rust_and_python_geometry(rust_binary):
+    """Both engines consume exactly the same canonical item style payload."""
+    from psx import Flex
+    from psx.core.layout_tree import normalize_flex_tree
+    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+
+    prepared = prepare_native_layout_snapshot(
+        normalize_flex_tree(Flex(
+            Flex(width="40px", height="10px", flex_basis="40px", flex_shrink=0,
+                 layout_width="40px", layout_padding_left="6px",
+                 layout_border_right="2px", layout_margin_top="-3px"),
+            width="120px", height="40px",
+        )),
+        LayoutConstraints(AvailableSize(160, True), AvailableSize(90, True)),
+        generation=19,
+    )
+    canonical = prepared.canonical_snapshot()
+    original = prepared.snapshot
+    assert dict(canonical.nodes[1].style)["layout_width"] == Length.px(40)
+    assert PythonLayoutEngine().compute(canonical).boxes == PythonLayoutEngine().compute(original).boxes
+    py = _python_compute(canonical)
+    rust = _rust_compute(rust_binary, canonical)
+    assert py["ok"], py.get("error")
+    assert rust["ok"], rust.get("error")
+    for node_id in (node.node_id for node in canonical.nodes):
+        for box in ("content", "padding", "border", "margin"):
+            for axis in ("x", "y", "width", "height"):
+                value_python = _rects(py["result"])[node_id][box][axis]
+                value_rust = _rects(rust["result"])[node_id][box][axis]
+                assert abs(value_python - value_rust) <= 0.01, (
+                    f"{node_id}.{box}.{axis}: Python={value_python}, Rust={value_rust}"
+                )
