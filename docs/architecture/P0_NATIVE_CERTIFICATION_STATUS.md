@@ -62,3 +62,18 @@ The `Native(QLabel, ...)` convenience API constructs a new frozen `NativeWidget`
 **Risk boundary:** This intentionally does not cache NativeWidget instances or QWidget handles; merely pure geometry port callbacks for six canonical renderer names. Explicit custom `sfle_port` identity remains significant. Backend-specific native cleanup behavior remains unchanged.
 
 **Verification status:** patch and regression test committed to `develop`. **Post-fix GitHub Actions outcome has not yet been inspected**. Do not change this section to PASS until the new [P0 native lifecycle workflow](https://github.com/Neuri-AI/PSX/actions/workflows/p0-native-lifecycle.yml) completes and individual job results are captured.
+
+
+## P0.8 native CI follow-up — owner screenshot (2026-10-18)
+
+The project owner provided a screenshot of the [P0 native lifecycle verification workflow](https://github.com/Neuri-AI/PSX/actions/workflows/p0-native-lifecycle.yml) showing:
+
+| Workflow | Commit prefix | UI status |
+| --- | --- | --- |
+| #1 | `9432cd5` | FAILED (known NativeWidget identity regression) |
+| #2 | `1c19c95` | Neutral/inconclusive icon; no success asserted |
+| #3 | `74d0a47` | **SUCCESS (green check)**; 50 seconds |
+
+The #3 workflow is configured to run the PySide6 lifetime suites on Python 3.10 and 3.13 plus an isolated `velto-core` wheel build and install. **The screenshot confirms overall run success, but not individual job logs, exact test counts, native RSS stability, other backends, or the Velto/Pydux/Qyro dependency graph.**
+
+**Gate disposition:** P0.8 PySide6 native CI and single-package wheel smoke **SCREENSHOT-CONFIRMED GREEN** on the tested revision; full C07 memory soak and C05 cross-repo resolver remain OPEN. AD-05/AD-07 owner signoff remains pending. Global P0→P1 Architecture Gate remains BLOCKED.
