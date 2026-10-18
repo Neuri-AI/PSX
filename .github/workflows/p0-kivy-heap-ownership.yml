@@ -13,6 +13,7 @@ on:
     branches: [develop]
     paths:
       - "scripts/p0_kivy_heap_ownership.py"
+      - "psx/renderers/kivy/**"
       - "tests/test_p0_kivy_heap_ownership.py"
       - ".github/workflows/p0-kivy-heap-ownership.yml"
 
