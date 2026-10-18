@@ -205,7 +205,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 root_widget.setGeometry(0, 0, round(width), round(height))
             elif backend is GridCommitBackend.TK:
                 root_widget.place(x=0, y=0, width=round(width), height=round(height))
-            else:
+            elif backend is GridCommitBackend.KIVY:
                 root_widget.pos = (0, 0)
                 root_widget.size = (width, height)
             receipt = commit_grid_native_geometry(
@@ -231,7 +231,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                     root_widget.place_configure(**previous_root)
                 else:
                     root_widget.place_forget()
-            else:
+            elif backend is GridCommitBackend.KIVY:
                 root_widget.pos, root_widget.size = previous_root
             raise
         renderer.grid_result = (prepared, receipt)
