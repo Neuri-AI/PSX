@@ -862,7 +862,17 @@ class KivyRenderer:
             layout.add_widget(widget, index=position + offset)
 
     def destroy(self, handle: object) -> None:
+        # Kivy's global KV Builder maintains property bindings indexed by a
+        # widget's uid.  Waiting for the native widget destructor to remove
+        # them can retain KV binding graphs across frequent mount/unmount
+        # cycles, particularly after SFLE geometry writes.  An owned widget
+        # is permanently destroyed at this boundary; borrowed native widgets
+        # are returned to their owner and MUST keep their KV rules.
+        target = _handle(handle)
         self._adapter_for(handle_adapter_key(handle)).destroy(self, handle)
+        if not _is_borrowed(target):
+            from kivy.lang import Builder
+            Builder.unbind_widget(target.widget.uid)
 
     def _adapter_destroy(self, handle: object) -> None:
         target = _handle(handle)
