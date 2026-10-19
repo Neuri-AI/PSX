@@ -140,3 +140,37 @@ def test_A08_installed_rust_wheel_real_qt_geometry_commit():
     engine = load_layout_engine()
     assert engine.backend_name == "rust", "Live Qt test must use installed Rust, never fallback."
     assert_qt_live_geometry(engine)
+
+
+def test_installed_rust_wheel_matches_python_for_measured_block_and_inline():
+    """The actual PyO3 wheel must route semantic flow through Rust."""
+    from psx.sfle.model import (
+        AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
+        LayoutNode, MeasuredBox, WritingDirection,
+    )
+
+    constraints = LayoutConstraints(
+        AvailableSize(100, True), AvailableSize(80, True),
+    )
+    snapshot = LayoutInput(
+        1, 27, WritingDirection.LTR, constraints,
+        (
+            LayoutNode("root", None, "div", (("display", "block"),)),
+            LayoutNode("paragraph", "root", "p", (("display", "block"),)),
+            LayoutNode("span", "paragraph", "span", (("display", "inline"),)),
+            LayoutNode("a", "span", "Text", ()),
+            LayoutNode("b", "span", "Text", ()),
+        ),
+        tuple(MeasuredBox(
+            name,
+            IntrinsicSizes(width, width, 16, 16, width, 16, baseline=12),
+            constraints, 1,
+        ) for name, width in (("a", 70), ("b", 45))),
+    )
+    engine = load_layout_engine()
+    assert engine.backend_name == "rust"
+    native = engine.compute(snapshot)
+    fallback = PythonLayoutEngine().compute(snapshot)
+    assert native.generation == fallback.generation == 27
+    assert native.boxes == fallback.boxes
+    assert dict(native.boxes)["b"].border.y == 16
