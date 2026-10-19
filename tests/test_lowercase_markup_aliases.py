@@ -72,3 +72,19 @@ def view(handler):
     assert button.type == "Button"
     button.props["on_click"]()
     assert calls == ["saved"]
+
+
+def test_aliases_remain_available_with_isolated_component_registry():
+    registry = builtin_component_registry()
+    node = psx('<button>Confirm</button>', registry=registry)
+    assert (node.type, node.props["label"]) == ("Button", "Confirm")
+    assert not registry.contains("button")
+
+
+def test_custom_registry_cannot_override_builtin_html_alias_by_accident():
+    from psx.core.vnode import Text
+    registry = builtin_component_registry()
+    registry.register("button", lambda *children, **props: Text("Custom"))
+    node = psx('<button />', registry=registry)
+    assert node.type == "Text"
+    assert node.props["value"] == "Custom"
