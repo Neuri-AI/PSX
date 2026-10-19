@@ -104,8 +104,16 @@ fn validate_input(input: &LayoutInput) -> Result<(), ComputeError> {
     Ok(())
 }
 
+fn is_flow_root(tag: &str) -> bool {
+    matches!(tag, "div" | "span" | "p" | "h1" | "h2" | "h3" | "h4" |
+                   "h5" | "h6" | "section" | "main" | "header" | "footer")
+}
+
 pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
     validate_input(input)?;
+    if input.nodes.first().is_some_and(|node| is_flow_root(&node.component)) {
+        return crate::flow_snapshot::compute(input);
+    }
     crate::compute_layout::compute_normalized(input,false)
 }
 
@@ -114,6 +122,9 @@ pub fn compute_incremental(
     input:&LayoutInput, previous:&LayoutInput, previous_result:&LayoutResult,
 )->Result<LayoutResult,ComputeError>{
     validate_input(input)?;
+    if input.nodes.first().is_some_and(|node| is_flow_root(&node.component)) {
+        return crate::flow_snapshot::compute(input);
+    }
     crate::compute_layout::compute_normalized_incremental(
         input,false,Some((previous,previous_result))
     )
@@ -121,6 +132,9 @@ pub fn compute_incremental(
 
 /// Noncommittable provisional geometry for width-dependent text measurement.
 pub fn compute_provisional(input:&LayoutInput)->Result<LayoutResult,ComputeError>{
+    if input.nodes.first().is_some_and(|node| is_flow_root(&node.component)) {
+        return crate::flow_snapshot::compute(input);
+    }
     crate::compute_layout::compute_normalized(input,true)
 }
 
