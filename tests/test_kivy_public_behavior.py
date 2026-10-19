@@ -124,6 +124,18 @@ assert inline.children[1].handle.widget is alpha
 assert round(beta.x) == 0
 assert round(alpha.x) == round(beta.x + beta.width)
 assert round(alpha.width) < 400
+prior_generation = renderer.sfle_result.generation
+renderer.set_sfle_constraints(LayoutConstraints(
+    AvailableSize(240, True), AvailableSize(120, True),
+))
+resized = tree.render(psx(
+    '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+))
+assert resized.children[0].handle.widget is beta
+assert resized.children[1].handle.widget is alpha
+assert round(beta.width) == 240 and round(alpha.width) == 240
+assert round(beta.y) == round(alpha.y + alpha.height)
+assert renderer.sfle_result.generation > prior_generation
 tree.unmount()
 assert alpha.parent is None and beta.parent is None
 """
@@ -143,6 +155,11 @@ assert alpha.parent is None and beta.parent is None
     assert_feature(
         request, Feature("div", "kivy", "interaction", "semantic_flow",
                          "display_reflow", applicability="partial_native"),
+        run.returncode == 0, run.stdout + "\\n" + run.stderr,
+    )
+    assert_feature(
+        request, Feature("div", "kivy", "interaction", "semantic_flow",
+                         "viewport_reflow", applicability="partial_native"),
         run.returncode == 0, run.stdout + "\\n" + run.stderr,
     )
 
