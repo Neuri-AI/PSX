@@ -41,3 +41,34 @@ def test_image_alias_rejects_missing_or_conflicting_sources():
 def test_unsupported_generic_tags_do_not_silently_use_flex():
     with pytest.raises(MarkupSyntaxError, match="Unknown PSX tag"):
         psx("<div />")
+
+
+def test_lowercase_aliases_work_in_lexically_transformed_markup():
+    from psx.markup.transform import transform_source
+
+    source = """from psx import psx
+def view():
+    return psx('<button>Save</button>')
+"""
+    result = transform_source(source, filename="lowercase_lexical.py")
+    namespace = {"__name__": "lowercase_fixture"}
+    exec(compile(result.source, "lowercase_lexical.py", "exec"), namespace)
+    assert "'button': lambda" not in result.source
+    assert namespace["view"]().type == "Button"
+
+
+def test_lowercase_aliases_work_in_expressive_markup_with_callbacks():
+    from psx.markup.transform import transform_source
+
+    source = """from psx import psx
+def view(handler):
+    return psx('<button on_click={() => handler()}>Save</button>')
+"""
+    result = transform_source(source, filename="lowercase_expressive.py")
+    namespace = {"__name__": "lowercase_expressive_fixture"}
+    exec(compile(result.source, "lowercase_expressive.py", "exec"), namespace)
+    calls = []
+    button = namespace["view"](lambda: calls.append("saved"))
+    assert button.type == "Button"
+    button.props["on_click"]()
+    assert calls == ["saved"]
