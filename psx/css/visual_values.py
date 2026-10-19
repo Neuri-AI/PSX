@@ -39,7 +39,7 @@ def normalize_visual_value(name: str, value: str) -> CssColor | Length | int | s
     if name not in VISUAL_EFFECTS:
         raise ValueError(f"Unsupported visual CSS property: {name!r}.")
     if name in ("color", "background-color"):
-        return CssColor(value)
+        return value if isinstance(value, CssColor) else CssColor(value)
     if name in ("font-size", "line-height", "border-radius"):
         parsed = parse_length(value)
         if parsed.kind not in (LengthKind.PX, LengthKind.PERCENT) or (
@@ -50,6 +50,8 @@ def normalize_visual_value(name: str, value: str) -> CssColor | Length | int | s
             return parsed
         return parsed
     if name == "font-weight":
+        if type(value) is int and value in range(100, 1000, 100):
+            return value
         if value in ("normal", "bold"):
             return 400 if value == "normal" else 700
         if value in {str(x) for x in range(100, 1000, 100)}:
