@@ -83,3 +83,29 @@ def test_inline_atoms_wrap_when_native_measurements_exceed_viewport():
     assert rects["button"].border.x == 0
     assert rects["text"].border.x == 0
     assert rects["text"].border.y == 12
+
+
+def test_fractional_native_metrics_land_on_fixed_point_grid():
+    initial = snapshot()
+    measured = (
+        MeasuredBox(
+            "button",
+            IntrinsicSizes(39.3, 39.3, 12.3, 12.3, 39.3, 12.3, 9.1),
+            initial.constraints, 1,
+        ),
+        MeasuredBox(
+            "text",
+            IntrinsicSizes(90.7, 90.7, 30.7, 30.7, 90.7, 30.7, 24.2),
+            initial.constraints, 1,
+        ),
+    )
+    updated = LayoutInput(
+        initial.schema_version, initial.generation, initial.direction,
+        initial.constraints, initial.nodes, measured,
+    )
+    result = compute_measured_block_snapshot(updated)
+    for _, box in result.boxes:
+        for axis in ("x", "y", "width", "height"):
+            value = getattr(box.border, axis)
+            assert value * 64 == round(value * 64)
+    assert dict(result.boxes)["text"].border.y == round(12.3 * 64) / 64
