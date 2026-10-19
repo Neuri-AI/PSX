@@ -188,7 +188,7 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
         snapshot = replace(prepared.canonical_snapshot(), measurements=tuple(metrics))
         from psx.sfle.incremental_result_reuse import reuse_unchanged_layout
         cached_result = None
-        if not grid_nodes:
+        if not grid_nodes and renderer._sfle_prior_solver_engine is renderer._sfle_engine:
             cached_result = reuse_unchanged_layout(
                 renderer._sfle_prior_solver_input,
                 renderer._sfle_prior_solver_result,
@@ -295,6 +295,7 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
         # receipts maximum, replaced every successful transaction.
         renderer._sfle_prior_solver_input = snapshot if not grid_nodes else None
         renderer._sfle_prior_solver_result = result if not grid_nodes else None
+        renderer._sfle_prior_solver_engine = renderer._sfle_engine if not grid_nodes else None
         renderer._sfle_committed_signatures = (
             (layout_signature, paint_signature) if signature_safe else None
         )
