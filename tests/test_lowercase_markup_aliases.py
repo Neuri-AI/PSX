@@ -38,9 +38,18 @@ def test_image_alias_rejects_missing_or_conflicting_sources():
         psx('<img src="a.png" source="b.png" />')
 
 
-def test_unsupported_generic_tags_do_not_silently_use_flex():
-    with pytest.raises(MarkupSyntaxError, match="Unknown PSX tag"):
-        psx("<div />")
+def test_div_preserves_an_independent_block_host():
+    node = psx("<div><button>Save</button></div>")
+    assert node.type == "div"
+    assert node.props["display"] == "block"
+    assert [child.type for child in node.children] == ["Button"]
+
+
+def test_div_rejects_unported_display_and_styles():
+    with pytest.raises(ValueError, match="native formatting-context"):
+        psx('<div display="flex" />')
+    with pytest.raises(ValueError, match="Unsupported div properties"):
+        psx('<div background="red" />')
 
 
 def test_lowercase_aliases_work_in_lexically_transformed_markup():
@@ -88,3 +97,17 @@ def test_custom_registry_cannot_override_builtin_html_alias_by_accident():
     node = psx('<button />', registry=registry)
     assert node.type == "Text"
     assert node.props["value"] == "Custom"
+
+
+def test_div_does_not_alias_flex_in_lexical_transform():
+    from psx.markup.transform import transform_source
+    source = """from psx import psx
+def view():
+    return psx('<div><button>Continue</button></div>')
+"""
+    transformed = transform_source(source, filename="div_view.py")
+    namespace = {"__name__": "block_view_fixture"}
+    exec(compile(transformed.source, "div_view.py", "exec"), namespace)
+    root = namespace["view"]()
+    assert root.type == "div"
+    assert root.children[0].type == "Button"
