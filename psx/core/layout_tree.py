@@ -115,13 +115,14 @@ def normalize_flex_tree(
         else:
             if node.kind is NodeKind.HOST:
                 definition = definitions.get(node.type) if isinstance(node.type, str) else None
-                if node.type == "div":
-                    # The new block host has a distinct formatting model.
+                from psx.markup.html_aliases import FORMATTING_TAGS
+                if node.type in FORMATTING_TAGS:
+                    # Formatting hosts have a distinct Block/Inline model.
                     # Do not pass its display value to legacy Flex metadata.
                     from psx.sfle.display_context import (
                         InnerDisplay, OuterDisplay, resolve_display,
                     )
-                    mode = resolve_display("div", node.props.get("display"))
+                    mode = resolve_display(node.type, node.props.get("display"))
                     if mode.outer not in (OuterDisplay.BLOCK, OuterDisplay.INLINE) or mode.inner is not InnerDisplay.FLOW:
                         raise RendererCapabilityError(
                             "div currently requires a Block or Inline flow context."
@@ -136,7 +137,7 @@ def normalize_flex_tree(
                     validate_flex_item_props(
                         {name: value for name, value in node.props.items()
                          if name in ("layout_width", "layout_height")},
-                        owner="div",
+                        owner=str(node.type),
                     )
                 elif definition is not None and definition.contract is not None:
                     definition.contract.validate(node.props)
