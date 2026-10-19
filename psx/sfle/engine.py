@@ -44,6 +44,26 @@ class PythonLayoutEngine:
         from .compute_alpha import compute_snapshot
         return compute_snapshot(request)
 
+    def compute_incremental(
+        self,
+        request: LayoutInput,
+        *,
+        previous_input: LayoutInput | None = None,
+        previous_result: LayoutResult | None = None,
+        native_measurement_invalidated: bool = False,
+    ) -> LayoutResult:
+        """Reuse certified identical input, otherwise run the full solver.
+
+        Partial subtree solving is deliberately not claimed here. This
+        opt-in method does not modify the shared Rust/Python engine protocol.
+        """
+        from .incremental_result_reuse import reuse_unchanged_layout
+        cached = reuse_unchanged_layout(
+            previous_input, previous_result, request,
+            native_measurement_invalidated=native_measurement_invalidated,
+        )
+        return cached if cached is not None else self.compute(request)
+
     def compute_provisional(self, request: LayoutInput) -> LayoutResult:
         """Noncommittable geometry used solely to obtain post-flex widths."""
         from .compute_alpha import compute_snapshot
