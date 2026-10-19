@@ -195,12 +195,32 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
                 snapshot,
                 native_measurement_invalidated=invalidations.needs_commit(),
             )
-        result = cached_result if cached_result is not None else (compute_width_dependent(
-            renderer._sfle_engine, snapshot,
-            {node_id: (lambda width, node_id=node_id: intrinsic_grid(node_id, width))
-             for node_id in grid_nodes},
-            current_generation=lambda: renderer._sfle_generation,
-        ) if grid_nodes else renderer._sfle_engine.compute(snapshot))
+        incremental_engine = getattr(renderer._sfle_engine, "compute_incremental", None)
+        can_reuse_contexts = (
+            not grid_nodes
+            and not invalidations.needs_commit()
+            and renderer._sfle_prior_solver_engine is renderer._sfle_engine
+            and renderer._sfle_prior_solver_input is not None
+            and renderer._sfle_prior_solver_result is not None
+            and callable(incremental_engine)
+        )
+        if cached_result is not None:
+            result = cached_result
+        elif can_reuse_contexts:
+            result = incremental_engine(
+                snapshot,
+                previous_input=renderer._sfle_prior_solver_input,
+                previous_result=renderer._sfle_prior_solver_result,
+            )
+        elif grid_nodes:
+            result = compute_width_dependent(
+                renderer._sfle_engine, snapshot,
+                {node_id: (lambda width, node_id=node_id: intrinsic_grid(node_id, width))
+                 for node_id in grid_nodes},
+                current_generation=lambda: renderer._sfle_generation,
+            )
+        else:
+            result = renderer._sfle_engine.compute(snapshot)
         ports = SFLEAdapterPorts(
             current_generation=lambda: renderer._sfle_generation,
             nodes_alive=lambda ids: all(
