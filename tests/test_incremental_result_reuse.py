@@ -99,3 +99,49 @@ def test_context_plan_scopes_changed_flex_sibling_without_partial_solver_claim()
     ).boxes == engine.compute(current).boxes
     assert plan_context_invalidation(initial, _input(width=200)).full_recompute
     assert plan_context_invalidation(None, current).full_recompute
+
+
+def test_incremental_solver_skips_unchanged_sibling_flex_sizing():
+    from psx.sfle.model import LayoutNode
+
+    def snapshot(left_width: int, generation: int):
+        markup = psx(
+            '<Flex direction="row" width="300px" height="100px">'
+            f'<Flex width="{left_width}px" height="25px" flex_shrink="0">'
+            '<Flex width="20px" height="10px" /></Flex>'
+            '<Flex width="50px" height="25px" flex_shrink="0">'
+            '<Flex width="20px" height="10px" /></Flex>'
+            '</Flex>'
+        )
+        return prepare_native_layout_snapshot(
+            normalize_flex_tree(markup),
+            LayoutConstraints(AvailableSize(300, True), AvailableSize(100, True)),
+            generation=generation,
+        ).snapshot
+
+    engine = PythonLayoutEngine()
+    before = snapshot(40, 1)
+    after = snapshot(60, 2)
+    prior_result = engine.compute(before)
+    receipt: list[str] = []
+    incremental = engine.compute_incremental(
+        after, previous_input=before, previous_result=prior_result,
+        reused_contexts=receipt,
+    )
+    assert incremental.boxes == engine.compute(after).boxes
+    right = after.nodes[3].node_id
+    assert right in receipt, receipt
+
+
+def test_incremental_solver_falls_back_when_measurement_environment_changes():
+    engine = PythonLayoutEngine()
+    original = _input()
+    prior = engine.compute(original)
+    current = _input(generation=2, width=180)
+    reused: list[str] = []
+    actual = engine.compute_incremental(
+        current, previous_input=original, previous_result=prior,
+        reused_contexts=reused,
+    )
+    assert actual.boxes == engine.compute(current).boxes
+    assert reused == []
