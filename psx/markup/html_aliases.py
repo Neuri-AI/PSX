@@ -99,12 +99,14 @@ def _formatting_host(
         else:
             normalized.append(child)
     if tag == "li":
-        # Marker and adjacent text form one measured inline run, rather than
-        # converting the list item to Flex or asking native layouts to place it.
-        marker = create_element(
-            "span", Text("\u2022 "), display="inline",
-        )
-        normalized.insert(0, marker)
+        # Group a bullet and text in the same inline run. Keep nested block
+        # children independent rather than inventing a Flex layout.
+        inline_fragments = [Text("\u2022 ")]
+        while normalized and isinstance(normalized[0], VNode) and normalized[0].type == "Text":
+            inline_fragments.append(normalized.pop(0))
+        normalized.insert(0, create_element(
+            "span", *inline_fragments, display="inline",
+        ))
     return create_element(
         tag, *normalized, key=key, display=selected, **props,
     )
