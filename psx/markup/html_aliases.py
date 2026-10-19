@@ -24,7 +24,7 @@ def _html_img(*children: object, src: str | None = None, source: str | None = No
     return Image(selected, **props)
 
 
-def _html_div(*children: object, display: str = "block", **props: object) -> VNode:
+def _html_div(*children: object, display: str = "block", key: str | int | None = None, **props: object) -> VNode:
     """Preserve a true block host in the VNode tree; never alias to Flex."""
     if display != "block":
         raise ValueError("div display overrides require the native formatting-context port")
@@ -34,7 +34,7 @@ def _html_div(*children: object, display: str = "block", **props: object) -> VNo
     if unsupported:
         raise ValueError(f"Unsupported div properties: {sorted(unsupported)}")
     resolve_display("div", display)
-    return create_element("div", *children, display=display, **props)
+    return create_element("div", *children, key=key, display=display, **props)
 
 
 PORTABLE_HTML_ALIASES: Mapping[str, str] = {
