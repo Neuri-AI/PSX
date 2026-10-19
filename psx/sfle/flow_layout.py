@@ -63,3 +63,61 @@ def layout_block_children(
         placements.append(BlockPlacement(x, y, child_width, px(child.height)))
         cursor = px(y + child.height + child.margin_bottom)
     return tuple(placements)
+
+
+@dataclass(frozen=True, slots=True)
+class InlineAtom:
+    """One measured, unbreakable inline-level box (not text fragments)."""
+
+    width: float
+    height: float
+    baseline: float
+
+
+def layout_inline_atoms(
+    available_width: float,
+    atoms: tuple[InlineAtom, ...],
+) -> tuple[BlockPlacement, ...]:
+    """Wrap measured atomic inline-level boxes using baseline alignment.
+
+    This is the geometry primitive for inline-block/replaced atoms only.
+    General CSS inline formatting additionally needs text shaping, bidi,
+    fragmentation and whitespace processing; none is implied here.
+    """
+    def px(value: float) -> float:
+        return LayoutUnit.from_nearest(value).to_px()
+
+    if available_width < 0:
+        raise ValueError("Available inline size cannot be negative.")
+    width = px(available_width)
+    lines: list[list[tuple[int, InlineAtom]]] = []
+    current: list[tuple[int, InlineAtom]] = []
+    used_width = 0.0
+    for index, atom in enumerate(atoms):
+        if (atom.width < 0 or atom.height < 0
+                or atom.baseline < 0 or atom.baseline > atom.height):
+            raise ValueError("Invalid atomic inline box metrics.")
+        atom_width = px(atom.width)
+        if current and px(used_width + atom_width) > width:
+            lines.append(current)
+            current = []
+            used_width = 0.0
+        current.append((index, atom))
+        used_width = px(used_width + atom_width)
+    if current:
+        lines.append(current)
+
+    output: list[BlockPlacement | None] = [None] * len(atoms)
+    y = 0.0
+    for line in lines:
+        ascent = max(px(atom.baseline) for _, atom in line)
+        descent = max(px(atom.height - atom.baseline) for _, atom in line)
+        x = 0.0
+        for index, atom in line:
+            output[index] = BlockPlacement(
+                px(x), px(y + ascent - atom.baseline),
+                px(atom.width), px(atom.height),
+            )
+            x = px(x + atom.width)
+        y = px(y + ascent + descent)
+    return tuple(placement for placement in output if placement is not None)
