@@ -122,9 +122,9 @@ def normalize_flex_tree(
                         InnerDisplay, OuterDisplay, resolve_display,
                     )
                     mode = resolve_display("div", node.props.get("display"))
-                    if mode.outer is not OuterDisplay.BLOCK or mode.inner is not InnerDisplay.FLOW:
+                    if mode.outer not in (OuterDisplay.BLOCK, OuterDisplay.INLINE) or mode.inner is not InnerDisplay.FLOW:
                         raise RendererCapabilityError(
-                            "div currently requires a block-flow formatting context."
+                            "div currently requires a Block or Inline flow context."
                         )
                     illegal = set(node.props) - {
                         "display", "ref", "layout_width", "layout_height",
