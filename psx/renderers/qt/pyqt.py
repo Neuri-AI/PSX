@@ -771,7 +771,7 @@ class QtRenderer:
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
-            if port is None and node.type not in ("Flex", "Grid", "GridItem"):
+            if port is None and node.type not in ("Flex", "Grid", "GridItem", "div"):
                 native_leaf_needs_measurement(node, backend="qt")
             if node.type not in ("Flex", "Grid", "GridItem"):
                 node = VNode(node.kind, node.type, node.key,
@@ -781,6 +781,11 @@ class QtRenderer:
         return self._adapter_for(adapter_key(node)).create(self, node, parent)
 
     def _adapter_create(self, node: VNode, parent: object | None) -> QtHandle:
+        if node.kind is NodeKind.HOST and node.type == "div":
+            if self._sfle_constraints is None or node.props.get("display") != "block":
+                raise RendererCapabilityError(
+                    "Qt div requires an enabled Cinnamon Block viewport.")
+            return QtHandle(node.type, self._widget(), props=dict(node.props))
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             if self._sfle_constraints is None:
                 raise RendererCapabilityError(
@@ -835,6 +840,16 @@ class QtRenderer:
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _handle(handle)
+        if target.node_type == "div":
+            updated = dict(target.props)
+            updated.update(changed)
+            for name in removed:
+                updated.pop(name, None)
+            if updated.get("display") != "block":
+                raise RendererCapabilityError(
+                    "div currently supports only the Cinnamon Block context.")
+            target.props = updated
+            return
         if target.node_type in ("Grid", "GridItem"):
             target.props.update(changed)
             for name in removed:
@@ -860,7 +875,7 @@ class QtRenderer:
         self._default_insert(parent, child, index)
 
     def _default_insert(self, parent: object, child: object, index: int) -> None:
-        if _handle(parent).node_type in ("Grid", "GridItem"):
+        if _handle(parent).node_type in ("Grid", "GridItem", "div"):
             widget = _handle(child).widget
             widget.setParent(_handle(parent).widget)
             # A child mounted after its top-level Grid is already visible
