@@ -8,6 +8,21 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_block_flow_snapshots_run_all_native_geometry_consumers(self):
+        expected = {"core", "sfle", "rust", "chromium", "headless",
+                    "qt", "kivy", "tkinter"}
+        for path in (
+            "psx/sfle/flow_layout.py",
+            "psx/sfle/display_context.py",
+            "psx/sfle/measured_block_snapshot.py",
+            "tests/sfle/test_measured_block_snapshot.py",
+        ):
+            self.assertEqual(self.selected(path), expected)
+        self.assertEqual(
+            self.selected("psx/sfle/headless_block_bridge.py"),
+            {"core", "sfle", "headless"},
+        )
+
     def test_css_display_context_routes_cinnamon_and_native_consumers(self):
         self.assertGreaterEqual(
             self.selected("psx/sfle/display_context.py"),
