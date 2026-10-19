@@ -782,7 +782,7 @@ class QtRenderer:
 
     def _adapter_create(self, node: VNode, parent: object | None) -> QtHandle:
         if node.kind is NodeKind.HOST and node.type == "div":
-            if self._sfle_constraints is None or node.props.get("display") != "block":
+            if self._sfle_constraints is None or node.props.get("display") not in ("block", "inline"):
                 raise RendererCapabilityError(
                     "Qt div requires an enabled Cinnamon Block viewport.")
             return QtHandle(node.type, self._widget(), props=dict(node.props))
@@ -845,7 +845,7 @@ class QtRenderer:
             updated.update(changed)
             for name in removed:
                 updated.pop(name, None)
-            if updated.get("display") != "block":
+            if updated.get("display") not in ("block", "inline"):
                 raise RendererCapabilityError(
                     "div currently supports only the Cinnamon Block context.")
             target.props = updated
