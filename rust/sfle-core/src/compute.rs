@@ -106,7 +106,7 @@ fn validate_input(input: &LayoutInput) -> Result<(), ComputeError> {
 
 fn is_flow_root(tag: &str) -> bool {
     matches!(tag, "div" | "span" | "p" | "h1" | "h2" | "h3" | "h4" |
-                   "h5" | "h6" | "section" | "main" | "header" | "footer")
+                   "h5" | "h6" | "section" | "main" | "header" | "footer" | "form" | "label" | "ul" | "li")
 }
 
 pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
