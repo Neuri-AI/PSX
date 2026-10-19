@@ -369,3 +369,20 @@ def test_semantic_form_submission_rebinds_native_tk_button(tk_tree, request):
         and calls == ["first", "second"]
         and renderer.sfle_result.geometry_commit_error <= 1,
     )
+
+
+def test_implicit_label_pointer_focuses_native_tk_entry(tk_tree, request):
+    from psx import psx
+    host, _, tree = tk_tree
+    mounted = tree.render(psx('<label>Name <input value="Ada" /></label>'))
+    entry = next(child.handle.widget for child in mounted.children
+                 if child.node.type == "Input")
+    host.update()
+    mounted.handle.widget.event_generate("<Button-1>", x=2, y=2)
+    host.update()
+    assert_feature(
+        request, Feature("label", "tkinter", "interaction",
+                         "implicit_input_focus", "native_activation",
+                         applicability="partial_native"),
+        host.focus_get() is entry,
+    )
