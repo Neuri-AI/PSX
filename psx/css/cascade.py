@@ -12,7 +12,6 @@ from typing import Mapping
 from psx.sfle.lengths import Length
 from .parser import Stylesheet
 from .properties import CssDeclaration, CssPropertyRegistry, foundation_registry
-from .visual_values import CssColor, VISUAL_EFFECTS
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,14 +43,7 @@ def resolve_style(
 ) -> ComputedStyle:
     definitions = registry or foundation_registry()
     resolved: dict[str, object] = {name: prop.initial for name, prop in definitions.properties.items()}
-    resolved.update({'color': CssColor('#000'), 'background-color': CssColor('#0000'),
-                     'font-size': Length.px(16), 'font-family': 'sans-serif',
-                     'font-weight': 400, 'line-height': Length.px(19.2),
-                     'text-align': 'start', 'border-radius': Length.px(0)})
     if inherited is not None:
-        for name in ('color', 'font-size', 'font-family', 'font-weight', 'line-height', 'text-align'):
-            if name in inherited.properties:
-                resolved[name] = inherited.properties[name]
         for name, prop in definitions.properties.items():
             if prop.inherited and name in inherited.properties:
                 resolved[name] = inherited.properties[name]
@@ -60,7 +52,7 @@ def resolve_style(
         for selector in rule.selectors:
             if selector.matches(target.tag, target.classes, target.node_id):
                 for index, (name, value) in enumerate(rule.declarations):
-                    if not ((name in definitions.properties and isinstance(value, Length)) or name in VISUAL_EFFECTS):
+                    if name not in definitions.properties or definitions.validate(name, value).value != value:
                         raise ValueError(f"Invalid precompiled declaration: {name!r}")
                     matched.append((selector.specificity, rule.order, index, name, value))
     for _, _, _, name, value in sorted(matched):
