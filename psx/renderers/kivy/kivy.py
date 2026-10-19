@@ -814,7 +814,7 @@ class KivyRenderer:
         self._default_move(parent, child, index)
 
     def _default_move(self, parent: object, child: object, index: int) -> None:
-        if _handle(parent).node_type in ("Grid", "GridItem"):
+        if _handle(parent).node_type in ("Grid", "GridItem", "div"):
             container, item = _handle(parent), _handle(child)
             container.children.remove(item)
             container.children.insert(index, item)
