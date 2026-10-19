@@ -676,7 +676,7 @@ class KivyRenderer:
 
     def _adapter_create(self, node: VNode, parent: object | None) -> KivyHandle:
         if node.kind is NodeKind.HOST and node.type == "div":
-            if self._sfle_constraints is None or node.props.get("display") != "block":
+            if self._sfle_constraints is None or node.props.get("display") not in ("block", "inline"):
                 raise RendererCapabilityError(
                     "Kivy div requires an enabled Cinnamon Block viewport.")
             handle = KivyHandle(node.type, Widget(size_hint=(None, None)), dict(node.props))
@@ -761,7 +761,7 @@ class KivyRenderer:
             updated.update(changed)
             for name in removed:
                 updated.pop(name, None)
-            if updated.get("display") != "block":
+            if updated.get("display") not in ("block", "inline"):
                 raise RendererCapabilityError(
                     "div currently supports only the Cinnamon Block context.")
             target.props = updated
