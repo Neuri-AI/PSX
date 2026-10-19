@@ -892,7 +892,7 @@ class QtRenderer:
         self._default_move(parent, child, index)
 
     def _default_move(self, parent: object, child: object, index: int) -> None:
-        if _handle(parent).node_type in ("Grid", "GridItem"):
+        if _handle(parent).node_type in ("Grid", "GridItem", "div"):
             return
         layout = _layout(_handle(parent))
         widget = _handle(child).widget
@@ -907,7 +907,7 @@ class QtRenderer:
 
     def _default_remove(self, parent: object, child: object) -> None:
         item = _handle(child)
-        if _handle(parent).node_type in ("Grid", "GridItem"):
+        if _handle(parent).node_type in ("Grid", "GridItem", "div"):
             item.widget.setParent(None)
             return
         _layout(_handle(parent)).removeWidget(item.widget)
