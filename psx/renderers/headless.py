@@ -192,6 +192,12 @@ class HeadlessRenderer:
         return adapter.create(self, node, parent)  # type: ignore[return-value]
 
     def _adapter_create(self, node: VNode, parent: object | None) -> HeadlessHandle:
+        if node.kind is NodeKind.HOST and node.type == "div":
+            # Markup resolution is not native layout certification. Never
+            # manufacture a successful handle without a Cinnamon block port.
+            raise RendererCapabilityError(
+                "div requires a certified Cinnamon block formatting-context port."
+            )
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             if self._sfle_constraints is None:
                 raise RendererCapabilityError(
