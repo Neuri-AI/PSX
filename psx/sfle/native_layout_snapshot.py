@@ -124,7 +124,8 @@ def _style(node: VNode) -> tuple[tuple[str, object], ...]:
         if "padding" in props:
             for side, value in zip(_SIDE_NAMES, _edges(props["padding"])):
                 result.setdefault(f"layout_padding_{side}", value)
-    if node.kind is NodeKind.HOST and node.type == "div":
+    from psx.markup.html_aliases import FORMATTING_TAGS
+    if node.kind is NodeKind.HOST and node.type in FORMATTING_TAGS:
         result["display"] = props["display"]
     if node.kind is NodeKind.HOST and node.type == "Scroll":
         result["direction"] = (
@@ -175,7 +176,7 @@ def prepare_native_layout_snapshot(
     if not isinstance(normalized, NormalizedLayoutNode):
         raise TypeError("Expected a normalized layout tree.")
     roots = normalized._participating_roots()
-    if len(roots) != 1 or roots[0].kind is not NodeKind.HOST or roots[0].type not in ("Flex", "div"):
+    if len(roots) != 1 or roots[0].kind is not NodeKind.HOST or roots[0].type not in (("Flex",) + tuple(__import__("psx.markup.html_aliases", fromlist=["FORMATTING_TAGS"]).FORMATTING_TAGS)):
         raise SFLECapabilityError(
             DiagnosticCode.UNSUPPORTED_FEATURE,
             "Native SFLE requires one explicit Flex or supported Block root."
@@ -207,7 +208,7 @@ def prepare_native_layout_snapshot(
         box_props = (
             {key: val for key, val in node.source.props.items()
              if key != "display"}
-            if node.source.kind is NodeKind.HOST and node.source.type == "div"
+            if node.source.kind is NodeKind.HOST and node.source.type in __import__("psx.markup.html_aliases", fromlist=["FORMATTING_TAGS"]).FORMATTING_TAGS
             else node.source.props
         )
         box_style = normalize_item_box_style(box_props, owner=str(node.type))
