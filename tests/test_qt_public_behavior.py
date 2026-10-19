@@ -371,3 +371,24 @@ def test_html_block_native_geometry_and_reconciliation(qt_tree, request):
         and alpha.x() == beta.width()
         and alpha.width() < 400,
     )
+
+
+@pytest.mark.parametrize("tag", (
+    "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+    "section", "main", "header", "footer",
+))
+def test_semantic_flow_native_geometry_per_tag(qt_tree, request, tag):
+    from psx import psx
+    _, tree = qt_tree
+    root = tree.render(psx(f"<{tag}><button>Action</button></{tag}>"))
+    child = root.children[0].handle.widget
+    assert_feature(
+        request, Feature(tag, BINDING, "interaction", "semantic_flow",
+                         "native_geometry", applicability="partial_native"),
+        root.handle.widget.layout() is None
+        and child.parentWidget() is root.handle.widget
+        and root.handle.widget.width() == 400
+        and 0 < child.width() <= 400
+        and child.y() == 0
+        and (child.width() < 400 if tag == "span" else child.width() == 400),
+    )
