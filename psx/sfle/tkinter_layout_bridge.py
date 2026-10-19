@@ -7,6 +7,8 @@ No pack/grid/fake text measurements or second CSS layout algorithm.
 """
 from __future__ import annotations
 
+from psx.markup.html_aliases import FORMATTING_TAGS
+
 from dataclasses import replace
 from threading import get_ident
 from typing import TYPE_CHECKING
@@ -150,7 +152,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             node_id: widgets[node_id]
             for node_id, source in prepared.identities
             if source.kind is NodeKind.HOST
-            and source.type not in ("Flex", "Box", "RadioGroup", "Scroll", "Grid", "div")
+            and source.type not in ("Flex", "Box", "RadioGroup", "Scroll", "Grid")
+            and source.type not in FORMATTING_TAGS
             and not (source.type == "Divider" and source.children)
             and node_id not in external
         }
