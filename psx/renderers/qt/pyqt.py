@@ -31,6 +31,7 @@ from psx.sfle.external_native_geometry_ports import external_port_for
 
 
 from psx.core.errors import RendererCapabilityError
+from psx.markup.html_aliases import FORMATTING_TAGS
 from psx.core.events import EventSlot
 from psx.core.native import NativeOwnership, NativeWidget
 from psx.core.vnode import (
@@ -771,7 +772,7 @@ class QtRenderer:
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
-            if port is None and node.type not in ("Flex", "Grid", "GridItem", "div"):
+            if port is None and node.type not in ("Flex", "Grid", "GridItem") and node.type not in FORMATTING_TAGS:
                 native_leaf_needs_measurement(node, backend="qt")
             if node.type not in ("Flex", "Grid", "GridItem"):
                 node = VNode(node.kind, node.type, node.key,
@@ -781,7 +782,7 @@ class QtRenderer:
         return self._adapter_for(adapter_key(node)).create(self, node, parent)
 
     def _adapter_create(self, node: VNode, parent: object | None) -> QtHandle:
-        if node.kind is NodeKind.HOST and node.type == "div":
+        if node.kind is NodeKind.HOST and node.type in FORMATTING_TAGS:
             if self._sfle_constraints is None or node.props.get("display") not in ("block", "inline"):
                 raise RendererCapabilityError(
                     "Qt div requires an enabled Cinnamon Block viewport.")
@@ -840,7 +841,7 @@ class QtRenderer:
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _handle(handle)
-        if target.node_type == "div":
+        if target.node_type in FORMATTING_TAGS:
             updated = dict(target.props)
             updated.update(changed)
             for name in removed:
@@ -875,7 +876,7 @@ class QtRenderer:
         self._default_insert(parent, child, index)
 
     def _default_insert(self, parent: object, child: object, index: int) -> None:
-        if _handle(parent).node_type in ("Grid", "GridItem", "div"):
+        if _handle(parent).node_type in ("Grid", "GridItem") or _handle(parent).node_type in FORMATTING_TAGS:
             widget = _handle(child).widget
             widget.setParent(_handle(parent).widget)
             # A child mounted after its top-level Grid is already visible
@@ -892,7 +893,7 @@ class QtRenderer:
         self._default_move(parent, child, index)
 
     def _default_move(self, parent: object, child: object, index: int) -> None:
-        if _handle(parent).node_type in ("Grid", "GridItem", "div"):
+        if _handle(parent).node_type in ("Grid", "GridItem") or _handle(parent).node_type in FORMATTING_TAGS:
             return
         layout = _layout(_handle(parent))
         widget = _handle(child).widget
@@ -907,7 +908,7 @@ class QtRenderer:
 
     def _default_remove(self, parent: object, child: object) -> None:
         item = _handle(child)
-        if _handle(parent).node_type in ("Grid", "GridItem", "div"):
+        if _handle(parent).node_type in ("Grid", "GridItem") or _handle(parent).node_type in FORMATTING_TAGS:
             item.widget.setParent(None)
             return
         _layout(_handle(parent)).removeWidget(item.widget)
