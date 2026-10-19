@@ -233,9 +233,6 @@ tree.unmount()
         failure_details + run.stdout + "\\n" + run.stderr
     )
     for tag in tags:
-        "Kivy semantic flow failed: " + run.stdout + "\\n" + run.stderr
-    )
-    for tag in tags:
         assert_feature(
             request, Feature(tag, "kivy", "interaction", "semantic_flow",
                              "native_geometry", applicability="partial_native"),
