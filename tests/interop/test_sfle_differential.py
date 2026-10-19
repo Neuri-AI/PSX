@@ -189,3 +189,64 @@ def test_canonical_box_lengths_match_rust_and_python_geometry(rust_binary):
                 assert abs(value_python - value_rust) <= 0.01, (
                     f"{node_id}.{box}.{axis}: Python={value_python}, Rust={value_rust}"
                 )
+
+
+@pytest.mark.parametrize("root_display", ("block", "inline"))
+def test_semantic_flow_snapshot_rust_python_geometry_parity(rust_binary, root_display):
+    """Require actual Rust/Python parity on nested semantic flow snapshots."""
+    from psx.sfle.model import (
+        AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
+        LayoutNode, MeasuredBox, WritingDirection,
+    )
+
+    constraints = LayoutConstraints(
+        AvailableSize(100, True), AvailableSize(140, True),
+    )
+    if root_display == "block":
+        nodes = (
+            LayoutNode("root", None, "div", (("display", "block"),)),
+            LayoutNode("heading", "root", "h1", (("display", "block"),)),
+            LayoutNode("heading-text", "heading", "Text", ()),
+            LayoutNode("paragraph", "root", "p", (("display", "block"),)),
+            LayoutNode("span", "paragraph", "span", (("display", "inline"),)),
+            LayoutNode("a", "span", "Text", ()),
+            LayoutNode("b", "span", "Text", ()),
+            LayoutNode("button", "root", "Button", ()),
+        )
+    else:
+        nodes = (
+            LayoutNode("root", None, "div", (("display", "inline"),)),
+            LayoutNode("span", "root", "span", (("display", "inline"),)),
+            LayoutNode("a", "span", "Text", ()),
+            LayoutNode("b", "span", "Text", ()),
+            LayoutNode("button", "root", "Button", ()),
+        )
+    measurements = tuple(MeasuredBox(
+        node.node_id,
+        IntrinsicSizes(
+            70.3 if node.node_id in ("a", "heading-text") else 45.4,
+            70.3 if node.node_id in ("a", "heading-text") else 45.4,
+            14.7, 14.7,
+            70.3 if node.node_id in ("a", "heading-text") else 45.4,
+            14.7,
+            baseline=10.2,
+        ),
+        constraints, 1,
+    ) for node in nodes if node.component in ("Text", "Button"))
+    snapshot = LayoutInput(
+        1, 19, WritingDirection.LTR, constraints, nodes, measurements,
+    )
+    py = _python_compute(snapshot)
+    rs = _rust_compute(rust_binary, snapshot)
+    assert py["ok"], py.get("error")
+    assert rs["ok"], rs.get("error")
+    py_rects, rs_rects = _rects(py["result"]), _rects(rs["result"])
+    assert tuple(py_rects) == tuple(rs_rects) == tuple(node.node_id for node in nodes)
+    for node_id in py_rects:
+        for kind in ("border", "content", "padding", "margin"):
+            for axis in ("x", "y", "width", "height"):
+                actual = py_rects[node_id][kind][axis]
+                expected = rs_rects[node_id][kind][axis]
+                assert actual == expected, (
+                    root_display, node_id, kind, axis, actual, expected,
+                )
