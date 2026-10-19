@@ -80,38 +80,21 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             node_id: handles[id(source)]
             for node_id, source in prepared.identities
         }
-        # Only the existing Text.color contract is classified as paint-only.
-        # Keep one bounded, detached signature per mounted renderer. Unknown
-        # mutable or callback-valued props fail closed: they may influence
-        # native measurement and must not be retained or skipped speculatively.
-        def literal(value):
-            if value is None or isinstance(value, (str, int, float, bool)):
-                return True, value
-            if isinstance(value, tuple):
-                items = tuple(literal(item) for item in value)
-                return all(item[0] for item in items), tuple(item[1] for item in items)
-            return False, None
+        # Shared, conservative dependency classification. Only Text.color
+        # currently qualifies for paint-only reuse; all unknown fields force
+        # geometry validation, and nonliteral values disable reuse.
+        from psx.sfle.layout_change_effects import partition_dependency_signature
 
-        signature_safe = True
-        fingerprint = []
-        paint = []
-        for node_id, source in prepared.identities:
-            items = []
-            for name, value in sorted(source.props.items()):
-                if source.type == "Text" and name == "color":
-                    valid, color = literal(value)
-                    signature_safe &= valid
-                    paint.append((node_id, color))
-                    continue
-                valid, normalized_value = literal(value)
-                signature_safe &= valid
-                items.append((name, normalized_value))
-            fingerprint.append((
-                node_id, str(source.type), id(node_handles[node_id]),
-                tuple(items),
-            ))
-        layout_signature = (constraints, tuple(fingerprint))
-        paint_signature = tuple(paint)
+        (layout_signature, paint_signature), signature_safe = (
+            partition_dependency_signature(
+                tuple(
+                    (node_id, str(source.type), id(node_handles[node_id]),
+                     source.props)
+                    for node_id, source in prepared.identities
+                ),
+                constraints,
+            )
+        )
         previous_signature = renderer._sfle_committed_signatures
         if (
             signature_safe
