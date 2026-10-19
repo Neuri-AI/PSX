@@ -456,7 +456,7 @@ def test_semantic_tags_do_not_silently_accept_unimplemented_browser_contracts():
         psx("<li></li>")
 
 
-def test_form_submit_dispatch_uses_existing_native_control_events():
+def test_form_submit_dispatch_uses_existing_native_control_events(request):
     from psx.markup.html_aliases import _formatting_host
     from psx.core.vnode import Button, Input
     calls = []
@@ -472,7 +472,12 @@ def test_form_submit_dispatch_uses_existing_native_control_events():
     assert button.key == "save" and field.key == "name"
     button.props["on_click"]()
     field.props["on_submit"]("draft")
-    assert calls == ["button", "form", "draft", "form"]
+    from tests.certification.public_behavior_census import CONTRACT, Feature, assert_feature
+    assert_feature(
+        request, Feature("form", CONTRACT, "event", "on_submit",
+                         "handler_delegation", applicability="shared"),
+        calls == ["button", "form", "draft", "form"],
+    )
 
 
 def test_form_submit_closure_is_replaced_on_render_and_is_fail_closed():
