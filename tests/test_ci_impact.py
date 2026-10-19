@@ -8,6 +8,27 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_incremental_cinnamon_routes_every_geometry_consumer(self):
+        expected = {"core", "sfle", "rust", "chromium", "headless",
+                    "qt", "kivy", "tkinter"}
+        for path in (
+            "psx/sfle/compute_alpha.py",
+            "psx/sfle/engine.py",
+            "psx/sfle/context_invalidation_plan.py",
+            "psx/sfle/incremental_result_reuse.py",
+            "tests/test_incremental_result_reuse.py",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), expected)
+        self.assertEqual(self.selected(
+            "docs/architecture/canonical-box-geometry-implementation-evidence.md"
+        ), set())
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("tests/test_incremental_result_reuse.py", workflow)
+
     def test_expressive_composition_security_routing(self):
         self.assertEqual(self.selected("tests/test_expressive_composition_security.py"),
                          {"core", "headless"})
