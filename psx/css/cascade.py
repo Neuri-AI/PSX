@@ -12,6 +12,7 @@ from typing import Mapping
 from psx.sfle.lengths import Length
 from .parser import Stylesheet
 from .properties import CssDeclaration, CssPropertyRegistry, foundation_registry
+from .visual_values import CssColor, VISUAL_EFFECTS
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,7 +25,7 @@ class StyleTarget:
 @dataclass(frozen=True, slots=True)
 class ComputedStyle:
     """Immutable snapshot with no references to mounted nodes."""
-    properties: Mapping[str, Length]
+    properties: Mapping[str, object]
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "properties", MappingProxyType(dict(self.properties)))
@@ -42,17 +43,24 @@ def resolve_style(
     registry: CssPropertyRegistry | None = None,
 ) -> ComputedStyle:
     definitions = registry or foundation_registry()
-    resolved = {name: prop.initial for name, prop in definitions.properties.items()}
+    resolved: dict[str, object] = {name: prop.initial for name, prop in definitions.properties.items()}
+    resolved.update({'color': CssColor('#000'), 'background-color': CssColor('#0000'),
+                     'font-size': Length.px(16), 'font-family': 'sans-serif',
+                     'font-weight': 400, 'line-height': Length.px(19.2),
+                     'text-align': 'start', 'border-radius': Length.px(0)})
     if inherited is not None:
+        for name in ('color', 'font-size', 'font-family', 'font-weight', 'line-height', 'text-align'):
+            if name in inherited.properties:
+                resolved[name] = inherited.properties[name]
         for name, prop in definitions.properties.items():
             if prop.inherited and name in inherited.properties:
                 resolved[name] = inherited.properties[name]
-    matched: list[tuple[tuple[int, int, int], int, int, str, Length]] = []
+    matched: list[tuple[tuple[int, int, int], int, int, str, object]] = []
     for rule in sheet.rules:
         for selector in rule.selectors:
             if selector.matches(target.tag, target.classes, target.node_id):
                 for index, (name, value) in enumerate(rule.declarations):
-                    if name not in definitions.properties or not isinstance(value, Length):
+                    if not ((name in definitions.properties and isinstance(value, Length)) or name in VISUAL_EFFECTS):
                         raise ValueError(f"Invalid precompiled declaration: {name!r}")
                     matched.append((selector.specificity, rule.order, index, name, value))
     for _, _, _, name, value in sorted(matched):
