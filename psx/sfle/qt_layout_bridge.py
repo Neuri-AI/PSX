@@ -255,6 +255,17 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         result = compute_width_dependent(
             renderer._sfle_engine, snapshot, dependent,
             current_generation=lambda: renderer._sfle_generation,
+            previous_input=(
+                renderer._sfle_prior_solver_input
+                if renderer._sfle_prior_solver_engine is renderer._sfle_engine else None
+            ),
+            previous_result=(
+                renderer._sfle_prior_solver_result
+                if renderer._sfle_prior_solver_engine is renderer._sfle_engine else None
+            ),
+            native_measurement_invalidated=(
+                renderer._sfle_measurement_invalidations.needs_commit()
+            ),
         )
 
         mixed_plans = mixed_grid.plan(dict(result.boxes))
@@ -389,6 +400,14 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         if mixed_receipts:
             renderer.grid_result = mixed_receipts[-1]
         native_round.publish()
+        # Preserve only the most recent successful immutable snapshot.
+        # Width-dependent provisional computations have separate iterative
+        # measurements and cannot reuse this initial snapshot as a receipt.
+        renderer._sfle_prior_solver_input = snapshot if not dependent else None
+        renderer._sfle_prior_solver_result = result if not dependent else None
+        renderer._sfle_prior_solver_engine = (
+            renderer._sfle_engine if not dependent else None
+        )
         renderer._sfle_committed_signatures = (
             (layout_signature, paint_signature) if signature_safe else None
         )
