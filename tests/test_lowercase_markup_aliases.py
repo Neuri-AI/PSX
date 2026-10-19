@@ -290,3 +290,28 @@ def test_headless_cinnamon_commits_nested_block_and_inline_rectangles():
     assert len(span.children) >= 3
     assert renderer.sfle_result.generation > 0
     reconciler.unmount()
+
+
+@pytest.mark.parametrize(
+    "tag",
+    (
+        "div", "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+        "section", "main", "header", "footer",
+    ),
+)
+def test_semantic_markup_carries_public_census_assertions(request, tag):
+    from tests.certification.public_behavior_census import (
+        CONTRACT, Feature, assert_feature,
+    )
+    node = psx(f'<{tag} key="section-key">Hello</{tag}>')
+    expected_display = "inline" if tag == "span" else "block"
+    assert_feature(
+        request, Feature(tag, CONTRACT, "public_api", "markup",
+                         "default_display", applicability="shared"),
+        node.type == tag and node.props.get("display") == expected_display,
+    )
+    assert_feature(
+        request, Feature(tag, CONTRACT, "public_api", "markup",
+                         "key_identity", applicability="shared"),
+        node.key == "section-key" and "key" not in node.props,
+    )
