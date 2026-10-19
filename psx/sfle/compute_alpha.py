@@ -1018,6 +1018,10 @@ def compute_snapshot(
             and not previous_result.diagnostics
             and previous_result.geometry_commit_error in (None, 0)):
         prior_nodes = {node.node_id: node for node in previous_input.nodes}
+        prior_children: dict[str, list[str]] = {node.node_id: [] for node in previous_input.nodes}
+        for old_child in previous_input.nodes:
+            if old_child.parent_id is not None and old_child.parent_id in prior_children:
+                prior_children[old_child.parent_id].append(old_child.node_id)
         current_nodes = {node.node_id: node for node in request.nodes}
         prior_metrics = {item.node_id: item for item in previous_input.measurements}
         current_metrics = {item.node_id: item for item in request.measurements}
@@ -1035,6 +1039,7 @@ def compute_snapshot(
                 for _, value in node.style
             )
             direct = (old == node and intrinsic_same and no_percent
+                      and prior_children.get(node.node_id) == children[node.node_id]
                       and node.node_id in previous_boxes)
             descendants = tuple(children[node.node_id])
             safe = direct and all(subtree_safe.get(child, False) for child in descendants)
