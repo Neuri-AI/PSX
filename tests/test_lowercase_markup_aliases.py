@@ -359,6 +359,22 @@ def test_headless_display_change_reflows_without_replacing_keyed_handles(request
         and second.geometry.x == first.geometry.width
         and second.geometry.y == 0,
     )
+    previous_generation = renderer.sfle_result.generation
+    renderer.set_sfle_constraints(LayoutConstraints(
+        AvailableSize(120, True), AvailableSize(100, True),
+    ))
+    resized = reconciler.render(psx(
+        '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
+    ))
+    assert_feature(
+        request, Feature("div", "headless", "interaction", "semantic_flow",
+                         "viewport_reflow", applicability="partial_native"),
+        resized.children[0].handle is first
+        and resized.children[1].handle is second
+        and first.geometry.width == 120 and second.geometry.width == 120
+        and second.geometry.y == first.geometry.height
+        and renderer.sfle_result.generation > previous_generation,
+    )
     reconciler.unmount()
 
 
