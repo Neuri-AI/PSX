@@ -189,14 +189,17 @@ renderer = KivyRenderer(
 )
 tree = Reconciler(renderer)
 for tag in tags:
-    root = tree.render(psx(f"<{tag}><button>Action</button></{tag}>"))
+    content = "Action" if tag in ("li", "label") else (
+        "<li>Action</li>" if tag == "ul" else "<button>Action</button>"
+    )
+    root = tree.render(psx(f"<{tag}>{content}</{tag}>"))
     child = root.children[0].handle.widget
     assert child.parent is root.handle.widget, tag
     assert round(root.handle.widget.width) == 400, tag
     assert 0 < child.width <= 400, tag
     assert round(child.x) == 0, tag
     assert round(child.y + child.height) == 120, tag
-    if tag == "span":
+    if tag in ("span", "label", "li"):
         assert child.width < 400, tag
     else:
         assert round(child.width) == 400, tag
