@@ -169,3 +169,60 @@ def test_block_normalization_rejects_unsupported_direct_vnode_properties():
         normalize_flex_tree(create_element("div", display="block", opacity=0.5))
     with pytest.raises(RendererCapabilityError, match="block-flow"):
         normalize_flex_tree(create_element("div", display="flex"))
+
+
+def test_measured_div_commits_actual_headless_block_rectangles():
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+    measured = []
+    def measure(node):
+        measured.append(node.type)
+        height = 12 if node.type == "Button" else 30
+        return IntrinsicSizes(10, 10, height, height, 10, height)
+
+    constraints = LayoutConstraints(
+        AvailableSize(240, True), AvailableSize(400, True),
+    )
+    renderer = HeadlessRenderer(
+        sfle_constraints=constraints, measure_intrinsic=measure,
+        engine=PythonLayoutEngine(),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(psx("<div><button>Save</button><button>Next</button></div>"))
+        assert root.handle.geometry.width == 240
+        assert root.handle.geometry.height == 24
+        assert root.children[0].handle.geometry.y == 0
+        assert root.children[1].handle.geometry.y == 12
+        assert measured == ["Button", "Button"]
+        assert renderer.sfle_result is not None
+        assert [node_id for node_id, _ in renderer.sfle_result.boxes]
+    finally:
+        reconciler.unmount()
+    assert renderer.sfle_result is None
+
+
+def test_block_mount_does_not_assume_unmeasured_leaf_height():
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.errors import SFLEError
+    from psx.sfle.model import AvailableSize, LayoutConstraints
+
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(240, True), AvailableSize(400, True),
+        ),
+        measure_intrinsic=lambda node: None,
+        engine=PythonLayoutEngine(),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        with pytest.raises(SFLEError, match="did not provide intrinsic"):
+            reconciler.render(psx("<div><button>Save</button></div>"))
+        assert renderer.sfle_result is None
+    finally:
+        reconciler.unmount()
