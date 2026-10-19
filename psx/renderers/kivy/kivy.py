@@ -684,12 +684,16 @@ class KivyRenderer:
                 from kivy.uix.textinput import TextInput
 
                 class NativeLabelHost(Widget):
+                    def focus_nested_input(self):
+                        for descendant in self.walk():
+                            if isinstance(descendant, TextInput) and not descendant.disabled:
+                                descendant.focus = True
+                                return True
+                        return False
+
                     def on_touch_down(self, touch):
                         if self.collide_point(*touch.pos):
-                            for descendant in self.walk():
-                                if isinstance(descendant, TextInput) and not descendant.disabled:
-                                    descendant.focus = True
-                                    break
+                            self.focus_nested_input()
                         return super().on_touch_down(touch)
 
                 native_widget = NativeLabelHost(size_hint=(None, None))
