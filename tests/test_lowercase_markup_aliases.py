@@ -304,7 +304,7 @@ def test_headless_cinnamon_commits_nested_block_and_inline_rectangles(request):
     "tag",
     (
         "div", "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
-        "section", "main", "header", "footer",
+        "section", "main", "header", "footer", "form", "label", "ul", "li",
     ),
 )
 def test_semantic_markup_carries_public_census_assertions(request, tag):
@@ -380,7 +380,7 @@ def test_headless_display_change_reflows_without_replacing_keyed_handles(request
 
 @pytest.mark.parametrize("tag", (
     "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
-    "section", "main", "header", "footer",
+    "section", "main", "header", "footer", "form", "label", "ul", "li",
 ))
 def test_headless_semantic_flow_native_geometry_receipt(request, tag):
     from psx.core.reconcile import Reconciler
