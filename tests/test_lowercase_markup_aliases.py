@@ -262,3 +262,31 @@ def test_display_change_reflows_without_replacing_keyed_headless_handles():
         assert left.geometry.width == 30
     finally:
         tree.unmount()
+
+
+def test_headless_cinnamon_commits_nested_block_and_inline_rectangles():
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(100, True), AvailableSize(100, True),
+        ),
+        measure_intrinsic=lambda node: IntrinsicSizes(
+            60, 60, 12, 12, 60, 12, baseline=9,
+        ),
+    )
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(psx(
+        "<div><h1>Heading</h1><p><span>one two three</span></p></div>"
+    ))
+    assert root.handle.geometry.width == 100
+    heading, paragraph = root.children
+    assert heading.handle.geometry.y == 0
+    assert paragraph.handle.geometry.y == heading.handle.geometry.height
+    span = paragraph.children[0]
+    assert span.handle.geometry.height > 12
+    assert len(span.children) >= 3
+    assert renderer.sfle_result.generation > 0
+    reconciler.unmount()
