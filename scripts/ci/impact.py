@@ -75,6 +75,15 @@ def _classify_path(path: str) -> set[str]:
                 "psx/sfle/incremental_result_reuse.py",
                 "tests/test_incremental_result_reuse.py"):
         return {"core", "sfle", "rust", "chromium", "headless", "qt", "kivy", "tkinter"}
+    if path in (
+        "psx/sfle/measured_block_snapshot.py",
+        "psx/sfle/flow_layout.py",
+        "psx/sfle/display_context.py",
+        "tests/sfle/test_measured_block_snapshot.py",
+    ):
+        return {"core", "sfle", "rust", "chromium", "headless", "qt", "kivy", "tkinter"}
+    if path == "psx/sfle/headless_block_bridge.py":
+        return {"core", "sfle", "headless"}
     if path.startswith("psx/sfle/"):
         name = PurePosixPath(path).name
         # Production Native layout bridges must route to the real toolkit consumer, not
