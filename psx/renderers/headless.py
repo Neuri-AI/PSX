@@ -163,8 +163,13 @@ class HeadlessRenderer:
         """Commit actual SFLE geometry for the mounted root (if enabled)."""
         if self._sfle_constraints is not None:
             from psx.sfle.headless_grid_bridge import is_mounted_grid_root, commit_headless_grid
+            from psx.sfle.headless_block_bridge import (
+                commit_headless_block, is_mounted_block_root,
+            )
             if is_mounted_grid_root(root):
                 commit_headless_grid(self, root)
+            elif is_mounted_block_root(root):
+                commit_headless_block(self, root)
             else:
                 from psx.sfle.headless_layout_bridge import commit_headless_sfle
                 commit_headless_sfle(self, root)
@@ -193,11 +198,17 @@ class HeadlessRenderer:
 
     def _adapter_create(self, node: VNode, parent: object | None) -> HeadlessHandle:
         if node.kind is NodeKind.HOST and node.type == "div":
-            # Markup resolution is not native layout certification. Never
-            # manufacture a successful handle without a Cinnamon block port.
-            raise RendererCapabilityError(
-                "div requires a certified Cinnamon block formatting-context port."
-            )
+            if self._sfle_constraints is None:
+                raise RendererCapabilityError(
+                    "div requires a Cinnamon block viewport and measurement port."
+                )
+            if node.props.get("display") != "block":
+                raise RendererCapabilityError(
+                    "div requires the supported block formatting context."
+                )
+            handle = HeadlessHandle(node.type, dict(node.props))
+            self.operations.append(("create", handle))
+            return handle
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             if self._sfle_constraints is None:
                 raise RendererCapabilityError(
@@ -286,7 +297,12 @@ class HeadlessRenderer:
             for name in removed:
                 updated.pop(name, None)
             definition = builtin_component_registry().snapshot().get(target.type)
-            if definition is not None and definition.contract is not None:
+            if target.type == "div":
+                if set(updated) - {"display", "ref", "layout_width", "layout_height"}:
+                    raise RendererCapabilityError("Unsupported div native layout properties.")
+                if updated.get("display") != "block":
+                    raise RendererCapabilityError("div only supports block flow.")
+            elif definition is not None and definition.contract is not None:
                 definition.contract.validate(updated)
             else:
                 validate_flex_item_props(updated, owner=str(target.type))
