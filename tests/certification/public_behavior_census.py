@@ -250,6 +250,21 @@ def inventory() -> tuple[Feature, ...]:
                                     "native_behavior", applicability=status))
     if len(set(rows)) != len(rows):
         raise ValueError("Duplicate functional census entry")
+    # Explicit HTML-like markup hosts are public PSX syntax but deliberately
+    # absent from the native builtin registry. Census their markup guarantees
+    # without misrepresenting them as legacy toolkit components.
+    from psx.markup.html_aliases import FORMATTING_TAGS
+    for tag in sorted(FORMATTING_TAGS):
+        for scenario in ("default_display", "key_identity"):
+            rows.append(Feature(
+                tag, CONTRACT, "public_api", "markup", scenario,
+                applicability="shared",
+            ))
+        for backend in BACKENDS:
+            rows.append(Feature(
+                tag, backend, "interaction", "semantic_flow",
+                "native_geometry", applicability="partial_native",
+            ))
     return tuple(sorted(rows))
 
 
