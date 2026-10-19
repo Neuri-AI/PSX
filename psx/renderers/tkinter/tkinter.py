@@ -755,7 +755,7 @@ class TkinterRenderer:
                         candidate = pending.pop(0)
                         if isinstance(candidate, (tk.Entry, ttk.Entry)):
                             if str(candidate.cget("state")) != "disabled":
-                                candidate.focus_set()
+                                candidate.focus_force()
                             return
                         pending.extend(candidate.winfo_children())
 
