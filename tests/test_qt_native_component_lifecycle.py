@@ -144,7 +144,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertEqual(geometry(root.children[0].handle.widget), (0, 0, 40, 20))
         self.assertEqual(geometry(root.children[1].handle.widget), (48, 0, 30, 20))
 
-    def test_text_color_only_skips_native_qt_cinnamon_without_skipping_layout_changes(self):
+    def test_text_color_respects_native_qt_theme_invalidation_and_layout_changes(self):
         class CountingEngine:
             def __init__(self):
                 self.delegate = PythonLayoutEngine()
@@ -172,10 +172,14 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertGreater(before, 0)
         self.assertIsNotNone(getattr(self.renderer, "_sfle_committed_signatures", None),
                              "Initial Qt geometry transaction must publish safe signature")
+        # A native theme/style event may change intrinsic metrics even when
+        # the only declarative edit is Text.color. It must override reuse.
+        self.renderer._sfle_measurement_invalidations.request("theme")
         self.reconciler.render(view("#222222"))
         self.assertIs(self.reconciler.root.children[0].handle.widget, native)
         self.assertEqual(geometry(native), initial)
-        self.assertEqual(engine.calls, before, "Text color-only must skip Cinnamon")
+        self.assertGreater(engine.calls, before,
+                           "Native theme invalidation must override paint-only reuse")
         self.reconciler.render(view("#222222", width="55px"))
         self.assertGreater(engine.calls, before)
         self.assertEqual(geometry(native)[2], 55)
