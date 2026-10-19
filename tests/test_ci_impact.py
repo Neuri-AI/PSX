@@ -8,6 +8,13 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_css_display_context_routes_cinnamon_and_native_consumers(self):
+        self.assertGreaterEqual(
+            self.selected("psx/sfle/display_context.py"),
+            {"sfle", "rust", "chromium", "headless"},
+        )
+        self.assertEqual(self.selected("tests/sfle/test_display_context.py"), {"sfle"})
+
     def test_block_flow_math_runs_pure_geometry_and_language_parity_gates(self):
         self.assertGreaterEqual(
             self.selected("psx/sfle/flow_layout.py"),
