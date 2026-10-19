@@ -60,7 +60,10 @@ class PythonLayoutEngine:
         from .context_invalidation_plan import plan_context_invalidation
         from .incremental_result_reuse import reuse_unchanged_layout
         plan = plan_context_invalidation(previous_input, request)
-        # Partial recomputation requires a solver-supported context receipt.\n        # Until then, changes to any dependency must use full computation.\n        if plan.full_recompute or plan.dirty_nodes:\n            return self.compute(request)
+        # Partial recomputation requires a solver-supported context receipt.
+        # Until then, changes to any dependency must use full computation.
+        if plan.full_recompute or plan.dirty_nodes:
+            return self.compute(request)
         cached = reuse_unchanged_layout(
             previous_input, previous_result, request,
             native_measurement_invalidated=native_measurement_invalidated,
