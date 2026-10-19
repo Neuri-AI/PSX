@@ -45,7 +45,9 @@ def test_callbacks_mutable_owners_and_unrecognized_props_disable_reuse():
             ("root", "Text", 7, {"color": "#111", "unknown": value}),
         ), "viewport")
         assert not safe
-        assert owner not in repr(signature)
+        assert value is not signature and not any(
+            part is value for part in signature
+        )
     assert detached_literal(("width", 12, ("height", 8))) == (
         True, ("width", 12, ("height", 8)),
     )
