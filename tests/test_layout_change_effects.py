@@ -138,3 +138,25 @@ def test_flex_planner_rejects_cycle_in_unrelated_branch():
         frozenset(), parent_by_id=parents,
         flex_node_ids=frozenset({"root", "left"}),
     ) is None
+
+
+def test_direct_flex_change_invalidates_descendants_but_not_siblings():
+    from psx.sfle.layout_change_effects import affected_flex_contexts
+    parents = {
+        "root": None,
+        "left": "root",
+        "nested": "left",
+        "leaf": "nested",
+        "right": "root",
+        "right_leaf": "right",
+    }
+    flex = frozenset({"root", "left", "nested", "right"})
+    assert affected_flex_contexts(
+        frozenset({"left"}), parent_by_id=parents, flex_node_ids=flex,
+    ) == frozenset({"root", "left", "nested"})
+    assert affected_flex_contexts(
+        frozenset({"leaf"}), parent_by_id=parents, flex_node_ids=flex,
+    ) == frozenset({"root", "left", "nested"})
+    assert affected_flex_contexts(
+        frozenset({"root"}), parent_by_id=parents, flex_node_ids=flex,
+    ) == flex
