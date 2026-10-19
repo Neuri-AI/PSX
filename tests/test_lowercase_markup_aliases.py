@@ -167,7 +167,7 @@ def test_block_normalization_rejects_unsupported_direct_vnode_properties():
     from psx.core.vnode import create_element
     with pytest.raises(RendererCapabilityError, match="Unsupported div layout"):
         normalize_flex_tree(create_element("div", display="block", opacity=0.5))
-    with pytest.raises(RendererCapabilityError, match="block-flow"):
+    with pytest.raises(RendererCapabilityError, match="Block or Inline flow"):
         normalize_flex_tree(create_element("div", display="flex"))
 
 
