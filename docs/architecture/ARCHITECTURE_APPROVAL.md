@@ -1,7 +1,7 @@
 # P0.6 — Architecture Gate and Approval Record
 
 **Date:** 2026-10-18  
-**Status:** **BLOCKED — NO OWNER APPROVAL RECORDED**  
+**Status:** **GLOBAL RELEASE/ARCHITECTURE GATE BLOCKED — SCOPED IMPLEMENTATION AUTHORIZED BY OWNER (2026-10-19)**  
 **Gate:** P0 → P1 (Web-like + CSS-like implementation)  
 **Target branch:** `Neuri-AI/PSX:develop`
 
@@ -50,18 +50,31 @@ Use this table as a ledger **only after direct owner review**. Blank fields mean
 
 | ID | Decision to approve | Selected choice | Date | Owner acceptance proof / PR |
 | --- | --- | --- | --- | --- |
-| AD-01 | Overflow/Scroll subset | PENDING | — | — |
+| AD-01 | Overflow/Scroll subset | **APPROVED — preserve Scroll; certify bounded visible/hidden overflow by backend, reject unimplemented auto/scroll CSS behavior** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
 | AD-02 | Box-sizing default for new lowercase tags | **APPROVED — border-box for new lowercase tags; legacy sizing unchanged; implementation pending** | 2026-10-19 | Explicit owner acceptance of proposed box-sizing rule in project conversation; PR #48 |
 | AD-03 | CSS-like style precedence and cascade | **APPROVED — CSS cascade for lowercase tags; explicit legacy compatibility; implementation pending** | 2026-10-19 | Explicit owner acceptance of proposed CSS precedence rule in project conversation; PR #48 |
 | AD-04 | Block formatting scope | **APPROVED — dedicated block/inline formatting contexts; implementation pending** | 2026-10-19 | Explicit owner acceptance of proposed block/inline model in project conversation; PR #48 |
-| AD-05 | Exception-safe disposal policy | PENDING | — | — |
+| AD-05 | Exception-safe disposal policy | **APPROVED — attempt independent cleanup exactly once, collect/report failures with deterministic precedence; acceptance tests pending** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
 | AD-06 | Lowercase markup vocabulary/compatibility | **APPROVED — target vocabulary and coexistence rules; implementation pending** | 2026-10-19 | Direct owner approval in project conversation, following the explicit AD-06 vocabulary proposal; PR #48 branch record |
-| AD-07 | Package/version dependency graph | PENDING | — | — |
-| AD-08 | Fragment/mixed-key evolution | PENDING | — | — |
-| AD-09 | Measurement/invalidation adapter interface | PENDING | — | — |
-| AD-10 | F6 refresh tier classification | PENDING | — | — |
-| AD-11 | Supported backend/performance matrix | PENDING | — | — |
-| AD-12 | F5.5 G6 certification status | PENDING | — | — |
+| AD-07 | Package/version dependency graph | **APPROVED DIRECTION — coordinated independent Velto/Pydux/Qyro distributions and optional integrations; exact version/metadata matrix pending resolver evidence** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+| AD-08 | Fragment/mixed-key evolution | **APPROVED — preserve single native root and mixed-key behavior; defer multi-root fragments** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+| AD-09 | Measurement/invalidation adapter interface | **APPROVED — optional versioned native geometry capability port without breaking legacy Renderer; implementation/certification pending** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+| AD-10 | F6 refresh tier classification | **APPROVED — conservative refresh/remount/restart classifier; F6 implementation deferred** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+| AD-11 | Supported backend/performance matrix | **APPROVED — explicit executed/unsupported/untested backend matrix; memory trend tracked separately from scoped feature entry** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+| AD-12 | F5.5 G6 certification status | **APPROVED — separate authored docs, actual CI, beginner review, and owner signoff; do not infer G6 closure** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+
+
+### Owner-directed implementation scope and Kivy memory risk (2026-10-19)
+
+**Owner decision, explicitly expressed in the project conversation:** accept the implementation recommendations for AD-01, AD-05, AD-07, AD-08, AD-09, AD-10, AD-11 and AD-12. Prioritize functioning Block/Inline formatting contexts, then address the remaining memory/performance findings. These are approved **policy choices**, not claims of completed engineering work or exact-version package compatibility.
+
+**Bounded implementation authorization:** On the existing PR #48 branch, agents may implement and certify dedicated Cinnamon Block/Inline contexts, the optional renderer geometry/measurement/invalidation capability boundary, backwards-compatible HTML-like markup support, and the necessary behavior tests/CI routing/public census. Existing PascalCase APIs, Grid, and native ownership semantics remain frozen. Changes must fail closed on unsupported platforms and retain native UI-thread measurement and generation-checked geometry commits. Cross-repository packaging changes, release publication, new public CSS grammar, and unrelated hot reload remain outside this authorization.
+
+**Explicit memory-risk deferral:** Previously observed Kivy positive RSS/Python-heap slopes at 5,000 cycles and comparative Kivy-vs-PSX growth remain **OPEN, NOT FIXED, NOT CERTIFIED**. The owner directs that attribution and long-duration remediation **must not block starting or completing the scoped Block/Inline feature**. This is not a waiver for confirmed retained mounted widgets, dangling event bindings, broken teardown, or a newly introduced unbounded retention regression. Continue ordinary lifecycle tests and record any feature-specific regressions. Track the Kivy soak issue separately for P2/release hardening; do not publish claims of memory stability until a repeated post-warmup test supports them.
+
+**Separate gates:** Owner authorizes scoped P1 development; this does **not** sign off G-P0-03 clean cross-repository pip/wheel installation, AD-07 exact version selection, the overall P0→P1 global approval gate, P2 lifecycle/memory release readiness, or the public release. H-PKG-01 remains an evidence task. H-MEM-01 exception-path teardown safety remains a required functional safety check for any touched lifetime path; Kivy's **long-running growth trend** is deferred. Same-SHA functional and native CI evidence remains mandatory before describing any new capability as implemented/certified.
+
+**Next deliverable:** complete native Block/Inline integration in PSX/Cinnamon and Qt/Tkinter/Kivy on this branch, with scoped capability contracts, negative-case tests, CI impact routing and public-behavior receipts. No release or global-gate closure follows automatically.
 
 ## 5. Approval rule
 
