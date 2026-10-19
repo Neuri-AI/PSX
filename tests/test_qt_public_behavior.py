@@ -387,7 +387,10 @@ def test_semantic_flow_native_geometry_per_tag(qt_tree, request, tag):
                          "native_geometry", applicability="partial_native"),
         root.handle.widget.layout() is None
         and child.parentWidget() is root.handle.widget
-        and root.handle.widget.width() == 400
+        # Qt's top-level window is host-owned; Cinnamon does not resize it.
+        and dict(qt_tree[0].sfle_result.boxes)[
+            qt_tree[0].sfle_result.boxes[0][0]
+        ].border.width == 400
         and 0 < child.width() <= 400
         and child.y() == 0
         and (child.width() < 400 if tag == "span" else child.width() == 400),
