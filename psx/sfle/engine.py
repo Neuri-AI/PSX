@@ -41,6 +41,8 @@ class PythonLayoutEngine:
         return CONTRACT_ONLY_CAPABILITIES
 
     def compute(self, request: LayoutInput) -> LayoutResult:
+        if not isinstance(request, LayoutInput):
+            raise TypeError("Expected immutable LayoutInput.")
         # Rust and Python must consume the same semantic flow snapshot wire.
         from psx.markup.html_aliases import FORMATTING_TAGS
         if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
