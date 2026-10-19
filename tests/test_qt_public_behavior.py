@@ -371,6 +371,22 @@ def test_html_block_native_geometry_and_reconciliation(qt_tree, request):
         and alpha.x() == beta.width()
         and alpha.width() < 400,
     )
+    before_generation = qt_tree[0].sfle_result.generation
+    qt_tree[0].set_sfle_constraints(LayoutConstraints(
+        AvailableSize(240, True), AvailableSize(120, True),
+    ))
+    sized = tree.render(psx(
+        '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+    ))
+    assert_feature(
+        request, Feature("div", BINDING, "interaction", "semantic_flow",
+                         "viewport_reflow", applicability="partial_native"),
+        sized.children[0].handle.widget is beta
+        and sized.children[1].handle.widget is alpha
+        and beta.width() == 240 and alpha.width() == 240
+        and alpha.y() == beta.height()
+        and qt_tree[0].sfle_result.generation > before_generation,
+    )
 
 
 @pytest.mark.parametrize("tag", (
