@@ -681,6 +681,12 @@ class KivyRenderer:
                     "Kivy div requires an enabled Cinnamon Block viewport.")
             handle = KivyHandle(node.type, Widget(size_hint=(None, None)), dict(node.props))
             if parent is None:
+                viewport = self._sfle_constraints
+                if (viewport.width.value is None or viewport.height.value is None
+                        or not viewport.width.definite or not viewport.height.definite):
+                    raise RendererCapabilityError(
+                        "Kivy Block root requires definite viewport dimensions.")
+                handle.widget.size = (viewport.width.value, viewport.height.value)
                 self._root = handle.widget
             return handle
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
