@@ -269,7 +269,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         dependent.update(mixed_grid.width_dependencies())
         snapshot = seed_unconstrained_width_measurements(
             snapshot, frozenset(dependent))
-        if snapshot.nodes[0].component == "div":
+        if snapshot.nodes[0].component in FORMATTING_TAGS:
             from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
             from psx.sfle.model import MeasuredBox
             width = renderer._sfle_constraints.width.value
