@@ -9,7 +9,6 @@ import re
 from dataclasses import dataclass
 
 from .properties import CssValidationError, foundation_registry
-from .visual_values import VISUAL_EFFECTS, normalize_visual_value
 
 _IDENT = r"[a-zA-Z_][a-zA-Z0-9_-]*"
 _SELECTOR = re.compile(rf"^(?P<tag>{_IDENT})?(?P<qualifiers>(?:[.#]{_IDENT})*)$")
@@ -96,17 +95,11 @@ def parse_stylesheet(source: str) -> Stylesheet:
             if entry.count(":") != 1:
                 raise CssSyntaxError(f"Malformed CSS declaration: {entry!r}.")
             name, value = (part.strip() for part in entry.split(":", 1))
-            if name in VISUAL_EFFECTS:
-                try:
-                    declarations.append((name, normalize_visual_value(name, value)))
-                except (TypeError, ValueError) as exc:
-                    raise CssSyntaxError(str(exc)) from exc
-            else:
-                try:
-                    declaration = registry.validate(name, value)
-                except CssValidationError as exc:
-                    raise CssSyntaxError(str(exc)) from exc
-                declarations.append((declaration.name, declaration.value))
+            try:
+                declaration = registry.validate(name, value)
+            except CssValidationError as exc:
+                raise CssSyntaxError(str(exc)) from exc
+            declarations.append((declaration.name, declaration.value))
         rules.append(Rule(selectors, tuple(declarations), len(rules)))
         if len(rules) > 2048:
             raise CssSyntaxError("Stylesheet exceeds the supported rule count.")
