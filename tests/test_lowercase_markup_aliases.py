@@ -4,6 +4,7 @@ import pytest
 
 from psx.core.errors import MarkupSyntaxError
 from psx.core.registry import builtin_component_registry
+from psx.markup.html_aliases import markup_alias_definitions
 from psx.markup.compile import psx
 
 
@@ -19,13 +20,15 @@ def test_lowercase_controls_preserve_native_types():
 
 
 def test_lowercase_and_pascalcase_are_both_available():
-    registry = builtin_component_registry()
+    native_registry = builtin_component_registry()
+    registry = markup_alias_definitions(native_registry.snapshot())
     for lower, legacy in (
         ("button", "Button"), ("input", "Input"),
         ("textarea", "TextArea"), ("img", "Image")
     ):
-        assert registry.resolve(lower).constructor is registry.resolve(legacy).constructor
-        assert registry.resolve(lower).contract is registry.resolve(legacy).contract
+        assert registry[lower].constructor is registry[legacy].constructor
+        assert registry[lower].contract is registry[legacy].contract
+        assert not native_registry.contains(lower)
 
 
 def test_unsupported_generic_tags_do_not_silently_use_flex():
