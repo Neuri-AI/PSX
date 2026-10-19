@@ -226,3 +226,39 @@ def test_block_mount_does_not_assume_unmeasured_leaf_height():
         assert renderer.sfle_result is None
     finally:
         reconciler.unmount()
+
+
+def test_display_change_reflows_without_replacing_keyed_headless_handles():
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+    def measure(node):
+        return IntrinsicSizes(30, 30, 12, 12, 30, 12, baseline=9)
+
+    backend = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(240, True), AvailableSize(140, True)),
+        measure_intrinsic=measure, engine=PythonLayoutEngine(),
+    )
+    tree = Reconciler(backend)
+    try:
+        block = tree.render(psx(
+            '<div display="block"><button key="a">Alpha</button><button key="b">Beta</button></div>'
+        ))
+        container = block.handle
+        left, right = (child.handle for child in block.children)
+        generation = backend.sfle_result.generation
+        assert (right.geometry.x, right.geometry.y) == (0, 12)
+        inline = tree.render(psx(
+            '<div display="inline"><button key="a">Alpha</button><button key="b">Beta</button></div>'
+        ))
+        assert inline.handle is container
+        assert inline.children[0].handle is left
+        assert inline.children[1].handle is right
+        assert (right.geometry.x, right.geometry.y) == (30, 0)
+        assert backend.sfle_result.generation > generation
+        assert left.geometry.width == 30
+    finally:
+        tree.unmount()
