@@ -323,3 +323,40 @@ def test_semantic_markup_carries_public_census_assertions(request, tag):
                          "key_identity", applicability="shared"),
         node.key == "section-key" and "key" not in node.props,
     )
+
+
+def test_headless_display_change_reflows_without_replacing_keyed_handles(request):
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from tests.certification.public_behavior_census import Feature, assert_feature
+
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(200, True), AvailableSize(100, True),
+        ),
+        measure_intrinsic=lambda node: IntrinsicSizes(
+            60, 60, 12, 12, 60, 12, baseline=9,
+        ),
+    )
+    reconciler = Reconciler(renderer)
+    initial = reconciler.render(psx(
+        '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
+    ))
+    first, second = (item.handle for item in initial.children)
+    assert second.geometry.y == first.geometry.height
+    updated = reconciler.render(psx(
+        '<div display="inline"><button key="a">Alpha</button>'
+        '<button key="b">Beta</button></div>'
+    ))
+    assert_feature(
+        request, Feature("div", "headless", "interaction", "semantic_flow",
+                         "display_reflow", applicability="partial_native"),
+        updated.handle is initial.handle
+        and updated.children[0].handle is first
+        and updated.children[1].handle is second
+        and first.geometry.x == 0
+        and second.geometry.x == first.geometry.width
+        and second.geometry.y == 0,
+    )
+    reconciler.unmount()
