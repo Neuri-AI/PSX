@@ -22,7 +22,18 @@ def test_source_derived_inventory_separates_shared_and_native():
     definitions = builtin_component_registry().snapshot()
     records = inventory()
     assert len(records) == len(set(records))
-    assert {row.component for row in records} == set(definitions)
+    from psx.markup.html_aliases import FORMATTING_TAGS
+    assert {row.component for row in records} == set(definitions) | FORMATTING_TAGS
+    for tag in FORMATTING_TAGS:
+        assert not builtin_component_registry().contains(tag)
+        contract = [row for row in records
+                    if row.component == tag and row.backend == CONTRACT]
+        assert {(row.feature_name, row.scenario_id) for row in contract} == {
+            ("markup", "default_display"),
+            ("markup", "key_identity"),
+        }
+        assert {row.backend for row in records if row.component == tag
+                and row.backend != CONTRACT} == set(BACKENDS)
     assert {row.backend for row in records} == {*BACKENDS, CONTRACT}
     assert all(row.status == "pending" for row in records)
     native = {(cell.backend, cell.component): cell.status
