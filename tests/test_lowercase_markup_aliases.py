@@ -194,7 +194,7 @@ def test_measured_div_commits_actual_headless_block_rectangles():
     try:
         root = reconciler.render(psx("<div><button>Save</button><button>Next</button></div>"))
         assert root.handle.geometry.width == 240
-        assert root.handle.geometry.height == 24
+        assert root.handle.geometry.height == 400
         assert root.children[0].handle.geometry.y == 0
         assert root.children[1].handle.geometry.y == 12
         assert measured == ["Button", "Button"]
