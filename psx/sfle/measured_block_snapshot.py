@@ -12,9 +12,8 @@ from collections import defaultdict
 
 from psx.markup.html_aliases import FORMATTING_TAGS
 from .errors import DiagnosticCode, SFLECapabilityError
-from .flow_layout import (
-    BlockPlacement, InlineAtom, layout_inline_atoms,
-)
+from .flow_layout import InlineAtom, layout_inline_atoms
+from .fixed_point import LayoutUnit
 from .model import BoxRect, LayoutInput, LayoutResult, Rect
 
 
@@ -42,6 +41,12 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         children[node.parent_id].append(node)
     metrics = {item.node_id: item.intrinsic for item in snapshot.measurements}
     geometry: dict[str, Rect] = {}
+
+    def quantized_rect(x: float, y: float, width: float, height: float) -> Rect:
+        """Keep flow boxes on Cinnamon's shared 1/64 px geometry grid."""
+        return Rect(*(LayoutUnit.from_nearest(value).to_px()
+                      for value in (x, y, width, height)))
+
 
     def display(node) -> str | None:
         if node.component not in FORMATTING_TAGS:
@@ -112,7 +117,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
             collect(node)
         placements = layout_inline_atoms(available, tuple(atoms))
         for node, place in zip(fragments, placements):
-            geometry[node.node_id] = Rect(
+            geometry[node.node_id] = quantized_rect(
                 x + place.x, y + place.y, place.width, place.height,
             )
         for owner in reversed(owners):
@@ -120,13 +125,13 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                            for child in children[owner.node_id]
                            if child.node_id in geometry]
             if not descendants:
-                geometry[owner.node_id] = Rect(x, y, 0, 0)
+                geometry[owner.node_id] = quantized_rect(x, y, 0, 0)
                 continue
             left = min(box.x for box in descendants)
             top = min(box.y for box in descendants)
             right = max(box.x + box.width for box in descendants)
             bottom = max(box.y + box.height for box in descendants)
-            geometry[owner.node_id] = Rect(
+            geometry[owner.node_id] = quantized_rect(
                 left, top, right - left, bottom - top,
             )
         return max((place.y + place.height for place in placements), default=0.0)
@@ -135,7 +140,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         mode = display(node)
         if mode is None:
             intrinsic = leaf(node)
-            geometry[node.node_id] = Rect(
+            geometry[node.node_id] = quantized_rect(
                 x, y, available, intrinsic.preferred_height,
             )
             return intrinsic.preferred_height
@@ -157,7 +162,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                 flush()
                 cursor += block_node(child, x, y + cursor, available)
         flush()
-        geometry[node.node_id] = Rect(x, y, available, cursor)
+        geometry[node.node_id] = quantized_rect(x, y, available, cursor)
         return cursor
 
     if display(root) == "inline":
@@ -171,7 +176,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         if snapshot.constraints.height.definite
         else content_height
     )
-    geometry[root.node_id] = Rect(0.0, 0.0, width, root_height)
+    geometry[root.node_id] = quantized_rect(0.0, 0.0, width, root_height)
 
     def box(rect: Rect) -> BoxRect:
         return BoxRect(rect, rect, rect, rect)
