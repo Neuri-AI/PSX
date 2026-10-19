@@ -111,3 +111,12 @@ def view():
     root = namespace["view"]()
     assert root.type == "div"
     assert root.children[0].type == "Button"
+
+
+def test_div_native_mount_fails_closed_without_block_port():
+    from psx.core.errors import RendererCapabilityError
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+
+    with pytest.raises(RendererCapabilityError, match="Cinnamon block"):
+        Reconciler(HeadlessRenderer()).render(psx("<div />"))
