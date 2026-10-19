@@ -13,7 +13,7 @@ from .adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from .errors import DiagnosticCode, SFLEError
 from .fixed_point import LayoutUnit
 from .measured_block_snapshot import compute_measured_block_snapshot
-from .model import LayoutInput, LayoutNode, MeasuredBox
+from .model import LayoutInput, LayoutNode, MeasuredBox, WritingDirection
 from .native_layout_snapshot import path_identity
 
 
@@ -96,9 +96,7 @@ def commit_headless_block(renderer: object, root: object) -> None:
                     identifier, intrinsic, renderer._sfle_constraints, generation,
                 ))
         snapshot = LayoutInput(
-            1, generation, renderer._sfle_engine_direction()
-            if callable(getattr(renderer, "_sfle_engine_direction", None))
-            else __import__("psx.sfle.model", fromlist=["WritingDirection"]).WritingDirection.LTR,
+            1, generation, WritingDirection.LTR,
             renderer._sfle_constraints, tuple(nodes), tuple(measured),
         )
         result = compute_measured_block_snapshot(snapshot)
