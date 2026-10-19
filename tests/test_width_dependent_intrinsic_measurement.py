@@ -154,3 +154,47 @@ def test_real_python_engine_provisional_parity_for_explicit_width():
     assert widths
     assert abs(widths[0] - 160) < 0.01
     assert abs(dict(result.boxes)["text"].border.height - 24) <= 0.01
+
+
+def test_width_independent_snapshot_routes_into_incremental_solver():
+    class Tracking(PythonLayoutEngine):
+        def __init__(self):
+            self.incremental_calls = 0
+
+        def compute_incremental(self, request, **kwargs):
+            self.incremental_calls += 1
+            return super().compute_incremental(request, **kwargs)
+
+    engine = Tracking()
+    original = snapshot()
+    previous = engine.compute(original)
+    next_input = replace(original, generation=4)
+    result = compute_width_dependent(
+        engine, next_input, {}, current_generation=lambda: 4,
+        previous_input=original, previous_result=previous,
+    )
+    assert engine.incremental_calls == 1
+    assert result.boxes == engine.compute(next_input).boxes
+    assert result.generation == 4
+
+
+def test_semantic_native_invalidation_disables_incremental_width_free_solve():
+    class Tracking(PythonLayoutEngine):
+        def __init__(self):
+            self.incremental_calls = 0
+
+        def compute_incremental(self, request, **kwargs):
+            self.incremental_calls += 1
+            return super().compute_incremental(request, **kwargs)
+
+    engine = Tracking()
+    original = snapshot()
+    old_result = engine.compute(original)
+    next_input = replace(original, generation=4)
+    result = compute_width_dependent(
+        engine, next_input, {}, current_generation=lambda: 4,
+        previous_input=original, previous_result=old_result,
+        native_measurement_invalidated=True,
+    )
+    assert result.boxes == engine.compute(next_input).boxes
+    assert engine.incremental_calls == 0
