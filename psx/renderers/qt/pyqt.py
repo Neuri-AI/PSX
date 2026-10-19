@@ -786,7 +786,24 @@ class QtRenderer:
             if self._sfle_constraints is None or node.props.get("display") not in ("block", "inline"):
                 raise RendererCapabilityError(
                     "Qt div requires an enabled Cinnamon Block viewport.")
-            return QtHandle(node.type, self._widget(), props=dict(node.props))
+            if node.type == "label":
+                # An implicit HTML-like label focuses a nested editable input.
+                # Only the toolkit performs focus; Cinnamon still owns geometry.
+                qt_widgets = self._widgets
+                base_widget = self._widget
+
+                class NativeLabelHost(base_widget):
+                    def mousePressEvent(self, event):
+                        for editor in self.findChildren(qt_widgets.QLineEdit):
+                            if editor.isEnabled():
+                                editor.setFocus()
+                                break
+                        super().mousePressEvent(event)
+
+                widget = NativeLabelHost()
+            else:
+                widget = self._widget()
+            return QtHandle(node.type, widget, props=dict(node.props))
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             if self._sfle_constraints is None:
                 raise RendererCapabilityError(
