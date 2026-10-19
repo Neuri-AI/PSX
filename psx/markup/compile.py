@@ -125,7 +125,7 @@ def _resolver(
     if primitives is not None and registry is not None:
         raise TypeError("Pass either primitives or registry, not both.")
     if registry is not None:
-        return _Resolver(registry.snapshot(), ("registry", id(registry), registry.version))
+        return _Resolver(markup_alias_definitions(registry.snapshot()), ("registry-html-aliases", id(registry), registry.version))
     builtins = builtin_component_registry()
     if primitives is None:
         # Fresh default registries have the same built-in contents. Their
