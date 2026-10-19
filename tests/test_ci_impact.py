@@ -21,6 +21,8 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(self.selected("psx/css/cascade.py"), {"core"})
         self.assertEqual(self.selected("psx/css/cache.py"), {"core"})
         self.assertIn("tests/css/test_cache.py", workflow)
+        self.assertIn("tests/css/test_visual_values.py", workflow)
+        self.assertEqual(self.selected("psx/css/visual_values.py"), {"core"})
 
     def test_block_flow_snapshots_run_all_native_geometry_consumers(self):
         expected = {"core", "sfle", "rust", "chromium", "headless",
