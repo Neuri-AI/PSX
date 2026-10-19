@@ -13,7 +13,6 @@ from psx.markup.html_aliases import FORMATTING_TAGS
 from .adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from .errors import DiagnosticCode, SFLEError
 from .fixed_point import LayoutUnit
-from .measured_block_snapshot import compute_measured_block_snapshot
 from .model import LayoutInput, LayoutNode, MeasuredBox, WritingDirection
 from .native_layout_snapshot import path_identity
 
@@ -111,7 +110,7 @@ def commit_headless_block(renderer: object, root: object) -> None:
             1, generation, WritingDirection.LTR,
             renderer._sfle_constraints, tuple(nodes), tuple(measured),
         )
-        result = compute_measured_block_snapshot(snapshot)
+        result = renderer._sfle_engine.compute(snapshot)
         ports = SFLEAdapterPorts(
             current_generation=lambda: renderer._sfle_generation,
             nodes_alive=lambda ids: all(
