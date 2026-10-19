@@ -48,6 +48,35 @@ def serialize_snapshot(request: LayoutInput) -> str:
     }, separators=(",", ":"), allow_nan=False)
 
 
+
+def serialize_result(result: LayoutResult) -> str:
+    """Serialize immutable committed geometry for native incremental reuse."""
+    if not isinstance(result, LayoutResult):
+        raise TypeError("Expected LayoutResult.")
+
+    def rect(value: Rect) -> dict[str, float]:
+        return {
+            "x": value.x, "y": value.y,
+            "width": value.width, "height": value.height,
+        }
+
+    return json.dumps({
+        "schema_version": result.schema_version,
+        "generation": result.generation,
+        "boxes": [{
+            "node_id": node_id,
+            "content": rect(box.content),
+            "padding": rect(box.padding),
+            "border": rect(box.border),
+            "margin": rect(box.margin),
+        } for node_id, box in result.boxes],
+        "diagnostics": list(result.diagnostics),
+        "measurement_error": result.measurement_error,
+        "engine_error": result.engine_error,
+        "geometry_commit_error": result.geometry_commit_error,
+    }, separators=(",", ":"), allow_nan=False)
+
+
 def deserialize_response(payload: str, request: LayoutInput) -> LayoutResult:
     """Validate schema, identity, generation and exact diagnostic channels."""
     try:
