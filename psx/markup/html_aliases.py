@@ -66,6 +66,37 @@ def _inline_text_fragments(node: VNode) -> tuple[VNode, ...]:
     return tuple(Text(word, **preserved) for word in words if word.strip())
 
 
+def _bind_form_submission(node: VNode, on_submit: object) -> VNode:
+    """Delegate explicit native submit gestures to existing control adapters.
+
+    Button clicks and Input enter/submit retain their existing handlers. The
+    form handler runs afterward; native controls continue owning event binding
+    and teardown. Dynamic component internals remain opaque.
+    """
+    from collections.abc import Callable
+    if not isinstance(on_submit, Callable):
+        raise TypeError("form on_submit must be callable.")
+
+    if node.kind.value != "host":
+        return node
+    if node.type == "form":
+        return node
+    event = ("on_click" if node.type == "Button"
+             else "on_submit" if node.type == "Input" else None)
+    changed = dict(node.props)
+    if event is not None:
+        prior = changed.get(event)
+        def dispatch(*args: object, _prior=prior, **kwargs: object) -> None:
+            if _prior is not None:
+                _prior(*args, **kwargs)
+            on_submit()
+        changed[event] = dispatch
+    children = tuple(_bind_form_submission(child, on_submit) for child in node.children)
+    if event is None and children == node.children:
+        return node
+    return create_element(node.type, *children, key=node.key, **changed)
+
+
 def _formatting_host(
     tag: str, *children: object, key: str | int | None = None,
     display: str | None = None, **props: object,
@@ -77,12 +108,17 @@ def _formatting_host(
             f"{tag} display requires an implemented Block/Inline formatting context."
         )
     allowed = {"ref", "layout_width", "layout_height"}
+    if tag == "form":
+        allowed.add("on_submit")
     extra = set(props) - allowed
     if extra:
         raise ValueError(f"Unsupported {tag} properties: {sorted(extra)}")
     resolve_display(tag, selected)
     if tag == "li" and not children:
         raise ValueError("li requires content to render a list item.")
+    on_submit = props.pop("on_submit", None) if tag == "form" else None
+    if on_submit is not None and not callable(on_submit):
+        raise TypeError("form on_submit must be callable.")
     normalized = []
     for child in children:
         if tag in ("span", "label", "li") and isinstance(child, VNode) and child.type == "Text":
@@ -98,6 +134,9 @@ def _formatting_host(
             ))
         else:
             normalized.append(child)
+    if tag == "form" and on_submit is not None:
+        normalized = [_bind_form_submission(child, on_submit)
+                      if isinstance(child, VNode) else child for child in normalized]
     if tag == "li":
         # Group a bullet and text in the same inline run. Keep nested block
         # children independent rather than inventing a Flex layout.
