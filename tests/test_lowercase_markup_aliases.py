@@ -410,3 +410,45 @@ def test_headless_semantic_flow_native_geometry_receipt(request, tag):
         )
     finally:
         tree.unmount()
+
+
+@pytest.mark.parametrize("tag,display", [
+    ("form", "block"), ("label", "inline"),
+    ("ul", "block"), ("li", "block"),
+])
+def test_remaining_semantic_tags_are_native_flow_hosts(tag, display):
+    from psx.markup.html_aliases import FORMATTING_TAGS
+    from psx.core.layout_tree import normalize_flex_tree
+    content = "A" if tag != "ul" else "<li>A</li>"
+    node = psx(f"<{tag} key='stable'>{content}</{tag}>")
+    assert node.type == tag and node.key == "stable"
+    assert node.props["display"] == display
+    assert tag in FORMATTING_TAGS
+    assert not builtin_component_registry().contains(tag)
+    normalized = normalize_flex_tree(node)
+    assert normalized.type == tag
+
+
+def test_list_item_includes_a_measured_bullet_and_text():
+    root = psx("<ul><li>First item</li><li>Second item</li></ul>")
+    assert root.type == "ul" and len(root.children) == 2
+    first, second = root.children
+    assert first.type == second.type == "li"
+    for item in (first, second):
+        marker_run = item.children[0]
+        assert marker_run.type == "span"
+        assert marker_run.props["display"] == "inline"
+        assert marker_run.children[0].type == "Text"
+        assert marker_run.children[0].props["value"] == "• "
+    assert "First" in "".join(child.props["value"] for child in first.children[0].children)
+
+
+def test_semantic_tags_do_not_silently_accept_unimplemented_browser_contracts():
+    with pytest.raises(ValueError, match="Unsupported form properties"):
+        psx('<form on_submit={lambda: None}></form>')
+    with pytest.raises(ValueError, match="Unsupported label properties"):
+        psx('<label html_for="field">Name</label>')
+    with pytest.raises(ValueError, match="Unsupported ul properties"):
+        psx('<ul style="list-style: square"></ul>')
+    with pytest.raises(ValueError, match="requires content"):
+        psx("<li></li>")
