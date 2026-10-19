@@ -114,6 +114,16 @@ assert updated.children[1].handle.widget is alpha
 assert round(alpha.width) == 400 and round(beta.width) == 400
 assert round(beta.y) == round(alpha.y + alpha.height)
 assert round(root_widget.height) == 120
+inline = tree.render(psx(
+    '<div display="inline"><button key="b">Beta</button>'
+    '<button key="a">Alpha</button></div>'
+))
+assert inline.handle.widget is root_widget
+assert inline.children[0].handle.widget is beta
+assert inline.children[1].handle.widget is alpha
+assert round(beta.x) == 0
+assert round(alpha.x) == round(beta.x + beta.width)
+assert round(alpha.width) < 400
 tree.unmount()
 assert alpha.parent is None and beta.parent is None
 """
@@ -128,5 +138,10 @@ assert alpha.parent is None and beta.parent is None
     assert_feature(
         request, Feature("div", "kivy", "interaction", "semantic_flow",
                          "native_geometry", applicability="partial_native"),
+        run.returncode == 0, run.stdout + "\\n" + run.stderr,
+    )
+    assert_feature(
+        request, Feature("div", "kivy", "interaction", "semantic_flow",
+                         "display_reflow", applicability="partial_native"),
         run.returncode == 0, run.stdout + "\\n" + run.stderr,
     )
