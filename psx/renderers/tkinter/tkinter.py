@@ -680,7 +680,7 @@ class TkinterRenderer:
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
-            if port is None and node.type not in ("Flex", "Grid", "GridItem"):
+            if port is None and node.type not in ("Flex", "Grid", "GridItem", "div"):
                 native_leaf_needs_measurement(node, backend="tk")
             if node.type not in ("Flex", "Grid", "GridItem"):
                 node = VNode(node.kind, node.type, node.key,
@@ -727,6 +727,12 @@ class TkinterRenderer:
         widget.bind("<Button-5>", on_wheel, add="+")
 
     def _adapter_create(self, node: VNode, parent: object | None) -> TkHandle:
+        if node.kind is NodeKind.HOST and node.type == "div":
+            if self._sfle_constraints is None or node.props.get("display") != "block":
+                raise RendererCapabilityError(
+                    "Tkinter div requires an enabled Cinnamon Block viewport.")
+            master = _as_handle(parent).widget if parent is not None else self.root
+            return TkHandle(node.type, ttk.Frame(master), dict(node.props))
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             if self._sfle_constraints is None:
                 raise RendererCapabilityError(
@@ -774,6 +780,16 @@ class TkinterRenderer:
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _as_handle(handle)
+        if target.node_type == "div":
+            updated = dict(target.props)
+            updated.update(changed)
+            for name in removed:
+                updated.pop(name, None)
+            if updated.get("display") != "block":
+                raise RendererCapabilityError(
+                    "div currently supports only the Cinnamon Block context.")
+            target.props = updated
+            return
         if target.node_type in ("Grid", "GridItem"):
             target.props.update(changed)
             for name in removed:
@@ -813,7 +829,7 @@ class TkinterRenderer:
         self._default_insert(parent, child, index)
 
     def _default_insert(self, parent: object, child: object, index: int) -> None:
-        if _as_handle(parent).node_type in ("Grid", "GridItem"):
+        if _as_handle(parent).node_type in ("Grid", "GridItem", "div"):
             container, item = _as_handle(parent), _as_handle(child)
             if item not in container.children:
                 container.children.insert(index, item)
