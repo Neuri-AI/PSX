@@ -292,3 +292,44 @@ assert native.parent is None
                          "native_dispatch", applicability="partial_native"),
         result.returncode == 0, result.stdout + "\\n" + result.stderr,
     )
+
+
+def test_implicit_label_focuses_native_kivy_text_input(request):
+    script = """
+from kivy.config import Config
+Config.set("graphics", "window_state", "hidden")
+from psx import psx
+from psx.core.reconcile import Reconciler
+from psx.renderers.kivy.kivy import KivyRenderer
+from psx.sfle.engine import PythonLayoutEngine
+from psx.sfle.model import AvailableSize, LayoutConstraints
+
+renderer = KivyRenderer(
+    sfle_constraints=LayoutConstraints(
+        AvailableSize(240, True), AvailableSize(120, True)),
+    engine=PythonLayoutEngine(),
+)
+tree = Reconciler(renderer)
+mounted = tree.render(psx('<label>Name <input value="Ada" /></label>'))
+editor = next(item.handle.widget for item in mounted.children
+              if item.node.type == "Input")
+label = mounted.handle.widget
+assert label.focus_nested_input()
+assert editor.focus
+tree.unmount()
+assert editor.parent is None
+"""
+    env = dict(
+        os.environ, KIVY_NO_FILELOG="1", KIVY_NO_ARGS="1",
+        KIVY_WINDOW="sdl2", KIVY_TEXT="sdl2",
+    )
+    run = subprocess.run(
+        [sys.executable, "-c", script], env=env,
+        capture_output=True, text=True, timeout=90,
+    )
+    assert_feature(
+        request, Feature("label", "kivy", "interaction",
+                         "implicit_input_focus", "native_activation",
+                         applicability="partial_native"),
+        run.returncode == 0, run.stdout + "\\n" + run.stderr,
+    )
