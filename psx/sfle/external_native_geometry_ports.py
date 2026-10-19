@@ -64,10 +64,10 @@ def external_port_for(node: VNode, renderer: object) -> SFLEExternalPort | None:
         # The corresponding renderer constructor verifies the supported
         # display mode and the configured native geometry viewport.
         if (getattr(renderer, "_sfle_constraints", None) is not None
-                and node.props.get("display") == "block"):
+                and node.props.get("display") in ("block", "inline")):
             return None
         raise RendererCapabilityError(
-            f"Native SFLE {kind} Block requires an enabled viewport and display='block'."
+            f"Native SFLE {kind} flow root requires a viewport and supported display mode."
         )
     if node.type in ("Flex", "Grid", "GridItem") or node.type in NATIVE_LEAF_TYPES.get(kind, ()):
         return None
