@@ -9,6 +9,7 @@ from __future__ import annotations
 from threading import get_ident
 
 from psx.core.vnode import NodeKind
+from psx.markup.html_aliases import FORMATTING_TAGS
 from .adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from .errors import DiagnosticCode, SFLEError
 from .fixed_point import LayoutUnit
@@ -22,7 +23,7 @@ def is_mounted_block_root(instance: object) -> bool:
         if len(instance.children) != 1:
             return False
         instance = instance.children[0]
-    return instance.node.kind is NodeKind.HOST and instance.node.type == "div"
+    return instance.node.kind is NodeKind.HOST and instance.node.type in FORMATTING_TAGS
 
 
 def commit_headless_block(renderer: object, root: object) -> None:
@@ -57,37 +58,44 @@ def commit_headless_block(renderer: object, root: object) -> None:
         gather(root)
         normalized = normalize_flex_tree(root.node, component_roots=components)
         roots = normalized._participating_roots()
-        if len(roots) != 1 or roots[0].type != "div":
-            raise SFLEError(DiagnosticCode.INVALID_TREE, "Expected one explicit div block root.")
+        if len(roots) != 1 or roots[0].type not in FORMATTING_TAGS:
+            raise SFLEError(DiagnosticCode.INVALID_TREE, "Expected one explicit Block/Inline formatting root.")
         block = roots[0]
         generation = renderer._sfle_generation + 1
         renderer._sfle_generation = generation
         epoch = renderer._sfle_measurement_invalidations.epoch
-        participants = (block,) + block.effective_children
         nodes = []
         measured = []
         bindings = {}
-        for index, item in enumerate(participants):
+
+        def visit(item, parent_id):
             identifier = path_identity(item.path)
+            if id(item.source) not in handles:
+                raise SFLEError(
+                    DiagnosticCode.INVALID_TREE,
+                    "Flow node does not have a mounted native handle.",
+                )
             bindings[identifier] = handles[id(item.source)]
+            is_formatting = item.type in FORMATTING_TAGS
+            if not is_formatting and item.effective_children:
+                raise SFLEError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Native flow leaf requires an explicit nested formatting adapter.",
+                )
+            if item.source.props.keys() & {"layout_width", "layout_height"}:
+                raise SFLEError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Explicit flow dimensions require a supported measurement port.",
+                )
             nodes.append(LayoutNode(
-                identifier,
-                path_identity(block.path) if index else None,
-                str(item.type),
+                identifier, parent_id, str(item.type),
                 (("display", item.source.props["display"]),)
-                if index == 0 else (),
+                if is_formatting else (),
             ))
-            if index:
-                if item.effective_children:
-                    raise SFLEError(
-                        DiagnosticCode.UNSUPPORTED_FEATURE,
-                        "Nested block or inline content requires another formatting context.",
-                    )
-                if item.source.props.keys() & {"layout_width", "layout_height"}:
-                    raise SFLEError(
-                        DiagnosticCode.UNSUPPORTED_FEATURE,
-                        "Explicit native leaf sizing needs a supported Block measurement port.",
-                    )
+            if is_formatting:
+                for child in item.effective_children:
+                    visit(child, identifier)
+            else:
                 intrinsic = renderer._sfle_measure(item.source)
                 if intrinsic is None:
                     raise SFLEError(
@@ -97,6 +105,8 @@ def commit_headless_block(renderer: object, root: object) -> None:
                 measured.append(MeasuredBox(
                     identifier, intrinsic, renderer._sfle_constraints, generation,
                 ))
+
+        visit(block, None)
         snapshot = LayoutInput(
             1, generation, WritingDirection.LTR,
             renderer._sfle_constraints, tuple(nodes), tuple(measured),
