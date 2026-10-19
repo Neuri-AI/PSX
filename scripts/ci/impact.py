@@ -80,6 +80,8 @@ def _classify_path(path: str) -> set[str]:
         "psx/sfle/flow_layout.py",
         "psx/sfle/display_context.py",
         "tests/sfle/test_measured_block_snapshot.py",
+        "tests/sfle/test_flow_language_vectors.py",
+        "tests/fixtures/flow_geometry_cases.json",
     ):
         return {"core", "sfle", "rust", "chromium", "headless", "qt", "kivy", "tkinter"}
     if path == "psx/sfle/headless_block_bridge.py":
