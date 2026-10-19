@@ -95,6 +95,19 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             for node_id, source in prepared.identities
             if (port := external_port_for(source, renderer)) is not None
         }
+        from psx.sfle.layout_change_effects import partition_dependency_signature
+
+        (layout_signature, paint_signature), signature_safe = (
+            partition_dependency_signature(
+                tuple(
+                    (node_id, str(source.type), id(widgets[node_id]), source.props)
+                    for node_id, source in prepared.identities
+                ),
+                renderer._sfle_constraints,
+            )
+        )
+        prior_signature = getattr(renderer, "_sfle_committed_signatures", None)
+
         root_id = prepared.snapshot.nodes[0].node_id
 
         for node in prepared.snapshot.nodes:
@@ -116,6 +129,22 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             ):
                 raise SFLEError(DiagnosticCode.INVALID_TREE,
                                 "Tk widget master must match SFLE node parent.", node.node_id)
+
+        # Native ownership and placement checks precede the fast path.
+        # Unrecognized/unsafe properties, external leaves, Grid and semantic
+        # invalidations always retain the full measurement/layout transaction.
+        if (
+            signature_safe
+            and not external
+            and not any(node.component == "Grid" for node in prepared.snapshot.nodes)
+            and renderer.sfle_result is not None
+            and prior_signature is not None
+            and prior_signature[0] == layout_signature
+            and prior_signature[1] != paint_signature
+            and not renderer._sfle_measurement_invalidations.needs_commit()
+        ):
+            renderer._sfle_committed_signatures = (layout_signature, paint_signature)
+            return
 
         leaf_widgets = {
             node_id: widgets[node_id]
@@ -373,5 +402,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         if mixed_receipts:
             renderer.grid_result = mixed_receipts[-1]
         native_round.publish()
+        renderer._sfle_committed_signatures = (
+            (layout_signature, paint_signature) if signature_safe else None
+        )
     finally:
         renderer._sfle_in_commit = False
