@@ -51,3 +51,76 @@ def test_callbacks_mutable_owners_and_unrecognized_props_disable_reuse():
     assert detached_literal(("width", 12, ("height", 8))) == (
         True, ("width", 12, ("height", 8)),
     )
+
+
+def test_dirty_layout_nodes_ignores_paint_but_detects_measurement_and_geometry():
+    from psx.sfle.layout_change_effects import dirty_layout_nodes
+    before = (
+        ("root", "Flex", 1, {"gap": "10px"}),
+        ("a", "Text", 2, {"value": "one", "color": "#111"}),
+        ("b", "Text", 3, {"value": "two"}),
+    )
+    recolored = (
+        before[0],
+        ("a", "Text", 2, {"value": "one", "color": "#222"}),
+        before[2],
+    )
+    assert dirty_layout_nodes(before, recolored) == frozenset()
+    rewritten = (
+        before[0],
+        ("a", "Text", 2, {"value": "changed", "color": "#222"}),
+        before[2],
+    )
+    assert dirty_layout_nodes(before, rewritten) == frozenset({"a"})
+    widened = (("root", "Flex", 1, {"gap": "20px"}), *before[1:])
+    assert dirty_layout_nodes(before, widened) == frozenset({"root"})
+    assert dirty_layout_nodes(before, recolored, constraints_changed=True) is None
+    assert dirty_layout_nodes(None, recolored) is None
+
+
+def test_dirty_layout_nodes_fails_closed_on_structure_or_unsafe_values():
+    from psx.sfle.layout_change_effects import dirty_layout_nodes
+    before = (("a", "Text", 1, {"value": "ok"}),)
+    assert dirty_layout_nodes(before, ()) is None
+    assert dirty_layout_nodes(before, (("a", "Text", 2, {"value": "ok"}),)) is None
+    assert dirty_layout_nodes(before, (("a", "Text", 1, {"key": "new"}),)) is None
+    assert dirty_layout_nodes(before, (("a", "Text", 1, {"value": object()}),)) is None
+    assert dirty_layout_nodes(before, (("a", "Text", 1, {"value": "ok"}),
+                                       ("a", "Text", 1, {}))) is None
+
+
+def test_flex_context_planner_preserves_independent_sibling_context():
+    from psx.sfle.layout_change_effects import affected_flex_contexts
+    parents = {
+        "root": None, "left": "root", "left_text": "left",
+        "right": "root", "right_text": "right",
+    }
+    flex = frozenset({"root", "left", "right"})
+    assert affected_flex_contexts(
+        frozenset({"left_text"}), parent_by_id=parents,
+        flex_node_ids=flex,
+    ) == frozenset({"root", "left"})
+    assert affected_flex_contexts(
+        frozenset(), parent_by_id=parents, flex_node_ids=flex,
+    ) == frozenset()
+    assert affected_flex_contexts(
+        frozenset({"root"}), parent_by_id=parents, flex_node_ids=flex,
+    ) == flex
+    assert affected_flex_contexts(
+        None, parent_by_id=parents, flex_node_ids=flex,
+    ) is None
+    assert affected_flex_contexts(
+        frozenset({"missing"}), parent_by_id=parents, flex_node_ids=flex,
+    ) is None
+
+
+def test_flex_planner_rejects_invalid_parent_graph():
+    from psx.sfle.layout_change_effects import affected_flex_contexts
+    assert affected_flex_contexts(
+        frozenset({"x"}), parent_by_id={"x": "missing"},
+        flex_node_ids=frozenset({"x"}),
+    ) is None
+    assert affected_flex_contexts(
+        frozenset({"x"}), parent_by_id={"x": "x"},
+        flex_node_ids=frozenset({"x"}),
+    ) is None
