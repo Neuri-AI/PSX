@@ -212,13 +212,13 @@ tree.unmount()
         import pathlib
         diagnostic = pathlib.Path(tmpdir) / "semantic-flow-native.log"
         wrapped = (
-            "import sys, traceback\\n"
-            "try:\\n"
-            + "".join("    " + line + "\\n" for line in script.splitlines())
-            + "except BaseException:\\n"
-            "    with open(sys.argv[1], 'w') as report:\\n"
-            "        traceback.print_exc(file=report)\\n"
-            "    raise\\n"
+            "import sys, traceback\n"
+            "try:\n"
+            + "".join("    " + line + "\n" for line in script.splitlines())
+            + "except BaseException:\n"
+            "    with open(sys.argv[1], 'w') as report:\n"
+            "        traceback.print_exc(file=report)\n"
+            "    raise\n"
         )
         env = dict(
             os.environ, KIVY_NO_FILELOG="1", KIVY_NO_ARGS="1",
