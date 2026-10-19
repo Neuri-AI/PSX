@@ -332,3 +332,28 @@ def test_grid_mount_fails_before_native_widget_creation(qt_tree, request, compon
     assert_feature(request, Feature(component, CONTRACT, "interaction",
                                     "unsupported_mount", f"{BINDING}_fail_closed",
                                     applicability="shared"), True)
+
+
+def test_html_block_native_geometry_and_reconciliation(qt_tree, request):
+    from psx import psx
+    _, tree = qt_tree
+    first = tree.render(psx(
+        '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
+    ))
+    alpha, beta = (child.handle.widget for child in first.children)
+    original_root = first.handle.widget
+    updated = tree.render(psx(
+        '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+    ))
+    assert_feature(
+        request, Feature("div", BINDING, "interaction", "semantic_flow",
+                         "native_geometry", applicability="partial_native"),
+        updated.handle.widget is original_root
+        and updated.children[0].handle.widget is beta
+        and updated.children[1].handle.widget is alpha
+        and beta.width() == 400
+        and alpha.width() == 400
+        and beta.y() == 0
+        and alpha.y() == beta.height()
+        and original_root.layout() is None,
+    )
