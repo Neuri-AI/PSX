@@ -300,3 +300,26 @@ def test_html_block_native_geometry_and_reconciliation(tk_tree, request):
         and float(alpha_inline["x"]) == float(beta_inline["width"])
         and float(alpha_inline["width"]) < 400,
     )
+
+
+@pytest.mark.parametrize("tag", (
+    "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+    "section", "main", "header", "footer",
+))
+def test_semantic_flow_native_geometry_per_tag(tk_tree, request, tag):
+    from psx import psx
+    _, _, tree = tk_tree
+    root = tree.render(psx(f"<{tag}><button>Action</button></{tag}>"))
+    child = root.children[0].handle.widget
+    info = child.place_info()
+    width = float(info["width"])
+    assert_feature(
+        request, Feature(tag, "tkinter", "interaction", "semantic_flow",
+                         "native_geometry", applicability="partial_native"),
+        child.master is root.handle.widget
+        and child.winfo_manager() == "place"
+        and 0 < width <= 400
+        and float(info["x"]) == 0
+        and float(info["y"]) == 0
+        and (width < 400 if tag == "span" else width == 400),
+    )
