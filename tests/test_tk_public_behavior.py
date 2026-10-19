@@ -346,3 +346,26 @@ def test_semantic_flow_native_geometry_per_tag(tk_tree, request, tag):
         and float(info["y"]) == 0
         and (width < 400 if tag in ("span", "label", "li") else width == 400),
     )
+
+
+def test_semantic_form_submission_rebinds_native_tk_button(tk_tree, request):
+    from psx.markup.html_aliases import _formatting_host
+    _, renderer, tree = tk_tree
+    calls = []
+    def view(tag):
+        return _formatting_host(
+            "form", Button("Submit", key="submit"),
+            on_submit=lambda: calls.append(tag),
+        )
+    first = tree.render(view("first"))
+    native = first.children[0].handle.widget
+    native.invoke()
+    refreshed = tree.render(view("second"))
+    native.invoke()
+    assert_feature(
+        request, Feature("form", "tkinter", "event", "on_submit",
+                         "native_dispatch", applicability="partial_native"),
+        refreshed.children[0].handle.widget is native
+        and calls == ["first", "second"]
+        and renderer.sfle_result.geometry_commit_error <= 1,
+    )
