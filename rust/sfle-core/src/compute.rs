@@ -124,3 +124,65 @@ pub fn compute_provisional(input:&LayoutInput)->Result<LayoutResult,ComputeError
     crate::compute_layout::compute_normalized(input,true)
 }
 
+
+
+#[cfg(test)]
+mod incremental_sizing_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn independent_flex_sibling_matches_complete_layout() {
+        let previous_json=json!({
+            "schema_version":1,"generation":1,"direction":"ltr",
+            "constraints":{
+                "width":{"value":300.0,"definite":true},
+                "height":{"value":100.0,"definite":true}
+            },
+            "nodes":[
+                {"node_id":"root","parent_id":null,"component":"Flex",
+                 "style":{"direction":"row","width":"300px","height":"100px"}},
+                {"node_id":"left","parent_id":"root","component":"Flex",
+                 "style":{"width":"40px","height":"25px","flex_shrink":0}},
+                {"node_id":"left_leaf","parent_id":"left","component":"Flex",
+                 "style":{"width":"20px","height":"10px"}},
+                {"node_id":"right","parent_id":"root","component":"Flex",
+                 "style":{"width":"50px","height":"25px","flex_shrink":0}},
+                {"node_id":"right_leaf","parent_id":"right","component":"Flex",
+                 "style":{"width":"20px","height":"10px"}}
+            ],
+            "measurements":[]
+        });
+        let previous:LayoutInput=serde_json::from_value(previous_json.clone()).unwrap();
+        let previous_result=compute(&previous).unwrap();
+        let mut next_json=previous_json;
+        next_json["generation"]=json!(2);
+        next_json["nodes"][1]["style"]["width"]=json!("60px");
+        let next:LayoutInput=serde_json::from_value(next_json).unwrap();
+        let complete=compute(&next).unwrap();
+        let incremental=compute_incremental(&next,&previous,&previous_result).unwrap();
+        assert_eq!(incremental.boxes,complete.boxes);
+        assert_eq!(incremental.generation,2);
+    }
+
+    #[test]
+    fn changed_viewport_falls_back_to_equivalent_geometry() {
+        let initial:LayoutInput=serde_json::from_value(json!({
+            "schema_version":1,"generation":1,"direction":"ltr",
+            "constraints":{
+                "width":{"value":100.0,"definite":true},
+                "height":{"value":80.0,"definite":true}
+            },
+            "nodes":[{"node_id":"root","parent_id":null,"component":"Flex",
+                      "style":{"direction":"row","width":"100px","height":"80px"}}],
+            "measurements":[]
+        })).unwrap();
+        let result=compute(&initial).unwrap();
+        let mut next:serde_json::Value=serde_json::to_value(&initial).unwrap();
+        next["generation"]=json!(2);
+        next["constraints"]["width"]["value"]=json!(300.0);
+        let changed:LayoutInput=serde_json::from_value(next).unwrap();
+        assert_eq!(compute_incremental(&changed,&initial,&result).unwrap().boxes,
+                   compute(&changed).unwrap().boxes);
+    }
+}
