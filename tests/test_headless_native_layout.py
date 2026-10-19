@@ -993,3 +993,40 @@ def test_unchanged_headless_commit_reuses_cinnamon_but_resize_recomputes():
         reconciler.unmount()
     assert renderer._sfle_prior_solver_input is None
     assert renderer._sfle_prior_solver_result is None
+
+
+def test_mounted_headless_uses_incremental_sizing_for_unchanged_flex_sibling():
+    class TrackingEngine(PythonLayoutEngine):
+        def __init__(self):
+            self.reused = []
+            self.incremental_calls = 0
+
+        def compute_incremental(self, request, **kwargs):
+            self.incremental_calls += 1
+            kwargs["reused_contexts"] = self.reused
+            return super().compute_incremental(request, **kwargs)
+
+    engine = TrackingEngine()
+    renderer = HeadlessRenderer(sfle_constraints=constraints(300, 100), engine=engine)
+    reconciler = Reconciler(renderer)
+
+    def view(width):
+        return Flex(
+            Flex(fixed("nested-left", 20), key="left", width=width,
+                 height=25, flex_shrink=0),
+            Flex(fixed("nested-right", 20), key="right", width=50,
+                 height=25, flex_shrink=0),
+            direction="row", width=300, height=100, key="root",
+        )
+
+    try:
+        root = reconciler.render(view(40))
+        right = root.children[1].handle
+        before = right.geometry
+        updated = reconciler.render(view(60))
+        assert engine.incremental_calls >= 1
+        assert engine.reused, "Unchanged, definitely-sized Flex should reuse sizing"
+        assert updated.children[1].handle is right
+        assert right.geometry == before or right.geometry.x != before.x
+    finally:
+        reconciler.unmount()
