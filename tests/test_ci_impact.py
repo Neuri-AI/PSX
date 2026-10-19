@@ -8,6 +8,13 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_block_flow_math_runs_pure_geometry_and_language_parity_gates(self):
+        self.assertGreaterEqual(
+            self.selected("psx/sfle/flow_layout.py"),
+            {"sfle", "rust", "chromium", "headless"},
+        )
+        self.assertEqual(self.selected("tests/sfle/test_flow_layout.py"), {"sfle"})
+
     def test_incremental_cinnamon_routes_every_geometry_consumer(self):
         expected = {"core", "sfle", "rust", "chromium", "headless",
                     "qt", "kivy", "tkinter"}
