@@ -265,6 +265,11 @@ def inventory() -> tuple[Feature, ...]:
                 tag, backend, "interaction", "semantic_flow",
                 "native_geometry", applicability="partial_native",
             ))
+            if tag == "div":
+                rows.append(Feature(
+                    tag, backend, "interaction", "semantic_flow",
+                    "display_reflow", applicability="partial_native",
+                ))
     return tuple(sorted(rows))
 
 
