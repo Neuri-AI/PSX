@@ -728,7 +728,7 @@ class TkinterRenderer:
 
     def _adapter_create(self, node: VNode, parent: object | None) -> TkHandle:
         if node.kind is NodeKind.HOST and node.type == "div":
-            if self._sfle_constraints is None or node.props.get("display") != "block":
+            if self._sfle_constraints is None or node.props.get("display") not in ("block", "inline"):
                 raise RendererCapabilityError(
                     "Tkinter div requires an enabled Cinnamon Block viewport.")
             master = _as_handle(parent).widget if parent is not None else self.root
@@ -798,7 +798,7 @@ class TkinterRenderer:
             updated.update(changed)
             for name in removed:
                 updated.pop(name, None)
-            if updated.get("display") != "block":
+            if updated.get("display") not in ("block", "inline"):
                 raise RendererCapabilityError(
                     "div currently supports only the Cinnamon Block context.")
             target.props = updated
