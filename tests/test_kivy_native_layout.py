@@ -2420,3 +2420,48 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         result = subprocess.run([sys.executable, "-c", script],
                                 env=env, capture_output=True, text=True, timeout=150)
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
+
+def test_html_flow_public_native_geometry_receipt_kivy(request):
+    from tests.certification.public_behavior_census import Feature, assert_feature
+    script = textwrap.dedent("""
+        from kivy.config import Config
+        Config.set("graphics", "window_state", "hidden")
+        from psx import psx
+        from psx.core.reconcile import Reconciler
+        from psx.renderers.kivy.kivy import KivyRenderer
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, LayoutConstraints
+
+        renderer = KivyRenderer(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(220, True), AvailableSize(120, True)),
+            engine=PythonLayoutEngine(),
+        )
+        reconciler = Reconciler(renderer)
+        root = reconciler.render(
+            psx("<div><button>First</button><button>Second</button></div>")
+        )
+        first, second = (child.handle.widget for child in root.children)
+        assert round(first.width) == 220
+        assert round(second.width) == 220
+        assert round(first.y) == round(second.y + second.height)
+        assert first.parent is root.handle.widget
+        assert renderer.sfle_result.geometry_commit_error <= 1
+        reconciler.unmount()
+        assert first.parent is None and second.parent is None
+    """)
+    environment = dict(os.environ)
+    environment["KIVY_NO_FILELOG"] = "1"
+    environment["KIVY_NO_ARGS"] = "1"
+    environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+    run = subprocess.run(
+        [sys.executable, "-c", script], env=environment,
+        capture_output=True, text=True, timeout=90,
+    )
+    assert_feature(
+        request, Feature("div", "kivy", "interaction", "semantic_flow",
+                         "native_geometry", applicability="partial_native"),
+        run.returncode == 0,
+        run.stdout + "\\n" + run.stderr,
+    )
