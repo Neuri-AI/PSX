@@ -146,8 +146,10 @@ def affected_flex_contexts(
     """Conservatively find Flex contexts reachable from dirty nodes.
 
     The ancestor chain may influence size or sibling positions, so every
-    ancestor Flex must be invalidated. Descendant Flex contexts are included
-    because an upstream geometry change can alter their available size.
+    ancestor Flex must be invalidated. Descendants of a directly modified
+    Flex are included because upstream geometry can change their available
+    size. Ancestors reached only through propagation do not expand all of
+    their siblings into the directly affected set.
     Unrelated sibling Flex contexts are not *directly* dirty, but their final
     geometry must still be validated by the parent transaction.
     """
@@ -188,7 +190,10 @@ def affected_flex_contexts(
                 affected.add(cursor)
             cursor = parent_by_id[cursor]
 
-    stack = list(affected)
+    # Only descend from a Flex context that was directly edited. An
+    # ancestor is dirty because its child may change its layout, but this
+    # does not automatically invalidate independent sibling contexts.
+    stack = [node_id for node_id in dirty_nodes if node_id in flex_node_ids]
     visited_descendants: set[str] = set()
     while stack:
         current_id = stack.pop()
