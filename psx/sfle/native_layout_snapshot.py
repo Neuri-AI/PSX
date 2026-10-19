@@ -124,6 +124,8 @@ def _style(node: VNode) -> tuple[tuple[str, object], ...]:
         if "padding" in props:
             for side, value in zip(_SIDE_NAMES, _edges(props["padding"])):
                 result.setdefault(f"layout_padding_{side}", value)
+    if node.kind is NodeKind.HOST and node.type == "div":
+        result["display"] = props["display"]
     if node.kind is NodeKind.HOST and node.type == "Scroll":
         result["direction"] = (
             "row" if props["content_direction"] == "horizontal" else "column"
