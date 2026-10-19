@@ -29,6 +29,7 @@ from threading import get_ident
 import tkinter as tk
 from tkinter import ttk
 from psx.core.errors import RendererCapabilityError
+from psx.markup.html_aliases import FORMATTING_TAGS
 from psx.core.events import EventSlot
 from psx.core.native import NativeOwnership, NativeWidget
 from psx.core.vnode import NodeKind, VNode
@@ -680,7 +681,7 @@ class TkinterRenderer:
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
-            if port is None and node.type not in ("Flex", "Grid", "GridItem", "div"):
+            if port is None and node.type not in ("Flex", "Grid", "GridItem") and node.type not in FORMATTING_TAGS:
                 native_leaf_needs_measurement(node, backend="tk")
             if node.type not in ("Flex", "Grid", "GridItem"):
                 node = VNode(node.kind, node.type, node.key,
@@ -727,7 +728,7 @@ class TkinterRenderer:
         widget.bind("<Button-5>", on_wheel, add="+")
 
     def _adapter_create(self, node: VNode, parent: object | None) -> TkHandle:
-        if node.kind is NodeKind.HOST and node.type == "div":
+        if node.kind is NodeKind.HOST and node.type in FORMATTING_TAGS:
             if self._sfle_constraints is None or node.props.get("display") not in ("block", "inline"):
                 raise RendererCapabilityError(
                     "Tkinter div requires an enabled Cinnamon Block viewport.")
@@ -793,7 +794,7 @@ class TkinterRenderer:
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _as_handle(handle)
-        if target.node_type == "div":
+        if target.node_type in FORMATTING_TAGS:
             updated = dict(target.props)
             updated.update(changed)
             for name in removed:
@@ -842,7 +843,7 @@ class TkinterRenderer:
         self._default_insert(parent, child, index)
 
     def _default_insert(self, parent: object, child: object, index: int) -> None:
-        if _as_handle(parent).node_type in ("Grid", "GridItem", "div"):
+        if _as_handle(parent).node_type in ("Grid", "GridItem") or _as_handle(parent).node_type in FORMATTING_TAGS:
             container, item = _as_handle(parent), _as_handle(child)
             if item not in container.children:
                 container.children.insert(index, item)
@@ -856,7 +857,7 @@ class TkinterRenderer:
         self._default_move(parent, child, index)
 
     def _default_move(self, parent: object, child: object, index: int) -> None:
-        if _as_handle(parent).node_type in ("Grid", "GridItem", "div"):
+        if _as_handle(parent).node_type in ("Grid", "GridItem") or _as_handle(parent).node_type in FORMATTING_TAGS:
             container, item = _as_handle(parent), _as_handle(child)
             if item in container.children:
                 container.children.remove(item)
