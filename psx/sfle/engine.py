@@ -63,6 +63,11 @@ class PythonLayoutEngine:
         When context reuse is ineligible, perform a complete solve. Geometry
         placement always runs through Cinnamon's normal compositor.
         """
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
+            # Conservative complete flow reflow until fragment-level dependency
+            # tracking is certified. Stable VNode identity stays with the caller.
+            return self.compute(request)
         from .context_invalidation_plan import plan_context_invalidation
         from .incremental_result_reuse import reuse_unchanged_layout
         plan = plan_context_invalidation(previous_input, request)
@@ -82,6 +87,9 @@ class PythonLayoutEngine:
 
     def compute_provisional(self, request: LayoutInput) -> LayoutResult:
         """Noncommittable geometry used solely to obtain post-flex widths."""
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
+            return self.compute(request)
         from .compute_alpha import compute_snapshot
         return compute_snapshot(request, provisional=True)
 
