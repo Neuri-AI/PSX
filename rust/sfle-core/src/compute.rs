@@ -59,7 +59,7 @@ pub struct LayoutInput {
 pub struct Rect {
     pub x: f64, pub y: f64, pub width: f64, pub height: f64,
 }
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct LayoutBox {
     pub node_id: String,
     pub content: Rect,
@@ -67,7 +67,7 @@ pub struct LayoutBox {
     pub border: Rect,
     pub margin: Rect,
 }
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct LayoutResult {
     pub schema_version: u32,
     pub generation: u64,
