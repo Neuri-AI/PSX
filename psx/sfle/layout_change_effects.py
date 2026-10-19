@@ -153,8 +153,6 @@ def affected_flex_contexts(
     """
     if dirty_nodes is None:
         return None
-    if not dirty_nodes:
-        return frozenset()
     ids = set(parent_by_id)
     if not dirty_nodes <= ids or not flex_node_ids <= ids:
         return None
@@ -165,7 +163,20 @@ def affected_flex_contexts(
                 return None
             children[parent].append(node_id)
 
-    # Reject cycles anywhere in the mounted parent graph, including contexts\n    # outside the immediately dirty chain.\n    for node_id in ids:\n        visited_path: set[str] = set()\n        cursor: str | None = node_id\n        while cursor is not None:\n            if cursor in visited_path:\n                return None\n            visited_path.add(cursor)\n            cursor = parent_by_id[cursor]\n    if not dirty_nodes:\n        return frozenset()\n\n    affected: set[str] = set()
+    # Reject cycles anywhere in the mounted parent graph, including contexts
+    # outside the immediately dirty chain.
+    for node_id in ids:
+        visited_path: set[str] = set()
+        cursor: str | None = node_id
+        while cursor is not None:
+            if cursor in visited_path:
+                return None
+            visited_path.add(cursor)
+            cursor = parent_by_id[cursor]
+    if not dirty_nodes:
+        return frozenset()
+
+    affected: set[str] = set()
     for node_id in dirty_nodes:
         visited: set[str] = set()
         cursor: str | None = node_id
