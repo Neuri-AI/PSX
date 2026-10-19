@@ -312,7 +312,7 @@ def test_semantic_markup_carries_public_census_assertions(request, tag):
         CONTRACT, Feature, assert_feature,
     )
     node = psx(f'<{tag} key="section-key">Hello</{tag}>')
-    expected_display = "inline" if tag == "span" else "block"
+    expected_display = "inline" if tag in ("span", "label") else "block"
     assert_feature(
         request, Feature(tag, CONTRACT, "public_api", "markup",
                          "default_display", applicability="shared"),
@@ -398,7 +398,10 @@ def test_headless_semantic_flow_native_geometry_receipt(request, tag):
     )
     tree = Reconciler(renderer)
     try:
-        root = tree.render(psx(f"<{tag}><button>Action</button></{tag}>"))
+        content = ("Action" if tag in ("label", "li") else
+                   "<li>Action</li>" if tag == "ul" else
+                   "<button>Action</button>")
+        root = tree.render(psx(f"<{tag}>{content}</{tag}>"))
         child = root.children[0].handle.geometry
         assert_feature(
             request, Feature(tag, "headless", "interaction", "semantic_flow",
