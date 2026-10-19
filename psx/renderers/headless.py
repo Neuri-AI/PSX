@@ -202,9 +202,9 @@ class HeadlessRenderer:
                 raise RendererCapabilityError(
                     "div requires a Cinnamon block viewport and measurement port."
                 )
-            if node.props.get("display") != "block":
+            if node.props.get("display") not in ("block", "inline"):
                 raise RendererCapabilityError(
-                    "div requires the supported block formatting context."
+                    "div requires a supported Block/Inline formatting context."
                 )
             handle = HeadlessHandle(node.type, dict(node.props))
             self.operations.append(("create", handle))
@@ -300,8 +300,8 @@ class HeadlessRenderer:
             if target.type == "div":
                 if set(updated) - {"display", "ref", "layout_width", "layout_height"}:
                     raise RendererCapabilityError("Unsupported div native layout properties.")
-                if updated.get("display") != "block":
-                    raise RendererCapabilityError("div only supports block flow.")
+                if updated.get("display") not in ("block", "inline"):
+                    raise RendererCapabilityError("div only supports Block/Inline flow.")
             elif definition is not None and definition.contract is not None:
                 definition.contract.validate(updated)
             else:
