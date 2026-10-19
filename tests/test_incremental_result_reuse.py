@@ -74,3 +74,28 @@ def test_changed_measurement_revision_and_structure_disable_reuse():
     assert reuse_unchanged_layout(original, prior, measured) is None
     changed_structure = replace(original, nodes=original.nodes[:-1])
     assert reuse_unchanged_layout(original, prior, changed_structure) is None
+
+
+def test_context_plan_scopes_changed_flex_sibling_without_partial_solver_claim():
+    from psx.sfle.context_invalidation_plan import plan_context_invalidation
+    from psx.sfle.model import LayoutNode
+    initial = _input()
+    nodes = list(initial.nodes)
+    # Modify the first child, leaving the second independent child untouched.
+    first = nodes[1]
+    nodes[1] = replace(
+        first, style=tuple((key, "50px" if key == "width" else value)
+                           for key, value in first.style),
+    )
+    current = replace(initial, generation=2, nodes=tuple(nodes))
+    plan = plan_context_invalidation(initial, current)
+    assert not plan.full_recompute
+    assert plan.dirty_nodes == frozenset({first.node_id})
+    assert initial.nodes[2].node_id not in plan.dirty_nodes
+    engine = PythonLayoutEngine()
+    assert engine.compute_incremental(
+        current, previous_input=initial,
+        previous_result=engine.compute(initial),
+    ).boxes == engine.compute(current).boxes
+    assert plan_context_invalidation(initial, _input(width=200)).full_recompute
+    assert plan_context_invalidation(None, current).full_recompute
