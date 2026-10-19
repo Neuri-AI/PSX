@@ -256,7 +256,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             snapshot, frozenset(leaf_widgets) | frozenset(dependent),
         )
         if snapshot.nodes[0].component in FORMATTING_TAGS:
-            from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
+            # Both Rust primary and Python fallback own the same measured flow wire.
             from psx.sfle.model import MeasuredBox
             width = renderer._sfle_constraints.width.value
             if width is None or not renderer._sfle_constraints.width.definite:
@@ -288,7 +288,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                     snapshot, measurements=tuple(refreshed[node.node_id]
                     for node in snapshot.nodes if node.node_id in refreshed),
                 )
-            result = compute_measured_block_snapshot(snapshot)
+            result = renderer._sfle_engine.compute(snapshot)
         else:
             result = compute_width_dependent(
                 renderer._sfle_engine, snapshot, dependent,
