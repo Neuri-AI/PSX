@@ -67,7 +67,14 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
     def box(rect: Rect) -> BoxRect:
         return BoxRect(rect, rect, rect, rect)
 
-    results = [(root.node_id, box(Rect(0.0, 0.0, width, used_height)))]
+    # The mounted application root owns the complete native viewport. A
+    # nested, independently auto-sized block requires a separate context.
+    root_height = (
+        snapshot.constraints.height.value
+        if snapshot.constraints.height.definite
+        else used_height
+    )
+    results = [(root.node_id, box(Rect(0.0, 0.0, width, root_height)))]
     results.extend(
         (node.node_id, box(Rect(item.x, item.y, item.width, item.height)))
         for node, item in zip(children, placements)
