@@ -445,3 +445,27 @@ def test_semantic_form_submission_rebinds_native_qt_button(qt_tree, request):
         and calls == ["first", "second"]
         and renderer.sfle_result.geometry_commit_error <= 1,
     )
+
+
+def test_implicit_label_click_focuses_native_qt_input(qt_tree, request):
+    """Verify pointer activation through a real native label widget."""
+    import importlib
+    from psx import psx
+    renderer, tree = qt_tree
+    root = tree.render(psx('<label>Name <input value="Ada" /></label>'))
+    input_widget = next(
+        child.handle.widget for child in root.children if child.node.type == "Input"
+    )
+    label_widget = root.handle.widget
+    label_widget.show()
+    renderer.application.processEvents()
+    qt_test = importlib.import_module(f"{renderer._binding_package}.QtTest")
+    button_enum = getattr(renderer._qtcore.Qt, "MouseButton", renderer._qtcore.Qt)
+    qt_test.QTest.mouseClick(label_widget, button_enum.LeftButton)
+    renderer.application.processEvents()
+    assert_feature(
+        request, Feature("label", BINDING, "interaction",
+                         "implicit_input_focus", "native_activation",
+                         applicability="partial_native"),
+        input_widget.hasFocus(),
+    )
