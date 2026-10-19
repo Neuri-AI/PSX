@@ -55,7 +55,7 @@ Use this table as a ledger **only after direct owner review**. Blank fields mean
 | AD-03 | CSS-like style precedence and cascade | PENDING | — | — |
 | AD-04 | Block formatting scope | PENDING | — | — |
 | AD-05 | Exception-safe disposal policy | PENDING | — | — |
-| AD-06 | Lowercase markup vocabulary/compatibility | PENDING | — | — |
+| AD-06 | Lowercase markup vocabulary/compatibility | **APPROVED — target vocabulary and coexistence rules; implementation pending** | 2026-10-19 | Direct owner approval in project conversation, following the explicit AD-06 vocabulary proposal; PR #48 branch record |
 | AD-07 | Package/version dependency graph | PENDING | — | — |
 | AD-08 | Fragment/mixed-key evolution | PENDING | — | — |
 | AD-09 | Measurement/invalidation adapter interface | PENDING | — | — |
@@ -100,7 +100,7 @@ Each agent commits **evidence-only** documentation to `develop` using convention
  
 ## P0 contract review progress — 2026-10-18
 
-**Source-backed technical reviews completed: 12/12 decisions (AD-01–AD-12). Owner approvals: 0/12. Executed full test/CI closure: pending.** This is a review metric, **not** acceptance/certification of C01–C12 or release readiness.
+**Historical snapshot (2026-10-18):** Source-backed technical reviews completed: 12/12 decisions (AD-01–AD-12). Owner approvals at that date: 0/12. Executed full test/CI closure: pending. See the 2026-10-19 owner decision for the subsequent, narrowly scoped AD-06 approval. This is a review metric, **not** acceptance/certification of C01–C12 or release readiness.
 
 - [Batch 1 — public semantics and compatibility](P0_CONTRACT_REVIEW_BATCH_1.md): AD-01/02/03/04/06/08
 - [Batch 2 — safety and packaging](P0_CONTRACT_REVIEW_BATCH_2.md): AD-05/07/09
@@ -227,3 +227,14 @@ The team has started **P1 IM-01 isolated, pure normalization scaffolding only** 
 The project owner explicitly accepted the [universal box model and CSS Core architectural contract](universal-box-model-and-css-core-contract.md) in the project discussion on 2026-10-18. Accepted architectural direction: CSS Core inside PSX, Cinnamon as the sole geometry authority, legacy responsive Grid and GridItem preserved, separate future CSS Grid tracks, incremental invalidation, bounded caches and native capability certification.
 
 This is approval of the architectural contract, **not approval of all outstanding detailed interface choices or the full global architecture gate**. Public styling syntax, exact per-tag sizing defaults, track algorithm details, native measurement ports, and remaining packaging/lifecycle/certification gates require their documented dispositions. Global gate status remains BLOCKED until its separately listed acceptance evidence is complete. No production implementation or test execution is implied by this entry.
+
+
+## Owner decision — lowercase PSX markup vocabulary (2026-10-19)
+
+**AD-06: APPROVED (architectural target, not implementation certification).** The project owner explicitly approved the proposed HTML-like lowercase vocabulary and compatibility rules in conversation on 2026-10-19, after reviewing the proposal. This approval records the chosen direction only; no aliases or semantic tags are claimed as shipped by this entry.
+
+**Approved target vocabulary:** `div`, `span`, `p`, `h1`–`h6`, `button`, `input`, `textarea`, `img`, `section`, `main`, `header`, `footer`, `form`, `label`, `ul`, and `li`.
+
+**Compatibility constraints:** lowercase tags have separately specified identities and semantics; existing PascalCase `Button`, `Text`, `Flex`, `Grid` and other components retain their public contracts. `div` is not an alias for `Flex` or the internal `Box`. Cinnamon remains the only geometric authority. CSS Core resolves CSS properties when they are implemented, without reinterpreting legacy component-owned native properties. Unsupported tags and behaviors must fail explicitly, rather than silently mapping to an unrelated component. Implement the vocabulary incrementally, with behavior tests, native routing and executed public-behavior census receipts for each shipped public tag.
+
+**Remaining independent owner decisions:** AD-02 (box-sizing defaults), AD-04 (block/inline formatting scope), AD-03 (CSS cascade and precedence), and any other unchanged pending entries. Approval of the tag vocabulary does **not** establish `display: block`, inline flow, styling syntax, form semantics, CSS Grid, release readiness or the global P0→P1 architecture gate. All gate evidence requirements above remain in force.
