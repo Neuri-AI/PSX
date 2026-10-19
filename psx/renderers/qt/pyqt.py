@@ -374,6 +374,9 @@ class QtRenderer:
         self._sfle_measurement_invalidations = MeasurementInvalidations()
         from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
         self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
+        self._sfle_prior_solver_input = None
+        self._sfle_prior_solver_result = None
+        self._sfle_prior_solver_engine = None
         # Single successful detached paint/layout fingerprint, renderer-owned.
         self._sfle_committed_signatures = None
         from psx.sfle.native_resource_watch import ImageResourceWatch
@@ -713,6 +716,9 @@ class QtRenderer:
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
         self._sfle_native_intrinsic_cache.clear()
+        self._sfle_prior_solver_input = None
+        self._sfle_prior_solver_result = None
+        self._sfle_prior_solver_engine = None
         self._sfle_committed_signatures = None
         self._sfle_image_resource_watch.clear()
         self._sfle_resource_poll_scheduled = False
