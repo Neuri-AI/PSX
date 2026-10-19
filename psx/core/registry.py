@@ -175,12 +175,5 @@ def builtin_component_registry() -> ComponentRegistry:
     registry.register("WebView", WebView)
     registry.register("Box", Box)
     registry.register("Native", Native)
-    # HTML-like aliases share the established native widget contracts. Their
-    # spelling is explicit: generic HTML tags require independent formatting
-    # contexts and are not silently redirected to Flex or internal Box.
-    registry.register("button", Button, contract=BUTTON_CONTRACT)
-    registry.register("input", Input, contract=INPUT_CONTRACT)
-    registry.register("textarea", TextArea, contract=TEXTAREA_CONTRACT)
-    registry.register("img", Image, contract=IMAGE_CONTRACT)
 
     return registry
