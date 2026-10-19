@@ -260,6 +260,16 @@ def inventory() -> tuple[Feature, ...]:
                 tag, CONTRACT, "public_api", "markup", scenario,
                 applicability="shared",
             ))
+        if tag == "form":
+            rows.append(Feature(
+                tag, CONTRACT, "event", "on_submit", "handler_delegation",
+                applicability="shared",
+            ))
+            for native_backend in ("pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"):
+                rows.append(Feature(
+                    tag, native_backend, "event", "on_submit", "native_dispatch",
+                    applicability="partial_native",
+                ))
         for backend in BACKENDS:
             rows.append(Feature(
                 tag, backend, "interaction", "semantic_flow",
