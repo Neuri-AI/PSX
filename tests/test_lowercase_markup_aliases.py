@@ -120,3 +120,32 @@ def test_div_native_mount_fails_closed_without_block_port():
 
     with pytest.raises(RendererCapabilityError, match="Cinnamon block"):
         Reconciler(HeadlessRenderer()).render(psx("<div />"))
+
+
+def test_div_keys_preserve_logical_identity_without_entering_native_props():
+    keyed = psx('<div key="card" />')
+    assert keyed.key == "card"
+    assert "key" not in keyed.props
+    assert keyed.type == "div"
+
+
+def test_div_accepts_ref_without_mistaking_it_for_native_style():
+    marker = object()
+    from psx.markup.html_aliases import _html_div
+    node = _html_div(ref=marker)
+    assert node.props["ref"] is marker
+    assert node.type == "div"
+
+
+def test_div_rejects_invalid_key_before_renderer_dispatch():
+    from psx.markup.html_aliases import _html_div
+    with pytest.raises(TypeError, match="PSX keys"):
+        _html_div(key=True)
+
+
+def test_div_does_not_pollute_native_host_capability_registry():
+    registry = builtin_component_registry()
+    markup = markup_alias_definitions(registry.snapshot())
+    assert "div" in markup
+    assert not registry.contains("div")
+    assert "display" in markup["div"].constructor().props
