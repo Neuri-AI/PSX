@@ -12,7 +12,7 @@ def test_lowercase_controls_preserve_native_types():
     button = psx("<button>Save</button>")
     field = psx('<input value="hello" />')
     text_area = psx('<textarea value="notes" />')
-    image = psx('<img source="logo.png" />')
+    image = psx('<img src="logo.png" />')
     assert (button.type, button.props["label"]) == ("Button", "Save")
     assert (field.type, field.props["value"]) == ("Input", "hello")
     assert (text_area.type, text_area.props["value"]) == ("TextArea", "notes")
@@ -26,9 +26,16 @@ def test_lowercase_and_pascalcase_are_both_available():
         ("button", "Button"), ("input", "Input"),
         ("textarea", "TextArea"), ("img", "Image")
     ):
-        assert registry[lower].constructor is registry[legacy].constructor
+        assert registry[lower].constructor is registry[legacy].constructor if lower != "img" else registry[lower].constructor is not registry[legacy].constructor
         assert registry[lower].contract is registry[legacy].contract
         assert not native_registry.contains(lower)
+
+
+def test_image_alias_rejects_missing_or_conflicting_sources():
+    with pytest.raises(ValueError, match="requires src"):
+        psx("<img />")
+    with pytest.raises(ValueError, match="both src and source"):
+        psx('<img src="a.png" source="b.png" />')
 
 
 def test_unsupported_generic_tags_do_not_silently_use_flex():
