@@ -164,7 +164,7 @@ def prepare_native_layout_snapshot(
 ) -> PreparedNativeLayoutSnapshot:
     """Create SFLE v1 input without native imports or implicit measurement.
 
-    The effective root must be one explicit Flex. Components/Fragments are
+    The effective root must be an explicit Flex or a bounded div Block root. Components/Fragments are
     transparent. Scroll is excluded pending the native viewport/content
     binding; fail closed rather than fabricating a layout root.
     Consumers must supply real measured leaf metrics as MeasuredBox values.
@@ -173,9 +173,10 @@ def prepare_native_layout_snapshot(
     if not isinstance(normalized, NormalizedLayoutNode):
         raise TypeError("Expected a normalized layout tree.")
     roots = normalized._participating_roots()
-    if len(roots) != 1 or roots[0].kind is not NodeKind.HOST or roots[0].type != "Flex":
+    if len(roots) != 1 or roots[0].kind is not NodeKind.HOST or roots[0].type not in ("Flex", "div"):
         raise SFLECapabilityError(
-            DiagnosticCode.UNSUPPORTED_FEATURE, "Native SFLE requires one explicit Flex root."
+            DiagnosticCode.UNSUPPORTED_FEATURE,
+            "Native SFLE requires one explicit Flex or supported Block root."
         )
     nodes: list[LayoutNode] = []
     origins: list[tuple[str, VNode]] = []
@@ -201,7 +202,13 @@ def prepare_native_layout_snapshot(
             name = "Flex"
         # Preserve specified snapshot values for both layout engines while
         # carrying an immutable, typed box representation alongside them.
-        box_style = normalize_item_box_style(node.source.props, owner=str(node.type))
+        box_props = (
+            {key: val for key, val in node.source.props.items()
+             if key != "display"}
+            if node.source.kind is NodeKind.HOST and node.source.type == "div"
+            else node.source.props
+        )
+        box_style = normalize_item_box_style(box_props, owner=str(node.type))
         nodes.append(LayoutNode(identifier, parent_id, name, _style(node.source)))
         box_styles.append((identifier, box_style))
         origins.append((identifier, node.source))
