@@ -44,9 +44,9 @@ def _html_div(*children: object, display: str = "block", key: str | int | None =
 # currently includes block containers and measured inline text fragments.
 _BLOCK_TAGS = frozenset({
     "div", "p", "h1", "h2", "h3", "h4", "h5", "h6",
-    "section", "main", "header", "footer",
+    "section", "main", "header", "footer", "form", "ul", "li",
 })
-_INLINE_TAGS = frozenset({"span"})
+_INLINE_TAGS = frozenset({"span", "label"})
 FORMATTING_TAGS = _BLOCK_TAGS | _INLINE_TAGS
 _HEADING_FONT_SIZES = {
     "h1": 32, "h2": 28, "h3": 24, "h4": 20, "h5": 18, "h6": 16,
@@ -81,9 +81,11 @@ def _formatting_host(
     if extra:
         raise ValueError(f"Unsupported {tag} properties: {sorted(extra)}")
     resolve_display(tag, selected)
+    if tag == "li" and not children:
+        raise ValueError("li requires content to render a list item.")
     normalized = []
     for child in children:
-        if tag == "span" and isinstance(child, VNode) and child.type == "Text":
+        if tag in ("span", "label", "li") and isinstance(child, VNode) and child.type == "Text":
             normalized.extend(_inline_text_fragments(child))
         elif tag in _HEADING_FONT_SIZES and isinstance(child, VNode) and child.type == "Text":
             options = {
@@ -96,6 +98,13 @@ def _formatting_host(
             ))
         else:
             normalized.append(child)
+    if tag == "li":
+        # Marker and adjacent text form one measured inline run, rather than
+        # converting the list item to Flex or asking native layouts to place it.
+        marker = create_element(
+            "span", Text("\u2022 "), display="inline",
+        )
+        normalized.insert(0, marker)
     return create_element(
         tag, *normalized, key=key, display=selected, **props,
     )
@@ -119,6 +128,7 @@ PORTABLE_HTML_ALIASES: Mapping[str, str] = {
     "h4": "h4", "h5": "h5", "h6": "h6",
     "section": "section", "main": "main",
     "header": "header", "footer": "footer",
+    "form": "form", "label": "label", "ul": "ul", "li": "li",
 }
 
 
