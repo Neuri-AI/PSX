@@ -197,7 +197,7 @@ class HeadlessRenderer:
         return adapter.create(self, node, parent)  # type: ignore[return-value]
 
     def _adapter_create(self, node: VNode, parent: object | None) -> HeadlessHandle:
-        if node.kind is NodeKind.HOST and node.type == "div":
+        if node.kind is NodeKind.HOST and node.type in __import__("psx.markup.html_aliases", fromlist=["FORMATTING_TAGS"]).FORMATTING_TAGS:
             if self._sfle_constraints is None:
                 raise RendererCapabilityError(
                     "div requires a Cinnamon block viewport and measurement port."
@@ -297,7 +297,7 @@ class HeadlessRenderer:
             for name in removed:
                 updated.pop(name, None)
             definition = builtin_component_registry().snapshot().get(target.type)
-            if target.type == "div":
+            if target.type in __import__("psx.markup.html_aliases", fromlist=["FORMATTING_TAGS"]).FORMATTING_TAGS:
                 if set(updated) - {"display", "ref", "layout_width", "layout_height"}:
                     raise RendererCapabilityError("Unsupported div native layout properties.")
                 if updated.get("display") not in ("block", "inline"):
