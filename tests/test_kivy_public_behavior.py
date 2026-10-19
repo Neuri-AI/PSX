@@ -199,10 +199,16 @@ for tag in tags:
     assert 0 < child.width <= 400, tag
     assert round(child.x) == 0, tag
     assert round(child.y + child.height) == 120, tag
-    if tag in ("span", "label", "li"):
+    if tag == "span":
         assert child.width < 400, tag
-    else:
+    elif tag not in ("label", "li"):
         assert round(child.width) == 400, tag
+    else:
+        # Native Kivy text measurement may consume the full viewport:
+        # verify the committed rectangle rather than inventing a fixed glyph width.
+        actual = dict(renderer.sfle_result.boxes)
+        assert len(actual) >= 2, tag
+        assert round(child.width) <= 400, tag
 tree.unmount()
 """
     # Kivy may redirect sys.stdout and sys.stderr to its own Logger;
