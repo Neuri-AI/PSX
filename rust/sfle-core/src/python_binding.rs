@@ -3,7 +3,7 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use serde_json::{json,Value};
-use crate::compute::{compute,compute_provisional,LayoutInput};
+use crate::compute::{compute,compute_provisional,compute_incremental,LayoutInput,LayoutResult};
 
 #[pyfunction]
 fn schema_version() -> u32 { 1 }
@@ -37,10 +37,30 @@ fn compute_provisional_json(input: &str) -> PyResult<String> {
     compute_impl(input, true)
 }
 
+#[pyfunction]
+fn compute_incremental_json(
+    input:&str, previous_input:&str, previous_result:&str,
+)->PyResult<String>{
+    let parse_error=|error:serde_json::Error|
+        PyValueError::new_err(format!("SFLE_INVALID_WIRE: {error}"));
+    let request:LayoutInput=serde_json::from_str(input).map_err(parse_error)?;
+    let old_request:LayoutInput=serde_json::from_str(previous_input).map_err(parse_error)?;
+    let old_result:LayoutResult=serde_json::from_str(previous_result).map_err(parse_error)?;
+    let answer:Value=match compute_incremental(&request,&old_request,&old_result) {
+        Ok(layout)=>json!({"ok":true,"result":layout}),
+        Err(failure)=>json!({"ok":false,"error":{
+            "code":failure.code,"message":failure.message,"node_id":failure.node_id,
+        }}),
+    };
+    serde_json::to_string(&answer)
+        .map_err(|error|PyValueError::new_err(format!("SFLE_INVALID_WIRE: {error}")))
+}
+
 #[pymodule]
 fn _sfle_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(schema_version,module)?)?;
     module.add_function(wrap_pyfunction!(compute_json,module)?)?;
+    module.add_function(wrap_pyfunction!(compute_incremental_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_provisional_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_grid_json,module)?)?;
     Ok(())
