@@ -30,10 +30,10 @@ fn rect(x: f64, y: f64, w: f64, h: f64, id: &str) -> Result<Rect, ComputeError> 
 fn formatting_tag(tag: &str) -> bool {
     matches!(tag,
         "div" | "span" | "p" | "h1" | "h2" | "h3" | "h4"
-        | "h5" | "h6" | "section" | "main" | "header" | "footer")
+        | "h5" | "h6" | "section" | "main" | "header" | "footer" | "form" | "label" | "ul" | "li")
 }
 fn inline_default(tag: &str) -> bool {
-    tag == "span"
+    matches!(tag, "span" | "label")
 }
 
 struct Flow<'a> {
