@@ -1027,6 +1027,7 @@ def test_mounted_headless_uses_incremental_sizing_for_unchanged_flex_sibling():
         assert engine.incremental_calls >= 1
         assert engine.reused, "Unchanged, definitely-sized Flex should reuse sizing"
         assert updated.children[1].handle is right
-        assert right.geometry == before or right.geometry.x != before.x
+        assert right.geometry.x == 60
+        assert right.geometry.width == before.width
     finally:
         reconciler.unmount()
