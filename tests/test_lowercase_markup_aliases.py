@@ -149,3 +149,23 @@ def test_div_does_not_pollute_native_host_capability_registry():
     assert "div" in markup
     assert not registry.contains("div")
     assert "display" in markup["div"].constructor().props
+
+
+def test_div_normalizes_as_a_distinct_block_participant():
+    from psx.core.layout_tree import normalize_flex_tree
+    root = psx('<div key="page"><button>Continue</button></div>')
+    normalized = normalize_flex_tree(root)
+    assert normalized.type == "div"
+    assert normalized.source.props["display"] == "block"
+    assert normalized.children[0].type == "Button"
+    assert normalized.children[0].path[-1] == ("index", 0)
+
+
+def test_block_normalization_rejects_unsupported_direct_vnode_properties():
+    from psx.core.layout_tree import normalize_flex_tree
+    from psx.core.errors import RendererCapabilityError
+    from psx.core.vnode import create_element
+    with pytest.raises(RendererCapabilityError, match="Unsupported div layout"):
+        normalize_flex_tree(create_element("div", display="block", opacity=0.5))
+    with pytest.raises(RendererCapabilityError, match="block-flow"):
+        normalize_flex_tree(create_element("div", display="flex"))
