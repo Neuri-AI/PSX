@@ -1,13 +1,13 @@
-"""Conservative CSS computed-style change effects, independent of native UI.
+"""Classify pure computed-style diffs using the canonical internal registry.
 
-Unknown properties require a full layout/measurement/paint update.
+Unrecognized properties fail closed; no native paint/layout bypass is granted.
 """
 from __future__ import annotations
 
 from enum import IntFlag, auto
 
 from .cascade import ComputedStyle
-from .visual_values import VISUAL_EFFECTS
+from .properties import foundation_registry
 
 
 class StyleEffect(IntFlag):
@@ -18,23 +18,23 @@ class StyleEffect(IntFlag):
     INTERACTION = auto()
 
 
-_GEOMETRY = frozenset({"width", "height", "min-width", "min-height", "max-width", "max-height", "padding", "margin"})
-_MEASUREMENT = frozenset({"font-size", "font-family", "font-weight", "line-height"})
-
-
 def classify_style_change(previous: ComputedStyle, current: ComputedStyle) -> StyleEffect:
+    definitions = foundation_registry().properties
     changed = {
         name for name in previous.properties.keys() | current.properties.keys()
         if previous.properties.get(name) != current.properties.get(name)
     }
-    result = StyleEffect.NONE
+    effect = StyleEffect.NONE
     for name in changed:
-        if name in _GEOMETRY:
-            result |= StyleEffect.GEOMETRY
-        elif name in _MEASUREMENT:
-            result |= StyleEffect.MEASUREMENT | StyleEffect.GEOMETRY
-        elif name in VISUAL_EFFECTS:
-            result |= StyleEffect.PAINT
+        prop = definitions.get(name)
+        if prop is None:
+            effect |= StyleEffect.PAINT | StyleEffect.MEASUREMENT | StyleEffect.GEOMETRY | StyleEffect.INTERACTION
+        elif prop.effect == "paint":
+            effect |= StyleEffect.PAINT
+        elif prop.effect == "measurement":
+            effect |= StyleEffect.MEASUREMENT | StyleEffect.GEOMETRY
+        elif prop.effect == "geometry":
+            effect |= StyleEffect.GEOMETRY
         else:
-            result |= StyleEffect.PAINT | StyleEffect.MEASUREMENT | StyleEffect.GEOMETRY | StyleEffect.INTERACTION
-    return result
+            effect |= StyleEffect.PAINT | StyleEffect.MEASUREMENT | StyleEffect.GEOMETRY | StyleEffect.INTERACTION
+    return effect
