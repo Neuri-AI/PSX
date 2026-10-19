@@ -357,3 +357,17 @@ def test_html_block_native_geometry_and_reconciliation(qt_tree, request):
         and alpha.y() == beta.height()
         and original_root.layout() is None,
     )
+    inline = tree.render(psx(
+        '<div display="inline"><button key="b">Beta</button>'
+        '<button key="a">Alpha</button></div>'
+    ))
+    assert_feature(
+        request, Feature("div", BINDING, "interaction", "semantic_flow",
+                         "display_reflow", applicability="partial_native"),
+        inline.handle.widget is original_root
+        and inline.children[0].handle.widget is beta
+        and inline.children[1].handle.widget is alpha
+        and beta.x() == 0
+        and alpha.x() == beta.width()
+        and alpha.width() < 400,
+    )
