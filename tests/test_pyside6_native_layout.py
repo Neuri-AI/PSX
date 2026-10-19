@@ -38,6 +38,30 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.r.unmount()
         self.renderer.application.processEvents()
 
+    def test_html_block_commits_qt_rectangles_and_keyed_reorder(self):
+        self.renderer.set_sfle_constraints(constraints(240, 140))
+        original = self.r.render(psx(
+            '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
+        ))
+        alpha, beta = (child.handle.widget for child in original.children)
+        self.assertIsInstance(alpha, QPushButton)
+        self.assertIsNone(original.handle.widget.layout())
+        self.assertIs(alpha.parentWidget(), original.handle.widget)
+        self.assertEqual(alpha.width(), 240)
+        self.assertEqual(beta.width(), 240)
+        self.assertEqual(alpha.y(), 0)
+        self.assertEqual(beta.y(), alpha.height())
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
+        reordered = self.r.render(psx(
+            '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+        ))
+        self.assertIs(reordered.children[0].handle.widget, beta)
+        self.assertIs(reordered.children[1].handle.widget, alpha)
+        self.assertEqual(beta.y(), 0)
+        self.assertEqual(alpha.y(), beta.height())
+        self.assertIsNone(original.handle.widget.layout())
+
     def test_scroll_unmount_releases_native_viewport(self):
         from psx import Scroll
         self.renderer.set_sfle_constraints(constraints(300, 200))
