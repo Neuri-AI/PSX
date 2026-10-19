@@ -178,6 +178,9 @@ class HeadlessRenderer:
         self._sfle_measurement_invalidations.cancel()
         self._sfle_intrinsic_cache.clear()
         self._sfle_committed_signatures = None
+        self._sfle_prior_solver_input = None
+        self._sfle_prior_solver_result = None
+        self._sfle_prior_solver_engine = None
         self._sfle_mounted_root = None
         self.grid_result = None
         if self._sfle_constraints is not None:
