@@ -250,3 +250,27 @@ def test_semantic_flow_snapshot_rust_python_geometry_parity(rust_binary, root_di
                 assert actual == expected, (
                     root_display, node_id, kind, axis, actual, expected,
                 )
+
+
+def test_semantic_flow_missing_native_measurement_fails_both_engines(rust_binary):
+    from psx.sfle.model import (
+        AvailableSize, LayoutConstraints, LayoutInput, LayoutNode,
+        WritingDirection,
+    )
+
+    constraints = LayoutConstraints(
+        AvailableSize(100, True), AvailableSize(80, True),
+    )
+    snapshot = LayoutInput(
+        1, 23, WritingDirection.LTR, constraints,
+        (
+            LayoutNode("root", None, "div", (("display", "block"),)),
+            LayoutNode("text", "root", "Text", ()),
+        ),
+        (),
+    )
+    py = _python_compute(snapshot)
+    rs = _rust_compute(rust_binary, snapshot)
+    assert not py["ok"] and not rs["ok"]
+    assert py["error"]["code"] == rs["error"]["code"] == "SFLE_UNSUPPORTED_MEASUREMENT"
+    assert py["error"]["node_id"] == rs["error"]["node_id"] == "text"
