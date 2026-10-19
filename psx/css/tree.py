@@ -87,15 +87,20 @@ def compare_styled_trees(
 
     def identities(items: tuple[StyledNode, ...]) -> dict[tuple[object, ...], StyledNode]:
         result: dict[tuple[object, ...], StyledNode] = {}
-        for item in items:
-            identity = (
-                ("key", item.path[:-1], item.key)
-                if item.key is not None and item.path
-                else ("path", item.path)
-            )
+        by_path: dict[NodePath, tuple[object, ...]] = {}
+        for item in sorted(items, key=lambda entry: (len(entry.path), entry.path)):
+            if not item.path:
+                identity: tuple[object, ...] = ("root",)
+            else:
+                parent_identity = by_path.get(item.path[:-1])
+                if parent_identity is None:
+                    raise ValueError("Orphan CSS host node in style snapshot.")
+                sibling_identity = ("key", item.key) if item.key is not None else ("index", item.path[-1])
+                identity = (*parent_identity, sibling_identity)
             if identity in result:
                 raise ValueError(f"Duplicate scoped CSS tree identity: {identity!r}.")
             result[identity] = item
+            by_path[item.path] = identity
         return result
 
     before = identities(previous)
