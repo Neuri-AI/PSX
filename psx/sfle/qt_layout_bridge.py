@@ -7,6 +7,8 @@ real native parent before writing QWidget.setGeometry.
 """
 from __future__ import annotations
 
+from psx.markup.html_aliases import FORMATTING_TAGS
+
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
@@ -151,7 +153,8 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             node_id: bindings[node_id].widget
             for node_id, source in prepared.identities
             if source.kind is NodeKind.HOST
-            and source.type not in ("Flex", "Box", "RadioGroup", "Scroll", "Grid", "div")
+            and source.type not in ("Flex", "Box", "RadioGroup", "Scroll", "Grid")
+            and source.type not in FORMATTING_TAGS
             and not (source.type == "Divider" and source.children)
             and node_id not in external
         }
