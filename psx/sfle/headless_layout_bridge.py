@@ -186,7 +186,16 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
         # Reuse the prepared identities and canonical item lengths while
         # preserving actual host measurements and the legacy Grid composition.
         snapshot = replace(prepared.canonical_snapshot(), measurements=tuple(metrics))
-        result = (compute_width_dependent(
+        from psx.sfle.incremental_result_reuse import reuse_unchanged_layout
+        cached_result = None
+        if not grid_nodes:
+            cached_result = reuse_unchanged_layout(
+                renderer._sfle_prior_solver_input,
+                renderer._sfle_prior_solver_result,
+                snapshot,
+                native_measurement_invalidated=invalidations.needs_commit(),
+            )
+        result = cached_result if cached_result is not None else (compute_width_dependent(
             renderer._sfle_engine, snapshot,
             {node_id: (lambda width, node_id=node_id: intrinsic_grid(node_id, width))
              for node_id in grid_nodes},
@@ -282,6 +291,10 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             renderer.grid_result = grid_receipts[-1]
         # Publish the cache only after the layout and native readback pass.
         renderer._sfle_intrinsic_cache = next_cache
+        # Publish only after native commit/readback succeeds. Two immutable
+        # receipts maximum, replaced every successful transaction.
+        renderer._sfle_prior_solver_input = snapshot if not grid_nodes else None
+        renderer._sfle_prior_solver_result = result if not grid_nodes else None
         renderer._sfle_committed_signatures = (
             (layout_signature, paint_signature) if signature_safe else None
         )
