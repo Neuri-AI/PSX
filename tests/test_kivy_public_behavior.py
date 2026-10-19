@@ -145,3 +145,58 @@ assert alpha.parent is None and beta.parent is None
                          "display_reflow", applicability="partial_native"),
         run.returncode == 0, run.stdout + "\\n" + run.stderr,
     )
+
+
+def test_semantic_flow_native_geometry_per_tag(request):
+    tags = (
+        "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+        "section", "main", "header", "footer",
+    )
+    script = """
+from kivy.config import Config
+Config.set("graphics", "window_state", "hidden")
+from psx import psx
+from psx.core.reconcile import Reconciler
+from psx.renderers.kivy.kivy import KivyRenderer
+from psx.sfle.engine import PythonLayoutEngine
+from psx.sfle.model import AvailableSize, LayoutConstraints
+
+tags = (
+    "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+    "section", "main", "header", "footer",
+)
+renderer = KivyRenderer(
+    sfle_constraints=LayoutConstraints(
+        AvailableSize(400, True), AvailableSize(120, True)),
+    engine=PythonLayoutEngine(),
+)
+tree = Reconciler(renderer)
+for tag in tags:
+    root = tree.render(psx(f"<{tag}><button>Action</button></{tag}>"))
+    child = root.children[0].handle.widget
+    assert child.parent is root.handle.widget, tag
+    assert round(root.handle.widget.width) == 400, tag
+    assert 0 < child.width <= 400, tag
+    assert round(child.x) == 0, tag
+    assert round(child.y + child.height) == 120, tag
+    if tag == "span":
+        assert child.width < 400, tag
+    else:
+        assert round(child.width) == 400, tag
+tree.unmount()
+"""
+    env = dict(
+        os.environ, KIVY_NO_FILELOG="1", KIVY_NO_ARGS="1",
+        KIVY_WINDOW="sdl2", KIVY_TEXT="sdl2",
+    )
+    run = subprocess.run(
+        [sys.executable, "-c", script], env=env,
+        capture_output=True, text=True, timeout=90,
+    )
+    assert run.returncode == 0, run.stdout + "\\n" + run.stderr
+    for tag in tags:
+        assert_feature(
+            request, Feature(tag, "kivy", "interaction", "semantic_flow",
+                             "native_geometry", applicability="partial_native"),
+            run.returncode == 0,
+        )
