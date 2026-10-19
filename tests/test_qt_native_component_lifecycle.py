@@ -170,6 +170,8 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         initial = geometry(native)
         before = engine.calls
         self.assertGreater(before, 0)
+        self.assertIsNotNone(getattr(self.renderer, "_sfle_committed_signatures", None),
+                             "Initial Qt geometry transaction must publish safe signature")
         self.reconciler.render(view("#222222"))
         self.assertIs(self.reconciler.root.children[0].handle.widget, native)
         self.assertEqual(geometry(native), initial)
