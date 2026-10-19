@@ -489,3 +489,30 @@ class QtSFLEGeometryTests(unittest.TestCase):
         with self.assertRaisesRegex(RendererCapabilityError, "Native SFLE SFLE geometry"):
             r.render(Flex(width=160, height=80))
         r.unmount()
+
+
+def test_html_flow_public_native_geometry_receipt_pyside6(request):
+    from tests.certification.public_behavior_census import Feature, assert_feature
+    renderer = PySide6Renderer(
+        argv=["psx-block-public-census"],
+        sfle_constraints=constraints(220, 120),
+        engine=PythonLayoutEngine(),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(psx(
+            "<div><button>First</button><button>Second</button></div>"
+        ))
+        first, second = (child.handle.widget for child in root.children)
+        assert_feature(
+            request, Feature("div", "pyside6", "interaction", "semantic_flow",
+                             "native_geometry", applicability="partial_native"),
+            first.width() == 220
+            and second.width() == 220
+            and first.y() == 0
+            and second.y() == first.height()
+            and root.handle.widget.layout() is None,
+        )
+    finally:
+        reconciler.unmount()
+        renderer.application.processEvents()
