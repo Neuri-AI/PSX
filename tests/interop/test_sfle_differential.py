@@ -274,3 +274,39 @@ def test_semantic_flow_missing_native_measurement_fails_both_engines(rust_binary
     assert not py["ok"] and not rs["ok"]
     assert py["error"]["code"] == rs["error"]["code"] == "SFLE_UNSUPPORTED_MEASUREMENT"
     assert py["error"]["node_id"] == rs["error"]["node_id"] == "text"
+
+
+@pytest.mark.parametrize(("tag", "display"), [
+    ("form", "block"), ("label", "inline"),
+    ("ul", "block"), ("li", "block"),
+])
+def test_semantic_form_label_and_list_snapshots_match_rust_python(
+    rust_binary, tag, display,
+):
+    from psx.sfle.model import (
+        AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
+        LayoutNode, MeasuredBox, WritingDirection,
+    )
+    viewport = LayoutConstraints(
+        AvailableSize(120, True), AvailableSize(80, True),
+    )
+    nodes = (
+        LayoutNode("root", None, tag, (("display", display),)),
+        LayoutNode("text", "root", "Text", ()),
+    )
+    measured = (
+        MeasuredBox(
+            "text", IntrinsicSizes(45, 45, 16, 16, 45, 16, baseline=12),
+            viewport, 1,
+        ),
+    )
+    snapshot = LayoutInput(
+        1, 32, WritingDirection.LTR, viewport, nodes, measured,
+    )
+    py = _python_compute(snapshot)
+    rust = _rust_compute(rust_binary, snapshot)
+    assert py["ok"], py.get("error")
+    assert rust["ok"], rust.get("error")
+    assert _rects(py["result"]) == _rects(rust["result"])
+    expected_width = 45 if display == "inline" else 120
+    assert _rects(py["result"])["text"]["border"]["width"] == expected_width
