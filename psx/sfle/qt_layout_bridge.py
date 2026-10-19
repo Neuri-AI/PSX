@@ -82,6 +82,19 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             for node_id, source in prepared.identities
             if (port := external_port_for(source, renderer)) is not None
         }
+        from psx.sfle.layout_change_effects import partition_dependency_signature
+
+        (layout_signature, paint_signature), signature_safe = (
+            partition_dependency_signature(
+                tuple(
+                    (node_id, str(source.type), id(bindings[node_id].widget),
+                     source.props)
+                    for node_id, source in prepared.identities
+                ),
+                renderer._sfle_constraints,
+            )
+        )
+        prior_signature = getattr(renderer, "_sfle_committed_signatures", None)
         # A Qt layout must never be allowed to override SFLE rectangles.
         for node_id, handle in bindings.items():
             # An SFLE leaf may use a toolkit layout for its own internal
@@ -106,6 +119,20 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             ):
                 raise SFLEError(DiagnosticCode.UNSUPPORTED_FEATURE,
                                 "Qt SFLE participant is owned by a competing QLayout.", node_id)
+        # Only the certified Text.color-only change is eligible. The preceding
+        # native layout/ownership checks must run even when the solver is reused.
+        # A semantic invalidation always overrides the paint fast path.
+        if (
+            signature_safe
+            and renderer.sfle_result is not None
+            and prior_signature is not None
+            and prior_signature[0] == layout_signature
+            and prior_signature[1] != paint_signature
+            and not renderer._sfle_measurement_invalidations.needs_commit()
+        ):
+            renderer._sfle_committed_signatures = (layout_signature, paint_signature)
+            return
+
         for node in prepared.snapshot.nodes:
             if node.parent_id is None:
                 continue
@@ -360,5 +387,8 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         if mixed_receipts:
             renderer.grid_result = mixed_receipts[-1]
         native_round.publish()
+        renderer._sfle_committed_signatures = (
+            (layout_signature, paint_signature) if signature_safe else None
+        )
     finally:
         renderer._sfle_in_commit = False
