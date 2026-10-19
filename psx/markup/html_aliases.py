@@ -42,6 +42,7 @@ PORTABLE_HTML_ALIASES: Mapping[str, str] = {
     "input": "Input",
     "textarea": "TextArea",
     "img": "Image",
+    "div": "div",
 }
 
 
