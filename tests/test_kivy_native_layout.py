@@ -13,6 +13,54 @@ import unittest
 
 
 class KivySFLEGeometrySubprocessTests(unittest.TestCase):
+    def test_html_block_uses_cinnamon_native_positions(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(240, True), AvailableSize(140, True),
+                ),
+                engine=PythonLayoutEngine(),
+            )
+            reconciler = Reconciler(renderer)
+            root = reconciler.render(psx(
+                '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
+            ))
+            alpha, beta = (item.handle.widget for item in root.children)
+            assert alpha.parent is root.handle.widget
+            assert root.handle.widget.size_hint == [None, None]
+            assert round(root.handle.widget.width) == 240
+            assert round(root.handle.widget.height) == 140
+            assert round(alpha.width) == 240
+            assert round(beta.width) == 240
+            assert round(alpha.y) == round(beta.y + beta.height)
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            updated = reconciler.render(psx(
+                '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+            ))
+            assert updated.children[0].handle.widget is beta
+            assert updated.children[1].handle.widget is alpha
+            assert round(beta.y) == round(alpha.y + alpha.height)
+            reconciler.unmount()
+            assert alpha.parent is None and beta.parent is None
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_mounted_kivy_flex_consumes_canonical_item_lengths(self):
         script = textwrap.dedent(r"""
             from unittest.mock import patch
