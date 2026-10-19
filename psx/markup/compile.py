@@ -25,6 +25,7 @@ from .ast import (
     TextPart,
 )
 from .parser import parse
+from .html_aliases import markup_alias_definitions
 
 Primitive: TypeAlias = Callable[..., VNode] | ComponentType
 _GRAMMAR_VERSION = "m4a-1"
@@ -130,7 +131,7 @@ def _resolver(
         # Fresh default registries have the same built-in contents. Their
         # cache identity is deliberately stable while caller-owned registries
         # are always isolated by object identity and version.
-        return _Resolver(builtins.snapshot(), ("default-builtins", builtins.version))
+        return _Resolver(markup_alias_definitions(builtins.snapshot()), ("default-builtins-html-aliases", builtins.version))
     builtin_definitions = builtins.snapshot()
     definitions = {
         name: ComponentDefinition(
