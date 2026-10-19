@@ -1639,3 +1639,31 @@ class TkSFLEGeometryTests(unittest.TestCase):
                          for widget in (first, second)), baseline)
         self.assertIs(root.children[0].handle.widget, first)
         self.assertIs(root.children[1].handle.widget, second)
+
+
+def test_html_flow_public_native_geometry_receipt_tkinter(request):
+    from tests.certification.public_behavior_census import Feature, assert_feature
+    host = tk.Tk()
+    host.geometry("300x180+0+0")
+    renderer = TkinterRenderer(
+        root=host, sfle_constraints=constraints(220, 120),
+        engine=PythonLayoutEngine(),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(psx(
+            "<div><button>First</button><button>Second</button></div>"
+        ))
+        first, second = (child.handle.widget for child in root.children)
+        a, b = rect(first), rect(second)
+        assert_feature(
+            request, Feature("div", "tkinter", "interaction", "semantic_flow",
+                             "native_geometry", applicability="partial_native"),
+            a[0] == 0 and a[2] == 220
+            and b[2] == 220 and b[1] == a[3]
+            and first.winfo_manager() == "place",
+        )
+    finally:
+        reconciler.unmount()
+        renderer.close()
+        host.destroy()
