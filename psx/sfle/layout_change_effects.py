@@ -92,3 +92,100 @@ def partition_dependency_signature(
                 dependencies.append((name, detached))
         geometry.append((node_id, component, handle_id, tuple(dependencies)))
     return ((constraints, tuple(geometry)), tuple(paint)), safe
+
+
+def dirty_layout_nodes(
+    previous: tuple[tuple[str, str, int, Mapping[str, object]], ...] | None,
+    current: tuple[tuple[str, str, int, Mapping[str, object]], ...],
+    *,
+    constraints_changed: bool = False,
+) -> frozenset[str] | None:
+    """Identify changed mounted nodes; None means full-tree invalidation.
+
+    This is a conservative *planning* primitive, not permission to skip a
+    Cinnamon compute. It does not retain native widget or callback references.
+    Structural changes, unstable identity or unrepresentable property values
+    require whole-tree invalidation. Paint-only edits are excluded.
+    """
+    if previous is None or constraints_changed:
+        return None
+    if len(previous) != len(current):
+        return None
+
+    dirty: set[str] = set()
+    seen: set[str] = set()
+    for old, new in zip(previous, current):
+        old_id, old_type, old_handle, old_props = old
+        node_id, node_type, handle, props = new
+        if (old_id, old_type, old_handle) != (node_id, node_type, handle):
+            return None
+        if node_id in seen:
+            return None
+        seen.add(node_id)
+        old_names, new_names = set(old_props), set(props)
+        for name in old_names | new_names:
+            old_valid, old_value = detached_literal(old_props[name]) if name in old_props else (True, None)
+            new_valid, new_value = detached_literal(props[name]) if name in props else (True, None)
+            if not old_valid or not new_valid:
+                return None
+            if (name in old_props) != (name in props) or old_value != new_value:
+                effect = classify_change(node_type, name)
+                if effect is ChangeEffect.STRUCTURE:
+                    return None
+                if effect is not ChangeEffect.PAINT:
+                    dirty.add(node_id)
+    return frozenset(dirty)
+
+
+def affected_flex_contexts(
+    dirty_nodes: frozenset[str] | None,
+    *,
+    parent_by_id: Mapping[str, str | None],
+    flex_node_ids: frozenset[str],
+) -> frozenset[str] | None:
+    """Conservatively find Flex contexts reachable from dirty nodes.
+
+    The ancestor chain may influence size or sibling positions, so every
+    ancestor Flex must be invalidated. Descendant Flex contexts are included
+    because an upstream geometry change can alter their available size.
+    Unrelated sibling Flex contexts are not *directly* dirty, but their final
+    geometry must still be validated by the parent transaction.
+    """
+    if dirty_nodes is None:
+        return None
+    if not dirty_nodes:
+        return frozenset()
+    ids = set(parent_by_id)
+    if not dirty_nodes <= ids or not flex_node_ids <= ids:
+        return None
+    children: dict[str, list[str]] = {node_id: [] for node_id in ids}
+    for node_id, parent in parent_by_id.items():
+        if parent is not None:
+            if parent not in ids or parent == node_id:
+                return None
+            children[parent].append(node_id)
+
+    affected: set[str] = set()
+    for node_id in dirty_nodes:
+        visited: set[str] = set()
+        cursor: str | None = node_id
+        while cursor is not None:
+            if cursor in visited:
+                return None
+            visited.add(cursor)
+            if cursor in flex_node_ids:
+                affected.add(cursor)
+            cursor = parent_by_id[cursor]
+
+    stack = list(affected)
+    visited_descendants: set[str] = set()
+    while stack:
+        current_id = stack.pop()
+        if current_id in visited_descendants:
+            continue
+        visited_descendants.add(current_id)
+        for child in children[current_id]:
+            if child in flex_node_ids:
+                affected.add(child)
+            stack.append(child)
+    return frozenset(affected)
