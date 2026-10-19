@@ -90,6 +90,8 @@ class HeadlessRenderer:
         self._sfle_intrinsic_cache = {}
         # One successful layout/paint signature, owned by this renderer.
         self._sfle_committed_signatures = None
+        self._sfle_prior_solver_input = None
+        self._sfle_prior_solver_result = None
         self._sfle_owner_thread = get_ident()
         self.grid_result = None
         self.sfle_result: LayoutResult | None = None
