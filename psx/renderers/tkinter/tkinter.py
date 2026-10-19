@@ -732,7 +732,20 @@ class TkinterRenderer:
                 raise RendererCapabilityError(
                     "Tkinter div requires an enabled Cinnamon Block viewport.")
             master = _as_handle(parent).widget if parent is not None else self.root
-            return TkHandle(node.type, ttk.Frame(master), dict(node.props))
+            frame = ttk.Frame(master)
+            if parent is None:
+                constraints = self._sfle_constraints
+                if (not constraints.width.definite or not constraints.height.definite
+                        or constraints.width.value is None or constraints.height.value is None):
+                    frame.destroy()
+                    raise RendererCapabilityError(
+                        "Tk Block root requires a definite viewport.")
+                frame.place(
+                    x=0, y=0, width=round(constraints.width.value),
+                    height=round(constraints.height.value),
+                )
+                self._sfle_root_widget = frame
+            return TkHandle(node.type, frame, dict(node.props))
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             if self._sfle_constraints is None:
                 raise RendererCapabilityError(
