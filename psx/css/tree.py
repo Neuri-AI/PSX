@@ -60,3 +60,56 @@ def resolve_vnode_styles(
 
     visit(root, (), None)
     return tuple(result)
+
+
+@dataclass(frozen=True, slots=True)
+class StyleTreeChange:
+    """The new tree's path, identity and conservative change effect."""
+
+    path: NodePath
+    key: str | int | None
+    effect: object
+    added: bool = False
+    removed: bool = False
+
+
+def compare_styled_trees(
+    previous: tuple[StyledNode, ...],
+    current: tuple[StyledNode, ...],
+) -> tuple[StyleTreeChange, ...]:
+    """Compare immutable snapshots without retaining previous mounted trees.
+
+    Keyed sibling identity is scoped to a parent path, mirroring PSX keys.
+    Unkeyed identities remain positional. A relocated keyed child under a
+    different parent is intentionally considered removed and added.
+    """
+    from .effects import StyleEffect, classify_style_change
+
+    def identities(items: tuple[StyledNode, ...]) -> dict[tuple[object, ...], StyledNode]:
+        result: dict[tuple[object, ...], StyledNode] = {}
+        for item in items:
+            identity = (
+                ("key", item.path[:-1], item.key)
+                if item.key is not None and item.path
+                else ("path", item.path)
+            )
+            if identity in result:
+                raise ValueError(f"Duplicate scoped CSS tree identity: {identity!r}.")
+            result[identity] = item
+        return result
+
+    before = identities(previous)
+    after = identities(current)
+    changes: list[StyleTreeChange] = []
+    for identity, item in after.items():
+        old = before.get(identity)
+        if old is None or old.tag != item.tag:
+            changes.append(StyleTreeChange(item.path, item.key, StyleEffect.GEOMETRY | StyleEffect.MEASUREMENT | StyleEffect.PAINT, added=True))
+            continue
+        effect = classify_style_change(old.computed, item.computed)
+        if effect:
+            changes.append(StyleTreeChange(item.path, item.key, effect))
+    for identity, item in before.items():
+        if identity not in after or after[identity].tag != item.tag:
+            changes.append(StyleTreeChange(item.path, item.key, StyleEffect.GEOMETRY | StyleEffect.MEASUREMENT | StyleEffect.PAINT, removed=True))
+    return tuple(changes)
