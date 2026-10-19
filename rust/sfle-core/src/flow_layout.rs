@@ -81,6 +81,73 @@ pub fn layout_inline_atoms(available_width: f64, atoms: &[InlineAtom]) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(serde::Deserialize)]
+    struct BlockCase {
+        available: f64,
+        items: Vec<[f64; 6]>,
+        expected: Vec<[f64; 4]>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct InlineCase {
+        available: f64,
+        items: Vec<[f64; 3]>,
+        expected: Vec<[f64; 4]>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct SharedCases {
+        blocks: Vec<BlockCase>,
+        inline: Vec<InlineCase>,
+    }
+
+    #[test]
+    fn block_and_inline_match_shared_language_geometry_vectors() {
+        let cases: SharedCases = serde_json::from_str(include_str!(
+            "../../../tests/fixtures/flow_geometry_cases.json"
+        ))
+        .expect("Shared geometry vectors must be valid JSON");
+
+        for case in cases.blocks {
+            let items: Vec<BlockItem> = case
+                .items
+                .iter()
+                .map(|entry| BlockItem {
+                    width: entry[0],
+                    height: entry[1],
+                    margin_top: entry[2],
+                    margin_right: entry[3],
+                    margin_bottom: entry[4],
+                    margin_left: entry[5],
+                })
+                .collect();
+            let actual = layout_blocks(case.available, &items).unwrap();
+            let observed: Vec<[f64; 4]> = actual
+                .iter()
+                .map(|rect| [rect.x, rect.y, rect.width, rect.height])
+                .collect();
+            assert_eq!(observed, case.expected);
+        }
+
+        for case in cases.inline {
+            let items: Vec<InlineAtom> = case
+                .items
+                .iter()
+                .map(|entry| InlineAtom {
+                    width: entry[0],
+                    height: entry[1],
+                    baseline: entry[2],
+                })
+                .collect();
+            let actual = layout_inline_atoms(case.available, &items).unwrap();
+            let observed: Vec<[f64; 4]> = actual
+                .iter()
+                .map(|rect| [rect.x, rect.y, rect.width, rect.height])
+                .collect();
+            assert_eq!(observed, case.expected);
+        }
+    }
     #[test]
     fn blocks_keep_measured_width_and_stack() {
         let items = [
