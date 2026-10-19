@@ -329,3 +329,10 @@ The [owner-ready P0 decision package](P0_OWNER_DECISION_PACKAGE.md) provides AD-
 - [Batch 3 — hot reload and certification](P0_CONTRACT_REVIEW_BATCH_3.md): AD-10/11/12
 
 **Blocking gates unchanged:** H-PKG-01 actual resolver, H-MEM-01 teardown fault-injection, native/Python/Rust same-SHA matrix, and explicit owner decisions. P1 implementation **NOT AUTHORIZED**.
+
+
+## Owner-authorized scoped Block/Inline implementation (2026-10-19)
+
+The owner approved the outstanding architectural policy recommendations and explicitly prioritized completing the Block/Inline implementation ahead of investigating the existing Kivy long-running memory-growth finding. See [Architecture Approval — scoped implementation authorization](ARCHITECTURE_APPROVAL.md#owner-directed-implementation-scope-and-kivy-memory-risk-2026-10-19) for bounded scope and unresolved global gates. This decision supersedes prior blanket *implementation not authorized* statements **only for that specifically described development scope**; it does not approve a general P1 release, the global architecture gate or untested capabilities.
+
+Block/Inline must use Cinnamon rather than Flex aliases; introduce optional compatible native measurement/commit/invalidation ports, test lifecycle and geometry on each claimed backend and retain exact-SHA CI receipts and public census. Known Kivy soak slopes stay open for later hardening; fresh native lifecycle regressions are not waived.
