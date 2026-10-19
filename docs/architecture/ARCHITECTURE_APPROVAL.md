@@ -51,9 +51,9 @@ Use this table as a ledger **only after direct owner review**. Blank fields mean
 | ID | Decision to approve | Selected choice | Date | Owner acceptance proof / PR |
 | --- | --- | --- | --- | --- |
 | AD-01 | Overflow/Scroll subset | PENDING | — | — |
-| AD-02 | Box-sizing default for new lowercase tags | PENDING | — | — |
-| AD-03 | CSS-like style precedence and cascade | PENDING | — | — |
-| AD-04 | Block formatting scope | PENDING | — | — |
+| AD-02 | Box-sizing default for new lowercase tags | **APPROVED — border-box for new lowercase tags; legacy sizing unchanged; implementation pending** | 2026-10-19 | Explicit owner acceptance of proposed box-sizing rule in project conversation; PR #48 |
+| AD-03 | CSS-like style precedence and cascade | **APPROVED — CSS cascade for lowercase tags; explicit legacy compatibility; implementation pending** | 2026-10-19 | Explicit owner acceptance of proposed CSS precedence rule in project conversation; PR #48 |
+| AD-04 | Block formatting scope | **APPROVED — dedicated block/inline formatting contexts; implementation pending** | 2026-10-19 | Explicit owner acceptance of proposed block/inline model in project conversation; PR #48 |
 | AD-05 | Exception-safe disposal policy | PENDING | — | — |
 | AD-06 | Lowercase markup vocabulary/compatibility | **APPROVED — target vocabulary and coexistence rules; implementation pending** | 2026-10-19 | Direct owner approval in project conversation, following the explicit AD-06 vocabulary proposal; PR #48 branch record |
 | AD-07 | Package/version dependency graph | PENDING | — | — |
@@ -238,3 +238,33 @@ This is approval of the architectural contract, **not approval of all outstandin
 **Compatibility constraints:** lowercase tags have separately specified identities and semantics; existing PascalCase `Button`, `Text`, `Flex`, `Grid` and other components retain their public contracts. `div` is not an alias for `Flex` or the internal `Box`. Cinnamon remains the only geometric authority. CSS Core resolves CSS properties when they are implemented, without reinterpreting legacy component-owned native properties. Unsupported tags and behaviors must fail explicitly, rather than silently mapping to an unrelated component. Implement the vocabulary incrementally, with behavior tests, native routing and executed public-behavior census receipts for each shipped public tag.
 
 **Remaining independent owner decisions:** AD-02 (box-sizing defaults), AD-04 (block/inline formatting scope), AD-03 (CSS cascade and precedence), and any other unchanged pending entries. Approval of the tag vocabulary does **not** establish `display: block`, inline flow, styling syntax, form semantics, CSS Grid, release readiness or the global P0→P1 architecture gate. All gate evidence requirements above remain in force.
+
+## Owner decisions — box sizing, CSS cascade and flow formatting (2026-10-19)
+
+The project owner explicitly accepted the presented AD-02, AD-03 and AD-04 recommendations in conversation on 2026-10-19. These are **approved architectural semantics, not implementation or same-SHA certification receipts**.
+
+### AD-02 — Lowercase box sizing
+
+- New lowercase HTML-like tags default to `box-sizing: border-box`; declared widths and heights include padding and border, excluding margin.
+- Legacy PascalCase components retain their existing content-box and component-owned geometry semantics without implicit migration.
+- Explicit `box-sizing: content-box` on a new tag is part of the intended CSS contract, subject to implementation and backend conformance tests.
+- Undefined, intrinsic and percentage dimensions retain Cinnamon's typed/definite constraints and fail-closed behavior.
+
+### AD-03 — CSS cascade and precedence
+
+- For new lowercase tags: resolve element defaults, stylesheet declarations, and inline `style` with documented CSS cascade ordering (including origins, importance, specificity and source order) and applicable inheritance.
+- For existing PascalCase components: preserve explicit legacy `layout_*` slots and native component-owned properties; do not silently remap them to CSS equivalents. Conflicts require deterministic compatibility treatment and diagnostics, specified and tested per property.
+- The internal `psx/css/` engine owns selector, parsing and computed-style work; Cinnamon owns resulting geometry; native renderers own supported painting, focus and interactions.
+- Supporting individual CSS selectors, origins, `!important`, pseudo states or properties requires separate implementation, fail-closed unsupported diagnostics, functional tests and public behavior receipts. This decision does not assert full browser CSS support.
+
+### AD-04 — Dedicated block and inline formatting
+
+- An HTML-like `div` has default `display: block`, not `Flex`; its box participates in block flow with automatic sizing and normal flow placement as specified for the supported subset.
+- `display: inline` participates in an inline formatting context, including line formation, text metrics, wrapping, baselines and fragment painting as applicable. It is not implemented as a synthetic wrapping Flex row.
+- `inline-block` produces an atomic inline-level box with independently resolved dimensions. `flex` and `inline-flex` reuse Cinnamon's Flex algorithm while retaining distinct outer display participation.
+- Changes in `display` invalidate the relevant formatting context and dependent siblings/ancestors, **without unmounting or changing the logical keyed VNode identity**. Cinnamon owns layout, and native geometry commits remain generation checked.
+- Percentage constraints, margin-collapse details, anonymous boxes, intrinsic line breaking, multi-fragment painting and backend capabilities must be specified and tested before a particular subset is advertised as available.
+
+### Approval boundaries
+
+AD-02, AD-03 and AD-04 are owner-approved as technical direction. Their implementations, supported-property matrices and full semantics are not thereby certified. AD-01, AD-05, AD-07–AD-12 remain at their recorded statuses; the global P0→P1 architecture gate stays **BLOCKED**, subject to its separate evidence and approval rule. The previously recorded AD-06 approval remains unchanged.
