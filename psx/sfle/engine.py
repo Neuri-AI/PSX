@@ -51,19 +51,24 @@ class PythonLayoutEngine:
         previous_input: LayoutInput | None = None,
         previous_result: LayoutResult | None = None,
         native_measurement_invalidated: bool = False,
+        reused_contexts: list[str] | None = None,
     ) -> LayoutResult:
-        """Reuse certified identical input, otherwise run the full solver.
+        """Reuse unchanged snapshots or safely isolated Flex sizing subtrees.
 
-        Partial subtree solving is deliberately not claimed here. This
-        opt-in method does not modify the shared Rust/Python engine protocol.
+        When context reuse is ineligible, perform a complete solve. Geometry
+        placement always runs through Cinnamon's normal compositor.
         """
         from .context_invalidation_plan import plan_context_invalidation
         from .incremental_result_reuse import reuse_unchanged_layout
         plan = plan_context_invalidation(previous_input, request)
-        # Partial recomputation requires a solver-supported context receipt.
-        # Until then, changes to any dependency must use full computation.
-        if plan.full_recompute or plan.dirty_nodes:
+        if plan.full_recompute or native_measurement_invalidated:
             return self.compute(request)
+        if plan.dirty_nodes:
+            from .compute_alpha import compute_snapshot
+            return compute_snapshot(
+                request, previous_input=previous_input,
+                previous_result=previous_result, reused_contexts=reused_contexts,
+            )
         cached = reuse_unchanged_layout(
             previous_input, previous_result, request,
             native_measurement_invalidated=native_measurement_invalidated,
