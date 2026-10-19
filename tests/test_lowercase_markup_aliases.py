@@ -360,3 +360,37 @@ def test_headless_display_change_reflows_without_replacing_keyed_handles(request
         and second.geometry.y == 0,
     )
     reconciler.unmount()
+
+
+@pytest.mark.parametrize("tag", (
+    "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+    "section", "main", "header", "footer",
+))
+def test_headless_semantic_flow_native_geometry_receipt(request, tag):
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from tests.certification.public_behavior_census import Feature, assert_feature
+
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(200, True), AvailableSize(80, True),
+        ),
+        measure_intrinsic=lambda node: IntrinsicSizes(
+            60, 60, 12, 12, 60, 12, baseline=9,
+        ),
+    )
+    tree = Reconciler(renderer)
+    try:
+        root = tree.render(psx(f"<{tag}><button>Action</button></{tag}>"))
+        child = root.children[0].handle.geometry
+        assert_feature(
+            request, Feature(tag, "headless", "interaction", "semantic_flow",
+                             "native_geometry", applicability="partial_native"),
+            root.handle.geometry.width == 200
+            and child.x == 0 and child.y == 0
+            and child.height == 12
+            and (child.width == 60 if tag == "span" else child.width == 200),
+        )
+    finally:
+        tree.unmount()
