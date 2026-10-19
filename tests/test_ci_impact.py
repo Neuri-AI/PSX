@@ -8,6 +8,15 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_internal_css_foundations_route_to_executed_core_tests(self):
+        self.assertEqual(self.selected("psx/css/properties.py"), {"core"})
+        self.assertEqual(self.selected("tests/css/test_properties.py"), {"core"})
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("tests/css/test_properties.py", workflow)
+
     def test_block_flow_snapshots_run_all_native_geometry_consumers(self):
         expected = {"core", "sfle", "rust", "chromium", "headless",
                     "qt", "kivy", "tkinter"}
