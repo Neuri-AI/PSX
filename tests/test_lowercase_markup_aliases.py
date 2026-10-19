@@ -447,10 +447,45 @@ def test_list_item_includes_a_measured_bullet_and_text():
 
 def test_semantic_tags_do_not_silently_accept_unimplemented_browser_contracts():
     with pytest.raises(ValueError, match="Unsupported form properties"):
-        psx('<form on_submit="submit"></form>')
+        psx('<form on_reset="reset"></form>')
     with pytest.raises(ValueError, match="Unsupported label properties"):
         psx('<label html_for="field">Name</label>')
     with pytest.raises(ValueError, match="Unsupported ul properties"):
         psx('<ul style="list-style: square"></ul>')
     with pytest.raises(ValueError, match="requires content"):
         psx("<li></li>")
+
+
+def test_form_submit_dispatch_uses_existing_native_control_events():
+    from psx.markup.html_aliases import _formatting_host
+    from psx.core.vnode import Button, Input
+    calls = []
+    root = _formatting_host(
+        "form",
+        Button("Save", key="save", on_click=lambda: calls.append("button")),
+        Input(value="draft", key="name", on_submit=lambda value: calls.append(value)),
+        on_submit=lambda: calls.append("form"),
+    )
+    assert root.type == "form" and root.props["display"] == "block"
+    assert "on_submit" not in root.props
+    button, field = root.children
+    assert button.key == "save" and field.key == "name"
+    button.props["on_click"]()
+    field.props["on_submit"]("draft")
+    assert calls == ["button", "form", "draft", "form"]
+
+
+def test_form_submit_closure_is_replaced_on_render_and_is_fail_closed():
+    from psx.markup.html_aliases import _formatting_host
+    from psx.core.vnode import Button
+    calls = []
+    def view(tag):
+        return _formatting_host("form", Button("Save", key="save"),
+                                on_submit=lambda: calls.append(tag))
+    first = view("old")
+    updated = view("new")
+    assert first.children[0].key == updated.children[0].key == "save"
+    updated.children[0].props["on_click"]()
+    assert calls == ["new"]
+    with pytest.raises(TypeError, match="callable"):
+        _formatting_host("form", on_submit="invalid")
