@@ -329,7 +329,10 @@ def test_html_block_native_geometry_and_reconciliation(tk_tree, request):
 def test_semantic_flow_native_geometry_per_tag(tk_tree, request, tag):
     from psx import psx
     _, _, tree = tk_tree
-    root = tree.render(psx(f"<{tag}><button>Action</button></{tag}>"))
+    content = "Action" if tag in ("li", "label") else (
+        "<li>Action</li>" if tag == "ul" else "<button>Action</button>"
+    )
+    root = tree.render(psx(f"<{tag}>{content}</{tag}>"))
     child = root.children[0].handle.widget
     info = child.place_info()
     width = float(info["width"])
@@ -341,5 +344,5 @@ def test_semantic_flow_native_geometry_per_tag(tk_tree, request, tag):
         and 0 < width <= 400
         and float(info["x"]) == 0
         and float(info["y"]) == 0
-        and (width < 400 if tag == "span" else width == 400),
+        and (width < 400 if tag in ("span", "label", "li") else width == 400),
     )
