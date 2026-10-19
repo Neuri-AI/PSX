@@ -26,7 +26,7 @@ def _html_img(*children: object, src: str | None = None, source: str | None = No
 
 def _html_div(*children: object, display: str = "block", key: str | int | None = None, **props: object) -> VNode:
     """Preserve a true block host in the VNode tree; never alias to Flex."""
-    if display != "block":
+    if display not in ("block", "inline"):
         raise ValueError("div display overrides require the native formatting-context port")
     # Creating a VNode is not evidence that a native renderer can mount it.
     allowed = {"layout_width", "layout_height", "ref"}
