@@ -445,7 +445,7 @@ def test_list_item_includes_a_measured_bullet_and_text():
 
 def test_semantic_tags_do_not_silently_accept_unimplemented_browser_contracts():
     with pytest.raises(ValueError, match="Unsupported form properties"):
-        psx('<form on_submit={lambda: None}></form>')
+        psx('<form on_submit="submit"></form>')
     with pytest.raises(ValueError, match="Unsupported label properties"):
         psx('<label html_for="field">Name</label>')
     with pytest.raises(ValueError, match="Unsupported ul properties"):
