@@ -3,7 +3,7 @@ import pytest
 
 from psx.sfle.display_context import (
     DisplayMode, InnerDisplay, OuterDisplay, display_change_requires_reflow,
-    resolve_display,
+    resolve_display, layout_measured_children,
 )
 
 
@@ -66,3 +66,33 @@ def test_unimplemented_display_fails_closed(value):
 def test_legacy_components_do_not_inherit_html_defaults():
     with pytest.raises(ValueError, match="Unsupported HTML-like"):
         resolve_display("Flex")
+
+
+def test_block_context_dispatches_real_geometry():
+    from psx.sfle.flow_layout import BlockItem
+    boxes = layout_measured_children(resolve_display("div"), 300, (
+        BlockItem(300, 20),
+        BlockItem(100, 10, margin_top=5),
+    ))
+    assert [(box.y, box.width) for box in boxes] == [(0, 300), (25, 100)]
+
+
+def test_inline_context_dispatches_atomic_line_wrapping():
+    from psx.sfle.flow_layout import InlineAtom
+    boxes = layout_measured_children(resolve_display("span"), 100, (
+        InlineAtom(70, 20, 15),
+        InlineAtom(50, 10, 8),
+    ))
+    assert [(box.x, box.y) for box in boxes] == [(0, 0), (0, 20)]
+
+
+def test_unmeasured_text_and_unimplemented_flex_fail_closed():
+    with pytest.raises(TypeError, match="text runs"):
+        layout_measured_children(resolve_display("span"), 200, ("hello",))
+    with pytest.raises(NotImplementedError, match="Cinnamon Flex"):
+        layout_measured_children(resolve_display("div", "flex"), 200, ())
+
+
+def test_inline_block_requires_nested_formatting_support():
+    with pytest.raises(NotImplementedError, match="Independent flow-root"):
+        layout_measured_children(resolve_display("span", "inline-block"), 200, ())
