@@ -74,7 +74,8 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         if children[node.node_id]:
             raise SFLECapabilityError(
                 DiagnosticCode.UNSUPPORTED_FEATURE,
-                f"Native child {node.node_id!r} requires a nested format adapter.",
+                f"Nested Block/Inline formatting for native child {node.node_id!r} "
+                "requires an explicit nested format adapter.",
                 node.node_id,
             )
         return metrics[node.node_id]
