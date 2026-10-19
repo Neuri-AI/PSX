@@ -391,4 +391,11 @@ def test_semantic_flow_native_geometry_per_tag(qt_tree, request, tag):
         and 0 < child.width() <= 400
         and child.y() == 0
         and (child.width() < 400 if tag == "span" else child.width() == 400),
+        detail=(
+            f"tag={tag} root={root.handle.widget.geometry()} "
+            f"child={child.geometry()} "
+            f"parent_match={child.parentWidget() is root.handle.widget} "
+            f"root_layout={root.handle.widget.layout()!r} "
+            f"computed={renderer.sfle_result if (renderer := qt_tree[0]) else None}"
+        ),
     )
