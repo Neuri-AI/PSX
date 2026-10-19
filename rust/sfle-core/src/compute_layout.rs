@@ -494,6 +494,8 @@ struct Context<'a>{
     children:Vec<Vec<usize>>,
     measurements:HashMap<&'a str,&'a crate::compute::MeasuredBox>,
     used:Vec<Option<(f64,f64)>>,
+    reused_sizes:Vec<Option<(f64,f64)>>,
+    reusable_descendants:Vec<Vec<usize>>,
 }
 fn bounded_intrinsic(style:Style,h:bool,mut value:f64,reference:Option<f64>)->f64{
     // Minimum precedence wins over a conflicting maximum. Percentage bounds
@@ -595,6 +597,15 @@ impl Context<'_>{
         let node=&self.input.nodes[index];
         let style=self.styles[index];
         let id=node.node_id.clone();
+        if let (Some(w),Some(h),Some((prior_w,prior_h)))=
+            (forced_w,forced_h,self.reused_sizes[index]) {
+            if (w-prior_w).abs() <= 1.0/64.0 && (h-prior_h).abs() <= 1.0/64.0 {
+                for &descendant in &self.reusable_descendants[index] {
+                    self.used[descendant]=self.reused_sizes[descendant];
+                }
+                return Ok((prior_w,prior_h));
+            }
+        }
         let mut width=forced_w.or(resolved(style.width,pw,false,&id)?);
         let mut height=forced_h.or(resolved(style.height,ph,true,&id)?);
         if style.wrap!=Wrap::NoWrap && (
@@ -854,6 +865,13 @@ fn converted(r:crate::line_layout::Rect)->Rect{
     Rect{x:r.x,y:r.y,width:r.width,height:r.height}
 }
 pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutResult,ComputeError>{
+    compute_normalized_incremental(input, provisional, None)
+}
+
+pub fn compute_normalized_incremental(
+    input:&LayoutInput, provisional:bool,
+    previous:Option<(&LayoutInput,&LayoutResult)>,
+)->Result<LayoutResult,ComputeError>{
     if input.nodes.is_empty(){
         return Ok(LayoutResult {schema_version:1,generation:input.generation,
             boxes:vec![],diagnostics:vec![],measurement_error:None,
@@ -1280,10 +1298,67 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
             return Err(unsupported("Unmeasured indefinite percentage block dependency cycle.",node));
         }
     }
+    let mut reused_sizes=vec![None;input.nodes.len()];
+    let mut reusable_descendants=vec![Vec::new();input.nodes.len()];
+    if let Some((old_input,old_result))=previous {
+        let safe_environment=old_input.schema_version==input.schema_version
+            && old_input.generation==old_result.generation
+            && old_input.direction==input.direction
+            && serde_json::to_value(&old_input.constraints).ok()
+                ==serde_json::to_value(&input.constraints).ok()
+            && old_input.nodes.len()==input.nodes.len()
+            && old_result.diagnostics.is_empty()
+            && old_result.geometry_commit_error.is_none_or(|v|v==0.0);
+        if safe_environment {
+            let old_measurements:HashMap<&str,&crate::compute::MeasuredBox>=old_input
+                .measurements.iter().map(|m|(m.node_id.as_str(),m)).collect();
+            let new_measurements:HashMap<&str,&crate::compute::MeasuredBox>=input
+                .measurements.iter().map(|m|(m.node_id.as_str(),m)).collect();
+            let old_boxes:HashMap<&str,&LayoutBox>=old_result.boxes.iter()
+                .map(|b|(b.node_id.as_str(),b)).collect();
+            let mut safe=vec![false;input.nodes.len()];
+            for index in (0..input.nodes.len()).rev() {
+                let node=&input.nodes[index];
+                let old_node=&old_input.nodes[index];
+                let old_metric=old_measurements.get(node.node_id.as_str());
+                let new_metric=new_measurements.get(node.node_id.as_str());
+                let measured_equal=match (old_metric,new_metric) {
+                    (None,None)=>true,
+                    (Some(a),Some(b))=>serde_json::to_value(a).ok()
+                        ==serde_json::to_value(b).ok(),
+                    _=>false,
+                };
+                let no_percent=!node.style.values().any(|value| {
+                    if let Some(raw)=value.as_str(){return raw.contains('%');}
+                    value.get("kind").and_then(Value::as_str)==Some("percent")
+                });
+                let direct=old_node.node_id==node.node_id
+                    && old_node.parent_id==node.parent_id
+                    && old_node.component==node.component
+                    && old_node.style==node.style
+                    && measured_equal && no_percent
+                    && old_boxes.contains_key(node.node_id.as_str());
+                let descendants_safe=children[index].iter().all(|&child|safe[child]);
+                if direct && descendants_safe {
+                    safe[index]=true;
+                    let previous_box=old_boxes[node.node_id.as_str()];
+                    reused_sizes[index]=Some((
+                        previous_box.content.width,previous_box.content.height
+                    ));
+                    let mut subtree=vec![index];
+                    for &child in &children[index] {
+                        subtree.extend_from_slice(&reusable_descendants[child]);
+                    }
+                    reusable_descendants[index]=subtree;
+                }
+            }
+        }
+    }
     let mut context=Context {
         input,styles,children,provisional,
         measurements:input.measurements.iter().map(|m|(m.node_id.as_str(),m)).collect(),
         used:vec![None;input.nodes.len()],
+        reused_sizes,reusable_descendants,
     };
     let root_style=context.styles[0];
     let width=resolved(root_style.width,
