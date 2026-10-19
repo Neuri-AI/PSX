@@ -73,7 +73,9 @@ def commit_headless_block(renderer: object, root: object) -> None:
             nodes.append(LayoutNode(
                 identifier,
                 path_identity(block.path) if index else None,
-                str(item.type), (),
+                str(item.type),
+                (("display", item.source.props["display"]),)
+                if index == 0 else (),
             ))
             if index:
                 if item.effective_children:
