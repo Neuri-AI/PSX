@@ -28,3 +28,17 @@ def test_font_properties_and_measurement_effect():
 def test_unsupported_visual_values_fail_closed(name, value):
     with pytest.raises(ValueError):
         normalize_visual_value(name, value)
+
+
+def test_stylesheet_cascade_and_inheritance_for_visual_values():
+    from psx.css.parser import parse_stylesheet
+    from psx.css.cascade import StyleTarget, resolve_style
+
+    sheet = parse_stylesheet("div { background-color: #f80; font-family: Inter; font-size: 20px; color: #fff }")
+    parent = resolve_style(sheet, StyleTarget("div"))
+    assert parent.properties["background-color"] == CssColor("#f80")
+    assert parent.properties["font-size"] == Length.px(20)
+    child = resolve_style(parse_stylesheet(""), StyleTarget("span"), inherited=parent)
+    assert child.properties["font-family"] == "Inter"
+    assert child.properties["color"] == CssColor("#fff")
+    assert child.properties["background-color"] == CssColor("#0000")
