@@ -55,7 +55,7 @@ pub struct LayoutInput {
     pub nodes: Vec<LayoutNode>,
     pub measurements: Vec<MeasuredBox>,
 }
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct Rect {
     pub x: f64, pub y: f64, pub width: f64, pub height: f64,
 }
@@ -84,7 +84,7 @@ pub struct ComputeError {
     pub node_id: Option<String>,
 }
 
-pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
+fn validate_input(input: &LayoutInput) -> Result<(), ComputeError> {
     let invalid = |message: &str| ComputeError {
         code: "SFLE_INVALID_SNAPSHOT", message: message.to_string(), node_id: None,
     };
@@ -101,7 +101,22 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
             return Err(invalid("Expected a single parent-first tree."));
         }
     }
+    Ok(())
+}
+
+pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
+    validate_input(input)?;
     crate::compute_layout::compute_normalized(input,false)
+}
+
+/// Reuse unchanged, definitely-sized subtrees while preserving full placement.
+pub fn compute_incremental(
+    input:&LayoutInput, previous:&LayoutInput, previous_result:&LayoutResult,
+)->Result<LayoutResult,ComputeError>{
+    validate_input(input)?;
+    crate::compute_layout::compute_normalized_incremental(
+        input,false,Some((previous,previous_result))
+    )
 }
 
 /// Noncommittable provisional geometry for width-dependent text measurement.
