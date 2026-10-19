@@ -320,3 +320,43 @@ def test_grid_native_certificate_requires_executed_backend_receipts(tmp_path):
         merge_executed_manifests(
             tuple(inventory()), (manifest,), sha=SHA,
             require_native_components=("Grid", "GridItem"))
+
+
+def test_semantic_flow_aggregator_requires_all_real_backend_receipts(tmp_path):
+    """A green partial native suite cannot certify the semantic tag surface."""
+    from psx.markup.html_aliases import FORMATTING_TAGS
+    from tests.certification.public_behavior_census import merge_executed_manifests
+
+    rows = tuple(row for row in inventory() if row.component in FORMATTING_TAGS)
+    manifest = tmp_path / "flow-receipts.json"
+    manifest.write_text(json.dumps({
+        "summary": {"sha": SHA}, "receipts": [],
+    }), encoding="utf-8")
+    with pytest.raises(ValueError, match="Incomplete semantic flow certification"):
+        merge_executed_manifests(rows, (manifest,), sha=SHA,
+                                 require_semantic_flow=True)
+
+    junit = tmp_path / "flow-executed.xml"
+    suite = ET.Element("testsuite")
+    case = ET.SubElement(suite, "testcase", classname="tests.flow",
+                         name="certified_semantic_flow")
+    props = ET.SubElement(case, "properties")
+    for row in rows:
+        ET.SubElement(props, "property", name=RECEIPT_PROPERTY,
+                      value=json.dumps(dict(zip((
+                          "component", "backend", "feature_kind",
+                          "feature_name", "scenario_id"), feature_key(row)))))
+    ET.ElementTree(suite).write(junit, encoding="utf-8")
+    claims = []
+    for row in rows:
+        claim = _receipt(row, junit)
+        claim["test_id"] = "tests.flow::certified_semantic_flow"
+        claim["junit_artifact"] = junit.name
+        claims.append(claim)
+    manifest.write_text(json.dumps({
+        "summary": {"sha": SHA}, "receipts": claims,
+    }), encoding="utf-8")
+    verified = merge_executed_manifests(rows, (manifest,), sha=SHA,
+                                        require_semantic_flow=True)
+    assert verified["semantic_flow_scope"]["complete"]
+    assert verified["semantic_flow_scope"]["executed_pass"] == len(rows)
