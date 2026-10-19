@@ -680,7 +680,22 @@ class KivyRenderer:
             if self._sfle_constraints is None or node.props.get("display") not in ("block", "inline"):
                 raise RendererCapabilityError(
                     "Kivy div requires an enabled Cinnamon Block viewport.")
-            handle = KivyHandle(node.type, Widget(size_hint=(None, None)), dict(node.props))
+            if node.type == "label":
+                from kivy.uix.textinput import TextInput
+
+                class NativeLabelHost(Widget):
+                    def on_touch_down(self, touch):
+                        if self.collide_point(*touch.pos):
+                            for descendant in self.walk():
+                                if isinstance(descendant, TextInput) and not descendant.disabled:
+                                    descendant.focus = True
+                                    break
+                        return super().on_touch_down(touch)
+
+                native_widget = NativeLabelHost(size_hint=(None, None))
+            else:
+                native_widget = Widget(size_hint=(None, None))
+            handle = KivyHandle(node.type, native_widget, dict(node.props))
             if parent is None:
                 viewport = self._sfle_constraints
                 if (viewport.width.value is None or viewport.height.value is None
