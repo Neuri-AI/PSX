@@ -390,7 +390,8 @@ def collect_executed_receipts(rows: tuple[Feature, ...], artifacts: tuple[Path, 
 def merge_executed_manifests(rows: tuple[Feature, ...], manifests: tuple[Path, ...],
                              *, sha: str, require_complete: bool = False,
                              require_contract_components: tuple[str, ...] = (),
-                             require_native_components: tuple[str, ...] = ()) -> dict:
+                             require_native_components: tuple[str, ...] = (),
+                             require_semantic_flow: bool = False) -> dict:
     """Recheck original JUnit files after downloading per-platform artifacts.
 
     Receipt manifests are transport metadata, never independently trusted
@@ -462,6 +463,30 @@ def merge_executed_manifests(rows: tuple[Feature, ...], manifests: tuple[Path, .
         if missing:
             raise ValueError(f"Incomplete native Grid certification: {sorted(missing)[:12]} "
                              f"({len(missing)} missing)")
+    if require_semantic_flow:
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        expected_backends = set(BACKENDS) | {CONTRACT}
+        flow_rows = tuple(row for row in rows if row.component in FORMATTING_TAGS)
+        selected = {feature_key(row) for row in flow_rows}
+        if ({row.component for row in flow_rows} != FORMATTING_TAGS
+                or {row.backend for row in flow_rows} != expected_backends):
+            raise ValueError("Semantic flow census lacks required tags or native backends.")
+        passed = {feature_key(item) for item in receipts
+                  if item.get("status") == "executed_pass"}
+        missing = selected - passed
+        report["semantic_flow_scope"] = {
+            "tags": sorted(FORMATTING_TAGS),
+            "backends": sorted(expected_backends),
+            "required": len(selected),
+            "executed_pass": len(selected - missing),
+            "pending": len(missing),
+            "complete": not missing,
+        }
+        if missing:
+            raise ValueError(
+                f"Incomplete semantic flow certification: "
+                f"{sorted(missing)[:12]} ({len(missing)} missing)"
+            )
     if require_complete and not report["complete"]:
         raise ValueError(
             f"Final public behavior certificate incomplete: "
@@ -479,6 +504,7 @@ def main() -> None:
     parser.add_argument("--require-complete", action="store_true")
     parser.add_argument("--require-contract-component", action="append", default=[])
     parser.add_argument("--require-native-component", action="append", default=[])
+    parser.add_argument("--require-semantic-flow", action="store_true")
     args = parser.parse_args()
     rows = inventory()
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -495,16 +521,18 @@ def main() -> None:
             rows, tuple(args.receipt_file), sha=args.sha,
             require_complete=args.require_complete,
             require_contract_components=tuple(args.require_contract_component),
-            require_native_components=tuple(args.require_native_component))
+            require_native_components=tuple(args.require_native_component),
+            require_semantic_flow=args.require_semantic_flow)
         args.out.with_name(args.out.stem + "-final-report.json").write_text(
             json.dumps(report, indent=2) + "\n", encoding="utf-8")
-        if args.require_contract_component or args.require_native_component:
+        if args.require_contract_component or args.require_native_component or args.require_semantic_flow:
             # Preserve full global audit in JSON, but emit the *requested*
             # scoped acceptance result instead of unrelated historic gaps.
             print(json.dumps({"certificate": "scoped_public_contract",
                               "sha": report["sha"],
                               **({"contract_scope": report["contract_scope"]} if args.require_contract_component else {}),
                               **({"native_scope": report["native_scope"]} if args.require_native_component else {}),
+                              **({"semantic_flow_scope": report["semantic_flow_scope"]} if args.require_semantic_flow else {}),
                               "global_inventory_artifact":
                                   args.out.with_name(args.out.stem + "-final-report.json").name},
                              sort_keys=True))
