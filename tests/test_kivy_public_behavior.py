@@ -167,7 +167,7 @@ assert alpha.parent is None and beta.parent is None
 def test_semantic_flow_native_geometry_per_tag(request):
     tags = (
         "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
-        "section", "main", "header", "footer",
+        "section", "main", "header", "footer", "form", "label", "ul", "li",
     )
     script = """
 from kivy.config import Config
@@ -180,7 +180,7 @@ from psx.sfle.model import AvailableSize, LayoutConstraints
 
 tags = (
     "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
-    "section", "main", "header", "footer",
+    "section", "main", "header", "footer", "form", "label", "ul", "li",
 )
 renderer = KivyRenderer(
     sfle_constraints=LayoutConstraints(
