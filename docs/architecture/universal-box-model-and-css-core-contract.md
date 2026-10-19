@@ -7,6 +7,8 @@
 
 **Canonical geometry handoff:** [Precedence, intrinsic measurement and invalidation contract](canonical-geometry-integration-contract.md) specifies the closed technical rules for integrating existing `layout_*` metadata with Cinnamon without prematurely introducing new CSS syntax or public box-sizing semantics. This is a design/implementation handoff, not runtime or full gate certification.
 
+**Approved internal source location (owner selection, 2026-10-18):** CSS Core implementation belongs under `psx/css/`, with its unit tests under `tests/css/`. This is a package organization decision only; `psx.css` is internal until separate public API contracts are approved. Cinnamon stays under `psx/sfle/` and remains the sole layout/geometry authority. No CSS parser, selector, cascade, or computed-style implementation is asserted by this decision.
+
 ## 1. Objective and boundaries
 
 Velto must provide a consistent, web-familiar box model and an extensible CSS Core inside PSX, while Cinnamon remains the **sole authoritative layout engine** and Qt, Tkinter and Kivy remain **native renderers**. PSX Markup is markup; declarative use is optional. Existing PascalCase components and their documented properties remain supported.
