@@ -16,6 +16,9 @@ class RoutingTests(unittest.TestCase):
                     ".github/workflows/native-layout-selective.yml").read_text(
                         encoding="utf-8")
         self.assertIn("tests/css/test_properties.py", workflow)
+        self.assertIn("tests/css/test_parser_and_cascade.py", workflow)
+        self.assertEqual(self.selected("psx/css/parser.py"), {"core"})
+        self.assertEqual(self.selected("psx/css/cascade.py"), {"core"})
 
     def test_block_flow_snapshots_run_all_native_geometry_consumers(self):
         expected = {"core", "sfle", "rust", "chromium", "headless",
