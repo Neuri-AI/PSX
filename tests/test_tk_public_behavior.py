@@ -300,6 +300,26 @@ def test_html_block_native_geometry_and_reconciliation(tk_tree, request):
         and float(alpha_inline["x"]) == float(beta_inline["width"])
         and float(alpha_inline["width"]) < 400,
     )
+    from psx.sfle.model import LayoutConstraints, AvailableSize
+    renderer = tk_tree[1]
+    before_generation = renderer.sfle_result.generation
+    renderer.set_sfle_constraints(LayoutConstraints(
+        AvailableSize(240, True), AvailableSize(120, True),
+    ))
+    resized = tree.render(psx(
+        '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+    ))
+    beta_rect, alpha_rect = beta.place_info(), alpha.place_info()
+    assert_feature(
+        request, Feature("div", "tkinter", "interaction", "semantic_flow",
+                         "viewport_reflow", applicability="partial_native"),
+        resized.children[0].handle.widget is beta
+        and resized.children[1].handle.widget is alpha
+        and float(beta_rect["width"]) == 240
+        and float(alpha_rect["width"]) == 240
+        and float(alpha_rect["y"]) == float(beta_rect["height"])
+        and renderer.sfle_result.generation > before_generation,
+    )
 
 
 @pytest.mark.parametrize("tag", (
