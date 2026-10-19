@@ -843,7 +843,7 @@ class TkinterRenderer:
         self._default_move(parent, child, index)
 
     def _default_move(self, parent: object, child: object, index: int) -> None:
-        if _as_handle(parent).node_type in ("Grid", "GridItem"):
+        if _as_handle(parent).node_type in ("Grid", "GridItem", "div"):
             container, item = _as_handle(parent), _as_handle(child)
             if item in container.children:
                 container.children.remove(item)
