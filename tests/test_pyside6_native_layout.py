@@ -62,6 +62,29 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(alpha.y(), beta.height())
         self.assertIsNone(original.handle.widget.layout())
 
+    def test_nested_html_headings_paragraphs_and_inline_text_use_native_flow(self):
+        self.renderer.set_sfle_constraints(constraints(320, 200))
+        root = self.r.render(psx(
+            "<div>"
+            "<h1>Hello Velto!</h1>"
+            "<p>Native UI with web-like layout.</p>"
+            "<span>First second third fourth</span>"
+            "<button>Continue</button>"
+            "</div>"
+        ))
+        heading, paragraph, inline, button = root.children
+        self.assertIsNone(root.handle.widget.layout())
+        self.assertIsInstance(heading.children[0].handle.widget, QLabel)
+        self.assertIsInstance(paragraph.children[0].handle.widget, QLabel)
+        self.assertEqual(heading.handle.widget.y(), 0)
+        self.assertEqual(paragraph.handle.widget.y(), heading.handle.widget.height())
+        self.assertEqual(inline.handle.widget.y(),
+                         paragraph.handle.widget.y() + paragraph.handle.widget.height())
+        self.assertEqual(button.handle.widget.y(),
+                         inline.handle.widget.y() + inline.handle.widget.height())
+        self.assertGreater(inline.handle.widget.height(), 0)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_scroll_unmount_releases_native_viewport(self):
         from psx import Scroll
         self.renderer.set_sfle_constraints(constraints(300, 200))
