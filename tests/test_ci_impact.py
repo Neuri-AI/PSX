@@ -194,6 +194,16 @@ class RoutingTests(unittest.TestCase):
     def test_markdown_outside_docs_is_still_documentation(self):
         self.assertEqual(self.selected("CHANGELOG.md"), set())
 
+    def test_lowercase_markup_aliases_route_to_every_native_consumer(self):
+        expected = {"core", "qt", "kivy", "tkinter", "headless"}
+        self.assertGreaterEqual(self.selected("psx/core/registry.py"), expected)
+        self.assertEqual(self.selected("tests/test_lowercase_markup_aliases.py"), expected)
+        self.assertEqual(self.selected("docs/architecture/ARCHITECTURE_APPROVAL.md"), set())
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/test_lowercase_markup_aliases.py", workflow)
+
     def test_python_component_registry_affects_all_native_backends(self):
         self.assertGreaterEqual(
             self.selected("psx/core/registry.py"),
