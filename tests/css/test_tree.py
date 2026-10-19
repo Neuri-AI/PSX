@@ -51,3 +51,37 @@ def test_keyed_reorder_changes_paths_but_not_identity_or_state():
     assert [item.key for item in resolve_vnode_styles(reordered, sheet) if item.tag == "span"] == ["b", "a"]
     assert original.children[0] is a
     assert reordered.children[1] is a
+
+
+def test_keyed_style_diff_ignores_pure_sibling_reorder():
+    from psx.css.tree import compare_styled_trees
+    first = create_element("div", create_element("span", "A", key="a"),
+                           create_element("span", "B", key="b"))
+    second = create_element("div", first.children[1], first.children[0])
+    sheet = parse_stylesheet("span { color: #abc }")
+    before = resolve_vnode_styles(first, sheet)
+    after = resolve_vnode_styles(second, sheet)
+    assert compare_styled_trees(before, after) == ()
+
+
+def test_style_diff_classifies_paint_without_layout():
+    from psx.css.tree import compare_styled_trees
+    from psx.css.effects import StyleEffect
+    root = create_element("div")
+    old = resolve_vnode_styles(root, parse_stylesheet("div { color: #000 }"))
+    new = resolve_vnode_styles(root, parse_stylesheet("div { color: #fff }"))
+    changes = compare_styled_trees(old, new)
+    assert len(changes) == 1
+    assert changes[0].effect == StyleEffect.PAINT
+
+
+def test_style_diff_tracks_removed_keyed_node_without_retaining_vnode():
+    from psx.css.tree import compare_styled_trees
+    a = create_element("span", "A", key="a")
+    b = create_element("span", "B", key="b")
+    old = resolve_vnode_styles(create_element("div", a, b), parse_stylesheet(""))
+    new = resolve_vnode_styles(create_element("div", b), parse_stylesheet(""))
+    changes = compare_styled_trees(old, new)
+    assert len(changes) == 1
+    assert changes[0].key == "a"
+    assert changes[0].removed is True
