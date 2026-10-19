@@ -27,6 +27,8 @@ class RoutingTests(unittest.TestCase):
         self.assertIn("tests/css/test_property_catalog.py", workflow)
         self.assertIn("tests/css/test_catalog.py", workflow)
         self.assertEqual(self.selected("psx/css/catalog.py"), {"core"})
+        self.assertIn("tests/css/test_tree.py", workflow)
+        self.assertEqual(self.selected("psx/css/tree.py"), {"core"})
         self.assertEqual(self.selected("psx/css/effects.py"), {"core"})
 
     def test_block_flow_snapshots_run_all_native_geometry_consumers(self):
