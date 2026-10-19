@@ -406,7 +406,9 @@ def test_headless_semantic_flow_native_geometry_receipt(request, tag):
             root.handle.geometry.width == 200
             and child.x == 0 and child.y == 0
             and child.height == 12
-            and (child.width == 60 if tag == "span" else child.width == 200),
+            and (child.width == 60 if tag in ("span", "label")
+                 else child.width == 120 if tag == "li"
+                 else child.width == 200),
         )
     finally:
         tree.unmount()
