@@ -391,7 +391,7 @@ def test_html_block_native_geometry_and_reconciliation(qt_tree, request):
 
 @pytest.mark.parametrize("tag", (
     "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
-    "section", "main", "header", "footer",
+    "section", "main", "header", "footer", "form", "label", "ul", "li",
 ))
 def test_semantic_flow_native_geometry_per_tag(qt_tree, request, tag):
     from psx import psx
