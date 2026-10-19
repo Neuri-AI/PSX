@@ -82,3 +82,51 @@ def test_kivy_grid_unsupported_mount_fails_before_native_allocation(request, com
     assert_feature(request, Feature(component, CONTRACT, 'interaction',
                                     'unsupported_mount', 'kivy_fail_closed',
                                     applicability='shared'), True)
+
+
+def test_html_block_native_geometry_and_reconciliation(request):
+    script = """
+from kivy.config import Config
+Config.set("graphics", "window_state", "hidden")
+from psx import psx
+from psx.core.reconcile import Reconciler
+from psx.renderers.kivy.kivy import KivyRenderer
+from psx.sfle.engine import PythonLayoutEngine
+from psx.sfle.model import AvailableSize, LayoutConstraints
+
+renderer = KivyRenderer(
+    sfle_constraints=LayoutConstraints(
+        AvailableSize(400, True), AvailableSize(120, True)),
+    engine=PythonLayoutEngine(),
+)
+tree = Reconciler(renderer)
+first = tree.render(psx(
+    '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
+))
+alpha, beta = (item.handle.widget for item in first.children)
+root_widget = first.handle.widget
+updated = tree.render(psx(
+    '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+))
+assert updated.handle.widget is root_widget
+assert updated.children[0].handle.widget is beta
+assert updated.children[1].handle.widget is alpha
+assert round(alpha.width) == 400 and round(beta.width) == 400
+assert round(beta.y) == round(alpha.y + alpha.height)
+assert round(root_widget.height) == 120
+tree.unmount()
+assert alpha.parent is None and beta.parent is None
+"""
+    environment = dict(
+        os.environ, KIVY_NO_FILELOG="1", KIVY_NO_ARGS="1",
+        KIVY_WINDOW="sdl2", KIVY_TEXT="sdl2",
+    )
+    run = subprocess.run(
+        [sys.executable, "-c", script],
+        env=environment, capture_output=True, text=True, timeout=90,
+    )
+    assert_feature(
+        request, Feature("div", "kivy", "interaction", "semantic_flow",
+                         "native_geometry", applicability="partial_native"),
+        run.returncode == 0, run.stdout + "\\n" + run.stderr,
+    )
