@@ -205,15 +205,36 @@ for tag in tags:
         assert round(child.width) == 400, tag
 tree.unmount()
 """
-    env = dict(
-        os.environ, KIVY_NO_FILELOG="1", KIVY_NO_ARGS="1",
-        KIVY_WINDOW="sdl2", KIVY_TEXT="sdl2",
+    # Kivy may redirect sys.stdout and sys.stderr to its own Logger;
+    # preserve native failure details through an unredirected diagnostic FD.
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        import pathlib
+        diagnostic = pathlib.Path(tmpdir) / "semantic-flow-native.log"
+        wrapped = (
+            "import sys, traceback\\n"
+            "try:\\n"
+            + "".join("    " + line + "\\n" for line in script.splitlines())
+            + "except BaseException:\\n"
+            "    with open(sys.argv[1], 'w') as report:\\n"
+            "        traceback.print_exc(file=report)\\n"
+            "    raise\\n"
+        )
+        env = dict(
+            os.environ, KIVY_NO_FILELOG="1", KIVY_NO_ARGS="1",
+            KIVY_WINDOW="sdl2", KIVY_TEXT="sdl2",
+        )
+        run = subprocess.run(
+            [sys.executable, "-c", wrapped, str(diagnostic)], env=env,
+            capture_output=True, text=True, timeout=90,
+        )
+        failure_details = diagnostic.read_text() if diagnostic.exists() else ""
+    assert run.returncode == 0, (
+        failure_details + run.stdout + "\\n" + run.stderr
     )
-    run = subprocess.run(
-        [sys.executable, "-c", script], env=env,
-        capture_output=True, text=True, timeout=90,
+    for tag in tags:
+        "Kivy semantic flow failed: " + run.stdout + "\\n" + run.stderr
     )
-    assert run.returncode == 0, run.stdout + "\\n" + run.stderr
     for tag in tags:
         assert_feature(
             request, Feature(tag, "kivy", "interaction", "semantic_flow",
