@@ -151,7 +151,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             node_id: bindings[node_id].widget
             for node_id, source in prepared.identities
             if source.kind is NodeKind.HOST
-            and source.type not in ("Flex", "Box", "RadioGroup", "Scroll", "Grid")
+            and source.type not in ("Flex", "Box", "RadioGroup", "Scroll", "Grid", "div")
             and not (source.type == "Divider" and source.children)
             and node_id not in external
         }
@@ -252,21 +252,56 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         snapshot = seed_unconstrained_width_measurements(
             snapshot, frozenset(leaf_widgets) | frozenset(dependent),
         )
-        result = compute_width_dependent(
-            renderer._sfle_engine, snapshot, dependent,
-            current_generation=lambda: renderer._sfle_generation,
-            previous_input=(
-                renderer._sfle_prior_solver_input
-                if renderer._sfle_prior_solver_engine is renderer._sfle_engine else None
-            ),
-            previous_result=(
-                renderer._sfle_prior_solver_result
-                if renderer._sfle_prior_solver_engine is renderer._sfle_engine else None
-            ),
-            native_measurement_invalidated=(
-                renderer._sfle_measurement_invalidations.needs_commit()
-            ),
-        )
+        if snapshot.nodes[0].component == "div":
+            from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
+            from psx.sfle.model import MeasuredBox
+            width = renderer._sfle_constraints.width.value
+            if width is None or not renderer._sfle_constraints.width.definite:
+                raise SFLEError(
+                    DiagnosticCode.LAYOUT_CONSTRAINT,
+                    "Native Block requires a definite viewport width.",
+                )
+            if dependent:
+                refreshed = {item.node_id: item for item in snapshot.measurements}
+                for node_id, measure_at_width in dependent.items():
+                    previous = refreshed.get(node_id)
+                    if previous is None:
+                        raise SFLEError(
+                            DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                            "Block text requires an initial intrinsic measurement.",
+                            node_id,
+                        )
+                    refreshed[node_id] = MeasuredBox(
+                        node_id, measure_at_width(width), previous.constraints,
+                        previous.revision,
+                    )
+                    if renderer._sfle_generation != generation:
+                        raise SFLEError(
+                            DiagnosticCode.INVALID_SNAPSHOT,
+                            "Stale Block width-dependent measurement.",
+                            node_id,
+                        )
+                snapshot = replace(
+                    snapshot, measurements=tuple(refreshed[node.node_id]
+                    for node in snapshot.nodes if node.node_id in refreshed),
+                )
+            result = compute_measured_block_snapshot(snapshot)
+        else:
+            result = compute_width_dependent(
+                renderer._sfle_engine, snapshot, dependent,
+                current_generation=lambda: renderer._sfle_generation,
+                previous_input=(
+                    renderer._sfle_prior_solver_input
+                    if renderer._sfle_prior_solver_engine is renderer._sfle_engine else None
+                ),
+                previous_result=(
+                    renderer._sfle_prior_solver_result
+                    if renderer._sfle_prior_solver_engine is renderer._sfle_engine else None
+                ),
+                native_measurement_invalidated=(
+                    renderer._sfle_measurement_invalidations.needs_commit()
+                ),
+            )
 
         mixed_plans = mixed_grid.plan(dict(result.boxes))
 
