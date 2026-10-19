@@ -7,9 +7,10 @@ capability census. Generic flow tags need their own Cinnamon contexts.
 from __future__ import annotations
 
 from collections.abc import Mapping
+import re
 
 from psx.core.registry import ComponentDefinition
-from psx.core.vnode import Image, VNode, create_element
+from psx.core.vnode import Image, Text, VNode, create_element
 from psx.sfle.display_context import resolve_display
 
 def _html_img(*children: object, src: str | None = None, source: str | None = None, **props: object) -> VNode:
@@ -37,12 +38,87 @@ def _html_div(*children: object, display: str = "block", key: str | int | None =
     return create_element("div", *children, key=key, display=display, **props)
 
 
+
+# Generic HTML-like boxes remain explicit VNode identities rather than
+# aliases to existing Flex/Box components. The verified formatting subset
+# currently includes block containers and measured inline text fragments.
+_BLOCK_TAGS = frozenset({
+    "div", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+    "section", "main", "header", "footer",
+})
+_INLINE_TAGS = frozenset({"span"})
+FORMATTING_TAGS = _BLOCK_TAGS | _INLINE_TAGS
+_HEADING_FONT_SIZES = {
+    "h1": 32, "h2": 28, "h3": 24, "h4": 20, "h5": 18, "h6": 16,
+}
+
+
+def _inline_text_fragments(node: VNode) -> tuple[VNode, ...]:
+    """Prepare measured, breakable text words, retaining native font styling."""
+    if node.type != "Text":
+        return (node,)
+    raw = node.props["value"]
+    if not isinstance(raw, str):
+        raise TypeError("Inline text must have a string value.")
+    words = re.findall(r"\S+\s*|\s+", re.sub(r"\s+", " ", raw))
+    preserved = {name: value for name, value in node.props.items()
+                 if name not in ("value", "ref")}
+    return tuple(Text(word, **preserved) for word in words if word.strip())
+
+
+def _formatting_host(
+    tag: str, *children: object, key: str | int | None = None,
+    display: str | None = None, **props: object,
+) -> VNode:
+    initial = "inline" if tag in _INLINE_TAGS else "block"
+    selected = initial if display is None else display
+    if selected not in ("inline", "block"):
+        raise ValueError(
+            f"{tag} display requires an implemented Block/Inline formatting context."
+        )
+    allowed = {"ref", "layout_width", "layout_height"}
+    extra = set(props) - allowed
+    if extra:
+        raise ValueError(f"Unsupported {tag} properties: {sorted(extra)}")
+    resolve_display(tag, selected)
+    normalized = []
+    for child in children:
+        if tag == "span" and isinstance(child, VNode) and child.type == "Text":
+            normalized.extend(_inline_text_fragments(child))
+        elif tag in _HEADING_FONT_SIZES and isinstance(child, VNode) and child.type == "Text":
+            options = {
+                name: value for name, value in child.props.items()
+                if name not in ("value", "font_size", "bold", "ref")
+            }
+            normalized.append(Text(
+                child.props["value"], font_size=_HEADING_FONT_SIZES[tag],
+                bold=True, **options,
+            ))
+        else:
+            normalized.append(child)
+    return create_element(
+        tag, *normalized, key=key, display=selected, **props,
+    )
+
+
+def _formatting_constructor(tag: str):
+    def construct(*children: object, **props: object) -> VNode:
+        return _formatting_host(tag, *children, **props)
+    return construct
+
+
 PORTABLE_HTML_ALIASES: Mapping[str, str] = {
     "button": "Button",
     "input": "Input",
     "textarea": "TextArea",
     "img": "Image",
     "div": "div",
+    "span": "span",
+    "p": "p",
+    "h1": "h1", "h2": "h2", "h3": "h3",
+    "h4": "h4", "h5": "h5", "h6": "h6",
+    "section": "section", "main": "main",
+    "header": "header", "footer": "footer",
 }
 
 
@@ -61,8 +137,10 @@ def markup_alias_definitions(
             contract=source.contract,
             markup_integer_properties=source.markup_integer_properties,
         )
-    # The block host is markup-only until a renderer has a certified native
-    # layout port. Do not mutate builtin_component_registry() here.
-    if "div" not in result:
-        result["div"] = ComponentDefinition("div", _html_div)
+    # Generic formatting boxes are private markup constructors. They must
+    # never masquerade as registered legacy/native toolkit primitives.
+    for tag in FORMATTING_TAGS:
+        if tag not in result:
+            constructor = _html_div if tag == "div" else _formatting_constructor(tag)
+            result[tag] = ComponentDefinition(tag, constructor)
     return result
