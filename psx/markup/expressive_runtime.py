@@ -13,8 +13,9 @@ from psx.core.errors import InvalidChildError, MarkupSyntaxError
 from psx.core.registry import builtin_component_registry
 from psx.core.vnode import Fragment, Text, VNode
 from .compile import _coerce_props
+from .html_aliases import markup_alias_definitions
 
-_BUILTINS = builtin_component_registry().snapshot()
+_BUILTINS = markup_alias_definitions(builtin_component_registry().snapshot())
 
 
 def lexical(thunk: Callable[[], object], name: str, filename: str, line: int, column: int) -> object:
