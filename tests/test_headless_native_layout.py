@@ -960,3 +960,36 @@ def test_native_invalidation_solver_invalidation_rejects_provisional_result_and_
     assert renderer.sfle_result.generation > previous.generation
     assert tuple(child.handle for child in root.children) == widgets
     reconciler.unmount()
+
+
+def test_unchanged_headless_commit_reuses_cinnamon_but_resize_recomputes():
+    class CountingEngine:
+        def __init__(self):
+            self.calls = 0
+            self.delegate = PythonLayoutEngine()
+
+        def compute(self, snapshot):
+            self.calls += 1
+            return self.delegate.compute(snapshot)
+
+    engine = CountingEngine()
+    renderer = HeadlessRenderer(sfle_constraints=constraints(), engine=engine)
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(Flex(
+            fixed("left", 30), fixed("right", 20),
+            width=120, height=60, direction="row", gap=5,
+        ))
+        assert engine.calls == 1
+        geometry = tuple(child.handle.geometry for child in root.children)
+        renderer.commit_layout(root)
+        assert engine.calls == 1
+        assert tuple(child.handle.geometry for child in root.children) == geometry
+        assert renderer.sfle_result.generation == 2
+        renderer.set_sfle_constraints(constraints(200, 60))
+        renderer.commit_layout(root)
+        assert engine.calls == 2
+    finally:
+        reconciler.unmount()
+    assert renderer._sfle_prior_solver_input is None
+    assert renderer._sfle_prior_solver_result is None
