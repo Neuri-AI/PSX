@@ -44,3 +44,42 @@ def test_unmeasured_native_leaf_is_not_replaced_with_fake_zero():
 def test_nested_native_tree_needs_real_nested_formatter():
     with pytest.raises(SFLECapabilityError, match="Nested Block/Inline"):
         compute_measured_block_snapshot(snapshot(nested=True))
+
+
+def test_inline_atoms_share_a_line_and_align_native_baselines():
+    initial = snapshot()
+    nodes = (
+        LayoutNode("root", None, "div", (("display", "inline"),)),
+        initial.nodes[1],
+        initial.nodes[2],
+    )
+    computed = compute_measured_block_snapshot(LayoutInput(
+        1, initial.generation, initial.direction,
+        initial.constraints, nodes, initial.measurements,
+    ))
+    rects = dict(computed.boxes)
+    assert rects["button"].border.x == 0
+    assert rects["text"].border.x == 40
+    assert rects["button"].border.y == 18
+    assert rects["text"].border.y == 0
+    assert rects["button"].border.width == 40
+
+
+def test_inline_atoms_wrap_when_native_measurements_exceed_viewport():
+    initial = snapshot()
+    constrained = LayoutConstraints(
+        AvailableSize(75, True), AvailableSize(400, True),
+    )
+    nodes = (
+        LayoutNode("root", None, "div", (("display", "inline"),)),
+        initial.nodes[1],
+        initial.nodes[2],
+    )
+    result = compute_measured_block_snapshot(LayoutInput(
+        1, initial.generation, initial.direction, constrained,
+        nodes, initial.measurements,
+    ))
+    rects = dict(result.boxes)
+    assert rects["button"].border.x == 0
+    assert rects["text"].border.x == 0
+    assert rects["text"].border.y == 12
