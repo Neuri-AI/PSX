@@ -220,3 +220,51 @@ tree.unmount()
                              "native_geometry", applicability="partial_native"),
             run.returncode == 0,
         )
+
+
+def test_semantic_form_submission_from_native_kivy_release(request):
+    script = """
+from kivy.config import Config
+Config.set("graphics", "window_state", "hidden")
+from psx.core.vnode import Button
+from psx.core.reconcile import Reconciler
+from psx.markup.html_aliases import _formatting_host
+from psx.renderers.kivy.kivy import KivyRenderer
+from psx.sfle.engine import PythonLayoutEngine
+from psx.sfle.model import AvailableSize, LayoutConstraints
+
+renderer = KivyRenderer(
+    sfle_constraints=LayoutConstraints(
+        AvailableSize(220, True), AvailableSize(120, True)),
+    engine=PythonLayoutEngine(),
+)
+tree = Reconciler(renderer)
+calls = []
+def view(tag):
+    return _formatting_host(
+        "form", Button("Submit", key="submit"),
+        on_submit=lambda: calls.append(tag),
+    )
+first = tree.render(view("first"))
+native = first.children[0].handle.widget
+native.dispatch("on_release")
+updated = tree.render(view("second"))
+native.dispatch("on_release")
+assert updated.children[0].handle.widget is native
+assert calls == ["first", "second"], calls
+tree.unmount()
+assert native.parent is None
+"""
+    env = dict(
+        os.environ, KIVY_NO_FILELOG="1", KIVY_NO_ARGS="1",
+        KIVY_WINDOW="sdl2", KIVY_TEXT="sdl2",
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script], env=env,
+        capture_output=True, text=True, timeout=90,
+    )
+    assert_feature(
+        request, Feature("form", "kivy", "event", "on_submit",
+                         "native_dispatch", applicability="partial_native"),
+        result.returncode == 0, result.stdout + "\\n" + result.stderr,
+    )
