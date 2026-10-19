@@ -285,3 +285,18 @@ def test_html_block_native_geometry_and_reconciliation(tk_tree, request):
         and float(beta_rect["y"]) == 0
         and float(alpha_rect["y"]) == float(beta_rect["height"]),
     )
+    inline = tree.render(psx(
+        '<div display="inline"><button key="b">Beta</button>'
+        '<button key="a">Alpha</button></div>'
+    ))
+    beta_inline, alpha_inline = beta.place_info(), alpha.place_info()
+    assert_feature(
+        request, Feature("div", "tkinter", "interaction", "semantic_flow",
+                         "display_reflow", applicability="partial_native"),
+        inline.handle.widget is original_root
+        and inline.children[0].handle.widget is beta
+        and inline.children[1].handle.widget is alpha
+        and float(beta_inline["x"]) == 0
+        and float(alpha_inline["x"]) == float(beta_inline["width"])
+        and float(alpha_inline["width"]) < 400,
+    )
