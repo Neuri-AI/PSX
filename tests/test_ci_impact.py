@@ -16,6 +16,8 @@ class RoutingTests(unittest.TestCase):
             "psx/sfle/display_context.py",
             "psx/sfle/measured_block_snapshot.py",
             "tests/sfle/test_measured_block_snapshot.py",
+            "tests/sfle/test_flow_language_vectors.py",
+            "tests/fixtures/flow_geometry_cases.json",
         ):
             self.assertEqual(self.selected(path), expected)
         self.assertEqual(
