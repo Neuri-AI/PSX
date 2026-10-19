@@ -70,6 +70,30 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.addCleanup(self.renderer.close)
         self.addCleanup(self.reconciler.unmount)
 
+    def test_html_block_places_native_buttons_without_pack_or_grid(self):
+        self.renderer.set_sfle_constraints(constraints(240, 140))
+        first = self.reconciler.render(psx(
+            '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
+        ))
+        alpha, beta = (child.handle.widget for child in first.children)
+        self.assertIsInstance(alpha, ttk.Button)
+        self.assertIs(alpha.master, first.handle.widget)
+        self.assertEqual(alpha.winfo_manager(), "place")
+        self.assertEqual(beta.winfo_manager(), "place")
+        first_rect, second_rect = rect(alpha), rect(beta)
+        self.assertEqual(first_rect[0], 0)
+        self.assertEqual(first_rect[2], 240)
+        self.assertEqual(second_rect[1], first_rect[3])
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
+        second = self.reconciler.render(psx(
+            '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+        ))
+        self.assertIs(second.children[0].handle.widget, beta)
+        self.assertIs(second.children[1].handle.widget, alpha)
+        self.assertEqual(rect(beta)[1], 0)
+        self.assertEqual(rect(alpha)[1], rect(beta)[3])
+
     def test_portable_text_and_activation_event_payloads_from_tk_widgets(self):
         from psx import Input
 
