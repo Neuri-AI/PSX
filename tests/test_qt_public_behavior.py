@@ -396,7 +396,10 @@ def test_html_block_native_geometry_and_reconciliation(qt_tree, request):
 def test_semantic_flow_native_geometry_per_tag(qt_tree, request, tag):
     from psx import psx
     _, tree = qt_tree
-    root = tree.render(psx(f"<{tag}><button>Action</button></{tag}>"))
+    content = "Action" if tag in ("li", "label") else (
+        "<li>Action</li>" if tag == "ul" else "<button>Action</button>"
+    )
+    root = tree.render(psx(f"<{tag}>{content}</{tag}>"))
     child = root.children[0].handle.widget
     assert_feature(
         request, Feature(tag, BINDING, "interaction", "semantic_flow",
@@ -409,7 +412,7 @@ def test_semantic_flow_native_geometry_per_tag(qt_tree, request, tag):
         ].border.width == 400
         and 0 < child.width() <= 400
         and child.y() == 0
-        and (child.width() < 400 if tag == "span" else child.width() == 400),
+        and (child.width() < 400 if tag in ("span", "label", "li") else child.width() == 400),
         detail=(
             f"tag={tag} root={root.handle.widget.geometry()} "
             f"child={child.geometry()} "
