@@ -659,7 +659,7 @@ class KivyRenderer:
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
-            if port is None and node.type not in ("Flex", "Grid", "GridItem"):
+            if port is None and node.type not in ("Flex", "Grid", "GridItem", "div"):
                 native_leaf_needs_measurement(node, backend="kivy")
             if node.type not in ("Flex", "Grid", "GridItem"):
                 node = VNode(node.kind, node.type, node.key,
@@ -675,6 +675,14 @@ class KivyRenderer:
         return handle
 
     def _adapter_create(self, node: VNode, parent: object | None) -> KivyHandle:
+        if node.kind is NodeKind.HOST and node.type == "div":
+            if self._sfle_constraints is None or node.props.get("display") != "block":
+                raise RendererCapabilityError(
+                    "Kivy div requires an enabled Cinnamon Block viewport.")
+            handle = KivyHandle(node.type, Widget(size_hint=(None, None)), dict(node.props))
+            if parent is None:
+                self._root = handle.widget
+            return handle
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             if self._sfle_constraints is None:
                 raise RendererCapabilityError(
@@ -742,6 +750,16 @@ class KivyRenderer:
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _handle(handle)
+        if target.node_type == "div":
+            updated = dict(target.props)
+            updated.update(changed)
+            for name in removed:
+                updated.pop(name, None)
+            if updated.get("display") != "block":
+                raise RendererCapabilityError(
+                    "div currently supports only the Cinnamon Block context.")
+            target.props = updated
+            return
         if target.node_type in ("Grid", "GridItem"):
             target.props.update(changed)
             for name in removed:
@@ -773,7 +791,7 @@ class KivyRenderer:
         self._default_insert(parent, child, index)
 
     def _default_insert(self, parent: object, child: object, index: int) -> None:
-        if _handle(parent).node_type in ("Grid", "GridItem"):
+        if _handle(parent).node_type in ("Grid", "GridItem", "div"):
             container, item = _handle(parent), _handle(child)
             if item in container.children:
                 container.children.remove(item)
