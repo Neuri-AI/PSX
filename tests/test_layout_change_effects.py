@@ -124,3 +124,17 @@ def test_flex_planner_rejects_invalid_parent_graph():
         frozenset({"x"}), parent_by_id={"x": "x"},
         flex_node_ids=frozenset({"x"}),
     ) is None
+
+
+def test_flex_planner_rejects_cycle_in_unrelated_branch():
+    from psx.sfle.layout_change_effects import affected_flex_contexts
+    parents = {"root": None, "left": "root", "text": "left",
+               "unrelated_a": "unrelated_b", "unrelated_b": "unrelated_a"}
+    assert affected_flex_contexts(
+        frozenset({"text"}), parent_by_id=parents,
+        flex_node_ids=frozenset({"root", "left"}),
+    ) is None
+    assert affected_flex_contexts(
+        frozenset(), parent_by_id=parents,
+        flex_node_ids=frozenset({"root", "left"}),
+    ) is None
