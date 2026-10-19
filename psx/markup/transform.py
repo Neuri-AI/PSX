@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Iterable
 
 from psx.core.registry import builtin_component_registry
+from psx.markup.html_aliases import PORTABLE_HTML_ALIASES
 
 from .ast import Document, Fragment, Node, Reference, ReferencePart, TextNode
 from .parser import parse
@@ -272,7 +273,7 @@ def _collect_node_identifiers(node: Node, names: set[str]) -> None:
         for child in node.children:
             _collect_node_identifiers(child, names)
         return
-    if not builtin_component_registry().contains(node.name):
+    if node.name not in PORTABLE_HTML_ALIASES and not builtin_component_registry().contains(node.name):
         names.add(node.name)
     for attribute in node.attributes:
         if isinstance(attribute.value, Reference):
