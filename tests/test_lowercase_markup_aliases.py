@@ -264,7 +264,7 @@ def test_display_change_reflows_without_replacing_keyed_headless_handles():
         tree.unmount()
 
 
-def test_headless_cinnamon_commits_nested_block_and_inline_rectangles():
+def test_headless_cinnamon_commits_nested_block_and_inline_rectangles(request):
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
     from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
@@ -289,6 +289,14 @@ def test_headless_cinnamon_commits_nested_block_and_inline_rectangles():
     assert span.handle.geometry.height > 12
     assert len(span.children) >= 3
     assert renderer.sfle_result.generation > 0
+    from tests.certification.public_behavior_census import Feature, assert_feature
+    assert_feature(
+        request, Feature("div", "headless", "interaction", "semantic_flow",
+                         "native_geometry", applicability="partial_native"),
+        root.handle.geometry.width == 100
+        and paragraph.handle.geometry.y == heading.handle.geometry.height
+        and span.handle.geometry.height > 12,
+    )
     reconciler.unmount()
 
 
