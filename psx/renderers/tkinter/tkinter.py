@@ -746,6 +746,20 @@ class TkinterRenderer:
                     height=round(constraints.height.value),
                 )
                 self._sfle_root_widget = frame
+            if node.type == "label":
+                # Implicit label association is scoped to a nested native Entry.
+                # The widget owns this binding and destroys it on teardown.
+                def focus_nested_input(_event):
+                    pending = list(frame.winfo_children())
+                    while pending:
+                        candidate = pending.pop(0)
+                        if isinstance(candidate, (tk.Entry, ttk.Entry)):
+                            if str(candidate.cget("state")) != "disabled":
+                                candidate.focus_set()
+                            return
+                        pending.extend(candidate.winfo_children())
+
+                frame.bind("<Button-1>", focus_nested_input, add="+")
             return TkHandle(node.type, frame, dict(node.props))
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             if self._sfle_constraints is None:
