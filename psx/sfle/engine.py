@@ -41,6 +41,11 @@ class PythonLayoutEngine:
         return CONTRACT_ONLY_CAPABILITIES
 
     def compute(self, request: LayoutInput) -> LayoutResult:
+        # Rust and Python must consume the same semantic flow snapshot wire.
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
+            from .measured_block_snapshot import compute_measured_block_snapshot
+            return compute_measured_block_snapshot(request)
         from .compute_alpha import compute_snapshot
         return compute_snapshot(request)
 
