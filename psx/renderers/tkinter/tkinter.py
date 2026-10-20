@@ -997,10 +997,14 @@ class TkinterRenderer:
                     config["padding"] = (
                         l, t + extra // 2, r, b + extra - extra // 2
                     )
+                if target.node_type == "Button":
+                    config["anchor"] = {
+                        "left": "w", "center": "center", "right": "e",
+                    }[styles.get("text-align", "center")]
+                elif "text-align" in styles:
+                    raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
                 style.configure(style_name, **config)
                 widget.configure(style=style_name)
-                if "text-align" in styles:
-                    raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
             if self._sfle_constraints is not None:
                 keys = ("font-family", "font-size", "font-weight", "line-height")
                 if any(key in styles for key in keys) or hasattr(widget, "_psx_css_font_revision"):
