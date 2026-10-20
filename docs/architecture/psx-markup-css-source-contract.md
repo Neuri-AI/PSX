@@ -1,75 +1,76 @@
-# Scoped CSS sources for PSX Markup
+# PSX CSS Sources and Resource Integration
 
-**Implementation branch:** `feature/universal-box-model-and-styling` (PR #48).  
-**Scope:** stylesheet-to-VNode association and immutable computed style metadata, not native CSS painting or Cinnamon geometry.  
-**Compatibility:** legacy PascalCase widget properties and native renderer contract remain unchanged.
+**Branch:** `feature/universal-box-model-and-styling`. This document describes
+the CSS source-binding layer, not native CSS painting or Cinnamon geometry.
 
-## Public syntax for the initial, bounded CSS binding
+## Public source declarations
 
-The author of a PSX template may attach one stylesheet source to a render:
+Stylesheet source text is **not** a public `psx(stylesheet=...)` argument.
+
+Markup declarations use a resource-only tag:
 
 ```python
 from psx import psx
 
-root = psx(
-    '<div class="panel"><span style="color: #fff">Hello</span></div>',
-    stylesheet=".panel {width: 50%; background-color: #123}",
-)
+root = psx("""
+    <link rel="stylesheet" href="styles/main.css" />
+    <div class="container" style={{"color": "#fff"}}>
+        <h1>Hello Velto!</h1>
+    </div>
+""")
 ```
 
-Only the explicitly registered lowercase HTML-like aliases accept `class`,
-`class_name`, `id`, and `style` metadata. The preferred spelling is
-`class`; `class_name` is an equivalent alternative. Supplying both is an error.
-`class` is a whitespace-separated token list, `id` a single CSS identifier,
-and `style` either validated declaration text or a mapping of property names to
-typed values (in the supported PSX expression syntax).
+The `link` tag is not a native widget and has no children. It requires the
+exact local CSS source attributes `rel="stylesheet"` and `href="*.css"`.
+Unsupported attributes and remote URLs fail closed.
 
-These fields are **never sent to native widget constructors**, never assigned to
-legacy `props`, and never reinterpret existing `width`, `font_size`,
-`layout_width` or other widget-owned parameters. Existing PascalCase tags
-retain their established public contracts. Source markup can supply a stable
-`key` without alteration.
+App-level sources may be declared as `stylesheets = ["styles/reset.css"]`
+on `VeltoContext` (Qyro's `ApplicationContext` facade), or in Qyro project
+settings under `css.stylesheets`. Qyro wraps the authored `render()` method
+without requiring a custom constructor, binds an application-scoped context,
+and reads resources through its documented `get_resource()` path API.
+Explicit class resources follow configured global resources and precede
+in-markup links. Each app render has an isolated source context.
 
-The compiled M4A and M4B template paths both carry stylesheet arguments;
-expression-compiled templates preserve source metadata through the expressive
-element constructor. The style resolver produces immutable `css_computed`
-snapshots on VNodes, as well as detached snapshots for keyed diffing. There is
-no global stylesheet registry or native handle retention.
+For users without Qyro, PSX reads relative CSS paths from the project working
+directory; advanced embedders can inject a resource reader using
+`psx.css.context.scoped_css_resources(..., resolver=...)`. The parser is
+independent of Qyro. Resolver results may be UTF-8 text or bytes, allowing
+protected resources to be integrated by a resource provider capable of reading
+decrypted bytes without writing the plaintext to disk. The currently verified
+Qyro `get_resource()` entrypoint returns a filesystem path; support for
+Qyro protected `.pak` content requires its separate read API and is **not
+claimed to be implemented** by the filesystem adapter.
 
-## Precedence
+## CSS imports
 
-For a supported property, the order is:
+A CSS file can include leading `@import "./buttons.css";`. Imports are
+resolved relative to the importing file; the loader enforces root confinement,
+detects circular references and rejects malformed or late imports. Imported
+rules enter the cascade before rules in the importer, and global source
+declarations enter before markup-local link sources.
 
-1. CSS initial value.
-2. Inherited value if the property is inheritable.
-3. Matching stylesheet declarations (specificity, source order).
-4. Validated inline declaration.
+CSS `style={{...}}` and literal declaration text remain inline properties.
+Type, class and ID selectors, supported property grammar, specificity, source
+order and inheritance use the existing CSS Core resolver.
 
-Existing native component props are **not part of this CSS cascade**. Converting
-a computed property into native behavior is reserved for separately certified
-geometry and renderer capability ports.
+## Runtime boundaries
 
-## Explicit unsupported behavior
+These source declarations produce immutable computed-style metadata on PSX
+VNodes, separate from native widget props. This increment does **not** imply
+that CSS widths change Cinnamon geometry or CSS colors/fonts are painted by
+Qt/Tkinter/Kivy; those are subsequent work. No CSS Grid, remote URLs,
+transitions, animation or browser stylesheet APIs are promised.
 
-- CSS computed dimensions **do not yet change Cinnamon geometry**.
-- CSS colors, backgrounds, font values and border values **do not yet paint native widgets**.
-- The approved CSS parser currently supports simple type/class/ID compound
-  selectors. Descendant selectors, pseudo-classes, `!important`, arbitrary
-  CSS functions, `@media`, and browser-wide inheritance are not promised.
-- The existing responsive `Grid` is not replaced by CSS Grid.
-- Native/custom components do not acquire new style props by implication.
-- Failed or unknown declarations produce an explicit exception rather than
-  being silently accepted or interpreted as a zero length.
+Hot-reload dependency tracking and invalidation are later work. Source manager
+should retain ordering and source-relative references so a watcher can reload
+changed documents without resetting component state.
 
-## Verification and acceptance
+## Verification
 
-Behavior-specific coverage is provided by `tests/test_markup_css_binding.py`,
-`tests/css/test_tree.py`, and the contract-source public census in
-`tests/test_css_markup_census.py`. The public census uses assertion-bound
-JUnit properties from `tests/certification/public_behavior_census.py`.
-Each claim must be tied to executed tests and an exact successful GitHub Actions
-SHA. Native readback is **not applicable** to the source-association stage:
-no native styling, geometry, or new native event is advertised.
-
-The CSS source stage must not be conflated with the subsequent Cinnamon geometry,
-native paint, incremental performance, and release certification work.
+Relevant suites: `tests/css/test_sources.py`,
+`tests/css/test_context.py`, `tests/test_markup_css_binding.py`,
+`tests/test_css_markup_census.py`, and Qyro's
+`tests/test_css_stylesheet_scope.py`. Public behavior census receipts must
+reflect actual executed GitHub Actions jobs at the exact source commit;
+absence of native paint/geometry certification is intentional.
