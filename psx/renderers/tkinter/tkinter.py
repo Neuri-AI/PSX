@@ -996,6 +996,13 @@ class TkinterRenderer:
                 widget.configure(style=style_name)
                 if "text-align" in styles:
                     raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
+            if self._sfle_constraints is not None:
+                keys = ("font-family", "font-size", "font-weight", "line-height")
+                if any(key in styles for key in keys) or hasattr(widget, "_psx_css_font_revision"):
+                    revision = tuple((key, styles.get(key)) for key in keys)
+                    if getattr(widget, "_psx_css_font_revision", None) != revision:
+                        widget._psx_css_font_revision = revision
+                        self.request_sfle_invalidation("font", widget_id=id(widget))
             return
         if target.node_type not in FORMATTING_TAGS:
             return
