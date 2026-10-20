@@ -849,6 +849,27 @@ class QtRenderer:
         """Paint explicit CSS backgrounds on Cinnamon-owned semantic hosts."""
         from psx.css.native_paint import qt_semantic_stylesheet
         target = _handle(handle)
+        if target.node_type == "Text":
+            from psx.css.native_paint import native_text_typography
+            from psx.renderers.components.text import apply_qt_text
+            styles = native_text_typography(computed)
+            apply_qt_text(target.widget, target.props, self._binding_package)
+            if styles:
+                font = target.widget.font()
+                if "font-family" in styles:
+                    font.setFamily(styles["font-family"])
+                if "font-size" in styles:
+                    font.setPixelSize(round(styles["font-size"]))
+                if "font-weight" in styles:
+                    font.setWeight(round(styles["font-weight"] / 10))
+                target.widget.setFont(font)
+                if "text-align" in styles:
+                    enum = getattr(__import__(self._binding_package + ".QtCore", fromlist=["Qt"]).Qt, "AlignmentFlag", None)
+                    if enum is not None:
+                        target.widget.setAlignment(getattr(enum, {"left": "AlignLeft", "right": "AlignRight", "center": "AlignHCenter"}[styles["text-align"]]) | enum.AlignVCenter)
+                if "color" in styles:
+                    target.widget.setStyleSheet("color: " + styles["color"] + ";")
+            return
         if target.node_type not in FORMATTING_TAGS:
             return
         target.widget.setStyleSheet(qt_semantic_stylesheet(computed))
