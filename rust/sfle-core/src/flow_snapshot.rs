@@ -73,12 +73,24 @@ impl Flow<'_> {
             _ => Err(unsupported(format!("Unsupported flow {axis} dimension."), &node.node_id)),
         }
     }
+    fn constrained_dimension(
+        &self, index: usize, axis: &str, available: f64, fallback: f64,
+    ) -> Result<f64, ComputeError> {
+        let mut result = self.dimension(index, axis, available)?.unwrap_or(fallback);
+        if let Some(maximum) = self.dimension(index, &format!("max_{axis}"), available)? {
+            result = result.min(maximum);
+        }
+        if let Some(minimum) = self.dimension(index, &format!("min_{axis}"), available)? {
+            result = result.max(minimum);
+        }
+        Ok(result.max(0.0))
+    }
     fn display(&self, index: usize) -> Result<Option<bool>, ComputeError> {
         let node = &self.input.nodes[index];
         if !formatting_tag(&node.component) {
             return Ok(None);
         }
-        if node.style.keys().any(|name| !matches!(name.as_str(), "display" | "layout_width" | "layout_height")) {
+        if node.style.keys().any(|name| !matches!(name.as_str(), "display" | "layout_width" | "layout_height" | "layout_min_width" | "layout_min_height" | "layout_max_width" | "layout_max_height" | "layout_min_width" | "layout_min_height" | "layout_max_width" | "layout_max_height")) {
             return Err(unsupported(
                 format!("{} requires a supported Block/Inline flow style.", node.component),
                 &node.node_id,
@@ -101,7 +113,7 @@ impl Flow<'_> {
                 &node.node_id,
             ));
         }
-        if node.style.keys().any(|name| !matches!(name.as_str(), "layout_width" | "layout_height")) {
+        if node.style.keys().any(|name| !matches!(name.as_str(), "layout_width" | "layout_height" | "layout_min_width" | "layout_min_height" | "layout_max_width" | "layout_max_height")) {
             return Err(unsupported("Native flow leaf has unresolved layout styles.", &node.node_id));
         }
         self.measurements.get(node.node_id.as_str()).copied().ok_or_else(|| {
@@ -124,8 +136,8 @@ impl Flow<'_> {
             None => {
                 let native = self.leaf(index)?;
                 atoms.push(InlineAtom {
-                    width: self.dimension(index, "width", self.input.constraints.width.value.unwrap_or(0.0))?.unwrap_or(native.preferred_width),
-                    height: self.dimension(index, "height", self.input.constraints.height.value.unwrap_or(0.0))?.unwrap_or(native.preferred_height),
+                    width: self.constrained_dimension(index, "width", self.input.constraints.width.value.unwrap_or(0.0), native.preferred_width)?,
+                    height: self.constrained_dimension(index, "height", self.input.constraints.height.value.unwrap_or(0.0), native.preferred_height)?,
                     baseline: native.baseline.unwrap_or(native.preferred_height),
                 });
                 leaves.push(index);
@@ -192,8 +204,8 @@ impl Flow<'_> {
         match self.display(index)? {
             None => {
                 let preferred_height = self.leaf(index)?.preferred_height;
-                let used_width = self.dimension(index, "width", available)?.unwrap_or(available);
-                let used_height = self.dimension(index, "height", available)?.unwrap_or(preferred_height);
+                let used_width = self.constrained_dimension(index, "width", available, available)?;
+                let used_height = self.constrained_dimension(index, "height", available, preferred_height)?;
                 self.boxes[index] = Some(rect(x, y, used_width, used_height, &id)?);
                 return Ok(used_height);
             }
@@ -217,8 +229,8 @@ impl Flow<'_> {
         if !pending.is_empty() {
             cursor += self.inline_run(&pending, x, y + cursor, available)?;
         }
-        let used_width = self.dimension(index, "width", available)?.unwrap_or(available);
-        let used_height = self.dimension(index, "height", available)?.unwrap_or(cursor);
+        let used_width = self.constrained_dimension(index, "width", available, available)?;
+        let used_height = self.constrained_dimension(index, "height", available, cursor)?;
         self.boxes[index] = Some(rect(x, y, used_width, used_height, &id)?);
         Ok(used_height)
     }
