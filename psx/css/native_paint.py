@@ -167,8 +167,8 @@ def native_text_typography(computed: ComputedStyle | None, *, alpha: bool = Fals
         result["font-size"] = size.value
     if "font-weight" in computed.specified:
         weight = computed.properties["font-weight"]
-        if type(weight) is not int or weight not in range(100, 1000, 100):
-            raise ValueError("Native Text font-weight requires normalized CSS weight.")
+        if type(weight) is not int or weight not in (400, 700):
+            raise ValueError("Portable native Text supports font-weight 400 or 700 only.")
         result["font-weight"] = weight
     if "text-align" in computed.specified:
         alignment = computed.properties["text-align"]
