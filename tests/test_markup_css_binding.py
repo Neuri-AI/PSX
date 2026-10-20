@@ -50,8 +50,10 @@ def test_native_alias_keeps_props_and_key():
 
 def test_legacy_pascalcase_tag_remains_unmodified():
     node = psx('<Button label="Save" />')
-    assert node.css_source is None
-    assert node.css_computed is None
+    assert node.css_source.tag == "button"
+    assert node.css_computed is not None
+    assert not node.css_computed.specified
+    assert node.props["label"] == "Save"
 
 
 def test_lexical_compiler_resolves_link_sources():
@@ -244,7 +246,7 @@ def test_pascal_and_html_alias_foreground_css_share_the_same_cascade(tag, expect
     import re
     from psx.css.context import scoped_css_resources
     markup = (
-        f'<{tag} class="accent" style="color: #123456" />'
+        f'<{tag} class="accent" style="color: #123456" ' + ('value="option" ' if tag == "Radio" else '') + '/>'
         if tag not in ("button",) else
         '<button class="accent" style="color: #123456">Go</button>'
     )
