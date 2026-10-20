@@ -792,6 +792,17 @@ class KivyRenderer:
                 if "line-height" in styles else target.widget.property("line_height").defaultvalue
             )
             return
+        if target.node_type == "Radio":
+            from psx.css.native_paint import native_text_typography
+            styles = native_text_typography(computed, alpha=True)
+            widget = target.widget
+            label = getattr(widget, "_psx_label", None)
+            if label is None:
+                raise ValueError("Kivy Radio foreground requires a native text label.")
+            if not hasattr(label, "_psx_css_original_foreground"):
+                label._psx_css_original_foreground = tuple(label.color)
+            label.color = styles.get("color", label._psx_css_original_foreground)
+            return
         if target.node_type in ("Button", "Input", "TextArea", "Select", "Link"):
             from psx.css.native_paint import native_text_typography
             styles = native_text_typography(computed, alpha=True,
