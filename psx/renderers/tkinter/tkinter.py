@@ -799,6 +799,23 @@ class TkinterRenderer:
         """Apply CSS backgrounds through an instance-scoped ttk Frame style."""
         from psx.css.native_paint import background_hex
         target = _as_handle(handle)
+        if target.node_type == "Text":
+            from psx.css.native_paint import native_text_typography
+            from psx.renderers.components.text import apply_tk_text
+            apply_tk_text(target.widget, target.props)
+            styles = native_text_typography(computed)
+            if "font-family" in styles:
+                target.widget._psx_text_font.configure(family=styles["font-family"])
+            if "font-size" in styles:
+                target.widget._psx_text_font.configure(size=-round(styles["font-size"]))
+            if "font-weight" in styles:
+                target.widget._psx_text_font.configure(weight="bold" if styles["font-weight"] >= 600 else "normal")
+            if "text-align" in styles:
+                align = styles["text-align"]
+                target.widget.configure(justify=align, anchor={"left": "w", "center": "center", "right": "e"}[align])
+            if "color" in styles:
+                target.widget.configure(foreground=styles["color"])
+            return
         if target.node_type not in FORMATTING_TAGS:
             return
         color = background_hex(computed)
