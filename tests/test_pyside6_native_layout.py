@@ -38,6 +38,16 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.r.unmount()
         self.renderer.application.processEvents()
 
+    def test_css_width_commits_to_qt_native_geometry(self):
+        root = self.r.render(psx(
+            '<div style="width: 140px; height: 60px">'
+            '<button style="width: 45px; height: 15px">Save</button></div>'
+        ))
+        self.assertEqual(root.handle.widget.width(), 140)
+        self.assertEqual(root.children[0].handle.widget.width(), 45)
+        self.assertEqual(root.children[0].handle.widget.height(), 15)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_html_block_commits_qt_rectangles_and_keyed_reorder(self):
         self.renderer.set_sfle_constraints(constraints(240, 140))
         original = self.r.render(psx(
