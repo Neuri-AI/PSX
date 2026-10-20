@@ -28,7 +28,10 @@ def test_source_derived_inventory_separates_shared_and_native():
         assert not builtin_component_registry().contains(tag)
         contract = [row for row in records
                     if row.component == tag and row.backend == CONTRACT]
-        expected = {("markup", "default_display"), ("markup", "key_identity")}
+        expected = {("markup", "default_display"), ("markup", "key_identity"),
+                    ("css_source", "class_selection"),
+                    ("css_source", "inline_precedence"),
+                    ("css_source", "invalid_rejection")}
         if tag == "form":
             expected.add(("on_submit", "handler_delegation"))
         assert {(row.feature_name, row.scenario_id) for row in contract} == expected
