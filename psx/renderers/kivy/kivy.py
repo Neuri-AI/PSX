@@ -776,7 +776,7 @@ class KivyRenderer:
         existing = getattr(widget, "_psx_css_paint", None)
         if rgba is None:
             if existing is not None:
-                group, redraw = existing
+                group, redraw, _color = existing
                 widget.unbind(pos=redraw, size=redraw)
                 widget.canvas.before.remove(group)
                 del widget._psx_css_paint
@@ -792,10 +792,9 @@ class KivyRenderer:
                 rectangle.size = instance.size
             widget.canvas.before.add(group)
             widget.bind(pos=redraw, size=redraw)
-            widget._psx_css_paint = (group, redraw)
+            widget._psx_css_paint = (group, redraw, color)
         else:
-            group, _redraw = existing
-            color = group.children[0]
+            _group, _redraw, color = existing
             color.rgba = rgba
 
     # -- update -----------------------------------------------------------
@@ -954,6 +953,7 @@ class KivyRenderer:
         # is permanently destroyed at this boundary; borrowed native widgets
         # are returned to their owner and MUST keep their KV rules.
         target = _handle(handle)
+        self.apply_css(handle, None)
         try:
             self._adapter_for(handle_adapter_key(handle)).destroy(self, handle)
         finally:
