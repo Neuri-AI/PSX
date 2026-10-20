@@ -60,3 +60,26 @@ than discarded. This is **not** a native cross-backend border certificate:
 Tkinter and Kivy stroke rendering, pixel/readback tests, optional stroke
 styles and native component application remain open in P1.4.6. Its final
 cross-backend evidence matrix remains P1.4.8.
+
+## Native Text typography projection (implementation in progress)
+
+An authored `color`, `font-family`, positive pixel `font-size`,
+`font-weight`, or `text-align` may be projected onto a mounted native
+`Text` handle. The adapters reapply the original Text properties before
+CSS overrides so keyed style changes and removal do not permanently retain
+former CSS font/color values. Qt uses QLabel font/alignment, Tkinter owns an
+instance-local retained Font on ttk.Label, and Kivy updates its Label
+properties. Qt/Tkinter reject alpha foreground instead of discarding it;
+Kivy retains RGBA.
+
+**Uncertified boundaries:** the current font-weight adapters project the
+native bold/normal distinction rather than all nine CSS numerical weights.
+Kivy font-family requires a resolvable native font resource. Percentage font
+sizes and justified text alignment are rejected by the bounded projection.
+Explicit `line-height` currently fails closed rather than pretending
+QLabel/ttk.Label support exact text leading. These are active implementation
+gaps, **not** supported typography parity.
+
+Renderer-level native typography tests and native font metric/reflow receipts
+must pass before advertising or closing this capability. The broader
+cross-platform matrix remains tracked by P1.4.8.
