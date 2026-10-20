@@ -81,15 +81,16 @@ def commit_headless_block(renderer: object, root: object) -> None:
                     DiagnosticCode.UNSUPPORTED_FEATURE,
                     "Native flow leaf requires an explicit nested formatting adapter.",
                 )
-            if item.source.props.keys() & {"layout_width", "layout_height"}:
-                raise SFLEError(
-                    DiagnosticCode.UNSUPPORTED_FEATURE,
-                    "Explicit flow dimensions require a supported measurement port.",
-                )
+            from psx.css.geometry import css_layout_overrides
+            style = {"display": item.source.props["display"]} if is_formatting else {}
+            if item.source.css_computed is not None:
+                style.update(css_layout_overrides(item.source.css_computed))
+            # Namespaced author geometry takes precedence over CSS.
+            for key, value in item.source.props.items():
+                if key.startswith("layout_"):
+                    style[key] = value
             nodes.append(LayoutNode(
-                identifier, parent_id, str(item.type),
-                (("display", item.source.props["display"]),)
-                if is_formatting else (),
+                identifier, parent_id, str(item.type), tuple(sorted(style.items())),
             ))
             if is_formatting:
                 for child in item.effective_children:
