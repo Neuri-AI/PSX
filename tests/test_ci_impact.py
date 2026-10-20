@@ -40,6 +40,8 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(self.selected("psx/css/catalog.py"), {"core"})
         self.assertIn("tests/css/test_tree.py", workflow)
         self.assertIn("tests/css/test_sources.py", workflow)
+        self.assertIn("tests/css/test_context.py", workflow)
+        self.assertEqual(self.selected("psx/css/context.py"), {"core"})
         self.assertEqual(self.selected("psx/css/sources.py"), {"core"})
         self.assertEqual(self.selected("psx/css/tree.py"), {"core"})
         self.assertEqual(self.selected("psx/css/effects.py"), {"core"})
