@@ -1198,3 +1198,28 @@ def test_native_badge_css_foreground_is_applied_and_restored():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_css_foreground_keeps_button_disabled_state():
+    from psx.markup.compile import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(psx(
+            '<div><Button key="cta" label="Disabled" enabled="false" style="color: #123456" /></div>'
+        ))
+        widget = mounted.children[0].handle.widget
+        if backend == "qt":
+            assert not widget.isEnabled()
+            assert "#123456" in widget.styleSheet()
+        elif backend == "tk":
+            assert "disabled" in str(widget.state())
+            from tkinter import ttk
+            assert ttk.Style(widget).lookup(str(widget.cget("style")), "foreground") == "#123456"
+        else:
+            assert widget.disabled
+            assert tuple(widget.color) == pytest.approx((18/255, 52/255, 86/255, 1))
+    finally:
+        reconciler.unmount()
+        close()
