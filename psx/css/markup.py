@@ -100,6 +100,12 @@ def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = Non
             target = StyleTarget("__legacy_psx_host__")
             inline = ()
         computed = resolve_style(sheet, target, inline=inline, inherited=inherited)
+        # Anonymous text VNodes are normalized from element content and have
+        # no CSS selector metadata of their own. Inherit the parent's computed
+        # typography explicitly so native Text adapters render the same style
+        # as the formatting host. Keep legacy component selector isolation.
+        if node.type == "Text" and source is None and inherited is not None:
+            computed = resolve_style(Stylesheet(()), StyleTarget("__anonymous_text__"), inherited=inherited)
         children = tuple(visit(child, computed) for child in node.children)
         return replace(node, css_computed=computed, children=children)
 
