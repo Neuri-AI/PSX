@@ -396,9 +396,30 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
     } else {
         content_height
     };
-    let root_width = flow.dimension(0, "width", width)?.unwrap_or(width);
-    let root_height = flow.dimension(0, "height", height)?.unwrap_or(height);
-    flow.boxes[0] = Some(rect(0.0, 0.0, root_width, root_height, &root.node_id)?);
+    let mut has_root_edges = false;
+    let mut vertical = 0.0;
+    for group in ["margin", "padding", "border"] {
+        for side in ["top", "right", "bottom", "left"] {
+            let edge = flow.edge(0, group, side, width)?;
+            has_root_edges |= edge != 0.0;
+            if matches!(side, "top" | "bottom") {
+                vertical += edge;
+            }
+        }
+    }
+    if has_root_edges {
+        if input.constraints.height.definite && flow.dimension(0, "height", height)?.is_none() {
+            let mut content = flow.boxes[0].clone().ok_or_else(|| {
+                error("SFLE_INVALID_TREE", "Missing root content geometry.", Some(&root.node_id))
+            })?;
+            content.height = flow.constrained_dimension(0, "height", height, (height - vertical).max(0.0))?;
+            flow.boxes[0] = Some(rect(content.x, content.y, content.width, content.height, &root.node_id)?);
+        }
+    } else {
+        let root_width = flow.constrained_dimension(0, "width", width, width)?;
+        let root_height = flow.constrained_dimension(0, "height", height, height)?;
+        flow.boxes[0] = Some(rect(0.0, 0.0, root_width, root_height, &root.node_id)?);
+    }
     let boxes = input.nodes.iter().enumerate().map(|(index, node)| {
         let calculated = flow.boxes[index].clone().ok_or_else(|| {
             error("SFLE_INVALID_TREE", "Flow node has no computed geometry.", Some(&node.node_id))
