@@ -983,8 +983,11 @@ class TkinterRenderer:
                     ):
                         raise ValueError("Tk Button line-height requires single-line text and integer pixels above native linespace.")
                     extra = max(0, round(leading - font.metrics("linespace"))) if leading is not None else 0
-                    base = widget.tk.splitlist(str(style.lookup(widget.winfo_class(), "padding") or "0"))
-                    parts = [int(value) for value in base]
+                    base = style.lookup(widget.winfo_class(), "padding") or (0,)
+                    if isinstance(base, (tuple, list)):
+                        parts = [int(value) for value in base]
+                    else:
+                        parts = [int(value) for value in str(base).replace("(", "").replace(")", "").replace(",", " ").split()]
                     if len(parts) == 1:
                         l = t = r = b = parts[0]
                     elif len(parts) == 2:
