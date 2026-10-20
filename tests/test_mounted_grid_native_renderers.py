@@ -954,8 +954,8 @@ def test_native_multiline_css_line_height_follows_cinnamon_measurement():
 
     def view(leading):
         return psx(
-            '<div><span key="text" style="font-size: 16px; line-height: '
-            + str(leading) + 'px">Several words here should wrap over multiple lines</span></div>'
+            '<div><span style="font-size: 16px; line-height: '
+            + str(leading) + 'px"><Text key="text" value="Several words here should wrap over multiple lines" /></span></div>'
         )
 
     try:
@@ -975,7 +975,7 @@ def test_native_multiline_css_line_height_follows_cinnamon_measurement():
             assert widget.heightForWidth(60) >= 80
         else:
             assert TkMeasurementSource._css_text_metrics(widget, 60).preferred_height >= 80
-        third = reconciler.render(psx('<div><span key="text">Several words here should wrap over multiple lines</span></div>'))
+        third = reconciler.render(psx('<div><span><Text key="text" value="Several words here should wrap over multiple lines" /></span></div>'))
         assert third.children[0].children[0].handle.widget is widget
         assert widget._psx_css_line_height is None
         if backend == "tk":
