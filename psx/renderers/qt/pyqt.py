@@ -847,14 +847,11 @@ class QtRenderer:
 
     def apply_css(self, handle: object, computed: object) -> None:
         """Paint explicit CSS backgrounds on Cinnamon-owned semantic hosts."""
-        from psx.css.native_paint import background_hex
+        from psx.css.native_paint import qt_semantic_stylesheet
         target = _handle(handle)
         if target.node_type not in FORMATTING_TAGS:
             return
-        value = background_hex(computed)
-        target.widget.setStyleSheet(
-            f"background-color: {value};" if value is not None else ""
-        )
+        target.widget.setStyleSheet(qt_semantic_stylesheet(computed))
 
     # -- update -----------------------------------------------------------
 
