@@ -1006,22 +1006,26 @@ def test_native_button_css_typography_is_applied_and_reset():
     reconciler = Reconciler(renderer)
     try:
         first = reconciler.render(psx(
-            '<div><button key="cta" style="font-size: 23px; font-weight: 700; font-family: Roboto">Save</button></div>'
+            '<div><button key="cta" style="font-size: 23px; font-weight: 700; font-family: Roboto; line-height: 36px">Save</button></div>'
         ))
         button = first.children[0].handle.widget
         if backend == "qt":
+            assert button._psx_css_line_height == 36
             assert button.font().pixelSize() == 23
             assert button.font().bold()
             assert button.font().family() == "Roboto"
         elif backend == "tk":
             assert button._psx_css_native_font.cget("size") == -23
+            assert ttk.Style(button).lookup(str(button.cget("style")), "padding")
             assert button._psx_css_native_font.actual("weight") == "bold"
         else:
             assert button.font_size == 23
+            assert button.line_height == pytest.approx(36 / 23)
             assert button.bold
         second = reconciler.render(psx('<div><button key="cta">Save</button></div>'))
         assert second.children[0].handle.widget is button
         if backend == "qt":
+            assert button._psx_css_line_height is None
             assert not button.font().bold()
         elif backend == "tk":
             assert button._psx_css_native_font.actual("weight") == "normal"
