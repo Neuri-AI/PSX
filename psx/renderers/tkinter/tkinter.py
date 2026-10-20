@@ -846,6 +846,8 @@ class TkinterRenderer:
             layer.configure(state="normal")
             layer.delete("1.0", "end")
             layer.insert("1.0", str(target.props.get("value", "")))
+            layer.tag_configure("_psx_css_alignment", justify=str(target.widget.cget("justify")))
+            layer.tag_add("_psx_css_alignment", "1.0", "end")
             extra = round(leading - metrics)
             layer.configure(
                 font=target.widget._psx_text_font,
