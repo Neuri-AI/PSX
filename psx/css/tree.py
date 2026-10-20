@@ -47,13 +47,26 @@ def resolve_vnode_styles(
             return
         if not isinstance(node.type, str):
             return
-        target = select.get(path, StyleTarget(node.type))
-        if target.tag != node.type:
-            raise ValueError(f"CSS selector tag does not match VNode type at {path!r}.")
-        computed = resolve_style(
-            stylesheet, target, inherited=inherited,
-            inline=declarations.get(path, ()),
+        source = node.css_source
+        source_tag = source.tag if source is not None else node.type
+        target = select.get(
+            path, StyleTarget(
+                source_tag,
+                source.classes if source is not None else frozenset(),
+                source.node_id if source is not None else None,
+            ),
         )
+        if target.tag != source_tag:
+            raise ValueError(f"CSS selector tag does not match VNode type at {path!r}.")
+        # Bound markup already supplies immutable computed snapshots; they are
+        # the authoritative source for reconciler-side style comparisons.
+        if not select and not declarations and isinstance(node.css_computed, ComputedStyle):
+            computed = node.css_computed
+        else:
+            inline_values = declarations.get(path, source.inline if source is not None else ())
+            computed = resolve_style(
+                stylesheet, target, inherited=inherited, inline=inline_values,
+            )
         result.append(StyledNode(path, node.key, node.type, computed))
         for index, child in enumerate(node.children):
             visit(child, (*path, index), computed)
