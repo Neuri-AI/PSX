@@ -159,7 +159,11 @@ class Reconciler:
         try:
             if changed or removed:
                 self.renderer.update(old.handle, changed, removed)
-            if previous_node.css_computed != node.css_computed:
+            if previous_node.css_computed != node.css_computed or (
+                (changed or removed) and node.css_computed is not None
+            ):
+                # Native component updates may reset font or foreground props;
+                # reapply CSS only when a native mutation could have overwritten it.
                 self._apply_css(old.handle, node.css_computed)
             self._sync_events(old, previous_node.props, node.props)
             previous_children = old.children
