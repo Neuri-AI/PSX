@@ -2,6 +2,7 @@
 import pytest
 
 from psx.core.errors import MarkupSyntaxError
+from psx.core.vnode import NodeKind
 from psx.markup.compile import compile_template, psx
 from psx.css.visual_values import CssColor
 from psx.sfle.lengths import Length
@@ -14,7 +15,7 @@ def styled(markup: str, css: str, scope=None):
         '<link rel="stylesheet" href="styles/test.css" />' + markup,
         scope=bound,
     )
-    return tree.children[0] if len(tree.children) == 1 else tree
+    return tree.children[0] if tree.kind is NodeKind.FRAGMENT and len(tree.children) == 1 else tree
 
 
 def test_class_id_and_inline_precedence():
@@ -59,7 +60,7 @@ def test_lexical_compiler_resolves_link_sources():
         "text": lambda: "Hello",
         "__velto_css_resource_resolver__": lambda _: ".panel {width: 45px}",
     })
-    assert result.children[0].css_computed.properties["width"] == Length.px(45)
+    assert result.css_computed.properties["width"] == Length.px(45)
 
 
 @pytest.mark.parametrize("source", (
@@ -140,7 +141,7 @@ def test_unknown_stylesheet_property_fails_closed():
 def test_link_is_not_a_widget():
     root = psx('<link rel="stylesheet" href="styles/main.css" /><div />',
                scope={"__velto_css_resource_resolver__": lambda _: ""})
-    assert root.children[0].type == "div"
+    assert root.type == "div"
 
 
 def test_removed_stylesheet_keyword_is_rejected():
