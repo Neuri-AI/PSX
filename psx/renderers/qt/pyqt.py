@@ -845,6 +845,17 @@ class QtRenderer:
             widget.textChanged.connect(self._sfle_on_textarea_content_changed)
         return QtHandle(node.type, widget, props=dict(node.props))
 
+    def apply_css(self, handle: object, computed: object) -> None:
+        """Paint explicit CSS backgrounds on Cinnamon-owned semantic hosts."""
+        from psx.css.native_paint import background_hex
+        target = _handle(handle)
+        if target.node_type not in FORMATTING_TAGS:
+            return
+        value = background_hex(computed)
+        target.widget.setStyleSheet(
+            f"background-color: {value};" if value is not None else ""
+        )
+
     # -- update -----------------------------------------------------------
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
