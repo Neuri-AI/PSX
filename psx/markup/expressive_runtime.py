@@ -210,3 +210,7 @@ def element(
             f"{name} accepts at most one child", filename=filename, line=line, column=column
         )
     return finish(constructor(*normalized, key=key, **props))
+
+# The lexical import hook already binds the element helper in every transformed
+# module, so attach the CSS source resolver here instead of adding a new global.
+element.compute_styles = compute_expressive_markup_styles
