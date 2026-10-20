@@ -856,6 +856,37 @@ class TkinterRenderer:
                 state="disabled",
             )
             return
+        if target.node_type == "Link":
+            from psx.css.native_paint import native_text_typography
+            from tkinter import font as tkfont
+            styles = native_text_typography(computed)
+            widget = target.widget
+            if not styles:
+                if hasattr(widget, "_psx_css_link_font"):
+                    widget.configure(
+                        font=widget._psx_css_link_original_font,
+                        anchor=widget._psx_css_link_original_anchor,
+                    )
+                return
+            if not hasattr(widget, "_psx_css_link_font"):
+                widget._psx_css_link_original_font = widget.cget("font")
+                widget._psx_css_link_original_anchor = widget.cget("anchor")
+                widget._psx_css_link_font = tkfont.Font(
+                    root=widget, font=widget._psx_css_link_original_font
+                )
+                widget._psx_css_link_font_base = widget._psx_css_link_font.actual()
+            font = widget._psx_css_link_font
+            font.configure(**widget._psx_css_link_font_base)
+            if "font-family" in styles:
+                font.configure(family=styles["font-family"])
+            if "font-size" in styles:
+                font.configure(size=-round(styles["font-size"]))
+            if "font-weight" in styles:
+                font.configure(weight="bold" if styles["font-weight"] == 700 else "normal")
+            widget.configure(font=font)
+            if "text-align" in styles:
+                widget.configure(anchor={"left": "w", "center": "center", "right": "e"}[styles["text-align"]])
+            return
         if target.node_type in ("Button", "Checkbox", "Input", "Radio"):
             from psx.css.native_paint import native_text_typography
             from tkinter import font as tkfont
