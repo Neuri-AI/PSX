@@ -273,14 +273,33 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         )
     else:
         content_height = block_node(root, 0.0, 0.0, width)
-    root_height = (
-        dimension(root, "height", snapshot.constraints.height.value or content_height)
-        or snapshot.constraints.height.value
-        if snapshot.constraints.height.definite
-        else content_height
+    has_root_edges = any(
+        edges(root, group) != (0.0, 0.0, 0.0, 0.0)
+        for group in ("margin", "padding", "border")
     )
-    root_width = dimension(root, "width", width)
-    geometry[root.node_id] = quantized_rect(0.0, 0.0, root_width if root_width is not None else width, root_height)
+    if has_root_edges:
+        if snapshot.constraints.height.definite and dimension(root, "height", width) is None:
+            viewport_height = snapshot.constraints.height.value
+            vertical = sum(
+                group[0] + group[2]
+                for group in (edges(root, name) for name in ("margin", "padding", "border"))
+            )
+            prior = geometry[root.node_id]
+            geometry[root.node_id] = quantized_rect(
+                prior.x, prior.y, prior.width,
+                constrained_dimension(root, "height", viewport_height, max(0.0, viewport_height - vertical)),
+            )
+    else:
+        root_height = (
+            constrained_dimension(
+                root, "height", snapshot.constraints.height.value or content_height,
+                snapshot.constraints.height.value or content_height,
+            )
+            if snapshot.constraints.height.definite
+            else constrained_dimension(root, "height", width, content_height)
+        )
+        root_width = constrained_dimension(root, "width", width, width)
+        geometry[root.node_id] = quantized_rect(0.0, 0.0, root_width, root_height)
 
     result = tuple((node.node_id, box_rect(node, geometry[node.node_id]))
                    for node in snapshot.nodes)
