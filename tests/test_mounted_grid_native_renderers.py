@@ -952,12 +952,18 @@ def test_native_multiline_css_line_height_follows_cinnamon_measurement():
     renderer, close = make_renderer(backend)
     reconciler = Reconciler(renderer)
 
+    from dataclasses import replace
+
     def view(leading):
-        return psx(
-            '<div><span style="font-size: 16px; line-height: '
-            + str(leading) + 'px"><Text key="text" value={content} /></span></div>',
-            scope={"content": "Several words here should wrap over multiple lines"},
+        style = (
+            ' style="font-size: 16px; line-height: ' + str(leading) + 'px"'
+            if leading is not None else ""
         )
+        root = psx("<div><span" + style + "></span></div>")
+        span = root.children[0]
+        content = Text("Several words here should wrap over multiple lines", key="text")
+        content = replace(content, css_computed=span.css_computed)
+        return replace(root, children=(replace(span, children=(content,)),))
 
     try:
         first = reconciler.render(view(32))
@@ -981,8 +987,7 @@ def test_native_multiline_css_line_height_follows_cinnamon_measurement():
         else:
             assert TkMeasurementSource._css_text_metrics(widget, 60).preferred_height >= 80
             assert int(widget._psx_css_text_layer.cget("spacing2")) == 40 - widget._psx_text_font.metrics("linespace")
-        third = reconciler.render(psx('<div><span><Text key="text" value={content} /></span></div>',
-                                      scope={"content": "Several words here should wrap over multiple lines"}))
+        third = reconciler.render(view(None))
         assert third.children[0].children[0].handle.widget is widget
         assert widget._psx_css_line_height is None
         if backend == "tk":
