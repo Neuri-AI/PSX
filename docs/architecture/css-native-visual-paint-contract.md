@@ -29,9 +29,9 @@ Inherited defaults never trigger painting of an unstyled widget.
 
 ## Not yet certified or advertised by this slice
 
-Portable `color` foregrounds, native font-family/font-size/font-weight and
-font measurement invalidation, line height/text alignment, border widths and
-radii **as paint**, mixed composition with manually installed native
+Full general-component foreground/typography coverage, unrestricted font weights,
+percentage font sizes, justified text, border widths and radii **as paint**,
+mixed composition with manually installed native
 stylesheets, translucent backgrounds on Qt/Tkinter, and image backgrounds.
 These require separate adapter contracts and end-to-end native readback.
 CSS border width already has a distinct geometry contract through Cinnamon;
@@ -84,3 +84,31 @@ gaps, **not** supported typography parity.
 Renderer-level native typography tests and native font metric/reflow receipts
 must pass before advertising or closing this capability. The broader
 cross-platform matrix remains tracked by P1.4.8.
+
+## Fixed pixel line-height in native Text (implementation and certification scope)
+
+Qt's native `Text` uses a QLabel-compatible host with a `QTextDocument`,
+`QTextBlockFormat.FixedHeight` and QTextDocument painting/height-for-width
+measurement when authored CSS `line-height` is present. Removal restores
+QLabel's ordinary native painting and measurements. Native font, foreground
+and paragraph alignment are reflected in the Qt document.
+
+Tkinter retains the public Text handle as `ttk.Label`, and creates a
+lifecycle-owned, non-editable `tk.Text` paint child only while explicit
+`line-height` is active. Native `tk.Text` spacing2/spacing3 projects extra
+interline leading. The native Tk font's linespace and a same-font Tk wrapping
+probe supply the intrinsic heights consumed by Cinnamon; removal destroys
+the child and restores ttk.Label rendering. Style-only font updates notify
+Cinnamon's coalesced, per-widget `font` measurement invalidation; pure
+foreground/alignment changes do not trigger unnecessary native remeasurement.
+
+The accepted subset is positive px line-height. Tk requires **integer device
+pixels** and a value no smaller than its font's native linespace; unsupported
+smaller/fractional lines fail explicitly rather than silently changing the
+value. This limitation is not equivalent to universal browser CSS text layout,
+and remains documented until a more capable native renderer is certified.
+
+Executed native tests must verify width-sensitive wrapped text, matched
+intrinsic heights, keyed style changes, style removal, native identity and
+resource teardown. Do not claim certification from source presence alone;
+require successful relevant native and Grid CI jobs for the immutable code SHA.
