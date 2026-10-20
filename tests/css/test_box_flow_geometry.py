@@ -92,3 +92,13 @@ def test_percent_height_in_auto_block_falls_back_to_intrinsic_height():
     child = _node("child", "middle", "Button", layout_height=Length.percent(.5))
     result = dict(compute_measured_block_snapshot(_request(root, middle, child)).boxes)
     assert result["child"].content.height == 10
+
+
+def test_percentage_width_uses_parent_resolved_width():
+    root = _node('root', None, 'div', display='block')
+    middle = _node('middle', 'root', 'div', display='block', layout_width=Length.px(150), layout_padding_left=Length.px(10))
+    leaf = _node('leaf', 'middle', 'Button', layout_width=Length.percent(.5))
+    boxes = dict(compute_measured_block_snapshot(_request(root, middle, leaf)).boxes)
+    assert boxes['middle'].content.width == 150
+    assert boxes['leaf'].content.width == 75
+    assert boxes['leaf'].content.x == 10
