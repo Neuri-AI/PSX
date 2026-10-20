@@ -207,6 +207,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                 )
             owners.append(node)
             for sub in children[node.node_id]:
+                containing_height[sub.node_id] = containing_height.get(node.node_id)
                 collect(sub)
 
         for node in nodes:
