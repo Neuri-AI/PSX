@@ -129,8 +129,8 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                             if intrinsic.baseline is not None
                             else intrinsic.preferred_height)
                 atoms.append(InlineAtom(
-                    (dimension(node, "width", available) if dimension(node, "width", available) is not None else intrinsic.preferred_width),
-                    (dimension(node, "height", available) if dimension(node, "height", available) is not None else intrinsic.preferred_height),
+                    constrained_dimension(node, "width", available, intrinsic.preferred_width),
+                    constrained_dimension(node, "height", available, intrinsic.preferred_height),
                     baseline,
                 ))
                 fragments.append(node)
@@ -173,10 +173,10 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         if mode is None:
             intrinsic = leaf(node)
             geometry[node.node_id] = quantized_rect(
-                x, y, (dimension(node, "width", available) if dimension(node, "width", available) is not None else available),
-                dimension(node, "height", available) or intrinsic.preferred_height,
+                x, y, constrained_dimension(node, "width", available, available),
+                constrained_dimension(node, "height", available, intrinsic.preferred_height),
             )
-            return (dimension(node, "height", available) if dimension(node, "height", available) is not None else intrinsic.preferred_height)
+            return constrained_dimension(node, "height", available, intrinsic.preferred_height)
         if mode == "inline":
             return inline_run((node,), x, y, available)
         cursor = 0.0
@@ -195,11 +195,10 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                 flush()
                 cursor += block_node(child, x, y + cursor, available)
         flush()
-        used_width = dimension(node, "width", available)
-        used_height = dimension(node, "height", available)
-        geometry[node.node_id] = quantized_rect(x, y, used_width if used_width is not None else available,
-                                                 used_height if used_height is not None else cursor)
-        return used_height if used_height is not None else cursor
+        used_width = constrained_dimension(node, "width", available, available)
+        used_height = constrained_dimension(node, "height", available, cursor)
+        geometry[node.node_id] = quantized_rect(x, y, used_width, used_height)
+        return used_height
 
     if display(root) == "inline":
         content_height = inline_run(
