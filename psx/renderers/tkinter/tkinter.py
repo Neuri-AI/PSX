@@ -989,7 +989,6 @@ class TkinterRenderer:
                         name = f"PsxCssColor{id(widget)}.TCombobox"
                         theme = ttk.Style(widget)
                         theme.configure(name, foreground=styles["color"])
-                        theme.map(name, foreground=[("disabled", styles["color"]), ("readonly", styles["color"])])
                         widget.configure(style=name)
                 if "text-align" in styles:
                     widget.configure(justify=styles["text-align"])
@@ -1034,10 +1033,6 @@ class TkinterRenderer:
                 elif "text-align" in styles:
                     raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
                 style.configure(style_name, **config)
-                if "color" in styles:
-                    style.map(style_name, foreground=[("disabled", styles["color"]), ("active", styles["color"])])
-                else:
-                    style.map(style_name, foreground=[])
                 widget.configure(style=style_name)
             if self._sfle_constraints is not None:
                 keys = ("font-family", "font-size", "font-weight", "line-height")
