@@ -861,10 +861,10 @@ class QtRenderer:
                 if "font-size" in styles:
                     font.setPixelSize(round(styles["font-size"]))
                 if "font-weight" in styles:
-                    font.setWeight(round(styles["font-weight"] / 10))
+                    font.setBold(styles["font-weight"] >= 600)
                 target.widget.setFont(font)
                 if "text-align" in styles:
-                    enum = getattr(__import__(self._binding_package + ".QtCore", fromlist=["Qt"]).Qt, "AlignmentFlag", None)
+                    enum = getattr(__import__(self._binding_package + ".QtCore", fromlist=["Qt"]).Qt, "AlignmentFlag", __import__(self._binding_package + ".QtCore", fromlist=["Qt"]).Qt)
                     if enum is not None:
                         target.widget.setAlignment(getattr(enum, {"left": "AlignLeft", "right": "AlignRight", "center": "AlignHCenter"}[styles["text-align"]]) | enum.AlignVCenter)
                 if "color" in styles:
