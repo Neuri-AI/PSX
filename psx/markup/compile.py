@@ -190,8 +190,22 @@ def _element(
         definition = ComponentDefinition(element.name, candidate)
     constructor = definition.constructor
     key = props.pop("key", None)
+    css_source = None
+    if element.name in PORTABLE_HTML_ALIASES:
+        if "class" in props and "class_name" in props:
+            _error("Use either class or class_name, not both.", filename, element.span)
+        if any(name in props for name in ("class", "class_name", "id", "style")):
+            css_class = props.pop("class", None)
+            if css_class is None:
+                css_class = props.pop("class_name", None)
+            css_source = parse_markup_style(
+                element.name, class_value=css_class,
+                id_value=props.pop("id", None), inline_value=props.pop("style", None),
+            )
     props = _coerce_props(definition, props, filename, element.span)
     contract = definition.contract
+    def finish(node: VNode) -> VNode:
+        return replace(node, css_source=css_source) if css_source is not None else node
     if contract is not None and contract.child_policy == "none-or-single":
         meaningful = _meaningful_children(element.children)
         if len(meaningful) > 1:
@@ -201,7 +215,7 @@ def _element(
                 element.span,
             )
         children = _nodes(meaningful, scope, resolver, filename, lexical=lexical)
-        return constructor(*children, key=key, **props)
+        return finish(constructor(*children, key=key, **props))
     if contract is not None and contract.content_property is not None:
         property_name = contract.content_property
         value = props.pop(property_name, None)
@@ -210,7 +224,7 @@ def _element(
             _error(f"{definition.name} cannot receive both {property_name} and child text", filename, element.span)
         if value is None:
             value = content
-        return constructor(_text_value(value, filename, element.span), key=key, **props)
+        return finish(constructor(_text_value(value, filename, element.span), key=key, **props))
     if contract is not None and contract.child_policy == "text":
         value = props.pop("value", None)
         content = _inline_children(element.children, scope, filename, lexical=lexical)
@@ -218,11 +232,11 @@ def _element(
             _error(f"{definition.name} cannot receive both value and child text", filename, element.span)
         if value is None:
             value = content
-        return constructor(_text_value(value, filename, element.span), key=key, **props)
+        return finish(constructor(_text_value(value, filename, element.span), key=key, **props))
     if contract is not None and contract.child_policy == "none" and element.children:
         _error(f"{definition.name} does not accept child content; use its props instead", filename, element.span)
     children = _nodes(element.children, scope, resolver, filename, lexical=lexical)
-    return constructor(*children, key=key, **props)
+    return finish(constructor(*children, key=key, **props))
 
 
 def _meaningful_children(nodes: tuple[Node, ...]) -> tuple[Node, ...]:
