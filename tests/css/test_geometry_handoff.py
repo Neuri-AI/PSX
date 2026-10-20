@@ -74,8 +74,9 @@ def test_mounted_headless_applies_css_width_through_cinnamon():
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
     from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import IntrinsicSizes
 
-    source = '<div class="panel" style="width: 140px; height: 60px"><span style="width: 45px; height: 15px">Text</span></div>'
+    source = '<div class="panel" style="width: 140px; height: 60px"><button style="width: 45px; height: 15px">Text</button></div>'
     from psx import psx
     tree = psx(source)
     renderer = HeadlessRenderer(
@@ -83,6 +84,7 @@ def test_mounted_headless_applies_css_width_through_cinnamon():
             AvailableSize(300, True), AvailableSize(100, True)
         ),
         engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda _: IntrinsicSizes(20, 20, 15, 15, 20, 15),
     )
     reconciler = Reconciler(renderer)
     try:
