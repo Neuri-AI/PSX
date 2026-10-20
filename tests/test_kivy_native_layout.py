@@ -13,6 +13,42 @@ import unittest
 
 
 class KivySFLEGeometrySubprocessTests(unittest.TestCase):
+    def test_css_dimensions_commit_to_kivy_widget_geometry(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(240, True), AvailableSize(140, True),
+                ),
+                engine=PythonLayoutEngine(),
+            )
+            reconciler = Reconciler(renderer)
+            root = reconciler.render(psx(
+                '<div style="width: 140px; height: 60px">'
+                '<button style="width: 45px; height: 15px">Save</button></div>'
+            ))
+            assert round(root.handle.widget.width) == 140
+            assert round(root.children[0].handle.widget.width) == 45
+            assert round(root.children[0].handle.widget.height) == 15
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            reconciler.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_html_block_uses_cinnamon_native_positions(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
