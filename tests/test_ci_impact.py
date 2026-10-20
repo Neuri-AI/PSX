@@ -44,7 +44,7 @@ class RoutingTests(unittest.TestCase):
         self.assertIn("tests/css/test_geometry_handoff.py", workflow)
         self.assertIn("tests/css/test_box_flow_geometry.py", workflow)
         self.assertIn("tests/css/test_native_paint.py", workflow)
-        self.assertEqual(self.selected("psx/css/native_paint.py"), {"core"})
+        self.assertEqual(self.selected("psx/css/native_paint.py"), {"core", "qt", "kivy", "tkinter"})
         self.assertEqual(self.selected("psx/css/geometry.py"), {"core"})
         self.assertEqual(self.selected("psx/css/context.py"), {"core"})
         self.assertEqual(self.selected("psx/css/sources.py"), {"core"})
