@@ -118,8 +118,8 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                             if intrinsic.baseline is not None
                             else intrinsic.preferred_height)
                 atoms.append(InlineAtom(
-                    dimension(node, "width", available) or intrinsic.preferred_width,
-                    dimension(node, "height", available) or intrinsic.preferred_height,
+                    (dimension(node, "width", available) if dimension(node, "width", available) is not None else intrinsic.preferred_width),
+                    (dimension(node, "height", available) if dimension(node, "height", available) is not None else intrinsic.preferred_height),
                     baseline,
                 ))
                 fragments.append(node)
@@ -162,10 +162,10 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         if mode is None:
             intrinsic = leaf(node)
             geometry[node.node_id] = quantized_rect(
-                x, y, dimension(node, "width", available) or available,
+                x, y, (dimension(node, "width", available) if dimension(node, "width", available) is not None else available),
                 dimension(node, "height", available) or intrinsic.preferred_height,
             )
-            return dimension(node, "height", available) or intrinsic.preferred_height
+            return (dimension(node, "height", available) if dimension(node, "height", available) is not None else intrinsic.preferred_height)
         if mode == "inline":
             return inline_run((node,), x, y, available)
         cursor = 0.0
