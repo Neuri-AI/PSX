@@ -172,6 +172,7 @@ def helper_import() -> ast.ImportFrom:
             ast.alias(name="index", asname="_psx_expr_index"),
             ast.alias(name="conditional", asname="_psx_expr_conditional"),
             ast.alias(name="map_children", asname="_psx_expr_map_children"),
+            ast.alias(name="compute_expressive_markup_styles", asname="_psx_expr_compute_styles"),
         ],
         level=0,
     )
