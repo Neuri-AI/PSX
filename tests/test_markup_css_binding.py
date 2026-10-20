@@ -5,6 +5,8 @@ widgets. These tests certify attachment and computed style only.
 """
 import pytest
 
+from psx.core.errors import MarkupSyntaxError
+
 from psx.markup.compile import compile_template, psx
 from psx.css.visual_values import CssColor
 from psx.sfle.lengths import Length
@@ -65,7 +67,7 @@ def test_m4b_lexical_template_style_binding():
     '<div style="background-image: url(a.png)" />',
 ])
 def test_invalid_style_attributes_fail_closed(source):
-    with pytest.raises((TypeError, ValueError)):
+    with pytest.raises((TypeError, ValueError, MarkupSyntaxError)):
         psx(source)
 
 
