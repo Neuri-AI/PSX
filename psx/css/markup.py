@@ -84,6 +84,8 @@ def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = Non
         sheet = parse_stylesheet(stylesheet)
 
     def visit(node: VNode, inherited: ComputedStyle | None) -> VNode:
+        if node.kind is NodeKind.FRAGMENT:
+            return replace(node, children=tuple(visit(child, inherited) for child in node.children))
         if node.kind is not NodeKind.HOST:
             return node
         source = node.css_source
