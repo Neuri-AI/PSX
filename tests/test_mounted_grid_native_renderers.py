@@ -940,3 +940,46 @@ def test_native_css_typography_updates_text_without_replacing_widget():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_multiline_css_line_height_follows_cinnamon_measurement():
+    """Native line boxes and intrinsic measurements must use one line-height."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    if backend == "kivy":
+        pytest.skip("Qt and Tk native line-height certification only")
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(leading):
+        return psx(
+            '<div><span key="text" style="font-size: 16px; line-height: '
+            + str(leading) + 'px">First line\nSecond line</span></div>'
+        )
+
+    try:
+        first = reconciler.render(view(32))
+        widget = first.children[0].children[0].handle.widget
+        if backend == "qt":
+            assert widget._psx_css_line_height == 32
+            assert widget.heightForWidth(200) >= 64
+        else:
+            from psx.sfle.tk_measurement import TkMeasurementSource
+            assert widget._psx_css_line_height == 32
+            assert TkMeasurementSource._css_text_metrics(widget, 200).preferred_height >= 64
+            assert widget._psx_css_text_layer.winfo_exists()
+        second = reconciler.render(view(40))
+        assert second.children[0].children[0].handle.widget is widget
+        if backend == "qt":
+            assert widget.heightForWidth(200) >= 80
+        else:
+            assert TkMeasurementSource._css_text_metrics(widget, 200).preferred_height >= 80
+        third = reconciler.render(psx('<div><span key="text">First line\nSecond line</span></div>'))
+        assert third.children[0].children[0].handle.widget is widget
+        assert widget._psx_css_line_height is None
+        if backend == "tk":
+            assert not hasattr(widget, "_psx_css_text_layer")
+    finally:
+        reconciler.unmount()
+        close()
