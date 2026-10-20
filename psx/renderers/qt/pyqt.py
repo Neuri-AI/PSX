@@ -861,7 +861,7 @@ class QtRenderer:
                     cursor.select(getattr(gui.QTextCursor, "SelectionType", gui.QTextCursor).Document)
                     block = gui.QTextBlockFormat()
                     kinds = getattr(gui.QTextBlockFormat, "LineHeightTypes", gui.QTextBlockFormat)
-                    block.setLineHeight(float(height), kinds.FixedHeight)
+                    block.setLineHeight(float(height), getattr(kinds.FixedHeight, 'value', kinds.FixedHeight))
                     cursor.setBlockFormat(block)
                     char = gui.QTextCharFormat()
                     char.setForeground(self.palette().color(self.foregroundRole()))
