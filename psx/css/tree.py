@@ -43,6 +43,10 @@ def resolve_vnode_styles(
     result: list[StyledNode] = []
 
     def visit(node: VNode, path: NodePath, inherited: ComputedStyle | None) -> None:
+        if node.kind is NodeKind.FRAGMENT:
+            for index, child in enumerate(node.children):
+                visit(child, (*path, index), inherited)
+            return
         if node.kind is not NodeKind.HOST:
             return
         if not isinstance(node.type, str):
@@ -107,7 +111,16 @@ def compare_styled_trees(
             else:
                 parent_identity = by_path.get(item.path[:-1])
                 if parent_identity is None:
-                    raise ValueError("Orphan CSS host node in style snapshot.")
+                    # Fragment nodes do not have CSS records; they still
+                    # contribute stable positional scope between styled hosts.
+                    def fragment_parent(path: NodePath) -> tuple[object, ...]:
+                        present = by_path.get(path)
+                        if present is not None:
+                            return present
+                        if not path:
+                            return ("fragment-root",)
+                        return (*fragment_parent(path[:-1]), ("fragment", path[-1]))
+                    parent_identity = fragment_parent(item.path[:-1])
                 sibling_identity = ("key", item.key) if item.key is not None else ("index", item.path[-1])
                 identity = (*parent_identity, sibling_identity)
             if identity in result:
