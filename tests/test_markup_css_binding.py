@@ -175,7 +175,7 @@ def test_expressive_global_type_selector_without_css_attributes():
         "from psx import psx\n"
         "def view():\n"
         "    ready = True\n"
-        "    return psx('ready && <div>Hello</div>')\n"
+        "    return psx('<div>{ready && <span>Hello</span>}</div>')\n"
     )
     transformed = transform_source(program, filename="type_selector.py")
     ns = {}
