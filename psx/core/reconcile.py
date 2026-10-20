@@ -102,6 +102,11 @@ class Reconciler:
                 errors.append(error)
         _raise_cleanup_error(errors)
 
+    def _apply_css(self, handle: object, computed: object) -> None:
+        apply = getattr(self.renderer, "apply_css", None)
+        if callable(apply):
+            apply(handle, computed)
+
     def _mount(self, node: VNode, parent: MountedInstance | None) -> MountedInstance:
         instance = MountedInstance(node=node, parent=parent)
         try:
@@ -114,6 +119,7 @@ class Reconciler:
                 _without_runtime_props(node), parent.native_handle(
                 ) if parent and parent.handle else None
             )
+            self._apply_css(instance.handle, node.css_computed)
             self._queue_ref(instance, node.props.get("ref"))
             self._sync_events(instance, {}, node.props)
             _validate_keys(node.children)
@@ -153,6 +159,8 @@ class Reconciler:
         try:
             if changed or removed:
                 self.renderer.update(old.handle, changed, removed)
+            if previous_node.css_computed != node.css_computed:
+                self._apply_css(old.handle, node.css_computed)
             self._sync_events(old, previous_node.props, node.props)
             previous_children = old.children
             next_children = self._reconcile_children(
