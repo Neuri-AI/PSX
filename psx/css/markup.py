@@ -103,3 +103,11 @@ def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = Non
         return replace(node, css_computed=computed, children=children)
 
     return visit(root, None)
+
+def compute_expressive_markup_styles(root: VNode | None, links: tuple[str, ...]) -> VNode | None:
+    """Resolve static markup links after expression lowering, without widgets."""
+    from .sources import CssSourceManager
+    if root is None:
+        return None
+    stylesheet = CssSourceManager().load(links) if links else None
+    return compute_markup_styles(root, stylesheet)
