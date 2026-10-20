@@ -773,6 +773,37 @@ class KivyRenderer:
             return
         widget = target.widget
         rgba = background_rgba(computed)
+        from psx.css.native_paint import border_rgba
+        from psx.sfle.lengths import Length, LengthKind
+        from kivy.graphics import Line
+        border = border_rgba(computed)
+        thickness = computed.properties["border-width"] if computed is not None else None
+        if border is not None:
+            if not isinstance(thickness, Length) or thickness.kind != LengthKind.PX:
+                raise ValueError("Kivy CSS border paint requires a pixel width.")
+        stroke_width = float(thickness.value) if border is not None else 0.0
+        old_stroke = getattr(widget, "_psx_css_stroke", None)
+        if border is None or stroke_width <= 0:
+            if old_stroke is not None:
+                stroke_group, stroke_redraw, _, _ = old_stroke
+                widget.unbind(pos=stroke_redraw, size=stroke_redraw)
+                widget.canvas.after.remove(stroke_group)
+                del widget._psx_css_stroke
+        elif old_stroke is None:
+            stroke_group = InstructionGroup()
+            stroke_color = Color(*border)
+            stroke_line = Line(rectangle=(widget.x, widget.y, widget.width, widget.height), width=stroke_width)
+            stroke_group.add(stroke_color)
+            stroke_group.add(stroke_line)
+            def stroke_redraw(instance, _value):
+                stroke_line.rectangle = (instance.x, instance.y, instance.width, instance.height)
+            widget.canvas.after.add(stroke_group)
+            widget.bind(pos=stroke_redraw, size=stroke_redraw)
+            widget._psx_css_stroke = (stroke_group, stroke_redraw, stroke_color, stroke_line)
+        else:
+            _, _, stroke_color, stroke_line = old_stroke
+            stroke_color.rgba = border
+            stroke_line.width = stroke_width
         existing = getattr(widget, "_psx_css_paint", None)
         if rgba is None:
             if existing is not None:
