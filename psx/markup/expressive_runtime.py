@@ -14,6 +14,7 @@ from psx.core.errors import InvalidChildError, MarkupSyntaxError
 from psx.core.registry import builtin_component_registry
 from psx.core.vnode import Fragment, Text, VNode
 from .compile import _coerce_props
+from psx.css.markup import compute_expressive_markup_styles
 from .html_aliases import markup_alias_definitions, PORTABLE_HTML_ALIASES
 from psx.css.markup import parse_markup_style
 
