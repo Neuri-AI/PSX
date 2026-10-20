@@ -23,7 +23,7 @@ def test_source_derived_inventory_separates_shared_and_native():
     records = inventory()
     assert len(records) == len(set(records))
     from psx.markup.html_aliases import FORMATTING_TAGS, PORTABLE_HTML_ALIASES
-    assert {row.component for row in records} == set(definitions) | set(PORTABLE_HTML_ALIASES)
+    assert {row.component for row in records} == set(definitions) | set(PORTABLE_HTML_ALIASES) | {"link"}
     for tag in FORMATTING_TAGS:
         assert not builtin_component_registry().contains(tag)
         contract = [row for row in records
