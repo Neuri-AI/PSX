@@ -37,10 +37,15 @@ directory; advanced embedders can inject a resource reader using
 `psx.css.context.scoped_css_resources(..., resolver=...)`. The parser is
 independent of Qyro. Resolver results may be UTF-8 text or bytes, allowing
 protected resources to be integrated by a resource provider capable of reading
-decrypted bytes without writing the plaintext to disk. The currently verified
-Qyro `get_resource()` entrypoint returns a filesystem path; support for
-Qyro protected `.pak` content requires its separate read API and is **not
-claimed to be implemented** by the filesystem adapter.
+decrypted bytes without writing the plaintext to disk. The Qyro `release` runtime already implements authenticated protected resource bundle
+loading: `.velto/resources.pak` is decrypted by `ProtectedResourceBundle`,
+ordinary resource files are extracted to a temporary directory, and
+`FileSystemResourceAdapter` exposes them through the existing `get_resource()`
+filesystem-path API. The CSS reader can read those returned paths normally:
+no extra `.pak` decryption API is required for the shipped protected-resource
+workflow. This does **not** claim per-file in-memory CSS decryption or that
+protected ordinary CSS never touches disk. The source-integration changes to
+Qyro `VeltoContext` target its `release` branch, not the stale `main` facade.
 
 ## CSS imports
 
