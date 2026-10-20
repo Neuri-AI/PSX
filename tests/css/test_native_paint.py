@@ -1,7 +1,7 @@
 """Explicit CSS background paint conversion is native-backend independent."""
 import pytest
 
-from psx.css.native_paint import background_hex, background_rgba, foreground_hex, foreground_rgba, qt_semantic_stylesheet, border_rgba
+from psx.css.native_paint import background_hex, background_rgba, foreground_hex, foreground_rgba, qt_semantic_stylesheet, border_rgba, native_text_typography
 from psx.css.cascade import StyleTarget, resolve_style
 from psx.css.parser import parse_stylesheet
 
@@ -108,3 +108,28 @@ def test_border_rgba_supports_native_kivy_transparency():
         1.0, 0.0, 0.0, 136 / 255
     )
     assert border_rgba(_style("div {border-width: 3px}")) is None
+
+def test_text_typography_projects_explicit_font_and_alignment():
+    style = _style("div {color: #abc; font-family: Arial; font-size: 18px; font-weight: bold; text-align: center}")
+    assert native_text_typography(style) == {
+        "color": "#aabbcc", "font-family": "Arial", "font-size": 18.0,
+        "font-weight": 700, "text-align": "center",
+    }
+
+
+def test_text_typography_inherits_explicit_styles_without_defaults():
+    assert native_text_typography(_style("")) == {}
+    parent = _style("div {font-size: 20px; color: #123456}")
+    child = resolve_style(parse_stylesheet(""), StyleTarget("span"), inherited=parent)
+    assert native_text_typography(child) == {"font-size": 20.0, "color": "#123456"}
+
+
+def test_text_typography_rejects_uncertified_line_height():
+    with pytest.raises(ValueError, match="line-height"):
+        native_text_typography(_style("div {line-height: 30px}"))
+
+
+def test_text_typography_keeps_kivy_alpha_channels():
+    assert native_text_typography(_style("div {color: #f008}"), alpha=True) == {
+        "color": (1.0, 0.0, 0.0, 136 / 255)
+    }
