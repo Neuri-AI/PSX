@@ -31,7 +31,9 @@ class ComputedStyle:
         object.__setattr__(self, "properties", MappingProxyType(dict(self.properties)))
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, ComputedStyle) and dict(self.properties) == dict(other.properties)
+        return (isinstance(other, ComputedStyle)
+                and dict(self.properties) == dict(other.properties)
+                and self.specified == other.specified)
 
 
 def resolve_style(
