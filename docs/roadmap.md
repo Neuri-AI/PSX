@@ -353,6 +353,30 @@ This work is a distinct future implementation track. Its phase numbering (F0–F
 | F7 | CSS Advanced | Inheritance, variables, themes and advanced selectors in declared scope |
 | F8 | Compatibility and certification | Existing-component refactoring, public API regressions, backend capability matrix and Chromium differential evidence |
 
+### Post-CSS-core layout extensions — owner-requested backlog (2026-10-20)
+
+These are **future increments**, not retroactive acceptance requirements for
+the bounded Cinnamon Block/Inline CSS geometry contract or P1.4.5. No item
+is advertised as shipped. Each needs its own normative behavior contract,
+Rust/Python geometry and diagnostics parity, native Qt/Tkinter/Kivy readback,
+invalidations, public capability census and immutable-SHA CI evidence.
+
+| Backlog ID | Priority | Capability | Acceptance boundary / dependency | State |
+|---|---|---|---|---|
+| **CSS-LAYOUT-01** | **High** | `position: relative` and `position: absolute` | Define containing-block selection, inset offsets, removal from normal flow, native overlay geometry and stacking/painting interactions; ensure Cinnamon remains sole geometry authority. | **BACKLOG — not started** |
+| **CSS-LAYOUT-02** | **High** | `overflow`, clipping and scrolling | Specify visible/hidden/scroll/auto, clipping bounds, scroll-content measurement, viewport/offset synchronization and native renderer responsibilities; test resize and cleanup. | **BACKLOG — not started** |
+| **CSS-TEXT-01** | **Medium** | Advanced inline fragmentation | Break styled inline owners into multiple line fragments with correct padding/border/background edge semantics, line metrics, hit testing and native text parity. Depends on inline line-box and visual painting contracts. | **BACKLOG — not started** |
+| **CSS-LAYOUT-03** | **Low** | Block margin collapsing | Define eligible vertical adjoining margins, negative margins, parent/child and empty blocks, and exclusion in Flex/Grid; no accidental collapsing outside the declared scope. | **BACKLOG — not started** |
+| **CSS-LAYOUT-04** | **Very low** | `float: left/right` and `clear` | Define float placement and line exclusion regions so inline/text content wraps and clears correctly; do not emulate floats with flex alignment. | **BACKLOG — not started** |
+
+**Suggested sequencing:** complete CSS native visual/state/invalidation work
+and its certification first; then CSS-LAYOUT-01/02, followed by CSS-TEXT-01
+as warranted, and CSS-LAYOUT-03/04 only when use cases justify them.
+Final scheduling remains an explicit project-owner decision. These extensions
+do not change the already accepted `<link>`/class/id/inline style CSS API,
+the existing responsive Flexbox Grid contract, or the deferred
+`SFLE-CSS-01`/`SFLE-CSS-02` items.
+
 **Dependency and release safeguards:** Freeze the actual `develop` component contract before migration; retain `Checkbox`'s currently verified `checked`/`enabled`/`on_change` API and do not claim a portable `label` prop unless implemented and tested. Preserve existing F4 responsive Grid semantics while adding CSS Grid; distinguish the two in documentation. Require deterministic layout/visual comparisons against a declared browser reference, backend-specific tests, accessibility checks and explicit unsupported-feature diagnostics. Each phase is complete only with implementation evidence and certification; approving the specification does not advertise support.
 
 **Unresolved architectural gates:** exact browser/CSS reference subset, margin collapsing, stylesheet loading API, `!important`, event propagation, stacking contexts, and release/version policy must be resolved before their affected implementation gates. See the specification's section 20.
