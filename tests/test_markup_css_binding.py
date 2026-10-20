@@ -67,3 +67,36 @@ def test_m4b_lexical_template_style_binding():
 def test_invalid_style_attributes_fail_closed(source):
     with pytest.raises((TypeError, ValueError)):
         psx(source)
+
+
+def test_dynamic_class_update_recomputes_style_without_changing_key():
+    source = '<div key="panel" class={theme}>Hello</div>'
+    css = '.dark {color: #fff} .light {color: #000}'
+    first = psx(source, scope={"theme": "dark"}, stylesheet=css)
+    second = psx(source, scope={"theme": "light"}, stylesheet=css)
+    assert first.key == second.key == "panel"
+    assert first.css_computed.properties["color"] == CssColor("#fff")
+    assert second.css_computed.properties["color"] == CssColor("#000")
+
+
+def test_expressive_lowering_keeps_inline_object_styles_and_sheet():
+    from psx.markup.transform import transform_source
+    source = (
+        "from psx import psx\\n"
+        "def view():\\n"
+        '    return psx(\'ready && <div class="panel" style={{"width": "35px"}}>OK</div>\', stylesheet=".panel {width: 10px}")\\n'
+    )
+    converted = transform_source(source, filename="css_expressive.py")
+    assert "_psx_expr_compute_styles" in converted.source
+    namespace = {}
+    exec(compile(converted.source, "css_expressive.py", "exec"), namespace)
+    root = namespace["view"]()
+    assert root.css_computed.properties["width"] == Length.px(35)
+
+
+def test_stylesheet_is_scoped_to_render_tree():
+    css = ".panel {color: #fff}"
+    styled = psx('<div class="panel" />', stylesheet=css)
+    plain = psx('<div />')
+    assert styled.css_computed.properties["color"] == CssColor("#fff")
+    assert plain.css_computed is None
