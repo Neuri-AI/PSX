@@ -72,12 +72,13 @@ instance-local retained Font on ttk.Label, and Kivy updates its Label
 properties. Qt/Tkinter reject alpha foreground instead of discarding it;
 Kivy retains RGBA.
 
-**Uncertified boundaries:** the current font-weight adapters project the
-native bold/normal distinction rather than all nine CSS numerical weights.
+**Uncertified boundaries:** the portable native Text font-weight projection accepts only 400 and 700,
+rejecting other numerical weights rather than misrepresenting their appearance.
 Kivy font-family requires a resolvable native font resource. Percentage font
 sizes and justified text alignment are rejected by the bounded projection.
-Explicit `line-height` currently fails closed rather than pretending
-QLabel/ttk.Label support exact text leading. These are active implementation
+Explicit `line-height` is supported in Kivy Label for positive pixel
+values through its native line-height multiplier. Qt QLabel and Tkinter
+ttk.Label still fail closed rather than pretending exact text leading support. These are active implementation
 gaps, **not** supported typography parity.
 
 Renderer-level native typography tests and native font metric/reflow receipts
