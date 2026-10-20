@@ -907,7 +907,7 @@ class TkinterRenderer:
                     widget.cget("font") if target.node_type in ("Input", "Select") else None
                 )
                 widget._psx_css_native_original_style = (
-                    str(widget.cget("style")) if target.node_type != "Input" else None
+                    str(widget.cget("style")) if target.node_type not in ("Input", "Select") else None
                 )
             if not hasattr(widget, "_psx_css_native_base_font"):
                 original = ttk.Style(widget).lookup(widget.winfo_class(), "font")
@@ -924,7 +924,7 @@ class TkinterRenderer:
                      tkfont.nametofont("TkDefaultFont", root=widget).actual("size"),
                 weight="bold" if styles.get("font-weight") == 700 else "normal",
             )
-            if target.node_type == "Input":
+            if target.node_type in ("Input", "Select"):
                 widget.configure(font=font)
                 if "text-align" in styles:
                     widget.configure(justify=styles["text-align"])
