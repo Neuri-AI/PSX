@@ -46,12 +46,14 @@ def resolve_style(
 ) -> ComputedStyle:
     definitions = registry or foundation_registry()
     resolved: dict[str, object] = {name: prop.initial for name, prop in definitions.properties.items()}
+    specified: set[str] = set()
     if inherited is not None:
         for name, prop in definitions.properties.items():
             if prop.inherited and name in inherited.properties:
                 resolved[name] = inherited.properties[name]
+                if name in inherited.specified:
+                    specified.add(name)
     matched: list[tuple[tuple[int, int, int], int, int, str, object]] = []
-    specified: set[str] = set()
     for rule in sheet.rules:
         for selector in rule.selectors:
             if selector.matches(target.tag, target.classes, target.node_id):
