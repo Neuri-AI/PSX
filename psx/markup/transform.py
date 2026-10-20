@@ -75,12 +75,13 @@ class _Transformer(ast.NodeTransformer):
             tree = parse_expressive_expression(source, filename=template_filename)
             replacement = lower(tree, filename=template_filename)
             links = _expressive_css_links(tree)
-            if links or any(token in source for token in ("class=", "class_name=", "style=", "id=")):
-                replacement = ast.Call(
-                    func=ast.Name(id="_psx_expr_compute_styles", ctx=ast.Load()),
-                    args=[replacement, ast.Tuple(elts=[ast.Constant(name) for name in links], ctx=ast.Load())],
-                    keywords=[],
-                )
+            # Global application CSS may contain type selectors even when
+            # expressive markup has no class/style attributes.
+            replacement = ast.Call(
+                func=ast.Name(id="_psx_expr_compute_styles", ctx=ast.Load()),
+                args=[replacement, ast.Tuple(elts=[ast.Constant(name) for name in links], ctx=ast.Load())],
+                keywords=[],
+            )
             self.expressive_count += 1
             self.entries.append(SourceMapEntry(
                 template_name=f"_psx_expressive_{self.expressive_count - 1}",
