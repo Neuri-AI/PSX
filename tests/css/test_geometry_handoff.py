@@ -93,3 +93,24 @@ def test_mounted_headless_applies_css_width_through_cinnamon():
         assert renderer.sfle_result.geometry_commit_error == 0
     finally:
         reconciler.unmount()
+
+
+
+def test_explicit_zero_side_value_clears_padding_shorthand():
+    computed = resolve_style(
+        parse_stylesheet("div {padding: 10px; padding-left: 0px}"),
+        StyleTarget("div"),
+    )
+    edges = css_layout_overrides(computed)
+    assert edges["layout_padding_top"] == Length.px(10)
+    assert edges["layout_padding_left"] == Length.px(0)
+
+
+def test_explicit_css_dimension_keyword_is_preserved():
+    computed = resolve_style(
+        parse_stylesheet("div {width: auto; min-width: 0px}"),
+        StyleTarget("div"),
+    )
+    projected = css_layout_overrides(computed)
+    assert projected["layout_width"].kind.value == "auto"
+    assert projected["layout_min_width"] == Length.px(0)
