@@ -152,3 +152,31 @@ def test_mounted_headless_respects_css_margin_padding_border_geometry():
         assert dict(renderer.sfle_result.boxes)[renderer.sfle_result.boxes[1][0]].content.width == 40
     finally:
         reconciler.unmount()
+
+
+
+def test_dynamic_css_geometry_updates_preserve_mounted_widget_identity():
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import IntrinsicSizes
+
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(AvailableSize(230, True), AvailableSize(150, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda _: IntrinsicSizes(20, 20, 12, 12, 20, 12),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        first = reconciler.render(psx(
+            '<div><button key="saved" style="width: 30px; margin-left: 2px">Save</button></div>'
+        ))
+        handle = first.children[0].handle
+        assert (handle.geometry.x, handle.geometry.width) == (2, 30)
+        second = reconciler.render(psx(
+            '<div><button key="saved" style="width: 60px; margin-left: 9px">Save</button></div>'
+        ))
+        assert second.children[0].handle is handle
+        assert (handle.geometry.x, handle.geometry.width) == (9, 60)
+    finally:
+        reconciler.unmount()
