@@ -1207,7 +1207,8 @@ def test_native_css_foreground_keeps_button_disabled_state():
     reconciler = Reconciler(renderer)
     try:
         mounted = reconciler.render(psx(
-            '<div><Button key="cta" label="Disabled" enabled="false" style="color: #123456" /></div>'
+            '<div><Button key="cta" label="Disabled" enabled={inactive} style="color: #123456" /></div>',
+            scope={"inactive": False},
         ))
         widget = mounted.children[0].handle.widget
         if backend == "qt":
