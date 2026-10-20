@@ -792,6 +792,14 @@ class KivyRenderer:
                 if "line-height" in styles else target.widget.property("line_height").defaultvalue
             )
             return
+        if target.node_type == "Badge":
+            from psx.css.native_paint import native_text_typography
+            styles = native_text_typography(computed, alpha=True)
+            widget = target.widget
+            if not hasattr(widget, "_psx_css_original_foreground"):
+                widget._psx_css_original_foreground = tuple(widget.color)
+            widget.color = styles.get("color", widget._psx_css_original_foreground)
+            return
         if target.node_type == "Radio":
             from psx.css.native_paint import native_text_typography
             styles = native_text_typography(computed, alpha=True)
