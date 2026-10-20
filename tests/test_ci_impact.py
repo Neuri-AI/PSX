@@ -8,6 +8,14 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_markup_styles_bind_without_bypassing_native_regression_suites(self):
+        self.assertEqual(self.selected("tests/test_markup_css_binding.py"),
+                         {"core", "headless", "qt", "kivy", "tkinter"})
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/test_markup_css_binding.py", workflow)
+
     def test_internal_css_foundations_route_to_executed_core_tests(self):
         self.assertEqual(self.selected("psx/css/properties.py"), {"core"})
         self.assertEqual(self.selected("tests/css/test_properties.py"), {"core"})
