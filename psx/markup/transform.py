@@ -74,11 +74,12 @@ class _Transformer(ast.NodeTransformer):
         if _has_expressive_interpolation(source):
             tree = parse_expressive_expression(source, filename=template_filename)
             replacement = lower(tree, filename=template_filename)
-            style_keywords = []
-            if style_keywords or any(token in source for token in ("class=", "class_name=", "style=", "id=")):
+            links = _expressive_css_links(tree)
+            if links or any(token in source for token in ("class=", "class_name=", "style=", "id=")):
                 replacement = ast.Call(
                     func=ast.Name(id="_psx_expr_compute_styles", ctx=ast.Load()),
-                    args=[replacement], keywords=style_keywords,
+                    args=[replacement, ast.Tuple(elts=[ast.Constant(name) for name in links], ctx=ast.Load())],
+                    keywords=[],
                 )
             self.expressive_count += 1
             self.entries.append(SourceMapEntry(
@@ -188,7 +189,7 @@ def transform_source(source: str, *, filename: str = "<module>") -> TransformRes
         declarations = ([] if not transformer.expressive_count else [
             helper_import(),
             ast.ImportFrom(module="psx.css.markup", names=[
-                ast.alias(name="compute_markup_styles", asname="_psx_expr_compute_styles"),
+                ast.alias(name="compute_expressive_markup_styles", asname="_psx_expr_compute_styles"),
             ], level=0),
         ])
         declarations.extend(_factory_declarations(transformer.templates) if transformer.templates else [])
@@ -317,3 +318,35 @@ def _node_reference_locations(node: Node) -> Iterable[tuple[int, int]]:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+def _expressive_css_links(node: object) -> tuple[str, ...]:
+    """Collect only statically declared local CSS links in expressive markup."""
+    from psx.core.errors import MarkupSyntaxError
+    from .expressive_ast import Element as ExpressiveElement, Literal
+    found: list[str] = []
+    def visit(value: object) -> None:
+        if isinstance(value, ExpressiveElement) and value.tag == "link":
+            attrs = dict(value.attributes)
+            rel = attrs.get("rel")
+            href = attrs.get("href")
+            if (
+                set(attrs) != {"rel", "href"}
+                or not isinstance(rel, str) or rel != "stylesheet"
+                or not isinstance(href, str) or not href.endswith(".css")
+                or value.children
+            ):
+                raise MarkupSyntaxError(
+                    'link requires rel="stylesheet" and a literal local CSS href',
+                    filename="<psx>", line=value.location.line, column=value.location.column,
+                )
+            found.append(href)
+            return
+        if is_dataclass(value):
+            for field in fields(value):
+                if field.name != "location":
+                    visit(getattr(value, field.name))
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                visit(item)
+    visit(node)
+    return tuple(found)
