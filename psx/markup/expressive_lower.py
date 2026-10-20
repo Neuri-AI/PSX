@@ -12,7 +12,7 @@ from psx.core.registry import builtin_component_registry
 from psx.markup.html_aliases import PORTABLE_HTML_ALIASES
 from . import expressive_ast as syntax
 
-_BUILTINS = frozenset(builtin_component_registry().snapshot()) | frozenset(PORTABLE_HTML_ALIASES)
+_BUILTINS = frozenset(builtin_component_registry().snapshot()) | frozenset(PORTABLE_HTML_ALIASES) | {"link"}
 
 
 def _helper(name: str, *args: ast.expr) -> ast.Call:
@@ -134,6 +134,8 @@ def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast
                                      for part in node.children if not _blank(part)))
     if isinstance(node, syntax.Element):
         tag = node.tag
+        if tag == "link":
+            return ast.Constant(None)
         values: list[ast.expr] = []
         names: list[ast.expr] = []
         for name, value in node.attributes:
