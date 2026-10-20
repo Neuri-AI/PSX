@@ -856,6 +856,41 @@ class TkinterRenderer:
                 state="disabled",
             )
             return
+        if target.node_type == "TextArea":
+            from psx.css.native_paint import native_text_typography
+            from tkinter import font as tkfont
+            styles = native_text_typography(computed)
+            widget = target.widget
+            if not hasattr(widget, "_psx_css_area_base_font"):
+                widget._psx_css_area_base_font = widget.cget("font")
+                widget._psx_css_area_font = tkfont.Font(
+                    root=widget, font=widget._psx_css_area_base_font
+                )
+                widget._psx_css_area_base_config = widget._psx_css_area_font.actual()
+            font = widget._psx_css_area_font
+            font.configure(**widget._psx_css_area_base_config)
+            if "font-family" in styles:
+                font.configure(family=styles["font-family"])
+            if "font-size" in styles:
+                font.configure(size=-round(styles["font-size"]))
+            if "font-weight" in styles:
+                font.configure(weight="bold" if styles["font-weight"] == 700 else "normal")
+            widget.configure(font=font if styles else widget._psx_css_area_base_font)
+            tag = "_psx_css_text_align"
+            if "text-align" in styles:
+                widget.tag_configure(tag, justify=styles["text-align"])
+                widget.tag_add(tag, "1.0", "end")
+            else:
+                widget.tag_delete(tag)
+            if self._sfle_constraints is not None:
+                revision = tuple(
+                    (name, styles.get(name)) for name in
+                    ("font-family", "font-size", "font-weight")
+                )
+                if getattr(widget, "_psx_css_font_revision", None) != revision:
+                    widget._psx_css_font_revision = revision
+                    self.request_sfle_invalidation("font", widget_id=id(widget))
+            return
         if target.node_type == "Link":
             from psx.css.native_paint import native_text_typography
             from tkinter import font as tkfont
