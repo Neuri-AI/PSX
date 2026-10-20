@@ -85,6 +85,55 @@ impl Flow<'_> {
         }
         Ok(result.max(0.0))
     }
+    fn edge(&self, index: usize, group: &str, side: &str, available: f64) -> Result<f64, ComputeError> {
+        let node = &self.input.nodes[index];
+        let name = format!("layout_{group}_{side}");
+        let Some(value) = node.style.get(&name) else { return Ok(0.0); };
+        let (kind, raw): (&str, Option<f64>) = if let Some(obj) = value.as_object() {
+            (obj.get("kind").and_then(|v| v.as_str()).unwrap_or("invalid"),
+             obj.get("value").and_then(|v| v.as_f64()))
+        } else if let Some(number) = value.as_f64() {
+            ("px", Some(number))
+        } else if let Some(text) = value.as_str() {
+            if let Some(n) = text.strip_suffix("px").and_then(|s| s.parse::<f64>().ok()) {
+                ("px", Some(n))
+            } else if let Some(n) = text.strip_suffix('%').and_then(|s| s.parse::<f64>().ok()) {
+                ("percent", Some(n / 100.0))
+            } else {
+                ("invalid", None)
+            }
+        } else {
+            ("invalid", None)
+        };
+        let resolved = match (kind, raw) {
+            ("px", Some(n)) if n.is_finite() => n,
+            ("percent", Some(n)) if n.is_finite() => n * available,
+            _ => return Err(unsupported(format!("Unsupported flow {group} edge keyword."), &node.node_id)),
+        };
+        if group != "margin" && resolved < 0.0 {
+            return Err(unsupported(format!("Flow {group} edges cannot be negative."), &node.node_id));
+        }
+        Ok(resolved)
+    }
+
+    fn box_rect(&self, index: usize, content: Rect, available: f64) -> Result<LayoutBox, ComputeError> {
+        let id = &self.input.nodes[index].node_id;
+        let expand = |inner: &Rect, group: &str| -> Result<Rect, ComputeError> {
+            let top = self.edge(index, group, "top", available)?;
+            let right = self.edge(index, group, "right", available)?;
+            let bottom = self.edge(index, group, "bottom", available)?;
+            let left = self.edge(index, group, "left", available)?;
+            rect(inner.x - left, inner.y - top,
+                 (inner.width + left + right).max(0.0),
+                 (inner.height + top + bottom).max(0.0), id)
+        };
+        let padding = expand(&content, "padding")?;
+        let border = expand(&padding, "border")?;
+        let margin = expand(&border, "margin")?;
+        Ok(LayoutBox {
+            node_id: id.clone(), content, padding, border, margin,
+        })
+    }
     fn display(&self, index: usize) -> Result<Option<bool>, ComputeError> {
         let node = &self.input.nodes[index];
         if !formatting_tag(&node.component) {
@@ -287,13 +336,7 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
         let calculated = flow.boxes[index].clone().ok_or_else(|| {
             error("SFLE_INVALID_TREE", "Flow node has no computed geometry.", Some(&node.node_id))
         })?;
-        Ok(LayoutBox {
-            node_id: node.node_id.clone(),
-            content: calculated.clone(),
-            padding: calculated.clone(),
-            border: calculated.clone(),
-            margin: calculated,
-        })
+        flow.box_rect(index, calculated, width)
     }).collect::<Result<Vec<_>, ComputeError>>()?;
     Ok(LayoutResult {
         schema_version: input.schema_version,
