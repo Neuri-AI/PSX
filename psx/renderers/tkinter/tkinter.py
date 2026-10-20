@@ -867,6 +867,7 @@ class TkinterRenderer:
                     root=widget, font=widget._psx_css_area_base_font
                 )
                 widget._psx_css_area_base_config = widget._psx_css_area_font.actual()
+                widget._psx_css_area_base_foreground = widget.cget("foreground")
             font = widget._psx_css_area_font
             font.configure(**widget._psx_css_area_base_config)
             if "font-family" in styles:
@@ -876,6 +877,7 @@ class TkinterRenderer:
             if "font-weight" in styles:
                 font.configure(weight="bold" if styles["font-weight"] == 700 else "normal")
             widget.configure(font=font if styles else widget._psx_css_area_base_font)
+            widget.configure(foreground=styles.get("color", widget._psx_css_area_base_foreground))
             tag = "_psx_css_text_align"
             if "text-align" in styles:
                 widget.tag_configure(tag, justify=styles["text-align"])
@@ -901,11 +903,13 @@ class TkinterRenderer:
                     widget.configure(
                         font=widget._psx_css_link_original_font,
                         anchor=widget._psx_css_link_original_anchor,
+                        foreground=widget._psx_css_link_original_foreground,
                     )
                 return
             if not hasattr(widget, "_psx_css_link_font"):
                 widget._psx_css_link_original_font = widget.cget("font")
                 widget._psx_css_link_original_anchor = widget.cget("anchor")
+                widget._psx_css_link_original_foreground = widget.cget("foreground")
                 widget._psx_css_link_font = tkfont.Font(
                     root=widget, font=widget._psx_css_link_original_font
                 )
@@ -919,6 +923,7 @@ class TkinterRenderer:
             if "font-weight" in styles:
                 font.configure(weight="bold" if styles["font-weight"] == 700 else "normal")
             widget.configure(font=font)
+            widget.configure(foreground=styles.get("color", widget._psx_css_link_original_foreground))
             if "text-align" in styles:
                 widget.configure(anchor={"left": "w", "center": "center", "right": "e"}[styles["text-align"]])
             return
@@ -936,6 +941,8 @@ class TkinterRenderer:
                         widget.configure(style=widget._psx_css_native_original_style)
                     else:
                         widget.configure(font=widget._psx_css_native_original_font)
+                        if target.node_type == "Input":
+                            widget.configure(foreground=widget._psx_css_native_original_foreground)
                     if self._sfle_constraints is not None and hasattr(widget, "_psx_css_font_revision"):
                         cleared = tuple((key, None) for key in ("font-family", "font-size", "font-weight", "line-height"))
                         if widget._psx_css_font_revision != cleared:
@@ -945,6 +952,9 @@ class TkinterRenderer:
             if not hasattr(widget, "_psx_css_native_font"):
                 widget._psx_css_native_original_font = (
                     widget.cget("font") if target.node_type in ("Input", "Select") else None
+                )
+                widget._psx_css_native_original_foreground = (
+                    str(widget.cget("foreground")) if target.node_type == "Input" else None
                 )
                 widget._psx_css_native_original_style = (
                     str(widget.cget("style")) if target.node_type not in ("Input", "Select") else None
@@ -966,6 +976,15 @@ class TkinterRenderer:
             )
             if target.node_type in ("Input", "Select"):
                 widget.configure(font=font)
+                if "color" in styles:
+                    if target.node_type == "Input":
+                        widget.configure(foreground=styles["color"])
+                    else:
+                        name = f"PsxCssColor{id(widget)}.TCombobox"
+                        theme = ttk.Style(widget)
+                        theme.configure(name, foreground=styles["color"])
+                        theme.map(name, foreground=[("disabled", styles["color"]), ("readonly", styles["color"])])
+                        widget.configure(style=name)
                 if "text-align" in styles:
                     widget.configure(justify=styles["text-align"])
                 else:
@@ -974,6 +993,8 @@ class TkinterRenderer:
                 style_name = f"PsxCssType{id(widget)}.{widget.winfo_class()}"
                 style = ttk.Style(widget)
                 config = {"font": font}
+                if "color" in styles:
+                    config["foreground"] = styles["color"]
                 if target.node_type == "Button":
                     leading = styles.get("line-height")
                     if leading is not None and (
@@ -1007,6 +1028,10 @@ class TkinterRenderer:
                 elif "text-align" in styles:
                     raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
                 style.configure(style_name, **config)
+                if "color" in styles:
+                    style.map(style_name, foreground=[("disabled", styles["color"]), ("active", styles["color"])])
+                else:
+                    style.map(style_name, foreground=[])
                 widget.configure(style=style_name)
             if self._sfle_constraints is not None:
                 keys = ("font-family", "font-size", "font-weight", "line-height")
