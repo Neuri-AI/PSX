@@ -92,3 +92,50 @@ def test_link_creates_no_native_widget_public_behavior_receipt(request):
                scope={"__velto_css_resource_resolver__": lambda _: ""})
     assert_feature(request, _link_feature("no_native_widget"),
                    root.type == "div" and not root.children)
+
+
+
+def test_public_css_box_geometry_updates_native_headless_receipts(request):
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(AvailableSize(200, True), AvailableSize(100, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda _: IntrinsicSizes(20, 20, 15, 15, 20, 15),
+    )
+    tree = Reconciler(renderer)
+    try:
+        first = tree.render(psx(
+            '<div style="padding: 5px"><button key="same" '
+            'style="width: 40px; height: 15px; margin-left: 3px; '
+            'padding: 2px; border-width: 1px">Save</button></div>'
+        ))
+        boxes = dict(renderer.sfle_result.boxes)
+        root_box = boxes[renderer.sfle_result.boxes[0][0]]
+        assert_feature(
+            request,
+            Feature("div", CONTRACT, "interaction", "css_box_geometry",
+                    "distinct_boxes", applicability="shared"),
+            root_box.content.x == 5 and root_box.padding.x == 0
+            and root_box.border.width == 200,
+        )
+        handle = first.children[0].handle
+        before_x = handle.geometry.x
+        second = tree.render(psx(
+            '<div style="padding: 5px"><button key="same" '
+            'style="width: 40px; height: 15px; margin-left: 8px; '
+            'padding: 2px; border-width: 1px">Save</button></div>'
+        ))
+        assert_feature(
+            request,
+            Feature("button", CONTRACT, "interaction", "css_box_geometry",
+                    "margin_update", applicability="shared"),
+            second.children[0].handle is handle
+            and handle.geometry.x == before_x + 5
+            and handle.geometry.width == 46,
+        )
+    finally:
+        tree.unmount()
