@@ -260,6 +260,11 @@ def inventory() -> tuple[Feature, ...]:
                 tag, CONTRACT, "public_api", "markup", scenario,
                 applicability="shared",
             ))
+        for scenario in ("class_selection", "inline_precedence", "invalid_rejection"):
+            rows.append(Feature(
+                tag, CONTRACT, "public_api", "css_source", scenario,
+                applicability="shared",
+            ))
         if tag == "form":
             rows.append(Feature(
                 tag, CONTRACT, "event", "on_submit", "handler_delegation",
