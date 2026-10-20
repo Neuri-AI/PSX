@@ -918,6 +918,17 @@ def test_native_css_typography_updates_text_without_replacing_widget():
         else:
             assert widget.font_size == 24
             assert tuple(widget.color) == pytest.approx((101 / 255, 67 / 255, 33 / 255, 1))
+        plain = reconciler.render(psx('<div><span key="title">Hello</span></div>'))
+        assert plain.children[0].children[0].handle.widget is widget
+        if backend == "qt":
+            assert widget.font().pixelSize() == 14
+            assert widget.font().bold() is False
+            assert widget.styleSheet() == ""
+        elif backend == "tk":
+            assert widget._psx_text_font.actual("weight") == "normal"
+        else:
+            assert widget.font_size == 14
+            assert widget.bold is False
     finally:
         reconciler.unmount()
         close()
