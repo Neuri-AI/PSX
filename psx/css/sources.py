@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
+import posixpath
 import re
 
 from .parser import Rule, Stylesheet, parse_stylesheet
@@ -34,7 +35,14 @@ class CssSourceManager:
             target = (self._root / name).resolve()
             if not target.is_relative_to(self._root):
                 raise ValueError("CSS resource path escapes the project root.")
-            value = target.read_bytes()
+            if target.is_file():
+                value = target.read_bytes()
+            else:
+                try:
+                    from qyro import get_resource
+                except ImportError:
+                    raise FileNotFoundError(f"CSS resource not found: {name}") from None
+                value = Path(get_resource(name)).read_bytes()
         if isinstance(value, bytes):
             return value.decode("utf-8-sig")
         if isinstance(value, str):
@@ -45,10 +53,12 @@ class CssSourceManager:
         rules: list[Rule] = []
         active: set[str] = set()
         def visit(name: str) -> None:
-            candidate = Path(name)
-            if candidate.is_absolute() or ".." in candidate.parts:
-                raise ValueError("Absolute and parent-traversing CSS resource paths are not supported.")
-            normalized = candidate.as_posix()
+            if not isinstance(name, str):
+                raise TypeError("CSS resource names must be strings.")
+            normalized = posixpath.normpath(name.replace(chr(92), "/"))
+            candidate = Path(normalized)
+            if candidate.is_absolute() or normalized in (".", "..") or normalized.startswith("../"):
+                raise ValueError("CSS resource path cannot leave its root.")
             if normalized in active:
                 raise ValueError(f"Circular CSS import: {normalized}")
             active.add(normalized)
