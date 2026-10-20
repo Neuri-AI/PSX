@@ -1,0 +1,70 @@
+"""Computed CSS box metadata projected into the existing Cinnamon schema."""
+from psx import psx
+from psx.core.layout_tree import normalize_flex_tree
+from psx.css.geometry import css_layout_overrides
+from psx.css.cascade import StyleTarget, resolve_style
+from psx.css.parser import parse_stylesheet
+from psx.sfle.lengths import Length
+from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+
+
+def _prepared(markup: str, rules: str):
+    root = psx(
+        '<link rel="stylesheet" href="styles/style.css" />' + markup,
+        scope={"__velto_css_resource_resolver__": lambda _: rules},
+    )
+    return prepare_native_layout_snapshot(
+        normalize_flex_tree(root),
+        LayoutConstraints(AvailableSize(400, True), AvailableSize(200, True)),
+        generation=3,
+    )
+
+
+def test_css_geometry_to_cinnamon_is_typed_and_preserves_source():
+    prepared = _prepared(
+        '<div class="panel"><span class="label">Text</span></div>',
+        ".panel {width: 70%; padding: 12px; margin-left: -4px; border-width: 2px}"
+        ".label {height: 20px}",
+    )
+    original = prepared.snapshot
+    result = prepared.css_geometry_snapshot()
+    root = dict(result.nodes[0].style)
+    child = dict(result.nodes[1].style)
+    assert root["layout_width"] == Length.percent(.7)
+    assert root["layout_padding_top"] == Length.px(12)
+    assert root["layout_padding_right"] == Length.px(12)
+    assert root["layout_margin_left"] == Length.px(-4)
+    assert root["layout_border_bottom"] == Length.px(2)
+    assert child["layout_height"] == Length.px(20)
+    assert original is prepared.snapshot
+    assert "layout_padding_top" not in dict(original.nodes[0].style)
+    assert "layout_width" not in prepared.identities[0][1].props
+
+
+def test_explicit_legacy_layout_width_wins_over_stylesheet():
+    prepared = _prepared(
+        '<div class="panel" layout_width="45px" />',
+        ".panel {width: 80px; padding: 8px}",
+    )
+    result = dict(prepared.css_geometry_snapshot().nodes[0].style)
+    assert result["layout_width"] == Length.px(45)
+    assert result["layout_padding_right"] == Length.px(8)
+
+
+def test_paint_only_declarations_do_not_change_cinnamon_style():
+    computed = resolve_style(
+        parse_stylesheet("div {color: #fff; background-color: #000}"),
+        StyleTarget("div"),
+    )
+    assert css_layout_overrides(computed) == {}
+
+
+def test_css_edge_specific_value_overrides_shorthand():
+    computed = resolve_style(
+        parse_stylesheet("div {padding: 10px; padding-left: 2px}"),
+        StyleTarget("div"),
+    )
+    result = css_layout_overrides(computed)
+    assert result["layout_padding_top"] == Length.px(10)
+    assert result["layout_padding_left"] == Length.px(2)
