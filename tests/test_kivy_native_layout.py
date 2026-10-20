@@ -13,6 +13,49 @@ import unittest
 
 
 class KivySFLEGeometrySubprocessTests(unittest.TestCase):
+    def test_css_background_updates_and_canvas_cleanup(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(240, True), AvailableSize(140, True),
+                ),
+                engine=PythonLayoutEngine(),
+            )
+            reconciler = Reconciler(renderer)
+            mounted = reconciler.render(psx(
+                '<div key="same" style="background-color: #112233" />'
+            ))
+            widget = mounted.handle.widget
+            group, redraw, color = widget._psx_css_paint
+            assert round(color.r * 255) == 17
+            assert round(color.g * 255) == 34
+            assert round(color.b * 255) == 51
+            changed = reconciler.render(psx(
+                '<div key="same" style="background-color: #aabbcc" />'
+            ))
+            assert changed.handle.widget is widget
+            assert widget._psx_css_paint[0] is group
+            assert round(color.r * 255) == 170
+            reconciler.render(psx('<div key="same" />'))
+            assert not hasattr(widget, "_psx_css_paint")
+            reconciler.unmount()
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_FILELOG"] = "1"
+        env["KIVY_NO_ARGS"] = "1"
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            env=env, capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_css_dimensions_commit_to_kivy_widget_geometry(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
