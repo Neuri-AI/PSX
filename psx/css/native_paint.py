@@ -62,3 +62,21 @@ def foreground_hex(computed: ComputedStyle | None) -> str | None:
     if rgba[3] != 1.0:
         raise ValueError("Native CSS foreground paint currently requires opaque colors.")
     return "#" + "".join(f"{round(channel * 255):02x}" for channel in rgba[:3])
+
+def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
+    """Compose bounded authored paint into a local Qt stylesheet."""
+    from psx.sfle.lengths import Length, LengthKind
+
+    declarations: list[str] = []
+    background = background_hex(computed)
+    foreground = foreground_hex(computed)
+    if background is not None:
+        declarations.append(f"background-color: {background};")
+    if foreground is not None:
+        declarations.append(f"color: {foreground};")
+    if computed is not None and "border-radius" in computed.specified:
+        radius = computed.properties["border-radius"]
+        if not isinstance(radius, Length) or radius.kind != LengthKind.PX:
+            raise ValueError("Qt semantic border-radius currently requires px units.")
+        declarations.append(f"border-radius: {radius.value:g}px;")
+    return " ".join(declarations)
