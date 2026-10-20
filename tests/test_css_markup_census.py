@@ -16,13 +16,20 @@ def _source(tag: str, attributes: str) -> str:
     return f'<{tag} {attributes}>Text</{tag}>'
 
 
+def _styled(tag: str, attributes: str, css: str):
+    return psx(
+        '<link rel="stylesheet" href="styles/test.css" />' + _source(tag, attributes),
+        scope={"__velto_css_resource_resolver__": lambda _: css},
+    )
+
+
 def _feature(tag: str, scenario: str) -> Feature:
     return Feature(tag, CONTRACT, "public_api", "css_source", scenario, applicability="shared")
 
 
 @pytest.mark.parametrize("tag", sorted(PORTABLE_HTML_ALIASES))
 def test_css_markup_class_selection(tag: str, request):
-    node = psx(_source(tag, 'class="active"'), stylesheet=".active {color: #fff}")
+    node = _styled(tag, 'class="active"', ".active {color: #fff}")
     assert_feature(request, _feature(tag, "class_selection"),
                    node.css_computed.properties["color"] == CssColor("#fff")
                    and "class" not in node.props)
@@ -30,8 +37,8 @@ def test_css_markup_class_selection(tag: str, request):
 
 @pytest.mark.parametrize("tag", sorted(PORTABLE_HTML_ALIASES))
 def test_css_markup_inline_precedence(tag: str, request):
-    node = psx(_source(tag, 'class="active" style="width: 42px"'),
-               stylesheet=".active {width: 10px}")
+    node = _styled(tag, 'class="active" style="width: 42px"',
+                   ".active {width: 10px}")
     assert_feature(request, _feature(tag, "inline_precedence"),
                    node.css_computed.properties["width"] == Length.px(42)
                    and "style" not in node.props)
