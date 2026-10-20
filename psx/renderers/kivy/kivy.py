@@ -792,6 +792,36 @@ class KivyRenderer:
                 if "line-height" in styles else target.widget.property("line_height").defaultvalue
             )
             return
+        if target.node_type in ("Button", "Input", "TextArea", "Select"):
+            from psx.css.native_paint import native_text_typography
+            styles = native_text_typography(computed, alpha=True,
+                                            line_height=target.node_type == "Button")
+            widget = target.widget
+            if not hasattr(widget, "_psx_css_default_typography"):
+                widget._psx_css_default_typography = {
+                    key: getattr(widget, key) for key in
+                    ("font_name", "font_size", "bold", "halign", "line_height", "color")
+                    if hasattr(widget, key)
+                }
+            for key, value in widget._psx_css_default_typography.items():
+                setattr(widget, key, value)
+            if "font-family" in styles and hasattr(widget, "font_name"):
+                widget.font_name = styles["font-family"]
+            if "font-size" in styles:
+                widget.font_size = styles["font-size"]
+            if "font-weight" in styles and hasattr(widget, "bold"):
+                widget.bold = styles["font-weight"] == 700
+            if "text-align" in styles:
+                if not hasattr(widget, "halign"):
+                    raise ValueError(f"Kivy {target.node_type} does not support text-align.")
+                widget.halign = styles["text-align"]
+            if "line-height" in styles:
+                if not hasattr(widget, "line_height"):
+                    raise ValueError(f"Kivy {target.node_type} does not support line-height.")
+                widget.line_height = styles["line-height"] / widget.font_size
+            if "color" in styles and hasattr(widget, "color"):
+                widget.color = styles["color"]
+            return
         if target.node_type not in FORMATTING_TAGS:
             return
         widget = target.widget
