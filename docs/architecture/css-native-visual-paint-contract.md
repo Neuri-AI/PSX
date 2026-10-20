@@ -48,3 +48,15 @@ conversion; native PySide6, Tkinter and Kivy layout integration tests for
 background update, keyed widget identity and teardown. Closure requires
 selected native jobs, exact-SHA GitHub CI, and public capability census for
 every newly advertised visual operation. P1.4.6 stays open until its implemented visual subset has required functional and native evidence. The comprehensive cross-property/native visual matrix, cross-platform regression receipts, and immutable-SHA release gate are explicitly assigned to **P1.4.8**, as recorded in `docs/roadmap.md`. This does not defer testing of new P1.4.6 behavior.
+
+
+## Follow-up: bounded border-color registry and Qt paint
+
+The CSS registry now validates non-inherited `border-color` hex values.
+The Qt semantic-host adapter emits an opaque solid border only when an
+explicit border color and positive pixel `border-width` coexist; the width
+still belongs to Cinnamon geometry. Partial transparency is rejected rather
+than discarded. This is **not** a native cross-backend border certificate:
+Tkinter and Kivy stroke rendering, pixel/readback tests, optional stroke
+styles and native component application remain open in P1.4.6. Its final
+cross-backend evidence matrix remains P1.4.8.
