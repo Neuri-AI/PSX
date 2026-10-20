@@ -74,7 +74,7 @@ class _Transformer(ast.NodeTransformer):
         if _has_expressive_interpolation(source):
             tree = parse_expressive_expression(source, filename=template_filename)
             replacement = lower(tree, filename=template_filename)
-            style_keywords = [item for item in node.keywords if item.arg == "stylesheet"]
+            style_keywords = []
             if style_keywords or any(token in source for token in ("class=", "class_name=", "style=", "id=")):
                 replacement = ast.Call(
                     func=ast.Name(id="_psx_expr_compute_styles", ctx=ast.Load()),
@@ -118,9 +118,7 @@ class _Transformer(ast.NodeTransformer):
                 value=ast.Name(id=template_name, ctx=ast.Load()), attr="render_lexical", ctx=ast.Load()
             ),
             args=[scope],
-            keywords=[
-                keyword for keyword in node.keywords if keyword.arg == "stylesheet"
-            ],
+            keywords=[],
         )
         return ast.copy_location(replacement, node)
 
