@@ -75,3 +75,20 @@ def test_percentages_resolve_against_parent_containing_width():
     assert output["child"].border.x == 0
     assert output["child"].content.x == 20
     assert output["child"].content.y == 10
+
+
+
+def test_percent_height_uses_definite_parent_height_not_viewport_width():
+    root = _node("root", None, "div", display="block")
+    middle = _node("middle", "root", "div", display="block", layout_height=Length.px(60))
+    child = _node("child", "middle", "Button", layout_height=Length.percent(.5))
+    result = dict(compute_measured_block_snapshot(_request(root, middle, child)).boxes)
+    assert result["child"].content.height == 30
+
+
+def test_percent_height_in_auto_block_falls_back_to_intrinsic_height():
+    root = _node("root", None, "div", display="block")
+    middle = _node("middle", "root", "div", display="block")
+    child = _node("child", "middle", "Button", layout_height=Length.percent(.5))
+    result = dict(compute_measured_block_snapshot(_request(root, middle, child)).boxes)
+    assert result["child"].content.height == 10
