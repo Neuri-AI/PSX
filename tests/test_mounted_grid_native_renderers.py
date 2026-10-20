@@ -1016,6 +1016,7 @@ def test_native_button_css_typography_is_applied_and_reset():
             assert button.font().family() == "Roboto"
         elif backend == "tk":
             assert button._psx_css_native_font.cget("size") == -23
+            from tkinter import ttk
             assert ttk.Style(button).lookup(str(button.cget("style")), "padding")
             assert button._psx_css_native_font.actual("weight") == "bold"
         else:
