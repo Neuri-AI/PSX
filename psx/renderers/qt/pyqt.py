@@ -914,7 +914,7 @@ class QtRenderer:
             from psx.renderers.components.text import apply_qt_text
             styles = native_text_typography(computed, line_height=True)
             if self._sfle_constraints is not None:
-                revision = (target.props.get("value"), tuple(sorted(styles.items())))
+                revision = (target.props.get("value"), tuple((name, styles.get(name)) for name in ("font-family", "font-size", "font-weight", "line-height")))
                 if getattr(target.widget, "_psx_css_font_revision", None) != revision:
                     target.widget._psx_css_font_revision = revision
                     self.request_sfle_invalidation("font", widget_id=id(target.widget))
