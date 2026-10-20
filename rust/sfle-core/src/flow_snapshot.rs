@@ -319,6 +319,7 @@ impl Flow<'_> {
                 + self.edge(index, group, "right", available)?;
         }
         let content_available = (available - horizontal).max(0.0);
+        let parent_content_width = self.constrained_dimension(index, "width", available, content_available)?;
         let content_x = x + left;
         let content_y = y + top;
         let mut parent_height = self.dimension(index, "height", available)?;
@@ -360,14 +361,14 @@ impl Flow<'_> {
                 pending.push(child);
             } else {
                 if !pending.is_empty() {
-                    cursor += self.inline_run(&pending, content_x, content_y + cursor, content_available)?;
+                    cursor += self.inline_run(&pending, content_x, content_y + cursor, parent_content_width)?;
                     pending.clear();
                 }
-                cursor += self.block(child, content_x, content_y + cursor, content_available)?;
+                cursor += self.block(child, content_x, content_y + cursor, parent_content_width)?;
             }
         }
         if !pending.is_empty() {
-            cursor += self.inline_run(&pending, content_x, content_y + cursor, content_available)?;
+            cursor += self.inline_run(&pending, content_x, content_y + cursor, parent_content_width)?;
         }
         let used_width = self.constrained_dimension(index, "width", available, content_available)?;
         let used_height = self.constrained_dimension(index, "height", available, cursor)?;
