@@ -1167,3 +1167,34 @@ def test_native_css_foreground_applies_to_pascal_and_html_controls(tag, alias):
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_badge_css_foreground_is_applied_and_restored():
+    from psx.markup.compile import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color):
+        style = f' style="color: {color}"' if color else ""
+        return psx(f'<div><Badge key="badge" label="New"{style} /></div>')
+
+    try:
+        mounted = reconciler.render(view("#123456"))
+        widget = mounted.children[0].handle.widget
+        if backend == "qt":
+            assert widget._psx_css_foreground == "#123456"
+        elif backend == "tk":
+            assert widget._psx_css_foreground == "#123456"
+            assert "#123456" in [str(widget.itemcget(i, "fill")) for i in widget.find_all() if widget.type(i) == "text"]
+        else:
+            assert tuple(widget.color) == pytest.approx((18/255, 52/255, 86/255, 1))
+        mounted = reconciler.render(view(None))
+        assert mounted.children[0].handle.widget is widget
+        if backend in ("qt", "tk"):
+            assert widget._psx_css_foreground is None
+        else:
+            assert tuple(widget.color) == pytest.approx(widget._psx_css_original_foreground)
+    finally:
+        reconciler.unmount()
+        close()
