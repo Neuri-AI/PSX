@@ -208,15 +208,30 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         return max((place.y + place.height for place in placements), default=0.0)
 
     def block_node(node, x: float, y: float, available: float) -> float:
+        margin = edges(node, "margin")
+        padding = edges(node, "padding")
+        border = edges(node, "border")
+        top = margin[0] + padding[0] + border[0]
+        left = margin[3] + padding[3] + border[3]
+        bottom = margin[2] + padding[2] + border[2]
+        horizontal = sum(group[1] + group[3] for group in (margin, padding, border))
+        content_available = max(0.0, available - horizontal)
+        content_x, content_y = x + left, y + top
         mode = display(node)
         if mode is None:
             intrinsic = leaf(node)
-            geometry[node.node_id] = quantized_rect(
-                x, y, constrained_dimension(node, "width", available, available),
-                constrained_dimension(node, "height", available, intrinsic.preferred_height),
-            )
-            return constrained_dimension(node, "height", available, intrinsic.preferred_height)
+            used_width = constrained_dimension(node, "width", available, content_available)
+            used_height = constrained_dimension(node, "height", available, intrinsic.preferred_height)
+            geometry[node.node_id] = quantized_rect(content_x, content_y, used_width, used_height)
+            return top + used_height + bottom
         if mode == "inline":
+            if any(edges(node, part) != (0.0, 0.0, 0.0, 0.0)
+                   for part in ("padding", "border", "margin")):
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Inline formatting owners with box edges require fragment-aware layout.",
+                    node.node_id,
+                )
             return inline_run((node,), x, y, available)
         cursor = 0.0
         pending = []
@@ -224,7 +239,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         def flush() -> None:
             nonlocal cursor
             if pending:
-                cursor += inline_run(tuple(pending), x, y + cursor, available)
+                cursor += inline_run(tuple(pending), content_x, content_y + cursor, content_available)
                 pending.clear()
 
         for child in children[node.node_id]:
@@ -232,12 +247,12 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                 pending.append(child)
             else:
                 flush()
-                cursor += block_node(child, x, y + cursor, available)
+                cursor += block_node(child, content_x, content_y + cursor, content_available)
         flush()
-        used_width = constrained_dimension(node, "width", available, available)
+        used_width = constrained_dimension(node, "width", available, content_available)
         used_height = constrained_dimension(node, "height", available, cursor)
-        geometry[node.node_id] = quantized_rect(x, y, used_width, used_height)
-        return used_height
+        geometry[node.node_id] = quantized_rect(content_x, content_y, used_width, used_height)
+        return top + used_height + bottom
 
     if display(root) == "inline":
         content_height = inline_run(
