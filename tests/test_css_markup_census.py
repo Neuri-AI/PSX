@@ -1,0 +1,44 @@
+"""Assertion-bound public CSS markup source receipts, not native paint claims."""
+import pytest
+
+from psx.markup.compile import psx
+from psx.markup.html_aliases import FORMATTING_TAGS
+from psx.css.visual_values import CssColor
+from psx.sfle.lengths import Length
+from tests.certification.public_behavior_census import CONTRACT, Feature, assert_feature
+
+
+def _source(tag: str, attributes: str) -> str:
+    return f'<{tag} {attributes}>Text</{tag}>'
+
+
+def _feature(tag: str, scenario: str) -> Feature:
+    return Feature(tag, CONTRACT, "public_api", "css_source", scenario, applicability="shared")
+
+
+@pytest.mark.parametrize("tag", sorted(FORMATTING_TAGS))
+def test_css_markup_class_selection(tag: str, request):
+    node = psx(_source(tag, 'class="active"'), stylesheet=".active {color: #fff}")
+    assert_feature(request, _feature(tag, "class_selection"),
+                   node.css_computed.properties["color"] == CssColor("#fff")
+                   and "class" not in node.props)
+
+
+@pytest.mark.parametrize("tag", sorted(FORMATTING_TAGS))
+def test_css_markup_inline_precedence(tag: str, request):
+    node = psx(_source(tag, 'class="active" style="width: 42px"'),
+               stylesheet=".active {width: 10px}")
+    assert_feature(request, _feature(tag, "inline_precedence"),
+                   node.css_computed.properties["width"] == Length.px(42)
+                   and "style" not in node.props)
+
+
+@pytest.mark.parametrize("tag", sorted(FORMATTING_TAGS))
+def test_css_markup_invalid_rejection(tag: str, request):
+    try:
+        psx(_source(tag, 'class="not!valid"'))
+    except ValueError:
+        rejected = True
+    else:
+        rejected = False
+    assert_feature(request, _feature(tag, "invalid_rejection"), rejected)
