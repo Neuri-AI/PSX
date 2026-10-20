@@ -198,7 +198,6 @@ impl Flow<'_> {
         match self.display(index)? {
             None => {
                 let native = self.leaf(index)?;
-                let available = self.input.constraints.width.value.unwrap_or(0.0);
                 let mut horizontal = 0.0;
                 let mut vertical = 0.0;
                 let mut top = 0.0;
@@ -218,8 +217,8 @@ impl Flow<'_> {
             }
             Some(true) => {
                 owners.push(index);
-                for &child in &self.children[index] {
-                    self.collect_inline(child, atoms, leaves, owners)?;
+                for child in self.children[index].clone() {
+                    self.collect_inline(child, available, atoms, leaves, owners)?;
                 }
             }
             Some(false) => {
@@ -239,7 +238,7 @@ impl Flow<'_> {
         let mut leaves = Vec::new();
         let mut owners = Vec::new();
         for &index in nodes {
-            self.collect_inline(index, &mut atoms, &mut leaves, &mut owners)?;
+            self.collect_inline(index, available, &mut atoms, &mut leaves, &mut owners)?;
         }
         let placements = layout_inline_atoms(available, &atoms).map_err(|reason| {
             error("SFLE_INVALID_LENGTH", reason, None)
@@ -247,7 +246,7 @@ impl Flow<'_> {
         let mut line_height = 0.0_f64;
         for (index, placed) in leaves.into_iter().zip(placements.iter()) {
             let id = &self.input.nodes[index].node_id;
-            let available = self.input.constraints.width.value.unwrap_or(0.0);
+            let available = self.containing_width[index];
             let mut offset_x = 0.0;
             let mut offset_y = 0.0;
             let mut horizontal = 0.0;
