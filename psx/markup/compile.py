@@ -421,16 +421,18 @@ def _document_stylesheets(nodes: tuple[Node, ...]) -> tuple[str, ...]:
 
 def _apply_document_css(root: VNode, document: Document, scope: Mapping[str, object]) -> VNode:
     references = _document_stylesheets(document.children)
-    globals_ = scope.get("__velto_stylesheets__", ())
+    from psx.css.context import current_css_context
+    context = current_css_context()
+    globals_ = scope.get("__velto_stylesheets__", context.stylesheets if context else ())
     if not isinstance(globals_, (list, tuple)) or any(not isinstance(item, str) for item in globals_):
         raise TypeError("Global CSS stylesheet paths must be a string sequence.")
     all_sources = (*globals_, *references)
     if not all_sources and not _has_css_source(root):
         return root
-    resource_resolver = scope.get("__velto_css_resource_resolver__")
+    resource_resolver = scope.get("__velto_css_resource_resolver__", context.resolver if context else None)
     if resource_resolver is not None and not callable(resource_resolver):
         raise TypeError("CSS resource resolver must be callable.")
-    source_root = scope.get("__velto_css_root__", ".")
+    source_root = scope.get("__velto_css_root__", context.root if context else ".")
     manager = CssSourceManager(resource_resolver, root=source_root)
     compiled = manager.load(all_sources) if all_sources else None
     return compute_markup_styles(root, compiled)
