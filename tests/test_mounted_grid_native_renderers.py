@@ -955,7 +955,8 @@ def test_native_multiline_css_line_height_follows_cinnamon_measurement():
     def view(leading):
         return psx(
             '<div><span style="font-size: 16px; line-height: '
-            + str(leading) + 'px"><Text key="text" value="Several words here should wrap over multiple lines" /></span></div>'
+            + str(leading) + 'px"><Text key="text" value={content} /></span></div>',
+            scope={"content": "Several words here should wrap over multiple lines"},
         )
 
     try:
