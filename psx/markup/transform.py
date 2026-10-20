@@ -112,7 +112,9 @@ class _Transformer(ast.NodeTransformer):
                 value=ast.Name(id=template_name, ctx=ast.Load()), attr="render_lexical", ctx=ast.Load()
             ),
             args=[scope],
-            keywords=[],
+            keywords=[
+                keyword for keyword in node.keywords if keyword.arg == "stylesheet"
+            ],
         )
         return ast.copy_location(replacement, node)
 
