@@ -1030,3 +1030,41 @@ def test_native_button_css_typography_is_applied_and_reset():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_input_css_inherits_font_and_alignment_without_remount():
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(size):
+        return psx(
+            '<div style="font-size: ' + str(size) +
+            'px; font-family: Roboto"><input key="entry" value="Hello" style="text-align: right" /></div>'
+        )
+
+    try:
+        first = reconciler.render(view(21))
+        widget = first.children[0].handle.widget
+        if backend == "qt":
+            assert widget.font().pixelSize() == 21
+            assert widget.font().family() == "Roboto"
+        elif backend == "tk":
+            assert widget._psx_css_native_font.cget("size") == -21
+            assert str(widget.cget("justify")) == "right"
+        else:
+            assert widget.font_size == 21
+            assert widget.halign == "right"
+        updated = reconciler.render(view(26))
+        assert updated.children[0].handle.widget is widget
+        if backend == "qt":
+            assert widget.font().pixelSize() == 26
+        elif backend == "tk":
+            assert widget._psx_css_native_font.cget("size") == -26
+        else:
+            assert widget.font_size == 26
+    finally:
+        reconciler.unmount()
+        close()
