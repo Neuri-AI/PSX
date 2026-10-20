@@ -50,7 +50,7 @@ fn valid_flow_style(name: &str) -> bool {
         | "layout_max_width" | "layout_max_height"
     ) || ["layout_margin_", "layout_padding_", "layout_border_"]
         .iter().any(|prefix| {
-            name.strip_prefix(prefix).is_some_and(|side|
+            name.strip_prefix(*prefix).is_some_and(|side|
                 matches!(side, "top" | "right" | "bottom" | "left"))
         })
 }
