@@ -116,3 +116,12 @@ def test_explicit_css_dimension_keyword_is_preserved():
     projected = css_layout_overrides(computed)
     assert projected["layout_width"].kind.value == "auto"
     assert projected["layout_min_width"] == Length.px(0)
+
+
+
+def test_explicit_default_geometry_differs_from_implicit_default():
+    absent = resolve_style(parse_stylesheet(""), StyleTarget("div"))
+    explicit = resolve_style(parse_stylesheet("div {padding-left: 0px}"), StyleTarget("div"))
+    assert absent != explicit
+    assert css_layout_overrides(absent) == {}
+    assert css_layout_overrides(explicit)["layout_padding_left"] == Length.px(0)
