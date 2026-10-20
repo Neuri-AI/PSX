@@ -47,5 +47,4 @@ Tests: `tests/css/test_native_paint.py` for native-independent typed
 conversion; native PySide6, Tkinter and Kivy layout integration tests for
 background update, keyed widget identity and teardown. Closure requires
 selected native jobs, exact-SHA GitHub CI, and public capability census for
-every newly advertised visual operation. P1.4.6 stays open until its
-separately approved visual matrix is fulfilled.
+every newly advertised visual operation. P1.4.6 stays open until its implemented visual subset has required functional and native evidence. The comprehensive cross-property/native visual matrix, cross-platform regression receipts, and immutable-SHA release gate are explicitly assigned to **P1.4.8**, as recorded in `docs/roadmap.md`. This does not defer testing of new P1.4.6 behavior.
