@@ -42,6 +42,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         children[node.parent_id].append(node)
     metrics = {item.node_id: item.intrinsic for item in snapshot.measurements}
     geometry: dict[str, Rect] = {}
+    containing_width: dict[str, float] = {}
 
     def quantized_rect(x: float, y: float, width: float, height: float) -> Rect:
         """Keep flow boxes on Cinnamon's shared 1/64 px geometry grid."""
@@ -88,7 +89,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
             if length.kind is LengthKind.PX:
                 resolved = float(length.value)
             elif length.kind is LengthKind.PERCENT:
-                resolved = float(length.value) * width
+                resolved = float(length.value) * containing_width.get(node.node_id, width)
             else:
                 raise SFLECapabilityError(
                     DiagnosticCode.UNSUPPORTED_FEATURE,
@@ -161,6 +162,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         fragments = []
 
         def collect(node):
+            containing_width[node.node_id] = available
             mode = display(node)
             if mode is None:
                 intrinsic = leaf(node)
@@ -221,6 +223,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         return max((place.y + place.height for place in placements), default=0.0)
 
     def block_node(node, x: float, y: float, available: float) -> float:
+        containing_width[node.node_id] = available
         margin = edges(node, "margin")
         padding = edges(node, "padding")
         border = edges(node, "border")
