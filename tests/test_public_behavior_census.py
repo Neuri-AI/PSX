@@ -32,6 +32,8 @@ def test_source_derived_inventory_separates_shared_and_native():
                     ("css_source", "class_selection"),
                     ("css_source", "inline_precedence"),
                     ("css_source", "invalid_rejection")}
+        if tag == "div":
+            expected.add(("css_box_geometry", "distinct_boxes"))
         if tag == "form":
             expected.add(("on_submit", "handler_delegation"))
         assert {(row.feature_name, row.scenario_id) for row in contract} == expected
