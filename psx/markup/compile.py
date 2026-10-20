@@ -194,14 +194,13 @@ def _element(
     if element.name in PORTABLE_HTML_ALIASES:
         if "class" in props and "class_name" in props:
             _error("Use either class or class_name, not both.", filename, element.span)
-        if any(name in props for name in ("class", "class_name", "id", "style")):
-            css_class = props.pop("class", None)
-            if css_class is None:
-                css_class = props.pop("class_name", None)
-            css_source = parse_markup_style(
-                element.name, class_value=css_class,
-                id_value=props.pop("id", None), inline_value=props.pop("style", None),
-            )
+        css_class = props.pop("class", None)
+        if css_class is None:
+            css_class = props.pop("class_name", None)
+        css_source = parse_markup_style(
+            element.name, class_value=css_class,
+            id_value=props.pop("id", None), inline_value=props.pop("style", None),
+        )
     props = _coerce_props(definition, props, filename, element.span)
     contract = definition.contract
     def finish(node: VNode) -> VNode:
@@ -380,4 +379,6 @@ def _error(message: str, filename: str, span: object) -> None:
 
 
 def _has_css_source(node: VNode) -> bool:
-    return node.css_source is not None or any(_has_css_source(child) for child in node.children)
+    source = node.css_source
+    has_declarations = source is not None and bool(source.classes or source.node_id or source.inline)
+    return has_declarations or any(_has_css_source(child) for child in node.children)
