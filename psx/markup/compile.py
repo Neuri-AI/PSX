@@ -28,6 +28,7 @@ from .parser import parse
 from .html_aliases import markup_alias_definitions, PORTABLE_HTML_ALIASES
 from psx.css.markup import compute_markup_styles, parse_markup_style
 from psx.css.parser import CssSyntaxError
+from psx.css.sources import CssSourceManager
 
 Primitive: TypeAlias = Callable[..., VNode] | ComponentType
 _GRAMMAR_VERSION = "m4a-1"
@@ -59,13 +60,13 @@ class CompiledTemplate:
         """Compatibility view of constructors available to this template."""
         return self.resolver.primitives
 
-    def render(self, scope: Mapping[str, object] | None = None, *, stylesheet: str | None = None) -> VNode:
+    def render(self, scope: Mapping[str, object] | None = None) -> VNode:
         values = {} if scope is None else scope
         children = _nodes(self.document.children, values, self.resolver, self.filename, lexical=False)
         root = children[0] if len(children) == 1 else VFragment(*children)
-        return compute_markup_styles(root, stylesheet) if stylesheet is not None or _has_css_source(root) else root
+        return _apply_document_css(root, self.document, values if 'values' in locals() else scope)
 
-    def render_lexical(self, scope: Mapping[str, object], *, stylesheet: str | None = None) -> VNode:
+    def render_lexical(self, scope: Mapping[str, object]) -> VNode:
         """Render M4B static lexical scope without evaluating template expressions.
 
         Values are generated source-transform thunks for lexical root names. The
@@ -75,7 +76,7 @@ class CompiledTemplate:
         """
         children = _nodes(self.document.children, scope, self.resolver, self.filename, lexical=True)
         root = children[0] if len(children) == 1 else VFragment(*children)
-        return compute_markup_styles(root, stylesheet) if stylesheet is not None or _has_css_source(root) else root
+        return _apply_document_css(root, self.document, values if 'values' in locals() else scope)
 
 
 def compile_template(
@@ -110,10 +111,9 @@ def psx(
     filename: str = "<psx>",
     primitives: Mapping[str, Primitive] | None = None,
     registry: ComponentRegistry | None = None,
-    stylesheet: str | None = None,
 ) -> VNode:
     """Compile and render an explicit-scope PSX template into ordinary VNodes."""
-    return compile_template(source, filename=filename, primitives=primitives, registry=registry).render(scope, stylesheet=stylesheet)
+    return compile_template(source, filename=filename, primitives=primitives, registry=registry).render(scope)
 
 
 def clear_template_cache() -> None:
@@ -164,6 +164,8 @@ def _nodes(
                 result.append(Text(value))
         elif isinstance(node, Fragment):
             result.append(VFragment(*_nodes(node.children, scope, resolver, filename, lexical=lexical)))
+        elif isinstance(node, Element) and node.name == 'link':
+            _validate_stylesheet_link(node)
         else:
             result.append(_element(node, scope, resolver, filename, lexical=lexical))
     return result
@@ -391,3 +393,44 @@ def _has_css_source(node: VNode) -> bool:
     source = node.css_source
     has_declarations = source is not None and bool(source.classes or source.node_id or source.inline)
     return has_declarations or any(_has_css_source(child) for child in node.children)
+
+def _validate_stylesheet_link(element: Element) -> str:
+    if element.children:
+        raise ValueError("CSS link cannot contain children.")
+    values = {attribute.name: attribute.value for attribute in element.attributes}
+    if set(values) != {"rel", "href"} or values["rel"] != "stylesheet":
+        raise ValueError('link requires rel="stylesheet" and href="...css".')
+    href = values["href"]
+    if not isinstance(href, str) or not href.endswith(".css"):
+        raise ValueError("Stylesheet href must be a local .css resource.")
+    return href
+
+
+def _document_stylesheets(nodes: tuple[Node, ...]) -> tuple[str, ...]:
+    references: list[str] = []
+    for node in nodes:
+        if isinstance(node, Element):
+            if node.name == "link":
+                references.append(_validate_stylesheet_link(node))
+            else:
+                references.extend(_document_stylesheets(node.children))
+        elif isinstance(node, Fragment):
+            references.extend(_document_stylesheets(node.children))
+    return tuple(references)
+
+
+def _apply_document_css(root: VNode, document: Document, scope: Mapping[str, object]) -> VNode:
+    references = _document_stylesheets(document.children)
+    globals_ = scope.get("__velto_stylesheets__", ())
+    if not isinstance(globals_, (list, tuple)) or any(not isinstance(item, str) for item in globals_):
+        raise TypeError("Global CSS stylesheet paths must be a string sequence.")
+    all_sources = (*globals_, *references)
+    if not all_sources and not _has_css_source(root):
+        return root
+    resource_resolver = scope.get("__velto_css_resource_resolver__")
+    if resource_resolver is not None and not callable(resource_resolver):
+        raise TypeError("CSS resource resolver must be callable.")
+    source_root = scope.get("__velto_css_root__", ".")
+    manager = CssSourceManager(resource_resolver, root=source_root)
+    compiled = manager.load(all_sources) if all_sources else None
+    return compute_markup_styles(root, compiled)
