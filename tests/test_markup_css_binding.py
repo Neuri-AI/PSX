@@ -154,10 +154,10 @@ def test_expressive_markup_loads_link_without_native_widget(tmp_path, monkeypatc
     (tmp_path / "style.css").write_text(".panel {color: #fff}", encoding="utf-8")
     monkeypatch.chdir(tmp_path)
     program = (
-        "from psx import psx\\n"
-        "def view():\\n"
+        "from psx import psx\n"
+        "def view():\n"
         "    return psx('<><link rel=\"stylesheet\" href=\"style.css\" />"
-        "<div class=\"panel\" style={{\"width\": \"22px\"}}>Hello</div></>')\\n"
+        "<div class=\"panel\" style={{\"width\": \"22px\"}}>Hello</div></>')\n"
     )
     transformed = transform_source(program, filename="expressive_styles.py")
     namespace = {}
