@@ -1066,6 +1066,7 @@ def test_native_input_css_inherits_font_and_alignment_without_remount():
             assert widget.font_size == 21
             assert widget.halign == "right"
         updated = reconciler.render(view(26))
+        assert updated.children[0].node.css_computed.properties["font-size"].value == 26
         assert updated.children[0].handle.widget is widget
         if backend == "qt":
             assert widget.font().pixelSize() == 26
