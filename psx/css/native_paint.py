@@ -140,3 +140,41 @@ def border_rgba(computed: ComputedStyle | None) -> tuple[float, float, float, fl
     if len(channels) == 3:
         channels.append(255)
     return tuple(channel / 255 for channel in channels)
+
+def native_text_typography(computed: ComputedStyle | None, *, alpha: bool = False) -> dict[str, object]:
+    """Project explicitly authored native Text values without altering component props."""
+    from psx.sfle.lengths import Length, LengthKind
+
+    if computed is None:
+        return {}
+    result: dict[str, object] = {}
+    if "color" in computed.specified:
+        rgba = foreground_rgba(computed)
+        if rgba is not None:
+            if alpha:
+                result["color"] = rgba
+            else:
+                result["color"] = foreground_hex(computed)
+    if "font-family" in computed.specified:
+        family = computed.properties["font-family"]
+        if not isinstance(family, str) or not family.strip():
+            raise ValueError("CSS font-family must be validated.")
+        result["font-family"] = family
+    if "font-size" in computed.specified:
+        size = computed.properties["font-size"]
+        if not isinstance(size, Length) or size.kind is not LengthKind.PX or size.value <= 0:
+            raise ValueError("Native Text font-size requires positive px units.")
+        result["font-size"] = size.value
+    if "font-weight" in computed.specified:
+        weight = computed.properties["font-weight"]
+        if type(weight) is not int or weight not in range(100, 1000, 100):
+            raise ValueError("Native Text font-weight requires normalized CSS weight.")
+        result["font-weight"] = weight
+    if "text-align" in computed.specified:
+        alignment = computed.properties["text-align"]
+        if alignment not in ("left", "right", "center", "start", "end"):
+            raise ValueError("Native Text does not support justify alignment.")
+        result["text-align"] = {"start": "left", "end": "right"}.get(alignment, alignment)
+    if "line-height" in computed.specified:
+        raise ValueError("Native Text line-height is not certified by the text metrics bridge.")
+    return result
