@@ -299,6 +299,11 @@ def inventory() -> tuple[Feature, ...]:
                 alias, CONTRACT, "public_api", "css_source", scenario,
                 applicability="shared",
             ))
+    for scenario in ("linked_source", "relative_import", "invalid_rejection", "no_native_widget"):
+        rows.append(Feature(
+            "link", CONTRACT, "public_api", "stylesheet_resource", scenario,
+            applicability="shared",
+        ))
     return tuple(sorted(rows))
 
 
