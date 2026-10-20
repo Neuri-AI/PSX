@@ -132,6 +132,30 @@ class TkMeasurementSource:
         finally:
             probe.destroy()
 
+    @staticmethod
+    def _css_text_metrics(widget: object, width: float | None) -> IntrinsicSizes:
+        """Measure the same native Tk Text wrapping rules used by CSS leading."""
+        import tkinter as tk
+        font = widget._psx_text_font
+        text = str(widget.cget("text"))
+        leading = float(widget._psx_css_line_height)
+        natural = max((font.measure(line) for line in text.split("\\n")), default=0)
+        available = max(1, round(natural if width is None else width))
+        probe = tk.Text(widget.master, font=font, wrap="word", borderwidth=0,
+                        highlightthickness=0, padx=0, pady=0)
+        try:
+            probe.insert("1.0", text)
+            probe.place(x=-30000, y=-30000, width=available, height=10000)
+            probe.update_idletasks()
+            count = probe.count("1.0", "end-1c", "displaylines")
+            lines = max(1, (int(count[0]) if count else 0) + 1)
+            height = float(lines) * leading
+            measured_width = float(natural if width is None else min(natural, width))
+            return IntrinsicSizes(measured_width, float(natural), height, height,
+                                  measured_width, height)
+        finally:
+            probe.destroy()
+
     def is_ui_thread(self) -> bool:
         return threading.get_ident() == self._owner_thread
 
@@ -159,6 +183,9 @@ class TkMeasurementSource:
                 request.node_id, self._image_metrics(widget),
                 request.constraints, request.revision,
             )
+        if getattr(widget, "_psx_css_line_height", None) is not None:
+            metrics = self._css_text_metrics(widget, None)
+            return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
         if request.node_id in self._textarea_ids:
             metrics = self._textarea_metrics(widget, None)
             return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
@@ -193,6 +220,8 @@ class TkMeasurementSource:
         widget = self._widgets.get(node_id)
         if widget is None:
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Unknown Tk measurement node.", node_id)
+        if getattr(widget, "_psx_css_line_height", None) is not None:
+            return self._css_text_metrics(widget, width)
         if node_id in self._textarea_ids:
             return self._textarea_metrics(widget, width)
         previous = None
