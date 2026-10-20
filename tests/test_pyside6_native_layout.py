@@ -38,6 +38,16 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.r.unmount()
         self.renderer.application.processEvents()
 
+    def test_css_background_paints_and_updates_in_place(self):
+        first = self.r.render(psx('<div key="same" style="background-color: #112233" />'))
+        widget = first.handle.widget
+        self.assertIn("#112233", widget.styleSheet())
+        changed = self.r.render(psx('<div key="same" style="background-color: #aabbcc" />'))
+        self.assertIs(changed.handle.widget, widget)
+        self.assertIn("#aabbcc", widget.styleSheet())
+        self.r.render(psx('<div key="same" />'))
+        self.assertEqual(widget.styleSheet(), "")
+
     def test_css_width_commits_to_qt_native_geometry(self):
         root = self.r.render(psx(
             '<div>'
