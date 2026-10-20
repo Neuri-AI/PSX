@@ -139,7 +139,7 @@ class TkMeasurementSource:
         font = widget._psx_text_font
         text = str(widget.cget("text"))
         leading = float(widget._psx_css_line_height)
-        natural = max((font.measure(line) for line in text.split("\\n")), default=0)
+        natural = max((font.measure(line) for line in text.split("\n")), default=0)
         available = max(1, round(natural if width is None else width))
         probe = tk.Text(widget.master, font=font, wrap="word", borderwidth=0,
                         highlightthickness=0, padx=0, pady=0)
