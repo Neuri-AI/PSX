@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Callable, TypeAlias
@@ -128,6 +128,10 @@ class VNode:
     key: Key | None
     props: Mapping[str, object]
     children: tuple["VNode", ...]
+    # Optional immutable stylesheet metadata. Kept outside props because native
+    # component adapters must never receive CSS-only class/style attributes.
+    css_source: object | None = field(default=None, compare=False, repr=False)
+    css_computed: object | None = field(default=None, compare=False, repr=False)
 
 
 def _freeze_props(props: Mapping[str, object]) -> Mapping[str, object]:
