@@ -875,3 +875,49 @@ def test_multiple_mixed_grids_rollback_all_committed_siblings(request, monkeypat
     finally:
         tree.unmount()
         close()
+
+def test_native_css_typography_updates_text_without_replacing_widget():
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    def view(size, color):
+        return psx(
+            '<div><span key="title" style="font-size: ' + str(size) +
+            'px; font-weight: 700; text-align: center; color: ' +
+            color + '">Hello</span></div>'
+        )
+
+    try:
+        first = reconciler.render(view(18, "#123456"))
+        text_handle = first.children[0].children[0].handle
+        widget = text_handle.widget
+        if backend == "qt":
+            assert widget.font().pixelSize() == 18
+            assert widget.font().bold()
+            assert "#123456" in widget.styleSheet()
+        elif backend == "tk":
+            assert widget._psx_text_font.actual("size") == -18
+            assert widget._psx_text_font.actual("weight") == "bold"
+            assert widget.cget("foreground") == "#123456"
+            assert widget.cget("justify") == "center"
+        else:
+            assert widget.font_size == 18
+            assert widget.bold is True
+            assert widget.halign == "center"
+            assert tuple(widget.color) == pytest.approx((18 / 255, 52 / 255, 86 / 255, 1))
+        updated = reconciler.render(view(24, "#654321"))
+        assert updated.children[0].children[0].handle.widget is widget
+        if backend == "qt":
+            assert widget.font().pixelSize() == 24
+            assert "#654321" in widget.styleSheet()
+        elif backend == "tk":
+            assert widget._psx_text_font.actual("size") == -24
+            assert widget.cget("foreground") == "#654321"
+        else:
+            assert widget.font_size == 24
+            assert tuple(widget.color) == pytest.approx((101 / 255, 67 / 255, 33 / 255, 1))
+    finally:
+        reconciler.unmount()
+        close()
