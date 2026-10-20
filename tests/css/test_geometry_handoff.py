@@ -68,3 +68,28 @@ def test_css_edge_specific_value_overrides_shorthand():
     result = css_layout_overrides(computed)
     assert result["layout_padding_top"] == Length.px(10)
     assert result["layout_padding_left"] == Length.px(2)
+
+
+def test_mounted_headless_applies_css_width_through_cinnamon():
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+
+    source = '<div class="panel" style="width: 140px; height: 60px"><span style="width: 45px; height: 15px">Text</span></div>'
+    from psx import psx
+    tree = psx(source)
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(300, True), AvailableSize(100, True)
+        ),
+        engine=PythonLayoutEngine(),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(tree)
+        assert mounted.handle.geometry.width == 140
+        assert mounted.children[0].handle.geometry.width == 45
+        assert mounted.children[0].handle.geometry.height == 15
+        assert renderer.sfle_result.geometry_commit_error == 0
+    finally:
+        reconciler.unmount()
