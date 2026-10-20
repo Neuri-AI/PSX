@@ -250,6 +250,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         bottom = margin[2] + padding[2] + border[2]
         horizontal = sum(group[1] + group[3] for group in (margin, padding, border))
         content_available = max(0.0, available - horizontal)
+        used_width = constrained_dimension(node, "width", available, content_available)
         content_x, content_y = x + left, y + top
         parent_height = dimension(node, "height", available)
         if parent_height is None and node.node_id == root.node_id and snapshot.constraints.height.definite:
@@ -278,7 +279,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         def flush() -> None:
             nonlocal cursor
             if pending:
-                cursor += inline_run(tuple(pending), content_x, content_y + cursor, content_available)
+                cursor += inline_run(tuple(pending), content_x, content_y + cursor, used_width)
                 pending.clear()
 
         for child in children[node.node_id]:
@@ -286,7 +287,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                 pending.append(child)
             else:
                 flush()
-                cursor += block_node(child, content_x, content_y + cursor, content_available)
+                cursor += block_node(child, content_x, content_y + cursor, used_width)
         flush()
         used_width = constrained_dimension(node, "width", available, content_available)
         used_height = constrained_dimension(node, "height", available, cursor)
