@@ -183,3 +183,52 @@ def test_expressive_global_type_selector_without_css_attributes():
     with scoped_css_resources(["global.css"], resolver=lambda _: "div {color: #fff}"):
         root = ns["view"]()
     assert root.css_computed.properties["color"] == CssColor("#fff")
+
+
+@pytest.mark.parametrize("tag", ("h1", "h2", "h3", "h4", "h5", "h6", "p"))
+def test_heading_and_paragraph_css_reaches_native_text_leaves(tag):
+    root = styled(
+        f'<{tag} class="title">Hello world</{tag}>',
+        '.title {font-size: 25px; font-family: Arial; font-weight: 700;'
+        ' line-height: 38px; text-align: right; color: #123456}',
+    )
+    assert root.type == tag
+    assert root.children
+    for leaf in root.children:
+        assert leaf.type == "Text"
+        assert leaf.css_computed is not None
+        assert leaf.css_computed.properties["font-size"] == Length.px(25)
+        assert leaf.css_computed.properties["line-height"] == Length.px(38)
+        assert leaf.css_computed.properties["font-family"] == "Arial"
+        assert leaf.css_computed.properties["font-weight"] == 700
+        assert leaf.css_computed.properties["text-align"] == "right"
+        assert leaf.css_computed.properties["color"] == CssColor("#123456")
+
+
+@pytest.mark.parametrize("tag", ("h1", "h2", "h3", "h4", "h5", "h6", "p"))
+def test_heading_and_paragraph_nested_span_inherits_css(tag):
+    root = styled(
+        f'<{tag} style="font-size: 26px; line-height: 36px"><span>Nested text</span></{tag}>',
+        "",
+    )
+    span = root.children[0]
+    assert span.type == "span"
+    assert span.children
+    for leaf in span.children:
+        assert leaf.type == "Text"
+        assert leaf.css_computed.properties["font-size"] == Length.px(26)
+        assert leaf.css_computed.properties["line-height"] == Length.px(36)
+
+
+def test_heading_default_font_stays_native_without_authored_css():
+    root = psx("<h1>Title</h1>")
+    assert root.children[0].props["font_size"] == 32
+    assert root.children[0].props["bold"] is True
+    assert "font-size" not in root.children[0].css_computed.specified
+
+
+def test_heading_explicit_css_overrides_native_heading_size():
+    root = styled('<h1 style="font-size: 22px">Title</h1>', "")
+    assert root.children[0].props["font_size"] == 32
+    assert root.children[0].css_computed.properties["font-size"] == Length.px(22)
+    assert "font-size" in root.children[0].css_computed.specified
