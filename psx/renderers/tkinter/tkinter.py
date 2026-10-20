@@ -936,6 +936,11 @@ class TkinterRenderer:
                         widget.configure(style=widget._psx_css_native_original_style)
                     else:
                         widget.configure(font=widget._psx_css_native_original_font)
+                    if self._sfle_constraints is not None and hasattr(widget, "_psx_css_font_revision"):
+                        cleared = tuple((key, None) for key in ("font-family", "font-size", "font-weight", "line-height"))
+                        if widget._psx_css_font_revision != cleared:
+                            widget._psx_css_font_revision = cleared
+                            self.request_sfle_invalidation("font", widget_id=id(widget))
                 return
             if not hasattr(widget, "_psx_css_native_font"):
                 widget._psx_css_native_original_font = (
