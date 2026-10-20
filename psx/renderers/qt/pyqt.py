@@ -979,7 +979,9 @@ class QtRenderer:
                 widget._psx_css_line_height = leading
                 widget.updateGeometry()
             if "text-align" in styles:
-                if target.node_type not in ("Input", "TextArea"):
+                if target.node_type in ("Button", "Link"):
+                    widget.setStyleSheet("text-align: " + styles["text-align"] + ";")
+                elif target.node_type not in ("Input", "TextArea"):
                     raise ValueError(f"Native Qt {target.node_type} does not support CSS text-align.")
                 qt = self._qtcore.Qt
                 flags = getattr(qt, "AlignmentFlag", qt)
@@ -987,7 +989,7 @@ class QtRenderer:
                              "right": flags.AlignRight}[styles["text-align"]]
                 if target.node_type == "Input":
                     widget.setAlignment(alignment)
-                else:
+                elif target.node_type == "TextArea":
                     widget.setStyleSheet("text-align: " + styles["text-align"] + ";")
             elif target.node_type == "Input":
                 widget.setAlignment(getattr(getattr(self._qtcore.Qt, "AlignmentFlag", self._qtcore.Qt), "AlignLeft"))
