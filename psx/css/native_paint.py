@@ -99,4 +99,28 @@ def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
         if not isinstance(radius, Length) or radius.kind != LengthKind.PX:
             raise ValueError("Qt semantic border-radius currently requires px units.")
         declarations.append(f"border-radius: {radius.value:g}px;")
+    if computed is not None:
+        from psx.sfle.lengths import Length, LengthKind
+        for css_name, qss_name in (("font-family", "font-family"), ("font-size", "font-size")):
+            if css_name not in computed.specified:
+                continue
+            value = computed.properties[css_name]
+            if css_name == "font-family":
+                if not isinstance(value, str) or not value or any(c in value for c in '{};:"\\\\'):
+                    raise ValueError("Invalid native Qt font-family.")
+                declarations.append(f'font-family: "{value}";')
+            else:
+                if not isinstance(value, Length) or value.kind != LengthKind.PX or value.value <= 0:
+                    raise ValueError("Qt font-size requires positive px units.")
+                declarations.append(f"font-size: {value.value:g}px;")
+        if "font-weight" in computed.specified:
+            weight = computed.properties["font-weight"]
+            if type(weight) is not int or weight not in range(100, 1000, 100):
+                raise ValueError("Qt font-weight requires normalized CSS weight.")
+            declarations.append(f"font-weight: {weight};")
+        if "text-align" in computed.specified:
+            alignment = computed.properties["text-align"]
+            if alignment not in ("left", "right", "center", "start", "end"):
+                raise ValueError("Qt semantic text-align does not support justify.")
+            declarations.append(f"text-align: {'left' if alignment == 'start' else 'right' if alignment == 'end' else alignment};")
     return " ".join(declarations)
