@@ -937,7 +937,7 @@ class QtRenderer:
                     target.widget.setStyleSheet("color: " + styles["color"] + ";")
             target.widget._psx_sync_line_height(styles.get("line-height"))
             return
-        if target.node_type in ("Button", "Checkbox", "Input", "TextArea", "Radio", "Select"):
+        if target.node_type in ("Button", "Checkbox", "Input", "TextArea", "Radio", "Select", "Link"):
             from psx.css.native_paint import native_text_typography
             styles = native_text_typography(computed)
             widget = target.widget
