@@ -996,6 +996,20 @@ class QtRenderer:
                 widget.setAlignment(getattr(getattr(self._qtcore.Qt, "AlignmentFlag", self._qtcore.Qt), "AlignLeft"))
             elif target.node_type in ("Button", "Link", "TextArea"):
                 widget.setStyleSheet(widget._psx_css_base_stylesheet)
+            declarations = []
+            if "font-family" in styles:
+                declarations.append('font-family: "' + styles["font-family"] + '";')
+            if "font-size" in styles:
+                declarations.append(f'font-size: {styles["font-size"]:g}px;')
+            if "font-weight" in styles:
+                declarations.append(f'font-weight: {styles["font-weight"]};')
+            if "color" in styles:
+                declarations.append('color: ' + styles["color"] + ';')
+            if "text-align" in styles and target.node_type in ("Button", "Link", "TextArea"):
+                declarations.append('text-align: ' + styles["text-align"] + ';')
+            widget.setStyleSheet(
+                (widget._psx_css_base_stylesheet + " " + " ".join(declarations)).strip()
+            )
             if self._sfle_constraints is not None:
                 keys = ("font-family", "font-size", "font-weight", "line-height")
                 if any(key in styles for key in keys) or hasattr(widget, "_psx_css_font_revision"):
