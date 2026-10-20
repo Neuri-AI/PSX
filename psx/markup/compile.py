@@ -64,7 +64,7 @@ class CompiledTemplate:
         values = {} if scope is None else scope
         children = _nodes(self.document.children, values, self.resolver, self.filename, lexical=False)
         root = children[0] if len(children) == 1 else VFragment(*children)
-        return _apply_document_css(root, self.document, values if 'values' in locals() else scope)
+        return _apply_document_css(root, self.document, values)
 
     def render_lexical(self, scope: Mapping[str, object]) -> VNode:
         """Render M4B static lexical scope without evaluating template expressions.
@@ -76,7 +76,7 @@ class CompiledTemplate:
         """
         children = _nodes(self.document.children, scope, self.resolver, self.filename, lexical=True)
         root = children[0] if len(children) == 1 else VFragment(*children)
-        return _apply_document_css(root, self.document, values if 'values' in locals() else scope)
+        return _apply_document_css(root, self.document, scope)
 
 
 def compile_template(
