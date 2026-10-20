@@ -260,11 +260,6 @@ def inventory() -> tuple[Feature, ...]:
                 tag, CONTRACT, "public_api", "markup", scenario,
                 applicability="shared",
             ))
-        for scenario in ("class_selection", "inline_precedence", "invalid_rejection"):
-            rows.append(Feature(
-                tag, CONTRACT, "public_api", "css_source", scenario,
-                applicability="shared",
-            ))
         if tag == "form":
             rows.append(Feature(
                 tag, CONTRACT, "event", "on_submit", "handler_delegation",
@@ -295,6 +290,15 @@ def inventory() -> tuple[Feature, ...]:
                     tag, backend, "interaction", "semantic_flow",
                     "viewport_reflow", applicability="partial_native",
                 ))
+    # All 21 lowercase aliases, including native control aliases, gain
+    # CSS-only source metadata. The metadata does not certify native styling.
+    from psx.markup.html_aliases import PORTABLE_HTML_ALIASES
+    for alias in sorted(PORTABLE_HTML_ALIASES):
+        for scenario in ("class_selection", "inline_precedence", "invalid_rejection"):
+            rows.append(Feature(
+                alias, CONTRACT, "public_api", "css_source", scenario,
+                applicability="shared",
+            ))
     return tuple(sorted(rows))
 
 
