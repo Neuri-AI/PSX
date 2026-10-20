@@ -113,6 +113,7 @@ def foundation_registry() -> CssPropertyRegistry:
         CssProperty("border-width", Length.px(0), False),
         CssProperty("color", CssColor("#000"), True, effect="paint", grammar="visual"),
         CssProperty("background-color", CssColor("#0000"), False, effect="paint", grammar="visual"),
+        CssProperty("border-color", CssColor("#000"), False, effect="paint", grammar="visual"),
         CssProperty("border-radius", Length.px(0), False, effect="paint", grammar="visual"),
         CssProperty("font-family", "sans-serif", True, effect="measurement", grammar="visual"),
         CssProperty("font-size", Length.px(16), True, effect="measurement", grammar="visual"),
