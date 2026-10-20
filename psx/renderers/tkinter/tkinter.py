@@ -799,6 +799,19 @@ class TkinterRenderer:
         """Apply CSS backgrounds through an instance-scoped ttk Frame style."""
         from psx.css.native_paint import background_hex
         target = _as_handle(handle)
+        if target.node_type == "Badge":
+            from psx.css.native_paint import foreground_hex
+            widget = target.widget
+            widget._psx_css_foreground = foreground_hex(computed)
+            text_items = widget.find_withtag("all")
+            for item in text_items:
+                if widget.type(item) == "text":
+                    if widget._psx_css_foreground is not None:
+                        widget.itemconfigure(item, fill=widget._psx_css_foreground)
+                    else:
+                        from psx.renderers.components.badge import badge_style
+                        widget.itemconfigure(item, fill=badge_style(target.props)[0])
+            return
         if target.node_type == "Text":
             from psx.css.native_paint import native_text_typography
             from psx.renderers.components.text import apply_tk_text
