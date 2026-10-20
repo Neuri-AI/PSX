@@ -145,7 +145,8 @@ class TkMeasurementSource:
                         highlightthickness=0, padx=0, pady=0)
         try:
             probe.insert("1.0", text)
-            probe.place(x=-30000, y=-30000, width=available, height=10000)
+            probe.place(x=0, y=0, width=available, height=10000)
+            probe.lower()
             probe.update_idletasks()
             count = probe.count("1.0", "end-1c", "displaylines")
             lines = max(1, (int(count[0]) if count else 0) + 1)
