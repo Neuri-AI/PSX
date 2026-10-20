@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections import OrderedDict
 from collections.abc import Callable, Hashable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TypeAlias
 
 from psx.core.component import ComponentType
@@ -25,7 +25,8 @@ from .ast import (
     TextPart,
 )
 from .parser import parse
-from .html_aliases import markup_alias_definitions
+from .html_aliases import markup_alias_definitions, PORTABLE_HTML_ALIASES
+from psx.css.markup import compute_markup_styles, parse_markup_style
 
 Primitive: TypeAlias = Callable[..., VNode] | ComponentType
 _GRAMMAR_VERSION = "m4a-1"
@@ -57,14 +58,13 @@ class CompiledTemplate:
         """Compatibility view of constructors available to this template."""
         return self.resolver.primitives
 
-    def render(self, scope: Mapping[str, object] | None = None) -> VNode:
+    def render(self, scope: Mapping[str, object] | None = None, *, stylesheet: str | None = None) -> VNode:
         values = {} if scope is None else scope
         children = _nodes(self.document.children, values, self.resolver, self.filename, lexical=False)
-        if len(children) == 1:
-            return children[0]
-        return VFragment(*children)
+        root = children[0] if len(children) == 1 else VFragment(*children)
+        return compute_markup_styles(root, stylesheet) if stylesheet is not None or _has_css_source(root) else root
 
-    def render_lexical(self, scope: Mapping[str, object]) -> VNode:
+    def render_lexical(self, scope: Mapping[str, object], *, stylesheet: str | None = None) -> VNode:
         """Render M4B static lexical scope without evaluating template expressions.
 
         Values are generated source-transform thunks for lexical root names. The
@@ -73,9 +73,8 @@ class CompiledTemplate:
         never invoked.
         """
         children = _nodes(self.document.children, scope, self.resolver, self.filename, lexical=True)
-        if len(children) == 1:
-            return children[0]
-        return VFragment(*children)
+        root = children[0] if len(children) == 1 else VFragment(*children)
+        return compute_markup_styles(root, stylesheet) if stylesheet is not None or _has_css_source(root) else root
 
 
 def compile_template(
@@ -110,9 +109,10 @@ def psx(
     filename: str = "<psx>",
     primitives: Mapping[str, Primitive] | None = None,
     registry: ComponentRegistry | None = None,
+    stylesheet: str | None = None,
 ) -> VNode:
     """Compile and render an explicit-scope PSX template into ordinary VNodes."""
-    return compile_template(source, filename=filename, primitives=primitives, registry=registry).render(scope)
+    return compile_template(source, filename=filename, primitives=primitives, registry=registry).render(scope, stylesheet=stylesheet)
 
 
 def clear_template_cache() -> None:
@@ -363,3 +363,7 @@ def _error(message: str, filename: str, span: object) -> None:
     line = getattr(span, "line")
     column = getattr(span, "column")
     raise MarkupSyntaxError(message, filename=filename, line=line, column=column)
+
+
+def _has_css_source(node: VNode) -> bool:
+    return node.css_source is not None or any(_has_css_source(child) for child in node.children)
