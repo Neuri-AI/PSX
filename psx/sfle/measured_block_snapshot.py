@@ -167,10 +167,16 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                 baseline = (intrinsic.baseline
                             if intrinsic.baseline is not None
                             else intrinsic.preferred_height)
+                content_width = constrained_dimension(node, "width", available, intrinsic.preferred_width)
+                content_height = constrained_dimension(node, "height", available, intrinsic.preferred_height)
+                edge_groups = (edges(node, group) for group in ("margin", "border", "padding"))
+                all_edges = tuple(edge_groups)
+                horizontal = sum(group[1] + group[3] for group in all_edges)
+                vertical = sum(group[0] + group[2] for group in all_edges)
                 atoms.append(InlineAtom(
-                    constrained_dimension(node, "width", available, intrinsic.preferred_width),
-                    constrained_dimension(node, "height", available, intrinsic.preferred_height),
-                    baseline,
+                    content_width + horizontal,
+                    content_height + vertical,
+                    baseline + sum(group[0] for group in all_edges),
                 ))
                 fragments.append(node)
                 return
@@ -188,8 +194,15 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
             collect(node)
         placements = layout_inline_atoms(available, tuple(atoms))
         for node, place in zip(fragments, placements):
+            edge_groups = tuple(edges(node, group) for group in ("margin", "border", "padding"))
+            offset_x = sum(group[3] for group in edge_groups)
+            offset_y = sum(group[0] for group in edge_groups)
+            horizontal = sum(group[1] + group[3] for group in edge_groups)
+            vertical = sum(group[0] + group[2] for group in edge_groups)
             geometry[node.node_id] = quantized_rect(
-                x + place.x, y + place.y, place.width, place.height,
+                x + place.x + offset_x, y + place.y + offset_y,
+                max(0.0, place.width - horizontal),
+                max(0.0, place.height - vertical),
             )
         for owner in reversed(owners):
             descendants = [geometry[child.node_id]
