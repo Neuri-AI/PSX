@@ -904,7 +904,7 @@ def test_native_css_typography_updates_text_without_replacing_widget():
             assert widget._psx_text_font.cget("family") == "Roboto"
             assert widget._psx_text_font.actual("weight") == "bold"
             assert str(widget.cget("foreground")) == "#123456"
-            assert widget.cget("justify") == "center"
+            assert str(widget.cget("justify")) == "center"
         else:
             assert widget.font_size == 18
             assert widget.font_name == "Roboto"
