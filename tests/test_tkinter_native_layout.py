@@ -70,6 +70,15 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.addCleanup(self.renderer.close)
         self.addCleanup(self.reconciler.unmount)
 
+    def test_css_width_commits_to_tk_native_geometry(self):
+        root = self.reconciler.render(psx(
+            '<div style="width: 140px; height: 60px">'
+            '<button style="width: 45px; height: 15px">Save</button></div>'
+        ))
+        self.assertEqual(rect(root.handle.widget)[2], 140)
+        self.assertEqual(rect(root.children[0].handle.widget)[2:], (45, 15))
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_html_block_places_native_buttons_without_pack_or_grid(self):
         self.renderer.set_sfle_constraints(constraints(240, 140))
         first = self.reconciler.render(psx(
