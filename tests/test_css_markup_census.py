@@ -53,3 +53,42 @@ def test_css_markup_invalid_rejection(tag: str, request):
     else:
         rejected = False
     assert_feature(request, _feature(tag, "invalid_rejection"), rejected)
+
+
+def _link_feature(scenario: str) -> Feature:
+    return Feature("link", CONTRACT, "public_api", "stylesheet_resource",
+                   scenario, applicability="shared")
+
+
+def test_link_source_public_behavior_receipt(request):
+    root = psx('<link rel="stylesheet" href="styles/main.css" /><div class="panel" />',
+               scope={"__velto_css_resource_resolver__": lambda _: ".panel {color: #fff}"})
+    assert_feature(request, _link_feature("linked_source"),
+                   root.css_computed.properties["color"] == CssColor("#fff"))
+
+
+def test_link_relative_import_public_behavior_receipt(request):
+    resources = {
+        "styles/main.css": '@import "./buttons.css"; .panel {color: #fff}',
+        "styles/buttons.css": ".panel {color: #abc}",
+    }
+    root = psx('<link rel="stylesheet" href="styles/main.css" /><div class="panel"/>',
+               scope={"__velto_css_resource_resolver__": resources.__getitem__})
+    assert_feature(request, _link_feature("relative_import"),
+                   root.css_computed.properties["color"] == CssColor("#fff"))
+
+
+def test_link_invalid_input_public_behavior_receipt(request):
+    rejected = False
+    try:
+        psx('<link rel="preload" href="styles/main.css" /><div/>')
+    except ValueError:
+        rejected = True
+    assert_feature(request, _link_feature("invalid_rejection"), rejected)
+
+
+def test_link_creates_no_native_widget_public_behavior_receipt(request):
+    root = psx('<link rel="stylesheet" href="styles/main.css" /><div />',
+               scope={"__velto_css_resource_resolver__": lambda _: ""})
+    assert_feature(request, _link_feature("no_native_widget"),
+                   root.type == "div" and not root.children)
