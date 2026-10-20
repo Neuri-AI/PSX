@@ -86,3 +86,19 @@ def test_border_color_alone_does_not_invent_nonzero_geometry():
 def test_border_paint_rejects_alpha_instead_of_silently_discarding_it():
     with pytest.raises(ValueError, match="opaque"):
         qt_semantic_stylesheet(_style("div {border-width: 1px; border-color: #abc8}"))
+
+
+def test_qt_semantic_font_styles_are_composed():
+    assert qt_semantic_stylesheet(_style(
+        "div {font-family: Arial; font-size: 18px; font-weight: bold; text-align: center}"
+    )) == 'font-family: "Arial"; font-size: 18px; font-weight: 700; text-align: center;'
+
+
+def test_qt_semantic_typography_rejects_unresolved_percentages():
+    with pytest.raises(ValueError, match="positive px"):
+        qt_semantic_stylesheet(_style("div {font-size: 150%}"))
+
+
+def test_qt_semantic_text_alignment_rejects_unsupported_justification():
+    with pytest.raises(ValueError, match="justify"):
+        qt_semantic_stylesheet(_style("div {text-align: justify}"))
