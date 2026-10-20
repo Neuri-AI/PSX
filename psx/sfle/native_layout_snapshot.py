@@ -44,6 +44,30 @@ class PreparedNativeLayoutSnapshot:
     identities: tuple[tuple[str, VNode], ...]
     box_styles: tuple[tuple[str, CanonicalItemBoxStyle], ...] = ()
 
+    def css_geometry_snapshot(self) -> LayoutInput:
+        """Project computed CSS geometry into typed Cinnamon input, opt-in.
+
+        Explicit layout_* metadata always wins; CSS never overwrites native
+        widget-owned props. This returns new immutable input, never a native
+        geometry write, and remains independent of renderer backends.
+        """
+        from psx.css.geometry import css_layout_overrides
+
+        baseline = self.canonical_snapshot()
+        originals = dict(self.identities)
+        converted: list[LayoutNode] = []
+        for node in baseline.nodes:
+            original = originals[node.node_id]
+            computed = original.css_computed
+            overrides = css_layout_overrides(computed) if computed is not None else {}
+            explicit = set(original.props)
+            style = dict(node.style)
+            for key, value in overrides.items():
+                if key not in explicit:
+                    style[key] = value
+            converted.append(replace(node, style=tuple(sorted(style.items()))))
+        return replace(baseline, nodes=tuple(converted))
+
     def canonical_snapshot(self) -> LayoutInput:
         """Build engine-ready typed item lengths without changing source props.
 
