@@ -856,6 +856,37 @@ class TkinterRenderer:
                 state="disabled",
             )
             return
+        if target.node_type in ("Button", "Checkbox", "Input", "Radio"):
+            from psx.css.native_paint import native_text_typography
+            from tkinter import font as tkfont
+            styles = native_text_typography(computed)
+            widget = target.widget
+            if not hasattr(widget, "_psx_css_native_base_font"):
+                original = ttk.Style(widget).lookup(widget.winfo_class(), "font")
+                widget._psx_css_native_base_font = original or "TkDefaultFont"
+            if not hasattr(widget, "_psx_css_native_font"):
+                widget._psx_css_native_font = tkfont.Font(
+                    root=widget, font=widget._psx_css_native_base_font)
+            font = widget._psx_css_native_font
+            font.configure(
+                family=styles.get("font-family", tkfont.nametofont("TkDefaultFont", root=widget).actual("family")),
+                size=-round(styles["font-size"]) if "font-size" in styles else
+                     tkfont.nametofont("TkDefaultFont", root=widget).actual("size"),
+                weight="bold" if styles.get("font-weight") == 700 else "normal",
+            )
+            if target.node_type == "Input":
+                widget.configure(font=font)
+                if "text-align" in styles:
+                    widget.configure(justify=styles["text-align"])
+                else:
+                    widget.configure(justify="left")
+            else:
+                style_name = f"PsxCssType{id(widget)}.{widget.winfo_class()}"
+                ttk.Style(widget).configure(style_name, font=font)
+                widget.configure(style=style_name)
+                if "text-align" in styles:
+                    raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
+            return
         if target.node_type not in FORMATTING_TAGS:
             return
         color = background_hex(computed)
