@@ -71,3 +71,18 @@ def test_qt_semantic_paint_resets_when_styles_are_removed():
 def test_qt_semantic_paint_rejects_unsupported_percentage_radius():
     with pytest.raises(ValueError, match="requires px"):
         qt_semantic_stylesheet(_style("div {border-radius: 25%}"))
+
+
+def test_border_color_is_recognized_and_painted_with_width():
+    computed = _style("div {border-width: 2px; border-color: #abc}")
+    assert computed.properties["border-color"].value == "#abc"
+    assert qt_semantic_stylesheet(computed) == "border: 2px solid #aabbcc;"
+
+
+def test_border_color_alone_does_not_invent_nonzero_geometry():
+    assert qt_semantic_stylesheet(_style("div {border-color: #123456}")) == ""
+
+
+def test_border_paint_rejects_alpha_instead_of_silently_discarding_it():
+    with pytest.raises(ValueError, match="opaque"):
+        qt_semantic_stylesheet(_style("div {border-width: 1px; border-color: #abc8}"))
