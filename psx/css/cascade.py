@@ -25,6 +25,7 @@ class StyleTarget:
 class ComputedStyle:
     """Immutable snapshot with no references to mounted nodes."""
     properties: Mapping[str, object]
+    specified: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "properties", MappingProxyType(dict(self.properties)))
@@ -48,6 +49,7 @@ def resolve_style(
             if prop.inherited and name in inherited.properties:
                 resolved[name] = inherited.properties[name]
     matched: list[tuple[tuple[int, int, int], int, int, str, object]] = []
+    specified: set[str] = set()
     for rule in sheet.rules:
         for selector in rule.selectors:
             if selector.matches(target.tag, target.classes, target.node_id):
@@ -57,7 +59,9 @@ def resolve_style(
                     matched.append((selector.specificity, rule.order, index, name, value))
     for _, _, _, name, value in sorted(matched):
         resolved[name] = value
+        specified.add(name)
     for declaration in inline:
         validated = definitions.validate(declaration.name, declaration.value)
         resolved[validated.name] = validated.value
-    return ComputedStyle(resolved)
+        specified.add(validated.name)
+    return ComputedStyle(resolved, frozenset(specified))
