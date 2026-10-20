@@ -863,6 +863,9 @@ class TkinterRenderer:
             widget = target.widget
             if not styles:
                 if hasattr(widget, "_psx_css_native_font"):
+                    widget._psx_css_native_font.configure(
+                        **widget._psx_css_native_original_font_config
+                    )
                     if target.node_type != "Input":
                         widget.configure(style=widget._psx_css_native_original_style)
                     else:
@@ -882,6 +885,8 @@ class TkinterRenderer:
                 widget._psx_css_native_font = tkfont.Font(
                     root=widget, font=widget._psx_css_native_base_font)
             font = widget._psx_css_native_font
+            if not hasattr(widget, "_psx_css_native_original_font_config"):
+                widget._psx_css_native_original_font_config = font.actual()
             font.configure(
                 family=styles.get("font-family", tkfont.nametofont("TkDefaultFont", root=widget).actual("family")),
                 size=-round(styles["font-size"]) if "font-size" in styles else
