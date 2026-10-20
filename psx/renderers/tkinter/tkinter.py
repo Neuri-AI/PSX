@@ -941,6 +941,8 @@ class TkinterRenderer:
                         widget.configure(style=widget._psx_css_native_original_style)
                     else:
                         widget.configure(font=widget._psx_css_native_original_font)
+                        if target.node_type == "Select" and hasattr(widget, "_psx_css_native_original_combobox_style"):
+                            widget.configure(style=widget._psx_css_native_original_combobox_style)
                         if target.node_type == "Input":
                             widget.configure(foreground=widget._psx_css_native_original_foreground)
                     if self._sfle_constraints is not None and hasattr(widget, "_psx_css_font_revision"):
@@ -953,6 +955,8 @@ class TkinterRenderer:
                 widget._psx_css_native_original_font = (
                     widget.cget("font") if target.node_type in ("Input", "Select") else None
                 )
+                if target.node_type == "Select":
+                    widget._psx_css_native_original_combobox_style = str(widget.cget("style"))
                 widget._psx_css_native_original_foreground = (
                     str(widget.cget("foreground")) if target.node_type == "Input" else None
                 )
@@ -976,6 +980,8 @@ class TkinterRenderer:
             )
             if target.node_type in ("Input", "Select"):
                 widget.configure(font=font)
+                if target.node_type == "Select" and "color" not in styles and hasattr(widget, "_psx_css_native_original_combobox_style"):
+                    widget.configure(style=widget._psx_css_native_original_combobox_style)
                 if "color" in styles:
                     if target.node_type == "Input":
                         widget.configure(foreground=styles["color"])
