@@ -140,6 +140,8 @@ def _classify_path(path: str) -> set[str]:
         # Application-level Grid settings affect portable resolution and every
         # backend consumer even before native Grid geometry ships.
         return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
+    if path == "tests/test_markup_css_binding.py":
+        return {"core", "headless", "qt", "kivy", "tkinter"}
     if path == "tests/test_lowercase_markup_aliases.py":
         return {"core", "qt", "kivy", "tkinter", "headless"}
     if path in ("psx/__init__.py", "psx/core/native.py") or path.startswith("psx/core/"):
