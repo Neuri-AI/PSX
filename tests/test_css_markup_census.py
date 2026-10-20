@@ -2,13 +2,17 @@
 import pytest
 
 from psx.markup.compile import psx
-from psx.markup.html_aliases import FORMATTING_TAGS
+from psx.markup.html_aliases import PORTABLE_HTML_ALIASES
 from psx.css.visual_values import CssColor
 from psx.sfle.lengths import Length
 from tests.certification.public_behavior_census import CONTRACT, Feature, assert_feature
 
 
 def _source(tag: str, attributes: str) -> str:
+    if tag == 'img':
+        return f'<img src="image.png" {attributes} />'
+    if tag in ('input', 'textarea'):
+        return f'<{tag} {attributes} />'
     return f'<{tag} {attributes}>Text</{tag}>'
 
 
@@ -16,7 +20,7 @@ def _feature(tag: str, scenario: str) -> Feature:
     return Feature(tag, CONTRACT, "public_api", "css_source", scenario, applicability="shared")
 
 
-@pytest.mark.parametrize("tag", sorted(FORMATTING_TAGS))
+@pytest.mark.parametrize("tag", sorted(PORTABLE_HTML_ALIASES))
 def test_css_markup_class_selection(tag: str, request):
     node = psx(_source(tag, 'class="active"'), stylesheet=".active {color: #fff}")
     assert_feature(request, _feature(tag, "class_selection"),
@@ -24,7 +28,7 @@ def test_css_markup_class_selection(tag: str, request):
                    and "class" not in node.props)
 
 
-@pytest.mark.parametrize("tag", sorted(FORMATTING_TAGS))
+@pytest.mark.parametrize("tag", sorted(PORTABLE_HTML_ALIASES))
 def test_css_markup_inline_precedence(tag: str, request):
     node = psx(_source(tag, 'class="active" style="width: 42px"'),
                stylesheet=".active {width: 10px}")
@@ -33,7 +37,7 @@ def test_css_markup_inline_precedence(tag: str, request):
                    and "style" not in node.props)
 
 
-@pytest.mark.parametrize("tag", sorted(FORMATTING_TAGS))
+@pytest.mark.parametrize("tag", sorted(PORTABLE_HTML_ALIASES))
 def test_css_markup_invalid_rejection(tag: str, request):
     try:
         psx(_source(tag, 'class="not!valid"'))
