@@ -1,0 +1,103 @@
+"""Scoped CSS source binding for PSX Markup, without native style ownership.
+
+The source lives on immutable VNodes outside widget props. Computing a style
+does not imply a backend can paint or lay out that property; the dispatch
+contracts are separate.
+"""
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
+
+from psx.core.vnode import NodeKind, VNode
+
+from .cascade import ComputedStyle, StyleTarget, resolve_style
+from .parser import Stylesheet, parse_stylesheet
+from .properties import CssDeclaration, foundation_registry
+
+
+@dataclass(frozen=True, slots=True)
+class MarkupStyleSource:
+    tag: str
+    classes: frozenset[str] = frozenset()
+    node_id: str | None = None
+    inline: tuple[CssDeclaration, ...] = ()
+
+
+def parse_markup_style(
+    tag: str,
+    *,
+    class_value: object = None,
+    id_value: object = None,
+    inline_value: object = None,
+) -> MarkupStyleSource:
+    """Validate CSS-only markup attributes before they reach native builders."""
+    if class_value is None:
+        classes = frozenset()
+    elif isinstance(class_value, str):
+        names = class_value.split()
+        if any(not _valid_identifier(name) for name in names):
+            raise ValueError("CSS class must contain valid identifiers.")
+        classes = frozenset(names)
+    else:
+        raise TypeError("CSS class must be a space-separated string.")
+    if id_value is not None and (
+        not isinstance(id_value, str) or not _valid_identifier(id_value)
+    ):
+        raise ValueError("CSS id must be a valid identifier.")
+    inline: tuple[CssDeclaration, ...] = ()
+    if inline_value is not None:
+        if isinstance(inline_value, str):
+            parsed = parse_stylesheet(f"div {{{inline_value}}}")
+            if len(parsed.rules) != 1:
+                raise ValueError("Invalid inline CSS declaration block.")
+            inline = tuple(
+                CssDeclaration(name, value)
+                for name, value in parsed.rules[0].declarations
+            )
+        elif isinstance(inline_value, Mapping):
+            registry = foundation_registry()
+            inline = tuple(registry.validate(name, value) for name, value in inline_value.items())
+        else:
+            raise TypeError("CSS style must be declaration text or a property mapping.")
+    return MarkupStyleSource(tag, classes, id_value, inline)
+
+
+def _valid_identifier(value: str) -> bool:
+    import re
+
+    return re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", value) is not None
+
+
+def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = None) -> VNode:
+    """Decorate immutable VNodes with computed styles and preserve all public props.
+
+    CSS matching applies only to elements carrying lowercase-markup CSS source
+    metadata. Nested component trees remain opaque; a legacy host cannot be
+    targeted implicitly via a similarly named HTML selector.
+    """
+    if stylesheet is None:
+        sheet = Stylesheet(())
+    elif isinstance(stylesheet, Stylesheet):
+        sheet = stylesheet
+    else:
+        sheet = parse_stylesheet(stylesheet)
+
+    def visit(node: VNode, inherited: ComputedStyle | None) -> VNode:
+        if node.kind is not NodeKind.HOST:
+            return node
+        source = node.css_source
+        if source is not None and not isinstance(source, MarkupStyleSource):
+            raise TypeError("Unexpected PSX CSS style source metadata.")
+        if isinstance(source, MarkupStyleSource):
+            target = StyleTarget(source.tag, source.classes, source.node_id)
+            inline = source.inline
+        else:
+            # Do not implicitly reinterpret existing PascalCase APIs as CSS.
+            target = StyleTarget("__legacy_psx_host__")
+            inline = ()
+        computed = resolve_style(sheet, target, inline=inline, inherited=inherited)
+        children = tuple(visit(child, computed) for child in node.children)
+        return replace(node, css_computed=computed, children=children)
+
+    return visit(root, None)
