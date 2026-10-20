@@ -84,9 +84,9 @@ def test_dynamic_class_update_recomputes_style_without_changing_key():
 def test_expressive_lowering_keeps_inline_object_styles_and_sheet():
     from psx.markup.transform import transform_source
     source = (
-        "from psx import psx\\n"
-        "def view():\\n"
-        '    return psx(\'ready && <div class="panel" style={{"width": "35px"}}>OK</div>\', stylesheet=".panel {width: 10px}")\\n'
+        "from psx import psx\n"
+        "def view():\n"
+        '    return psx(\'ready && <div class="panel" style={{"width": "35px"}}>OK</div>\', stylesheet=".panel {width: 10px}")\n'
     )
     converted = transform_source(source, filename="css_expressive.py")
     assert "_psx_expr_compute_styles" in converted.source
