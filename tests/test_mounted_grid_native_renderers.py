@@ -898,7 +898,7 @@ def test_native_css_typography_updates_text_without_replacing_widget():
             assert widget.font().bold()
             assert "#123456" in widget.styleSheet()
         elif backend == "tk":
-            assert widget._psx_text_font.actual("size") == -18
+            assert widget._psx_text_font.cget("size") == -18
             assert widget._psx_text_font.actual("weight") == "bold"
             assert widget.cget("foreground") == "#123456"
             assert widget.cget("justify") == "center"
@@ -913,7 +913,7 @@ def test_native_css_typography_updates_text_without_replacing_widget():
             assert widget.font().pixelSize() == 24
             assert "#654321" in widget.styleSheet()
         elif backend == "tk":
-            assert widget._psx_text_font.actual("size") == -24
+            assert widget._psx_text_font.cget("size") == -24
             assert widget.cget("foreground") == "#654321"
         else:
             assert widget.font_size == 24
