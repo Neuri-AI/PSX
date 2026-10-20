@@ -792,7 +792,7 @@ class KivyRenderer:
                 if "line-height" in styles else target.widget.property("line_height").defaultvalue
             )
             return
-        if target.node_type in ("Button", "Input", "TextArea", "Select"):
+        if target.node_type in ("Button", "Input", "TextArea", "Select", "Link"):
             from psx.css.native_paint import native_text_typography
             styles = native_text_typography(computed, alpha=True,
                                             line_height=target.node_type == "Button")
