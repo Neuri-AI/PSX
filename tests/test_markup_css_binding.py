@@ -86,6 +86,7 @@ def test_expressive_lowering_keeps_inline_object_styles_and_sheet():
     source = (
         "from psx import psx\n"
         "def view():\n"
+        "    ready = True\n"
         '    return psx(\'ready && <div class="panel" style={{"width": "35px"}}>OK</div>\', stylesheet=".panel {width: 10px}")\n'
     )
     converted = transform_source(source, filename="css_expressive.py")
