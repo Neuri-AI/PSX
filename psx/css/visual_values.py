@@ -26,6 +26,7 @@ class CssColor:
 VISUAL_EFFECTS = {
     "color": "paint",
     "background-color": "paint",
+    "border-color": "paint",
     "font-family": "measurement",
     "font-size": "measurement",
     "font-weight": "measurement",
@@ -38,7 +39,7 @@ VISUAL_EFFECTS = {
 def normalize_visual_value(name: str, value: str) -> CssColor | Length | int | str:
     if name not in VISUAL_EFFECTS:
         raise ValueError(f"Unsupported visual CSS property: {name!r}.")
-    if name in ("color", "background-color"):
+    if name in ("color", "background-color", "border-color"):
         return value if isinstance(value, CssColor) else CssColor(value)
     if name in ("font-size", "line-height", "border-radius"):
         parsed = parse_length(value)
