@@ -216,6 +216,16 @@ impl Flow<'_> {
                 leaves.push(index);
             }
             Some(true) => {
+                for group in ["margin", "border", "padding"] {
+                    for side in ["top", "right", "bottom", "left"] {
+                        if self.edge(index, group, side, available)? != 0.0 {
+                            return Err(unsupported(
+                                "Inline formatting owners with box edges require fragment-aware layout.",
+                                &self.input.nodes[index].node_id,
+                            ));
+                        }
+                    }
+                }
                 owners.push(index);
                 for child in self.children[index].clone() {
                     self.collect_inline(child, available, atoms, leaves, owners)?;
