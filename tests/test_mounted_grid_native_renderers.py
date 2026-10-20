@@ -971,12 +971,16 @@ def test_native_multiline_css_line_height_follows_cinnamon_measurement():
             assert str(widget.cget("text")) == "Several words here should wrap over multiple lines"
             assert TkMeasurementSource._css_text_metrics(widget, 60).preferred_height >= 64
             assert widget._psx_css_text_layer.winfo_exists()
+            gap = 32 - widget._psx_text_font.metrics("linespace")
+            assert int(widget._psx_css_text_layer.cget("spacing2")) == gap
+            assert int(widget._psx_css_text_layer.cget("spacing3")) == gap
         second = reconciler.render(view(40))
         assert second.children[0].children[0].handle.widget is widget
         if backend == "qt":
             assert widget.heightForWidth(60) >= 80
         else:
             assert TkMeasurementSource._css_text_metrics(widget, 60).preferred_height >= 80
+            assert int(widget._psx_css_text_layer.cget("spacing2")) == 40 - widget._psx_text_font.metrics("linespace")
         third = reconciler.render(psx('<div><span><Text key="text" value={content} /></span></div>',
                                       scope={"content": "Several words here should wrap over multiple lines"}))
         assert third.children[0].children[0].handle.widget is widget
