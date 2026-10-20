@@ -136,3 +136,32 @@ def test_css_styles_are_kept_out_of_native_component_properties():
     assert "class" not in node.props
     assert node.props["font_size"] == 14
     assert node.css_computed.properties["font-size"] == Length.px(18)
+
+
+def test_stylesheet_covers_multiple_fragment_roots():
+    root = psx('<><div class="one">One</div><span id="two">Two</span></>',
+               stylesheet=".one {width: 80px} #two {color: #fff}")
+    assert root.children[0].css_computed.properties["width"] == Length.px(80)
+    assert root.children[1].css_computed.properties["color"] == CssColor("#fff")
+
+
+def test_class_name_spelling_and_inline_style_mapping_are_supported():
+    node = psx('<div class_name="panel" style={style_map} />',
+               scope={"style_map": {"width": "73px"}},
+               stylesheet=".panel {width: 10px}")
+    assert node.css_computed.properties["width"] == Length.px(73)
+    assert node.css_source.classes == frozenset({"panel"})
+
+
+def test_scoped_style_update_avoids_global_source_leakage():
+    first = psx('<div class="primary" />', stylesheet=".primary {color: #fff}")
+    second = psx('<div class="primary" />', stylesheet=".primary {color: #000}")
+    assert first.css_computed.properties["color"] == CssColor("#fff")
+    assert second.css_computed.properties["color"] == CssColor("#000")
+
+
+def test_unknown_stylesheet_property_is_rejected_instead_of_ignored():
+    from psx.css.parser import CssSyntaxError
+
+    with pytest.raises(CssSyntaxError):
+        psx('<div />', stylesheet="div {grid-template-columns: 1fr}")
