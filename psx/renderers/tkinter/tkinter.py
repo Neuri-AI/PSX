@@ -822,6 +822,7 @@ class TkinterRenderer:
                 target.widget.configure(foreground=styles["color"])
             layer = getattr(target.widget, "_psx_css_text_layer", None)
             leading = styles.get("line-height")
+            target.widget._psx_css_line_height = leading
             if leading is None:
                 if layer is not None:
                     layer.destroy()
