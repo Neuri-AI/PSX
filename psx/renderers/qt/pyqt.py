@@ -833,7 +833,67 @@ class QtRenderer:
         if spec is None:
             raise RendererCapabilityError(
                 f"PyQt does not support host primitive {node.type!r}.")
-        widget = self._widget_class(node.type)()
+        if node.type == "Text":
+            label_class = self._widget_class("Text")
+            gui = __import__(self._binding_package + ".QtGui", fromlist=["QTextDocument"])
+            core = __import__(self._binding_package + ".QtCore", fromlist=["QSize"])
+
+            class CssMeasuredTextLabel(label_class):
+                """QLabel-compatible text host with native QTextDocument line spacing."""
+
+                def __init__(self):
+                    super().__init__()
+                    self._psx_css_line_height = None
+                    self._psx_css_document = None
+
+                def _psx_sync_line_height(self, height):
+                    self._psx_css_line_height = height
+                    if height is None:
+                        self._psx_css_document = None
+                        self.updateGeometry()
+                        self.update()
+                        return
+                    document = gui.QTextDocument(self)
+                    document.setDocumentMargin(0)
+                    document.setDefaultFont(self.font())
+                    cursor = gui.QTextCursor(document)
+                    cursor.insertText(self.text())
+                    cursor.select(getattr(gui.QTextCursor, "SelectionType", gui.QTextCursor).Document)
+                    block = gui.QTextBlockFormat()
+                    kinds = getattr(gui.QTextBlockFormat, "LineHeightTypes", gui.QTextBlockFormat)
+                    block.setLineHeight(float(height), kinds.FixedHeight)
+                    cursor.setBlockFormat(block)
+                    char = gui.QTextCharFormat()
+                    char.setForeground(self.palette().color(self.foregroundRole()))
+                    cursor.mergeCharFormat(char)
+                    self._psx_css_document = document
+                    self.updateGeometry()
+                    self.update()
+
+                def sizeHint(self):
+                    if self._psx_css_document is None:
+                        return super().sizeHint()
+                    self._psx_css_document.setTextWidth(-1)
+                    size = self._psx_css_document.size()
+                    return core.QSize(max(1, round(size.width())), max(1, round(size.height())))
+
+                def heightForWidth(self, width):
+                    if self._psx_css_document is None:
+                        return super().heightForWidth(width)
+                    self._psx_css_document.setTextWidth(max(1, width))
+                    return max(1, round(self._psx_css_document.size().height()))
+
+                def paintEvent(self, event):
+                    if self._psx_css_document is None:
+                        return super().paintEvent(event)
+                    self._psx_css_document.setTextWidth(max(1, self.width()))
+                    painter = gui.QPainter(self)
+                    self._psx_css_document.drawContents(painter)
+                    painter.end()
+
+            widget = CssMeasuredTextLabel()
+        else:
+            widget = self._widget_class(node.type)()
         spec.apply(widget, node.props, self._binding_package)
         if self._sfle_constraints is not None and node.type == "Text":
             # QLabel's real heightForWidth is enabled by wordWrap.
@@ -852,7 +912,7 @@ class QtRenderer:
         if target.node_type == "Text":
             from psx.css.native_paint import native_text_typography
             from psx.renderers.components.text import apply_qt_text
-            styles = native_text_typography(computed)
+            styles = native_text_typography(computed, line_height=True)
             if self._sfle_constraints is not None:
                 revision = (target.props.get("value"), tuple(sorted(styles.items())))
                 if getattr(target.widget, "_psx_css_font_revision", None) != revision:
@@ -874,6 +934,7 @@ class QtRenderer:
                         target.widget.setAlignment(getattr(enum, {"left": "AlignLeft", "right": "AlignRight", "center": "AlignHCenter"}[styles["text-align"]]) | enum.AlignVCenter)
                 if "color" in styles:
                     target.widget.setStyleSheet("color: " + styles["color"] + ";")
+            target.widget._psx_sync_line_height(styles.get("line-height"))
             return
         if target.node_type not in FORMATTING_TAGS:
             return
