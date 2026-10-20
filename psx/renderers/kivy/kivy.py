@@ -809,7 +809,9 @@ class KivyRenderer:
                 widget.font_name = styles["font-family"]
             if "font-size" in styles:
                 widget.font_size = styles["font-size"]
-            if "font-weight" in styles and hasattr(widget, "bold"):
+            if "font-weight" in styles:
+                if not hasattr(widget, "bold"):
+                    raise ValueError(f"Kivy {target.node_type} does not expose native font-weight.")
                 widget.bold = styles["font-weight"] == 700
             if "text-align" in styles:
                 if not hasattr(widget, "halign"):
