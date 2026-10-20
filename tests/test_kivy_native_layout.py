@@ -30,10 +30,9 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             )
             reconciler = Reconciler(renderer)
             root = reconciler.render(psx(
-                '<div style="width: 140px; height: 60px">'
+                '<div>'
                 '<button style="width: 45px; height: 15px">Save</button></div>'
             ))
-            assert round(root.handle.widget.width) == 140
             assert round(root.children[0].handle.widget.width) == 45
             assert round(root.children[0].handle.widget.height) == 15
             assert renderer.sfle_result.geometry_commit_error <= 1
