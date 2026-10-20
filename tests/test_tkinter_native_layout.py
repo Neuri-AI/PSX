@@ -70,6 +70,17 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.addCleanup(self.renderer.close)
         self.addCleanup(self.reconciler.unmount)
 
+    def test_css_background_is_scoped_to_a_single_ttk_frame(self):
+        first = self.reconciler.render(psx('<div key="same" style="background-color: #112233" />'))
+        widget = first.handle.widget
+        style_name = widget.cget("style")
+        self.assertEqual(ttk.Style(widget).lookup(style_name, "background"), "#112233")
+        changed = self.reconciler.render(psx('<div key="same" style="background-color: #aabbcc" />'))
+        self.assertIs(changed.handle.widget, widget)
+        self.assertEqual(ttk.Style(widget).lookup(style_name, "background"), "#aabbcc")
+        self.reconciler.render(psx('<div key="same" />'))
+        self.assertEqual(widget.cget("style"), "TFrame")
+
     def test_css_width_commits_to_tk_native_geometry(self):
         root = self.reconciler.render(psx(
             '<div>'
