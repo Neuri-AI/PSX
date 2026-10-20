@@ -180,6 +180,6 @@ def native_text_typography(computed: ComputedStyle | None, *, alpha: bool = Fals
             raise ValueError("Native Text line-height is not certified by the text metrics bridge.")
         leading = computed.properties["line-height"]
         if not isinstance(leading, Length) or leading.kind is not LengthKind.PX or leading.value <= 0:
-            raise ValueError("Kivy Text line-height requires positive px units.")
+            raise ValueError("Native Text line-height requires positive px units.")
         result["line-height"] = leading.value
     return result
