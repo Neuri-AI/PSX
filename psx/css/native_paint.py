@@ -141,7 +141,7 @@ def border_rgba(computed: ComputedStyle | None) -> tuple[float, float, float, fl
         channels.append(255)
     return tuple(channel / 255 for channel in channels)
 
-def native_text_typography(computed: ComputedStyle | None, *, alpha: bool = False) -> dict[str, object]:
+def native_text_typography(computed: ComputedStyle | None, *, alpha: bool = False, line_height: bool = False) -> dict[str, object]:
     """Project explicitly authored native Text values without altering component props."""
     from psx.sfle.lengths import Length, LengthKind
 
@@ -176,5 +176,10 @@ def native_text_typography(computed: ComputedStyle | None, *, alpha: bool = Fals
             raise ValueError("Native Text does not support justify alignment.")
         result["text-align"] = {"start": "left", "end": "right"}.get(alignment, alignment)
     if "line-height" in computed.specified:
-        raise ValueError("Native Text line-height is not certified by the text metrics bridge.")
+        if not line_height:
+            raise ValueError("Native Text line-height is not certified by the text metrics bridge.")
+        leading = computed.properties["line-height"]
+        if not isinstance(leading, Length) or leading.kind is not LengthKind.PX or leading.value <= 0:
+            raise ValueError("Kivy Text line-height requires positive px units.")
+        result["line-height"] = leading.value
     return result
