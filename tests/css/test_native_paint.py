@@ -1,7 +1,7 @@
 """Explicit CSS background paint conversion is native-backend independent."""
 import pytest
 
-from psx.css.native_paint import background_hex, background_rgba, foreground_hex, foreground_rgba
+from psx.css.native_paint import background_hex, background_rgba, foreground_hex, foreground_rgba, qt_semantic_stylesheet
 from psx.css.cascade import StyleTarget, resolve_style
 from psx.css.parser import parse_stylesheet
 
@@ -55,3 +55,19 @@ def test_translucent_foreground_preserves_alpha_and_fails_closed_for_hex():
     assert foreground_rgba(style) == (1.0, 0.0, 0.0, 136 / 255)
     with pytest.raises(ValueError, match="opaque"):
         foreground_hex(style)
+
+def test_qt_semantic_paint_composes_background_foreground_and_radius():
+    value = qt_semantic_stylesheet(_style(
+        "div {background-color: #abc; color: #123456; border-radius: 6px}"
+    ))
+    assert value == "background-color: #aabbcc; color: #123456; border-radius: 6px;"
+
+
+def test_qt_semantic_paint_resets_when_styles_are_removed():
+    assert qt_semantic_stylesheet(_style("")) == ""
+    assert qt_semantic_stylesheet(None) == ""
+
+
+def test_qt_semantic_paint_rejects_unsupported_percentage_radius():
+    with pytest.raises(ValueError, match="requires px"):
+        qt_semantic_stylesheet(_style("div {border-radius: 25%}"))
