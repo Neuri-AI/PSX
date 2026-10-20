@@ -819,7 +819,7 @@ class KivyRenderer:
             if not hasattr(widget, "_psx_css_default_typography"):
                 widget._psx_css_default_typography = {
                     key: getattr(widget, key) for key in
-                    ("font_name", "font_size", "bold", "halign", "line_height", "color")
+                    ("font_name", "font_size", "bold", "halign", "line_height", "color", "foreground_color")
                     if hasattr(widget, key)
                 }
             for key, value in widget._psx_css_default_typography.items():
@@ -840,8 +840,13 @@ class KivyRenderer:
                 if not hasattr(widget, "line_height"):
                     raise ValueError(f"Kivy {target.node_type} does not support line-height.")
                 widget.line_height = styles["line-height"] / widget.font_size
-            if "color" in styles and hasattr(widget, "color"):
-                widget.color = styles["color"]
+            if "color" in styles:
+                if target.node_type in ("Input", "TextArea") and hasattr(widget, "foreground_color"):
+                    widget.foreground_color = styles["color"]
+                elif hasattr(widget, "color"):
+                    widget.color = styles["color"]
+                else:
+                    raise ValueError(f"Kivy {target.node_type} has no foreground paint property.")
             if self._sfle_constraints is not None:
                 keys = ("font-family", "font-size", "font-weight", "line-height")
                 if any(key in styles for key in keys) or hasattr(widget, "_psx_css_font_revision"):
