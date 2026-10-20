@@ -65,8 +65,19 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
             f"Unsupported flow {axis} keyword.", node.node_id,
         )
 
+    def constrained_dimension(node, axis: str, available: float, fallback: float) -> float:
+        preferred = dimension(node, axis, available)
+        result = fallback if preferred is None else preferred
+        maximum = dimension(node, "max_" + axis, available)
+        minimum = dimension(node, "min_" + axis, available)
+        if maximum is not None:
+            result = min(result, maximum)
+        if minimum is not None:
+            result = max(result, minimum)
+        return max(0.0, result)
+
     def valid_style(node) -> bool:
-        return set(dict(node.style)).issubset({"display", "layout_width", "layout_height"})
+        return set(dict(node.style)).issubset({"display", "layout_width", "layout_height", "layout_min_width", "layout_min_height", "layout_max_width", "layout_max_height"})
 
     def display(node) -> str | None:
         if node.component not in FORMATTING_TAGS:
