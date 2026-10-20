@@ -196,10 +196,21 @@ impl Flow<'_> {
         match self.display(index)? {
             None => {
                 let native = self.leaf(index)?;
+                let available = self.input.constraints.width.value.unwrap_or(0.0);
+                let mut horizontal = 0.0;
+                let mut vertical = 0.0;
+                let mut top = 0.0;
+                for group in ["margin", "border", "padding"] {
+                    horizontal += self.edge(index, group, "left", available)?
+                        + self.edge(index, group, "right", available)?;
+                    let edge_top = self.edge(index, group, "top", available)?;
+                    top += edge_top;
+                    vertical += edge_top + self.edge(index, group, "bottom", available)?;
+                }
                 atoms.push(InlineAtom {
-                    width: self.constrained_dimension(index, "width", self.input.constraints.width.value.unwrap_or(0.0), native.preferred_width)?,
-                    height: self.constrained_dimension(index, "height", self.input.constraints.height.value.unwrap_or(0.0), native.preferred_height)?,
-                    baseline: native.baseline.unwrap_or(native.preferred_height),
+                    width: self.constrained_dimension(index, "width", available, native.preferred_width)? + horizontal,
+                    height: self.constrained_dimension(index, "height", available, native.preferred_height)? + vertical,
+                    baseline: native.baseline.unwrap_or(native.preferred_height) + top,
                 });
                 leaves.push(index);
             }
@@ -234,8 +245,25 @@ impl Flow<'_> {
         let mut line_height = 0.0_f64;
         for (index, placed) in leaves.into_iter().zip(placements.iter()) {
             let id = &self.input.nodes[index].node_id;
+            let available = self.input.constraints.width.value.unwrap_or(0.0);
+            let mut offset_x = 0.0;
+            let mut offset_y = 0.0;
+            let mut horizontal = 0.0;
+            let mut vertical = 0.0;
+            for group in ["margin", "border", "padding"] {
+                let left = self.edge(index, group, "left", available)?;
+                let right = self.edge(index, group, "right", available)?;
+                let top = self.edge(index, group, "top", available)?;
+                let bottom = self.edge(index, group, "bottom", available)?;
+                offset_x += left;
+                offset_y += top;
+                horizontal += left + right;
+                vertical += top + bottom;
+            }
             self.boxes[index] = Some(rect(
-                x + placed.x, y + placed.y, placed.width, placed.height, id,
+                x + placed.x + offset_x, y + placed.y + offset_y,
+                (placed.width - horizontal).max(0.0),
+                (placed.height - vertical).max(0.0), id,
             )?);
             line_height = line_height.max(placed.y + placed.height);
         }
