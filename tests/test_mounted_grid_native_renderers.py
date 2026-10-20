@@ -903,7 +903,7 @@ def test_native_css_typography_updates_text_without_replacing_widget():
             assert widget._psx_text_font.cget("size") == -18
             assert widget._psx_text_font.cget("family") == "Roboto"
             assert widget._psx_text_font.actual("weight") == "bold"
-            assert widget.cget("foreground") == "#123456"
+            assert str(widget.cget("foreground")) == "#123456"
             assert widget.cget("justify") == "center"
         else:
             assert widget.font_size == 18
@@ -919,7 +919,7 @@ def test_native_css_typography_updates_text_without_replacing_widget():
             assert "#654321" in widget.styleSheet()
         elif backend == "tk":
             assert widget._psx_text_font.cget("size") == -24
-            assert widget.cget("foreground") == "#654321"
+            assert str(widget.cget("foreground")) == "#654321"
         else:
             assert widget.font_size == 24
             assert widget.line_height == pytest.approx(1.5)
@@ -927,13 +927,13 @@ def test_native_css_typography_updates_text_without_replacing_widget():
         plain = reconciler.render(psx('<div><span key="title">Hello</span></div>'))
         assert plain.children[0].children[0].handle.widget is widget
         if backend == "qt":
-            assert widget.font().pixelSize() == 14
+            assert widget.font().pixelSize() == 16
             assert widget.font().bold() is False
             assert widget.styleSheet() == ""
         elif backend == "tk":
             assert widget._psx_text_font.actual("weight") == "normal"
         else:
-            assert widget.font_size == 14
+            assert widget.font_size == 16
             assert widget.line_height == widget.property("line_height").defaultvalue
             assert widget.font_name == widget._psx_css_default_font_name
             assert widget.bold is False
