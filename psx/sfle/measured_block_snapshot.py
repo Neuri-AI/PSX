@@ -15,6 +15,7 @@ from .errors import DiagnosticCode, SFLECapabilityError
 from .flow_layout import InlineAtom, layout_inline_atoms
 from .fixed_point import LayoutUnit
 from .model import BoxRect, LayoutInput, LayoutResult, Rect
+from .lengths import Length, LengthKind, parse_length
 
 
 def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
@@ -48,6 +49,25 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                       for value in (x, y, width, height)))
 
 
+    def dimension(node, axis: str, available: float) -> float | None:
+        value = dict(node.style).get("layout_" + axis)
+        if value is None:
+            return None
+        length = parse_length(value)
+        if length.kind is LengthKind.PX:
+            return max(0.0, float(length.value))
+        if length.kind is LengthKind.PERCENT:
+            return max(0.0, float(length.value) * available)
+        if length.kind in (LengthKind.AUTO, LengthKind.NONE):
+            return None
+        raise SFLECapabilityError(
+            DiagnosticCode.UNSUPPORTED_FEATURE,
+            f"Unsupported flow {axis} keyword.", node.node_id,
+        )
+
+    def valid_style(node) -> bool:
+        return set(dict(node.style)).issubset({"display", "layout_width", "layout_height"})
+
     def display(node) -> str | None:
         if node.component not in FORMATTING_TAGS:
             return None
@@ -55,7 +75,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         from psx.sfle.display_context import resolve_display, InnerDisplay
         selected = style.pop("display", None)
         mode = resolve_display(node.component, selected)
-        if mode.inner is not InnerDisplay.FLOW or style:
+        if mode.inner is not InnerDisplay.FLOW or not valid_style(node):
             raise SFLECapabilityError(
                 DiagnosticCode.UNSUPPORTED_FEATURE,
                 f"{node.component} requires a supported Block/Inline flow style.",
@@ -70,7 +90,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                 f"Native flow child {node.node_id!r} is missing intrinsic measurements.",
                 node.node_id,
             )
-        if dict(node.style):
+        if not valid_style(node):
             raise SFLECapabilityError(
                 DiagnosticCode.UNSUPPORTED_FEATURE,
                 f"Flow child {node.node_id!r} has unresolved layout styles.",
@@ -98,7 +118,8 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                             if intrinsic.baseline is not None
                             else intrinsic.preferred_height)
                 atoms.append(InlineAtom(
-                    intrinsic.preferred_width, intrinsic.preferred_height,
+                    dimension(node, "width", available) or intrinsic.preferred_width,
+                    dimension(node, "height", available) or intrinsic.preferred_height,
                     baseline,
                 ))
                 fragments.append(node)
@@ -141,9 +162,10 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         if mode is None:
             intrinsic = leaf(node)
             geometry[node.node_id] = quantized_rect(
-                x, y, available, intrinsic.preferred_height,
+                x, y, dimension(node, "width", available) or available,
+                dimension(node, "height", available) or intrinsic.preferred_height,
             )
-            return intrinsic.preferred_height
+            return dimension(node, "height", available) or intrinsic.preferred_height
         if mode == "inline":
             return inline_run((node,), x, y, available)
         cursor = 0.0
@@ -162,8 +184,11 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                 flush()
                 cursor += block_node(child, x, y + cursor, available)
         flush()
-        geometry[node.node_id] = quantized_rect(x, y, available, cursor)
-        return cursor
+        used_width = dimension(node, "width", available)
+        used_height = dimension(node, "height", available)
+        geometry[node.node_id] = quantized_rect(x, y, used_width if used_width is not None else available,
+                                                 used_height if used_height is not None else cursor)
+        return used_height if used_height is not None else cursor
 
     if display(root) == "inline":
         content_height = inline_run(
@@ -172,11 +197,13 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
     else:
         content_height = block_node(root, 0.0, 0.0, width)
     root_height = (
-        snapshot.constraints.height.value
+        dimension(root, "height", snapshot.constraints.height.value or content_height)
+        or snapshot.constraints.height.value
         if snapshot.constraints.height.definite
         else content_height
     )
-    geometry[root.node_id] = quantized_rect(0.0, 0.0, width, root_height)
+    root_width = dimension(root, "width", width)
+    geometry[root.node_id] = quantized_rect(0.0, 0.0, root_width if root_width is not None else width, root_height)
 
     def box(rect: Rect) -> BoxRect:
         return BoxRect(rect, rect, rect, rect)
