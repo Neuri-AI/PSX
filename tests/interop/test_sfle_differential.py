@@ -328,6 +328,7 @@ def test_css_flow_box_geometry_matches_rust_and_python(rust_binary, case):
     if case == "nested-edges":
         middle = node(
             "middle", "root", "div", display="block",
+            layout_width=Length.px(150),
             layout_margin_top=Length.px(3), layout_margin_left=Length.px(4),
             layout_margin_bottom=Length.px(3),
             layout_padding_top=Length.px(8), layout_padding_left=Length.percent(.1),
