@@ -1,7 +1,7 @@
 """Explicit CSS background paint conversion is native-backend independent."""
 import pytest
 
-from psx.css.native_paint import background_hex, background_rgba, foreground_hex, foreground_rgba, qt_semantic_stylesheet
+from psx.css.native_paint import background_hex, background_rgba, foreground_hex, foreground_rgba, qt_semantic_stylesheet, border_rgba
 from psx.css.cascade import StyleTarget, resolve_style
 from psx.css.parser import parse_stylesheet
 
@@ -102,3 +102,9 @@ def test_qt_semantic_typography_rejects_unresolved_percentages():
 def test_qt_semantic_text_alignment_rejects_unsupported_justification():
     with pytest.raises(ValueError, match="justify"):
         qt_semantic_stylesheet(_style("div {text-align: justify}"))
+
+def test_border_rgba_supports_native_kivy_transparency():
+    assert border_rgba(_style("div {border-color: #f008}")) == (
+        1.0, 0.0, 0.0, 136 / 255
+    )
+    assert border_rgba(_style("div {border-width: 3px}")) is None
