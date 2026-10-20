@@ -42,3 +42,19 @@ def test_registry_is_immutable_and_rejects_duplicate_definitions():
 def test_existing_native_width_semantics_are_not_modified():
     # Pure validation: the CSS registry deliberately does not import VNodes or adapters.
     assert foundation_registry().validate("width", "150px").value == Length.px(150)
+
+
+def test_border_color_is_a_noninherited_typed_paint_property():
+    from psx.css.visual_values import CssColor
+    registry = foundation_registry()
+    prop = registry.properties["border-color"]
+    assert prop.inherited is False
+    assert prop.effect == "paint"
+    assert registry.validate("border-color", "#aBc").value == CssColor("#abc")
+
+
+@pytest.mark.parametrize("invalid", ["red", "rgba(1, 2, 3, 1)", "#12345", "url(x)"])
+def test_border_color_rejects_unsupported_color_notation(invalid):
+    with pytest.raises(CssValidationError) as error:
+        foundation_registry().validate("border-color", invalid)
+    assert error.value.diagnostic.code == "invalid-value"
