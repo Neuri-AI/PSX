@@ -147,3 +147,22 @@ def test_link_is_not_a_widget():
 def test_removed_stylesheet_keyword_is_rejected():
     with pytest.raises(TypeError):
         psx('<div />', stylesheet="div {color:#fff}")
+
+
+def test_expressive_markup_loads_link_without_native_widget(tmp_path, monkeypatch):
+    from psx.markup.transform import transform_source
+    (tmp_path / "style.css").write_text(".panel {color: #fff}", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    program = (
+        "from psx import psx\\n"
+        "def view():\\n"
+        "    return psx('<><link rel=\"stylesheet\" href=\"style.css\" />"
+        "<div class=\"panel\" style={{\"width\": \"22px\"}}>Hello</div></>')\\n"
+    )
+    transformed = transform_source(program, filename="expressive_styles.py")
+    namespace = {}
+    exec(compile(transformed.source, "expressive_styles.py", "exec"), namespace)
+    node = namespace["view"]()
+    assert len(node.children) == 1
+    assert node.children[0].css_computed.properties["color"] == CssColor("#fff")
+    assert node.children[0].css_computed.properties["width"] == Length.px(22)
