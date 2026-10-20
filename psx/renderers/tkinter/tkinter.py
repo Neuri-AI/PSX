@@ -803,7 +803,7 @@ class TkinterRenderer:
             from psx.css.native_paint import native_text_typography
             from psx.renderers.components.text import apply_tk_text
             apply_tk_text(target.widget, target.props)
-            styles = native_text_typography(computed)
+            styles = native_text_typography(computed, line_height=True)
             if self._sfle_constraints is not None:
                 revision = (target.props.get("value"), tuple(sorted(styles.items())))
                 if getattr(target.widget, "_psx_css_font_revision", None) != revision:
@@ -820,6 +820,36 @@ class TkinterRenderer:
                 target.widget.configure(justify=align, anchor={"left": "w", "center": "center", "right": "e"}[align])
             if "color" in styles:
                 target.widget.configure(foreground=styles["color"])
+            layer = getattr(target.widget, "_psx_css_text_layer", None)
+            leading = styles.get("line-height")
+            if leading is None:
+                if layer is not None:
+                    layer.destroy()
+                    del target.widget._psx_css_text_layer
+                return
+            metrics = target.widget._psx_text_font.metrics("linespace")
+            # Tk's spacing2/spacing3 only add interline spacing. Negative
+            # leading would alter glyph rasterization rather than line boxes.
+            if leading < metrics:
+                raise ValueError("Tk exact line-height cannot be shorter than native glyph linespace.")
+            if layer is None:
+                layer = tk.Text(
+                    target.widget, wrap="word", borderwidth=0,
+                    highlightthickness=0, padx=0, pady=0,
+                    takefocus=0, cursor="arrow", relief="flat",
+                )
+                target.widget._psx_css_text_layer = layer
+                layer.place(x=0, y=0, relwidth=1, relheight=1)
+            layer.configure(state="normal")
+            layer.delete("1.0", "end")
+            layer.insert("1.0", str(target.props.get("value", "")))
+            extra = round(leading - metrics)
+            layer.configure(
+                font=target.widget._psx_text_font,
+                fg=str(target.widget.cget("foreground")) if styles.get("color") else "black",
+                spacing2=extra, spacing3=extra,
+                state="disabled",
+            )
             return
         if target.node_type not in FORMATTING_TAGS:
             return
