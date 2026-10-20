@@ -232,6 +232,7 @@ impl Flow<'_> {
                 }
                 owners.push(index);
                 for child in self.children[index].clone() {
+                    self.containing_height[child] = self.containing_height[index];
                     self.collect_inline(child, available, atoms, leaves, owners)?;
                 }
             }
@@ -320,6 +321,14 @@ impl Flow<'_> {
         let content_available = (available - horizontal).max(0.0);
         let content_x = x + left;
         let content_y = y + top;
+        let mut parent_height = self.dimension(index, "height", available)?;
+        if parent_height.is_none() && index == 0 && self.input.constraints.height.definite {
+            parent_height = self.input.constraints.height.value
+                .map(|value| (value - top - bottom).max(0.0));
+        }
+        for child in self.children[index].clone() {
+            self.containing_height[child] = parent_height;
+        }
         match self.display(index)? {
             None => {
                 let preferred_height = self.leaf(index)?.preferred_height;
