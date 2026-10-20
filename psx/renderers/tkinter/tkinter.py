@@ -831,6 +831,8 @@ class TkinterRenderer:
             metrics = target.widget._psx_text_font.metrics("linespace")
             # Tk's spacing2/spacing3 only add interline spacing. Negative
             # leading would alter glyph rasterization rather than line boxes.
+            if float(leading) != round(leading):
+                raise ValueError("Tk exact line-height requires integer device pixels.")
             if leading < metrics:
                 raise ValueError("Tk exact line-height cannot be shorter than native glyph linespace.")
             if layer is None:
