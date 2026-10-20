@@ -925,7 +925,7 @@ class TkinterRenderer:
         if target.node_type in ("Button", "Checkbox", "Input", "Radio", "Select"):
             from psx.css.native_paint import native_text_typography
             from tkinter import font as tkfont
-            styles = native_text_typography(computed)
+            styles = native_text_typography(computed, line_height=target.node_type == "Button")
             widget = target.widget
             if not styles:
                 if hasattr(widget, "_psx_css_native_font"):
@@ -967,7 +967,32 @@ class TkinterRenderer:
                     widget.configure(justify="left")
             else:
                 style_name = f"PsxCssType{id(widget)}.{widget.winfo_class()}"
-                ttk.Style(widget).configure(style_name, font=font)
+                style = ttk.Style(widget)
+                config = {"font": font}
+                if target.node_type == "Button":
+                    leading = styles.get("line-height")
+                    if leading is not None and (
+                        "\n" in str(widget.cget("text"))
+                        or leading < font.metrics("linespace")
+                        or float(leading) != round(leading)
+                    ):
+                        raise ValueError("Tk Button line-height requires single-line text and integer pixels above native linespace.")
+                    extra = max(0, round(leading - font.metrics("linespace"))) if leading is not None else 0
+                    base = widget.tk.splitlist(str(style.lookup(widget.winfo_class(), "padding") or "0"))
+                    parts = [int(value) for value in base]
+                    if len(parts) == 1:
+                        l = t = r = b = parts[0]
+                    elif len(parts) == 2:
+                        l = r = parts[0]
+                        t = b = parts[1]
+                    elif len(parts) == 4:
+                        l, t, r, b = parts
+                    else:
+                        raise ValueError("Unsupported native Tk button padding format.")
+                    config["padding"] = (
+                        l, t + extra // 2, r, b + extra - extra // 2
+                    )
+                style.configure(style_name, **config)
                 widget.configure(style=style_name)
                 if "text-align" in styles:
                     raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
