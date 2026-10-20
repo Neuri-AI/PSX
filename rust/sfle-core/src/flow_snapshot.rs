@@ -42,6 +42,18 @@ struct Flow<'a> {
     measurements: HashMap<&'a str, &'a crate::compute::IntrinsicSizes>,
     boxes: Vec<Option<Rect>>,
 }
+fn valid_flow_style(name: &str) -> bool {
+    matches!(name,
+        "display" | "layout_width" | "layout_height"
+        | "layout_min_width" | "layout_min_height"
+        | "layout_max_width" | "layout_max_height"
+    ) || ["layout_margin_", "layout_padding_", "layout_border_"]
+        .iter().any(|prefix| {
+            name.strip_prefix(prefix).is_some_and(|side|
+                matches!(side, "top" | "right" | "bottom" | "left"))
+        })
+}
+
 impl Flow<'_> {
     fn dimension(&self, index: usize, axis: &str, available: f64) -> Result<Option<f64>, ComputeError> {
         let node = &self.input.nodes[index];
@@ -139,7 +151,7 @@ impl Flow<'_> {
         if !formatting_tag(&node.component) {
             return Ok(None);
         }
-        if node.style.keys().any(|name| !matches!(name.as_str(), "display" | "layout_width" | "layout_height" | "layout_min_width" | "layout_min_height" | "layout_max_width" | "layout_max_height" | "layout_min_width" | "layout_min_height" | "layout_max_width" | "layout_max_height")) {
+        if node.style.keys().any(|name| !valid_flow_style(name)) {
             return Err(unsupported(
                 format!("{} requires a supported Block/Inline flow style.", node.component),
                 &node.node_id,
@@ -162,7 +174,7 @@ impl Flow<'_> {
                 &node.node_id,
             ));
         }
-        if node.style.keys().any(|name| !matches!(name.as_str(), "layout_width" | "layout_height" | "layout_min_width" | "layout_min_height" | "layout_max_width" | "layout_max_height")) {
+        if node.style.keys().any(|name| !valid_flow_style(name)) {
             return Err(unsupported("Native flow leaf has unresolved layout styles.", &node.node_id));
         }
         self.measurements.get(node.node_id.as_str()).copied().ok_or_else(|| {
