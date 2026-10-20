@@ -973,7 +973,7 @@ class QtRenderer:
             if target.node_type == "Button":
                 leading = styles.get("line-height")
                 if leading is not None and (
-                    "\\n" in widget.text() or leading < widget.fontMetrics().height()
+                    "\n" in widget.text() or leading < widget.fontMetrics().height()
                 ):
                     raise ValueError("Qt Button line-height needs single-line text and sufficient leading.")
                 widget._psx_css_line_height = leading
