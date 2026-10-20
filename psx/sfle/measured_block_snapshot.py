@@ -76,8 +76,47 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
             result = max(result, minimum)
         return max(0.0, result)
 
+    def edges(node, prefix: str) -> tuple[float, float, float, float]:
+        styles = dict(node.style)
+        sides = []
+        for side in ("top", "right", "bottom", "left"):
+            value = styles.get(f"layout_{prefix}_{side}")
+            if value is None:
+                sides.append(0.0)
+                continue
+            length = parse_length(value)
+            if length.kind is LengthKind.PX:
+                resolved = float(length.value)
+            elif length.kind is LengthKind.PERCENT:
+                resolved = float(length.value) * width
+            else:
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    f"Unsupported flow {prefix} edge keyword.", node.node_id,
+                )
+            if prefix != "margin" and resolved < 0.0:
+                raise SFLECapabilityError(
+                    DiagnosticCode.INVALID_LENGTH,
+                    f"Flow {prefix} edges cannot be negative.", node.node_id,
+                )
+            sides.append(resolved)
+        return tuple(sides)
+
+    def box_rect(node, content: Rect) -> BoxRect:
+        def expand(rect: Rect, sides: tuple[float, float, float, float]) -> Rect:
+            top, right, bottom, left = sides
+            return quantized_rect(
+                rect.x - left, rect.y - top,
+                max(0.0, rect.width + left + right),
+                max(0.0, rect.height + top + bottom),
+            )
+        padded = expand(content, edges(node, "padding"))
+        bordered = expand(padded, edges(node, "border"))
+        margin = expand(bordered, edges(node, "margin"))
+        return BoxRect(content, padded, bordered, margin)
+
     def valid_style(node) -> bool:
-        return set(dict(node.style)).issubset({"display", "layout_width", "layout_height", "layout_min_width", "layout_min_height", "layout_max_width", "layout_max_height"})
+        return set(dict(node.style)).issubset({"display", "layout_width", "layout_height", "layout_min_width", "layout_min_height", "layout_max_width", "layout_max_height", *(f"layout_{group}_{side}" for group in ("margin", "padding", "border") for side in ("top", "right", "bottom", "left"))})
 
     def display(node) -> str | None:
         if node.component not in FORMATTING_TAGS:
@@ -215,9 +254,6 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
     root_width = dimension(root, "width", width)
     geometry[root.node_id] = quantized_rect(0.0, 0.0, root_width if root_width is not None else width, root_height)
 
-    def box(rect: Rect) -> BoxRect:
-        return BoxRect(rect, rect, rect, rect)
-
-    result = tuple((node.node_id, box(geometry[node.node_id]))
+    result = tuple((node.node_id, box_rect(node, geometry[node.node_id]))
                    for node in snapshot.nodes)
     return LayoutResult(snapshot.schema_version, snapshot.generation, result)
