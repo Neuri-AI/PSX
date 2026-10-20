@@ -928,6 +928,11 @@ class QtRenderer:
         """Paint explicit CSS backgrounds on Cinnamon-owned semantic hosts."""
         from psx.css.native_paint import qt_semantic_stylesheet
         target = _handle(handle)
+        if target.node_type == "Badge":
+            from psx.css.native_paint import foreground_hex
+            target.widget._psx_css_foreground = foreground_hex(computed)
+            target.widget.update()
+            return
         if target.node_type == "Text":
             from psx.css.native_paint import native_text_typography
             from psx.renderers.components.text import apply_qt_text
