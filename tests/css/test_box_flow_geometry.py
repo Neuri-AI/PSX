@@ -1,5 +1,5 @@
 """Cinnamon flow must compute distinct boxes and account for outer flow dimensions."""
-from psx.sfle.lengths import Length
+from psx.sfle.lengths import Length, LengthKind
 from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
 from psx.sfle.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
@@ -102,3 +102,24 @@ def test_percentage_width_uses_parent_resolved_width():
     assert boxes['middle'].content.width == 150
     assert boxes['leaf'].content.width == 75
     assert boxes['leaf'].content.x == 10
+
+
+def test_inline_formatting_owner_edges_fail_closed():
+    import pytest
+    from psx.sfle.errors import SFLECapabilityError
+    root = _node("root", None, "div", display="block")
+    owner = _node("owner", "root", "span", display="inline",
+                  layout_padding_left=Length.px(4))
+    leaf = _node("leaf", "owner", "Button")
+    with pytest.raises(SFLECapabilityError, match="fragment-aware"):
+        compute_measured_block_snapshot(_request(root, owner, leaf))
+
+
+def test_auto_margin_does_not_silently_center():
+    import pytest
+    from psx.sfle.errors import SFLECapabilityError
+    root = _node("root", None, "div", display="block")
+    child = _node("child", "root", "Button",
+                  layout_margin_left=Length(LengthKind.AUTO))
+    with pytest.raises(SFLECapabilityError, match="margin"):
+        compute_measured_block_snapshot(_request(root, child))
