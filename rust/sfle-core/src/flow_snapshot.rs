@@ -290,6 +290,7 @@ impl Flow<'_> {
     fn block(
         &mut self, index: usize, x: f64, y: f64, available: f64,
     ) -> Result<f64, ComputeError> {
+        self.containing_width[index] = available;
         let id = self.input.nodes[index].node_id.clone();
         let mut top = 0.0;
         let mut left = 0.0;
@@ -425,7 +426,7 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
         let calculated = flow.boxes[index].clone().ok_or_else(|| {
             error("SFLE_INVALID_TREE", "Flow node has no computed geometry.", Some(&node.node_id))
         })?;
-        flow.box_rect(index, calculated, width)
+        flow.box_rect(index, calculated, flow.containing_width[index])
     }).collect::<Result<Vec<_>, ComputeError>>()?;
     Ok(LayoutResult {
         schema_version: input.schema_version,
