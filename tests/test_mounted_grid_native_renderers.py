@@ -1078,3 +1078,41 @@ def test_native_input_css_inherits_font_and_alignment_without_remount():
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("tag", ("h1", "h2", "h3", "h4", "h5", "h6", "p"))
+def test_native_heading_paragraph_css_cascade_and_keyed_font_update(tag):
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    def view(size):
+        return psx(
+            f'<div><{tag} key="heading" style="font-size: {size}px; font-weight: 700;'
+            f' color: #123456; text-align: right">Hello</{tag}></div>'
+        )
+    try:
+        mounted = reconciler.render(view(22))
+        leaf = mounted.children[0].children[0]
+        widget = leaf.handle.widget
+        if backend == "qt":
+            assert widget.font().pixelSize() == 22
+            assert widget.font().bold()
+        elif backend == "tk":
+            assert widget._psx_text_font.cget("size") == -22
+            assert widget._psx_text_font.actual("weight") == "bold"
+        else:
+            assert widget.font_size == 22
+            assert widget.bold
+        mounted = reconciler.render(view(27))
+        assert mounted.children[0].children[0].handle.widget is widget
+        if backend == "qt":
+            assert widget.font().pixelSize() == 27
+        elif backend == "tk":
+            assert widget._psx_text_font.cget("size") == -27
+        else:
+            assert widget.font_size == 27
+    finally:
+        reconciler.unmount()
+        close()
