@@ -74,6 +74,12 @@ class _Transformer(ast.NodeTransformer):
         if _has_expressive_interpolation(source):
             tree = parse_expressive_expression(source, filename=template_filename)
             replacement = lower(tree, filename=template_filename)
+            style_keywords = [item for item in node.keywords if item.arg == "stylesheet"]
+            if style_keywords or any(token in source for token in ("class=", "class_name=", "style=", "id=")):
+                replacement = ast.Call(
+                    func=ast.Name(id="_psx_expr_compute_styles", ctx=ast.Load()),
+                    args=[replacement], keywords=style_keywords,
+                )
             self.expressive_count += 1
             self.entries.append(SourceMapEntry(
                 template_name=f"_psx_expressive_{self.expressive_count - 1}",
@@ -181,7 +187,12 @@ def transform_source(source: str, *, filename: str = "<module>") -> TransformRes
     module = transformer.visit(module)
     if transformer.templates or transformer.expressive_count:
         insertion = _insertion_index(module.body)
-        declarations = ([] if not transformer.expressive_count else [helper_import()])
+        declarations = ([] if not transformer.expressive_count else [
+            helper_import(),
+            ast.ImportFrom(module="psx.css.markup", names=[
+                ast.alias(name="compute_markup_styles", asname="_psx_expr_compute_styles"),
+            ], level=0),
+        ])
         declarations.extend(_factory_declarations(transformer.templates) if transformer.templates else [])
         module.body[insertion:insertion] = declarations
     ast.fix_missing_locations(module)
