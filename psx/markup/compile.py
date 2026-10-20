@@ -194,7 +194,14 @@ def _element(
     constructor = definition.constructor
     key = props.pop("key", None)
     css_source = None
-    if element.name in PORTABLE_HTML_ALIASES:
+    # Public PascalCase native controls share the same CSS surface as their
+    # HTML-like aliases. Custom lexical components remain opt-in/opaque.
+    css_native_tags = {
+        "Button": "button", "Input": "input", "TextArea": "textarea",
+        "Checkbox": "checkbox", "Radio": "radio", "Select": "select",
+        "Link": "link", "Badge": "badge", "SpinBox": "spinbox",
+    }
+    if element.name in PORTABLE_HTML_ALIASES or element.name in css_native_tags:
         if "class" in props and "class_name" in props:
             _error("Use either class or class_name, not both.", filename, element.span)
         css_class = props.pop("class", None)
@@ -203,7 +210,7 @@ def _element(
         inline_value = props.pop("style", None)
         try:
             css_source = parse_markup_style(
-                element.name, class_value=css_class,
+                css_native_tags.get(element.name, element.name), class_value=css_class,
                 id_value=props.pop("id", None), inline_value=inline_value,
             )
         except CssSyntaxError as exc:
