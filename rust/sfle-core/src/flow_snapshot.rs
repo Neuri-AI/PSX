@@ -41,6 +41,7 @@ struct Flow<'a> {
     children: Vec<Vec<usize>>,
     measurements: HashMap<&'a str, &'a crate::compute::IntrinsicSizes>,
     boxes: Vec<Option<Rect>>,
+    containing_width: Vec<f64>,
 }
 fn valid_flow_style(name: &str) -> bool {
     matches!(name,
@@ -187,12 +188,13 @@ impl Flow<'_> {
     }
 
     fn collect_inline(
-        &self,
-        index: usize,
+        &mut self,
+        index: usize, available: f64,
         atoms: &mut Vec<InlineAtom>,
         leaves: &mut Vec<usize>,
         owners: &mut Vec<usize>,
     ) -> Result<(), ComputeError> {
+        self.containing_width[index] = available;
         match self.display(index)? {
             None => {
                 let native = self.leaf(index)?;
