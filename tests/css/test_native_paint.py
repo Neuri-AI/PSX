@@ -133,3 +133,9 @@ def test_text_typography_keeps_kivy_alpha_channels():
     assert native_text_typography(_style("div {color: #f008}"), alpha=True) == {
         "color": (1.0, 0.0, 0.0, 136 / 255)
     }
+
+
+def test_kivy_pixel_line_height_and_rejects_percentage_leading():
+    assert native_text_typography(_style("div {line-height: 27px}"), line_height=True) == {"line-height": 27.0}
+    with pytest.raises(ValueError, match="positive px"):
+        native_text_typography(_style("div {line-height: 120%}"), line_height=True)
