@@ -364,3 +364,30 @@ def test_css_flow_box_geometry_matches_rust_and_python(rust_binary, case):
                     case, item, box, axis,
                     actual[item][box][axis], expected[item][box][axis],
                 )
+
+
+@pytest.mark.parametrize("scenario", ("auto-margin", "inline-owner-padding"))
+def test_unimplemented_css_flow_cases_fail_closed_in_both_engines(rust_binary, scenario):
+    from psx.sfle.lengths import LengthKind
+    from psx.sfle.model import (
+        AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
+        LayoutNode, MeasuredBox, WritingDirection,
+    )
+    size = LayoutConstraints(AvailableSize(200, True), AvailableSize(100, True))
+    root = LayoutNode("root", None, "div", (("display", "block"),))
+    if scenario == "auto-margin":
+        nodes = (root, LayoutNode("leaf", "root", "Button",
+                                (("layout_margin_left", Length(LengthKind.AUTO)),)))
+    else:
+        nodes = (root,
+                 LayoutNode("owner", "root", "span",
+                            (("display", "inline"), ("layout_padding_left", Length.px(4)))),
+                 LayoutNode("leaf", "owner", "Button", ()))
+    measures = (
+        MeasuredBox("leaf", IntrinsicSizes(20, 20, 10, 10, 20, 10), size, 1),
+    )
+    snapshot = LayoutInput(1, 1, WritingDirection.LTR, size, nodes, measures)
+    python, rust = _python_compute(snapshot), _rust_compute(rust_binary, snapshot)
+    assert python["ok"] is False, scenario
+    assert rust["ok"] is False, scenario
+    assert python["error"]["code"] == rust["error"]["code"] == "SFLE_UNSUPPORTED_FEATURE"
