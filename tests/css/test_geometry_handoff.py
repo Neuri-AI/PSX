@@ -125,3 +125,30 @@ def test_explicit_default_geometry_differs_from_implicit_default():
     assert absent != explicit
     assert css_layout_overrides(absent) == {}
     assert css_layout_overrides(explicit)["layout_padding_left"] == Length.px(0)
+
+
+
+def test_mounted_headless_respects_css_margin_padding_border_geometry():
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import IntrinsicSizes
+
+    root = psx(
+        '<div><button style="width: 40px; height: 15px; '
+        'margin-left: 3px; margin-top: 4px; '
+        'padding: 5px; border-width: 2px">Save</button></div>'
+    )
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(AvailableSize(220, True), AvailableSize(120, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda _: IntrinsicSizes(20, 20, 15, 15, 20, 15),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(root)
+        box = mounted.children[0].handle.geometry
+        assert (box.x, box.y, box.width, box.height) == (3, 4, 54, 29)
+        assert dict(renderer.sfle_result.boxes)[renderer.sfle_result.boxes[1][0]].content.width == 40
+    finally:
+        reconciler.unmount()
