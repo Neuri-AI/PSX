@@ -42,6 +42,7 @@ struct Flow<'a> {
     measurements: HashMap<&'a str, &'a crate::compute::IntrinsicSizes>,
     boxes: Vec<Option<Rect>>,
     containing_width: Vec<f64>,
+    containing_height: Vec<Option<f64>>,
 }
 fn valid_flow_style(name: &str) -> bool {
     matches!(name,
@@ -81,7 +82,10 @@ impl Flow<'_> {
         };
         match (kind, raw) {
             ("px", Some(v)) if v.is_finite() => Ok(Some(v.max(0.0))),
-            ("percent", Some(v)) if v.is_finite() => Ok(Some((v * available).max(0.0))),
+            ("percent", Some(v)) if v.is_finite() => Ok(
+                (if axis.ends_with("height") { self.containing_height[index] } else { Some(available) })
+                    .map(|reference| (v * reference).max(0.0))
+            ),
             ("auto" | "none", _) => Ok(None),
             _ => Err(unsupported(format!("Unsupported flow {axis} dimension."), &node.node_id)),
         }
@@ -396,7 +400,7 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
     }
     let measurements = input.measurements.iter()
         .map(|item| (item.node_id.as_str(), &item.intrinsic)).collect();
-    let mut flow = Flow { input, children, measurements, boxes: vec![None; input.nodes.len()], containing_width: vec![width; input.nodes.len()] };
+    let mut flow = Flow { input, children, measurements, boxes: vec![None; input.nodes.len()], containing_width: vec![width; input.nodes.len()], containing_height: vec![if input.constraints.height.definite { input.constraints.height.value } else { None }; input.nodes.len()] };
     let content_height = if flow.display(0)? == Some(true) {
         let roots = flow.children[0].clone();
         flow.inline_run(&roots, 0.0, 0.0, width)?
