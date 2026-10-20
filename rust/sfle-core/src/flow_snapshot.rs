@@ -262,15 +262,41 @@ impl Flow<'_> {
         &mut self, index: usize, x: f64, y: f64, available: f64,
     ) -> Result<f64, ComputeError> {
         let id = self.input.nodes[index].node_id.clone();
+        let mut top = 0.0;
+        let mut left = 0.0;
+        let mut bottom = 0.0;
+        let mut horizontal = 0.0;
+        for group in ["margin", "padding", "border"] {
+            top += self.edge(index, group, "top", available)?;
+            left += self.edge(index, group, "left", available)?;
+            bottom += self.edge(index, group, "bottom", available)?;
+            horizontal += self.edge(index, group, "left", available)?
+                + self.edge(index, group, "right", available)?;
+        }
+        let content_available = (available - horizontal).max(0.0);
+        let content_x = x + left;
+        let content_y = y + top;
         match self.display(index)? {
             None => {
                 let preferred_height = self.leaf(index)?.preferred_height;
-                let used_width = self.constrained_dimension(index, "width", available, available)?;
+                let used_width = self.constrained_dimension(index, "width", available, content_available)?;
                 let used_height = self.constrained_dimension(index, "height", available, preferred_height)?;
-                self.boxes[index] = Some(rect(x, y, used_width, used_height, &id)?);
-                return Ok(used_height);
+                self.boxes[index] = Some(rect(content_x, content_y, used_width, used_height, &id)?);
+                return Ok(top + used_height + bottom);
             }
-            Some(true) => return self.inline_run(&[index], x, y, available),
+            Some(true) => {
+                for group in ["margin", "padding", "border"] {
+                    for side in ["top", "right", "bottom", "left"] {
+                        if self.edge(index, group, side, available)? != 0.0 {
+                            return Err(unsupported(
+                                "Inline formatting owners with box edges require fragment-aware layout.",
+                                &id,
+                            ));
+                        }
+                    }
+                }
+                return self.inline_run(&[index], x, y, available);
+            }
             Some(false) => (),
         }
         let mut cursor = 0.0;
@@ -281,20 +307,21 @@ impl Flow<'_> {
                 pending.push(child);
             } else {
                 if !pending.is_empty() {
-                    cursor += self.inline_run(&pending, x, y + cursor, available)?;
+                    cursor += self.inline_run(&pending, content_x, content_y + cursor, content_available)?;
                     pending.clear();
                 }
-                cursor += self.block(child, x, y + cursor, available)?;
+                cursor += self.block(child, content_x, content_y + cursor, content_available)?;
             }
         }
         if !pending.is_empty() {
-            cursor += self.inline_run(&pending, x, y + cursor, available)?;
+            cursor += self.inline_run(&pending, content_x, content_y + cursor, content_available)?;
         }
-        let used_width = self.constrained_dimension(index, "width", available, available)?;
+        let used_width = self.constrained_dimension(index, "width", available, content_available)?;
         let used_height = self.constrained_dimension(index, "height", available, cursor)?;
-        self.boxes[index] = Some(rect(x, y, used_width, used_height, &id)?);
-        Ok(used_height)
+        self.boxes[index] = Some(rect(content_x, content_y, used_width, used_height, &id)?);
+        Ok(top + used_height + bottom)
     }
+
 }
 
 /// Generate CSS-like normal-flow geometry for the supported semantic tags.
