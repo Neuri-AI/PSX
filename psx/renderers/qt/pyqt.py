@@ -893,6 +893,24 @@ class QtRenderer:
                     painter.end()
 
             widget = CssMeasuredTextLabel()
+        elif node.type == "Button":
+            button_class = self._widget_class("Button")
+
+            class CssMeasuredButton(button_class):
+                def __init__(self):
+                    super().__init__()
+                    self._psx_css_line_height = None
+
+                def sizeHint(self):
+                    natural = super().sizeHint()
+                    if self._psx_css_line_height is not None:
+                        extra = max(0, round(
+                            self._psx_css_line_height - self.fontMetrics().height()
+                        ))
+                        natural.setHeight(natural.height() + extra)
+                    return natural
+
+            widget = CssMeasuredButton()
         else:
             widget = self._widget_class(node.type)()
         spec.apply(widget, node.props, self._binding_package)
@@ -939,7 +957,7 @@ class QtRenderer:
             return
         if target.node_type in ("Button", "Checkbox", "Input", "TextArea", "Radio", "Select", "Link"):
             from psx.css.native_paint import native_text_typography
-            styles = native_text_typography(computed)
+            styles = native_text_typography(computed, line_height=target.node_type == "Button")
             widget = target.widget
             if not hasattr(widget, "_psx_css_base_font"):
                 widget._psx_css_base_font = widget.font()
@@ -952,6 +970,14 @@ class QtRenderer:
             if "font-weight" in styles:
                 font.setBold(styles["font-weight"] == 700)
             widget.setFont(font)
+            if target.node_type == "Button":
+                leading = styles.get("line-height")
+                if leading is not None and (
+                    "\\n" in widget.text() or leading < widget.fontMetrics().height()
+                ):
+                    raise ValueError("Qt Button line-height needs single-line text and sufficient leading.")
+                widget._psx_css_line_height = leading
+                widget.updateGeometry()
             if "text-align" in styles:
                 if target.node_type not in ("Input", "TextArea"):
                     raise ValueError(f"Native Qt {target.node_type} does not support CSS text-align.")
