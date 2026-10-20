@@ -166,3 +166,20 @@ def test_expressive_markup_loads_link_without_native_widget(tmp_path, monkeypatc
     assert len(node.children) == 1
     assert node.children[0].css_computed.properties["color"] == CssColor("#fff")
     assert node.children[0].css_computed.properties["width"] == Length.px(22)
+
+
+def test_expressive_global_type_selector_without_css_attributes():
+    from psx.css.context import scoped_css_resources
+    from psx.markup.transform import transform_source
+    program = (
+        "from psx import psx\n"
+        "def view():\n"
+        "    ready = True\n"
+        "    return psx('ready && <div>Hello</div>')\n"
+    )
+    transformed = transform_source(program, filename="type_selector.py")
+    ns = {}
+    exec(compile(transformed.source, "type_selector.py", "exec"), ns)
+    with scoped_css_resources(["global.css"], resolver=lambda _: "div {color: #fff}"):
+        root = ns["view"]()
+    assert root.css_computed.properties["color"] == CssColor("#fff")
