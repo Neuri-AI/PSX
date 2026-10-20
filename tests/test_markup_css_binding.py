@@ -51,8 +51,7 @@ def test_native_alias_keeps_props_and_key():
 def test_legacy_pascalcase_tag_remains_unmodified():
     node = psx('<Button label="Save" />')
     assert node.css_source.tag == "button"
-    assert node.css_computed is not None
-    assert not node.css_computed.specified
+    assert node.css_computed is None
     assert node.props["label"] == "Save"
 
 
