@@ -124,3 +124,19 @@ def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
                 raise ValueError("Qt semantic text-align does not support justify.")
             declarations.append(f"text-align: {'left' if alignment == 'start' else 'right' if alignment == 'end' else alignment};")
     return " ".join(declarations)
+
+def border_rgba(computed: ComputedStyle | None) -> tuple[float, float, float, float] | None:
+    """Resolve explicitly authored border paint, independent of its geometry."""
+    if computed is None or "border-color" not in computed.specified:
+        return None
+    value = computed.properties["border-color"]
+    if not isinstance(value, CssColor):
+        raise TypeError("CSS border-color must be validated.")
+    color = value.value.removeprefix("#")
+    if len(color) in (3, 4):
+        channels = [int(character * 2, 16) for character in color]
+    else:
+        channels = [int(color[index:index + 2], 16) for index in range(0, len(color), 2)]
+    if len(channels) == 3:
+        channels.append(255)
+    return tuple(channel / 255 for channel in channels)
