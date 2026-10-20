@@ -763,6 +763,41 @@ class KivyRenderer:
             spec.on_create(widget)
         return KivyHandle(node.type, widget, dict(node.props))
 
+    def apply_css(self, handle: object, computed: object) -> None:
+        """Paint native semantic backgrounds with one owned canvas instruction."""
+        from psx.css.native_paint import background_rgba
+        from kivy.graphics import Color, InstructionGroup, Rectangle
+
+        target = _handle(handle)
+        if target.node_type not in FORMATTING_TAGS:
+            return
+        widget = target.widget
+        rgba = background_rgba(computed)
+        existing = getattr(widget, "_psx_css_paint", None)
+        if rgba is None:
+            if existing is not None:
+                group, redraw = existing
+                widget.unbind(pos=redraw, size=redraw)
+                widget.canvas.before.remove(group)
+                del widget._psx_css_paint
+            return
+        if existing is None:
+            group = InstructionGroup()
+            color = Color(*rgba)
+            rectangle = Rectangle(pos=widget.pos, size=widget.size)
+            group.add(color)
+            group.add(rectangle)
+            def redraw(instance, _value):
+                rectangle.pos = instance.pos
+                rectangle.size = instance.size
+            widget.canvas.before.add(group)
+            widget.bind(pos=redraw, size=redraw)
+            widget._psx_css_paint = (group, redraw)
+        else:
+            group, _redraw = existing
+            color = group.children[0]
+            color.rgba = rgba
+
     # -- update -----------------------------------------------------------
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
