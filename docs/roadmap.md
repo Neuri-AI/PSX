@@ -353,6 +353,28 @@ This work is a distinct future implementation track. Its phase numbering (F0–F
 | F7 | CSS Advanced | Inheritance, variables, themes and advanced selectors in declared scope |
 | F8 | Compatibility and certification | Existing-component refactoring, public API regressions, backend capability matrix and Chromium differential evidence |
 
+### P1.4.8 — CSS Core integral certification (planned; not started)
+
+**Owner decision (2026-10-20):** Reserve P1.4.8 for the complete, independent certification of CSS Core, including the native visual capability matrix that was not previously recorded explicitly. P1.4.6 implements native paint/typography, P1.4.7 implements dependency-aware invalidation and performance; P1.4.8 **does not substitute for functional tests required during those increments**.
+
+**Mandatory verification matrix (each supported operation × applicable backend × supported Python/platform combination):**
+
+| Evidence area | Required certification |
+| --- | --- |
+| CSS sources and semantics | Parser, registry (including `border-color`), selectors, cascade, precedence, inheritance, invalid/unsupported values, linked stylesheets and frozen resource resolution |
+| Visual color and backgrounds | Foreground/background painting, alpha support/rejection, inherited vs implicit defaults, theme behavior, deterministic remove/reset |
+| Typography | `font-family`, `font-size`, `font-weight`, supported `line-height` and `text-align`; native metric readback, font/theme/DPI invalidation and dependent Cinnamon reflow |
+| Borders and corners | CSS border width geometry versus actual paint, `border-color`, approved stroke styles, `border-radius` supported units, clipping/rounded painting and explicit unsupported diagnostics |
+| Native backend parity | Executed Qt (PySide6/PyQt6/PyQt5/PySide2 where available), Tkinter and Kivy behavioral tests for **each advertised** property; Headless applicability justified rather than falsely claiming paint |
+| Lifecycle and compatibility | Initial mount, keyed update/reorder, removal/reset, nested inheritance, widget identity, native/manual style coexistence, existing PascalCase components, embedded Native boundaries, teardown/ownership |
+| Layout and performance integration | Rust/Python Cinnamon geometry parity, no double geometry authority, font-induced measurement/reflow, no paint-only unnecessary layout/measure, coalesced invalidations, stable resize/event loops |
+| Public capability census | Code-derived applicable public operations mapped to behavior-specific executed tests and receipts; explicit N/A and fail-closed unsupported cells |
+| CI and release gate | `scripts/ci/impact.py` routing with selector tests; same immutable implementation SHA required workflows green, no skipped/queued evidence counted as PASS, explicit owner acceptance before closure |
+
+**Required artifacts:** a versioned per-property × renderer × operation capability matrix; executed test/CI receipts with exact SHA; measured/readback results and known limitations; cross-platform support/exclusion matrix; final regression report for PSX Markup, CSS Geometry/Cinnamon, native widgets and resources. Differential browser references apply only to declared CSS semantics; native text/pixel-perfect browser equality is not presumed.
+
+**Exit rule:** P1.4.8 remains OPEN until every advertised cell has direct executed evidence and every unsupported cell has a documented, verified diagnostic. A green generic workflow, a parser unit test, or a style string is not proof of native visual rendering. Do not merge the single phase PR or assert full CSS Visual certification solely from prior increment receipts.
+
 ### Post-CSS-core layout extensions — owner-requested backlog (2026-10-20)
 
 These are **future increments**, not retroactive acceptance requirements for
