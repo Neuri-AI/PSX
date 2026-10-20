@@ -1116,3 +1116,54 @@ def test_native_heading_paragraph_css_cascade_and_keyed_font_update(tag):
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("tag,alias", (("Button", "button"), ("Input", "input")))
+def test_native_css_foreground_applies_to_pascal_and_html_controls(tag, alias):
+    from psx.markup.compile import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color, html):
+        name = alias if html else tag
+        if name == "button":
+            content = "Go"
+        elif name == "Button":
+            content = ""
+        else:
+            content = ""
+        attrs = 'label="Go"' if name == "Button" else 'value="Go"' if name.lower() == "input" else ""
+        return psx(
+            f'<div><{name} key="color" {attrs} style="color: {color}">{content}</{name}></div>'
+        )
+
+    try:
+        for html in (False, True):
+            first = reconciler.render(view("#123456", html))
+            widget = first.children[0].handle.widget
+            if backend == "qt":
+                assert "#123456" in widget.styleSheet()
+            elif backend == "tk":
+                if tag == "Input":
+                    assert str(widget.cget("foreground")) == "#123456"
+                else:
+                    from tkinter import ttk
+                    assert str(ttk.Style(widget).lookup(str(widget.cget("style")), "foreground")) == "#123456"
+            else:
+                assert tuple(widget.color) == pytest.approx((18/255, 52/255, 86/255, 1))
+            updated = reconciler.render(view("#654321", html))
+            assert updated.children[0].handle.widget is widget
+            if backend == "qt":
+                assert "#654321" in widget.styleSheet()
+            elif backend == "tk":
+                if tag == "Input":
+                    assert str(widget.cget("foreground")) == "#654321"
+                else:
+                    from tkinter import ttk
+                    assert str(ttk.Style(widget).lookup(str(widget.cget("style")), "foreground")) == "#654321"
+            else:
+                assert tuple(widget.color) == pytest.approx((101/255, 67/255, 33/255, 1))
+    finally:
+        reconciler.unmount()
+        close()
