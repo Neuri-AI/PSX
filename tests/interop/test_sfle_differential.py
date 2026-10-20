@@ -310,3 +310,56 @@ def test_semantic_form_label_and_list_snapshots_match_rust_python(
     assert _rects(py["result"]) == _rects(rust["result"])
     expected_width = 45 if display == "inline" else 120
     assert _rects(py["result"])["text"]["border"]["width"] == expected_width
+
+
+@pytest.mark.parametrize("case", ("nested-edges", "min-over-max", "inline-edges"))
+def test_css_flow_box_geometry_matches_rust_and_python(rust_binary, case):
+    """Compare actual content, padding, border and margin on identical inputs."""
+    from psx.sfle.model import (
+        AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
+        LayoutNode, MeasuredBox, WritingDirection,
+    )
+
+    def node(name, parent, component, **props):
+        return LayoutNode(name, parent, component, tuple(sorted(props.items())))
+
+    constraints = LayoutConstraints(AvailableSize(200, True), AvailableSize(120, True))
+    root = node("root", None, "div", display="block")
+    if case == "nested-edges":
+        middle = node(
+            "middle", "root", "div", display="block",
+            layout_margin_top=Length.px(3), layout_margin_left=Length.px(4),
+            layout_margin_bottom=Length.px(3),
+            layout_padding_top=Length.px(8), layout_padding_left=Length.percent(.1),
+            layout_padding_right=Length.px(8), layout_padding_bottom=Length.px(8),
+            layout_border_top=Length.px(2), layout_border_left=Length.px(2),
+            layout_border_right=Length.px(2), layout_border_bottom=Length.px(2),
+        )
+        nodes = (root, middle, node("leaf", "middle", "Button", layout_width=Length.percent(.5)))
+    elif case == "min-over-max":
+        nodes = (root, node("leaf", "root", "Button",
+            layout_width=Length.px(190), layout_min_width=Length.px(110),
+            layout_max_width=Length.px(100), layout_height=Length.px(60),
+            layout_max_height=Length.px(30)))
+    else:
+        nodes = (root, node("line", "root", "span", display="inline"),
+                 node("leaf", "line", "Button", layout_width=Length.px(30),
+                      layout_padding_left=Length.px(4),
+                      layout_border_left=Length.px(2),
+                      layout_margin_top=Length.px(3)))
+    measurements = tuple(
+        MeasuredBox(n.node_id, IntrinsicSizes(20, 20, 10, 10, 20, 10), constraints, 1)
+        for n in nodes if n.component == "Button"
+    )
+    snapshot = LayoutInput(1, 52, WritingDirection.LTR, constraints, nodes, measurements)
+    py, rs = _python_compute(snapshot), _rust_compute(rust_binary, snapshot)
+    assert py["ok"], py.get("error")
+    assert rs["ok"], rs.get("error")
+    actual, expected = _rects(py["result"]), _rects(rs["result"])
+    for item in actual:
+        for box in ("content", "padding", "border", "margin"):
+            for axis in ("x", "y", "width", "height"):
+                assert actual[item][box][axis] == expected[item][box][axis], (
+                    case, item, box, axis,
+                    actual[item][box][axis], expected[item][box][axis],
+                )
