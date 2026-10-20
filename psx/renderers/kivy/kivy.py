@@ -769,6 +769,22 @@ class KivyRenderer:
         from kivy.graphics import Color, InstructionGroup, Rectangle
 
         target = _handle(handle)
+        if target.node_type == "Text":
+            from psx.css.native_paint import native_text_typography
+            from psx.renderers.components.text import apply_kivy_text
+            apply_kivy_text(target.widget, target.props)
+            styles = native_text_typography(computed, alpha=True)
+            if "font-family" in styles:
+                target.widget.font_name = styles["font-family"]
+            if "font-size" in styles:
+                target.widget.font_size = styles["font-size"]
+            if "font-weight" in styles:
+                target.widget.bold = styles["font-weight"] >= 600
+            if "text-align" in styles:
+                target.widget.halign = styles["text-align"]
+            if "color" in styles:
+                target.widget.color = styles["color"]
+            return
         if target.node_type not in FORMATTING_TAGS:
             return
         widget = target.widget
