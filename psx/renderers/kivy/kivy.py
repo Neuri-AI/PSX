@@ -775,7 +775,7 @@ class KivyRenderer:
             if not hasattr(target.widget, "_psx_css_default_font_name"):
                 target.widget._psx_css_default_font_name = target.widget.font_name
             apply_kivy_text(target.widget, target.props)
-            styles = native_text_typography(computed, alpha=True)
+            styles = native_text_typography(computed, alpha=True, line_height=True)
             target.widget.font_name = target.widget._psx_css_default_font_name
             if "font-family" in styles:
                 target.widget.font_name = styles["font-family"]
@@ -787,6 +787,10 @@ class KivyRenderer:
                 target.widget.halign = styles["text-align"]
             if "color" in styles:
                 target.widget.color = styles["color"]
+            target.widget.line_height = (
+                styles["line-height"] / target.widget.font_size
+                if "line-height" in styles else target.widget.property("line_height").defaultvalue
+            )
             return
         if target.node_type not in FORMATTING_TAGS:
             return
