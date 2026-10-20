@@ -937,6 +937,35 @@ class QtRenderer:
                     target.widget.setStyleSheet("color: " + styles["color"] + ";")
             target.widget._psx_sync_line_height(styles.get("line-height"))
             return
+        if target.node_type in ("Button", "Checkbox", "Input", "TextArea", "Radio", "Select"):
+            from psx.css.native_paint import native_text_typography
+            styles = native_text_typography(computed)
+            widget = target.widget
+            if not hasattr(widget, "_psx_css_base_font"):
+                widget._psx_css_base_font = widget.font()
+            font = widget._psx_css_base_font
+            font = type(font)(font)
+            if "font-family" in styles:
+                font.setFamily(styles["font-family"])
+            if "font-size" in styles:
+                font.setPixelSize(round(styles["font-size"]))
+            if "font-weight" in styles:
+                font.setBold(styles["font-weight"] == 700)
+            widget.setFont(font)
+            if "text-align" in styles:
+                if target.node_type not in ("Input", "TextArea"):
+                    raise ValueError(f"Native Qt {target.node_type} does not support CSS text-align.")
+                qt = self._qtcore.Qt
+                flags = getattr(qt, "AlignmentFlag", qt)
+                alignment = {"left": flags.AlignLeft, "center": flags.AlignHCenter,
+                             "right": flags.AlignRight}[styles["text-align"]]
+                if target.node_type == "Input":
+                    widget.setAlignment(alignment)
+                else:
+                    widget.setStyleSheet("text-align: " + styles["text-align"] + ";")
+            elif target.node_type == "Input":
+                widget.setAlignment(getattr(getattr(self._qtcore.Qt, "AlignmentFlag", self._qtcore.Qt), "AlignLeft"))
+            return
         if target.node_type not in FORMATTING_TAGS:
             return
         target.widget.setStyleSheet(qt_semantic_stylesheet(computed))
