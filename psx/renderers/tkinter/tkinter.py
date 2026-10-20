@@ -795,6 +795,22 @@ class TkinterRenderer:
             widget.bind("<<Modified>>", self._sfle_on_textarea_modified, add="+")
         return TkHandle(node.type, widget, dict(node.props))
 
+    def apply_css(self, handle: object, computed: object) -> None:
+        """Apply CSS backgrounds through an instance-scoped ttk Frame style."""
+        from psx.css.native_paint import background_hex
+        target = _as_handle(handle)
+        if target.node_type not in FORMATTING_TAGS:
+            return
+        color = background_hex(computed)
+        widget = target.widget
+        if color is None:
+            widget.configure(style="TFrame")
+            return
+        # A widget-specific style avoids changing unrelated Tk widgets.
+        style_name = f"PsxCss{id(widget)}.TFrame"
+        ttk.Style(widget).configure(style_name, background=color)
+        widget.configure(style=style_name)
+
     # -- update -----------------------------------------------------------
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
