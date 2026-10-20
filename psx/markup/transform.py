@@ -187,12 +187,7 @@ def transform_source(source: str, *, filename: str = "<module>") -> TransformRes
     module = transformer.visit(module)
     if transformer.templates or transformer.expressive_count:
         insertion = _insertion_index(module.body)
-        declarations = ([] if not transformer.expressive_count else [
-            helper_import(),
-            ast.ImportFrom(module="psx.css.markup", names=[
-                ast.alias(name="compute_expressive_markup_styles", asname="_psx_expr_compute_styles"),
-            ], level=0),
-        ])
+        declarations = ([] if not transformer.expressive_count else [helper_import()])
         declarations.extend(_factory_declarations(transformer.templates) if transformer.templates else [])
         module.body[insertion:insertion] = declarations
     ast.fix_missing_locations(module)
