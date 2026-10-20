@@ -299,6 +299,12 @@ def inventory() -> tuple[Feature, ...]:
                 alias, CONTRACT, "public_api", "css_source", scenario,
                 applicability="shared",
             ))
+    rows.extend((
+        Feature("div", CONTRACT, "interaction", "css_box_geometry",
+                "distinct_boxes", applicability="shared"),
+        Feature("button", CONTRACT, "interaction", "css_box_geometry",
+                "margin_update", applicability="shared"),
+    ))
     for scenario in ("linked_source", "relative_import", "invalid_rejection", "no_native_widget"):
         rows.append(Feature(
             "link", CONTRACT, "public_api", "stylesheet_resource", scenario,
