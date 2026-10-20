@@ -78,7 +78,7 @@ class _Transformer(ast.NodeTransformer):
             # Global application CSS may contain type selectors even when
             # expressive markup has no class/style attributes.
             replacement = ast.Call(
-                func=ast.Name(id="_psx_expr_compute_styles", ctx=ast.Load()),
+                func=ast.Attribute(value=ast.Name(id="_psx_expr_element", ctx=ast.Load()), attr="compute_styles", ctx=ast.Load()),
                 args=[replacement, ast.Tuple(elts=[ast.Constant(name) for name in links], ctx=ast.Load())],
                 keywords=[],
             )
