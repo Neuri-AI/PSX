@@ -109,5 +109,8 @@ def compute_expressive_markup_styles(root: VNode | None, links: tuple[str, ...])
     from .sources import CssSourceManager
     if root is None:
         return None
-    stylesheet = CssSourceManager().load(links) if links else None
+    from .context import current_css_context
+    context = current_css_context()
+    paths = (*(context.stylesheets if context else ()), *links)
+    stylesheet = CssSourceManager(context.resolver if context else None, root=context.root if context else ".").load(paths) if paths else None
     return compute_markup_styles(root, stylesheet)
