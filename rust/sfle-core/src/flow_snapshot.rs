@@ -43,12 +43,42 @@ struct Flow<'a> {
     boxes: Vec<Option<Rect>>,
 }
 impl Flow<'_> {
+    fn dimension(&self, index: usize, axis: &str, available: f64) -> Result<Option<f64>, ComputeError> {
+        let node = &self.input.nodes[index];
+        let key = format!("layout_{axis}");
+        let Some(value) = node.style.get(&key) else { return Ok(None); };
+        let (kind, raw): (&str, Option<f64>) = if let Some(obj) = value.as_object() {
+            (obj.get("kind").and_then(|v| v.as_str()).unwrap_or("invalid"),
+             obj.get("value").and_then(|v| v.as_f64()))
+        } else if let Some(number) = value.as_f64() {
+            ("px", Some(number))
+        } else if let Some(text) = value.as_str() {
+            if matches!(text, "auto" | "none") {
+                return Ok(None);
+            }
+            if let Some(number) = text.strip_suffix("px").and_then(|s| s.parse().ok()) {
+                ("px", Some(number))
+            } else if let Some(number) = text.strip_suffix('%').and_then(|s| s.parse().ok()) {
+                ("percent", Some(number / 100.0))
+            } else {
+                ("invalid", None)
+            }
+        } else {
+            ("invalid", None)
+        };
+        match (kind, raw) {
+            ("px", Some(v)) if v.is_finite() => Ok(Some(v.max(0.0))),
+            ("percent", Some(v)) if v.is_finite() => Ok(Some((v * available).max(0.0))),
+            ("auto" | "none", _) => Ok(None),
+            _ => Err(unsupported(format!("Unsupported flow {axis} dimension."), &node.node_id)),
+        }
+    }
     fn display(&self, index: usize) -> Result<Option<bool>, ComputeError> {
         let node = &self.input.nodes[index];
         if !formatting_tag(&node.component) {
             return Ok(None);
         }
-        if node.style.keys().any(|name| name != "display") {
+        if node.style.keys().any(|name| !matches!(name.as_str(), "display" | "layout_width" | "layout_height")) {
             return Err(unsupported(
                 format!("{} requires a supported Block/Inline flow style.", node.component),
                 &node.node_id,
@@ -71,7 +101,7 @@ impl Flow<'_> {
                 &node.node_id,
             ));
         }
-        if !node.style.is_empty() {
+        if node.style.keys().any(|name| !matches!(name.as_str(), "layout_width" | "layout_height")) {
             return Err(unsupported("Native flow leaf has unresolved layout styles.", &node.node_id));
         }
         self.measurements.get(node.node_id.as_str()).copied().ok_or_else(|| {
@@ -94,8 +124,8 @@ impl Flow<'_> {
             None => {
                 let native = self.leaf(index)?;
                 atoms.push(InlineAtom {
-                    width: native.preferred_width,
-                    height: native.preferred_height,
+                    width: self.dimension(index, "width", self.input.constraints.width.value.unwrap_or(0.0))?.unwrap_or(native.preferred_width),
+                    height: self.dimension(index, "height", self.input.constraints.height.value.unwrap_or(0.0))?.unwrap_or(native.preferred_height),
                     baseline: native.baseline.unwrap_or(native.preferred_height),
                 });
                 leaves.push(index);
@@ -162,8 +192,10 @@ impl Flow<'_> {
         match self.display(index)? {
             None => {
                 let preferred_height = self.leaf(index)?.preferred_height;
-                self.boxes[index] = Some(rect(x, y, available, preferred_height, &id)?);
-                return Ok(preferred_height);
+                let used_width = self.dimension(index, "width", available)?.unwrap_or(available);
+                let used_height = self.dimension(index, "height", available)?.unwrap_or(preferred_height);
+                self.boxes[index] = Some(rect(x, y, used_width, used_height, &id)?);
+                return Ok(used_height);
             }
             Some(true) => return self.inline_run(&[index], x, y, available),
             Some(false) => (),
@@ -185,8 +217,10 @@ impl Flow<'_> {
         if !pending.is_empty() {
             cursor += self.inline_run(&pending, x, y + cursor, available)?;
         }
-        self.boxes[index] = Some(rect(x, y, available, cursor, &id)?);
-        Ok(cursor)
+        let used_width = self.dimension(index, "width", available)?.unwrap_or(available);
+        let used_height = self.dimension(index, "height", available)?.unwrap_or(cursor);
+        self.boxes[index] = Some(rect(x, y, used_width, used_height, &id)?);
+        Ok(used_height)
     }
 }
 
@@ -234,7 +268,9 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
     } else {
         content_height
     };
-    flow.boxes[0] = Some(rect(0.0, 0.0, width, height, &root.node_id)?);
+    let root_width = flow.dimension(0, "width", width)?.unwrap_or(width);
+    let root_height = flow.dimension(0, "height", height)?.unwrap_or(height);
+    flow.boxes[0] = Some(rect(0.0, 0.0, root_width, root_height, &root.node_id)?);
     let boxes = input.nodes.iter().enumerate().map(|(index, node)| {
         let calculated = flow.boxes[index].clone().ok_or_else(|| {
             error("SFLE_INVALID_TREE", "Flow node has no computed geometry.", Some(&node.node_id))
