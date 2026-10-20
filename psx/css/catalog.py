@@ -33,7 +33,6 @@ _PLANNED: dict[str, tuple[str, str]] = {
     "justify-content": ("flexbox", "geometry"),
     "align-items": ("flexbox", "geometry"),
     "align-self": ("flexbox", "geometry"),
-    "border-color": ("border", "paint"),
     "border-style": ("border", "paint"),
     "background-image": ("background", "paint"),
     "background-size": ("background", "paint"),
