@@ -46,9 +46,9 @@ def _classify_path(path: str) -> set[str]:
         elif name == "ci.yml":
             result.add("core")
         return result
+    if path == "psx/css/native_paint.py" or path == "tests/css/test_native_paint.py":
+        return {"core", "qt", "kivy", "tkinter"}
     if path.startswith("psx/css/") or path.startswith("tests/css/"):
-        # CSS foundations currently have no runtime consumers. Run real core tests;
-        # broaden this routing when CSS resolves styles into native geometry/paint.
         return {"core"}
     if path == "pyproject.toml" or path in ("setup.cfg", "setup.py"):
         return {"core", "sfle", "rust", "qt", "kivy", "tkinter", "native"}
