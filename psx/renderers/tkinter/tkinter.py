@@ -887,7 +887,7 @@ class TkinterRenderer:
             if "text-align" in styles:
                 widget.configure(anchor={"left": "w", "center": "center", "right": "e"}[styles["text-align"]])
             return
-        if target.node_type in ("Button", "Checkbox", "Input", "Radio"):
+        if target.node_type in ("Button", "Checkbox", "Input", "Radio", "Select"):
             from psx.css.native_paint import native_text_typography
             from tkinter import font as tkfont
             styles = native_text_typography(computed)
@@ -897,14 +897,14 @@ class TkinterRenderer:
                     widget._psx_css_native_font.configure(
                         **widget._psx_css_native_original_font_config
                     )
-                    if target.node_type != "Input":
+                    if target.node_type not in ("Input", "Select"):
                         widget.configure(style=widget._psx_css_native_original_style)
                     else:
                         widget.configure(font=widget._psx_css_native_original_font)
                 return
             if not hasattr(widget, "_psx_css_native_font"):
                 widget._psx_css_native_original_font = (
-                    widget.cget("font") if target.node_type == "Input" else None
+                    widget.cget("font") if target.node_type in ("Input", "Select") else None
                 )
                 widget._psx_css_native_original_style = (
                     str(widget.cget("style")) if target.node_type != "Input" else None
