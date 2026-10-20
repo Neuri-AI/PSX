@@ -74,6 +74,26 @@ def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
         declarations.append(f"background-color: {background};")
     if foreground is not None:
         declarations.append(f"color: {foreground};")
+    if computed is not None and "border-color" in computed.specified:
+        from psx.sfle.lengths import LengthKind
+        width = computed.properties["border-width"]
+        if width.kind != LengthKind.PX:
+            raise ValueError("Qt border paint requires a pixel border-width.")
+        if width.value > 0:
+            raw_color = computed.properties["border-color"]
+            if not isinstance(raw_color, CssColor):
+                raise TypeError("CSS border color must be validated.")
+            value = raw_color.value.removeprefix("#")
+            if len(value) in (3, 4):
+                channels = [int(c * 2, 16) for c in value]
+            else:
+                channels = [int(value[i:i + 2], 16) for i in range(0, len(value), 2)]
+            if len(channels) == 3:
+                channels.append(255)
+            if channels[3] != 255:
+                raise ValueError("Qt border paint requires opaque colors.")
+            border = "#" + "".join(f"{c:02x}" for c in channels[:3])
+            declarations.append(f"border: {width.value:g}px solid {border};")
     if computed is not None and "border-radius" in computed.specified:
         radius = computed.properties["border-radius"]
         if not isinstance(radius, Length) or radius.kind != LengthKind.PX:
