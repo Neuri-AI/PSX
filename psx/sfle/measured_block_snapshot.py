@@ -188,6 +188,15 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                     "Block children cannot participate inside an Inline formatting run.",
                     node.node_id,
                 )
+            if any(
+                edges(node, group) != (0.0, 0.0, 0.0, 0.0)
+                for group in ("padding", "border", "margin")
+            ):
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_FEATURE,
+                    "Inline formatting owners with box edges require fragment-aware layout.",
+                    node.node_id,
+                )
             owners.append(node)
             for sub in children[node.node_id]:
                 collect(sub)
