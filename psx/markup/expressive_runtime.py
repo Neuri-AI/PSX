@@ -156,15 +156,14 @@ def element(
     if name in PORTABLE_HTML_ALIASES:
         if "class" in props and "class_name" in props:
             raise MarkupSyntaxError("Use either class or class_name", filename=filename, line=line, column=column)
-        if any(item in props for item in ("class", "class_name", "id", "style")):
-            class_value = props.pop("class", None)
-            if class_value is None:
-                class_value = props.pop("class_name", None)
-            css_source = parse_markup_style(
-                name, class_value=class_value,
-                id_value=props.pop("id", None),
-                inline_value=props.pop("style", None),
-            )
+        class_value = props.pop("class", None)
+        if class_value is None:
+            class_value = props.pop("class_name", None)
+        css_source = parse_markup_style(
+            name, class_value=class_value,
+            id_value=props.pop("id", None),
+            inline_value=props.pop("style", None),
+        )
     def finish(node: VNode) -> VNode:
         return replace(node, css_source=css_source) if css_source is not None else node
     if definition is not None:
