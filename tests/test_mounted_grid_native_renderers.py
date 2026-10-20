@@ -1069,6 +1069,7 @@ def test_native_input_css_inherits_font_and_alignment_without_remount():
         assert updated.children[0].node.css_computed.properties["font-size"].value == 26
         assert updated.children[0].handle.widget is widget
         if backend == "qt":
+            assert dict(widget._psx_css_font_revision)["font-size"] == 26
             assert widget.font().pixelSize() == 26
         elif backend == "tk":
             assert widget._psx_css_native_font.cget("size") == -26
