@@ -1006,7 +1006,7 @@ def test_native_button_css_typography_is_applied_and_reset():
     reconciler = Reconciler(renderer)
     try:
         first = reconciler.render(psx(
-            '<div><Button key="cta" label="Save" style="font-size: 23px; font-weight: 700; font-family: Roboto" /></div>'
+            '<div><button key="cta" style="font-size: 23px; font-weight: 700; font-family: Roboto">Save</button></div>'
         ))
         button = first.children[0].handle.widget
         if backend == "qt":
@@ -1019,7 +1019,7 @@ def test_native_button_css_typography_is_applied_and_reset():
         else:
             assert button.font_size == 23
             assert button.bold
-        second = reconciler.render(psx('<div><Button key="cta" label="Save" /></div>'))
+        second = reconciler.render(psx('<div><button key="cta">Save</button></div>'))
         assert second.children[0].handle.widget is button
         if backend == "qt":
             assert not button.font().bold()
