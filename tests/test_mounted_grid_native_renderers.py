@@ -1151,7 +1151,7 @@ def test_native_css_foreground_applies_to_pascal_and_html_controls(tag, alias):
                     from tkinter import ttk
                     assert str(ttk.Style(widget).lookup(str(widget.cget("style")), "foreground")) == "#123456"
             else:
-                assert tuple(widget.color) == pytest.approx((18/255, 52/255, 86/255, 1))
+                assert tuple(widget.foreground_color if tag == "Input" else widget.color) == pytest.approx((18/255, 52/255, 86/255, 1))
             updated = reconciler.render(view("#654321", html))
             assert updated.children[0].handle.widget is widget
             if backend == "qt":
@@ -1163,7 +1163,7 @@ def test_native_css_foreground_applies_to_pascal_and_html_controls(tag, alias):
                     from tkinter import ttk
                     assert str(ttk.Style(widget).lookup(str(widget.cget("style")), "foreground")) == "#654321"
             else:
-                assert tuple(widget.color) == pytest.approx((101/255, 67/255, 33/255, 1))
+                assert tuple(widget.foreground_color if tag == "Input" else widget.color) == pytest.approx((101/255, 67/255, 33/255, 1))
     finally:
         reconciler.unmount()
         close()
@@ -1188,13 +1188,13 @@ def test_native_badge_css_foreground_is_applied_and_restored():
             assert widget._psx_css_foreground == "#123456"
             assert "#123456" in [str(widget.itemcget(i, "fill")) for i in widget.find_all() if widget.type(i) == "text"]
         else:
-            assert tuple(widget.color) == pytest.approx((18/255, 52/255, 86/255, 1))
+            assert tuple(widget.foreground_color if tag == "Input" else widget.color) == pytest.approx((18/255, 52/255, 86/255, 1))
         mounted = reconciler.render(view(None))
         assert mounted.children[0].handle.widget is widget
         if backend in ("qt", "tk"):
             assert widget._psx_css_foreground is None
         else:
-            assert tuple(widget.color) == pytest.approx(widget._psx_css_original_foreground)
+            assert tuple(widget.foreground_color if tag == "Input" else widget.color) == pytest.approx(widget._psx_css_original_foreground)
     finally:
         reconciler.unmount()
         close()
@@ -1220,7 +1220,7 @@ def test_native_css_foreground_keeps_button_disabled_state():
             assert ttk.Style(widget).lookup(str(widget.cget("style")), "foreground") == "#123456"
         else:
             assert widget.disabled
-            assert tuple(widget.color) == pytest.approx((18/255, 52/255, 86/255, 1))
+            assert tuple(widget.foreground_color if tag == "Input" else widget.color) == pytest.approx((18/255, 52/255, 86/255, 1))
     finally:
         reconciler.unmount()
         close()
