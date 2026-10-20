@@ -185,7 +185,7 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
                     raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation after measurement.")
         # Reuse the prepared identities and canonical item lengths while
         # preserving actual host measurements and the legacy Grid composition.
-        snapshot = replace(prepared.canonical_snapshot(), measurements=tuple(metrics))
+        snapshot = replace(prepared.css_geometry_snapshot(), measurements=tuple(metrics))
         from psx.sfle.incremental_result_reuse import reuse_unchanged_layout
         cached_result = None
         if not grid_nodes and renderer._sfle_prior_solver_engine is renderer._sfle_engine:
