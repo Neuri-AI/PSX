@@ -139,3 +139,8 @@ def test_kivy_pixel_line_height_and_rejects_percentage_leading():
     assert native_text_typography(_style("div {line-height: 27px}"), line_height=True) == {"line-height": 27.0}
     with pytest.raises(ValueError, match="positive px"):
         native_text_typography(_style("div {line-height: 120%}"), line_height=True)
+
+
+def test_native_text_rejects_unrepresentable_intermediate_weight():
+    with pytest.raises(ValueError, match="400 or 700"):
+        native_text_typography(_style("div {font-weight: 500}"))
