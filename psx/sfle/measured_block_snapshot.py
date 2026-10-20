@@ -43,6 +43,9 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
     metrics = {item.node_id: item.intrinsic for item in snapshot.measurements}
     geometry: dict[str, Rect] = {}
     containing_width: dict[str, float] = {}
+    containing_height: dict[str, float | None] = {
+        root.node_id: snapshot.constraints.height.value if snapshot.constraints.height.definite else None,
+    }
 
     def quantized_rect(x: float, y: float, width: float, height: float) -> Rect:
         """Keep flow boxes on Cinnamon's shared 1/64 px geometry grid."""
@@ -58,7 +61,12 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         if length.kind is LengthKind.PX:
             return max(0.0, float(length.value))
         if length.kind is LengthKind.PERCENT:
-            return max(0.0, float(length.value) * available)
+            reference = (
+                containing_height.get(node.node_id)
+                if axis.endswith("height")
+                else available
+            )
+            return None if reference is None else max(0.0, float(length.value) * reference)
         if length.kind in (LengthKind.AUTO, LengthKind.NONE):
             return None
         raise SFLECapabilityError(
@@ -242,6 +250,11 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         horizontal = sum(group[1] + group[3] for group in (margin, padding, border))
         content_available = max(0.0, available - horizontal)
         content_x, content_y = x + left, y + top
+        parent_height = dimension(node, "height", available)
+        if parent_height is None and node.node_id == root.node_id and snapshot.constraints.height.definite:
+            parent_height = max(0.0, snapshot.constraints.height.value - top - bottom)
+        for child in children[node.node_id]:
+            containing_height[child.node_id] = parent_height
         mode = display(node)
         if mode is None:
             intrinsic = leaf(node)
