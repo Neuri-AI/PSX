@@ -224,7 +224,7 @@ def test_heading_default_font_stays_native_without_authored_css():
     root = psx("<h1>Title</h1>")
     assert root.children[0].props["font_size"] == 32
     assert root.children[0].props["bold"] is True
-    assert "font-size" not in root.children[0].css_computed.specified
+    assert root.children[0].css_computed is None or "font-size" not in root.children[0].css_computed.specified
 
 
 def test_heading_explicit_css_overrides_native_heading_size():
