@@ -117,4 +117,17 @@ def compare_styled_trees(
     for identity, item in before.items():
         if identity not in after or after[identity].tag != item.tag:
             changes.append(StyleTreeChange(item.path, item.key, StyleEffect.GEOMETRY | StyleEffect.MEASUREMENT | StyleEffect.PAINT, removed=True))
-    return tuple(changes)
+    # A removed/added subtree needs one structural notification at its root;
+    # descendant notifications would duplicate work and inflate invalidations.
+    structural = [item for item in changes if item.added or item.removed]
+    return tuple(
+        item for item in changes
+        if not any(
+            parent is not item
+            and parent.removed == item.removed
+            and parent.added == item.added
+            and len(parent.path) < len(item.path)
+            and item.path[:len(parent.path)] == parent.path
+            for parent in structural
+        )
+    )
