@@ -6,7 +6,6 @@ never modified and the bridge does not perform a native geometry commit.
 from __future__ import annotations
 
 from psx.css.cascade import ComputedStyle
-from psx.css.properties import foundation_registry
 from psx.sfle.lengths import Length
 
 _SIZES = {
@@ -21,7 +20,6 @@ def css_layout_overrides(computed: ComputedStyle) -> dict[str, Length]:
     """Project supported CSS lengths without injecting paint into layout."""
     if not isinstance(computed, ComputedStyle):
         raise TypeError("Expected immutable computed CSS.")
-    initial = foundation_registry().properties
     props = computed.properties
     specified = computed.specified
     projected: dict[str, Length] = {}
