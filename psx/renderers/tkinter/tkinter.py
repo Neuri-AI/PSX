@@ -861,6 +861,20 @@ class TkinterRenderer:
             from tkinter import font as tkfont
             styles = native_text_typography(computed)
             widget = target.widget
+            if not styles:
+                if hasattr(widget, "_psx_css_native_font"):
+                    if target.node_type != "Input":
+                        widget.configure(style=widget._psx_css_native_original_style)
+                    else:
+                        widget.configure(font=widget._psx_css_native_original_font)
+                return
+            if not hasattr(widget, "_psx_css_native_font"):
+                widget._psx_css_native_original_font = (
+                    widget.cget("font") if target.node_type == "Input" else None
+                )
+                widget._psx_css_native_original_style = (
+                    str(widget.cget("style")) if target.node_type != "Input" else None
+                )
             if not hasattr(widget, "_psx_css_native_base_font"):
                 original = ttk.Style(widget).lookup(widget.winfo_class(), "font")
                 widget._psx_css_native_base_font = original or "TkDefaultFont"
