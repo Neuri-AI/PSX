@@ -232,3 +232,34 @@ def test_heading_explicit_css_overrides_native_heading_size():
     assert root.children[0].props["font_size"] == 32
     assert root.children[0].css_computed.properties["font-size"] == Length.px(22)
     assert "font-size" in root.children[0].css_computed.specified
+
+
+@pytest.mark.parametrize("tag,expected", (
+    ("Button", "Button"), ("button", "Button"),
+    ("Input", "Input"), ("input", "Input"),
+    ("TextArea", "TextArea"), ("textarea", "TextArea"),
+    ("Checkbox", "Checkbox"), ("Radio", "Radio"), ("Select", "Select"),
+))
+def test_pascal_and_html_alias_foreground_css_share_the_same_cascade(tag, expected):
+    import re
+    from psx.css.context import scoped_css_resources
+    markup = (
+        f'<{tag} class="accent" style="color: #123456" />'
+        if tag not in ("button",) else
+        '<button class="accent" style="color: #123456">Go</button>'
+    )
+    with scoped_css_resources(["theme.css"], resolver=lambda _: ".accent {color: #abcdef}"):
+        node = psx(markup)
+    assert node.type == expected
+    assert node.css_computed.properties["color"] == CssColor("#123456")
+    assert "style" not in node.props
+    assert "class" not in node.props
+
+
+def test_pascal_and_html_buttons_share_type_selector():
+    from psx.css.context import scoped_css_resources
+    with scoped_css_resources(["theme.css"], resolver=lambda _: "button {color: #123456}"):
+        pascal = psx('<Button label="Go" />')
+        html = psx('<button>Go</button>')
+    assert pascal.css_computed.properties["color"] == CssColor("#123456")
+    assert html.css_computed.properties["color"] == CssColor("#123456")
