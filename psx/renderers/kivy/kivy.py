@@ -772,8 +772,11 @@ class KivyRenderer:
         if target.node_type == "Text":
             from psx.css.native_paint import native_text_typography
             from psx.renderers.components.text import apply_kivy_text
+            if not hasattr(target.widget, "_psx_css_default_font_name"):
+                target.widget._psx_css_default_font_name = target.widget.font_name
             apply_kivy_text(target.widget, target.props)
             styles = native_text_typography(computed, alpha=True)
+            target.widget.font_name = target.widget._psx_css_default_font_name
             if "font-family" in styles:
                 target.widget.font_name = styles["font-family"]
             if "font-size" in styles:
