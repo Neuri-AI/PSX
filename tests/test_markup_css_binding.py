@@ -102,3 +102,37 @@ def test_stylesheet_is_scoped_to_render_tree():
     plain = psx('<div />')
     assert styled.css_computed.properties["color"] == CssColor("#fff")
     assert plain.css_computed is None
+
+
+def test_css_markup_reconciliation_reports_paint_only_class_changes():
+    from psx.css.parser import parse_stylesheet
+    from psx.css.tree import resolve_vnode_styles, compare_styled_trees
+    from psx.css.effects import StyleEffect
+
+    source = '<div key="same" class={theme}>Hello</div>'
+    rules = ".dark {color: #fff} .light {color: #000}"
+    first = psx(source, scope={"theme": "dark"}, stylesheet=rules)
+    second = psx(source, scope={"theme": "light"}, stylesheet=rules)
+    before = resolve_vnode_styles(first, parse_stylesheet(""))
+    after = resolve_vnode_styles(second, parse_stylesheet(""))
+    changes = compare_styled_trees(before, after)
+    assert any(change.key == "same" and change.effect == StyleEffect.PAINT for change in changes)
+    assert all(not change.added and not change.removed for change in changes)
+    assert all(not change.effect & StyleEffect.GEOMETRY for change in changes)
+
+
+def test_selector_tags_match_lowercase_markup_without_css_attributes():
+    root = psx('<div><span>Text</span></div>', stylesheet="div {width: 100px} span {font-size: 20px}")
+    assert root.css_computed.properties["width"] == Length.px(100)
+    assert root.children[0].css_computed.properties["font-size"] == Length.px(20)
+
+
+def test_css_styles_are_kept_out_of_native_component_properties():
+    node = psx(
+        '<button class="cta" style="font-size: 18px">Go</button>',
+        stylesheet=".cta {background-color: #abc}",
+    )
+    assert "style" not in node.props
+    assert "class" not in node.props
+    assert node.props["font_size"] == 14
+    assert node.css_computed.properties["font-size"] == Length.px(18)
