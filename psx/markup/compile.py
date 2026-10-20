@@ -27,6 +27,7 @@ from .ast import (
 from .parser import parse
 from .html_aliases import markup_alias_definitions, PORTABLE_HTML_ALIASES
 from psx.css.markup import compute_markup_styles, parse_markup_style
+from psx.css.parser import CssSyntaxError
 
 Primitive: TypeAlias = Callable[..., VNode] | ComponentType
 _GRAMMAR_VERSION = "m4a-1"
@@ -197,10 +198,18 @@ def _element(
         css_class = props.pop("class", None)
         if css_class is None:
             css_class = props.pop("class_name", None)
-        css_source = parse_markup_style(
-            element.name, class_value=css_class,
-            id_value=props.pop("id", None), inline_value=props.pop("style", None),
-        )
+        inline_value = props.pop("style", None)
+        try:
+            css_source = parse_markup_style(
+                element.name, class_value=css_class,
+                id_value=props.pop("id", None), inline_value=inline_value,
+            )
+        except CssSyntaxError as exc:
+            # Preserve the existing semantic-host unsupported-property
+            # diagnostic while retaining the exact CSS validation reason.
+            raise ValueError(
+                f"Unsupported {element.name} properties: ['style']; {exc}"
+            ) from exc
     props = _coerce_props(definition, props, filename, element.span)
     contract = definition.contract
     def finish(node: VNode) -> VNode:
