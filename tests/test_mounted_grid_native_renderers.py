@@ -967,6 +967,7 @@ def test_native_multiline_css_line_height_follows_cinnamon_measurement():
         else:
             from psx.sfle.tk_measurement import TkMeasurementSource
             assert widget._psx_css_line_height == 32
+            assert str(widget.cget("text")) == "Several words here should wrap over multiple lines"
             assert TkMeasurementSource._css_text_metrics(widget, 60).preferred_height >= 64
             assert widget._psx_css_text_layer.winfo_exists()
         second = reconciler.render(view(40))
