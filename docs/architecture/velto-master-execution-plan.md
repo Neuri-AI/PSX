@@ -113,6 +113,18 @@ Produce `BASELINE.md` with repository paths, commit IDs, supported Python/backen
 
 **Exit gate P1:** Existing API examples still run; new markup variants produce contract-conformant layouts; no confirmed layout feedback loops in stress cases; no unresolved regressions above the project's accepted severity threshold. Include evidence per backend; do not mark unsupported combinations as passing.
 
+**Future CSS layout extension backlog (owner-directed 2026-10-20):**
+After the bounded CSS Core, Cinnamon geometry, native visual and
+invalidation/reliability milestones, track
+[CSS-LAYOUT-01 through CSS-LAYOUT-04 and CSS-TEXT-01](../roadmap.md#post-css-core-layout-extensions--owner-requested-backlog-2026-10-20).
+Priorities: (1) relative/absolute positioning and (2) overflow, clipping and
+scrolling (high); (3) styled inline multi-line fragmentation (medium);
+(4) vertical block margin collapsing (low); (5) floats/clear wrapping (very low).
+These remain **separately gated future scopes**, not conditions for closing
+the already bounded P1.4.5 CSS Geometry + Cinnamon milestone. Preserve native
+renderer ownership and Cinnamon's single authority; certify each new
+capability on Rust/Python and Qt/Tkinter/Kivy before advertising support.
+
 ### P2 — Memory, resource ownership and performance
 
 **Goal:** Ensure long-lived apps are stable under interaction and incremental UI updates rather than gradually retaining dead objects.
