@@ -95,7 +95,8 @@ def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = Non
             target = StyleTarget(source.tag, source.classes, source.node_id)
             inline = source.inline
         else:
-            # Do not implicitly reinterpret existing PascalCase APIs as CSS.
+            # Anonymous Text leaves inherit typography from HTML-like hosts.
+            # Other legacy hosts retain their isolated selector identity.
             target = StyleTarget("__legacy_psx_host__")
             inline = ()
         computed = resolve_style(sheet, target, inline=inline, inherited=inherited)
