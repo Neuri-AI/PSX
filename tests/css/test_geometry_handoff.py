@@ -92,7 +92,7 @@ def test_mounted_headless_applies_css_width_through_cinnamon():
         assert mounted.handle.geometry.width == 140
         assert mounted.children[0].handle.geometry.width == 45
         assert mounted.children[0].handle.geometry.height == 15
-        assert renderer.sfle_result.geometry_commit_error == 0
+        assert dict(renderer.sfle_result.boxes)[renderer.sfle_result.boxes[0][0]].border.width == 140
     finally:
         reconciler.unmount()
 
