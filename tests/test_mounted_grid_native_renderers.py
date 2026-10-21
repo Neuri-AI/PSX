@@ -2017,3 +2017,119 @@ def test_native_textarea_css_preserves_selection_readonly_and_edit_callbacks():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_css_visual_paint_is_instance_scoped_and_cleans_up():
+    """CSS ownership cannot modify an unstyled sibling or the global Tk theme."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color):
+        style = (
+            f' style="color: {color}; border-width: 2px; border-color: {color}"'
+            if color else ""
+        )
+        return psx(
+            '<div><Button key="painted" label="Painted"' + style +
+            ' /><Button key="untouched" label="Untouched"/></div>'
+        )
+
+    try:
+        first = reconciler.render(view(None))
+        painted, untouched = (node.handle.widget for node in first.children)
+        if backend == "qt":
+            original_style = painted.styleSheet()
+            sibling_style = untouched.styleSheet()
+        elif backend == "tk":
+            from tkinter import ttk
+            theme = ttk.Style(painted)
+            theme_color = theme.lookup("TButton", "foreground")
+            sibling_style = str(untouched.cget("style"))
+            original_style = str(painted.cget("style"))
+        else:
+            baseline_instructions = len(painted.canvas.after.children)
+            sibling_instructions = len(untouched.canvas.after.children)
+
+        for color in ("#123456", "#654321", "#123456"):
+            mounted = reconciler.render(view(color))
+            assert mounted.children[0].handle.widget is painted
+            assert mounted.children[1].handle.widget is untouched
+            if backend == "qt":
+                assert color in painted.styleSheet()
+                assert "2px solid" in painted.styleSheet()
+                assert untouched.styleSheet() == sibling_style
+            elif backend == "tk":
+                assert painted._psx_css_border_edges
+                assert all(str(edge.cget("background")) == color
+                           for edge in painted._psx_css_border_edges)
+                assert str(untouched.cget("style")) == sibling_style
+                assert theme.lookup("TButton", "foreground") == theme_color
+                assert str(painted.cget("style")) != sibling_style
+            else:
+                assert hasattr(painted, "_psx_css_control_stroke")
+                assert len(painted.canvas.after.children) == baseline_instructions + 1
+                assert len(untouched.canvas.after.children) == sibling_instructions
+
+        restored = reconciler.render(view(None))
+        assert restored.children[0].handle.widget is painted
+        if backend == "qt":
+            assert painted.styleSheet() == original_style
+            assert untouched.styleSheet() == sibling_style
+        elif backend == "tk":
+            assert not hasattr(painted, "_psx_css_border_edges")
+            assert str(painted.cget("style")) == original_style
+            assert str(untouched.cget("style")) == sibling_style
+            assert theme.lookup("TButton", "foreground") == theme_color
+        else:
+            assert not hasattr(painted, "_psx_css_control_stroke")
+            assert len(painted.canvas.after.children) == baseline_instructions
+            assert len(untouched.canvas.after.children) == sibling_instructions
+
+        reconciler.unmount()
+        if backend == "tk":
+            assert not painted.winfo_exists()
+            assert not untouched.winfo_exists()
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_qt_css_merges_manually_installed_native_stylesheets():
+    """A Qt Link keeps its native QSS and later user overrides across CSS commits."""
+    from psx.markup.compile import psx
+
+    if os.environ["PSX_GRID_BACKEND"] != "qt":
+        pytest.skip("QSS is specific to the Qt renderer")
+
+    renderer, close = make_renderer("qt")
+    reconciler = Reconciler(renderer)
+
+    def view(color):
+        style = f' style="color: {color}; border-width: 2px; border-color: {color}"' if color else ""
+        return psx(f'<div><Link key="link" label="Documentation"{style}/></div>')
+
+    try:
+        first = reconciler.render(view("#123456"))
+        widget = first.children[0].handle.widget
+        original_qss = widget._psx_css_base_stylesheet
+        assert "background: transparent" in original_qss
+        assert widget.styleSheet().rstrip().endswith("}")
+        assert "color: #123456" in widget.styleSheet()
+
+        manual_qss = "QPushButton { padding: 7px; }"
+        widget.setStyleSheet(manual_qss)
+        changed = reconciler.render(view("#654321"))
+        assert changed.children[0].handle.widget is widget
+        assert manual_qss in widget.styleSheet()
+        assert "color: #654321" in widget.styleSheet()
+        assert widget.styleSheet().rstrip().endswith("}")
+
+        removed = reconciler.render(view(None))
+        assert removed.children[0].handle.widget is widget
+        assert widget.styleSheet() == manual_qss
+    finally:
+        reconciler.unmount()
+        close()
