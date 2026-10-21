@@ -1224,3 +1224,51 @@ def test_native_css_foreground_keeps_button_disabled_state():
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("tag,alias", (("Button", "button"), ("Input", "input")))
+def test_native_css_border_on_pascal_and_html_controls(tag, alias):
+    from psx.markup.compile import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color, html):
+        name = alias if html else tag
+        attrs = 'label="Go"' if name == "Button" else 'value="Go"' if name.lower() == "input" else ""
+        content = "Go" if name == "button" else ""
+        style = f' style="border-width: 2px; border-color: {color}"' if color else ""
+        return psx(f'<div><{name} key="edge" {attrs}{style}>{content}</{name}></div>')
+
+    try:
+        for html in (False, True):
+            first = reconciler.render(view("#123456", html))
+            widget = first.children[0].handle.widget
+            if backend == "qt":
+                assert "2px solid #123456" in widget.styleSheet()
+            elif backend == "tk":
+                assert len(widget._psx_css_border_edges) == 4
+                assert all(str(edge.cget("background")) == "#123456" for edge in widget._psx_css_border_edges)
+            else:
+                group, redraw, paint, line = widget._psx_css_control_stroke
+                assert line.width == 2
+                assert tuple(paint.rgba) == pytest.approx((18/255, 52/255, 86/255, 1))
+            changed = reconciler.render(view("#654321", html))
+            assert changed.children[0].handle.widget is widget
+            if backend == "qt":
+                assert "2px solid #654321" in widget.styleSheet()
+            elif backend == "tk":
+                assert all(str(edge.cget("background")) == "#654321" for edge in widget._psx_css_border_edges)
+            else:
+                assert tuple(widget._psx_css_control_stroke[2].rgba) == pytest.approx((101/255, 67/255, 33/255, 1))
+            reset = reconciler.render(view(None, html))
+            assert reset.children[0].handle.widget is widget
+            if backend == "qt":
+                assert "2px solid" not in widget.styleSheet()
+            elif backend == "tk":
+                assert not hasattr(widget, "_psx_css_border_edges")
+            else:
+                assert not hasattr(widget, "_psx_css_control_stroke")
+    finally:
+        reconciler.unmount()
+        close()
