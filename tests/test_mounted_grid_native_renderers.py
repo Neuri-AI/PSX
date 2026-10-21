@@ -2263,9 +2263,12 @@ def test_native_css_paint_burst_does_not_commit_cinnamon_geometry(request):
     renderer.commit_layout = counted
 
     def view(color, width=180):
+        # Cinnamon's root border box must equal the native viewport.
+        # Change the child width, never the fixed-size 800x200 host.
         return psx(
-            f'<div style="width: {width}px; color: {color}">'
-            '<button key="save" label="Save"/></div>'
+            f'<div style="width: 800px; height: 200px; color: {color}">'
+            f'<button key="save" label="Save" style="width: {width}px" />'
+            '</div>'
         )
 
     try:
