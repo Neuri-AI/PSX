@@ -827,6 +827,15 @@ class KivyRenderer:
                 styles["line-height"] / target.widget.font_size
                 if "line-height" in styles else target.widget.property("line_height").defaultvalue
             )
+            if self._sfle_constraints is not None:
+                keys = ("font-family", "font-size", "font-weight", "line-height")
+                revision = (target.props.get("value"),
+                            tuple((key, styles.get(key)) for key in keys))
+                if getattr(target.widget, "_psx_css_font_revision", None) != revision:
+                    target.widget._psx_css_font_revision = revision
+                    self.request_sfle_invalidation(
+                        "font", widget_id=id(target.widget)
+                    )
             return
         if target.node_type == "Badge":
             from psx.css.native_paint import native_text_typography
