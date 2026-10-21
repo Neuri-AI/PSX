@@ -2191,3 +2191,53 @@ def test_native_editor_css_keeps_focus_capability_and_active_focus_when_availabl
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("component,attrs", (
+    ("Button", 'label="Go"'),
+    ("Checkbox", 'checked={checked}'),
+    ("Select", 'options={options} value="a"'),
+    ("TextArea", 'value="Editable"'),
+    ("Link", 'label="Visit"'),
+    ("Badge", 'label="New"'),
+))
+def test_native_css_teardown_releases_active_control_paint(component, attrs):
+    """Unmount cleans owned native paint even when CSS was never reset first."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    options = ({"label": "Alpha", "value": "a"},)
+    scope = {"options": options, "checked": True}
+
+    try:
+        root = reconciler.render(psx(
+            f'<div><{component} key="paint" {attrs} '
+            'style="color: #123456; border-width: 2px; border-color: #123456"/>'
+            '</div>',
+            scope=scope,
+        ))
+        widget = root.children[0].handle.widget
+        if backend == "kivy":
+            group = widget._psx_css_control_stroke[0]
+            assert group in widget.canvas.after.children
+        elif backend == "tk":
+            edges = widget._psx_css_border_edges
+            assert len(edges) == 4
+            assert all(edge.winfo_exists() for edge in edges)
+        elif component == "Badge":
+            assert widget._psx_css_foreground == "#123456"
+        else:
+            assert "2px solid #123456" in widget.styleSheet()
+        reconciler.unmount()
+        assert reconciler.root is None
+        if backend == "kivy":
+            assert not hasattr(widget, "_psx_css_control_stroke")
+            assert group not in widget.canvas.after.children
+        elif backend == "tk":
+            assert not widget.winfo_exists()
+            assert all(not edge.winfo_exists() for edge in edges)
+    finally:
+        reconciler.unmount()
+        close()
