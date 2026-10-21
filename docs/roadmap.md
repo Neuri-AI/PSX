@@ -359,7 +359,7 @@ This work is a distinct future implementation track. Its phase numbering (F0–F
 
 The bounded native paint, typography, state/interaction, keyed lifecycle, inherited styling, Qt QSS, local Tk `ttk.Style`, Kivy canvas and cleanup functionality has direct mounted tests. This **does not** certify arbitrary CSS on native controls, unsupported visual values, pixel-perfect cross-platform rendering, cross-device DPI/theme regressions or global dependency-aware invalidation. The last two belong to P1.4.8 and P1.4.7; implementation changes after the recorded SHA require fresh test evidence.
 
-### P1.4.7 — Dependency-aware invalidation and performance (in progress)
+### P1.4.7 — Dependency-aware invalidation and performance (functionally closed for supported subset)
 
 **Entry baseline:** P1.4.6 native CSS functional scope and reusable Cinnamon measurement caches. This increment reduces redundant commits and redundant measurement **without changing native paint, public component APIs, or Cinnamon's authority over geometry**.
 
@@ -371,7 +371,7 @@ The bounded native paint, typography, state/interaction, keyed lifecycle, inheri
 4. Integrate conditional incremental layout reuse and commit scheduling consistently in Qt (all supported bindings), Tkinter, Kivy and Headless where applicable. Compare resulting geometry against full Rust/Python computations.
 5. Provide reproducible repeated-update counters/benchmarks, regression tests for 1,000+ invalidation cycles, bounded cache ownership, and exact-SHA executed CI receipts.
 
-**Current implemented first slice:** direct tests for targeted native font and width-dependent cache reuse, plus duplicate-invalidation coalescing. Completion still requires full paint-only/layout boundary integration, native backend regression and performance receipts; **this phase is not yet closed**. Comprehensive device/theme/release-wide visual verification belongs to P1.4.8.
+**Functional exit receipt:** [Executed native benchmark and invalidation certificate](architecture/css-invalidation-performance-certification.md). The implementation at `59046cab35adaa3953f6ef88dbcaf0aeba16063a` completed **13/13 GitHub Actions workflows successfully**, including native Qt (PySide6, PyQt6, PySide2, PyQt5), Tkinter, Kivy, Headless and full Grid. Direct tests cover 100 native paint updates with zero redundant Cinnamon commits, 1,000 incremental geometry cycles with full-solver parity and dependent-context reuse, 1,000 targeted measurement cycles with bounded cache ownership, semantics-preserving native/theme event coalescence, and measured JUnit wall/CPU/tracemalloc counters. The P1.4.7 native-functional scope is complete and **does not** imply browser pixel parity, exhaustive theme/DPI certification or zero Python/native allocation growth. Subsequent change SHAs must separately pass their workflow matrices before acceptance; comprehensive CSS release certification remains P1.4.8.
 
 ### P1.4.8 — CSS Core integral certification (planned; not started)
 
