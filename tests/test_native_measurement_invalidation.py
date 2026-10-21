@@ -191,3 +191,66 @@ def test_redundant_native_invalidation_does_not_restart_commit_generation():
     assert not state.needs_commit()
     next_epoch = state.request("font", widget_id=101)
     assert next_epoch > global_epoch
+
+
+def test_dependent_layout_plan_rejects_cycles_and_unknown_parents():
+    from psx.sfle.native_measurement_dependencies import plan_layout_dependents
+    from psx.sfle.model import LayoutInput, LayoutNode, LayoutConstraints, AvailableSize, WritingDirection
+
+    constraints = LayoutConstraints(AvailableSize(300, True), AvailableSize(200, True))
+
+    def snapshot(nodes):
+        return LayoutInput(1, 1, WritingDirection.LTR, constraints, nodes, ())
+
+    shared = snapshot((
+        LayoutNode("root", None, "Flex", ()),
+        LayoutNode("left", "root", "Text", ()),
+        LayoutNode("right", "root", "Text", ()),
+    ))
+    plan = plan_layout_dependents(shared, frozenset({"left", "right"}))
+    assert plan.ancestors == {"root"}
+    assert plan.layout_candidates == {"root", "left", "right"}
+    cyclic = snapshot((
+        LayoutNode("a", "b", "Flex", ()),
+        LayoutNode("b", "a", "Flex", ()),
+    ))
+    with pytest.raises(ValueError, match="Cyclic"):
+        plan_layout_dependents(cyclic, frozenset({"a"}))
+    missing = snapshot((LayoutNode("a", "absent", "Flex", ()),))
+    with pytest.raises(ValueError, match="Missing layout parent"):
+        plan_layout_dependents(missing, frozenset({"a"}))
+
+
+def test_invalidation_soak_1000_cycles_bounds_cached_native_measurements():
+    """Repeated updates must not grow cache ownership or remeasure siblings."""
+    from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
+    from psx.sfle.model import IntrinsicSizes, MeasuredBox, LayoutConstraints, AvailableSize
+
+    constraints = LayoutConstraints(AvailableSize(300, True), AvailableSize(100, True))
+    intrinsic = IntrinsicSizes(10, 10, 10, 10, 10, 10)
+    widgets = [object() for _ in range(16)]
+    cache = NativeIntrinsicCache()
+    state = MeasurementInvalidations()
+    calls = [0] * len(widgets)
+
+    for generation in range(1, 1001):
+        dirty_index = generation % len(widgets)
+        state.request("font", widget_id=id(widgets[dirty_index]))
+        round_ = cache.begin(dirty_widgets=frozenset(state.dirty_widgets))
+        for index, widget in enumerate(widgets):
+            def measure(index=index):
+                calls[index] += 1
+                return MeasuredBox(str(index), intrinsic, constraints, generation)
+            round_.read(widget=widget, props=("font-size", 16),
+                        constraints=constraints, node_id=str(index),
+                        generation=generation, measure=measure)
+        assert len(round_.measured) == (16 if generation == 1 else 1)
+        round_.publish()
+        assert len(cache.entries) == len(widgets)
+        assert len(cache.last_measured) <= len(widgets)
+        assert state.acknowledge(state.epoch)
+
+    assert sum(calls) == 16 + 999
+    cache.clear()
+    assert not cache.entries
+    assert not cache.last_measured
