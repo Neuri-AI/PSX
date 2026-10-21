@@ -1730,3 +1730,79 @@ def test_native_css_updates_preserve_control_state_and_owned_styling(component, 
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_radio_group_css_keeps_selection_callbacks_and_child_identity():
+    """CSS-only updates do not disturb radio grouping, selection, or event slots."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    events = []
+
+    def view(color, selected, generation):
+        css = f' style="color: {color}; border-color: {color}; border-width: 2px"' if color else ""
+        return psx(
+            f'<div><RadioGroup key="group" value="{selected}" on_change={{callback}}>'
+            f'<Radio key="a" value="a" label="Alpha"{css}/>'
+            f'<Radio key="b" value="b" label="Beta"{css}/>'
+            '</RadioGroup></div>',
+            scope={"callback": lambda value: events.append((generation, value))},
+        )
+
+    def selected(widget):
+        if backend == "qt":
+            return widget.isChecked()
+        if backend == "tk":
+            return widget._psx_var.get()
+        return widget._psx_checkbox.active
+
+    try:
+        first = reconciler.render(view("#123456", "a", 1))
+        group = first.children[0]
+        group_widget = group.handle.widget
+        radio_a, radio_b = (item.handle.widget for item in group.children)
+        if backend == "qt":
+            assert radio_a.isChecked()
+            assert "#123456" in radio_a.styleSheet()
+        elif backend == "tk":
+            assert group_widget._psx_var.get() == "a"
+            assert len(radio_a._psx_css_border_edges) == 4
+        else:
+            assert radio_a._psx_checkbox.active
+            assert tuple(radio_a._psx_label.color) == pytest.approx(
+                (18 / 255, 52 / 255, 86 / 255, 1)
+            )
+
+        updated = reconciler.render(view("#654321", "a", 2))
+        assert updated.children[0].handle.widget is group_widget
+        assert updated.children[0].children[0].handle.widget is radio_a
+        assert updated.children[0].children[1].handle.widget is radio_b
+
+        if backend == "qt":
+            assert radio_a.isChecked()
+            radio_b.click()
+        elif backend == "tk":
+            assert group_widget._psx_var.get() == "a"
+            group_widget._psx_var.set("b")
+        else:
+            assert radio_a._psx_checkbox.active
+            radio_b._psx_checkbox.active = True
+        assert events == [(2, "b")]
+
+        restored = reconciler.render(view(None, "b", 3))
+        assert restored.children[0].handle.widget is group_widget
+        assert restored.children[0].children[1].handle.widget is radio_b
+        if backend == "qt":
+            assert radio_b.isChecked()
+            assert "#654321" not in radio_b.styleSheet()
+        elif backend == "tk":
+            assert group_widget._psx_var.get() == "b"
+            assert not hasattr(radio_b, "_psx_css_border_edges")
+        else:
+            assert radio_b._psx_checkbox.active
+            assert not hasattr(radio_b, "_psx_css_control_stroke")
+    finally:
+        reconciler.unmount()
+        close()
