@@ -309,3 +309,14 @@ def test_universal_selector_does_not_override_parent_class_for_implicit_text():
         node = psx('<p class="accent">Inherited text</p>')
     assert node.css_computed.properties["color"] == CssColor("#aabbcc")
     assert node.children[0].css_computed.properties["color"] == CssColor("#aabbcc")
+
+
+def test_css_universal_specificity_below_type_and_class():
+    from psx.css.parser import parse_selector, parse_stylesheet
+    from psx.css.cascade import StyleTarget, resolve_style
+    assert parse_selector("*").specificity == (0, 0, 0)
+    computed = resolve_style(
+        parse_stylesheet(".accent {color: #aabbcc} button {color: #123456} * {color: #111111}"),
+        StyleTarget("button", frozenset({"accent"})),
+    )
+    assert computed.properties["color"] == CssColor("#aabbcc")
