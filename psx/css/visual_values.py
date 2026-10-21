@@ -40,6 +40,19 @@ def normalize_visual_value(name: str, value: str) -> CssColor | Length | int | s
     if name not in VISUAL_EFFECTS:
         raise ValueError(f"Unsupported visual CSS property: {name!r}.")
     if name in ("color", "background-color", "border-color"):
+        # Common CSS named colors accepted by the portable native paint layer.
+        # Normalize before typed hex validation so renderers share one format.
+        named = {
+            "black": "#000000", "white": "#ffffff", "red": "#ff0000",
+            "green": "#008000", "blue": "#0000ff", "yellow": "#ffff00",
+            "cyan": "#00ffff", "aqua": "#00ffff", "magenta": "#ff00ff",
+            "fuchsia": "#ff00ff", "gray": "#808080", "grey": "#808080",
+            "silver": "#c0c0c0", "maroon": "#800000", "olive": "#808000",
+            "purple": "#800080", "teal": "#008080", "navy": "#000080",
+            "lime": "#00ff00",
+        }
+        if isinstance(value, str):
+            value = named.get(value.strip().lower(), value)
         return value if isinstance(value, CssColor) else CssColor(value)
     if name in ("font-size", "line-height", "border-radius"):
         parsed = parse_length(value)
