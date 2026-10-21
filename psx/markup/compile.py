@@ -200,6 +200,11 @@ def _element(
         "Button": "button", "Input": "input", "TextArea": "textarea",
         "Checkbox": "checkbox", "Radio": "radio", "Select": "select",
         "Link": "link", "Badge": "badge", "SpinBox": "spinbox",
+        "Text": "text", "Flex": "flex", "Grid": "grid",
+        "GridItem": "griditem", "Box": "box", "Scroll": "scroll",
+        "Slider": "slider", "Spacer": "spacer", "Divider": "divider",
+        "Image": "image", "ProgressBar": "progressbar",
+        "RadioGroup": "radiogroup", "Switch": "switch",
     }
     if element.name in PORTABLE_HTML_ALIASES or element.name in css_native_tags:
         if "class" in props and "class_name" in props:
