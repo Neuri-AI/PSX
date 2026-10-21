@@ -170,3 +170,24 @@ def test_native_width_measurement_cache_reuses_independent_widths():
     assert round_trip(invalidate_all=True).measured_width == {
         (id(one), 140), (id(other), 140)
     }
+
+
+def test_redundant_native_invalidation_does_not_restart_commit_generation():
+    """Exact repeated notifications are coalesced, but new scope is not lost."""
+    state = MeasurementInvalidations()
+    targeted = state.request("font", widget_id=101)
+    for _ in range(100):
+        assert state.request("font", widget_id=101) == targeted
+    assert state.epoch == targeted
+    second = state.request("font", widget_id=202)
+    assert second > targeted
+    assert state.dirty_widgets == {101, 202}
+    global_epoch = state.request("font")
+    assert global_epoch > second
+    assert state.invalidate_all
+    assert state.request("font", widget_id=303) == global_epoch
+    assert state.request("font") == global_epoch
+    assert state.acknowledge(global_epoch)
+    assert not state.needs_commit()
+    next_epoch = state.request("font", widget_id=101)
+    assert next_epoch > global_epoch
