@@ -967,6 +967,14 @@ class QtRenderer:
             if not hasattr(widget, "_psx_css_base_font"):
                 widget._psx_css_base_font = widget.font()
                 widget._psx_css_base_stylesheet = widget.styleSheet()
+            else:
+                # A native adapter or application may replace its own QSS
+                # between CSS commits. Rebase only when the installed style
+                # differs from the last CSS projection we actually owned.
+                installed = widget.styleSheet()
+                if installed != getattr(widget, "_psx_css_last_applied_stylesheet",
+                                        widget._psx_css_base_stylesheet):
+                    widget._psx_css_base_stylesheet = installed
             font = widget._psx_css_base_font
             font = type(font)(font)
             if "font-family" in styles:
@@ -985,22 +993,16 @@ class QtRenderer:
                 widget._psx_css_line_height = leading
                 widget.updateGeometry()
             if "text-align" in styles:
-                if target.node_type in ("Button", "Link"):
-                    widget.setStyleSheet("text-align: " + styles["text-align"] + ";")
-                elif target.node_type not in ("Input", "TextArea"):
+                if target.node_type not in ("Button", "Link", "Input", "TextArea"):
                     raise ValueError(f"Native Qt {target.node_type} does not support CSS text-align.")
-                qt = self._qtcore.Qt
-                flags = getattr(qt, "AlignmentFlag", qt)
-                alignment = {"left": flags.AlignLeft, "center": flags.AlignHCenter,
-                             "right": flags.AlignRight}[styles["text-align"]]
                 if target.node_type == "Input":
+                    qt = self._qtcore.Qt
+                    flags = getattr(qt, "AlignmentFlag", qt)
+                    alignment = {"left": flags.AlignLeft, "center": flags.AlignHCenter,
+                                 "right": flags.AlignRight}[styles["text-align"]]
                     widget.setAlignment(alignment)
-                elif target.node_type == "TextArea":
-                    widget.setStyleSheet("text-align: " + styles["text-align"] + ";")
             elif target.node_type == "Input":
                 widget.setAlignment(getattr(getattr(self._qtcore.Qt, "AlignmentFlag", self._qtcore.Qt), "AlignLeft"))
-            elif target.node_type in ("Button", "Link", "TextArea"):
-                widget.setStyleSheet(widget._psx_css_base_stylesheet)
             declarations = []
             if "font-family" in styles:
                 declarations.append('font-family: "' + styles["font-family"] + '";')
@@ -1021,9 +1023,20 @@ class QtRenderer:
                 declarations.append(f"border: {thickness:g}px solid {color};")
             if radius:
                 declarations.append(f"border-radius: {radius:g}px;")
-            widget.setStyleSheet(
-                (widget._psx_css_base_stylesheet + " " + " ".join(declarations)).strip()
-            )
+            baseline = widget._psx_css_base_stylesheet
+            authored = " ".join(declarations)
+            if authored and baseline.rstrip().endswith("}"):
+                # A Link (or an externally styled Qt control) may already
+                # have a selector block. Bare declarations after that block
+                # are invalid QSS, so append a widget-local selector rule.
+                widget_class = widget.metaObject().className()
+                projected = baseline.rstrip() + "\n" + widget_class + " { " + authored + " }"
+            elif authored:
+                projected = (baseline + " " + authored).strip()
+            else:
+                projected = baseline
+            widget.setStyleSheet(projected)
+            widget._psx_css_last_applied_stylesheet = projected
             if self._sfle_constraints is not None:
                 keys = ("font-family", "font-size", "font-weight", "line-height")
                 if any(key in styles for key in keys) or hasattr(widget, "_psx_css_font_revision"):
