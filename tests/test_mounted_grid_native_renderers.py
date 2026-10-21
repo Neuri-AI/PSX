@@ -2284,9 +2284,19 @@ def test_native_css_paint_burst_does_not_commit_cinnamon_geometry(request):
         started = perf_counter_ns()
         for index in range(100):
             color = "#123456" if index % 2 else "#654321"
-            updated = reconciler.render(view(color))
+            next_view = view(color)
+            from psx.core.reconcile import _paint_only_css_update
+            accepted = _paint_only_css_update(reconciler.root, next_view)
+            state = getattr(renderer, "_sfle_measurement_invalidations", None)
+            pending_before = tuple(sorted(state.pending)) if state is not None else ()
+            updated = reconciler.render(next_view)
             assert updated.children[0].handle.widget is widget
             assert rectangle(widget, backend) == initial
+            assert calls == 1, (
+                f"paint index={index}, accepted={accepted}, "
+                f"pending_before={pending_before}, "
+                f"pending_after={tuple(sorted(state.pending)) if state else ()}"
+            )
         elapsed = perf_counter_ns() - started
         cpu_elapsed = process_time_ns() - started_cpu
         current_bytes, peak_bytes = tracemalloc.get_traced_memory()
