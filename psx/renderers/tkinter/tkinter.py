@@ -1140,13 +1140,56 @@ class TkinterRenderer:
             return
         color = background_hex(computed)
         widget = target.widget
+        from psx.css.native_paint import native_border_radius
+        radius = native_border_radius(computed)
         if color is None:
             widget.configure(style="TFrame")
+        else:
+            style_name = f"PsxCss{id(widget)}.TFrame"
+            ttk.Style(widget).configure(style_name, background=color)
+            widget.configure(style=style_name)
+
+        # ttk.Frame has a rectangular background. Four small, instance-owned
+        # canvases mask its corners against the surrounding native surface and
+        # paint a filled quarter-circle. This is a paint overlay, not a new
+        # container, so children and event dispatch remain unchanged.
+        corners = getattr(widget, "_psx_css_background_corners", None)
+        if color is None or radius == 0:
+            if corners is not None:
+                for corner in corners:
+                    corner.destroy()
+                del widget._psx_css_background_corners
             return
-        # A widget-specific style avoids changing unrelated Tk widgets.
-        style_name = f"PsxCss{id(widget)}.TFrame"
-        ttk.Style(widget).configure(style_name, background=color)
-        widget.configure(style=style_name)
+        if radius != int(radius) or radius < 1:
+            raise ValueError("Tk rounded CSS backgrounds require integer px radius.")
+        r = int(radius)
+        parent = widget.master
+        try:
+            surface = str(parent.cget("background"))
+        except tk.TclError:
+            surface = str(ttk.Style(parent).lookup(parent.winfo_class(), "background") or "")
+        if not surface:
+            surface = str(ttk.Style(widget).lookup("TFrame", "background") or "#ffffff")
+        if corners is None or int(corners[0].cget("width")) != r:
+            if corners is not None:
+                for corner in corners:
+                    corner.destroy()
+            corners = tuple(tk.Canvas(widget, width=r, height=r, borderwidth=0,
+                                      highlightthickness=0, takefocus=0) for _ in range(4))
+            widget._psx_css_background_corners = corners
+        placements = (
+            (dict(x=0, y=0), (0, 0, 2*r, 2*r), 90),
+            (dict(relx=1, x=-r, y=0), (-r, 0, r, 2*r), 0),
+            (dict(x=0, rely=1, y=-r), (0, -r, 2*r, r), 180),
+            (dict(relx=1, rely=1, x=-r, y=-r), (-r, -r, r, r), 270),
+        )
+        for corner, (place, bounds, start) in zip(corners, placements):
+            corner.configure(background=surface)
+            corner.delete("all")
+            corner.create_arc(*bounds, start=start, extent=90, style="pieslice",
+                              fill=color, outline=color, width=0)
+            corner.place(**place)
+            tk.Misc.tkraise(corner)
 
     # -- update -----------------------------------------------------------
 
