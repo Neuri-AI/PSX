@@ -363,6 +363,14 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - First docstring line: A framework-independent, immutable UI description.
 - Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_renderer_adapters.py`, `tests/test_text_portable.py`
 
+### `psx.WebView`
+
+- Kind: `callable`
+- Signature: `(*, url: 'str | object | None' = None, html: 'str | None' = None, width: 'str | int | float | None' = None, height: 'str | int | float | None' = None, layout_width: 'str | int | float | None' = None, layout_height: 'str | int | float | None' = None, on_load_finished: 'Callable[[bool], object] | None' = None, on_url_changed: 'Callable[[object], object] | None' = None, key: 'str | int | None' = None, ref: 'object | None' = None, **layout: 'object') -> 'VNode'`
+- Implementation: `psx/extensions/qt_webengine.py`, line 93
+- First docstring line: Create a platform-native Qt WebView hosted in a PSX QWidget.
+- Candidate tests (not behavioral certification): none located by name match
+
 ### `psx.builtin_component_registry`
 
 - Kind: `callable`
