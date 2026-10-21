@@ -1297,6 +1297,7 @@ def test_native_rounded_border_pascal_and_html_controls(tag, alias):
             elif backend == "tk":
                 assert len(widget._psx_css_border_corners) == 4
                 assert all(c.winfo_exists() for c in widget._psx_css_border_corners)
+                assert all(len(c.find_all()) == 1 for c in widget._psx_css_border_corners)
             else:
                 line = widget._psx_css_control_stroke[3]
                 assert tuple(line.rounded_rectangle)[-1] == pytest.approx(8)
