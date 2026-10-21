@@ -91,6 +91,8 @@ Produce `BASELINE.md` with repository paths, commit IDs, supported Python/backen
 
 **Goal:** Implement contract P0 in PSX/Cinnamon and every supported renderer in controlled slices.
 
+**CSS Core design track (owner-approved architectural direction, 2026-10-18):** [Universal Box Model and CSS Core Architectural Contract](universal-box-model-and-css-core-contract.md) extends this execution sequence with an internal parser, selector matcher, cascade, computed-style pipeline, incremental invalidation and native capability boundary. The architecture is **approved as direction, not implemented or fully certified**. The contract explicitly preserves existing twelve-column `Grid` / `GridItem` and treats new CSS Grid tracks as a separate future Cinnamon algorithm. Exact public API and capability subsets remain open in that contract; resolve applicable details and global approval gate conditions before production rollout. The six slices remain the execution outline, not sufficient CSS Core acceptance evidence.
+
 **Sequence**
 
 1. Introduce or adapt a single normalized style/box representation; keep backend-specific native attributes inside adapters.
@@ -110,6 +112,18 @@ Produce `BASELINE.md` with repository paths, commit IDs, supported Python/backen
 **Deliverables:** implementation, component compatibility snapshots, geometry fixtures, test suite, migration notes and updated conformance matrix.
 
 **Exit gate P1:** Existing API examples still run; new markup variants produce contract-conformant layouts; no confirmed layout feedback loops in stress cases; no unresolved regressions above the project's accepted severity threshold. Include evidence per backend; do not mark unsupported combinations as passing.
+
+**Future CSS layout extension backlog (owner-directed 2026-10-20):**
+After the bounded CSS Core, Cinnamon geometry, native visual and
+invalidation/reliability milestones, track
+[CSS-LAYOUT-01 through CSS-LAYOUT-04 and CSS-TEXT-01](../roadmap.md#post-css-core-layout-extensions--owner-requested-backlog-2026-10-20).
+Priorities: (1) relative/absolute positioning and (2) overflow, clipping and
+scrolling (high); (3) styled inline multi-line fragmentation (medium);
+(4) vertical block margin collapsing (low); (5) floats/clear wrapping (very low).
+These remain **separately gated future scopes**, not conditions for closing
+the already bounded P1.4.5 CSS Geometry + Cinnamon milestone. Preserve native
+renderer ownership and Cinnamon's single authority; certify each new
+capability on Rust/Python and Qt/Tkinter/Kivy before advertising support.
 
 ### P2 — Memory, resource ownership and performance
 
@@ -327,3 +341,10 @@ The [owner-ready P0 decision package](P0_OWNER_DECISION_PACKAGE.md) provides AD-
 - [Batch 3 — hot reload and certification](P0_CONTRACT_REVIEW_BATCH_3.md): AD-10/11/12
 
 **Blocking gates unchanged:** H-PKG-01 actual resolver, H-MEM-01 teardown fault-injection, native/Python/Rust same-SHA matrix, and explicit owner decisions. P1 implementation **NOT AUTHORIZED**.
+
+
+## Owner-authorized scoped Block/Inline implementation (2026-10-19)
+
+The owner approved the outstanding architectural policy recommendations and explicitly prioritized completing the Block/Inline implementation ahead of investigating the existing Kivy long-running memory-growth finding. See [Architecture Approval — scoped implementation authorization](ARCHITECTURE_APPROVAL.md#owner-directed-implementation-scope-and-kivy-memory-risk-2026-10-19) for bounded scope and unresolved global gates. This decision supersedes prior blanket *implementation not authorized* statements **only for that specifically described development scope**; it does not approve a general P1 release, the global architecture gate or untested capabilities.
+
+Block/Inline must use Cinnamon rather than Flex aliases; introduce optional compatible native measurement/commit/invalidation ports, test lifecycle and geometry on each claimed backend and retain exact-SHA CI receipts and public census. Known Kivy soak slopes stay open for later hardening; fresh native lifecycle regressions are not waived.

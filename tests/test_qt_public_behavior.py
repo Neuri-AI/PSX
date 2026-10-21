@@ -332,3 +332,140 @@ def test_grid_mount_fails_before_native_widget_creation(qt_tree, request, compon
     assert_feature(request, Feature(component, CONTRACT, "interaction",
                                     "unsupported_mount", f"{BINDING}_fail_closed",
                                     applicability="shared"), True)
+
+
+def test_html_block_native_geometry_and_reconciliation(qt_tree, request):
+    from psx import psx
+    _, tree = qt_tree
+    first = tree.render(psx(
+        '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
+    ))
+    alpha, beta = (child.handle.widget for child in first.children)
+    original_root = first.handle.widget
+    updated = tree.render(psx(
+        '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+    ))
+    assert_feature(
+        request, Feature("div", BINDING, "interaction", "semantic_flow",
+                         "native_geometry", applicability="partial_native"),
+        updated.handle.widget is original_root
+        and updated.children[0].handle.widget is beta
+        and updated.children[1].handle.widget is alpha
+        and beta.width() == 400
+        and alpha.width() == 400
+        and beta.y() == 0
+        and alpha.y() == beta.height()
+        and original_root.layout() is None,
+    )
+    inline = tree.render(psx(
+        '<div display="inline"><button key="b">Beta</button>'
+        '<button key="a">Alpha</button></div>'
+    ))
+    assert_feature(
+        request, Feature("div", BINDING, "interaction", "semantic_flow",
+                         "display_reflow", applicability="partial_native"),
+        inline.handle.widget is original_root
+        and inline.children[0].handle.widget is beta
+        and inline.children[1].handle.widget is alpha
+        and beta.x() == 0
+        and alpha.x() == beta.width()
+        and alpha.width() < 400,
+    )
+    before_generation = qt_tree[0].sfle_result.generation
+    qt_tree[0].set_sfle_constraints(LayoutConstraints(
+        AvailableSize(240, True), AvailableSize(120, True),
+    ))
+    sized = tree.render(psx(
+        '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+    ))
+    assert_feature(
+        request, Feature("div", BINDING, "interaction", "semantic_flow",
+                         "viewport_reflow", applicability="partial_native"),
+        sized.children[0].handle.widget is beta
+        and sized.children[1].handle.widget is alpha
+        and beta.width() == 240 and alpha.width() == 240
+        and alpha.y() == beta.height()
+        and qt_tree[0].sfle_result.generation > before_generation,
+    )
+
+
+@pytest.mark.parametrize("tag", (
+    "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+    "section", "main", "header", "footer", "form", "label", "ul", "li",
+))
+def test_semantic_flow_native_geometry_per_tag(qt_tree, request, tag):
+    from psx import psx
+    _, tree = qt_tree
+    content = "Action" if tag in ("li", "label") else (
+        "<li>Action</li>" if tag == "ul" else "<button>Action</button>"
+    )
+    root = tree.render(psx(f"<{tag}>{content}</{tag}>"))
+    child = root.children[0].handle.widget
+    assert_feature(
+        request, Feature(tag, BINDING, "interaction", "semantic_flow",
+                         "native_geometry", applicability="partial_native"),
+        root.handle.widget.layout() is None
+        and child.parentWidget() is root.handle.widget
+        # Qt's top-level window is host-owned; Cinnamon does not resize it.
+        and dict(qt_tree[0].sfle_result.boxes)[
+            qt_tree[0].sfle_result.boxes[0][0]
+        ].border.width == 400
+        and 0 < child.width() <= 400
+        and child.y() == 0
+        and (child.width() < 400 if tag in ("span", "label", "li") else child.width() == 400),
+        detail=(
+            f"tag={tag} root={root.handle.widget.geometry()} "
+            f"child={child.geometry()} "
+            f"parent_match={child.parentWidget() is root.handle.widget} "
+            f"root_layout={root.handle.widget.layout()!r} "
+            f"computed={renderer.sfle_result if (renderer := qt_tree[0]) else None}"
+        ),
+    )
+
+
+def test_semantic_form_submission_rebinds_native_qt_button(qt_tree, request):
+    from psx.markup.html_aliases import _formatting_host
+    renderer, tree = qt_tree
+    calls = []
+    def view(tag):
+        return _formatting_host(
+            "form",
+            Button("Submit", key="submit"),
+            on_submit=lambda: calls.append(tag),
+        )
+    first = tree.render(view("first"))
+    native = first.children[0].handle.widget
+    native.click()
+    refreshed = tree.render(view("second"))
+    native.click()
+    assert_feature(
+        request, Feature("form", BINDING, "event", "on_submit",
+                         "native_dispatch", applicability="partial_native"),
+        refreshed.children[0].handle.widget is native
+        and calls == ["first", "second"]
+        and renderer.sfle_result.geometry_commit_error <= 1,
+    )
+
+
+def test_implicit_label_click_focuses_native_qt_input(qt_tree, request):
+    """Verify pointer activation through a real native label widget."""
+    import importlib
+    from psx import psx
+    renderer, tree = qt_tree
+    root = tree.render(psx('<label>Name <input value="Ada" /></label>'))
+    input_widget = next(
+        child.handle.widget for child in root.children if child.node.type == "Input"
+    )
+    label_widget = root.handle.widget
+    label_widget.show()
+    renderer.application.processEvents()
+    qt_test = importlib.import_module(f"{renderer._binding_package}.QtTest")
+    button_enum = getattr(renderer._qtcore.Qt, "MouseButton", renderer._qtcore.Qt)
+    qt_test.QTest.mouseClick(label_widget, button_enum.LeftButton)
+    renderer.application.processEvents()
+    assert_feature(
+        request, Feature("label", BINDING, "interaction",
+                         "implicit_input_focus", "native_activation",
+                         applicability="partial_native"),
+        input_widget.hasFocus(),
+    )

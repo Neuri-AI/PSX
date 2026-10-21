@@ -86,6 +86,8 @@ class NativeMeasurementRound:
         return intrinsic
 
     def publish(self) -> None:
+        # Preserve a strict two-phase commit: a failed measurement round must
+        # never replace the prior successful intrinsic snapshot.
         self.cache.entries = self.updated
         self.cache.last_measured = self.measured
         self.cache.width_entries = self.updated_width

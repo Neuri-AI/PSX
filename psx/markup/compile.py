@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections import OrderedDict
 from collections.abc import Callable, Hashable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TypeAlias
 
 from psx.core.component import ComponentType
@@ -25,6 +25,10 @@ from .ast import (
     TextPart,
 )
 from .parser import parse
+from .html_aliases import markup_alias_definitions, PORTABLE_HTML_ALIASES
+from psx.css.markup import compute_markup_styles, parse_markup_style
+from psx.css.parser import CssSyntaxError
+from psx.css.sources import CssSourceManager
 
 Primitive: TypeAlias = Callable[..., VNode] | ComponentType
 _GRAMMAR_VERSION = "m4a-1"
@@ -59,9 +63,8 @@ class CompiledTemplate:
     def render(self, scope: Mapping[str, object] | None = None) -> VNode:
         values = {} if scope is None else scope
         children = _nodes(self.document.children, values, self.resolver, self.filename, lexical=False)
-        if len(children) == 1:
-            return children[0]
-        return VFragment(*children)
+        root = children[0] if len(children) == 1 else VFragment(*children)
+        return _apply_document_css(root, self.document, values)
 
     def render_lexical(self, scope: Mapping[str, object]) -> VNode:
         """Render M4B static lexical scope without evaluating template expressions.
@@ -72,9 +75,8 @@ class CompiledTemplate:
         never invoked.
         """
         children = _nodes(self.document.children, scope, self.resolver, self.filename, lexical=True)
-        if len(children) == 1:
-            return children[0]
-        return VFragment(*children)
+        root = children[0] if len(children) == 1 else VFragment(*children)
+        return _apply_document_css(root, self.document, scope)
 
 
 def compile_template(
@@ -124,13 +126,13 @@ def _resolver(
     if primitives is not None and registry is not None:
         raise TypeError("Pass either primitives or registry, not both.")
     if registry is not None:
-        return _Resolver(registry.snapshot(), ("registry", id(registry), registry.version))
+        return _Resolver(markup_alias_definitions(registry.snapshot()), ("registry-html-aliases", id(registry), registry.version))
     builtins = builtin_component_registry()
     if primitives is None:
         # Fresh default registries have the same built-in contents. Their
         # cache identity is deliberately stable while caller-owned registries
         # are always isolated by object identity and version.
-        return _Resolver(builtins.snapshot(), ("default-builtins", builtins.version))
+        return _Resolver(markup_alias_definitions(builtins.snapshot()), ("default-builtins-html-aliases", builtins.version))
     builtin_definitions = builtins.snapshot()
     definitions = {
         name: ComponentDefinition(
@@ -159,9 +161,11 @@ def _nodes(
         if isinstance(node, TextNode):
             value = _inline_text(node, scope, filename, lexical=lexical)
             if value:
-                result.append(Text(value))
+                result.append(replace(Text(value), css_source=parse_markup_style("__psx_text_content__")))
         elif isinstance(node, Fragment):
             result.append(VFragment(*_nodes(node.children, scope, resolver, filename, lexical=lexical)))
+        elif isinstance(node, Element) and node.name == 'link':
+            _validate_stylesheet_link(node)
         else:
             result.append(_element(node, scope, resolver, filename, lexical=lexical))
     return result
@@ -189,8 +193,41 @@ def _element(
         definition = ComponentDefinition(element.name, candidate)
     constructor = definition.constructor
     key = props.pop("key", None)
+    css_source = None
+    # Public PascalCase native controls share the same CSS surface as their
+    # HTML-like aliases. Custom lexical components remain opt-in/opaque.
+    css_native_tags = {
+        "Button": "button", "Input": "input", "TextArea": "textarea",
+        "Checkbox": "checkbox", "Radio": "radio", "Select": "select",
+        "Link": "link", "Badge": "badge", "SpinBox": "spinbox",
+        "Text": "text", "Flex": "flex", "Grid": "grid",
+        "GridItem": "griditem", "Box": "box", "Scroll": "scroll",
+        "Slider": "slider", "Spacer": "spacer", "Divider": "divider",
+        "Image": "image", "ProgressBar": "progressbar",
+        "RadioGroup": "radiogroup", "Switch": "switch",
+    }
+    if element.name in PORTABLE_HTML_ALIASES or element.name in css_native_tags:
+        if "class" in props and "class_name" in props:
+            _error("Use either class or class_name, not both.", filename, element.span)
+        css_class = props.pop("class", None)
+        if css_class is None:
+            css_class = props.pop("class_name", None)
+        inline_value = props.pop("style", None)
+        try:
+            css_source = parse_markup_style(
+                css_native_tags.get(element.name, element.name), class_value=css_class,
+                id_value=props.pop("id", None), inline_value=inline_value,
+            )
+        except CssSyntaxError as exc:
+            # Preserve the existing semantic-host unsupported-property
+            # diagnostic while retaining the exact CSS validation reason.
+            raise ValueError(
+                f"Unsupported {element.name} properties: ['style']; {exc}"
+            ) from exc
     props = _coerce_props(definition, props, filename, element.span)
     contract = definition.contract
+    def finish(node: VNode) -> VNode:
+        return replace(node, css_source=css_source) if css_source is not None else node
     if contract is not None and contract.child_policy == "none-or-single":
         meaningful = _meaningful_children(element.children)
         if len(meaningful) > 1:
@@ -200,7 +237,7 @@ def _element(
                 element.span,
             )
         children = _nodes(meaningful, scope, resolver, filename, lexical=lexical)
-        return constructor(*children, key=key, **props)
+        return finish(constructor(*children, key=key, **props))
     if contract is not None and contract.content_property is not None:
         property_name = contract.content_property
         value = props.pop(property_name, None)
@@ -209,7 +246,7 @@ def _element(
             _error(f"{definition.name} cannot receive both {property_name} and child text", filename, element.span)
         if value is None:
             value = content
-        return constructor(_text_value(value, filename, element.span), key=key, **props)
+        return finish(constructor(_text_value(value, filename, element.span), key=key, **props))
     if contract is not None and contract.child_policy == "text":
         value = props.pop("value", None)
         content = _inline_children(element.children, scope, filename, lexical=lexical)
@@ -217,11 +254,11 @@ def _element(
             _error(f"{definition.name} cannot receive both value and child text", filename, element.span)
         if value is None:
             value = content
-        return constructor(_text_value(value, filename, element.span), key=key, **props)
+        return finish(constructor(_text_value(value, filename, element.span), key=key, **props))
     if contract is not None and contract.child_policy == "none" and element.children:
         _error(f"{definition.name} does not accept child content; use its props instead", filename, element.span)
     children = _nodes(element.children, scope, resolver, filename, lexical=lexical)
-    return constructor(*children, key=key, **props)
+    return finish(constructor(*children, key=key, **props))
 
 
 def _meaningful_children(nodes: tuple[Node, ...]) -> tuple[Node, ...]:
@@ -362,3 +399,52 @@ def _error(message: str, filename: str, span: object) -> None:
     line = getattr(span, "line")
     column = getattr(span, "column")
     raise MarkupSyntaxError(message, filename=filename, line=line, column=column)
+
+
+def _has_css_source(node: VNode) -> bool:
+    source = node.css_source
+    has_declarations = source is not None and bool(source.classes or source.node_id or source.inline)
+    return has_declarations or any(_has_css_source(child) for child in node.children)
+
+def _validate_stylesheet_link(element: Element) -> str:
+    if element.children:
+        raise ValueError("CSS link cannot contain children.")
+    values = {attribute.name: attribute.value for attribute in element.attributes}
+    if set(values) != {"rel", "href"} or values["rel"] != "stylesheet":
+        raise ValueError('link requires rel="stylesheet" and href="...css".')
+    href = values["href"]
+    if not isinstance(href, str) or not href.endswith(".css"):
+        raise ValueError("Stylesheet href must be a local .css resource.")
+    return href
+
+
+def _document_stylesheets(nodes: tuple[Node, ...]) -> tuple[str, ...]:
+    references: list[str] = []
+    for node in nodes:
+        if isinstance(node, Element):
+            if node.name == "link":
+                references.append(_validate_stylesheet_link(node))
+            else:
+                references.extend(_document_stylesheets(node.children))
+        elif isinstance(node, Fragment):
+            references.extend(_document_stylesheets(node.children))
+    return tuple(references)
+
+
+def _apply_document_css(root: VNode, document: Document, scope: Mapping[str, object]) -> VNode:
+    references = _document_stylesheets(document.children)
+    from psx.css.context import current_css_context
+    context = current_css_context()
+    globals_ = scope.get("__velto_stylesheets__", context.stylesheets if context else ())
+    if not isinstance(globals_, (list, tuple)) or any(not isinstance(item, str) for item in globals_):
+        raise TypeError("Global CSS stylesheet paths must be a string sequence.")
+    all_sources = (*globals_, *references)
+    if not all_sources and not _has_css_source(root):
+        return root
+    resource_resolver = scope.get("__velto_css_resource_resolver__", context.resolver if context else None)
+    if resource_resolver is not None and not callable(resource_resolver):
+        raise TypeError("CSS resource resolver must be callable.")
+    source_root = scope.get("__velto_css_root__", context.root if context else ".")
+    manager = CssSourceManager(resource_resolver, root=source_root)
+    compiled = manager.load(all_sources) if all_sources else None
+    return compute_markup_styles(root, compiled)

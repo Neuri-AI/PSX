@@ -124,7 +124,7 @@ class TkBadgeAdapter:
         )
         text_item = canvas.create_text(
             width / 2, height / 2,
-            text=props["label"], fill=foreground, font=font, anchor="center",
+            text=props["label"], fill=getattr(canvas, "_psx_css_foreground", None) or foreground, font=font, anchor="center",
         )
         # Tk's font metrics and Canvas anchor geometry differ slightly from
         # Qt on macOS. Align the actual rendered text bounding box rather

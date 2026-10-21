@@ -43,7 +43,9 @@ PORTABLE = {
 
 def test_registry_metadata_census_is_complete() -> None:
     names = set(builtin_component_registry().snapshot())
-    assert names - {"Flex", "Grid", "GridItem", "Fragment", "Box", "Native"} == set(PORTABLE)
+    # WebView resolves to a renderer-bound Native declaration, not a portable
+    # component constructor with the shared item-property builder contract.
+    assert names - {"Flex", "Grid", "GridItem", "Fragment", "Box", "Native", "WebView"} == set(PORTABLE)
 
 
 @pytest.mark.parametrize("name", sorted(PORTABLE))

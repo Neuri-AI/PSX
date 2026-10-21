@@ -28,6 +28,43 @@ def new_renderer(**options) -> HeadlessRenderer:
                             engine=PythonLayoutEngine(), **options)
 
 
+def test_mounted_headless_flex_consumes_canonical_item_lengths(monkeypatch) -> None:
+    from psx.sfle.lengths import Length
+    from psx.sfle.native_layout_snapshot import PreparedNativeLayoutSnapshot
+
+    observed = []
+    original = PreparedNativeLayoutSnapshot.canonical_snapshot
+
+    def record(prepared):
+        snapshot = original(prepared)
+        observed.append(snapshot)
+        return snapshot
+
+    monkeypatch.setattr(PreparedNativeLayoutSnapshot, "canonical_snapshot", record)
+    renderer = new_renderer()
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(Flex(
+            Button("Left", key="left", layout_width="40px",
+                   layout_height="20px", flex_basis="40px", flex_shrink=0),
+            Button("Right", key="right", layout_width="30px",
+                   layout_height="20px", flex_basis="30px", flex_shrink=0),
+            direction="row", gap=8, width=120, height=60,
+            align_items="flex-start",
+        ))
+        assert observed, "Mounted Headless must consume canonical item lengths"
+        style = dict(observed[-1].nodes[1].style)
+        assert style["layout_width"] == Length.px(40)
+        assert style["layout_height"] == Length.px(20)
+        assert root.children[0].handle.geometry.width == 40
+        assert root.children[0].handle.geometry.height == 20
+        assert root.children[1].handle.geometry.x == 48
+        assert root.children[1].handle.geometry.width == 30
+        assert renderer.sfle_result.geometry_commit_error == 0.0
+    finally:
+        reconciler.unmount()
+
+
 def test_opt_in_headless_flex_is_real_sfle_geometry_not_a_dummy_layout() -> None:
     renderer = new_renderer()
     reconciler = Reconciler(renderer)
@@ -46,6 +83,152 @@ def test_opt_in_headless_flex_is_real_sfle_geometry_not_a_dummy_layout() -> None
     reconciler.unmount()
     assert renderer.sfle_result is None
     assert root.handle.destroyed
+
+
+def test_canonical_width_change_reflows_sibling_without_remeasuring_unchanged_leaf() -> None:
+    measured = []
+
+    def measure(node):
+        if node.type != "Text":
+            return None
+        measured.append(node.props["value"])
+        return IntrinsicSizes(20, 20, 16, 16, 20, 16)
+
+    renderer = new_renderer(measure_intrinsic=measure)
+    renderer.set_sfle_constraints(constraints(400, 90))
+    reconciler = Reconciler(renderer)
+
+    def view(width):
+        return Flex(
+            Text("Alpha", key="a", layout_width=f"{width}px",
+                 layout_height="20px", flex_shrink=0),
+            Text("Beta", key="b", layout_width="40px",
+                 layout_height="20px", flex_shrink=0),
+            direction="row", width="400px", height="90px",
+            gap=8, align_items="flex-start",
+        )
+
+    try:
+        root = reconciler.render(view(150))
+        first, second = (child.handle for child in root.children)
+        assert measured == ["Alpha", "Beta"]
+        assert (first.geometry.width, second.geometry.x) == (150, 158)
+        generation = renderer.sfle_result.generation
+        updated = reconciler.render(view(200))
+        assert updated.children[0].handle is first
+        assert updated.children[1].handle is second
+        assert (first.geometry.width, second.geometry.x) == (200, 208)
+        assert measured == ["Alpha", "Beta", "Alpha"], measured
+        assert renderer.sfle_result.generation > generation
+        renderer.commit_layout(updated)
+        assert measured == ["Alpha", "Beta", "Alpha"]
+        assert (first.geometry.width, second.geometry.x) == (200, 208)
+    finally:
+        reconciler.unmount()
+    assert not renderer._sfle_intrinsic_cache
+
+
+def test_text_color_only_skips_cinnamon_measurement_and_geometry_writes(monkeypatch) -> None:
+    from psx.renderers.headless import HeadlessHandle
+
+    class CountingEngine:
+        def __init__(self):
+            self.delegate = PythonLayoutEngine()
+            self.calls = 0
+
+        def compute(self, request):
+            self.calls += 1
+            return self.delegate.compute(request)
+
+    engine = CountingEngine()
+    measured = []
+    writes = []
+    original_setattr = HeadlessHandle.__setattr__
+
+    def record(handle, name, value):
+        if name == "geometry":
+            writes.append((id(handle), value))
+        return original_setattr(handle, name, value)
+
+    monkeypatch.setattr(HeadlessHandle, "__setattr__", record)
+
+    def measure(node):
+        if node.type != "Text":
+            return None
+        measured.append(node.props["value"])
+        return IntrinsicSizes(20, 20, 16, 16, 20, 16)
+
+    renderer = HeadlessRenderer(sfle_constraints=constraints(), engine=engine,
+                                measure_intrinsic=measure)
+    reconciler = Reconciler(renderer)
+
+    def view(color, width="40px"):
+        return Flex(
+            Text("Stable text", key="text", color=color, layout_width=width,
+                 layout_height="20px"),
+            direction="row", width=120, height=60, align_items="flex-start",
+        )
+
+    try:
+        root = reconciler.render(view("#111111"))
+        handle = root.children[0].handle
+        initial_geometry = handle.geometry
+        assert engine.calls == 1
+        assert measured == ["Stable text"]
+        writes.clear()
+
+        updated = reconciler.render(view("#222222"))
+        assert updated.children[0].handle is handle
+        assert handle.props["color"] == "#222222"
+        assert handle.geometry == initial_geometry
+        assert engine.calls == 1, "Paint-only updates must bypass Cinnamon"
+        assert measured == ["Stable text"], "Paint-only updates must not remeasure"
+        assert writes == [], "Paint-only updates must not rewrite geometry"
+
+        reconciler.render(view("#222222", width="55px"))
+        assert engine.calls == 2, "Geometry changes must still run Cinnamon"
+        assert handle.geometry.width == 55
+        assert measured == ["Stable text", "Stable text"]
+
+        renderer.request_sfle_invalidation("font")
+        renderer.flush()
+        assert engine.calls == 3, "Semantic invalidation must override paint reuse"
+        assert len(measured) == 3
+    finally:
+        reconciler.unmount()
+    assert renderer._sfle_committed_signatures is None
+
+
+def test_equal_geometry_commit_does_not_write_or_trigger_resize_feedback(monkeypatch) -> None:
+    from psx.renderers.headless import HeadlessHandle
+
+    renderer = new_renderer()
+    reconciler = Reconciler(renderer)
+    root = reconciler.render(Flex(
+        Flex(key="first", width=30, height=20),
+        Flex(key="second", width=20, height=20),
+        direction="row", gap=5, width=120, height=60,
+    ))
+    handles = tuple(child.handle for child in root.children)
+    initial = tuple(handle.geometry for handle in handles)
+    writes = []
+    original_setattr = HeadlessHandle.__setattr__
+
+    def record_setattr(handle, name, value):
+        if name == "geometry":
+            writes.append((handle, value))
+        return original_setattr(handle, name, value)
+
+    monkeypatch.setattr(HeadlessHandle, "__setattr__", record_setattr)
+    try:
+        renderer.commit_layout(root)
+        renderer.commit_layout(root)
+        assert writes == [], "Equal committed rectangles must not be rewritten"
+        assert tuple(handle.geometry for handle in handles) == initial
+        assert tuple(child.handle for child in root.children) == handles
+        assert renderer.sfle_result.geometry_commit_error == 0.0
+    finally:
+        reconciler.unmount()
 
 
 def test_keyed_reorder_and_resize_reuse_native_handle_without_remount() -> None:
@@ -777,3 +960,74 @@ def test_native_invalidation_solver_invalidation_rejects_provisional_result_and_
     assert renderer.sfle_result.generation > previous.generation
     assert tuple(child.handle for child in root.children) == widgets
     reconciler.unmount()
+
+
+def test_unchanged_headless_commit_reuses_cinnamon_but_resize_recomputes():
+    class CountingEngine:
+        def __init__(self):
+            self.calls = 0
+            self.delegate = PythonLayoutEngine()
+
+        def compute(self, snapshot):
+            self.calls += 1
+            return self.delegate.compute(snapshot)
+
+    engine = CountingEngine()
+    renderer = HeadlessRenderer(sfle_constraints=constraints(), engine=engine)
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(Flex(
+            fixed("left", 30), fixed("right", 20),
+            width=120, height=60, direction="row", gap=5,
+        ))
+        assert engine.calls == 1
+        geometry = tuple(child.handle.geometry for child in root.children)
+        renderer.commit_layout(root)
+        assert engine.calls == 1
+        assert tuple(child.handle.geometry for child in root.children) == geometry
+        assert renderer.sfle_result.generation == 2
+        renderer.set_sfle_constraints(constraints(200, 60))
+        renderer.commit_layout(root)
+        assert engine.calls == 2
+    finally:
+        reconciler.unmount()
+    assert renderer._sfle_prior_solver_input is None
+    assert renderer._sfle_prior_solver_result is None
+
+
+def test_mounted_headless_uses_incremental_sizing_for_unchanged_flex_sibling():
+    class TrackingEngine(PythonLayoutEngine):
+        def __init__(self):
+            self.reused = []
+            self.incremental_calls = 0
+
+        def compute_incremental(self, request, **kwargs):
+            self.incremental_calls += 1
+            kwargs["reused_contexts"] = self.reused
+            return super().compute_incremental(request, **kwargs)
+
+    engine = TrackingEngine()
+    renderer = HeadlessRenderer(sfle_constraints=constraints(300, 100), engine=engine)
+    reconciler = Reconciler(renderer)
+
+    def view(width):
+        return Flex(
+            Flex(fixed("nested-left", 20), key="left", width=width,
+                 height=25, flex_shrink=0),
+            Flex(fixed("nested-right", 20), key="right", width=50,
+                 height=25, flex_shrink=0),
+            direction="row", width=300, height=100, key="root",
+        )
+
+    try:
+        root = reconciler.render(view(40))
+        right = root.children[1].handle
+        before = right.geometry
+        updated = reconciler.render(view(60))
+        assert engine.incremental_calls >= 1
+        assert engine.reused, "Unchanged, definitely-sized Flex should reuse sizing"
+        assert updated.children[1].handle is right
+        assert right.geometry.x == 60
+        assert right.geometry.width == before.width
+    finally:
+        reconciler.unmount()

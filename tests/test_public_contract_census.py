@@ -26,7 +26,7 @@ def test_public_contract_valid_defaults_and_rejects_unknown_properties(name):
     contract = definition.contract
     if contract is None:
         # Structural/raw native components do not publish a portable contract.
-        assert name in {"Fragment", "Box", "Native"}
+        assert name in {"Fragment", "Box", "Native", "WebView"}
         return
     values = {**MANDATORY.get(name, {}), **contract.defaults}
     contract.validate(values)

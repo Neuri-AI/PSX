@@ -41,11 +41,57 @@ class PythonLayoutEngine:
         return CONTRACT_ONLY_CAPABILITIES
 
     def compute(self, request: LayoutInput) -> LayoutResult:
+        if not isinstance(request, LayoutInput):
+            raise TypeError("Expected immutable LayoutInput.")
+        # Rust and Python must consume the same semantic flow snapshot wire.
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
+            from .measured_block_snapshot import compute_measured_block_snapshot
+            return compute_measured_block_snapshot(request)
         from .compute_alpha import compute_snapshot
         return compute_snapshot(request)
 
+    def compute_incremental(
+        self,
+        request: LayoutInput,
+        *,
+        previous_input: LayoutInput | None = None,
+        previous_result: LayoutResult | None = None,
+        native_measurement_invalidated: bool = False,
+        reused_contexts: list[str] | None = None,
+    ) -> LayoutResult:
+        """Reuse unchanged snapshots or safely isolated Flex sizing subtrees.
+
+        When context reuse is ineligible, perform a complete solve. Geometry
+        placement always runs through Cinnamon's normal compositor.
+        """
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
+            # Conservative complete flow reflow until fragment-level dependency
+            # tracking is certified. Stable VNode identity stays with the caller.
+            return self.compute(request)
+        from .context_invalidation_plan import plan_context_invalidation
+        from .incremental_result_reuse import reuse_unchanged_layout
+        plan = plan_context_invalidation(previous_input, request)
+        if plan.full_recompute or native_measurement_invalidated:
+            return self.compute(request)
+        if plan.dirty_nodes:
+            from .compute_alpha import compute_snapshot
+            return compute_snapshot(
+                request, previous_input=previous_input,
+                previous_result=previous_result, reused_contexts=reused_contexts,
+            )
+        cached = reuse_unchanged_layout(
+            previous_input, previous_result, request,
+            native_measurement_invalidated=native_measurement_invalidated,
+        )
+        return cached if cached is not None else self.compute(request)
+
     def compute_provisional(self, request: LayoutInput) -> LayoutResult:
         """Noncommittable geometry used solely to obtain post-flex widths."""
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
+            return self.compute(request)
         from .compute_alpha import compute_snapshot
         return compute_snapshot(request, provisional=True)
 

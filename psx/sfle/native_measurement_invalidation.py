@@ -28,12 +28,19 @@ class MeasurementInvalidations:
             raise ValueError(f"Unsupported SFLE measurement invalidation: {reason!r}")
         if widget_id is not None and (type(widget_id) is not int or widget_id <= 0):
             raise ValueError("Widget invalidation identity must be a positive integer.")
+        # Repeated identical notices must not repeatedly stale an otherwise
+        # current geometry commit. New reasons, target identities, and scope
+        # escalation to global invalidation still advance the generation.
+        changed = reason not in self.pending
         self.pending.add(reason)
         if widget_id is None:
+            changed |= not self.invalidate_all
             self.invalidate_all = True
-        else:
+        elif not self.invalidate_all:
+            changed |= widget_id not in self.dirty_widgets
             self.dirty_widgets.add(widget_id)
-        self.epoch += 1
+        if changed:
+            self.epoch += 1
         return self.epoch
 
     def needs_commit(self) -> bool:

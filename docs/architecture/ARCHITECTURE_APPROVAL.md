@@ -1,7 +1,7 @@
 # P0.6 — Architecture Gate and Approval Record
 
 **Date:** 2026-10-18  
-**Status:** **BLOCKED — NO OWNER APPROVAL RECORDED**  
+**Status:** **GLOBAL RELEASE/ARCHITECTURE GATE BLOCKED — SCOPED IMPLEMENTATION AUTHORIZED BY OWNER (2026-10-19)**  
 **Gate:** P0 → P1 (Web-like + CSS-like implementation)  
 **Target branch:** `Neuri-AI/PSX:develop`
 
@@ -50,18 +50,31 @@ Use this table as a ledger **only after direct owner review**. Blank fields mean
 
 | ID | Decision to approve | Selected choice | Date | Owner acceptance proof / PR |
 | --- | --- | --- | --- | --- |
-| AD-01 | Overflow/Scroll subset | PENDING | — | — |
-| AD-02 | Box-sizing default for new lowercase tags | PENDING | — | — |
-| AD-03 | CSS-like style precedence and cascade | PENDING | — | — |
-| AD-04 | Block formatting scope | PENDING | — | — |
-| AD-05 | Exception-safe disposal policy | PENDING | — | — |
-| AD-06 | Lowercase markup vocabulary/compatibility | PENDING | — | — |
-| AD-07 | Package/version dependency graph | PENDING | — | — |
-| AD-08 | Fragment/mixed-key evolution | PENDING | — | — |
-| AD-09 | Measurement/invalidation adapter interface | PENDING | — | — |
-| AD-10 | F6 refresh tier classification | PENDING | — | — |
-| AD-11 | Supported backend/performance matrix | PENDING | — | — |
-| AD-12 | F5.5 G6 certification status | PENDING | — | — |
+| AD-01 | Overflow/Scroll subset | **APPROVED — preserve Scroll; certify bounded visible/hidden overflow by backend, reject unimplemented auto/scroll CSS behavior** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+| AD-02 | Box-sizing default for new lowercase tags | **APPROVED — border-box for new lowercase tags; legacy sizing unchanged; implementation pending** | 2026-10-19 | Explicit owner acceptance of proposed box-sizing rule in project conversation; PR #48 |
+| AD-03 | CSS-like style precedence and cascade | **APPROVED — CSS cascade for lowercase tags; explicit legacy compatibility; implementation pending** | 2026-10-19 | Explicit owner acceptance of proposed CSS precedence rule in project conversation; PR #48 |
+| AD-04 | Block formatting scope | **APPROVED — dedicated block/inline formatting contexts; implementation pending** | 2026-10-19 | Explicit owner acceptance of proposed block/inline model in project conversation; PR #48 |
+| AD-05 | Exception-safe disposal policy | **APPROVED — attempt independent cleanup exactly once, collect/report failures with deterministic precedence; acceptance tests pending** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+| AD-06 | Lowercase markup vocabulary/compatibility | **APPROVED — target vocabulary and coexistence rules; implementation pending** | 2026-10-19 | Direct owner approval in project conversation, following the explicit AD-06 vocabulary proposal; PR #48 branch record |
+| AD-07 | Package/version dependency graph | **APPROVED DIRECTION — coordinated independent Velto/Pydux/Qyro distributions and optional integrations; exact version/metadata matrix pending resolver evidence** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+| AD-08 | Fragment/mixed-key evolution | **APPROVED — preserve single native root and mixed-key behavior; defer multi-root fragments** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+| AD-09 | Measurement/invalidation adapter interface | **APPROVED — optional versioned native geometry capability port without breaking legacy Renderer; implementation/certification pending** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+| AD-10 | F6 refresh tier classification | **APPROVED — conservative refresh/remount/restart classifier; F6 implementation deferred** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+| AD-11 | Supported backend/performance matrix | **APPROVED — explicit executed/unsupported/untested backend matrix; memory trend tracked separately from scoped feature entry** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+| AD-12 | F5.5 G6 certification status | **APPROVED — separate authored docs, actual CI, beginner review, and owner signoff; do not infer G6 closure** | 2026-10-19 | Direct owner acceptance of proposed implementation decisions in project conversation; PR #48 |
+
+
+### Owner-directed implementation scope and Kivy memory risk (2026-10-19)
+
+**Owner decision, explicitly expressed in the project conversation:** accept the implementation recommendations for AD-01, AD-05, AD-07, AD-08, AD-09, AD-10, AD-11 and AD-12. Prioritize functioning Block/Inline formatting contexts, then address the remaining memory/performance findings. These are approved **policy choices**, not claims of completed engineering work or exact-version package compatibility.
+
+**Bounded implementation authorization:** On the existing PR #48 branch, agents may implement and certify dedicated Cinnamon Block/Inline contexts, the optional renderer geometry/measurement/invalidation capability boundary, backwards-compatible HTML-like markup support, and the necessary behavior tests/CI routing/public census. Existing PascalCase APIs, Grid, and native ownership semantics remain frozen. Changes must fail closed on unsupported platforms and retain native UI-thread measurement and generation-checked geometry commits. Cross-repository packaging changes, release publication, new public CSS grammar, and unrelated hot reload remain outside this authorization.
+
+**Explicit memory-risk deferral:** Previously observed Kivy positive RSS/Python-heap slopes at 5,000 cycles and comparative Kivy-vs-PSX growth remain **OPEN, NOT FIXED, NOT CERTIFIED**. The owner directs that attribution and long-duration remediation **must not block starting or completing the scoped Block/Inline feature**. This is not a waiver for confirmed retained mounted widgets, dangling event bindings, broken teardown, or a newly introduced unbounded retention regression. Continue ordinary lifecycle tests and record any feature-specific regressions. Track the Kivy soak issue separately for P2/release hardening; do not publish claims of memory stability until a repeated post-warmup test supports them.
+
+**Separate gates:** Owner authorizes scoped P1 development; this does **not** sign off G-P0-03 clean cross-repository pip/wheel installation, AD-07 exact version selection, the overall P0→P1 global approval gate, P2 lifecycle/memory release readiness, or the public release. H-PKG-01 remains an evidence task. H-MEM-01 exception-path teardown safety remains a required functional safety check for any touched lifetime path; Kivy's **long-running growth trend** is deferred. Same-SHA functional and native CI evidence remains mandatory before describing any new capability as implemented/certified.
+
+**Next deliverable:** complete native Block/Inline integration in PSX/Cinnamon and Qt/Tkinter/Kivy on this branch, with scoped capability contracts, negative-case tests, CI impact routing and public-behavior receipts. No release or global-gate closure follows automatically.
 
 ## 5. Approval rule
 
@@ -100,7 +113,7 @@ Each agent commits **evidence-only** documentation to `develop` using convention
  
 ## P0 contract review progress — 2026-10-18
 
-**Source-backed technical reviews completed: 12/12 decisions (AD-01–AD-12). Owner approvals: 0/12. Executed full test/CI closure: pending.** This is a review metric, **not** acceptance/certification of C01–C12 or release readiness.
+**Historical snapshot (2026-10-18):** Source-backed technical reviews completed: 12/12 decisions (AD-01–AD-12). Owner approvals at that date: 0/12. Executed full test/CI closure: pending. See the 2026-10-19 owner decision for the subsequent, narrowly scoped AD-06 approval. This is a review metric, **not** acceptance/certification of C01–C12 or release readiness.
 
 - [Batch 1 — public semantics and compatibility](P0_CONTRACT_REVIEW_BATCH_1.md): AD-01/02/03/04/06/08
 - [Batch 2 — safety and packaging](P0_CONTRACT_REVIEW_BATCH_2.md): AD-05/07/09
@@ -220,3 +233,51 @@ Committed [Kivy heap ownership and direct-toolkit control protocol](P0_KIVY_HEAP
 The owner explicitly elected to postpone the excessive memory growth observed during **Kivy + PSX/Cinnamon** mount/update/unmount stress testing, and to move forward with the next planned implementation phase. This is a **narrow waiver of immediate investigation**, not a claim that the issue was fixed, that native C07 passed, or that P0 was fully approved. Reproducible artifacts, measured deltas and the resumption protocol are recorded as **P2-MEM-KIVY-SFLE-01 (OPEN, HIGH)** in [P0.9 Closure Candidate](P0_9_CLOSURE_CANDIDATE.md).
 
 The team has started **P1 IM-01 isolated, pure normalization scaffolding only** as documented in [P1 Phase 1 Canonical Box Baseline](P1_PHASE_1_CANONICAL_BOX_BASELINE.md), with no public API change or renderer/Cinnamon integration. **This does not mark the global P0→P1 approval gate as APPROVED.** AD-01–AD-12 remain without general ratification; C05 resolver evidence still required. Do not infer acceptance for an untested memory slope or use this specific deferral as a release-readiness waiver.
+
+
+## Owner decision: universal box model and CSS Core (2026-10-18)
+
+The project owner explicitly accepted the [universal box model and CSS Core architectural contract](universal-box-model-and-css-core-contract.md) in the project discussion on 2026-10-18. Accepted architectural direction: CSS Core inside PSX, Cinnamon as the sole geometry authority, legacy responsive Grid and GridItem preserved, separate future CSS Grid tracks, incremental invalidation, bounded caches and native capability certification.
+
+This is approval of the architectural contract, **not approval of all outstanding detailed interface choices or the full global architecture gate**. Public styling syntax, exact per-tag sizing defaults, track algorithm details, native measurement ports, and remaining packaging/lifecycle/certification gates require their documented dispositions. Global gate status remains BLOCKED until its separately listed acceptance evidence is complete. No production implementation or test execution is implied by this entry.
+
+
+## Owner decision — lowercase PSX markup vocabulary (2026-10-19)
+
+**AD-06: APPROVED (architectural target, not implementation certification).** The project owner explicitly approved the proposed HTML-like lowercase vocabulary and compatibility rules in conversation on 2026-10-19, after reviewing the proposal. This approval records the chosen direction only; no aliases or semantic tags are claimed as shipped by this entry.
+
+**Approved target vocabulary:** `div`, `span`, `p`, `h1`–`h6`, `button`, `input`, `textarea`, `img`, `section`, `main`, `header`, `footer`, `form`, `label`, `ul`, and `li`.
+
+**Compatibility constraints:** lowercase tags have separately specified identities and semantics; existing PascalCase `Button`, `Text`, `Flex`, `Grid` and other components retain their public contracts. `div` is not an alias for `Flex` or the internal `Box`. Cinnamon remains the only geometric authority. CSS Core resolves CSS properties when they are implemented, without reinterpreting legacy component-owned native properties. Unsupported tags and behaviors must fail explicitly, rather than silently mapping to an unrelated component. Implement the vocabulary incrementally, with behavior tests, native routing and executed public-behavior census receipts for each shipped public tag.
+
+**Remaining independent owner decisions:** AD-02 (box-sizing defaults), AD-04 (block/inline formatting scope), AD-03 (CSS cascade and precedence), and any other unchanged pending entries. Approval of the tag vocabulary does **not** establish `display: block`, inline flow, styling syntax, form semantics, CSS Grid, release readiness or the global P0→P1 architecture gate. All gate evidence requirements above remain in force.
+
+## Owner decisions — box sizing, CSS cascade and flow formatting (2026-10-19)
+
+The project owner explicitly accepted the presented AD-02, AD-03 and AD-04 recommendations in conversation on 2026-10-19. These are **approved architectural semantics, not implementation or same-SHA certification receipts**.
+
+### AD-02 — Lowercase box sizing
+
+- New lowercase HTML-like tags default to `box-sizing: border-box`; declared widths and heights include padding and border, excluding margin.
+- Legacy PascalCase components retain their existing content-box and component-owned geometry semantics without implicit migration.
+- Explicit `box-sizing: content-box` on a new tag is part of the intended CSS contract, subject to implementation and backend conformance tests.
+- Undefined, intrinsic and percentage dimensions retain Cinnamon's typed/definite constraints and fail-closed behavior.
+
+### AD-03 — CSS cascade and precedence
+
+- For new lowercase tags: resolve element defaults, stylesheet declarations, and inline `style` with documented CSS cascade ordering (including origins, importance, specificity and source order) and applicable inheritance.
+- For existing PascalCase components: preserve explicit legacy `layout_*` slots and native component-owned properties; do not silently remap them to CSS equivalents. Conflicts require deterministic compatibility treatment and diagnostics, specified and tested per property.
+- The internal `psx/css/` engine owns selector, parsing and computed-style work; Cinnamon owns resulting geometry; native renderers own supported painting, focus and interactions.
+- Supporting individual CSS selectors, origins, `!important`, pseudo states or properties requires separate implementation, fail-closed unsupported diagnostics, functional tests and public behavior receipts. This decision does not assert full browser CSS support.
+
+### AD-04 — Dedicated block and inline formatting
+
+- An HTML-like `div` has default `display: block`, not `Flex`; its box participates in block flow with automatic sizing and normal flow placement as specified for the supported subset.
+- `display: inline` participates in an inline formatting context, including line formation, text metrics, wrapping, baselines and fragment painting as applicable. It is not implemented as a synthetic wrapping Flex row.
+- `inline-block` produces an atomic inline-level box with independently resolved dimensions. `flex` and `inline-flex` reuse Cinnamon's Flex algorithm while retaining distinct outer display participation.
+- Changes in `display` invalidate the relevant formatting context and dependent siblings/ancestors, **without unmounting or changing the logical keyed VNode identity**. Cinnamon owns layout, and native geometry commits remain generation checked.
+- Percentage constraints, margin-collapse details, anonymous boxes, intrinsic line breaking, multi-fragment painting and backend capabilities must be specified and tested before a particular subset is advertised as available.
+
+### Approval boundaries
+
+AD-02, AD-03 and AD-04 are owner-approved as technical direction. Their implementations, supported-property matrices and full semantics are not thereby certified. AD-01, AD-05, AD-07–AD-12 remain at their recorded statuses; the global P0→P1 architecture gate stays **BLOCKED**, subject to its separate evidence and approval rule. The previously recorded AD-06 approval remains unchanged.

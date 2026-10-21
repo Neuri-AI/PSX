@@ -9,9 +9,10 @@ import ast
 
 from psx.core.errors import MarkupSyntaxError
 from psx.core.registry import builtin_component_registry
+from psx.markup.html_aliases import PORTABLE_HTML_ALIASES
 from . import expressive_ast as syntax
 
-_BUILTINS = frozenset(builtin_component_registry().snapshot())
+_BUILTINS = frozenset(builtin_component_registry().snapshot()) | frozenset(PORTABLE_HTML_ALIASES) | {"link"}
 
 
 def _helper(name: str, *args: ast.expr) -> ast.Call:
@@ -133,6 +134,8 @@ def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast
                                      for part in node.children if not _blank(part)))
     if isinstance(node, syntax.Element):
         tag = node.tag
+        if tag == "link":
+            return ast.Constant(None)
         values: list[ast.expr] = []
         names: list[ast.expr] = []
         for name, value in node.attributes:
@@ -169,6 +172,7 @@ def helper_import() -> ast.ImportFrom:
             ast.alias(name="index", asname="_psx_expr_index"),
             ast.alias(name="conditional", asname="_psx_expr_conditional"),
             ast.alias(name="map_children", asname="_psx_expr_map_children"),
+            ast.alias(name="compute_expressive_markup_styles", asname="_psx_expr_compute_styles"),
         ],
         level=0,
     )

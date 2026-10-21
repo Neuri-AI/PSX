@@ -23,6 +23,9 @@ def compute_width_dependent(
     measure_width: Mapping[str, Callable[[float], IntrinsicSizes]],
     *,
     current_generation: Callable[[], int],
+    previous_input: LayoutInput | None = None,
+    previous_result: LayoutResult | None = None,
+    native_measurement_invalidated: bool = False,
 ) -> LayoutResult:
     """Finish all height-for-width measurements without native placement.
 
@@ -33,6 +36,13 @@ def compute_width_dependent(
     the actual assigned content width (not inherited root viewport width).
     """
     if not measure_width:
+        incremental = getattr(engine, "compute_incremental", None)
+        if (not native_measurement_invalidated and previous_input is not None
+                and previous_result is not None and callable(incremental)):
+            return incremental(
+                snapshot, previous_input=previous_input,
+                previous_result=previous_result,
+            )
         return engine.compute(snapshot)
     if not callable(getattr(engine, "compute_provisional", None)):
         raise SFLEError(

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Iterable
 
 from psx.core.registry import builtin_component_registry
+from psx.markup.html_aliases import PORTABLE_HTML_ALIASES
 
 from .ast import Document, Fragment, Node, Reference, ReferencePart, TextNode
 from .parser import parse
@@ -73,6 +74,14 @@ class _Transformer(ast.NodeTransformer):
         if _has_expressive_interpolation(source):
             tree = parse_expressive_expression(source, filename=template_filename)
             replacement = lower(tree, filename=template_filename)
+            links = _expressive_css_links(tree)
+            # Global application CSS may contain type selectors even when
+            # expressive markup has no class/style attributes.
+            replacement = ast.Call(
+                func=ast.Attribute(value=ast.Name(id="_psx_expr_element", ctx=ast.Load()), attr="compute_styles", ctx=ast.Load()),
+                args=[replacement, ast.Tuple(elts=[ast.Constant(name) for name in links], ctx=ast.Load())],
+                keywords=[],
+            )
             self.expressive_count += 1
             self.entries.append(SourceMapEntry(
                 template_name=f"_psx_expressive_{self.expressive_count - 1}",
@@ -272,7 +281,7 @@ def _collect_node_identifiers(node: Node, names: set[str]) -> None:
         for child in node.children:
             _collect_node_identifiers(child, names)
         return
-    if not builtin_component_registry().contains(node.name):
+    if node.name not in PORTABLE_HTML_ALIASES and not builtin_component_registry().contains(node.name):
         names.add(node.name)
     for attribute in node.attributes:
         if isinstance(attribute.value, Reference):
@@ -305,3 +314,35 @@ def _node_reference_locations(node: Node) -> Iterable[tuple[int, int]]:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+def _expressive_css_links(node: object) -> tuple[str, ...]:
+    """Collect only statically declared local CSS links in expressive markup."""
+    from psx.core.errors import MarkupSyntaxError
+    from .expressive_ast import Element as ExpressiveElement, Literal
+    found: list[str] = []
+    def visit(value: object) -> None:
+        if isinstance(value, ExpressiveElement) and value.tag == "link":
+            attrs = dict(value.attributes)
+            rel = attrs.get("rel")
+            href = attrs.get("href")
+            if (
+                set(attrs) != {"rel", "href"}
+                or not isinstance(rel, str) or rel != "stylesheet"
+                or not isinstance(href, str) or not href.endswith(".css")
+                or value.children
+            ):
+                raise MarkupSyntaxError(
+                    'link requires rel="stylesheet" and a literal local CSS href',
+                    filename="<psx>", line=value.location.line, column=value.location.column,
+                )
+            found.append(href)
+            return
+        if is_dataclass(value):
+            for field in fields(value):
+                if field.name != "location":
+                    visit(getattr(value, field.name))
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                visit(item)
+    visit(node)
+    return tuple(found)

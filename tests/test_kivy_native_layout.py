@@ -13,6 +13,194 @@ import unittest
 
 
 class KivySFLEGeometrySubprocessTests(unittest.TestCase):
+    def test_css_background_updates_and_canvas_cleanup(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(240, True), AvailableSize(140, True),
+                ),
+                engine=PythonLayoutEngine(),
+            )
+            reconciler = Reconciler(renderer)
+            mounted = reconciler.render(psx(
+                '<div key="same" style="background-color: #112233" />'
+            ))
+            widget = mounted.handle.widget
+            group, redraw, color = widget._psx_css_paint
+            assert round(color.r * 255) == 17
+            assert round(color.g * 255) == 34
+            assert round(color.b * 255) == 51
+            changed = reconciler.render(psx(
+                '<div key="same" style="background-color: #aabbcc" />'
+            ))
+            assert changed.handle.widget is widget
+            assert widget._psx_css_paint[0] is group
+            assert round(color.r * 255) == 170
+            reconciler.render(psx('<div key="same" />'))
+            assert not hasattr(widget, "_psx_css_paint")
+            reconciler.unmount()
+        """)
+        env = dict(os.environ)
+        env["KIVY_NO_FILELOG"] = "1"
+        env["KIVY_NO_ARGS"] = "1"
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            env=env, capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_css_dimensions_commit_to_kivy_widget_geometry(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(240, True), AvailableSize(140, True),
+                ),
+                engine=PythonLayoutEngine(),
+            )
+            reconciler = Reconciler(renderer)
+            root = reconciler.render(psx(
+                '<div>'
+                '<button style="width: 45px; height: 15px; margin-left: 3px; padding: 2px; border-width: 1px">Save</button></div>'
+            ))
+            assert round(root.children[0].handle.widget.width) == 51
+            assert round(root.children[0].handle.widget.height) == 21
+            assert round(root.children[0].handle.widget.x) == 3
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            reconciler.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
+    def test_html_block_uses_cinnamon_native_positions(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(240, True), AvailableSize(140, True),
+                ),
+                engine=PythonLayoutEngine(),
+            )
+            reconciler = Reconciler(renderer)
+            root = reconciler.render(psx(
+                '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
+            ))
+            alpha, beta = (item.handle.widget for item in root.children)
+            assert alpha.parent is root.handle.widget
+            assert root.handle.widget.size_hint == [None, None]
+            assert round(root.handle.widget.width) == 240
+            assert round(root.handle.widget.height) == 140
+            assert round(alpha.width) == 240
+            assert round(beta.width) == 240
+            assert round(alpha.y) == round(beta.y + beta.height)
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            updated = reconciler.render(psx(
+                '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+            ))
+            assert updated.children[0].handle.widget is beta
+            assert updated.children[1].handle.widget is alpha
+            assert round(beta.y) == round(alpha.y + alpha.height)
+            reconciler.unmount()
+            assert alpha.parent is None and beta.parent is None
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
+    def test_mounted_kivy_flex_consumes_canonical_item_lengths(self):
+        script = textwrap.dedent(r"""
+            from unittest.mock import patch
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import Button, Flex
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.lengths import Length
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.sfle.native_layout_snapshot import PreparedNativeLayoutSnapshot
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(160, True), AvailableSize(80, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            original = PreparedNativeLayoutSnapshot.canonical_snapshot
+            observed = []
+
+            def record(prepared):
+                snapshot = original(prepared)
+                observed.append(snapshot)
+                return snapshot
+
+            def button(label, key, width):
+                return Button(
+                    label, key=key, layout_width=f"{width}px",
+                    layout_height="20px", flex_basis=f"{width}px",
+                    flex_shrink=0,
+                )
+
+            with patch.object(PreparedNativeLayoutSnapshot, "canonical_snapshot", record):
+                root = tree.render(Flex(
+                    button("Left", "left", 40),
+                    button("Right", "right", 30),
+                    direction="row", gap=8, width="160px", height="80px",
+                    align_items="flex-start",
+                ))
+            assert observed, "Mounted Kivy must consume canonical lengths"
+            style = dict(observed[-1].nodes[1].style)
+            assert style["layout_width"] == Length.px(40), style
+            assert style["layout_height"] == Length.px(20), style
+            left, right = (child.handle.widget for child in root.children)
+            assert tuple(left.pos) + tuple(left.size) == (0, 60, 40, 20)
+            assert tuple(right.pos) + tuple(right.size) == (48, 60, 30, 20)
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_kivy_intrinsic_controls_without_pixel_bounds(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
@@ -1395,6 +1583,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert ("apply", Rect(0, 66, 30, 14)) in external_calls
             cleanup(backend, tree)
 
+            from psx.core.native import NativeWidget
+            from psx.core.vnode import native_widget
             native_created = []
             backend, tree = create()
             def bad_native_factory():
@@ -1402,8 +1592,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 return Widget()
             try:
                 tree.render(Flex(
-                    Native(bad_native_factory, renderer="kivy",
-                           layout_width="20px", layout_height="20px"),
+                    native_widget(NativeWidget(renderer="kivy", factory=bad_native_factory),
+                                  layout_width="20px", layout_height="20px"),
                     width="160px", height="80px",
                 ))
             except RendererCapabilityError as error:
@@ -2309,3 +2499,48 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         result = subprocess.run([sys.executable, "-c", script],
                                 env=env, capture_output=True, text=True, timeout=150)
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
+
+def test_html_flow_public_native_geometry_receipt_kivy(request):
+    from tests.certification.public_behavior_census import Feature, assert_feature
+    script = textwrap.dedent("""
+        from kivy.config import Config
+        Config.set("graphics", "window_state", "hidden")
+        from psx import psx
+        from psx.core.reconcile import Reconciler
+        from psx.renderers.kivy.kivy import KivyRenderer
+        from psx.sfle.engine import PythonLayoutEngine
+        from psx.sfle.model import AvailableSize, LayoutConstraints
+
+        renderer = KivyRenderer(
+            sfle_constraints=LayoutConstraints(
+                AvailableSize(220, True), AvailableSize(120, True)),
+            engine=PythonLayoutEngine(),
+        )
+        reconciler = Reconciler(renderer)
+        root = reconciler.render(
+            psx("<div><button>First</button><button>Second</button></div>")
+        )
+        first, second = (child.handle.widget for child in root.children)
+        assert round(first.width) == 220
+        assert round(second.width) == 220
+        assert round(first.y) == round(second.y + second.height)
+        assert first.parent is root.handle.widget
+        assert renderer.sfle_result.geometry_commit_error <= 1
+        reconciler.unmount()
+        assert first.parent is None and second.parent is None
+    """)
+    environment = dict(os.environ)
+    environment["KIVY_NO_FILELOG"] = "1"
+    environment["KIVY_NO_ARGS"] = "1"
+    environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+    run = subprocess.run(
+        [sys.executable, "-c", script], env=environment,
+        capture_output=True, text=True, timeout=90,
+    )
+    assert_feature(
+        request, Feature("div", "kivy", "interaction", "semantic_flow",
+                         "native_geometry", applicability="partial_native"),
+        run.returncode == 0,
+        run.stdout + "\\n" + run.stderr,
+    )

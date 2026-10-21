@@ -113,6 +113,77 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         ])
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1)
 
+    def test_live_qt_flex_consumes_canonical_item_lengths(self):
+        from unittest.mock import patch
+
+        from psx.sfle.lengths import Length
+        from psx.sfle.native_layout_snapshot import PreparedNativeLayoutSnapshot
+
+        original = PreparedNativeLayoutSnapshot.canonical_snapshot
+        observed = []
+
+        def record_canonical_snapshot(prepared):
+            snapshot = original(prepared)
+            observed.append(snapshot)
+            return snapshot
+
+        with patch.object(
+            PreparedNativeLayoutSnapshot,
+            "canonical_snapshot",
+            record_canonical_snapshot,
+        ):
+            root = self.reconciler.render(Flex(
+                button("Left", "left", 40),
+                button("Right", "right", 30),
+                direction="row", gap=8, width="160px", height="80px",
+            ))
+        self.assertTrue(observed, "Live Qt Flex must consume canonical lengths.")
+        style = dict(observed[-1].nodes[1].style)
+        self.assertEqual(style["layout_width"], Length.px(40))
+        self.assertEqual(style["layout_height"], Length.px(20))
+        self.assertEqual(geometry(root.children[0].handle.widget), (0, 0, 40, 20))
+        self.assertEqual(geometry(root.children[1].handle.widget), (48, 0, 30, 20))
+
+    def test_text_color_respects_native_qt_theme_invalidation_and_layout_changes(self):
+        class CountingEngine:
+            def __init__(self):
+                self.delegate = PythonLayoutEngine()
+                self.calls = 0
+
+            def compute(self, snapshot):
+                self.calls += 1
+                return self.delegate.compute(snapshot)
+
+        engine = CountingEngine()
+        self.renderer._sfle_engine = engine
+
+        def view(color, width="40px"):
+            return Flex(
+                Text("Constant", key="text", color=color,
+                     layout_width=width, layout_height="20px"),
+                direction="row", width="160px", height="80px",
+                align_items="flex-start",
+            )
+
+        root = self.reconciler.render(view("#111111"))
+        native = root.children[0].handle.widget
+        initial = geometry(native)
+        before = engine.calls
+        self.assertGreater(before, 0)
+        self.assertIsNotNone(getattr(self.renderer, "_sfle_committed_signatures", None),
+                             "Initial Qt geometry transaction must publish safe signature")
+        # A native theme/style event may change intrinsic metrics even when
+        # the only declarative edit is Text.color. It must override reuse.
+        self.renderer._sfle_measurement_invalidations.request("theme")
+        self.reconciler.render(view("#222222"))
+        self.assertIs(self.reconciler.root.children[0].handle.widget, native)
+        self.assertEqual(geometry(native), initial)
+        self.assertGreater(engine.calls, before,
+                           "Native theme invalidation must override paint-only reuse")
+        self.reconciler.render(view("#222222", width="55px"))
+        self.assertGreater(engine.calls, before)
+        self.assertEqual(geometry(native)[2], 55)
+
     def test_binding_and_native_geometry_owner(self):
         self.assertEqual(self.renderer._binding, BINDING)
         self.assertIs(self.renderer._widgets, qtwidgets)
@@ -656,14 +727,16 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertIn("read", calls)
 
     def test_missing_native_geometry_port_fails_before_factory(self):
+        from psx.core.native import NativeWidget
+        from psx.core.vnode import native_widget
         created = []
         def factory():
             created.append(True)
             return qtwidgets.QLabel()
         with self.assertRaisesRegex(RendererCapabilityError, "Native requires"):
             self.reconciler.render(Flex(
-                Native(factory, renderer=BINDING,
-                       layout_width="20px", layout_height="20px"),
+                native_widget(NativeWidget(renderer=BINDING, factory=factory),
+                              layout_width="20px", layout_height="20px"),
                 width=160, height=80,
             ))
         self.assertFalse(created)
@@ -1001,8 +1074,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         ORACLES["unmount"](
             before_unmount, observe(mounted=False, disposed=True),
         )
-        self.assertEqual(len(after.children), 2)
-        self.assertIs(after.children[1].handle.widget, widget)
+        self.assertEqual(len(after.children), 0)
         self.renderer.application.processEvents()
 
 

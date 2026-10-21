@@ -17,31 +17,31 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(root: 'VNode | ComponentType', *, renderer: 'str | Renderer | None' = None, providers: 'tuple[object, ...]' = (), settings: 'Mapping[str, object] | None' = None) -> 'None'`
 - Implementation: `psx/app.py`, line 17
 - First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/interop/test_sfle_saturation_certification.py`, `tests/sfle/test_grid_native_commit.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_qt_native_geometry.py`, `tests/sfle/test_qt_native_lifecycle.py`, `tests/sfle/test_qt_real_wrap_regression.py`, `tests/sfle/test_qt_stale_active_regression.py`, `tests/sfle/test_qt_worker_async_regression.py`, `tests/sfle/test_qt_worker_cancel_regression.py`, `tests/sfle/test_qt_worker_ui_thread_regression.py`, `tests/test_component_lexical_runtime.py`, `tests/test_grid_contract.py`
+- Candidate tests (not behavioral certification): `tests/css/test_context.py`, `tests/interop/test_sfle_saturation_certification.py`, `tests/sfle/test_grid_native_commit.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_qt_native_geometry.py`, `tests/sfle/test_qt_native_lifecycle.py`, `tests/sfle/test_qt_real_wrap_regression.py`, `tests/sfle/test_qt_stale_active_regression.py`, `tests/sfle/test_qt_worker_async_regression.py`, `tests/sfle/test_qt_worker_cancel_regression.py`, `tests/sfle/test_qt_worker_ui_thread_regression.py`, `tests/test_component_lexical_runtime.py`
 
 ### `psx.Badge`
 
 - Kind: `callable`
 - Signature: `(label: 'str' = '', *, variant: 'str' = 'neutral', appearance: 'str' = 'filled', size: 'str' = 'medium', shape: 'str' = 'rounded', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 636
+- Implementation: `psx/core/vnode.py`, line 640
 - First docstring line: A noninteractive, intrinsically sized semantic status label.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_plugin_api.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_renderer_adapters.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_external_native_ports.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_plugin_api.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_renderer_adapters.py`, `tests/test_tk_public_behavior.py`
 
 ### `psx.Button`
 
 - Kind: `callable`
 - Signature: `(label: 'str | int | float', *, font_size: 'int | float' = 14, on_click: 'Callable[[], None] | None' = None, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 279
+- Implementation: `psx/core/vnode.py`, line 283
 - First docstring line: Portable push button with a closed, backend-independent contract.
-- Candidate tests (not behavioral certification): `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_component_contracts.py`, `tests/test_component_family_policy.py`, `tests/test_component_lexical_runtime.py`, `tests/test_component_registry.py`, `tests/test_core.py`, `tests/test_docs_full_api_audit.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`
+- Candidate tests (not behavioral certification): `tests/css/test_box_flow_geometry.py`, `tests/interop/test_sfle_differential.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/sfle/test_measured_block_snapshot.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_component_contracts.py`, `tests/test_component_family_policy.py`, `tests/test_component_lexical_runtime.py`, `tests/test_component_registry.py`, `tests/test_core.py`, `tests/test_docs_full_api_audit.py`, `tests/test_expressive_composition_security.py`
 
 ### `psx.Checkbox`
 
 - Kind: `callable`
 - Signature: `(*, checked: 'bool' = False, enabled: 'bool' = True, on_change: 'Callable[[bool], None] | None' = None, key: 'str | int | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 328
+- Implementation: `psx/core/vnode.py`, line 332
 - First docstring line: Portable boolean checkbox with a boolean ``on_change`` callback.
-- Candidate tests (not behavioral certification): `tests/test_checkbox.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_kivy_renderer.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_matrix.py`, `tests/test_pyqt_renderer.py`, `tests/test_pyside6_native_layout.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tk_public_behavior.py`
+- Candidate tests (not behavioral certification): `tests/test_checkbox.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_kivy_renderer.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_css_binding.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_matrix.py`, `tests/test_pyqt_renderer.py`, `tests/test_pyside6_native_layout.py`
 
 ### `psx.ComponentAdapter`
 
@@ -71,7 +71,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*children: 'object', orientation: 'str' = 'horizontal', thickness: 'int' = 1, color: 'str | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 393
+- Implementation: `psx/core/vnode.py`, line 397
 - First docstring line: Portable separator with an optional single child.
 - Candidate tests (not behavioral certification): `tests/test_divider.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
@@ -87,7 +87,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*children: 'object', direction: 'str' = 'row', wrap: 'str' = 'nowrap', justify_content: 'str' = 'flex-start', align_items: 'str' = 'stretch', align_content: 'str' = 'normal', gap: 'int | float | str' = 0, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 241
+- Implementation: `psx/core/vnode.py`, line 245
 - First docstring line: Create a validated SFLE Flex declaration (G1; native wiring is G2).
 - Candidate tests (not behavioral certification): `tests/browser/test_sfle_chromium.py`, `tests/browser/test_sfle_cyclic_multi_padding_regression.py`, `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_holdout_regression.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/browser/test_sfle_intrinsic_max_regression.py`, `tests/browser/test_sfle_live_text_chromium.py`, `tests/browser/test_sfle_nested_columns_regression.py`, `tests/browser/test_sfle_nested_cyclic_padding_regression.py`, `tests/browser/test_sfle_nonlinear_freeze_regression.py`, `tests/browser/test_sfle_recursive_cross_percentage_regression.py`
 
@@ -95,7 +95,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*children: 'object', key: 'Key | None' = None) -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 215
+- Implementation: `psx/core/vnode.py`, line 219
 - First docstring line: No inline docstring.
 - Candidate tests (not behavioral certification): `tests/test_component_registry.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_headless_public_behavior.py`, `tests/test_native_component_matrix.py`, `tests/test_native_layout_snapshot.py`, `tests/test_public_contract_census.py`
 
@@ -103,7 +103,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*children: 'object', columns: 'int' = 12, gap: 'object' = 0, row_gap: 'object | None' = None, column_gap: 'object | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 657
+- Implementation: `psx/core/vnode.py`, line 661
 - First docstring line: Declare a future native Grid; geometry is unavailable until G2/G3.
 - Candidate tests (not behavioral certification): `tests/sfle/test_grid_math.py`, `tests/sfle/test_grid_native_commit.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_grid_native_plan.py`, `tests/sfle/test_grid_tree_measurement.py`, `tests/test_docs_full_api_audit.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_headless_grid_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_integration.py`
 
@@ -111,7 +111,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*children: 'object', span: 'object' = 'auto', offset: 'object' = 0, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 675
+- Implementation: `psx/core/vnode.py`, line 679
 - First docstring line: Declare a planned grid item; requires one portable component root.
 - Candidate tests (not behavioral certification): `tests/sfle/test_grid_math.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_grid_native_plan.py`, `tests/sfle/test_grid_tree_measurement.py`, `tests/test_docs_full_api_audit.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_headless_grid_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_integration.py`, `tests/test_native_component_matrix.py`
 
@@ -127,15 +127,15 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(source: 'str', *, fit: 'str' = 'contain', width: 'int | None' = None, height: 'int | None' = None, alt: 'str' = '', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 414
+- Implementation: `psx/core/vnode.py`, line 418
 - First docstring line: Portable image loaded from a local file path.
-- Candidate tests (not behavioral certification): `tests/interop/test_sfle_deferral_boundaries.py`, `tests/sfle/test_aspect_ratio_regression.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_layout_snapshot.py`, `tests/test_native_resource_invalidation.py`, `tests/test_public_contract_census.py`, `tests/test_public_property_validation.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`
+- Candidate tests (not behavioral certification): `tests/interop/test_sfle_deferral_boundaries.py`, `tests/sfle/test_aspect_ratio_regression.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_layout_change_effects.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_layout_snapshot.py`, `tests/test_native_resource_invalidation.py`, `tests/test_p1_canonical_box_style.py`, `tests/test_public_contract_census.py`
 
 ### `psx.Input`
 
 - Kind: `callable`
 - Signature: `(*, value: 'str' = '', placeholder: 'str' = '', font_size: 'int | float' = 14, enabled: 'bool' = True, read_only: 'bool' = False, password: 'bool' = False, on_change: 'Callable[[str], None] | None' = None, on_submit: 'Callable[[], None] | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 299
+- Implementation: `psx/core/vnode.py`, line 303
 - First docstring line: No inline docstring.
 - Candidate tests (not behavioral certification): `tests/browser/test_sfle_cyclic_multi_padding_regression.py`, `tests/browser/test_sfle_engine_chromium.py`, `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_holdout_regression.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/browser/test_sfle_intrinsic_max_regression.py`, `tests/browser/test_sfle_nested_columns_regression.py`, `tests/browser/test_sfle_nested_cyclic_padding_regression.py`, `tests/browser/test_sfle_nonlinear_freeze_regression.py`, `tests/browser/test_sfle_recursive_cross_percentage_regression.py`, `tests/browser/test_sfle_recursive_intrinsic_bounds_regression.py`
 
@@ -151,9 +151,9 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(label: 'str' = '', *, href: 'str | None' = None, on_click: 'Callable[[], None] | None' = None, color: 'str | None' = None, underline: 'bool' = True, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 569
+- Implementation: `psx/core/vnode.py`, line 573
 - First docstring line: Portable clickable text; external href or future-router callback.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
 ### `psx.MarkupSyntaxError`
 
@@ -161,21 +161,21 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(message: str, *, filename: str, line: int, column: int) -> None`
 - Implementation: `psx/core/errors.py`, line 40
 - First docstring line: A PSX markup error with source position information.
-- Candidate tests (not behavioral certification): `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_declarative_list_rendering.py`, `tests/test_divider.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_markup.py`, `tests/test_markup_registry.py`
+- Candidate tests (not behavioral certification): `tests/markup/test_inline_complex_props.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_declarative_list_rendering.py`, `tests/test_divider.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_lowercase_markup_aliases.py`
 
 ### `psx.Native`
 
 - Kind: `callable`
 - Signature: `(widget: 'object', *, props: 'Mapping[str, object] | None' = None, signals: 'Mapping[str, Callable[..., object] | None] | None' = None, renderer: 'str | None' = None, sfle_port: 'object | None' = None, key: 'str | int | None' = None, ref: 'object | None' = None, **attributes: 'object')`
-- Implementation: `psx/core/native.py`, line 81
+- Implementation: `psx/core/native.py`, line 82
 - First docstring line: Mount a native control while retaining PSX reconciliation semantics.
 - Candidate tests (not behavioral certification): `tests/interop/test_sfle_saturation_certification.py`, `tests/sfle/test_acceptance_contract_regression.py`, `tests/sfle/test_cross_backend_contract.py`, `tests/sfle/test_dependency_cycle.py`, `tests/sfle/test_grid_native_commit.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_grid_native_plan.py`, `tests/sfle/test_missing_native_fallback_regression.py`, `tests/sfle/test_native_authority_readback.py`, `tests/sfle/test_native_geometry.py`, `tests/sfle/test_native_lifecycle.py`, `tests/sfle/test_native_measurement.py`
 
 ### `psx.NativeOwnership`
 
 - Kind: `class`
-- Signature: `(value, names=None, *, module=None, qualname=None, type=None, start=1)`
-- Implementation: `psx/core/native.py`, line 18
+- Signature: `(*values)`
+- Implementation: `psx/core/native.py`, line 19
 - First docstring line: Who disposes the native widget when its PSX node is unmounted.
 - Candidate tests (not behavioral certification): `tests/test_external_native_geometry_ports.py`, `tests/test_kivy_native_layout.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tkinter_external_native_ports.py`
 
@@ -183,9 +183,9 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `class`
 - Signature: `(renderer: 'str', factory: 'Callable[..., object] | None' = None, takes_parent: 'bool' = False, widget: 'object | None' = None, update: 'NativeUpdate | None' = None, bind_event: 'NativeBindEvent | None' = None, ownership: 'NativeOwnership' = <NativeOwnership.OWNED: 'owned'>, name: 'str' = 'NativeWidget', sfle_port: 'object | None' = None) -> None`
-- Implementation: `psx/core/native.py`, line 30
+- Implementation: `psx/core/native.py`, line 31
 - First docstring line: A renderer-bound native widget declaration.
-- Candidate tests (not behavioral certification): `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tkinter_external_native_ports.py`
+- Candidate tests (not behavioral certification): `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_markup_transform.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tkinter_external_native_ports.py`
 
 ### `psx.PLUGIN_ENTRY_POINT_GROUP`
 
@@ -223,7 +223,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*, value: 'float' = 0.0, min: 'float' = 0.0, max: 'float' = 100.0, indeterminate: 'bool' = False, orientation: 'str' = 'horizontal', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 453
+- Implementation: `psx/core/vnode.py`, line 457
 - First docstring line: Portable determinate or indeterminate progress bar.
 - Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_matrix.py`, `tests/test_pyside6_native_layout.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
@@ -231,17 +231,17 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(value: 'str | int', *, label: 'str' = '', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 481
+- Implementation: `psx/core/vnode.py`, line 485
 - First docstring line: Portable radio button.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_public_property_validation.py`, `tests/test_pyside6_native_layout.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_css_binding.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_public_property_validation.py`, `tests/test_pyside6_native_layout.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`
 
 ### `psx.RadioGroup`
 
 - Kind: `callable`
 - Signature: `(*children: 'object', value: 'str | int | None' = None, on_change: 'Callable[[str | int], None] | None' = None, orientation: 'str' = 'vertical', spacing: 'int' = 0, padding: 'int | tuple[int, int] | tuple[int, int, int, int]' = 0, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 502
+- Implementation: `psx/core/vnode.py`, line 506
 - First docstring line: Portable mutually exclusive group of ``Radio`` children.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
 ### `psx.Ref`
 
@@ -249,7 +249,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(current: 'T | None' = None) -> None`
 - Implementation: `psx/core/hooks.py`, line 17
 - First docstring line: Ref(current: 'T | None' = None)
-- Candidate tests (not behavioral certification): `tests/browser/test_sfle_chromium_version.py`, `tests/test_devtools.py`, `tests/test_docs_api_reference.py`, `tests/test_markup_transform.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_webengine_extension.py`, `tests/test_ref_m0_characterization.py`
+- Candidate tests (not behavioral certification): `tests/browser/test_sfle_chromium_version.py`, `tests/test_devtools.py`, `tests/test_docs_api_reference.py`, `tests/test_markup_transform.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_p0_kivy_heap_ownership.py`, `tests/test_p0_kivy_native_lifecycle.py`, `tests/test_p0_memory_soak_probes.py`, `tests/test_p0_teardown_diagnostics.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_webengine_extension.py`, `tests/test_ref_m0_characterization.py`
 
 ### `psx.RendererAdapterRegistry`
 
@@ -273,7 +273,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `not inspectable`
 - Implementation: `psx/core/errors.py`, line 24
 - First docstring line: Raised when a renderer cannot honour a requested operation.
-- Candidate tests (not behavioral certification): `tests/test_arrow_callback_rendering.py`, `tests/test_component_contracts.py`, `tests/test_divider.py`, `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_grid_contract.py`, `tests/test_headless_native_layout.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_renderer.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`
+- Candidate tests (not behavioral certification): `tests/test_arrow_callback_rendering.py`, `tests/test_component_contracts.py`, `tests/test_divider.py`, `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_grid_contract.py`, `tests/test_headless_native_layout.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_renderer.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`
 
 ### `psx.RendererConfigurationError`
 
@@ -287,7 +287,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*children: 'object', direction: 'str' = 'vertical', content_direction: 'str' = 'vertical', scrollbar: 'str' = 'auto', width: 'int | float | None' = None, height: 'int | float | None' = None, spacing: 'int' = 0, padding: 'int | tuple[int, int] | tuple[int, int, int, int]' = 0, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 612
+- Implementation: `psx/core/vnode.py`, line 616
 - First docstring line: Portable clipped viewport with managed multi-child content.
 - Candidate tests (not behavioral certification): `tests/sfle/test_adapter_authority_certification.py`, `tests/sfle/test_authority_regression.py`, `tests/sfle/test_external_inventory_regression.py`, `tests/test_component_family_policy.py`, `tests/test_docs_full_api_audit.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_headless_grid_native_layout.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`
 
@@ -295,7 +295,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*, options: 'tuple[object, ...] | list[object]' = (), value: 'str | int | None' = None, placeholder: 'str' = '', enabled: 'bool' = True, on_change: 'Callable[[str | int], None] | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 528
+- Implementation: `psx/core/vnode.py`, line 532
 - First docstring line: Portable, controlled, single-selection input.
 - Candidate tests (not behavioral certification): `tests/browser/test_sfle_css_reference_matrix.py`, `tests/browser/test_sfle_cyclic_multi_padding_regression.py`, `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_holdout_fixtures_regression.py`, `tests/browser/test_sfle_holdout_regression.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_max_regression.py`, `tests/browser/test_sfle_live_text_chromium.py`, `tests/browser/test_sfle_nested_columns_regression.py`, `tests/browser/test_sfle_nested_cyclic_padding_regression.py`, `tests/browser/test_sfle_nonlinear_freeze_regression.py`, `tests/browser/test_sfle_recursive_cross_percentage_regression.py`
 
@@ -303,7 +303,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*, value: 'float' = 0.0, min: 'float' = 0.0, max: 'float' = 100.0, step: 'float' = 0.0, orientation: 'str' = 'horizontal', enabled: 'bool' = True, on_change: 'Callable[[float], None] | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 363
+- Implementation: `psx/core/vnode.py`, line 367
 - First docstring line: No inline docstring.
 - Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_pyside6_native_layout.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
@@ -311,7 +311,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 384
+- Implementation: `psx/core/vnode.py`, line 388
 - First docstring line: Absorbe el espacio libre del padre en su eje principal.
 - Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_spacer.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
@@ -319,7 +319,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*, value: 'int | float' = 0, min: 'int | float' = 0, max: 'int | float' = 100, step: 'int | float' = 1, decimals: 'int' = 0, enabled: 'bool' = True, on_change: 'Callable[[int | float], None] | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 590
+- Implementation: `psx/core/vnode.py`, line 594
 - First docstring line: Controlled portable numeric input with increment/decrement buttons.
 - Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
@@ -327,7 +327,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*, checked: 'bool' = False, enabled: 'bool' = True, label: 'str' = '', size: 'str' = 'medium', color: 'str' = '#16A34A', on_change: 'Callable[[bool], None] | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 548
+- Implementation: `psx/core/vnode.py`, line 552
 - First docstring line: Controlled, animated and labeled portable toggle switch.
 - Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
@@ -335,17 +335,17 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(value: 'str | int | float', *, font_size: 'int | float' = 16, bold: 'bool' = False, italic: 'bool' = False, color: 'str | None' = None, align: 'str' = 'left', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 263
+- Implementation: `psx/core/vnode.py`, line 267
 - First docstring line: Portable plain text with a closed, backend-independent contract.
-- Candidate tests (not behavioral certification): `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/sfle/test_constraint_propagation.py`, `tests/sfle/test_cross_leaf_convergence_regression.py`, `tests/sfle/test_dependency_cycle.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_grid_tree_measurement.py`, `tests/sfle/test_intrinsic_dependencies.py`, `tests/sfle/test_measurement_plan.py`, `tests/sfle/test_measurement_round.py`
+- Candidate tests (not behavioral certification): `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/css/test_geometry_handoff.py`, `tests/interop/test_sfle_differential.py`, `tests/interop/test_sfle_native_wheel.py`, `tests/markup/test_inline_complex_props.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/sfle/test_constraint_propagation.py`, `tests/sfle/test_cross_leaf_convergence_regression.py`, `tests/sfle/test_dependency_cycle.py`, `tests/sfle/test_grid_native_measurement.py`
 
 ### `psx.TextArea`
 
 - Kind: `callable`
 - Signature: `(value: 'str' = '', *, placeholder: 'str' = '', font_size: 'int | float' = 14, enabled: 'bool' = True, read_only: 'bool' = False, on_change: 'Callable[[str], None] | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 337
+- Implementation: `psx/core/vnode.py`, line 341
 - First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_markup_transform.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_css_binding.py`, `tests/test_markup_transform.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
 ### `psx.ThreadViolationError`
 
@@ -358,10 +358,18 @@ A candidate test is only a search match and **not** proof the behavior was teste
 ### `psx.VNode`
 
 - Kind: `class`
-- Signature: `(kind: 'NodeKind', type: 'VNodeType', key: 'Key | None', props: 'Mapping[str, object]', children: "tuple['VNode', ...]") -> None`
+- Signature: `(kind: 'NodeKind', type: 'VNodeType', key: 'Key | None', props: 'Mapping[str, object]', children: "tuple['VNode', ...]", css_source: 'object | None' = None, css_computed: 'object | None' = None) -> None`
 - Implementation: `psx/core/vnode.py`, line 119
 - First docstring line: A framework-independent, immutable UI description.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_renderer_adapters.py`, `tests/test_text_portable.py`
+- Candidate tests (not behavioral certification): `tests/css/test_properties.py`, `tests/test_flex_item_metadata.py`, `tests/test_native_layout_snapshot.py`, `tests/test_renderer_adapters.py`, `tests/test_text_portable.py`
+
+### `psx.WebView`
+
+- Kind: `callable`
+- Signature: `(*, url: 'str | object | None' = None, html: 'str | None' = None, width: 'str | int | float | None' = None, height: 'str | int | float | None' = None, layout_width: 'str | int | float | None' = None, layout_height: 'str | int | float | None' = None, on_load_finished: 'Callable[[bool], object] | None' = None, on_url_changed: 'Callable[[object], object] | None' = None, key: 'str | int | None' = None, ref: 'object | None' = None, **layout: 'object') -> 'VNode'`
+- Implementation: `psx/extensions/qt_webengine.py`, line 133
+- First docstring line: Create a platform-native Qt WebView hosted in a PSX QWidget.
+- Candidate tests (not behavioral certification): `tests/test_docs_full_api_audit.py`, `tests/test_flex_item_metadata.py`, `tests/test_markup_transform.py`, `tests/test_public_contract_census.py`, `tests/test_qt_webengine_extension.py`
 
 ### `psx.builtin_component_registry`
 
@@ -369,7 +377,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `() -> 'ComponentRegistry'`
 - Implementation: `psx/core/registry.py`, line 118
 - First docstring line: Create a fresh default registry populated with current built-ins.
-- Candidate tests (not behavioral certification): `tests/test_component_registry.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_grid_contract.py`, `tests/test_headless_native_layout.py`, `tests/test_kivy_native_layout.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_markup_registry.py`, `tests/test_native_component_integration.py`, `tests/test_native_component_matrix.py`, `tests/test_public_behavior_census.py`, `tests/test_public_contract_census.py`
+- Candidate tests (not behavioral certification): `tests/test_component_registry.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_grid_contract.py`, `tests/test_headless_native_layout.py`, `tests/test_kivy_native_layout.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_registry.py`, `tests/test_native_component_integration.py`, `tests/test_native_component_matrix.py`, `tests/test_public_behavior_census.py`
 
 ### `psx.component`
 
@@ -377,7 +385,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(function: 'Callable[..., object]') -> 'ComponentType'`
 - Implementation: `psx/core/component.py`, line 29
 - First docstring line: Declare a component, preserving identity across a compatible reload.
-- Candidate tests (not behavioral certification): `tests/browser/test_sfle_engine_chromium.py`, `tests/interop/test_sfle_deferral_boundaries.py`, `tests/interop/test_sfle_differential.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/sfle/test_a01_compute_red.py`, `tests/sfle/test_acceptance_contract_regression.py`, `tests/sfle/test_external_inventory_regression.py`, `tests/test_benchmarks.py`, `tests/test_ci_impact.py`, `tests/test_component_family_policy.py`, `tests/test_component_lexical_runtime.py`, `tests/test_component_registry.py`
+- Candidate tests (not behavioral certification): `tests/browser/test_sfle_engine_chromium.py`, `tests/css/test_box_flow_geometry.py`, `tests/interop/test_sfle_deferral_boundaries.py`, `tests/interop/test_sfle_differential.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/sfle/test_a01_compute_red.py`, `tests/sfle/test_acceptance_contract_regression.py`, `tests/sfle/test_display_context.py`, `tests/sfle/test_external_inventory_regression.py`, `tests/test_benchmarks.py`, `tests/test_ci_impact.py`, `tests/test_component_family_policy.py`
 
 ### `psx.core.errors.DuplicateComponentError`
 
@@ -417,7 +425,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(message: str, *, filename: str, line: int, column: int) -> None`
 - Implementation: `psx/core/errors.py`, line 40
 - First docstring line: A PSX markup error with source position information.
-- Candidate tests (not behavioral certification): `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_declarative_list_rendering.py`, `tests/test_divider.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_markup.py`, `tests/test_markup_registry.py`
+- Candidate tests (not behavioral certification): `tests/markup/test_inline_complex_props.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_declarative_list_rendering.py`, `tests/test_divider.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_lowercase_markup_aliases.py`
 
 ### `psx.core.errors.PSXError`
 
@@ -433,7 +441,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `not inspectable`
 - Implementation: `psx/core/errors.py`, line 24
 - First docstring line: Raised when a renderer cannot honour a requested operation.
-- Candidate tests (not behavioral certification): `tests/test_arrow_callback_rendering.py`, `tests/test_component_contracts.py`, `tests/test_divider.py`, `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_grid_contract.py`, `tests/test_headless_native_layout.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_renderer.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`
+- Candidate tests (not behavioral certification): `tests/test_arrow_callback_rendering.py`, `tests/test_component_contracts.py`, `tests/test_divider.py`, `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_grid_contract.py`, `tests/test_headless_native_layout.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_renderer.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`
 
 ### `psx.core.errors.RendererConfigurationError`
 
@@ -465,7 +473,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(current: 'T | None' = None) -> None`
 - Implementation: `psx/core/hooks.py`, line 17
 - First docstring line: Ref(current: 'T | None' = None)
-- Candidate tests (not behavioral certification): `tests/browser/test_sfle_chromium_version.py`, `tests/test_devtools.py`, `tests/test_docs_api_reference.py`, `tests/test_markup_transform.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_webengine_extension.py`, `tests/test_ref_m0_characterization.py`
+- Candidate tests (not behavioral certification): `tests/browser/test_sfle_chromium_version.py`, `tests/test_devtools.py`, `tests/test_docs_api_reference.py`, `tests/test_markup_transform.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_p0_kivy_heap_ownership.py`, `tests/test_p0_kivy_native_lifecycle.py`, `tests/test_p0_memory_soak_probes.py`, `tests/test_p0_teardown_diagnostics.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_webengine_extension.py`, `tests/test_ref_m0_characterization.py`
 
 ### `psx.core.hooks.abort_render`
 
@@ -488,7 +496,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Kind: `callable`
 - Signature: `(instance: 'MountedInstance') -> 'None'`
 - Implementation: `psx/core/hooks.py`, line 127
-- First docstring line: Dispose effects in reverse registration order before native destruction.
+- First docstring line: Dispose every effect, even when a user-provided cleanup raises.
 - Candidate tests (not behavioral certification): none located by name match
 
 ### `psx.core.hooks.end_render`
@@ -503,7 +511,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(key: 'object', value: 'object') -> 'None'`
-- Implementation: `psx/core/hooks.py`, line 136
+- Implementation: `psx/core/hooks.py`, line 151
 - First docstring line: Attach an explicit provider value to the component currently rendering.
 - Candidate tests (not behavioral certification): none located by name match
 
@@ -511,7 +519,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(key: 'object') -> 'object'`
-- Implementation: `psx/core/hooks.py`, line 141
+- Implementation: `psx/core/hooks.py`, line 156
 - First docstring line: Look up the nearest explicit provider without creating a global singleton.
 - Candidate tests (not behavioral certification): none located by name match
 
@@ -521,7 +529,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(callback: 'Callable[[], Callable[[], None] | None]', dependencies: 'Sequence[object] | None' = None) -> 'None'`
 - Implementation: `psx/core/hooks.py`, line 107
 - First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/test_component_lexical_runtime.py`, `tests/test_hooks_scheduler.py`
+- Candidate tests (not behavioral certification): `tests/test_component_lexical_runtime.py`, `tests/test_hooks_scheduler.py`, `tests/test_p0_kivy_native_lifecycle.py`, `tests/test_p0_pyside6_native_lifecycle.py`, `tests/test_p0_tkinter_native_lifecycle.py`
 
 ### `psx.core.hooks.use_ref`
 
@@ -543,15 +551,15 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(widget: 'object', *, props: 'Mapping[str, object] | None' = None, signals: 'Mapping[str, Callable[..., object] | None] | None' = None, renderer: 'str | None' = None, sfle_port: 'object | None' = None, key: 'str | int | None' = None, ref: 'object | None' = None, **attributes: 'object')`
-- Implementation: `psx/core/native.py`, line 81
+- Implementation: `psx/core/native.py`, line 82
 - First docstring line: Mount a native control while retaining PSX reconciliation semantics.
 - Candidate tests (not behavioral certification): `tests/interop/test_sfle_saturation_certification.py`, `tests/sfle/test_acceptance_contract_regression.py`, `tests/sfle/test_cross_backend_contract.py`, `tests/sfle/test_dependency_cycle.py`, `tests/sfle/test_grid_native_commit.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_grid_native_plan.py`, `tests/sfle/test_missing_native_fallback_regression.py`, `tests/sfle/test_native_authority_readback.py`, `tests/sfle/test_native_geometry.py`, `tests/sfle/test_native_lifecycle.py`, `tests/sfle/test_native_measurement.py`
 
 ### `psx.core.native.NativeOwnership`
 
 - Kind: `class`
-- Signature: `(value, names=None, *, module=None, qualname=None, type=None, start=1)`
-- Implementation: `psx/core/native.py`, line 18
+- Signature: `(*values)`
+- Implementation: `psx/core/native.py`, line 19
 - First docstring line: Who disposes the native widget when its PSX node is unmounted.
 - Candidate tests (not behavioral certification): `tests/test_external_native_geometry_ports.py`, `tests/test_kivy_native_layout.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tkinter_external_native_ports.py`
 
@@ -559,9 +567,9 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `class`
 - Signature: `(renderer: 'str', factory: 'Callable[..., object] | None' = None, takes_parent: 'bool' = False, widget: 'object | None' = None, update: 'NativeUpdate | None' = None, bind_event: 'NativeBindEvent | None' = None, ownership: 'NativeOwnership' = <NativeOwnership.OWNED: 'owned'>, name: 'str' = 'NativeWidget', sfle_port: 'object | None' = None) -> None`
-- Implementation: `psx/core/native.py`, line 30
+- Implementation: `psx/core/native.py`, line 31
 - First docstring line: A renderer-bound native widget declaration.
-- Candidate tests (not behavioral certification): `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tkinter_external_native_ports.py`
+- Candidate tests (not behavioral certification): `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_markup_transform.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tkinter_external_native_ports.py`
 
 ### `psx.core.registry.ComponentDefinition`
 
@@ -585,21 +593,21 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `() -> 'ComponentRegistry'`
 - Implementation: `psx/core/registry.py`, line 118
 - First docstring line: Create a fresh default registry populated with current built-ins.
-- Candidate tests (not behavioral certification): `tests/test_component_registry.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_grid_contract.py`, `tests/test_headless_native_layout.py`, `tests/test_kivy_native_layout.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_markup_registry.py`, `tests/test_native_component_integration.py`, `tests/test_native_component_matrix.py`, `tests/test_public_behavior_census.py`, `tests/test_public_contract_census.py`
+- Candidate tests (not behavioral certification): `tests/test_component_registry.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_grid_contract.py`, `tests/test_headless_native_layout.py`, `tests/test_kivy_native_layout.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_registry.py`, `tests/test_native_component_integration.py`, `tests/test_native_component_matrix.py`, `tests/test_public_behavior_census.py`
 
 ### `psx.core.vnode.Badge`
 
 - Kind: `callable`
 - Signature: `(label: 'str' = '', *, variant: 'str' = 'neutral', appearance: 'str' = 'filled', size: 'str' = 'medium', shape: 'str' = 'rounded', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 636
+- Implementation: `psx/core/vnode.py`, line 640
 - First docstring line: A noninteractive, intrinsically sized semantic status label.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_plugin_api.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_renderer_adapters.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_external_native_ports.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_plugin_api.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_renderer_adapters.py`, `tests/test_tk_public_behavior.py`
 
 ### `psx.core.vnode.Box`
 
 - Kind: `callable`
 - Signature: `(*children: 'object', key: 'Key | None' = None, ref: 'object | None' = None) -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 443
+- Implementation: `psx/core/vnode.py`, line 447
 - First docstring line: Internal passthrough container used by the Qyro integration.
 - Candidate tests (not behavioral certification): `tests/browser/test_sfle_chromium.py`, `tests/browser/test_sfle_cyclic_multi_padding_regression.py`, `tests/browser/test_sfle_engine_chromium.py`, `tests/browser/test_sfle_holdout_regression.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/browser/test_sfle_intrinsic_max_regression.py`, `tests/browser/test_sfle_nested_columns_regression.py`, `tests/browser/test_sfle_nested_cyclic_padding_regression.py`, `tests/browser/test_sfle_nonlinear_freeze_regression.py`, `tests/browser/test_sfle_recursive_cross_percentage_regression.py`, `tests/browser/test_sfle_recursive_intrinsic_bounds_regression.py`
 
@@ -607,23 +615,23 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(label: 'str | int | float', *, font_size: 'int | float' = 14, on_click: 'Callable[[], None] | None' = None, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 279
+- Implementation: `psx/core/vnode.py`, line 283
 - First docstring line: Portable push button with a closed, backend-independent contract.
-- Candidate tests (not behavioral certification): `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_component_contracts.py`, `tests/test_component_family_policy.py`, `tests/test_component_lexical_runtime.py`, `tests/test_component_registry.py`, `tests/test_core.py`, `tests/test_docs_full_api_audit.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_flex_item_metadata.py`
+- Candidate tests (not behavioral certification): `tests/css/test_box_flow_geometry.py`, `tests/interop/test_sfle_differential.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/sfle/test_measured_block_snapshot.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_component_contracts.py`, `tests/test_component_family_policy.py`, `tests/test_component_lexical_runtime.py`, `tests/test_component_registry.py`, `tests/test_core.py`, `tests/test_docs_full_api_audit.py`, `tests/test_expressive_composition_security.py`
 
 ### `psx.core.vnode.Checkbox`
 
 - Kind: `callable`
 - Signature: `(*, checked: 'bool' = False, enabled: 'bool' = True, on_change: 'Callable[[bool], None] | None' = None, key: 'str | int | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 328
+- Implementation: `psx/core/vnode.py`, line 332
 - First docstring line: Portable boolean checkbox with a boolean ``on_change`` callback.
-- Candidate tests (not behavioral certification): `tests/test_checkbox.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_kivy_renderer.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_matrix.py`, `tests/test_pyqt_renderer.py`, `tests/test_pyside6_native_layout.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tk_public_behavior.py`
+- Candidate tests (not behavioral certification): `tests/test_checkbox.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_kivy_renderer.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_css_binding.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_matrix.py`, `tests/test_pyqt_renderer.py`, `tests/test_pyside6_native_layout.py`
 
 ### `psx.core.vnode.Divider`
 
 - Kind: `callable`
 - Signature: `(*children: 'object', orientation: 'str' = 'horizontal', thickness: 'int' = 1, color: 'str | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 393
+- Implementation: `psx/core/vnode.py`, line 397
 - First docstring line: Portable separator with an optional single child.
 - Candidate tests (not behavioral certification): `tests/test_divider.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
@@ -631,7 +639,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*children: 'object', direction: 'str' = 'row', wrap: 'str' = 'nowrap', justify_content: 'str' = 'flex-start', align_items: 'str' = 'stretch', align_content: 'str' = 'normal', gap: 'int | float | str' = 0, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 241
+- Implementation: `psx/core/vnode.py`, line 245
 - First docstring line: Create a validated SFLE Flex declaration (G1; native wiring is G2).
 - Candidate tests (not behavioral certification): `tests/browser/test_sfle_chromium.py`, `tests/browser/test_sfle_cyclic_multi_padding_regression.py`, `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_holdout_regression.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/browser/test_sfle_intrinsic_max_regression.py`, `tests/browser/test_sfle_live_text_chromium.py`, `tests/browser/test_sfle_nested_columns_regression.py`, `tests/browser/test_sfle_nested_cyclic_padding_regression.py`, `tests/browser/test_sfle_nonlinear_freeze_regression.py`, `tests/browser/test_sfle_recursive_cross_percentage_regression.py`
 
@@ -639,7 +647,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*children: 'object', columns: 'int' = 12, gap: 'object' = 0, row_gap: 'object | None' = None, column_gap: 'object | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 657
+- Implementation: `psx/core/vnode.py`, line 661
 - First docstring line: Declare a future native Grid; geometry is unavailable until G2/G3.
 - Candidate tests (not behavioral certification): `tests/sfle/test_grid_math.py`, `tests/sfle/test_grid_native_commit.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_grid_native_plan.py`, `tests/sfle/test_grid_tree_measurement.py`, `tests/test_docs_full_api_audit.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_headless_grid_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_integration.py`
 
@@ -647,7 +655,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*children: 'object', span: 'object' = 'auto', offset: 'object' = 0, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 675
+- Implementation: `psx/core/vnode.py`, line 679
 - First docstring line: Declare a planned grid item; requires one portable component root.
 - Candidate tests (not behavioral certification): `tests/sfle/test_grid_math.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_grid_native_plan.py`, `tests/sfle/test_grid_tree_measurement.py`, `tests/test_docs_full_api_audit.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_headless_grid_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_integration.py`, `tests/test_native_component_matrix.py`
 
@@ -655,15 +663,15 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(source: 'str', *, fit: 'str' = 'contain', width: 'int | None' = None, height: 'int | None' = None, alt: 'str' = '', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 414
+- Implementation: `psx/core/vnode.py`, line 418
 - First docstring line: Portable image loaded from a local file path.
-- Candidate tests (not behavioral certification): `tests/interop/test_sfle_deferral_boundaries.py`, `tests/sfle/test_aspect_ratio_regression.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_layout_snapshot.py`, `tests/test_native_resource_invalidation.py`, `tests/test_public_contract_census.py`, `tests/test_public_property_validation.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`
+- Candidate tests (not behavioral certification): `tests/interop/test_sfle_deferral_boundaries.py`, `tests/sfle/test_aspect_ratio_regression.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_layout_change_effects.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_layout_snapshot.py`, `tests/test_native_resource_invalidation.py`, `tests/test_p1_canonical_box_style.py`, `tests/test_public_contract_census.py`
 
 ### `psx.core.vnode.Input`
 
 - Kind: `callable`
 - Signature: `(*, value: 'str' = '', placeholder: 'str' = '', font_size: 'int | float' = 14, enabled: 'bool' = True, read_only: 'bool' = False, password: 'bool' = False, on_change: 'Callable[[str], None] | None' = None, on_submit: 'Callable[[], None] | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 299
+- Implementation: `psx/core/vnode.py`, line 303
 - First docstring line: No inline docstring.
 - Candidate tests (not behavioral certification): `tests/browser/test_sfle_cyclic_multi_padding_regression.py`, `tests/browser/test_sfle_engine_chromium.py`, `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_holdout_regression.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/browser/test_sfle_intrinsic_max_regression.py`, `tests/browser/test_sfle_nested_columns_regression.py`, `tests/browser/test_sfle_nested_cyclic_padding_regression.py`, `tests/browser/test_sfle_nonlinear_freeze_regression.py`, `tests/browser/test_sfle_recursive_cross_percentage_regression.py`, `tests/browser/test_sfle_recursive_intrinsic_bounds_regression.py`
 
@@ -671,23 +679,23 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(label: 'str' = '', *, href: 'str | None' = None, on_click: 'Callable[[], None] | None' = None, color: 'str | None' = None, underline: 'bool' = True, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 569
+- Implementation: `psx/core/vnode.py`, line 573
 - First docstring line: Portable clickable text; external href or future-router callback.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
 ### `psx.core.vnode.NodeKind`
 
 - Kind: `class`
-- Signature: `(value, names=None, *, module=None, qualname=None, type=None, start=1)`
+- Signature: `(*values)`
 - Implementation: `psx/core/vnode.py`, line 105
-- First docstring line: An enumeration.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_text_portable.py`
+- First docstring line: str(object='') -> str
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_markup_css_binding.py`, `tests/test_text_portable.py`
 
 ### `psx.core.vnode.ProgressBar`
 
 - Kind: `callable`
 - Signature: `(*, value: 'float' = 0.0, min: 'float' = 0.0, max: 'float' = 100.0, indeterminate: 'bool' = False, orientation: 'str' = 'horizontal', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 453
+- Implementation: `psx/core/vnode.py`, line 457
 - First docstring line: Portable determinate or indeterminate progress bar.
 - Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_matrix.py`, `tests/test_pyside6_native_layout.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
@@ -695,23 +703,23 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(value: 'str | int', *, label: 'str' = '', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 481
+- Implementation: `psx/core/vnode.py`, line 485
 - First docstring line: Portable radio button.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_public_property_validation.py`, `tests/test_pyside6_native_layout.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_css_binding.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_public_property_validation.py`, `tests/test_pyside6_native_layout.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`
 
 ### `psx.core.vnode.RadioGroup`
 
 - Kind: `callable`
 - Signature: `(*children: 'object', value: 'str | int | None' = None, on_change: 'Callable[[str | int], None] | None' = None, orientation: 'str' = 'vertical', spacing: 'int' = 0, padding: 'int | tuple[int, int] | tuple[int, int, int, int]' = 0, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 502
+- Implementation: `psx/core/vnode.py`, line 506
 - First docstring line: Portable mutually exclusive group of ``Radio`` children.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
 ### `psx.core.vnode.Scroll`
 
 - Kind: `callable`
 - Signature: `(*children: 'object', direction: 'str' = 'vertical', content_direction: 'str' = 'vertical', scrollbar: 'str' = 'auto', width: 'int | float | None' = None, height: 'int | float | None' = None, spacing: 'int' = 0, padding: 'int | tuple[int, int] | tuple[int, int, int, int]' = 0, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 612
+- Implementation: `psx/core/vnode.py`, line 616
 - First docstring line: Portable clipped viewport with managed multi-child content.
 - Candidate tests (not behavioral certification): `tests/sfle/test_adapter_authority_certification.py`, `tests/sfle/test_authority_regression.py`, `tests/sfle/test_external_inventory_regression.py`, `tests/test_component_family_policy.py`, `tests/test_docs_full_api_audit.py`, `tests/test_flex_item_metadata.py`, `tests/test_flex_layout_contract.py`, `tests/test_headless_grid_native_layout.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`
 
@@ -719,7 +727,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*, options: 'tuple[object, ...] | list[object]' = (), value: 'str | int | None' = None, placeholder: 'str' = '', enabled: 'bool' = True, on_change: 'Callable[[str | int], None] | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 528
+- Implementation: `psx/core/vnode.py`, line 532
 - First docstring line: Portable, controlled, single-selection input.
 - Candidate tests (not behavioral certification): `tests/browser/test_sfle_css_reference_matrix.py`, `tests/browser/test_sfle_cyclic_multi_padding_regression.py`, `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_holdout_fixtures_regression.py`, `tests/browser/test_sfle_holdout_regression.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_max_regression.py`, `tests/browser/test_sfle_live_text_chromium.py`, `tests/browser/test_sfle_nested_columns_regression.py`, `tests/browser/test_sfle_nested_cyclic_padding_regression.py`, `tests/browser/test_sfle_nonlinear_freeze_regression.py`, `tests/browser/test_sfle_recursive_cross_percentage_regression.py`
 
@@ -727,7 +735,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*, value: 'float' = 0.0, min: 'float' = 0.0, max: 'float' = 100.0, step: 'float' = 0.0, orientation: 'str' = 'horizontal', enabled: 'bool' = True, on_change: 'Callable[[float], None] | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 363
+- Implementation: `psx/core/vnode.py`, line 367
 - First docstring line: No inline docstring.
 - Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_pyside6_native_layout.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
@@ -735,7 +743,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 384
+- Implementation: `psx/core/vnode.py`, line 388
 - First docstring line: Absorbe el espacio libre del padre en su eje principal.
 - Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_spacer.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
@@ -743,7 +751,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*, value: 'int | float' = 0, min: 'int | float' = 0, max: 'int | float' = 100, step: 'int | float' = 1, decimals: 'int' = 0, enabled: 'bool' = True, on_change: 'Callable[[int | float], None] | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 590
+- Implementation: `psx/core/vnode.py`, line 594
 - First docstring line: Controlled portable numeric input with increment/decrement buttons.
 - Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
@@ -751,7 +759,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(*, checked: 'bool' = False, enabled: 'bool' = True, label: 'str' = '', size: 'str' = 'medium', color: 'str' = '#16A34A', on_change: 'Callable[[bool], None] | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 548
+- Implementation: `psx/core/vnode.py`, line 552
 - First docstring line: Controlled, animated and labeled portable toggle switch.
 - Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
@@ -759,47 +767,47 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(value: 'str | int | float', *, font_size: 'int | float' = 16, bold: 'bool' = False, italic: 'bool' = False, color: 'str | None' = None, align: 'str' = 'left', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 263
+- Implementation: `psx/core/vnode.py`, line 267
 - First docstring line: Portable plain text with a closed, backend-independent contract.
-- Candidate tests (not behavioral certification): `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/sfle/test_constraint_propagation.py`, `tests/sfle/test_cross_leaf_convergence_regression.py`, `tests/sfle/test_dependency_cycle.py`, `tests/sfle/test_grid_native_measurement.py`, `tests/sfle/test_grid_tree_measurement.py`, `tests/sfle/test_intrinsic_dependencies.py`, `tests/sfle/test_measurement_plan.py`, `tests/sfle/test_measurement_round.py`
+- Candidate tests (not behavioral certification): `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/css/test_geometry_handoff.py`, `tests/interop/test_sfle_differential.py`, `tests/interop/test_sfle_native_wheel.py`, `tests/markup/test_inline_complex_props.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/sfle/test_constraint_propagation.py`, `tests/sfle/test_cross_leaf_convergence_regression.py`, `tests/sfle/test_dependency_cycle.py`, `tests/sfle/test_grid_native_measurement.py`
 
 ### `psx.core.vnode.TextArea`
 
 - Kind: `callable`
 - Signature: `(value: 'str' = '', *, placeholder: 'str' = '', font_size: 'int | float' = 14, enabled: 'bool' = True, read_only: 'bool' = False, on_change: 'Callable[[str], None] | None' = None, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 337
+- Implementation: `psx/core/vnode.py`, line 341
 - First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_markup_transform.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_css_binding.py`, `tests/test_markup_transform.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
 ### `psx.core.vnode.VNode`
 
 - Kind: `class`
-- Signature: `(kind: 'NodeKind', type: 'VNodeType', key: 'Key | None', props: 'Mapping[str, object]', children: "tuple['VNode', ...]") -> None`
+- Signature: `(kind: 'NodeKind', type: 'VNodeType', key: 'Key | None', props: 'Mapping[str, object]', children: "tuple['VNode', ...]", css_source: 'object | None' = None, css_computed: 'object | None' = None) -> None`
 - Implementation: `psx/core/vnode.py`, line 119
 - First docstring line: A framework-independent, immutable UI description.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_renderer_adapters.py`, `tests/test_text_portable.py`
+- Candidate tests (not behavioral certification): `tests/css/test_properties.py`, `tests/test_flex_item_metadata.py`, `tests/test_native_layout_snapshot.py`, `tests/test_renderer_adapters.py`, `tests/test_text_portable.py`
 
 ### `psx.core.vnode.create_element`
 
 - Kind: `callable`
 - Signature: `(node_type: 'VNodeType', *children: 'object', key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 167
+- Implementation: `psx/core/vnode.py`, line 171
 - First docstring line: Create a VNode; all public builders delegate to this constructor.
-- Candidate tests (not behavioral certification): `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_headless_public_behavior.py`, `tests/test_kivy_native_layout.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_renderer_adapters.py`, `tests/test_text_portable.py`, `tests/test_tkinter_external_native_ports.py`
+- Candidate tests (not behavioral certification): `tests/css/test_tree.py`, `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_headless_public_behavior.py`, `tests/test_kivy_native_layout.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_p0_teardown_diagnostics.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`
 
 ### `psx.core.vnode.native_widget`
 
 - Kind: `callable`
 - Signature: `(widget: 'NativeWidget', *, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 226
+- Implementation: `psx/core/vnode.py`, line 230
 - First docstring line: Create a VNode for a renderer-specific :class:`NativeWidget` declaration.
-- Candidate tests (not behavioral certification): `tests/test_devtools.py`, `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_integration.py`, `tests/test_native_geometry_write_suppression.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`
+- Candidate tests (not behavioral certification): `tests/test_css_markup_census.py`, `tests/test_devtools.py`, `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_markup_css_binding.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_integration.py`, `tests/test_native_geometry_write_suppression.py`, `tests/test_p0_tkinter_native_lifecycle.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`
 
 ### `psx.core.vnode.normalize_children`
 
 - Kind: `callable`
 - Signature: `(values: 'Iterable[object]') -> 'tuple[VNode, ...]'`
-- Implementation: `psx/core/vnode.py`, line 159
+- Implementation: `psx/core/vnode.py`, line 163
 - First docstring line: Normalize supported declarative child values into immutable VNodes.
 - Candidate tests (not behavioral certification): none located by name match
 
@@ -807,9 +815,9 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(node_type: 'VNodeType', *children: 'object', key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 167
+- Implementation: `psx/core/vnode.py`, line 171
 - First docstring line: Create a VNode; all public builders delegate to this constructor.
-- Candidate tests (not behavioral certification): `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_headless_public_behavior.py`, `tests/test_kivy_native_layout.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_renderer_adapters.py`, `tests/test_text_portable.py`, `tests/test_tkinter_external_native_ports.py`
+- Candidate tests (not behavioral certification): `tests/css/test_tree.py`, `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_headless_public_behavior.py`, `tests/test_kivy_native_layout.py`, `tests/test_legacy_layout_inventory.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_p0_teardown_diagnostics.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`
 
 ### `psx.load_plugins`
 
@@ -823,7 +831,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `class`
 - Signature: `(source_filename: 'str', entries: 'tuple[SourceMapEntry, ...]') -> None`
-- Implementation: `psx/markup/transform.py`, line 34
+- Implementation: `psx/markup/transform.py`, line 35
 - First docstring line: SourceMap(source_filename: 'str', entries: 'tuple[SourceMapEntry, ...]')
 - Candidate tests (not behavioral certification): none located by name match
 
@@ -831,7 +839,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `class`
 - Signature: `(source: 'str', source_map: 'SourceMap', transformed_calls: 'int') -> None`
-- Implementation: `psx/markup/transform.py`, line 43
+- Implementation: `psx/markup/transform.py`, line 44
 - First docstring line: TransformResult(source: 'str', source_map: 'SourceMap', transformed_calls: 'int')
 - Candidate tests (not behavioral certification): none located by name match
 
@@ -839,7 +847,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `() -> 'None'`
-- Implementation: `psx/markup/compile.py`, line 117
+- Implementation: `psx/markup/compile.py`, line 119
 - First docstring line: No inline docstring.
 - Candidate tests (not behavioral certification): `tests/test_markup_registry.py`
 
@@ -847,15 +855,15 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(source: 'str', *, filename: 'str' = '<psx>', primitives: 'Mapping[str, Primitive] | None' = None, registry: 'ComponentRegistry | None' = None) -> 'CompiledTemplate'`
-- Implementation: `psx/markup/compile.py`, line 80
+- Implementation: `psx/markup/compile.py`, line 82
 - First docstring line: Compile markup using legacy primitives or an isolated component registry.
-- Candidate tests (not behavioral certification): `tests/test_devtools.py`, `tests/test_markup.py`, `tests/test_markup_registry.py`, `tests/test_markup_transform.py`
+- Candidate tests (not behavioral certification): `tests/test_devtools.py`, `tests/test_markup.py`, `tests/test_markup_css_binding.py`, `tests/test_markup_registry.py`, `tests/test_markup_transform.py`
 
 ### `psx.markup.psx`
 
 - Kind: `callable`
 - Signature: `(source: 'str', *, scope: 'Mapping[str, object] | None' = None, filename: 'str' = '<psx>', primitives: 'Mapping[str, Primitive] | None' = None, registry: 'ComponentRegistry | None' = None) -> 'VNode'`
-- Implementation: `psx/markup/compile.py`, line 105
+- Implementation: `psx/markup/compile.py`, line 107
 - First docstring line: Compile and render an explicit-scope PSX template into ordinary VNodes.
 - Candidate tests (not behavioral certification): `tests/browser/test_sfle_chromium.py`, `tests/browser/test_sfle_css_reference_matrix.py`, `tests/browser/test_sfle_cyclic_multi_padding_regression.py`, `tests/browser/test_sfle_engine_chromium.py`, `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_holdout_fixtures_regression.py`, `tests/browser/test_sfle_holdout_regression.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/browser/test_sfle_intrinsic_max_regression.py`, `tests/browser/test_sfle_live_text_chromium.py`, `tests/browser/test_sfle_nested_columns_regression.py`
 
@@ -863,7 +871,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(source_path: 'Path', output_path: 'Path', *, map_path: 'Path | None' = None) -> 'TransformResult'`
-- Implementation: `psx/markup/transform.py`, line 185
+- Implementation: `psx/markup/transform.py`, line 201
 - First docstring line: Transform one source file and emit a JSON source-map sidecar when requested.
 - Candidate tests (not behavioral certification): `tests/test_markup_transform.py`
 
@@ -871,17 +879,17 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(source: 'str', *, filename: 'str' = '<module>') -> 'TransformResult'`
-- Implementation: `psx/markup/transform.py`, line 163
+- Implementation: `psx/markup/transform.py`, line 179
 - First docstring line: Transform statically known inline ``psx`` calls into lexical factories.
-- Candidate tests (not behavioral certification): `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_declarative_list_rendering.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_markup_transform.py`
+- Candidate tests (not behavioral certification): `tests/markup/test_inline_complex_props.py`, `tests/markup/test_jsx_conditional_relational.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_declarative_list_rendering.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_expressive_markup_syntax.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_css_binding.py`, `tests/test_markup_transform.py`
 
 ### `psx.native_widget`
 
 - Kind: `callable`
 - Signature: `(widget: 'NativeWidget', *, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
-- Implementation: `psx/core/vnode.py`, line 226
+- Implementation: `psx/core/vnode.py`, line 230
 - First docstring line: Create a VNode for a renderer-specific :class:`NativeWidget` declaration.
-- Candidate tests (not behavioral certification): `tests/test_devtools.py`, `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_integration.py`, `tests/test_native_geometry_write_suppression.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`
+- Candidate tests (not behavioral certification): `tests/test_css_markup_census.py`, `tests/test_devtools.py`, `tests/test_external_native_geometry_ports.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_markup_css_binding.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_integration.py`, `tests/test_native_geometry_write_suppression.py`, `tests/test_p0_tkinter_native_lifecycle.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_pyside6_renderer.py`
 
 ### `psx.plugins.Plugin`
 
@@ -951,7 +959,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 
 - Kind: `callable`
 - Signature: `(source: 'str', *, scope: 'Mapping[str, object] | None' = None, filename: 'str' = '<psx>', primitives: 'Mapping[str, Primitive] | None' = None, registry: 'ComponentRegistry | None' = None) -> 'VNode'`
-- Implementation: `psx/markup/compile.py`, line 105
+- Implementation: `psx/markup/compile.py`, line 107
 - First docstring line: Compile and render an explicit-scope PSX template into ordinary VNodes.
 - Candidate tests (not behavioral certification): `tests/browser/test_sfle_chromium.py`, `tests/browser/test_sfle_css_reference_matrix.py`, `tests/browser/test_sfle_cyclic_multi_padding_regression.py`, `tests/browser/test_sfle_engine_chromium.py`, `tests/browser/test_sfle_headless_oracle.py`, `tests/browser/test_sfle_holdout_fixtures_regression.py`, `tests/browser/test_sfle_holdout_regression.py`, `tests/browser/test_sfle_intrinsic_constraints_regression.py`, `tests/browser/test_sfle_intrinsic_keywords_regression.py`, `tests/browser/test_sfle_intrinsic_max_regression.py`, `tests/browser/test_sfle_live_text_chromium.py`, `tests/browser/test_sfle_nested_columns_regression.py`
 
@@ -993,7 +1001,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(*, sfle_constraints: 'LayoutConstraints | None' = None, measure_intrinsic: 'Callable[[VNode], IntrinsicSizes | None] | None' = None, engine: 'object | None' = None) -> 'None'`
 - Implementation: `psx/renderers/headless.py`, line 63
 - First docstring line: Records native-like operations without importing a UI toolkit.
-- Candidate tests (not behavioral certification): `tests/test_arrow_callback_rendering.py`, `tests/test_checkbox.py`, `tests/test_component_lexical_runtime.py`, `tests/test_core.py`, `tests/test_declarative_list_rendering.py`, `tests/test_devtools.py`, `tests/test_divider.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`, `tests/test_flex_item_metadata.py`, `tests/test_grid_contract.py`, `tests/test_headless_grid_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/css/test_effects.py`, `tests/css/test_geometry_handoff.py`, `tests/test_arrow_callback_rendering.py`, `tests/test_checkbox.py`, `tests/test_component_lexical_runtime.py`, `tests/test_core.py`, `tests/test_css_markup_census.py`, `tests/test_declarative_list_rendering.py`, `tests/test_devtools.py`, `tests/test_divider.py`, `tests/test_expressive_composition_security.py`, `tests/test_expressive_conditional_rendering.py`
 
 ### `psx.renderers.RendererAdapterRegistry`
 
@@ -1009,7 +1017,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(callback: 'Callable[[], Callable[[], None] | None]', dependencies: 'Sequence[object] | None' = None) -> 'None'`
 - Implementation: `psx/core/hooks.py`, line 107
 - First docstring line: No inline docstring.
-- Candidate tests (not behavioral certification): `tests/test_component_lexical_runtime.py`, `tests/test_hooks_scheduler.py`
+- Candidate tests (not behavioral certification): `tests/test_component_lexical_runtime.py`, `tests/test_hooks_scheduler.py`, `tests/test_p0_kivy_native_lifecycle.py`, `tests/test_p0_pyside6_native_lifecycle.py`, `tests/test_p0_tkinter_native_lifecycle.py`
 
 ### `psx.use_ref`
 
@@ -1407,6 +1415,11 @@ placeholder = ''
 read_only = False
 value = ''
 ```
+
+### `WebView`
+
+- Exported from the package root: `True`
+- No portable component contract defined.
 
 ## Support and reproducibility boundaries
 

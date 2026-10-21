@@ -125,3 +125,8 @@ The user provided GitHub Actions artifact `p0-kivy-allocation-sites-39144692699.
 ## Direct-Kivy / Velto heap comparison at 5,000 cycles
 
 Owner-supplied native and Velto JSON artifacts (run `39145926751`) show growth in **both** fresh processes. Between cycles 500 and 5,000, direct Kivy RSS increased **15,618,048 B** and traced Python current bytes increased **5,269,998 B**; Velto+Kivy increased **49,913,856 B** RSS and **18,367,152 B** tracked Python bytes. Both report exactly **4,500 extra live `kivy.weakproxy.WeakProxy` objects** over that interval, while Velto exhibits substantially more live dict/list growth. Results and limitations are in [P0 Kivy Heap Ownership Findings](P0_KIVY_HEAP_OWNERSHIP_FINDINGS.md). Existing referrer samples were not specifically aimed at the growing types, so the retaining owner has **not** been identified. **C07 remains OPEN.**
+
+
+## Owner-approved prioritization of existing Kivy growth (2026-10-19)
+
+The owner accepted completing the intended Block/Inline functionality before investigating and correcting the existing sustained Kivy memory-growth trend. The 5,000-cycle measurements, direct-Kivy controls, attribution uncertainties and long-soak follow-ups remain genuine **open issues**, not passes or leaks definitively assigned to PSX. Do not classify the slope as a blocker for **scoped Block/Inline development**, but preserve normal teardown and callback-release regressions as required for each new capability. The memory/performance issue remains tracked toward P2/release acceptance. Refer to the explicit scope in [Architecture Approval](ARCHITECTURE_APPROVAL.md#owner-directed-implementation-scope-and-kivy-memory-risk-2026-10-19).

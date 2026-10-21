@@ -13,7 +13,7 @@ from .capabilities import CONTRACT_ONLY_CAPABILITIES
 from .engine import PythonLayoutEngine
 from .errors import DiagnosticCode, SFLEError
 from .model import LayoutInput, LayoutResult
-from .native_wire import serialize_snapshot, deserialize_response
+from .native_wire import serialize_snapshot, serialize_result, deserialize_response
 
 
 class RustLayoutEngine:
@@ -31,6 +31,27 @@ class RustLayoutEngine:
     def compute(self, request: LayoutInput) -> LayoutResult:
         return deserialize_response(
             self._module.compute_json(serialize_snapshot(request)), request
+        )
+
+    def compute_incremental(
+        self,
+        request: LayoutInput,
+        *,
+        previous_input: LayoutInput | None = None,
+        previous_result: LayoutResult | None = None,
+        native_measurement_invalidated: bool = False,
+    ) -> LayoutResult:
+        """Use native optional incremental ABI when a safe prior result exists."""
+        native = getattr(self._module, "compute_incremental_json", None)
+        if (native_measurement_invalidated or previous_input is None
+                or previous_result is None or not callable(native)):
+            return self.compute(request)
+        return deserialize_response(
+            native(
+                serialize_snapshot(request),
+                serialize_snapshot(previous_input),
+                serialize_result(previous_result),
+            ), request,
         )
 
     def compute_provisional(self, request: LayoutInput) -> LayoutResult:

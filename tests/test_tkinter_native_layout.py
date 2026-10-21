@@ -70,6 +70,50 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.addCleanup(self.renderer.close)
         self.addCleanup(self.reconciler.unmount)
 
+    def test_css_background_is_scoped_to_a_single_ttk_frame(self):
+        first = self.reconciler.render(psx('<div key="same" style="background-color: #112233" />'))
+        widget = first.handle.widget
+        style_name = widget.cget("style")
+        self.assertEqual(ttk.Style(widget).lookup(style_name, "background"), "#112233")
+        changed = self.reconciler.render(psx('<div key="same" style="background-color: #aabbcc" />'))
+        self.assertIs(changed.handle.widget, widget)
+        self.assertEqual(ttk.Style(widget).lookup(style_name, "background"), "#aabbcc")
+        self.reconciler.render(psx('<div key="same" />'))
+        self.assertEqual(widget.cget("style"), "TFrame")
+
+    def test_css_width_commits_to_tk_native_geometry(self):
+        root = self.reconciler.render(psx(
+            '<div>'
+            '<button style="width: 45px; height: 15px; margin-left: 3px; padding: 2px; border-width: 1px">Save</button></div>'
+        ))
+        self.assertEqual(rect(root.children[0].handle.widget)[2:], (51, 21))
+        self.assertEqual(rect(root.children[0].handle.widget)[0], 3)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
+    def test_html_block_places_native_buttons_without_pack_or_grid(self):
+        self.renderer.set_sfle_constraints(constraints(240, 140))
+        first = self.reconciler.render(psx(
+            '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
+        ))
+        alpha, beta = (child.handle.widget for child in first.children)
+        self.assertIsInstance(alpha, ttk.Button)
+        self.assertIs(alpha.master, first.handle.widget)
+        self.assertEqual(alpha.winfo_manager(), "place")
+        self.assertEqual(beta.winfo_manager(), "place")
+        first_rect, second_rect = rect(alpha), rect(beta)
+        self.assertEqual(first_rect[0], 0)
+        self.assertEqual(first_rect[2], 240)
+        self.assertEqual(second_rect[1], first_rect[3])
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
+        second = self.reconciler.render(psx(
+            '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+        ))
+        self.assertIs(second.children[0].handle.widget, beta)
+        self.assertIs(second.children[1].handle.widget, alpha)
+        self.assertEqual(rect(beta)[1], 0)
+        self.assertEqual(rect(alpha)[1], rect(beta)[3])
+
     def test_portable_text_and_activation_event_payloads_from_tk_widgets(self):
         from psx import Input
 
@@ -124,6 +168,38 @@ class TkSFLEGeometryTests(unittest.TestCase):
             ("click", None), ("check", False), ("input", "second"),
             ("submit", None), ("textarea", "start!!"),
         ])
+
+    def test_mounted_tk_flex_consumes_canonical_item_lengths(self):
+        from unittest.mock import patch
+
+        from psx.sfle.lengths import Length
+        from psx.sfle.native_layout_snapshot import PreparedNativeLayoutSnapshot
+
+        original = PreparedNativeLayoutSnapshot.canonical_snapshot
+        snapshots = []
+
+        def record_canonical_snapshot(prepared):
+            snapshot = original(prepared)
+            snapshots.append(snapshot)
+            return snapshot
+
+        with patch.object(
+            PreparedNativeLayoutSnapshot, "canonical_snapshot",
+            record_canonical_snapshot,
+        ):
+            root = self.reconciler.render(Flex(
+                item("Left", "left", 40),
+                item("Right", "right", 30),
+                direction="row", gap=8, width="160px", height="80px",
+            ))
+
+        self.assertTrue(snapshots, "Native Tk must consume canonical item styles.")
+        style = dict(snapshots[-1].nodes[1].style)
+        self.assertEqual(style["layout_width"], Length.px(40))
+        self.assertEqual(style["layout_height"], Length.px(20))
+        self.assertEqual(rect(root.children[0].handle.widget), (0, 0, 40, 20))
+        self.assertEqual(rect(root.children[1].handle.widget), (48, 0, 30, 20))
+        self.assertEqual(root.children[0].handle.widget.winfo_manager(), "place")
 
     def test_real_ttk_widgets_use_sfle_place_not_pack_or_grid(self):
         root = self.reconciler.render(Flex(
@@ -1583,3 +1659,31 @@ class TkSFLEGeometryTests(unittest.TestCase):
                          for widget in (first, second)), baseline)
         self.assertIs(root.children[0].handle.widget, first)
         self.assertIs(root.children[1].handle.widget, second)
+
+
+def test_html_flow_public_native_geometry_receipt_tkinter(request):
+    from tests.certification.public_behavior_census import Feature, assert_feature
+    host = tk.Tk()
+    host.geometry("300x180+0+0")
+    renderer = TkinterRenderer(
+        root=host, sfle_constraints=constraints(220, 120),
+        engine=PythonLayoutEngine(),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(psx(
+            "<div><button>First</button><button>Second</button></div>"
+        ))
+        first, second = (child.handle.widget for child in root.children)
+        a, b = rect(first), rect(second)
+        assert_feature(
+            request, Feature("div", "tkinter", "interaction", "semantic_flow",
+                             "native_geometry", applicability="partial_native"),
+            a[0] == 0 and a[2] == 220
+            and b[2] == 220 and b[1] == a[3]
+            and first.winfo_manager() == "place",
+        )
+    finally:
+        reconciler.unmount()
+        renderer.close()
+        host.destroy()

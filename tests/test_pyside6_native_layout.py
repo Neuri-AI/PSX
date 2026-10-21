@@ -38,6 +38,73 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.r.unmount()
         self.renderer.application.processEvents()
 
+    def test_css_background_paints_and_updates_in_place(self):
+        first = self.r.render(psx('<div key="same" style="background-color: #112233" />'))
+        widget = first.handle.widget
+        self.assertIn("#112233", widget.styleSheet())
+        changed = self.r.render(psx('<div key="same" style="background-color: #aabbcc" />'))
+        self.assertIs(changed.handle.widget, widget)
+        self.assertIn("#aabbcc", widget.styleSheet())
+        self.r.render(psx('<div key="same" />'))
+        self.assertEqual(widget.styleSheet(), "")
+
+    def test_css_width_commits_to_qt_native_geometry(self):
+        root = self.r.render(psx(
+            '<div>'
+            '<button style="width: 45px; height: 15px; margin-left: 3px; padding: 2px; border-width: 1px">Save</button></div>'
+        ))
+        self.assertEqual(root.children[0].handle.widget.width(), 51)
+        self.assertEqual(root.children[0].handle.widget.height(), 21)
+        self.assertEqual(root.children[0].handle.widget.x(), 3)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
+    def test_html_block_commits_qt_rectangles_and_keyed_reorder(self):
+        self.renderer.set_sfle_constraints(constraints(240, 140))
+        original = self.r.render(psx(
+            '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
+        ))
+        alpha, beta = (child.handle.widget for child in original.children)
+        self.assertIsInstance(alpha, QPushButton)
+        self.assertIsNone(original.handle.widget.layout())
+        self.assertIs(alpha.parentWidget(), original.handle.widget)
+        self.assertEqual(alpha.width(), 240)
+        self.assertEqual(beta.width(), 240)
+        self.assertEqual(alpha.y(), 0)
+        self.assertEqual(beta.y(), alpha.height())
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
+        reordered = self.r.render(psx(
+            '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+        ))
+        self.assertIs(reordered.children[0].handle.widget, beta)
+        self.assertIs(reordered.children[1].handle.widget, alpha)
+        self.assertEqual(beta.y(), 0)
+        self.assertEqual(alpha.y(), beta.height())
+        self.assertIsNone(original.handle.widget.layout())
+
+    def test_nested_html_headings_paragraphs_and_inline_text_use_native_flow(self):
+        self.renderer.set_sfle_constraints(constraints(320, 200))
+        root = self.r.render(psx(
+            "<div>"
+            "<h1>Hello Velto!</h1>"
+            "<p>Native UI with web-like layout.</p>"
+            "<span>First second third fourth</span>"
+            "<button>Continue</button>"
+            "</div>"
+        ))
+        heading, paragraph, inline, button = root.children
+        self.assertIsNone(root.handle.widget.layout())
+        self.assertIsInstance(heading.children[0].handle.widget, QLabel)
+        self.assertIsInstance(paragraph.children[0].handle.widget, QLabel)
+        self.assertEqual(heading.handle.widget.y(), 0)
+        self.assertEqual(paragraph.handle.widget.y(), heading.handle.widget.height())
+        self.assertEqual(inline.handle.widget.y(),
+                         paragraph.handle.widget.y() + paragraph.handle.widget.height())
+        self.assertEqual(button.handle.widget.y(),
+                         inline.handle.widget.y() + inline.handle.widget.height())
+        self.assertGreater(inline.handle.widget.height(), 0)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_scroll_unmount_releases_native_viewport(self):
         from psx import Scroll
         self.renderer.set_sfle_constraints(constraints(300, 200))
@@ -442,3 +509,30 @@ class QtSFLEGeometryTests(unittest.TestCase):
         with self.assertRaisesRegex(RendererCapabilityError, "Native SFLE SFLE geometry"):
             r.render(Flex(width=160, height=80))
         r.unmount()
+
+
+def test_html_flow_public_native_geometry_receipt_pyside6(request):
+    from tests.certification.public_behavior_census import Feature, assert_feature
+    renderer = PySide6Renderer(
+        argv=["psx-block-public-census"],
+        sfle_constraints=constraints(220, 120),
+        engine=PythonLayoutEngine(),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(psx(
+            "<div><button>First</button><button>Second</button></div>"
+        ))
+        first, second = (child.handle.widget for child in root.children)
+        assert_feature(
+            request, Feature("div", "pyside6", "interaction", "semantic_flow",
+                             "native_geometry", applicability="partial_native"),
+            first.width() == 220
+            and second.width() == 220
+            and first.y() == 0
+            and second.y() == first.height()
+            and root.handle.widget.layout() is None,
+        )
+    finally:
+        reconciler.unmount()
+        renderer.application.processEvents()

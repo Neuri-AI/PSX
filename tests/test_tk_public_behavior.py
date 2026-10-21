@@ -259,3 +259,130 @@ def test_grid_mount_fails_before_native_widget_creation(tk_tree, request, compon
     assert_feature(request, Feature(component, CONTRACT, "interaction",
                                     "unsupported_mount", "tkinter_fail_closed",
                                     applicability="shared"), True)
+
+
+def test_html_block_native_geometry_and_reconciliation(tk_tree, request):
+    from psx import psx
+    _, _, tree = tk_tree
+    first = tree.render(psx(
+        '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
+    ))
+    alpha, beta = (child.handle.widget for child in first.children)
+    original_root = first.handle.widget
+    updated = tree.render(psx(
+        '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+    ))
+    beta_rect = beta.place_info()
+    alpha_rect = alpha.place_info()
+    assert_feature(
+        request, Feature("div", "tkinter", "interaction", "semantic_flow",
+                         "native_geometry", applicability="partial_native"),
+        updated.handle.widget is original_root
+        and updated.children[0].handle.widget is beta
+        and updated.children[1].handle.widget is alpha
+        and float(beta_rect["width"]) == 400
+        and float(alpha_rect["width"]) == 400
+        and float(beta_rect["y"]) == 0
+        and float(alpha_rect["y"]) == float(beta_rect["height"]),
+    )
+    inline = tree.render(psx(
+        '<div display="inline"><button key="b">Beta</button>'
+        '<button key="a">Alpha</button></div>'
+    ))
+    beta_inline, alpha_inline = beta.place_info(), alpha.place_info()
+    assert_feature(
+        request, Feature("div", "tkinter", "interaction", "semantic_flow",
+                         "display_reflow", applicability="partial_native"),
+        inline.handle.widget is original_root
+        and inline.children[0].handle.widget is beta
+        and inline.children[1].handle.widget is alpha
+        and float(beta_inline["x"]) == 0
+        and float(alpha_inline["x"]) == float(beta_inline["width"])
+        and float(alpha_inline["width"]) < 400,
+    )
+    from psx.sfle.model import LayoutConstraints, AvailableSize
+    renderer = tk_tree[1]
+    before_generation = renderer.sfle_result.generation
+    renderer.set_sfle_constraints(LayoutConstraints(
+        AvailableSize(240, True), AvailableSize(120, True),
+    ))
+    resized = tree.render(psx(
+        '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
+    ))
+    beta_rect, alpha_rect = beta.place_info(), alpha.place_info()
+    assert_feature(
+        request, Feature("div", "tkinter", "interaction", "semantic_flow",
+                         "viewport_reflow", applicability="partial_native"),
+        resized.children[0].handle.widget is beta
+        and resized.children[1].handle.widget is alpha
+        and float(beta_rect["width"]) == 240
+        and float(alpha_rect["width"]) == 240
+        and float(alpha_rect["y"]) == float(beta_rect["height"])
+        and renderer.sfle_result.generation > before_generation,
+    )
+
+
+@pytest.mark.parametrize("tag", (
+    "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
+    "section", "main", "header", "footer", "form", "label", "ul", "li",
+))
+def test_semantic_flow_native_geometry_per_tag(tk_tree, request, tag):
+    from psx import psx
+    _, _, tree = tk_tree
+    content = "Action" if tag in ("li", "label") else (
+        "<li>Action</li>" if tag == "ul" else "<button>Action</button>"
+    )
+    root = tree.render(psx(f"<{tag}>{content}</{tag}>"))
+    child = root.children[0].handle.widget
+    info = child.place_info()
+    width = float(info["width"])
+    assert_feature(
+        request, Feature(tag, "tkinter", "interaction", "semantic_flow",
+                         "native_geometry", applicability="partial_native"),
+        child.master is root.handle.widget
+        and child.winfo_manager() == "place"
+        and 0 < width <= 400
+        and float(info["x"]) == 0
+        and float(info["y"]) == 0
+        and (width < 400 if tag in ("span", "label", "li") else width == 400),
+    )
+
+
+def test_semantic_form_submission_rebinds_native_tk_button(tk_tree, request):
+    from psx.markup.html_aliases import _formatting_host
+    _, renderer, tree = tk_tree
+    calls = []
+    def view(tag):
+        return _formatting_host(
+            "form", Button("Submit", key="submit"),
+            on_submit=lambda: calls.append(tag),
+        )
+    first = tree.render(view("first"))
+    native = first.children[0].handle.widget
+    native.invoke()
+    refreshed = tree.render(view("second"))
+    native.invoke()
+    assert_feature(
+        request, Feature("form", "tkinter", "event", "on_submit",
+                         "native_dispatch", applicability="partial_native"),
+        refreshed.children[0].handle.widget is native
+        and calls == ["first", "second"]
+        and renderer.sfle_result.geometry_commit_error <= 1,
+    )
+
+
+def test_implicit_label_pointer_focuses_native_tk_entry(tk_tree, request):
+    from psx import psx
+    host, _, tree = tk_tree
+    mounted = tree.render(psx('<label>Name <input value="Ada" /></label>'))
+    entry = next(child.handle.widget for child in mounted.children
+                 if child.node.type == "Input")
+    host.update()
+    mounted.handle.widget.event_generate("<Button-1>", x=2, y=2)
+    host.update()
+    assert_feature(
+        request, Feature("label", "tkinter", "interaction",
+                         "implicit_input_focus", "native_activation",
+                         applicability="partial_native"),
+        host.focus_get() is entry,
+    )

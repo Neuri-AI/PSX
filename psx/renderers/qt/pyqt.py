@@ -31,6 +31,7 @@ from psx.sfle.external_native_geometry_ports import external_port_for
 
 
 from psx.core.errors import RendererCapabilityError
+from psx.markup.html_aliases import FORMATTING_TAGS
 from psx.core.events import EventSlot
 from psx.core.native import NativeOwnership, NativeWidget
 from psx.core.vnode import (
@@ -307,9 +308,9 @@ def _make_resize_filter(core, on_resize, on_invalidation=None):
         for name, reason in (
             ("FontChange", "font"),
             ("ApplicationFontChange", "font"),
-            ("PaletteChange", "theme"),
+            ("PaletteChange", "palette"),
             ("ApplicationPaletteChange", "theme"),
-            ("StyleChange", "theme"),
+            ("StyleChange", "style"),
             ("ScreenChangeInternal", "dpi"),
             ("DevicePixelRatioChange", "dpi"),
         )
@@ -374,6 +375,11 @@ class QtRenderer:
         self._sfle_measurement_invalidations = MeasurementInvalidations()
         from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
         self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
+        self._sfle_prior_solver_input = None
+        self._sfle_prior_solver_result = None
+        self._sfle_prior_solver_engine = None
+        # Single successful detached paint/layout fingerprint, renderer-owned.
+        self._sfle_committed_signatures = None
         from psx.sfle.native_resource_watch import ImageResourceWatch
         self._sfle_image_resource_watch = ImageResourceWatch()
         self._sfle_resource_poll_scheduled = False
@@ -569,6 +575,26 @@ class QtRenderer:
         self._sfle_style_watched_widgets = watched
 
     def _sfle_on_native_semantic_change(self, watched, reason: str) -> None:
+        # Changes originating from PSX's own CSS projection already passed
+        # through typed style effects and the reconciler's geometry decision.
+        # Do not classify their synchronous Qt StyleChange/FontChange echoes
+        # as external theme changes (which would trigger a second layout).
+        if (getattr(self, "_sfle_css_projection_depth", 0)
+                or getattr(watched, "_psx_css_projection_active", False)):
+            return
+        if reason in ("style", "palette"):
+            generation = getattr(watched, "_psx_css_qss_generation", 0)
+            consumed = getattr(watched, "_psx_css_qss_consumed", 0)
+            if (generation > consumed
+                    and getattr(watched, "_psx_css_last_applied_stylesheet", None)
+                    == watched.styleSheet()):
+                # Qt may deliver StyleChange or PaletteChange *after* its
+                # CSS setStyleSheet call returns. Consume only the pending
+                # explicitly self-authored QSS generation; external palette
+                # and system-theme events still invalidate normally.
+                watched._psx_css_qss_consumed = generation
+                return
+            reason = "theme"
         if (id(watched) in self._sfle_style_watched_widgets
                 and self._sfle_mounted_root is not None
                 and self._sfle_constraints is not None):
@@ -711,6 +737,10 @@ class QtRenderer:
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
         self._sfle_native_intrinsic_cache.clear()
+        self._sfle_prior_solver_input = None
+        self._sfle_prior_solver_result = None
+        self._sfle_prior_solver_engine = None
+        self._sfle_committed_signatures = None
         self._sfle_image_resource_watch.clear()
         self._sfle_resource_poll_scheduled = False
         self._sfle_mounted_root = None
@@ -762,7 +792,7 @@ class QtRenderer:
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
-            if port is None and node.type not in ("Flex", "Grid", "GridItem"):
+            if port is None and node.type not in ("Flex", "Grid", "GridItem") and node.type not in FORMATTING_TAGS:
                 native_leaf_needs_measurement(node, backend="qt")
             if node.type not in ("Flex", "Grid", "GridItem"):
                 node = VNode(node.kind, node.type, node.key,
@@ -772,6 +802,28 @@ class QtRenderer:
         return self._adapter_for(adapter_key(node)).create(self, node, parent)
 
     def _adapter_create(self, node: VNode, parent: object | None) -> QtHandle:
+        if node.kind is NodeKind.HOST and node.type in FORMATTING_TAGS:
+            if self._sfle_constraints is None or node.props.get("display") not in ("block", "inline"):
+                raise RendererCapabilityError(
+                    "Qt div requires an enabled Cinnamon Block viewport.")
+            if node.type == "label":
+                # An implicit HTML-like label focuses a nested editable input.
+                # Only the toolkit performs focus; Cinnamon still owns geometry.
+                qt_widgets = self._widgets
+                base_widget = self._widget
+
+                class NativeLabelHost(base_widget):
+                    def mousePressEvent(self, event):
+                        for editor in self.findChildren(qt_widgets.QLineEdit):
+                            if editor.isEnabled():
+                                editor.setFocus()
+                                break
+                        super().mousePressEvent(event)
+
+                widget = NativeLabelHost()
+            else:
+                widget = self._widget()
+            return QtHandle(node.type, widget, props=dict(node.props))
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             if self._sfle_constraints is None:
                 raise RendererCapabilityError(
@@ -801,7 +853,86 @@ class QtRenderer:
         if spec is None:
             raise RendererCapabilityError(
                 f"PyQt does not support host primitive {node.type!r}.")
-        widget = self._widget_class(node.type)()
+        if node.type == "Text":
+            label_class = self._widget_class("Text")
+            gui = __import__(self._binding_package + ".QtGui", fromlist=["QTextDocument"])
+            core = __import__(self._binding_package + ".QtCore", fromlist=["QSize"])
+
+            class CssMeasuredTextLabel(label_class):
+                """QLabel-compatible text host with native QTextDocument line spacing."""
+
+                def __init__(self):
+                    super().__init__()
+                    self._psx_css_line_height = None
+                    self._psx_css_document = None
+
+                def _psx_sync_line_height(self, height):
+                    self._psx_css_line_height = height
+                    if height is None:
+                        self._psx_css_document = None
+                        self.updateGeometry()
+                        self.update()
+                        return
+                    document = gui.QTextDocument(self)
+                    document.setDocumentMargin(0)
+                    document.setDefaultFont(self.font())
+                    cursor = gui.QTextCursor(document)
+                    cursor.insertText(self.text())
+                    cursor.select(getattr(gui.QTextCursor, "SelectionType", gui.QTextCursor).Document)
+                    block = gui.QTextBlockFormat()
+                    kinds = getattr(gui.QTextBlockFormat, "LineHeightTypes", gui.QTextBlockFormat)
+                    block.setLineHeight(float(height), getattr(kinds.FixedHeight, 'value', kinds.FixedHeight))
+                    block.setAlignment(self.alignment())
+                    cursor.setBlockFormat(block)
+                    char = gui.QTextCharFormat()
+                    char.setForeground(self.palette().color(self.foregroundRole()))
+                    cursor.mergeCharFormat(char)
+                    self._psx_css_document = document
+                    self.updateGeometry()
+                    self.update()
+
+                def sizeHint(self):
+                    if self._psx_css_document is None:
+                        return super().sizeHint()
+                    self._psx_css_document.setTextWidth(-1)
+                    size = self._psx_css_document.size()
+                    return core.QSize(max(1, round(size.width())), max(1, round(size.height())))
+
+                def heightForWidth(self, width):
+                    if self._psx_css_document is None:
+                        return super().heightForWidth(width)
+                    self._psx_css_document.setTextWidth(max(1, width))
+                    return max(1, round(self._psx_css_document.size().height()))
+
+                def paintEvent(self, event):
+                    if self._psx_css_document is None:
+                        return super().paintEvent(event)
+                    self._psx_css_document.setTextWidth(max(1, self.width()))
+                    painter = gui.QPainter(self)
+                    self._psx_css_document.drawContents(painter)
+                    painter.end()
+
+            widget = CssMeasuredTextLabel()
+        elif node.type == "Button":
+            button_class = self._widget_class("Button")
+
+            class CssMeasuredButton(button_class):
+                def __init__(self):
+                    super().__init__()
+                    self._psx_css_line_height = None
+
+                def sizeHint(self):
+                    natural = super().sizeHint()
+                    if self._psx_css_line_height is not None:
+                        extra = max(0, round(
+                            self._psx_css_line_height - self.fontMetrics().height()
+                        ))
+                        natural.setHeight(natural.height() + extra)
+                    return natural
+
+            widget = CssMeasuredButton()
+        else:
+            widget = self._widget_class(node.type)()
         spec.apply(widget, node.props, self._binding_package)
         if self._sfle_constraints is not None and node.type == "Text":
             # QLabel's real heightForWidth is enabled by wordWrap.
@@ -812,6 +943,164 @@ class QtRenderer:
             # rectangle. Native text edits invalidate width-sensitive height.
             widget.textChanged.connect(self._sfle_on_textarea_content_changed)
         return QtHandle(node.type, widget, props=dict(node.props))
+
+    def apply_css(self, handle: object, computed: object) -> None:
+        """Project one CSS transaction without interpreting Qt's own events as external."""
+        self._sfle_css_projection_depth = (
+            getattr(self, "_sfle_css_projection_depth", 0) + 1
+        )
+        try:
+            self._apply_css_projected(handle, computed)
+        finally:
+            self._sfle_css_projection_depth -= 1
+
+    def _apply_css_projected(self, handle: object, computed: object) -> None:
+        """Paint explicit CSS backgrounds on Cinnamon-owned semantic hosts."""
+        from psx.css.native_paint import qt_semantic_stylesheet
+        target = _handle(handle)
+        if target.node_type == "Badge":
+            from psx.css.native_paint import foreground_hex
+            target.widget._psx_css_foreground = foreground_hex(computed)
+            target.widget.update()
+            return
+        if target.node_type == "Text":
+            from psx.css.native_paint import native_text_typography
+            from psx.renderers.components.text import apply_qt_text
+            styles = native_text_typography(computed, line_height=True)
+            if self._sfle_constraints is not None:
+                revision = (target.props.get("value"), tuple((name, styles.get(name)) for name in ("font-family", "font-size", "font-weight", "line-height")))
+                if getattr(target.widget, "_psx_css_font_revision", None) != revision:
+                    target.widget._psx_css_font_revision = revision
+                    self.request_sfle_invalidation("font", widget_id=id(target.widget))
+            apply_qt_text(target.widget, target.props, self._binding_package)
+            if styles:
+                font = target.widget.font()
+                if "font-family" in styles:
+                    font.setFamily(styles["font-family"])
+                if "font-size" in styles:
+                    font.setPixelSize(round(styles["font-size"]))
+                if "font-weight" in styles:
+                    font.setBold(styles["font-weight"] >= 600)
+                target.widget.setFont(font)
+                if "text-align" in styles:
+                    enum = getattr(__import__(self._binding_package + ".QtCore", fromlist=["Qt"]).Qt, "AlignmentFlag", __import__(self._binding_package + ".QtCore", fromlist=["Qt"]).Qt)
+                    if enum is not None:
+                        target.widget.setAlignment(getattr(enum, {"left": "AlignLeft", "right": "AlignRight", "center": "AlignHCenter"}[styles["text-align"]]) | enum.AlignVCenter)
+                if "color" in styles:
+                    target.widget.setStyleSheet("color: " + styles["color"] + ";")
+            target.widget._psx_sync_line_height(styles.get("line-height"))
+            return
+        if target.node_type in ("Button", "Checkbox", "Input", "TextArea", "Radio", "Select", "Link"):
+            from psx.css.native_paint import native_text_typography
+            styles = native_text_typography(computed, line_height=target.node_type == "Button")
+            widget = target.widget
+            if not hasattr(widget, "_psx_css_base_font"):
+                widget._psx_css_base_font = widget.font()
+                widget._psx_css_base_stylesheet = widget.styleSheet()
+            else:
+                # A native adapter or application may replace its own QSS
+                # between CSS commits. Rebase only when the installed style
+                # differs from the last CSS projection we actually owned.
+                installed = widget.styleSheet()
+                if installed != getattr(widget, "_psx_css_last_applied_stylesheet",
+                                        widget._psx_css_base_stylesheet):
+                    widget._psx_css_base_stylesheet = installed
+            font = widget._psx_css_base_font
+            font = type(font)(font)
+            if "font-family" in styles:
+                font.setFamily(styles["font-family"])
+            if "font-size" in styles:
+                font.setPixelSize(round(styles["font-size"]))
+            if "font-weight" in styles:
+                font.setBold(styles["font-weight"] == 700)
+            widget._psx_css_projection_active = True
+            try:
+                if widget.font() != font:
+                    widget.setFont(font)
+            finally:
+                widget._psx_css_projection_active = False
+            if target.node_type == "Button":
+                leading = styles.get("line-height")
+                if leading is not None and (
+                    "\n" in widget.text() or leading < widget.fontMetrics().height()
+                ):
+                    raise ValueError("Qt Button line-height needs single-line text and sufficient leading.")
+                widget._psx_css_line_height = leading
+                widget.updateGeometry()
+            if "text-align" in styles:
+                if target.node_type not in ("Button", "Link", "Input", "TextArea"):
+                    raise ValueError(f"Native Qt {target.node_type} does not support CSS text-align.")
+                if target.node_type == "Input":
+                    qt = self._qtcore.Qt
+                    flags = getattr(qt, "AlignmentFlag", qt)
+                    alignment = {"left": flags.AlignLeft, "center": flags.AlignHCenter,
+                                 "right": flags.AlignRight}[styles["text-align"]]
+                    widget.setAlignment(alignment)
+            elif target.node_type == "Input":
+                widget.setAlignment(getattr(getattr(self._qtcore.Qt, "AlignmentFlag", self._qtcore.Qt), "AlignLeft"))
+            declarations = []
+            if "font-family" in styles:
+                declarations.append('font-family: "' + styles["font-family"] + '";')
+            if "font-size" in styles:
+                declarations.append(f'font-size: {styles["font-size"]:g}px;')
+            if "font-weight" in styles:
+                declarations.append(f'font-weight: {styles["font-weight"]};')
+            if "color" in styles:
+                declarations.append('color: ' + styles["color"] + ';')
+            if "text-align" in styles and target.node_type in ("Button", "Link", "TextArea"):
+                declarations.append('text-align: ' + styles["text-align"] + ';')
+            from psx.css.native_paint import native_border_paint
+            from psx.css.native_paint import native_border_radius
+            radius = native_border_radius(computed)
+            border = native_border_paint(computed)
+            if border is not None:
+                thickness, color = border
+                declarations.append(f"border: {thickness:g}px solid {color};")
+            if radius:
+                declarations.append(f"border-radius: {radius:g}px;")
+            baseline = widget._psx_css_base_stylesheet
+            authored = " ".join(declarations)
+            if authored and baseline.rstrip().endswith("}"):
+                # A Link (or an externally styled Qt control) may already
+                # have a selector block. Bare declarations after that block
+                # are invalid QSS, so append a widget-local selector rule.
+                widget_class = widget.metaObject().className()
+                projected = baseline.rstrip() + "\n" + widget_class + " { " + authored + " }"
+            elif authored:
+                projected = (baseline + " " + authored).strip()
+            else:
+                projected = baseline
+            if widget.styleSheet() != projected:
+                widget._psx_css_projection_active = True
+                try:
+                    widget._psx_css_qss_generation = (
+                        getattr(widget, "_psx_css_qss_generation", 0) + 1
+                    )
+                    widget.setStyleSheet(projected)
+                finally:
+                    widget._psx_css_projection_active = False
+            widget._psx_css_last_applied_stylesheet = projected
+            if self._sfle_constraints is not None:
+                keys = ("font-family", "font-size", "font-weight", "line-height")
+                if any(key in styles for key in keys) or hasattr(widget, "_psx_css_font_revision"):
+                    revision = tuple((key, styles.get(key)) for key in keys)
+                    if getattr(widget, "_psx_css_font_revision", None) != revision:
+                        widget._psx_css_font_revision = revision
+                        self.request_sfle_invalidation("font", widget_id=id(widget))
+            return
+        if target.node_type not in FORMATTING_TAGS:
+            return
+        projected = qt_semantic_stylesheet(computed)
+        if target.widget.styleSheet() != projected:
+            target.widget._psx_css_projection_active = True
+            try:
+                target.widget._psx_css_qss_generation = (
+                    getattr(target.widget, "_psx_css_qss_generation", 0) + 1
+                )
+                target.widget.setStyleSheet(projected)
+            finally:
+                target.widget._psx_css_projection_active = False
+            target.widget._psx_css_last_applied_stylesheet = projected
 
     # -- update -----------------------------------------------------------
 
@@ -826,6 +1115,16 @@ class QtRenderer:
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _handle(handle)
+        if target.node_type in FORMATTING_TAGS:
+            updated = dict(target.props)
+            updated.update(changed)
+            for name in removed:
+                updated.pop(name, None)
+            if updated.get("display") not in ("block", "inline"):
+                raise RendererCapabilityError(
+                    "div currently supports only the Cinnamon Block context.")
+            target.props = updated
+            return
         if target.node_type in ("Grid", "GridItem"):
             target.props.update(changed)
             for name in removed:
@@ -851,7 +1150,7 @@ class QtRenderer:
         self._default_insert(parent, child, index)
 
     def _default_insert(self, parent: object, child: object, index: int) -> None:
-        if _handle(parent).node_type in ("Grid", "GridItem"):
+        if _handle(parent).node_type in ("Grid", "GridItem") or _handle(parent).node_type in FORMATTING_TAGS:
             widget = _handle(child).widget
             widget.setParent(_handle(parent).widget)
             # A child mounted after its top-level Grid is already visible
@@ -868,7 +1167,7 @@ class QtRenderer:
         self._default_move(parent, child, index)
 
     def _default_move(self, parent: object, child: object, index: int) -> None:
-        if _handle(parent).node_type in ("Grid", "GridItem"):
+        if _handle(parent).node_type in ("Grid", "GridItem") or _handle(parent).node_type in FORMATTING_TAGS:
             return
         layout = _layout(_handle(parent))
         widget = _handle(child).widget
@@ -883,7 +1182,7 @@ class QtRenderer:
 
     def _default_remove(self, parent: object, child: object) -> None:
         item = _handle(child)
-        if _handle(parent).node_type in ("Grid", "GridItem"):
+        if _handle(parent).node_type in ("Grid", "GridItem") or _handle(parent).node_type in FORMATTING_TAGS:
             item.widget.setParent(None)
             return
         _layout(_handle(parent)).removeWidget(item.widget)

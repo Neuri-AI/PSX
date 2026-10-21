@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "source": "psx/__init__.py",
-  "export_count": 56,
+  "export_count": 57,
   "exports": [
     {
       "name": "App",
@@ -178,6 +178,10 @@
     {
       "name": "VNode",
       "imported_from": "core.vnode.VNode"
+    },
+    {
+      "name": "WebView",
+      "imported_from": "extensions.WebView"
     },
     {
       "name": "builtin_component_registry",

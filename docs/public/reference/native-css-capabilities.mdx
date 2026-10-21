@@ -1,0 +1,73 @@
+---
+title: "Native CSS visual capabilities"
+description: "Current bounded CSS painting support and backend-specific limits."
+---
+
+# Native CSS visual capabilities
+
+Velto uses PSX Markup and CSS Core to compute styles, while Qt, Tkinter and Kivy paint native widgets. A successfully computed CSS property **does not** imply that every native component paints it.
+
+This page describes an evolving implementation on the `feature/universal-box-model-and-styling` development branch, **not a stable release guarantee**. The per-component verification inventory is in `docs/architecture/css-native-component-capability-inventory.md`.
+
+| Visual CSS property | Portable implementation boundary |
+| --- | --- |
+| `color` | Explicit or author-inherited foreground on supported text-bearing native controls; Qt/Tk require opaque hex colors |
+| `background-color` | Native semantic formatting host painting; no general native-control background support claimed |
+| `font-family` | Native family selection where a font resource is available; Kivy font resolution is backend-specific |
+| `font-size` | Positive pixel sizes in supported native text controls |
+| `font-weight` | Portable 400/700 subset for native Text |
+| `line-height` | Bounded positive px text leading; Qt/Tk/Kivy have different, documented restrictions |
+| `text-align` | Left, right and center; no portable justified-text claim |
+| `border-color` / `border-width` | Explicit positive-pixel colored stroke; Cinnamon owns border geometry |
+| `border-radius` | A single nonnegative pixel radius; no per-corner, percentage or generic child clipping guarantee |
+
+## HTML-like PSX Markup aliases
+
+The same native components and CSS visual projections are available from lowercase markup tags. These are aliases to the existing portable contracts, **not separate renderers**:
+
+| HTML-like tag | Native component |
+| --- | --- |
+| `<button>` | `Button` |
+| `<input>` | `Input` |
+| `<textarea>` | `TextArea` |
+| `<checkbox>` | `Checkbox` |
+| `<radio>` | `Radio` |
+| `<radiogroup>` | `RadioGroup` |
+| `<select>` | `Select` |
+| `<a>` | `Link` |
+| `<badge>` | `Badge` |
+
+The portable `Radio` must be placed in a `RadioGroup` for portable selection semantics. `Select` continues to use its validated `options` property; HTML `<option>` children are not implemented. Lowercase `checkbox` and `radio` are PSX markup aliases, **not standard HTML tags**. Unlike a browser's `input type="checkbox"`, they preserve the exact corresponding native component contract. CSS styling and native events are resolved after alias lowering.
+
+## Native control coverage
+
+The table below names **native paint projections**, not just CSS properties that can be parsed or inherited. `Text` and semantic HTML-like formatting hosts have separate text/background rules. A colored border needs both a positive pixel `border-width` and `border-color`.
+
+| Control | Qt | Tkinter | Kivy |
+| --- | --- | --- | --- |
+| `Checkbox` | Font, foreground, border/radius | Per-instance font/foreground, owned border/corners | Border/radius only; no CSS text foreground projection |
+| `Radio` (in `RadioGroup`) | Font, foreground, border/radius | Per-instance font/foreground, owned border/corners | Radio label foreground and owned border/radius |
+| `Select` | Font, foreground, border/radius | Combobox font/foreground, border/corners | Spinner font/foreground, border/radius |
+| `TextArea` | Font, foreground, border/radius | Font, foreground, text alignment and owned border/corners | TextInput font/foreground, border/radius |
+| `Link` | Font, foreground, native-QSS-preserving border/radius | Label font/foreground, owned border/corners | Button font/foreground, owned border/radius |
+| `Badge` | Foreground from native Badge painter | Foreground and owned border/corners | Foreground and owned border/radius |
+
+`Badge` is deliberately noninteractive. Qt `Badge` does not paint generic CSS borders. A `Radio` receives portable selection events from its `RadioGroup`, not from a standalone `on_change`. A Kivy `Checkbox` has no text color to project. These are **excluded cells**, not implied support.
+
+The `RadioGroup` visual interaction tests use its supported native non-SFLE host; mounting a group as an unmeasured child of a Cinnamon Block host is not certified here. Full DPI/theme/device pixel comparisons remain part of the independent CSS Core release certification.
+
+Native state behavior is independent of CSS: enabled/disabled, user selection, editable/read-only text, focus capability, callback rebinding, keyed identity and disposal of owned event/canvas resources are covered by native mounted regression tests. Offscreen CI can verify actual focus retention only on platforms where the test window grants focus.
+
+## Renderer distinctions
+
+- **Qt:** uses instance-local native fonts, alignments and stylesheets. Native Link QSS, and a later manually installed widget stylesheet, are preserved when adding/removing CSS; appended declarations are wrapped in a valid widget selector if the original QSS already ends with a rule block. Painting and disabled/focus appearance remain subject to Qt's native style machinery.
+- **Tkinter:** uses local ttk styles and owned overlay frames/canvases for borders and corners. Some themes draw additional native borders; custom rounded clipping is not equivalent to browser CSS.
+- **Kivy:** uses native text properties and owned canvas paint/stroke instruction groups. Alpha foregrounds/strokes are possible where those drawing primitives accept RGBA.
+
+## Component and lifecycle constraints
+
+HTML-like `button` and `input` lower to existing native `Button` and `Input` components. PascalCase components remain first-class and preserve their public properties and events. `Text`, `Button`, `Input`, `TextArea`, `Checkbox`, `Radio`, `Select`, `Link` and `Badge` have individual paint branches; **individual properties must be verified per component and backend**. Containers like `Flex`, `Grid`, `Box` and `Scroll` participate in CSS resolution and layout without thereby promising full native painting.
+
+Style removal should restore only the CSS-owned native state. Keyed style updates should preserve native widget identity. Focus, selection, disabled state, callbacks and ownership must survive supported changes. Values rejected by a documented native projector produce explicit errors rather than silently losing channels or units. An unprojected property may still compute in CSS Core without painting on that control; it is not a native capability claim.
+
+The source-level contract and coverage are maintained in `docs/architecture/css-native-visual-paint-contract.md`; full CSS Core certification is reserved for P1.4.8. Pixel-perfect browser parity, native custom controls and unlisted CSS properties are **not advertised**.

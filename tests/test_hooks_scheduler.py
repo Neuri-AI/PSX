@@ -132,5 +132,52 @@ class HooksAndSchedulerTests(unittest.TestCase):
             self.reconciler.render(Invalid())
 
 
+def test_state_driven_css_paint_burst_skips_layout_but_reflows_dimensions():
+    from psx import psx
+    from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes
+
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(320, True), AvailableSize(180, True)),
+        measure_intrinsic=lambda _: IntrinsicSizes(30, 30, 12, 12, 30, 12),
+    )
+    reconciler = Reconciler(renderer)
+    calls = []
+    original_commit = renderer.commit_layout
+
+    def counted(root):
+        calls.append(root)
+        return original_commit(root)
+
+    renderer.commit_layout = counted
+    state = {}
+
+    @component
+    def Panel():
+        color, set_color = use_state("#123456")
+        width, set_width = use_state(120)
+        state["color"] = set_color
+        state["width"] = set_width
+        return psx(
+            f'<div style="width: {width}px; color: {color}">'
+            '<button key="save" label="Save"/></div>'
+        )
+
+    try:
+        root = reconciler.render(Panel())
+        native_handle = root.children[0].children[0].handle
+        assert len(calls) == 1
+        for index in range(100):
+            state["color"]("#654321" if index % 2 else "#123456")
+        renderer.flush()
+        assert len(calls) == 1
+        assert reconciler.root.children[0].children[0].handle is native_handle
+        state["width"](150)
+        renderer.flush()
+        assert len(calls) == 2
+    finally:
+        reconciler.unmount()
+
+
 if __name__ == "__main__":
     unittest.main()

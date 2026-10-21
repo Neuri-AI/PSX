@@ -66,6 +66,19 @@ class Reconciler:
         """Mount or update the single root description."""
         if self._is_rendering:
             raise RuntimeError("PSX rendering is not re-entrant.")
+        # A completely stable host tree with only paint-class CSS changes
+        # needs native style projection, but no new Cinnamon geometry commit.
+        # Component boundaries, props, structural edits and unsupported CSS
+        # effects conservatively retain the regular layout commit.
+        pending_measurement = getattr(self.renderer, "_sfle_measurement_invalidations", None)
+        pending_geometry = (
+            pending_measurement is not None and pending_measurement.needs_commit()
+        )
+        paint_only = (
+            self.root is not None
+            and not pending_geometry
+            and _paint_only_css_update(self.root, node)
+        )
         self._is_rendering = True
         try:
             if self.root is None:
@@ -76,7 +89,7 @@ class Reconciler:
         finally:
             self._is_rendering = False
         commit_layout = getattr(self.renderer, "commit_layout", None)
-        if callable(commit_layout):
+        if callable(commit_layout) and not paint_only:
             commit_layout(root)
         self._commit_refs()
         self.scheduler.run_effects()
@@ -102,6 +115,11 @@ class Reconciler:
                 errors.append(error)
         _raise_cleanup_error(errors)
 
+    def _apply_css(self, handle: object, computed: object) -> None:
+        apply = getattr(self.renderer, "apply_css", None)
+        if callable(apply):
+            apply(handle, computed)
+
     def _mount(self, node: VNode, parent: MountedInstance | None) -> MountedInstance:
         instance = MountedInstance(node=node, parent=parent)
         try:
@@ -114,6 +132,7 @@ class Reconciler:
                 _without_runtime_props(node), parent.native_handle(
                 ) if parent and parent.handle else None
             )
+            self._apply_css(instance.handle, node.css_computed)
             self._queue_ref(instance, node.props.get("ref"))
             self._sync_events(instance, {}, node.props)
             _validate_keys(node.children)
@@ -153,6 +172,12 @@ class Reconciler:
         try:
             if changed or removed:
                 self.renderer.update(old.handle, changed, removed)
+            if previous_node.css_computed != node.css_computed or (
+                (changed or removed) and node.css_computed is not None
+            ):
+                # Native component updates may reset font or foreground props;
+                # reapply CSS only when a native mutation could have overwritten it.
+                self._apply_css(old.handle, node.css_computed)
             self._sync_events(old, previous_node.props, node.props)
             previous_children = old.children
             next_children = self._reconcile_children(
@@ -390,6 +415,8 @@ class Reconciler:
         if self._is_rendering:
             raise RuntimeError(
                 "Scheduler attempted to flush during rendering.")
+        invalidations = getattr(self.renderer, "_sfle_measurement_invalidations", None)
+        paint_only = invalidations is None or not invalidations.needs_commit()
         self._is_rendering = True
         try:
             for instance in dirty:
@@ -405,6 +432,12 @@ class Reconciler:
                     old_handle = None
                 rendered = self._evaluate_component(instance)
                 previous = instance.children[0]
+                # A queued hook update can change only CSS paint. Inspect
+                # its previous mounted subtree before mutating it; never
+                # bypass a structural, measurement or geometry change.
+                paint_only = (
+                    paint_only and _paint_only_css_update(previous, rendered)
+                )
                 instance.children = [self._reconcile(
                     previous, rendered, instance)]
                 try:
@@ -412,13 +445,16 @@ class Reconciler:
                 except RuntimeError:
                     new_handle = None
                 if new_handle is not old_handle:
+                    paint_only = False
                     ancestor = self._effective_ancestor(instance)
                     if ancestor is not None:
                         self._refresh_ancestor_layout(ancestor)
         finally:
             self._is_rendering = False
         commit_layout = getattr(self.renderer, "commit_layout", None)
-        if callable(commit_layout) and self.root is not None:
+        if (invalidations is not None and invalidations.needs_commit()):
+            paint_only = False
+        if callable(commit_layout) and self.root is not None and not paint_only:
             commit_layout(self.root)
         self._commit_refs()
         self.scheduler.run_effects()
@@ -440,6 +476,39 @@ class Reconciler:
                 # than PSX's private renderer handle.
                 ref.current = getattr(
                     handle, "widget", handle) if instance.node.kind is NodeKind.NATIVE else handle
+
+
+def _paint_only_css_update(old: MountedInstance, new: VNode) -> bool:
+    """Prove that a host subtree changed only in non-geometric CSS paint.
+
+    Never infer layout invariance through component or native boundaries,
+    changed props, or reordered children. A missing style snapshot is also
+    treated conservatively because it may contain inherited geometry.
+    """
+    from psx.css.cascade import ComputedStyle
+    from psx.css.effects import StyleEffect, classify_style_change
+
+    previous = old.node
+    if (previous.kind is not NodeKind.HOST or new.kind is not NodeKind.HOST
+            or not _compatible(previous, new)
+            or previous.props != new.props
+            or len(old.children) != len(new.children)):
+        return False
+    if previous.css_computed is None and new.css_computed is None:
+        # An unchanged sibling with no CSS source cannot invalidate layout.
+        effect = StyleEffect.NONE
+    elif isinstance(previous.css_computed, ComputedStyle) and isinstance(
+            new.css_computed, ComputedStyle):
+        effect = classify_style_change(previous.css_computed, new.css_computed)
+    else:
+        # An attached or detached computed source requires normal commit.
+        return False
+    if effect & ~StyleEffect.PAINT:
+        return False
+    return all(
+        _paint_only_css_update(child, declaration)
+        for child, declaration in zip(old.children, new.children)
+    )
 
 
 def _compatible(old: VNode, new: VNode) -> bool:

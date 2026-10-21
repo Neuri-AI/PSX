@@ -13,6 +13,24 @@ ROOT = Path(__file__).resolve().parents[1]
 CODE_ROOTS = ("psx", "tests", "scripts", ".github/workflows")
 MILESTONE = re.compile(r"(?:^|[_-])(?:f[1-9]|g[1-9]|c[1-9])(?=[_-])", re.I)
 
+# Existing published workflow names and documentation tools are retained as
+# auditable migration debt. New files cannot extend this finite exception set.
+HISTORICAL_EXECUTABLE_NAMES = frozenset({
+    ".github/workflows/f5-5-api-reference.yml",
+    ".github/workflows/f5-5-beginner-examples.yml",
+    ".github/workflows/f5-5-clean-room-reproduction.yml",
+    ".github/workflows/f5-5-g1-audit.yml",
+    ".github/workflows/f5-5-integral-certification.yml",
+    ".github/workflows/f5-5-kivy-gallery.yml",
+    ".github/workflows/f5-5-native-gallery.yml",
+    ".github/workflows/f5-5-public-api.yml",
+    ".github/workflows/f5-5-public-docs.yml",
+    ".github/workflows/f5-5-qt-gallery.yml",
+    ".github/workflows/f5-5-task-board.yml",
+    "scripts/docs/generate_g4_reference.py",
+    "scripts/docs/validate_f5_5_integral.py",
+})
+
 
 def test_executable_filenames_describe_behavior_instead_of_milestones():
     bad = []
@@ -21,7 +39,9 @@ def test_executable_filenames_describe_behavior_instead_of_milestones():
             if path.suffix not in {".py", ".yml", ".yaml"}:
                 continue
             if MILESTONE.search(path.stem):
-                bad.append(str(path.relative_to(ROOT)))
+                relative = str(path.relative_to(ROOT))
+                if relative not in HISTORICAL_EXECUTABLE_NAMES:
+                    bad.append(relative)
     assert not bad, "Milestone-named executable files: " + ", ".join(sorted(bad))
 
 

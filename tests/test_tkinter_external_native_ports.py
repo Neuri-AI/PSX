@@ -113,13 +113,16 @@ class TkExternalPortTests(unittest.TestCase):
         self.assertIn("read", calls)
 
     def test_unported_native_fails_before_tk_factory(self):
+        from psx.core.native import NativeWidget
+        from psx.core.vnode import native_widget
         calls = []
         def factory(parent):
             calls.append("factory")
             return ttk.Label(parent)
         with self.assertRaisesRegex(RendererCapabilityError, "Native requires"):
             self.tree.render(Flex(
-                Native(factory, renderer="tkinter", layout_width="20px"),
+                native_widget(NativeWidget(renderer="tkinter", factory=factory,
+                                           takes_parent=True), layout_width="20px"),
                 width=160, height=80,
             ))
         self.assertEqual(calls, [])

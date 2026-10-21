@@ -263,3 +263,51 @@ def test_canonical_snapshot_preserves_flex_container_padding_shorthand() -> None
     canonical = prepared.canonical_snapshot()
     assert canonical.nodes[0].style == original.nodes[0].style
     assert dict(canonical.nodes[0].style)["layout_padding_left"] == 8
+
+@pytest.mark.parametrize("item_style", [
+    {"layout_width": "60px", "layout_height": "24px"},
+    {"layout_width": "50%", "layout_height": "24px",
+     "layout_min_width": "32px", "layout_max_width": "100px"},
+    {"layout_width": "60px", "layout_height": "24px",
+     "layout_padding_left": "8px", "layout_padding_right": "4px",
+     "layout_border_top": "2px", "layout_margin_left": "-3px"},
+    {"layout_width": "auto", "layout_height": "auto",
+     "layout_max_width": "none"},
+])
+def test_canonical_and_legacy_boxes_agree_for_supported_item_properties(item_style):
+    tree = Flex(
+        Flex(key="first", flex_shrink=0, **item_style),
+        Flex(key="second", width="20px", height="12px", flex_shrink=0),
+        direction="row", width="160px", height="90px",
+        align_items="flex-start", gap=6,
+    )
+    prepared = _prepare(tree)
+    canonical = prepared.canonical_snapshot()
+    original = prepared.snapshot
+    assert canonical.generation == original.generation
+    assert canonical.measurements == original.measurements
+    assert [n.node_id for n in canonical.nodes] == [n.node_id for n in original.nodes]
+    assert PythonLayoutEngine().compute(canonical).boxes == (
+        PythonLayoutEngine().compute(original).boxes
+    )
+
+
+def test_canonical_lengths_preserve_native_image_attributes_and_percent_reference():
+    prepared = _prepare(Flex(
+        Image("photo.png", width=80, height=30, layout_width="50%",
+              layout_height="20px", layout_min_width="24px",
+              layout_max_width="120px", layout_padding_left="10%",
+              layout_margin_top="-4px"),
+        width="160px", height="90px",
+    ))
+    canonical = prepared.canonical_snapshot()
+    style = dict(canonical.nodes[1].style)
+    assert style["layout_width"] == Length.percent(0.5)
+    assert style["layout_padding_left"] == Length.percent(0.1)
+    assert style["layout_margin_top"] == Length.px(-4)
+    assert style["layout_min_width"] == Length.px(24)
+    assert style["layout_max_width"] == Length.px(120)
+    assert "width" not in style and "height" not in style
+    assert prepared.identities[1][1].props["width"] == 80
+    assert prepared.identities[1][1].props["height"] == 30
+    assert dict(prepared.snapshot.nodes[1].style)["layout_width"] == "50%"

@@ -44,6 +44,30 @@ class PreparedNativeLayoutSnapshot:
     identities: tuple[tuple[str, VNode], ...]
     box_styles: tuple[tuple[str, CanonicalItemBoxStyle], ...] = ()
 
+    def css_geometry_snapshot(self) -> LayoutInput:
+        """Project computed CSS geometry into typed Cinnamon input, opt-in.
+
+        Explicit layout_* metadata always wins; CSS never overwrites native
+        widget-owned props. This returns new immutable input, never a native
+        geometry write, and remains independent of renderer backends.
+        """
+        from psx.css.geometry import css_layout_overrides
+
+        baseline = self.canonical_snapshot()
+        originals = dict(self.identities)
+        converted: list[LayoutNode] = []
+        for node in baseline.nodes:
+            original = originals[node.node_id]
+            computed = original.css_computed
+            overrides = css_layout_overrides(computed) if computed is not None else {}
+            explicit = set(original.props)
+            style = dict(node.style)
+            for key, value in overrides.items():
+                if key not in explicit:
+                    style[key] = value
+            converted.append(replace(node, style=tuple(sorted(style.items()))))
+        return replace(baseline, nodes=tuple(converted))
+
     def canonical_snapshot(self) -> LayoutInput:
         """Build engine-ready typed item lengths without changing source props.
 
@@ -124,6 +148,9 @@ def _style(node: VNode) -> tuple[tuple[str, object], ...]:
         if "padding" in props:
             for side, value in zip(_SIDE_NAMES, _edges(props["padding"])):
                 result.setdefault(f"layout_padding_{side}", value)
+    from psx.markup.html_aliases import FORMATTING_TAGS
+    if node.kind is NodeKind.HOST and node.type in FORMATTING_TAGS:
+        result["display"] = props["display"]
     if node.kind is NodeKind.HOST and node.type == "Scroll":
         result["direction"] = (
             "row" if props["content_direction"] == "horizontal" else "column"
@@ -164,7 +191,7 @@ def prepare_native_layout_snapshot(
 ) -> PreparedNativeLayoutSnapshot:
     """Create SFLE v1 input without native imports or implicit measurement.
 
-    The effective root must be one explicit Flex. Components/Fragments are
+    The effective root must be an explicit Flex or a bounded div Block root. Components/Fragments are
     transparent. Scroll is excluded pending the native viewport/content
     binding; fail closed rather than fabricating a layout root.
     Consumers must supply real measured leaf metrics as MeasuredBox values.
@@ -173,9 +200,11 @@ def prepare_native_layout_snapshot(
     if not isinstance(normalized, NormalizedLayoutNode):
         raise TypeError("Expected a normalized layout tree.")
     roots = normalized._participating_roots()
-    if len(roots) != 1 or roots[0].kind is not NodeKind.HOST or roots[0].type != "Flex":
+    from psx.markup.html_aliases import FORMATTING_TAGS
+    if len(roots) != 1 or roots[0].kind is not NodeKind.HOST or roots[0].type not in ({"Flex"} | FORMATTING_TAGS):
         raise SFLECapabilityError(
-            DiagnosticCode.UNSUPPORTED_FEATURE, "Native SFLE requires one explicit Flex root."
+            DiagnosticCode.UNSUPPORTED_FEATURE,
+            "Native SFLE requires one explicit Flex or supported Block root."
         )
     nodes: list[LayoutNode] = []
     origins: list[tuple[str, VNode]] = []
@@ -201,7 +230,13 @@ def prepare_native_layout_snapshot(
             name = "Flex"
         # Preserve specified snapshot values for both layout engines while
         # carrying an immutable, typed box representation alongside them.
-        box_style = normalize_item_box_style(node.source.props, owner=str(node.type))
+        box_props = (
+            {key: val for key, val in node.source.props.items()
+             if key != "display"}
+            if node.source.kind is NodeKind.HOST and node.source.type in FORMATTING_TAGS
+            else node.source.props
+        )
+        box_style = normalize_item_box_style(box_props, owner=str(node.type))
         nodes.append(LayoutNode(identifier, parent_id, name, _style(node.source)))
         box_styles.append((identifier, box_style))
         origins.append((identifier, node.source))

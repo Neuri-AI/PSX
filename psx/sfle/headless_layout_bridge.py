@@ -80,6 +80,35 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             node_id: handles[id(source)]
             for node_id, source in prepared.identities
         }
+        # Shared, conservative dependency classification. Only Text.color
+        # currently qualifies for paint-only reuse; all unknown fields force
+        # geometry validation, and nonliteral values disable reuse.
+        from psx.sfle.layout_change_effects import partition_dependency_signature
+
+        (layout_signature, paint_signature), signature_safe = (
+            partition_dependency_signature(
+                tuple(
+                    (node_id, str(source.type), id(node_handles[node_id]),
+                     source.props)
+                    for node_id, source in prepared.identities
+                ),
+                constraints,
+            )
+        )
+        previous_signature = renderer._sfle_committed_signatures
+        if (
+            signature_safe
+            and renderer.sfle_result is not None
+            and previous_signature is not None
+            and previous_signature[0] == layout_signature
+            and previous_signature[1] != paint_signature
+            and not renderer._sfle_measurement_invalidations.needs_commit()
+        ):
+            # Native paint props are already updated by reconciliation. No
+            # layout dependencies changed; avoid solver, intrinsic reads,
+            # geometry mutation and native readback for this isolated case.
+            renderer._sfle_committed_signatures = (layout_signature, paint_signature)
+            return
         # Mixed Flex/Grid uses the existing width-dependent Cinnamon solver.
         # The Grid is one atomic Flex leaf; its own native children are
         # computed independently at the width allocated by Flex.
@@ -154,16 +183,44 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
                     metrics.append(MeasuredBox(node_id, intrinsic, constraints, generation))
                 if renderer._sfle_generation != generation:
                     raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation after measurement.")
-        snapshot = prepare_native_layout_snapshot(
-            normalized, constraints, generation=generation,
-            measurements=tuple(metrics),
-        ).snapshot
-        result = (compute_width_dependent(
-            renderer._sfle_engine, snapshot,
-            {node_id: (lambda width, node_id=node_id: intrinsic_grid(node_id, width))
-             for node_id in grid_nodes},
-            current_generation=lambda: renderer._sfle_generation,
-        ) if grid_nodes else renderer._sfle_engine.compute(snapshot))
+        # Reuse the prepared identities and canonical item lengths while
+        # preserving actual host measurements and the legacy Grid composition.
+        snapshot = replace(prepared.css_geometry_snapshot(), measurements=tuple(metrics))
+        from psx.sfle.incremental_result_reuse import reuse_unchanged_layout
+        cached_result = None
+        if not grid_nodes and renderer._sfle_prior_solver_engine is renderer._sfle_engine:
+            cached_result = reuse_unchanged_layout(
+                renderer._sfle_prior_solver_input,
+                renderer._sfle_prior_solver_result,
+                snapshot,
+                native_measurement_invalidated=invalidations.needs_commit(),
+            )
+        incremental_engine = getattr(renderer._sfle_engine, "compute_incremental", None)
+        can_reuse_contexts = (
+            not grid_nodes
+            and not invalidations.needs_commit()
+            and renderer._sfle_prior_solver_engine is renderer._sfle_engine
+            and renderer._sfle_prior_solver_input is not None
+            and renderer._sfle_prior_solver_result is not None
+            and callable(incremental_engine)
+        )
+        if cached_result is not None:
+            result = cached_result
+        elif can_reuse_contexts:
+            result = incremental_engine(
+                snapshot,
+                previous_input=renderer._sfle_prior_solver_input,
+                previous_result=renderer._sfle_prior_solver_result,
+            )
+        elif grid_nodes:
+            result = compute_width_dependent(
+                renderer._sfle_engine, snapshot,
+                {node_id: (lambda width, node_id=node_id: intrinsic_grid(node_id, width))
+                 for node_id in grid_nodes},
+                current_generation=lambda: renderer._sfle_generation,
+            )
+        else:
+            result = renderer._sfle_engine.compute(snapshot)
         ports = SFLEAdapterPorts(
             current_generation=lambda: renderer._sfle_generation,
             nodes_alive=lambda ids: all(
@@ -202,7 +259,12 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before geometry.")
         try:
             for node_id, rect in placements.items():
-                node_handles[node_id].geometry = rect
+                # A paint-only reconciliation may still enter this bridge.
+                # Preserve native geometry when the committed rectangle is equal;
+                # avoid redundant writes and resize feedback without claiming
+                # the solver itself was skipped.
+                if before[node_id] != rect:
+                    node_handles[node_id].geometry = rect
             grid_receipts = []
             for node_id in grid_nodes:
                 box = dict(result.boxes)[node_id].content
@@ -249,5 +311,13 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
             renderer.grid_result = grid_receipts[-1]
         # Publish the cache only after the layout and native readback pass.
         renderer._sfle_intrinsic_cache = next_cache
+        # Publish only after native commit/readback succeeds. Two immutable
+        # receipts maximum, replaced every successful transaction.
+        renderer._sfle_prior_solver_input = snapshot if not grid_nodes else None
+        renderer._sfle_prior_solver_result = result if not grid_nodes else None
+        renderer._sfle_prior_solver_engine = renderer._sfle_engine if not grid_nodes else None
+        renderer._sfle_committed_signatures = (
+            (layout_signature, paint_signature) if signature_safe else None
+        )
     finally:
         renderer._sfle_in_commit = False

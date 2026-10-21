@@ -29,6 +29,7 @@ from threading import get_ident
 import tkinter as tk
 from tkinter import ttk
 from psx.core.errors import RendererCapabilityError
+from psx.markup.html_aliases import FORMATTING_TAGS
 from psx.core.events import EventSlot
 from psx.core.native import NativeOwnership, NativeWidget
 from psx.core.vnode import NodeKind, VNode
@@ -314,6 +315,9 @@ class TkinterRenderer:
         self._sfle_measurement_invalidations = MeasurementInvalidations()
         from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
         self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
+        self._sfle_prior_solver_input = None
+        self._sfle_prior_solver_result = None
+        self._sfle_prior_solver_engine = None
         from psx.sfle.native_resource_watch import ImageResourceWatch
         self._sfle_image_resource_watch = ImageResourceWatch()
         self._sfle_resource_poll_scheduled = False
@@ -621,6 +625,9 @@ class TkinterRenderer:
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
         self._sfle_native_intrinsic_cache.clear()
+        self._sfle_prior_solver_input = None
+        self._sfle_prior_solver_result = None
+        self._sfle_prior_solver_engine = None
         self._sfle_image_resource_watch.clear()
         self._sfle_resource_poll_scheduled = False
         self._sfle_mounted_root = None
@@ -674,7 +681,7 @@ class TkinterRenderer:
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
-            if port is None and node.type not in ("Flex", "Grid", "GridItem"):
+            if port is None and node.type not in ("Flex", "Grid", "GridItem") and node.type not in FORMATTING_TAGS:
                 native_leaf_needs_measurement(node, backend="tk")
             if node.type not in ("Flex", "Grid", "GridItem"):
                 node = VNode(node.kind, node.type, node.key,
@@ -721,6 +728,39 @@ class TkinterRenderer:
         widget.bind("<Button-5>", on_wheel, add="+")
 
     def _adapter_create(self, node: VNode, parent: object | None) -> TkHandle:
+        if node.kind is NodeKind.HOST and node.type in FORMATTING_TAGS:
+            if self._sfle_constraints is None or node.props.get("display") not in ("block", "inline"):
+                raise RendererCapabilityError(
+                    "Tkinter div requires an enabled Cinnamon Block viewport.")
+            master = _as_handle(parent).widget if parent is not None else self.root
+            frame = ttk.Frame(master)
+            if parent is None:
+                constraints = self._sfle_constraints
+                if (not constraints.width.definite or not constraints.height.definite
+                        or constraints.width.value is None or constraints.height.value is None):
+                    frame.destroy()
+                    raise RendererCapabilityError(
+                        "Tk Block root requires a definite viewport.")
+                frame.place(
+                    x=0, y=0, width=round(constraints.width.value),
+                    height=round(constraints.height.value),
+                )
+                self._sfle_root_widget = frame
+            if node.type == "label":
+                # Implicit label association is scoped to a nested native Entry.
+                # The widget owns this binding and destroys it on teardown.
+                def focus_nested_input(_event):
+                    pending = list(frame.winfo_children())
+                    while pending:
+                        candidate = pending.pop(0)
+                        if isinstance(candidate, (tk.Entry, ttk.Entry)):
+                            if str(candidate.cget("state")) != "disabled":
+                                candidate.focus_force()
+                            return
+                        pending.extend(candidate.winfo_children())
+
+                frame.bind("<Button-1>", focus_nested_input, add="+")
+            return TkHandle(node.type, frame, dict(node.props))
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             if self._sfle_constraints is None:
                 raise RendererCapabilityError(
@@ -755,6 +795,416 @@ class TkinterRenderer:
             widget.bind("<<Modified>>", self._sfle_on_textarea_modified, add="+")
         return TkHandle(node.type, widget, dict(node.props))
 
+    def apply_css(self, handle: object, computed: object) -> None:
+        """Apply CSS backgrounds through an instance-scoped ttk Frame style."""
+        from psx.css.native_paint import background_hex
+        target = _as_handle(handle)
+        # Tk/ttk themes do not expose reliable bordercolor painting. Keep an
+        # instance-local four-edge overlay instead of changing global ttk styles.
+        if target.node_type in ("Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Text", "Badge") or target.node_type in FORMATTING_TAGS:
+            from psx.css.native_paint import native_border_paint, native_border_radius
+            stroke = native_border_paint(computed)
+            radius = native_border_radius(computed)
+            widget = target.widget
+            edges = getattr(widget, "_psx_css_border_edges", None)
+            corners = getattr(widget, "_psx_css_border_corners", None)
+            if stroke is None:
+                if edges is not None:
+                    for edge in edges:
+                        edge.destroy()
+                    del widget._psx_css_border_edges
+                if corners is not None:
+                    for corner in corners:
+                        corner.destroy()
+                    del widget._psx_css_border_corners
+            else:
+                thickness, color = stroke
+                if int(thickness) != thickness or thickness < 1:
+                    raise ValueError("Tk border painting requires positive integer device pixels.")
+                if edges is None:
+                    edges = tuple(tk.Frame(widget, borderwidth=0, highlightthickness=0, takefocus=0) for _ in range(4))
+                    widget._psx_css_border_edges = edges
+                n = int(thickness)
+                if radius and (int(radius) != radius or radius < n):
+                    raise ValueError("Tk rounded borders require integer px radius >= border-width.")
+                r = int(radius)
+                placements = (
+                    dict(x=r, y=0, relwidth=1, width=-2*r, height=n),
+                    dict(x=r, rely=1, y=-n, relwidth=1, width=-2*r, height=n),
+                    dict(x=0, y=r, width=n, relheight=1, height=-2*r),
+                    dict(relx=1, x=-n, y=r, width=n, relheight=1, height=-2*r),
+                ) if r else (
+                    dict(x=0, y=0, relwidth=1, height=n),
+                    dict(x=0, rely=1, y=-n, relwidth=1, height=n),
+                    dict(x=0, y=0, width=n, relheight=1),
+                    dict(relx=1, x=-n, y=0, width=n, relheight=1),
+                )
+                for edge, place in zip(edges, placements):
+                    edge.configure(background=color)
+                    edge.place(**place)
+                    edge.lift()
+                if not r:
+                    if corners is not None:
+                        for corner in corners:
+                            corner.destroy()
+                        del widget._psx_css_border_corners
+                else:
+                    if corners is None or int(corners[0].cget("width")) != r:
+                        if corners is not None:
+                            for corner in corners:
+                                corner.destroy()
+                        corners = tuple(
+                            tk.Canvas(widget, width=r, height=r, borderwidth=0,
+                                      highlightthickness=0, takefocus=0)
+                            for _ in range(4)
+                        )
+                        widget._psx_css_border_corners = corners
+                    # Tk Canvas has no transparent background. Sample the
+                    # native control's theme surface, never global widget styles.
+                    try:
+                        surface = str(widget.cget("background"))
+                    except tk.TclError:
+                        surface = str(ttk.Style(widget).lookup(widget.winfo_class(), "background") or "")
+                    if not surface:
+                        surface = str(ttk.Style(widget).lookup("TFrame", "background") or "#ffffff")
+                    positions = (
+                        (dict(x=0, y=0), (0, 0, 2*r, 2*r), 90),
+                        (dict(relx=1, x=-r, y=0), (-r, 0, r, 2*r), 0),
+                        (dict(x=0, rely=1, y=-r), (0, -r, 2*r, r), 180),
+                        (dict(relx=1, rely=1, x=-r, y=-r), (-r, -r, r, r), 270),
+                    )
+                    for corner, (place, bounds, start) in zip(corners, positions):
+                        corner.configure(background=surface)
+                        corner.delete("all")
+                        corner.create_arc(*bounds, start=start, extent=90,
+                                          style="arc", outline=color, width=n)
+                        corner.place(**place)
+                        tk.Misc.tkraise(corner)
+        if target.node_type == "Badge":
+            from psx.css.native_paint import foreground_hex
+            widget = target.widget
+            widget._psx_css_foreground = foreground_hex(computed)
+            text_items = widget.find_withtag("all")
+            for item in text_items:
+                if widget.type(item) == "text":
+                    if widget._psx_css_foreground is not None:
+                        widget.itemconfigure(item, fill=widget._psx_css_foreground)
+                    else:
+                        from psx.renderers.components.badge import badge_style
+                        widget.itemconfigure(item, fill=badge_style(target.props)[0])
+            return
+        if target.node_type == "Text":
+            from psx.css.native_paint import native_text_typography
+            from psx.renderers.components.text import apply_tk_text
+            apply_tk_text(target.widget, target.props)
+            styles = native_text_typography(computed, line_height=True)
+            if self._sfle_constraints is not None:
+                revision = (target.props.get("value"), tuple((name, styles.get(name)) for name in ("font-family", "font-size", "font-weight", "line-height")))
+                if getattr(target.widget, "_psx_css_font_revision", None) != revision:
+                    target.widget._psx_css_font_revision = revision
+                    self.request_sfle_invalidation("font", widget_id=id(target.widget))
+            if "font-family" in styles:
+                target.widget._psx_text_font.configure(family=styles["font-family"])
+            if "font-size" in styles:
+                target.widget._psx_text_font.configure(size=-round(styles["font-size"]))
+            if "font-weight" in styles:
+                target.widget._psx_text_font.configure(weight="bold" if styles["font-weight"] >= 600 else "normal")
+            if "text-align" in styles:
+                align = styles["text-align"]
+                target.widget.configure(justify=align, anchor={"left": "w", "center": "center", "right": "e"}[align])
+            if "color" in styles:
+                target.widget.configure(foreground=styles["color"])
+            layer = getattr(target.widget, "_psx_css_text_layer", None)
+            leading = styles.get("line-height")
+            target.widget._psx_css_line_height = leading
+            if leading is None:
+                if layer is not None:
+                    layer.destroy()
+                    del target.widget._psx_css_text_layer
+                return
+            metrics = target.widget._psx_text_font.metrics("linespace")
+            # Tk's spacing2/spacing3 only add interline spacing. Negative
+            # leading would alter glyph rasterization rather than line boxes.
+            if float(leading) != round(leading):
+                raise ValueError("Tk exact line-height requires integer device pixels.")
+            if leading < metrics:
+                raise ValueError("Tk exact line-height cannot be shorter than native glyph linespace.")
+            if layer is None:
+                layer = tk.Text(
+                    target.widget, wrap="word", borderwidth=0,
+                    highlightthickness=0, padx=0, pady=0,
+                    takefocus=0, cursor="arrow", relief="flat",
+                )
+                target.widget._psx_css_text_layer = layer
+                layer.place(x=0, y=0, relwidth=1, relheight=1)
+            layer.configure(state="normal")
+            layer.delete("1.0", "end")
+            layer.insert("1.0", str(target.props.get("value", "")))
+            layer.tag_configure("_psx_css_alignment", justify=str(target.widget.cget("justify")))
+            layer.tag_add("_psx_css_alignment", "1.0", "end")
+            extra = round(leading - metrics)
+            layer.configure(
+                font=target.widget._psx_text_font,
+                fg=str(target.widget.cget("foreground")) if styles.get("color") else "black",
+                spacing2=extra, spacing3=extra,
+                state="disabled",
+            )
+            return
+        if target.node_type == "TextArea":
+            from psx.css.native_paint import native_text_typography
+            from tkinter import font as tkfont
+            styles = native_text_typography(computed)
+            widget = target.widget
+            if not hasattr(widget, "_psx_css_area_base_font"):
+                widget._psx_css_area_base_font = widget.cget("font")
+                widget._psx_css_area_font = tkfont.Font(
+                    root=widget, font=widget._psx_css_area_base_font
+                )
+                widget._psx_css_area_base_config = widget._psx_css_area_font.actual()
+                widget._psx_css_area_base_foreground = widget.cget("foreground")
+            font = widget._psx_css_area_font
+            font.configure(**widget._psx_css_area_base_config)
+            if "font-family" in styles:
+                font.configure(family=styles["font-family"])
+            if "font-size" in styles:
+                font.configure(size=-round(styles["font-size"]))
+            if "font-weight" in styles:
+                font.configure(weight="bold" if styles["font-weight"] == 700 else "normal")
+            widget.configure(font=font if styles else widget._psx_css_area_base_font)
+            widget.configure(foreground=styles.get("color", widget._psx_css_area_base_foreground))
+            tag = "_psx_css_text_align"
+            if "text-align" in styles:
+                widget.tag_configure(tag, justify=styles["text-align"])
+                widget.tag_add(tag, "1.0", "end")
+            else:
+                widget.tag_delete(tag)
+            if self._sfle_constraints is not None:
+                revision = tuple(
+                    (name, styles.get(name)) for name in
+                    ("font-family", "font-size", "font-weight")
+                )
+                if getattr(widget, "_psx_css_font_revision", None) != revision:
+                    widget._psx_css_font_revision = revision
+                    self.request_sfle_invalidation("font", widget_id=id(widget))
+            return
+        if target.node_type == "Link":
+            from psx.css.native_paint import native_text_typography
+            from tkinter import font as tkfont
+            styles = native_text_typography(computed)
+            widget = target.widget
+            if not styles:
+                if hasattr(widget, "_psx_css_link_font"):
+                    widget.configure(
+                        font=widget._psx_css_link_original_font,
+                        anchor=widget._psx_css_link_original_anchor,
+                        foreground=widget._psx_css_link_original_foreground,
+                    )
+                if self._sfle_constraints is not None and hasattr(widget, "_psx_css_font_revision"):
+                    revision = tuple((key, None) for key in ("font-family", "font-size", "font-weight"))
+                    if widget._psx_css_font_revision != revision:
+                        widget._psx_css_font_revision = revision
+                        self.request_sfle_invalidation("font", widget_id=id(widget))
+                return
+            if not hasattr(widget, "_psx_css_link_font"):
+                widget._psx_css_link_original_font = widget.cget("font")
+                widget._psx_css_link_original_anchor = widget.cget("anchor")
+                widget._psx_css_link_original_foreground = widget.cget("foreground")
+                widget._psx_css_link_font = tkfont.Font(
+                    root=widget, font=widget._psx_css_link_original_font
+                )
+                widget._psx_css_link_font_base = widget._psx_css_link_font.actual()
+            font = widget._psx_css_link_font
+            font.configure(**widget._psx_css_link_font_base)
+            if "font-family" in styles:
+                font.configure(family=styles["font-family"])
+            if "font-size" in styles:
+                font.configure(size=-round(styles["font-size"]))
+            if "font-weight" in styles:
+                font.configure(weight="bold" if styles["font-weight"] == 700 else "normal")
+            widget.configure(font=font)
+            widget.configure(foreground=styles.get("color", widget._psx_css_link_original_foreground))
+            if "text-align" in styles:
+                widget.configure(anchor={"left": "w", "center": "center", "right": "e"}[styles["text-align"]])
+            if self._sfle_constraints is not None:
+                revision = tuple((key, styles.get(key)) for key in
+                                 ("font-family", "font-size", "font-weight"))
+                if getattr(widget, "_psx_css_font_revision", None) != revision:
+                    widget._psx_css_font_revision = revision
+                    self.request_sfle_invalidation("font", widget_id=id(widget))
+            return
+        if target.node_type in ("Button", "Checkbox", "Input", "Radio", "Select"):
+            from psx.css.native_paint import native_text_typography
+            from tkinter import font as tkfont
+            styles = native_text_typography(computed, line_height=target.node_type == "Button")
+            widget = target.widget
+            if not styles:
+                if hasattr(widget, "_psx_css_native_font"):
+                    widget._psx_css_native_font.configure(
+                        **widget._psx_css_native_original_font_config
+                    )
+                    if target.node_type not in ("Input", "Select"):
+                        widget.configure(style=widget._psx_css_native_original_style)
+                    else:
+                        widget.configure(font=widget._psx_css_native_original_font)
+                        if target.node_type == "Select" and hasattr(widget, "_psx_css_native_original_combobox_style"):
+                            widget.configure(style=widget._psx_css_native_original_combobox_style)
+                        if target.node_type == "Input":
+                            widget.configure(foreground=widget._psx_css_native_original_foreground)
+                    if self._sfle_constraints is not None and hasattr(widget, "_psx_css_font_revision"):
+                        cleared = tuple((key, None) for key in ("font-family", "font-size", "font-weight", "line-height"))
+                        if widget._psx_css_font_revision != cleared:
+                            widget._psx_css_font_revision = cleared
+                            self.request_sfle_invalidation("font", widget_id=id(widget))
+                return
+            if not hasattr(widget, "_psx_css_native_font"):
+                widget._psx_css_native_original_font = (
+                    widget.cget("font") if target.node_type in ("Input", "Select") else None
+                )
+                if target.node_type == "Select":
+                    widget._psx_css_native_original_combobox_style = str(widget.cget("style"))
+                widget._psx_css_native_original_foreground = (
+                    str(widget.cget("foreground")) if target.node_type == "Input" else None
+                )
+                widget._psx_css_native_original_style = (
+                    str(widget.cget("style")) if target.node_type not in ("Input", "Select") else None
+                )
+            if not hasattr(widget, "_psx_css_native_base_font"):
+                original = ttk.Style(widget).lookup(widget.winfo_class(), "font")
+                widget._psx_css_native_base_font = original or "TkDefaultFont"
+            if not hasattr(widget, "_psx_css_native_font"):
+                widget._psx_css_native_font = tkfont.Font(
+                    root=widget, font=widget._psx_css_native_base_font)
+            font = widget._psx_css_native_font
+            if not hasattr(widget, "_psx_css_native_original_font_config"):
+                widget._psx_css_native_original_font_config = font.actual()
+            font.configure(
+                family=styles.get("font-family", tkfont.nametofont("TkDefaultFont", root=widget).actual("family")),
+                size=-round(styles["font-size"]) if "font-size" in styles else
+                     tkfont.nametofont("TkDefaultFont", root=widget).actual("size"),
+                weight="bold" if styles.get("font-weight") == 700 else "normal",
+            )
+            if target.node_type in ("Input", "Select"):
+                widget.configure(font=font)
+                if target.node_type == "Select" and "color" not in styles and hasattr(widget, "_psx_css_native_original_combobox_style"):
+                    widget.configure(style=widget._psx_css_native_original_combobox_style)
+                if "color" in styles:
+                    if target.node_type == "Input":
+                        widget.configure(foreground=styles["color"])
+                    else:
+                        name = f"PsxCssColor{id(widget)}.TCombobox"
+                        theme = ttk.Style(widget)
+                        theme.configure(name, foreground=styles["color"])
+                        widget.configure(style=name)
+                if "text-align" in styles:
+                    widget.configure(justify=styles["text-align"])
+                else:
+                    widget.configure(justify="left")
+            else:
+                style_name = f"PsxCssType{id(widget)}.{widget.winfo_class()}"
+                style = ttk.Style(widget)
+                config = {"font": font}
+                if "color" in styles:
+                    config["foreground"] = styles["color"]
+                if target.node_type == "Button":
+                    leading = styles.get("line-height")
+                    if leading is not None and (
+                        "\n" in str(widget.cget("text"))
+                        or leading < font.metrics("linespace")
+                        or float(leading) != round(leading)
+                    ):
+                        raise ValueError("Tk Button line-height requires single-line text and integer pixels above native linespace.")
+                    extra = max(0, round(leading - font.metrics("linespace"))) if leading is not None else 0
+                    base = style.lookup(widget.winfo_class(), "padding") or (0,)
+                    if isinstance(base, (tuple, list)):
+                        parts = [int(value) for value in base]
+                    else:
+                        parts = [int(value) for value in str(base).replace("(", "").replace(")", "").replace(",", " ").split()]
+                    if len(parts) == 1:
+                        l = t = r = b = parts[0]
+                    elif len(parts) == 2:
+                        l = r = parts[0]
+                        t = b = parts[1]
+                    elif len(parts) == 4:
+                        l, t, r, b = parts
+                    else:
+                        raise ValueError("Unsupported native Tk button padding format.")
+                    config["padding"] = (
+                        l, t + extra // 2, r, b + extra - extra // 2
+                    )
+                if target.node_type == "Button":
+                    config["anchor"] = {
+                        "left": "w", "center": "center", "right": "e",
+                    }[styles.get("text-align", "center")]
+                elif "text-align" in styles:
+                    raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
+                style.configure(style_name, **config)
+                widget.configure(style=style_name)
+            if self._sfle_constraints is not None:
+                keys = ("font-family", "font-size", "font-weight", "line-height")
+                if any(key in styles for key in keys) or hasattr(widget, "_psx_css_font_revision"):
+                    revision = tuple((key, styles.get(key)) for key in keys)
+                    if getattr(widget, "_psx_css_font_revision", None) != revision:
+                        widget._psx_css_font_revision = revision
+                        self.request_sfle_invalidation("font", widget_id=id(widget))
+            return
+        if target.node_type not in FORMATTING_TAGS:
+            return
+        color = background_hex(computed)
+        widget = target.widget
+        from psx.css.native_paint import native_border_radius
+        radius = native_border_radius(computed)
+        if color is None:
+            widget.configure(style="TFrame")
+        else:
+            style_name = f"PsxCss{id(widget)}.TFrame"
+            ttk.Style(widget).configure(style_name, background=color)
+            widget.configure(style=style_name)
+
+        # ttk.Frame has a rectangular background. Four small, instance-owned
+        # canvases mask its corners against the surrounding native surface and
+        # paint a filled quarter-circle. This is a paint overlay, not a new
+        # container, so children and event dispatch remain unchanged.
+        corners = getattr(widget, "_psx_css_background_corners", None)
+        if color is None or radius == 0:
+            if corners is not None:
+                for corner in corners:
+                    corner.destroy()
+                del widget._psx_css_background_corners
+            return
+        if radius != int(radius) or radius < 1:
+            raise ValueError("Tk rounded CSS backgrounds require integer px radius.")
+        r = int(radius)
+        parent = widget.master
+        try:
+            surface = str(parent.cget("background"))
+        except tk.TclError:
+            surface = str(ttk.Style(parent).lookup(parent.winfo_class(), "background") or "")
+        if not surface:
+            surface = str(ttk.Style(widget).lookup("TFrame", "background") or "#ffffff")
+        if corners is None or int(corners[0].cget("width")) != r:
+            if corners is not None:
+                for corner in corners:
+                    corner.destroy()
+            corners = tuple(tk.Canvas(widget, width=r, height=r, borderwidth=0,
+                                      highlightthickness=0, takefocus=0) for _ in range(4))
+            widget._psx_css_background_corners = corners
+        placements = (
+            (dict(x=0, y=0), (0, 0, 2*r, 2*r), 90),
+            (dict(relx=1, x=-r, y=0), (-r, 0, r, 2*r), 0),
+            (dict(x=0, rely=1, y=-r), (0, -r, 2*r, r), 180),
+            (dict(relx=1, rely=1, x=-r, y=-r), (-r, -r, r, r), 270),
+        )
+        for corner, (place, bounds, start) in zip(corners, placements):
+            corner.configure(background=surface)
+            corner.delete("all")
+            corner.create_arc(*bounds, start=start, extent=90, style="pieslice",
+                              fill=color, outline=color, width=0)
+            corner.place(**place)
+            tk.Misc.tkraise(corner)
+        # Border arcs are above the rounded fill if both declarations exist.
+        for border_corner in getattr(widget, "_psx_css_border_corners", ()):
+            tk.Misc.tkraise(border_corner)
+
     # -- update -----------------------------------------------------------
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
@@ -768,6 +1218,16 @@ class TkinterRenderer:
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _as_handle(handle)
+        if target.node_type in FORMATTING_TAGS:
+            updated = dict(target.props)
+            updated.update(changed)
+            for name in removed:
+                updated.pop(name, None)
+            if updated.get("display") not in ("block", "inline"):
+                raise RendererCapabilityError(
+                    "div currently supports only the Cinnamon Block context.")
+            target.props = updated
+            return
         if target.node_type in ("Grid", "GridItem"):
             target.props.update(changed)
             for name in removed:
@@ -807,7 +1267,7 @@ class TkinterRenderer:
         self._default_insert(parent, child, index)
 
     def _default_insert(self, parent: object, child: object, index: int) -> None:
-        if _as_handle(parent).node_type in ("Grid", "GridItem"):
+        if _as_handle(parent).node_type in ("Grid", "GridItem") or _as_handle(parent).node_type in FORMATTING_TAGS:
             container, item = _as_handle(parent), _as_handle(child)
             if item not in container.children:
                 container.children.insert(index, item)
@@ -821,7 +1281,7 @@ class TkinterRenderer:
         self._default_move(parent, child, index)
 
     def _default_move(self, parent: object, child: object, index: int) -> None:
-        if _as_handle(parent).node_type in ("Grid", "GridItem"):
+        if _as_handle(parent).node_type in ("Grid", "GridItem") or _as_handle(parent).node_type in FORMATTING_TAGS:
             container, item = _as_handle(parent), _as_handle(child)
             if item in container.children:
                 container.children.remove(item)

@@ -83,7 +83,7 @@ def _badge_widget_class(binding: str):
                 painter.setBrush(gui.QColor(background))
             painter.drawRoundedRect(rect, radius, radius)
 
-            painter.setPen(gui.QColor(foreground))
+            painter.setPen(gui.QColor(getattr(self, "_psx_css_foreground", None) or foreground))
             painter.setFont(self.font())
             painter.drawText(core.QRectF(self.rect()), alignment, props["label"])
             painter.end()

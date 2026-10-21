@@ -1,0 +1,71 @@
+"""Pure CSS selector matching and specified-style cascade.
+
+This resolver deliberately has no VNode/renderer access. It does not mutate
+native properties, create CSS Grid contexts or assign geometry.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Mapping
+
+from psx.sfle.lengths import Length
+from .parser import Stylesheet
+from .properties import CssDeclaration, CssPropertyRegistry, foundation_registry
+
+
+@dataclass(frozen=True, slots=True)
+class StyleTarget:
+    tag: str
+    classes: frozenset[str] = frozenset()
+    node_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ComputedStyle:
+    """Immutable snapshot with no references to mounted nodes."""
+    properties: Mapping[str, object]
+    specified: frozenset[str] = frozenset()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "properties", MappingProxyType(dict(self.properties)))
+
+    def __eq__(self, other: object) -> bool:
+        return (isinstance(other, ComputedStyle)
+                and dict(self.properties) == dict(other.properties)
+                and self.specified == other.specified)
+
+
+def resolve_style(
+    sheet: Stylesheet,
+    target: StyleTarget,
+    *,
+    inline: tuple[CssDeclaration, ...] = (),
+    inherited: ComputedStyle | None = None,
+    registry: CssPropertyRegistry | None = None,
+) -> ComputedStyle:
+    definitions = registry or foundation_registry()
+    resolved: dict[str, object] = {name: prop.initial for name, prop in definitions.properties.items()}
+    specified: set[str] = set()
+    if inherited is not None:
+        for name, prop in definitions.properties.items():
+            if prop.inherited and name in inherited.properties:
+                resolved[name] = inherited.properties[name]
+                if name in inherited.specified:
+                    specified.add(name)
+    matched: list[tuple[tuple[int, int, int], int, int, str, object]] = []
+    for rule in sheet.rules:
+        for selector in rule.selectors:
+            if selector.matches(target.tag, target.classes, target.node_id):
+                for index, (name, value) in enumerate(rule.declarations):
+                    if name not in definitions.properties or definitions.validate(name, value).value != value:
+                        raise ValueError(f"Invalid precompiled declaration: {name!r}")
+                    matched.append((selector.specificity, rule.order, index, name, value))
+    for _, _, _, name, value in sorted(matched):
+        resolved[name] = value
+        specified.add(name)
+    for declaration in inline:
+        validated = definitions.validate(declaration.name, declaration.value)
+        resolved[validated.name] = validated.value
+        specified.add(validated.name)
+    return ComputedStyle(resolved, frozenset(specified))

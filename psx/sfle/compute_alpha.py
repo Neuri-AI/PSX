@@ -454,7 +454,12 @@ def _border(style: _Style, node_id: str) -> UsedEdges:
                      bottom=edge(style.border_bottom), left=edge(style.border_left))
 
 
-def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> LayoutResult:
+def compute_snapshot(
+    request: LayoutInput, *, provisional: bool = False,
+    previous_input: LayoutInput | None = None,
+    previous_result: LayoutResult | None = None,
+    reused_contexts: list[str] | None = None,
+) -> LayoutResult:
     """Compute recursive wrapped content-box snapshots.
 
     Final height-for-width measurements must already be part of the immutable
@@ -999,9 +1004,71 @@ def compute_snapshot(request: LayoutInput, *, provisional: bool = False) -> Layo
 
     used: dict[str, tuple[float, float]] = {}
 
+    # A prior result may supply used content dimensions for an unchanged,
+    # definitely-sized subtree. Its current placement is still recomputed
+    # by the normal margin-tree compositor. The safe subset excludes
+    # percentages and intrinsic dependencies on a changed environment.
+    reusable: dict[str, tuple[float, float]] = {}
+    reused_subtree: dict[str, tuple[str, ...]] = {}
+    if (not provisional and previous_input is not None and previous_result is not None
+            and previous_input.schema_version == request.schema_version
+            and previous_input.constraints == request.constraints
+            and previous_input.direction == request.direction
+            and previous_result.generation == previous_input.generation
+            and not previous_result.diagnostics
+            and previous_result.geometry_commit_error in (None, 0)):
+        prior_nodes = {node.node_id: node for node in previous_input.nodes}
+        prior_children: dict[str, list[str]] = {node.node_id: [] for node in previous_input.nodes}
+        for old_child in previous_input.nodes:
+            if old_child.parent_id is not None and old_child.parent_id in prior_children:
+                prior_children[old_child.parent_id].append(old_child.node_id)
+        current_nodes = {node.node_id: node for node in request.nodes}
+        prior_metrics = {item.node_id: item for item in previous_input.measurements}
+        current_metrics = {item.node_id: item for item in request.measurements}
+        previous_boxes = dict(previous_result.boxes)
+        subtree_safe: dict[str, bool] = {}
+        subtree_ids: dict[str, tuple[str, ...]] = {}
+        for node in reversed(request.nodes):
+            old = prior_nodes.get(node.node_id)
+            intrinsic_same = prior_metrics.get(node.node_id) == current_metrics.get(node.node_id)
+            # Percentage styles depend on a containing-block dimension;
+            # reject even if an apparently equivalent previous size exists.
+            no_percent = all(
+                not (isinstance(value, Length) and value.kind == LengthKind.PERCENT)
+                and not (isinstance(value, str) and "%" in value)
+                for _, value in node.style
+            )
+            direct = (old == node and intrinsic_same and no_percent
+                      and prior_children.get(node.node_id) == children[node.node_id]
+                      and node.node_id in previous_boxes)
+            descendants = tuple(children[node.node_id])
+            safe = direct and all(subtree_safe.get(child, False) for child in descendants)
+            subtree_safe[node.node_id] = safe
+            subtree_ids[node.node_id] = (
+                (node.node_id,) + tuple(
+                    descendant for child in descendants
+                    for descendant in subtree_ids[child]
+                ) if safe else ()
+            )
+            if safe:
+                reusable[node.node_id] = (
+                    previous_boxes[node.node_id].content.width,
+                    previous_boxes[node.node_id].content.height,
+                )
+                reused_subtree[node.node_id] = subtree_ids[node.node_id]
+
     def layout(node_id: str, forced_width: float | None, forced_height: float | None,
                parent_width: float | None, parent_height: float | None) -> tuple[float, float]:
         style = styles[node_id]
+        if node_id in reusable and forced_width is not None and forced_height is not None:
+            old_width, old_height = reusable[node_id]
+            if (abs(old_width - forced_width) <= 1 / 64
+                    and abs(old_height - forced_height) <= 1 / 64):
+                for descendant in reused_subtree[node_id]:
+                    used[descendant] = reusable[descendant]
+                if reused_contexts is not None:
+                    reused_contexts.append(node_id)
+                return old_width, old_height
         width = forced_width if forced_width is not None else _axis_value(
             style.width, parent_width, axis="width", node_id=node_id,
         )

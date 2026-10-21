@@ -42,6 +42,7 @@ from kivy.uix.slider import Slider as KivySlider
 from kivy.uix.spinner import Spinner
 
 from psx.core.errors import RendererCapabilityError
+from psx.markup.html_aliases import FORMATTING_TAGS
 from psx.core.events import EventSlot
 from psx.core.native import NativeOwnership, NativeWidget
 from psx.core.vnode import (NodeKind, VNode)
@@ -341,6 +342,9 @@ class KivyRenderer:
         self._sfle_measurement_invalidations = MeasurementInvalidations()
         from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
         self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
+        self._sfle_prior_solver_input = None
+        self._sfle_prior_solver_result = None
+        self._sfle_prior_solver_engine = None
         from psx.sfle.native_resource_watch import ImageResourceWatch
         self._sfle_image_resource_watch = ImageResourceWatch()
         self._sfle_resource_poll_scheduled = False
@@ -613,6 +617,9 @@ class KivyRenderer:
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
         self._sfle_native_intrinsic_cache.clear()
+        self._sfle_prior_solver_input = None
+        self._sfle_prior_solver_result = None
+        self._sfle_prior_solver_engine = None
         self._sfle_image_resource_watch.clear()
         self._sfle_resource_poll_scheduled = False
         self._sfle_mounted_root = None
@@ -653,7 +660,7 @@ class KivyRenderer:
             # An unregistered custom host or a Native declaration without a
             # strict SFLE port must fail *before* its factory mutates the GUI.
             port = external_port_for(node, self)
-            if port is None and node.type not in ("Flex", "Grid", "GridItem"):
+            if port is None and node.type not in ("Flex", "Grid", "GridItem") and node.type not in FORMATTING_TAGS:
                 native_leaf_needs_measurement(node, backend="kivy")
             if node.type not in ("Flex", "Grid", "GridItem"):
                 node = VNode(node.kind, node.type, node.key,
@@ -669,6 +676,39 @@ class KivyRenderer:
         return handle
 
     def _adapter_create(self, node: VNode, parent: object | None) -> KivyHandle:
+        if node.kind is NodeKind.HOST and node.type in FORMATTING_TAGS:
+            if self._sfle_constraints is None or node.props.get("display") not in ("block", "inline"):
+                raise RendererCapabilityError(
+                    "Kivy div requires an enabled Cinnamon Block viewport.")
+            if node.type == "label":
+                from kivy.uix.textinput import TextInput
+
+                class NativeLabelHost(Widget):
+                    def focus_nested_input(self):
+                        for descendant in self.walk():
+                            if isinstance(descendant, TextInput) and not descendant.disabled:
+                                descendant.focus = True
+                                return True
+                        return False
+
+                    def on_touch_down(self, touch):
+                        if self.collide_point(*touch.pos):
+                            self.focus_nested_input()
+                        return super().on_touch_down(touch)
+
+                native_widget = NativeLabelHost(size_hint=(None, None))
+            else:
+                native_widget = Widget(size_hint=(None, None))
+            handle = KivyHandle(node.type, native_widget, dict(node.props))
+            if parent is None:
+                viewport = self._sfle_constraints
+                if (viewport.width.value is None or viewport.height.value is None
+                        or not viewport.width.definite or not viewport.height.definite):
+                    raise RendererCapabilityError(
+                        "Kivy Block root requires definite viewport dimensions.")
+                handle.widget.size = (viewport.width.value, viewport.height.value)
+                self._root = handle.widget
+            return handle
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             if self._sfle_constraints is None:
                 raise RendererCapabilityError(
@@ -723,6 +763,210 @@ class KivyRenderer:
             spec.on_create(widget)
         return KivyHandle(node.type, widget, dict(node.props))
 
+    def apply_css(self, handle: object, computed: object) -> None:
+        """Paint native semantic backgrounds with one owned canvas instruction."""
+        from psx.css.native_paint import background_rgba
+        from kivy.graphics import Color, InstructionGroup, Rectangle
+
+        target = _handle(handle)
+        # Apply one owned stroke to both HTML-like boxes and PascalCase
+        # controls, before the typography branches return.
+        if target.node_type in ("Text", "Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Badge"):
+            from psx.css.native_paint import native_border_paint, native_border_radius
+            from kivy.graphics import Line
+            stroke = native_border_paint(computed, alpha=True)
+            radius = native_border_radius(computed)
+            widget = target.widget
+            existing_border = getattr(widget, "_psx_css_control_stroke", None)
+            if stroke is None:
+                if existing_border is not None:
+                    group, redraw, _, _ = existing_border
+                    widget.unbind(pos=redraw, size=redraw)
+                    widget.canvas.after.remove(group)
+                    del widget._psx_css_control_stroke
+                    del widget._psx_css_stroke_radius
+            elif existing_border is None:
+                width, rgba = stroke
+                group = InstructionGroup()
+                paint = Color(*rgba)
+                line = Line(width=width)
+                line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
+                group.add(paint)
+                group.add(line)
+                def redraw(instance, _):
+                    r = widget._psx_css_stroke_radius
+                    line.rounded_rectangle = (instance.x, instance.y, instance.width, instance.height, r)
+                widget._psx_css_stroke_radius = radius
+                widget.canvas.after.add(group)
+                widget.bind(pos=redraw, size=redraw)
+                widget._psx_css_control_stroke = (group, redraw, paint, line)
+            else:
+                _, _, paint, line = existing_border
+                line.width, paint.rgba = stroke
+                widget._psx_css_stroke_radius = radius
+                line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
+        if target.node_type == "Text":
+            from psx.css.native_paint import native_text_typography
+            from psx.renderers.components.text import apply_kivy_text
+            if not hasattr(target.widget, "_psx_css_default_font_name"):
+                target.widget._psx_css_default_font_name = target.widget.font_name
+            apply_kivy_text(target.widget, target.props)
+            styles = native_text_typography(computed, alpha=True, line_height=True)
+            target.widget.font_name = target.widget._psx_css_default_font_name
+            if "font-family" in styles:
+                target.widget.font_name = styles["font-family"]
+            if "font-size" in styles:
+                target.widget.font_size = styles["font-size"]
+            if "font-weight" in styles:
+                target.widget.bold = styles["font-weight"] >= 600
+            if "text-align" in styles:
+                target.widget.halign = styles["text-align"]
+            if "color" in styles:
+                target.widget.color = styles["color"]
+            target.widget.line_height = (
+                styles["line-height"] / target.widget.font_size
+                if "line-height" in styles else target.widget.property("line_height").defaultvalue
+            )
+            if self._sfle_constraints is not None:
+                keys = ("font-family", "font-size", "font-weight", "line-height")
+                revision = (target.props.get("value"),
+                            tuple((key, styles.get(key)) for key in keys))
+                if getattr(target.widget, "_psx_css_font_revision", None) != revision:
+                    target.widget._psx_css_font_revision = revision
+                    self.request_sfle_invalidation(
+                        "font", widget_id=id(target.widget)
+                    )
+            return
+        if target.node_type == "Badge":
+            from psx.css.native_paint import native_text_typography
+            styles = native_text_typography(computed, alpha=True)
+            widget = target.widget
+            if not hasattr(widget, "_psx_css_original_foreground"):
+                widget._psx_css_original_foreground = tuple(widget.color)
+            widget.color = styles.get("color", widget._psx_css_original_foreground)
+            return
+        if target.node_type == "Radio":
+            from psx.css.native_paint import native_text_typography
+            styles = native_text_typography(computed, alpha=True)
+            widget = target.widget
+            label = getattr(widget, "_psx_label", None)
+            if label is None:
+                raise ValueError("Kivy Radio foreground requires a native text label.")
+            if not hasattr(label, "_psx_css_original_foreground"):
+                label._psx_css_original_foreground = tuple(label.color)
+            label.color = styles.get("color", label._psx_css_original_foreground)
+            return
+        if target.node_type in ("Button", "Input", "TextArea", "Select", "Link"):
+            from psx.css.native_paint import native_text_typography
+            styles = native_text_typography(computed, alpha=True,
+                                            line_height=target.node_type == "Button")
+            widget = target.widget
+            if not hasattr(widget, "_psx_css_default_typography"):
+                widget._psx_css_default_typography = {
+                    key: getattr(widget, key) for key in
+                    ("font_name", "font_size", "bold", "halign", "line_height", "color", "foreground_color")
+                    if hasattr(widget, key)
+                }
+            for key, value in widget._psx_css_default_typography.items():
+                setattr(widget, key, value)
+            if "font-family" in styles and hasattr(widget, "font_name"):
+                widget.font_name = styles["font-family"]
+            if "font-size" in styles:
+                widget.font_size = styles["font-size"]
+            if "font-weight" in styles:
+                if not hasattr(widget, "bold"):
+                    raise ValueError(f"Kivy {target.node_type} does not expose native font-weight.")
+                widget.bold = styles["font-weight"] == 700
+            if "text-align" in styles:
+                if not hasattr(widget, "halign"):
+                    raise ValueError(f"Kivy {target.node_type} does not support text-align.")
+                widget.halign = styles["text-align"]
+            if "line-height" in styles:
+                if not hasattr(widget, "line_height"):
+                    raise ValueError(f"Kivy {target.node_type} does not support line-height.")
+                widget.line_height = styles["line-height"] / widget.font_size
+            if "color" in styles:
+                if target.node_type in ("Input", "TextArea") and hasattr(widget, "foreground_color"):
+                    widget.foreground_color = styles["color"]
+                elif hasattr(widget, "color"):
+                    widget.color = styles["color"]
+                else:
+                    raise ValueError(f"Kivy {target.node_type} has no foreground paint property.")
+            if self._sfle_constraints is not None:
+                keys = ("font-family", "font-size", "font-weight", "line-height")
+                if any(key in styles for key in keys) or hasattr(widget, "_psx_css_font_revision"):
+                    revision = tuple((key, styles.get(key)) for key in keys)
+                    if getattr(widget, "_psx_css_font_revision", None) != revision:
+                        widget._psx_css_font_revision = revision
+                        self.request_sfle_invalidation("font", widget_id=id(widget))
+            return
+        if target.node_type not in FORMATTING_TAGS:
+            return
+        widget = target.widget
+        rgba = background_rgba(computed)
+        from psx.css.native_paint import border_rgba, native_border_radius
+        radius = native_border_radius(computed)
+        from psx.sfle.lengths import Length, LengthKind
+        from kivy.graphics import Line
+        border = border_rgba(computed)
+        thickness = computed.properties["border-width"] if computed is not None else None
+        if border is not None:
+            if not isinstance(thickness, Length) or thickness.kind != LengthKind.PX:
+                raise ValueError("Kivy CSS border paint requires a pixel width.")
+        stroke_width = float(thickness.value) if border is not None else 0.0
+        old_stroke = getattr(widget, "_psx_css_stroke", None)
+        if border is None or stroke_width <= 0:
+            if old_stroke is not None:
+                stroke_group, stroke_redraw, _, _ = old_stroke
+                widget.unbind(pos=stroke_redraw, size=stroke_redraw)
+                widget.canvas.after.remove(stroke_group)
+                del widget._psx_css_stroke
+        elif old_stroke is None:
+            stroke_group = InstructionGroup()
+            stroke_color = Color(*border)
+            stroke_line = Line(rounded_rectangle=(widget.x, widget.y, widget.width, widget.height, radius), width=stroke_width)
+            stroke_group.add(stroke_color)
+            stroke_group.add(stroke_line)
+            def stroke_redraw(instance, _value):
+                stroke_line.rounded_rectangle = (instance.x, instance.y, instance.width, instance.height, widget._psx_css_semantic_radius)
+            widget._psx_css_semantic_radius = radius
+            widget.canvas.after.add(stroke_group)
+            widget.bind(pos=stroke_redraw, size=stroke_redraw)
+            widget._psx_css_stroke = (stroke_group, stroke_redraw, stroke_color, stroke_line)
+        else:
+            _, _, stroke_color, stroke_line = old_stroke
+            stroke_color.rgba = border
+            stroke_line.width = stroke_width
+            widget._psx_css_semantic_radius = radius
+            stroke_line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
+        existing = getattr(widget, "_psx_css_paint", None)
+        if rgba is None:
+            if existing is not None:
+                group, redraw, _color = existing
+                widget.unbind(pos=redraw, size=redraw)
+                widget.canvas.before.remove(group)
+                del widget._psx_css_paint
+                del widget._psx_css_paint_rect
+            return
+        if existing is None:
+            group = InstructionGroup()
+            color = Color(*rgba)
+            from kivy.graphics import RoundedRectangle
+            rectangle = RoundedRectangle(pos=widget.pos, size=widget.size, radius=[radius] * 4)
+            group.add(color)
+            group.add(rectangle)
+            def redraw(instance, _value):
+                rectangle.pos = instance.pos
+                rectangle.size = instance.size
+            widget.canvas.before.add(group)
+            widget.bind(pos=redraw, size=redraw)
+            widget._psx_css_paint = (group, redraw, color)
+            widget._psx_css_paint_rect = rectangle
+        else:
+            _group, _redraw, color = existing
+            color.rgba = rgba
+            widget._psx_css_paint_rect.radius = [radius] * 4
+
     # -- update -----------------------------------------------------------
 
     def update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
@@ -736,6 +980,16 @@ class KivyRenderer:
 
     def _adapter_update(self, handle: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
         target = _handle(handle)
+        if target.node_type in FORMATTING_TAGS:
+            updated = dict(target.props)
+            updated.update(changed)
+            for name in removed:
+                updated.pop(name, None)
+            if updated.get("display") not in ("block", "inline"):
+                raise RendererCapabilityError(
+                    "div currently supports only the Cinnamon Block context.")
+            target.props = updated
+            return
         if target.node_type in ("Grid", "GridItem"):
             target.props.update(changed)
             for name in removed:
@@ -767,7 +1021,7 @@ class KivyRenderer:
         self._default_insert(parent, child, index)
 
     def _default_insert(self, parent: object, child: object, index: int) -> None:
-        if _handle(parent).node_type in ("Grid", "GridItem"):
+        if _handle(parent).node_type in ("Grid", "GridItem") or _handle(parent).node_type in FORMATTING_TAGS:
             container, item = _handle(parent), _handle(child)
             if item in container.children:
                 container.children.remove(item)
@@ -790,7 +1044,7 @@ class KivyRenderer:
         self._default_move(parent, child, index)
 
     def _default_move(self, parent: object, child: object, index: int) -> None:
-        if _handle(parent).node_type in ("Grid", "GridItem"):
+        if _handle(parent).node_type in ("Grid", "GridItem") or _handle(parent).node_type in FORMATTING_TAGS:
             container, item = _handle(parent), _handle(child)
             container.children.remove(item)
             container.children.insert(index, item)
@@ -869,6 +1123,7 @@ class KivyRenderer:
         # is permanently destroyed at this boundary; borrowed native widgets
         # are returned to their owner and MUST keep their KV rules.
         target = _handle(handle)
+        self.apply_css(handle, None)
         try:
             self._adapter_for(handle_adapter_key(handle)).destroy(self, handle)
         finally:

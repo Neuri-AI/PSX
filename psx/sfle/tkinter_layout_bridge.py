@@ -7,6 +7,8 @@ No pack/grid/fake text measurements or second CSS layout algorithm.
 """
 from __future__ import annotations
 
+from psx.markup.html_aliases import FORMATTING_TAGS
+
 from dataclasses import replace
 from threading import get_ident
 from typing import TYPE_CHECKING
@@ -95,6 +97,19 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             for node_id, source in prepared.identities
             if (port := external_port_for(source, renderer)) is not None
         }
+        from psx.sfle.layout_change_effects import partition_dependency_signature
+
+        (layout_signature, paint_signature), signature_safe = (
+            partition_dependency_signature(
+                tuple(
+                    (node_id, str(source.type), id(widgets[node_id]), source.props)
+                    for node_id, source in prepared.identities
+                ),
+                renderer._sfle_constraints,
+            )
+        )
+        prior_signature = getattr(renderer, "_sfle_committed_signatures", None)
+
         root_id = prepared.snapshot.nodes[0].node_id
 
         for node in prepared.snapshot.nodes:
@@ -117,11 +132,28 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 raise SFLEError(DiagnosticCode.INVALID_TREE,
                                 "Tk widget master must match SFLE node parent.", node.node_id)
 
+        # Native ownership and placement checks precede the fast path.
+        # Unrecognized/unsafe properties, external leaves, Grid and semantic
+        # invalidations always retain the full measurement/layout transaction.
+        if (
+            signature_safe
+            and not external
+            and not any(node.component == "Grid" for node in prepared.snapshot.nodes)
+            and renderer.sfle_result is not None
+            and prior_signature is not None
+            and prior_signature[0] == layout_signature
+            and prior_signature[1] != paint_signature
+            and not renderer._sfle_measurement_invalidations.needs_commit()
+        ):
+            renderer._sfle_committed_signatures = (layout_signature, paint_signature)
+            return
+
         leaf_widgets = {
             node_id: widgets[node_id]
             for node_id, source in prepared.identities
             if source.kind is NodeKind.HOST
             and source.type not in ("Flex", "Box", "RadioGroup", "Scroll", "Grid")
+            and source.type not in FORMATTING_TAGS
             and not (source.type == "Divider" and source.children)
             and node_id not in external
         }
@@ -177,7 +209,9 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale external tk measurement.")
         readings.extend(mixed_grid.seed_measurements())
-        snapshot = replace(prepared.snapshot, measurements=tuple(readings))
+        # Normalize explicitly declared item box lengths after native Tk
+        # measurements, retaining the existing container and Grid contracts.
+        snapshot = replace(prepared.css_geometry_snapshot(), measurements=tuple(readings))
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
             node_id: (lambda width, node_id=node_id: native_round.read_width(
@@ -207,10 +241,56 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 )
         dependent.update(mixed_grid.width_dependencies())
         snapshot = seed_unconstrained_width_measurements(snapshot, frozenset(dependent))
-        result = compute_width_dependent(
-            renderer._sfle_engine, snapshot, dependent,
-            current_generation=lambda: renderer._sfle_generation,
-        )
+        if snapshot.nodes[0].component in FORMATTING_TAGS:
+            # Both Rust primary and Python fallback own the same measured flow wire.
+            from psx.sfle.model import MeasuredBox
+            width = renderer._sfle_constraints.width.value
+            if width is None or not renderer._sfle_constraints.width.definite:
+                raise SFLEError(
+                    DiagnosticCode.LAYOUT_CONSTRAINT,
+                    "Native Block requires a definite viewport width.",
+                )
+            if dependent:
+                refreshed = {item.node_id: item for item in snapshot.measurements}
+                for node_id, measure_at_width in dependent.items():
+                    previous = refreshed.get(node_id)
+                    if previous is None:
+                        raise SFLEError(
+                            DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                            "Block text requires an initial intrinsic measurement.",
+                            node_id,
+                        )
+                    refreshed[node_id] = MeasuredBox(
+                        node_id, measure_at_width(width), previous.constraints,
+                        previous.revision,
+                    )
+                    if renderer._sfle_generation != generation:
+                        raise SFLEError(
+                            DiagnosticCode.INVALID_SNAPSHOT,
+                            "Stale Block width-dependent measurement.",
+                            node_id,
+                        )
+                snapshot = replace(
+                    snapshot, measurements=tuple(refreshed[node.node_id]
+                    for node in snapshot.nodes if node.node_id in refreshed),
+                )
+            result = renderer._sfle_engine.compute(snapshot)
+        else:
+            result = compute_width_dependent(
+                renderer._sfle_engine, snapshot, dependent,
+                current_generation=lambda: renderer._sfle_generation,
+                previous_input=(
+                    renderer._sfle_prior_solver_input
+                    if renderer._sfle_prior_solver_engine is renderer._sfle_engine else None
+                ),
+                previous_result=(
+                    renderer._sfle_prior_solver_result
+                    if renderer._sfle_prior_solver_engine is renderer._sfle_engine else None
+                ),
+                native_measurement_invalidated=(
+                    renderer._sfle_measurement_invalidations.needs_commit()
+                ),
+            )
 
         mixed_plans = mixed_grid.plan(dict(result.boxes))
 
@@ -371,5 +451,16 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         if mixed_receipts:
             renderer.grid_result = mixed_receipts[-1]
         native_round.publish()
+        # Preserve only the most recent successful immutable snapshot.
+        # Width-dependent provisional computations have separate iterative
+        # measurements and cannot reuse this initial snapshot as a receipt.
+        renderer._sfle_prior_solver_input = snapshot if not dependent else None
+        renderer._sfle_prior_solver_result = result if not dependent else None
+        renderer._sfle_prior_solver_engine = (
+            renderer._sfle_engine if not dependent else None
+        )
+        renderer._sfle_committed_signatures = (
+            (layout_signature, paint_signature) if signature_safe else None
+        )
     finally:
         renderer._sfle_in_commit = False

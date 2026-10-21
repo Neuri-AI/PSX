@@ -353,6 +353,74 @@ This work is a distinct future implementation track. Its phase numbering (F0–F
 | F7 | CSS Advanced | Inheritance, variables, themes and advanced selectors in declared scope |
 | F8 | Compatibility and certification | Existing-component refactoring, public API regressions, backend capability matrix and Chromium differential evidence |
 
+### P1.4.6 — Native CSS Visual functional integration (closed for bounded supported subset)
+
+**Functional exit evidence:** [Native CSS component capability inventory and exact-SHA receipt](architecture/css-native-component-capability-inventory.md), certified against implementation SHA `a3b1301ae76e421f8920cff6a76ef37d996d6131` (13/13 GitHub Actions workflows successful, including executed Qt, Tkinter, Kivy, multi-binding Qt native jobs and public-behavior evidence aggregation). Native CSS property projection and exclusions are published in [the public catalog](public/reference/native-css-capabilities.mdx). The owner-approved public component contracts remain unchanged.
+
+The bounded native paint, typography, state/interaction, keyed lifecycle, inherited styling, Qt QSS, local Tk `ttk.Style`, Kivy canvas and cleanup functionality has direct mounted tests. This **does not** certify arbitrary CSS on native controls, unsupported visual values, pixel-perfect cross-platform rendering, cross-device DPI/theme regressions or global dependency-aware invalidation. The last two belong to P1.4.8 and P1.4.7; implementation changes after the recorded SHA require fresh test evidence.
+
+### P1.4.7 — Dependency-aware invalidation and performance (functionally closed for supported subset)
+
+**Entry baseline:** P1.4.6 native CSS functional scope and reusable Cinnamon measurement caches. This increment reduces redundant commits and redundant measurement **without changing native paint, public component APIs, or Cinnamon's authority over geometry**.
+
+**Implementation work and exit evidence:**
+
+1. Coalesce duplicate content/font/theme/resource/DPI/viewport notifications while preserving strictly newer epochs for new reasons, newly dirty widgets and escalation to global invalidation; stale commits must never acknowledge current work.
+2. Reuse cached intrinsic and width-constrained measurements for unchanged widgets; invalidate changed leaves and their necessary layout contexts, without measuring unrelated siblings. Verify that changing constraints or fonts invalidates precisely the affected metrics.
+3. Preserve computed style's paint/measurement/geometry effect separation: paint-only edits must not trigger measurement; changing text, font size or line height must trigger dependent reflow, including restoration/removal.
+4. Integrate conditional incremental layout reuse and commit scheduling consistently in Qt (all supported bindings), Tkinter, Kivy and Headless where applicable. Compare resulting geometry against full Rust/Python computations.
+5. Provide reproducible repeated-update counters/benchmarks, regression tests for 1,000+ invalidation cycles, bounded cache ownership, and exact-SHA executed CI receipts.
+
+**Functional exit receipt:** [Executed native benchmark and invalidation certificate](architecture/css-invalidation-performance-certification.md). The implementation at `59046cab35adaa3953f6ef88dbcaf0aeba16063a` completed **13/13 GitHub Actions workflows successfully**, including native Qt (PySide6, PyQt6, PySide2, PyQt5), Tkinter, Kivy, Headless and full Grid. Direct tests cover 100 native paint updates with zero redundant Cinnamon commits, 1,000 incremental geometry cycles with full-solver parity and dependent-context reuse, 1,000 targeted measurement cycles with bounded cache ownership, semantics-preserving native/theme event coalescence, and measured JUnit wall/CPU/tracemalloc counters. The P1.4.7 native-functional scope is complete and **does not** imply browser pixel parity, exhaustive theme/DPI certification or zero Python/native allocation growth. Subsequent change SHAs must separately pass their workflow matrices before acceptance; comprehensive CSS release certification remains P1.4.8.
+
+### P1.4.8 — CSS Core integral certification (closed for verified bounded native CSS Core subset)
+
+**Owner decision (2026-10-20):** Reserve P1.4.8 for the complete, independent certification of CSS Core, including the native visual capability matrix that was not previously recorded explicitly. P1.4.6 implements native paint/typography, P1.4.7 implements dependency-aware invalidation and performance; P1.4.8 **does not substitute for functional tests required during those increments**.
+
+**Mandatory verification matrix (each supported operation × applicable backend × supported Python/platform combination):**
+
+| Evidence area | Required certification |
+| --- | --- |
+| CSS sources and semantics | Parser, registry (including `border-color`), selectors, cascade, precedence, inheritance, invalid/unsupported values, linked stylesheets and frozen resource resolution |
+| Visual color and backgrounds | Foreground/background painting, alpha support/rejection, inherited vs implicit defaults, theme behavior, deterministic remove/reset |
+| Typography | `font-family`, `font-size`, `font-weight`, supported `line-height` and `text-align`; native metric readback, font/theme/DPI invalidation and dependent Cinnamon reflow |
+| Borders and corners | CSS border width geometry versus actual paint, `border-color`, approved stroke styles, `border-radius` supported units, clipping/rounded painting and explicit unsupported diagnostics |
+| Native backend parity | Executed Qt (PySide6/PyQt6/PyQt5/PySide2 where available), Tkinter and Kivy behavioral tests for **each advertised** property; Headless applicability justified rather than falsely claiming paint |
+| Lifecycle and compatibility | Initial mount, keyed update/reorder, removal/reset, nested inheritance, widget identity, native/manual style coexistence, existing PascalCase components, embedded Native boundaries, teardown/ownership |
+| Layout and performance integration | Rust/Python Cinnamon geometry parity, no double geometry authority, font-induced measurement/reflow, no paint-only unnecessary layout/measure, coalesced invalidations, stable resize/event loops |
+| Public capability census | Code-derived applicable public operations mapped to behavior-specific executed tests and receipts; explicit N/A and fail-closed unsupported cells |
+| CI and release gate | `scripts/ci/impact.py` routing with selector tests; same immutable implementation SHA required workflows green, no skipped/queued evidence counted as PASS, explicit owner acceptance before closure |
+
+**Executed independent artifact audit (2026-10-21):** Downloaded and inspected six public native JUnit archives from executed run `39664256939` (implementation SHA `59046cab35adaa3953f6ef88dbcaf0aeba16063a`): 315 CSS-focused case/backend records passed, 3 skipped (including one Kivy multiline `line-height` test), and zero failed. This is useful direct evidence but not the final full property × component × operation × platform certification. See the matrix for exact artifact IDs, proof scope and remaining requirements. **Do not mark P1.4.8/P1 closed on this evidence alone.**
+
+**Closure receipt (2026-10-21):** The [versioned operation-by-renderer evidence matrix](architecture/css-core-integral-certification-matrix.md) records executable native projection and CSS semantics/geometry behavior and explicit unsupported cells. The bounded CSS Core implementation at `fcaef8b7abb34bffefaa74cddb0f910864f8d52a` has **13/13 successful workflows**, including **20/20 successful native selective validation jobs** (four Qt bindings, Tkinter, Kivy, Headless, Rust/Python differential, default/Qt DPI 1.5 and native ABI checks). New Kivy multiline leading and per-backend native background readback/update/reset tests ran green at that SHA. Cross-device screenshot equality and Windows/macOS native pixel parity are **not advertised**; the release-wide platform matrix belongs to P4, memory soak belongs to P2, and advanced CSS layout belongs to the extension backlog. This closes **P1.4 within the expressly bounded supported subset**, not the entire prospective CSS feature catalog, and authorizes planning P2 in a new branch. PR #48 stays unmerged pending separate explicit permission.
+
+**Applied exit rule:** The advertised **bounded** CSS Core native projection is certified only for the explicitly applicable cells and executed readbacks recorded in the matrix. Unsupported and N/A capabilities stay excluded; generic green CI, computed CSS alone or parser tests do not imply native pixel painting. Broader OS/theme/device-level release coverage is a separately mandatory P4 acceptance gate. No PR merge is authorized by this stage certificate.
+
+### Post-CSS-core layout extensions — owner-requested backlog (2026-10-20)
+
+These are **future increments**, not retroactive acceptance requirements for
+the bounded Cinnamon Block/Inline CSS geometry contract or P1.4.5. No item
+is advertised as shipped. Each needs its own normative behavior contract,
+Rust/Python geometry and diagnostics parity, native Qt/Tkinter/Kivy readback,
+invalidations, public capability census and immutable-SHA CI evidence.
+
+| Backlog ID | Priority | Capability | Acceptance boundary / dependency | State |
+|---|---|---|---|---|
+| **CSS-LAYOUT-01** | **High** | `position: relative` and `position: absolute` | Define containing-block selection, inset offsets, removal from normal flow, native overlay geometry and stacking/painting interactions; ensure Cinnamon remains sole geometry authority. | **BACKLOG — not started** |
+| **CSS-LAYOUT-02** | **High** | `overflow`, clipping and scrolling | Specify visible/hidden/scroll/auto, clipping bounds, scroll-content measurement, viewport/offset synchronization and native renderer responsibilities; test resize and cleanup. | **BACKLOG — not started** |
+| **CSS-TEXT-01** | **Medium** | Advanced inline fragmentation | Break styled inline owners into multiple line fragments with correct padding/border/background edge semantics, line metrics, hit testing and native text parity. Depends on inline line-box and visual painting contracts. | **BACKLOG — not started** |
+| **CSS-LAYOUT-03** | **Low** | Block margin collapsing | Define eligible vertical adjoining margins, negative margins, parent/child and empty blocks, and exclusion in Flex/Grid; no accidental collapsing outside the declared scope. | **BACKLOG — not started** |
+| **CSS-LAYOUT-04** | **Very low** | `float: left/right` and `clear` | Define float placement and line exclusion regions so inline/text content wraps and clears correctly; do not emulate floats with flex alignment. | **BACKLOG — not started** |
+
+**Suggested sequencing:** complete CSS native visual/state/invalidation work
+and its certification first; then CSS-LAYOUT-01/02, followed by CSS-TEXT-01
+as warranted, and CSS-LAYOUT-03/04 only when use cases justify them.
+Final scheduling remains an explicit project-owner decision. These extensions
+do not change the already accepted `<link>`/class/id/inline style CSS API,
+the existing responsive Flexbox Grid contract, or the deferred
+`SFLE-CSS-01`/`SFLE-CSS-02` items.
+
 **Dependency and release safeguards:** Freeze the actual `develop` component contract before migration; retain `Checkbox`'s currently verified `checked`/`enabled`/`on_change` API and do not claim a portable `label` prop unless implemented and tested. Preserve existing F4 responsive Grid semantics while adding CSS Grid; distinguish the two in documentation. Require deterministic layout/visual comparisons against a declared browser reference, backend-specific tests, accessibility checks and explicit unsupported-feature diagnostics. Each phase is complete only with implementation evidence and certification; approving the specification does not advertise support.
 
 **Unresolved architectural gates:** exact browser/CSS reference subset, margin collapsing, stylesheet loading API, `!important`, event propagation, stacking contexts, and release/version policy must be resolved before their affected implementation gates. See the specification's section 20.

@@ -6,6 +6,7 @@ They never parse Python source, evaluate code strings or inspect call frames.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Callable
 
 from psx.core.component import ComponentType
@@ -13,8 +14,11 @@ from psx.core.errors import InvalidChildError, MarkupSyntaxError
 from psx.core.registry import builtin_component_registry
 from psx.core.vnode import Fragment, Text, VNode
 from .compile import _coerce_props
+from psx.css.markup import compute_expressive_markup_styles
+from .html_aliases import markup_alias_definitions, PORTABLE_HTML_ALIASES
+from psx.css.markup import parse_markup_style
 
-_BUILTINS = builtin_component_registry().snapshot()
+_BUILTINS = markup_alias_definitions(builtin_component_registry().snapshot())
 
 
 def lexical(thunk: Callable[[], object], name: str, filename: str, line: int, column: int) -> object:
@@ -149,6 +153,20 @@ def element(
         constructor = definition.constructor
     props = dict(props)
     key = props.pop("key", None)
+    css_source = None
+    if name in PORTABLE_HTML_ALIASES:
+        if "class" in props and "class_name" in props:
+            raise MarkupSyntaxError("Use either class or class_name", filename=filename, line=line, column=column)
+        class_value = props.pop("class", None)
+        if class_value is None:
+            class_value = props.pop("class_name", None)
+        css_source = parse_markup_style(
+            name, class_value=class_value,
+            id_value=props.pop("id", None),
+            inline_value=props.pop("style", None),
+        )
+    def finish(node: VNode) -> VNode:
+        return replace(node, css_source=css_source) if css_source is not None else node
     if definition is not None:
         from .ast import Span
         props = _coerce_props(definition, props, filename, Span(0, line, column))
@@ -179,7 +197,7 @@ def element(
                 f"{name} content must be str, int or float",
                 filename=filename, line=line, column=column,
             )
-        return constructor(value, key=key, **props)
+        return finish(constructor(value, key=key, **props))
     if contract is not None and contract.child_policy == "none" and any(
         x is not None and x is not False for x in children
     ):
@@ -191,4 +209,8 @@ def element(
         raise MarkupSyntaxError(
             f"{name} accepts at most one child", filename=filename, line=line, column=column
         )
-    return constructor(*normalized, key=key, **props)
+    return finish(constructor(*normalized, key=key, **props))
+
+# The lexical import hook already binds the element helper in every transformed
+# module, so attach the CSS source resolver here instead of adding a new global.
+element.compute_styles = compute_expressive_markup_styles

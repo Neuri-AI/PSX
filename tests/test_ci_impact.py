@@ -8,6 +8,101 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_markup_styles_bind_without_bypassing_native_regression_suites(self):
+        self.assertEqual(self.selected("tests/test_markup_css_binding.py"),
+                         {"core", "headless", "qt", "kivy", "tkinter"})
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/test_markup_css_binding.py", workflow)
+        self.assertIn("tests/test_css_markup_census.py", workflow)
+        self.assertEqual(self.selected("tests/test_css_markup_census.py"),
+                         {"core", "headless", "qt", "kivy", "tkinter"})
+
+    def test_internal_css_foundations_route_to_executed_core_tests(self):
+        self.assertEqual(self.selected("psx/css/properties.py"), {"core"})
+        self.assertEqual(self.selected("tests/css/test_properties.py"), {"core"})
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("tests/css/test_properties.py", workflow)
+        self.assertIn("tests/css/test_parser_and_cascade.py", workflow)
+        self.assertEqual(self.selected("psx/css/parser.py"), {"core"})
+        self.assertEqual(self.selected("psx/css/cascade.py"), {"core"})
+        self.assertEqual(self.selected("psx/css/cache.py"), {"core"})
+        self.assertIn("tests/css/test_cache.py", workflow)
+        self.assertIn("tests/css/test_visual_values.py", workflow)
+        self.assertEqual(self.selected("psx/css/visual_values.py"), {"core"})
+        self.assertIn("tests/css/test_effects.py", workflow)
+        self.assertIn("tests/css/test_property_catalog.py", workflow)
+        self.assertIn("tests/css/test_catalog.py", workflow)
+        self.assertEqual(self.selected("psx/css/catalog.py"), {"core"})
+        self.assertIn("tests/css/test_tree.py", workflow)
+        self.assertIn("tests/css/test_sources.py", workflow)
+        self.assertIn("tests/css/test_context.py", workflow)
+        self.assertIn("tests/css/test_geometry_handoff.py", workflow)
+        self.assertIn("tests/css/test_box_flow_geometry.py", workflow)
+        self.assertIn("tests/css/test_native_paint.py", workflow)
+        self.assertEqual(self.selected("psx/css/native_paint.py"), {"core", "qt", "kivy", "tkinter"})
+        self.assertEqual(self.selected("psx/css/geometry.py"), {"core"})
+        self.assertEqual(self.selected("psx/css/context.py"), {"core"})
+        self.assertEqual(self.selected("psx/css/sources.py"), {"core"})
+        self.assertEqual(self.selected("psx/css/tree.py"), {"core"})
+        self.assertEqual(self.selected("psx/css/effects.py"), {"core"})
+
+    def test_block_flow_snapshots_run_all_native_geometry_consumers(self):
+        expected = {"core", "sfle", "rust", "chromium", "headless",
+                    "qt", "kivy", "tkinter"}
+        for path in (
+            "psx/sfle/flow_layout.py",
+            "psx/sfle/display_context.py",
+            "psx/sfle/measured_block_snapshot.py",
+            "tests/sfle/test_measured_block_snapshot.py",
+            "tests/sfle/test_flow_language_vectors.py",
+            "tests/fixtures/flow_geometry_cases.json",
+        ):
+            self.assertEqual(self.selected(path), expected)
+        self.assertEqual(
+            self.selected("psx/sfle/headless_block_bridge.py"),
+            {"core", "sfle", "headless"},
+        )
+
+    def test_css_display_context_routes_cinnamon_and_native_consumers(self):
+        self.assertGreaterEqual(
+            self.selected("psx/sfle/display_context.py"),
+            {"sfle", "rust", "chromium", "headless"},
+        )
+        self.assertEqual(self.selected("tests/sfle/test_display_context.py"), {"sfle"})
+
+    def test_block_flow_math_runs_pure_geometry_and_language_parity_gates(self):
+        self.assertGreaterEqual(
+            self.selected("psx/sfle/flow_layout.py"),
+            {"sfle", "rust", "chromium", "headless"},
+        )
+        self.assertEqual(self.selected("tests/sfle/test_flow_layout.py"), {"sfle"})
+
+    def test_incremental_cinnamon_routes_every_geometry_consumer(self):
+        expected = {"core", "sfle", "rust", "chromium", "headless",
+                    "qt", "kivy", "tkinter"}
+        for path in (
+            "psx/sfle/compute_alpha.py",
+            "psx/sfle/engine.py",
+            "psx/sfle/context_invalidation_plan.py",
+            "psx/sfle/incremental_result_reuse.py",
+            "tests/test_incremental_result_reuse.py",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), expected)
+        self.assertEqual(self.selected(
+            "docs/architecture/canonical-box-geometry-implementation-evidence.md"
+        ), set())
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("tests/test_incremental_result_reuse.py", workflow)
+
     def test_expressive_composition_security_routing(self):
         self.assertEqual(self.selected("tests/test_expressive_composition_security.py"),
                          {"core", "headless"})
@@ -173,6 +268,16 @@ class RoutingTests(unittest.TestCase):
     def test_markdown_outside_docs_is_still_documentation(self):
         self.assertEqual(self.selected("CHANGELOG.md"), set())
 
+    def test_lowercase_markup_aliases_route_to_every_native_consumer(self):
+        expected = {"core", "qt", "kivy", "tkinter", "headless"}
+        self.assertGreaterEqual(self.selected("psx/core/registry.py"), expected)
+        self.assertEqual(self.selected("tests/test_lowercase_markup_aliases.py"), expected)
+        self.assertEqual(self.selected("docs/architecture/ARCHITECTURE_APPROVAL.md"), set())
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/test_lowercase_markup_aliases.py", workflow)
+
     def test_python_component_registry_affects_all_native_backends(self):
         self.assertGreaterEqual(
             self.selected("psx/core/registry.py"),
@@ -228,6 +333,38 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(self.selected("psx/sfle/tkinter_layout_bridge.py"), {"tkinter"})
         self.assertEqual(self.selected("psx/sfle/headless_layout_bridge.py"), {"headless"})
 
+    def test_canonical_tkinter_flex_changes_run_real_native_geometry_suite(self):
+        self.assertEqual(
+            self.selected("psx/sfle/tkinter_layout_bridge.py"),
+            {"tkinter"},
+        )
+        self.assertEqual(
+            self.selected("tests/test_tkinter_native_layout.py"),
+            {"tkinter"},
+        )
+
+    def test_canonical_kivy_flex_changes_run_real_native_geometry_suite(self):
+        self.assertEqual(
+            self.selected("psx/sfle/kivy_layout_bridge.py"),
+            {"kivy"},
+        )
+        self.assertEqual(
+            self.selected("tests/test_kivy_native_layout.py"),
+            {"kivy"},
+        )
+
+    def test_canonical_headless_flex_changes_run_mounted_geometry_suite(self):
+        self.assertEqual(
+            self.selected("psx/sfle/headless_layout_bridge.py"),
+            {"headless"},
+        )
+        # The selector classifies this test module as core; the native
+        # Headless job runs its own mounted suite for bridge source changes.
+        self.assertEqual(
+            self.selected("tests/test_headless_native_layout.py"),
+            {"core"},
+        )
+
     def test_native_measurement_changes_cover_their_toolkit_and_sfle(self):
         for filename, native in (
             ("qt_measurement.py", "qt"),
@@ -238,6 +375,13 @@ class RoutingTests(unittest.TestCase):
             self.assertEqual(
                 self.selected(f"psx/sfle/{filename}"), {"sfle", native}
             )
+
+    def test_shared_native_validation_workflow_selects_geometry_engines(self):
+        expected = {"router", "core", "sfle", "rust", "qt", "kivy", "tkinter", "headless"}
+        self.assertEqual(
+            self.selected(".github/workflows/native-layout-selective.yml"),
+            expected,
+        )
 
     def test_shared_native_bridges_trigger_all_downstream_consumers(self):
         all_consumers = {"core", "headless", "qt", "kivy", "tkinter"}
@@ -321,7 +465,17 @@ class RoutingTests(unittest.TestCase):
 
     def test_native_layout_workflow_must_exercise_qt_family_matrix(self):
         self.assertEqual(self.selected(".github/workflows/native-layout-selective.yml"),
-                         {"router", "core", "qt", "kivy", "tkinter", "headless"})
+                         {"router", "core", "sfle", "rust", "qt", "kivy", "tkinter", "headless"})
+
+    def test_canonical_qt_flex_integration_routes_to_real_qt_suite(self):
+        self.assertEqual(
+            self.selected("psx/sfle/qt_layout_bridge.py"),
+            {"qt"},
+        )
+        self.assertEqual(
+            self.selected("tests/test_qt_native_component_lifecycle.py"),
+            {"qt"},
+        )
 
     def test_qt_layout_bridge_binding_parity_module_routes_to_qt_not_core(self):
         self.assertEqual(self.selected("tests/test_qt_native_component_lifecycle.py"), {"qt"})

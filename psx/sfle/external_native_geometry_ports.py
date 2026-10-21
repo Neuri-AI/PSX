@@ -58,6 +58,18 @@ def external_port_for(node: VNode, renderer: object) -> SFLEExternalPort | None:
         raise RendererCapabilityError("Native SFLE external leaf requires a HOST or Native node.")
     from .native_component_capabilities import NATIVE_LEAF_TYPES
     kind = getattr(renderer, "_sfle_backend", None)
+    from psx.markup.html_aliases import FORMATTING_TAGS
+    if node.type in FORMATTING_TAGS:
+        # A real Cinnamon formatting root is a native *container*, not an
+        # arbitrary external leaf or a phantom public component registry entry.
+        # The corresponding renderer constructor verifies the supported
+        # display mode and the configured native geometry viewport.
+        if (getattr(renderer, "_sfle_constraints", None) is not None
+                and node.props.get("display") in ("block", "inline")):
+            return None
+        raise RendererCapabilityError(
+            f"Native SFLE {kind} flow root requires a viewport and supported display mode."
+        )
     if node.type in ("Flex", "Grid", "GridItem") or node.type in NATIVE_LEAF_TYPES.get(kind, ()):
         return None
     adapter = renderer.adapters.get(str(node.type))

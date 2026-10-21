@@ -34,7 +34,7 @@ def _classify_path(path: str) -> set[str]:
         if name == "native-layout-selective.yml":
             # Changes to the shared Native layout workflow must exercise the Qt parity
             # matrix; don't certify its new required job with router-only CI.
-            result.update({"core", "qt", "kivy", "tkinter", "headless"})
+            result.update({"core", "sfle", "rust", "qt", "kivy", "tkinter", "headless"})
         elif name == "sfle-chromium.yml":
             result.add("chromium")
         elif name == "sfle-ui-certification.yml":
@@ -46,6 +46,10 @@ def _classify_path(path: str) -> set[str]:
         elif name == "ci.yml":
             result.add("core")
         return result
+    if path == "psx/css/native_paint.py" or path == "tests/css/test_native_paint.py":
+        return {"core", "qt", "kivy", "tkinter"}
+    if path.startswith("psx/css/") or path.startswith("tests/css/"):
+        return {"core"}
     if path == "pyproject.toml" or path in ("setup.cfg", "setup.py"):
         return {"core", "sfle", "rust", "qt", "kivy", "tkinter", "native"}
     if path == "rust/sfle-core/src/grid_math.rs":
@@ -70,6 +74,22 @@ def _classify_path(path: str) -> set[str]:
         return {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
     if path == "psx/sfle/grid_math.py":
         return {"sfle", "rust"}
+    if path in ("psx/sfle/compute_alpha.py", "psx/sfle/engine.py",
+                "psx/sfle/context_invalidation_plan.py",
+                "psx/sfle/incremental_result_reuse.py",
+                "tests/test_incremental_result_reuse.py"):
+        return {"core", "sfle", "rust", "chromium", "headless", "qt", "kivy", "tkinter"}
+    if path in (
+        "psx/sfle/measured_block_snapshot.py",
+        "psx/sfle/flow_layout.py",
+        "psx/sfle/display_context.py",
+        "tests/sfle/test_measured_block_snapshot.py",
+        "tests/sfle/test_flow_language_vectors.py",
+        "tests/fixtures/flow_geometry_cases.json",
+    ):
+        return {"core", "sfle", "rust", "chromium", "headless", "qt", "kivy", "tkinter"}
+    if path == "psx/sfle/headless_block_bridge.py":
+        return {"core", "sfle", "headless"}
     if path.startswith("psx/sfle/"):
         name = PurePosixPath(path).name
         # Production Native layout bridges must route to the real toolkit consumer, not
@@ -120,6 +140,12 @@ def _classify_path(path: str) -> set[str]:
         # Application-level Grid settings affect portable resolution and every
         # backend consumer even before native Grid geometry ships.
         return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
+    if path == "tests/test_css_markup_census.py":
+        return {"core", "headless", "qt", "kivy", "tkinter"}
+    if path == "tests/test_markup_css_binding.py":
+        return {"core", "headless", "qt", "kivy", "tkinter"}
+    if path == "tests/test_lowercase_markup_aliases.py":
+        return {"core", "qt", "kivy", "tkinter", "headless"}
     if path in ("psx/__init__.py", "psx/core/native.py") or path.startswith("psx/core/"):
         return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
     if path.startswith("psx/markup/") or path in ("tests/test_expressive_markup_syntax.py", "tests/test_expressive_conditional_rendering.py", "tests/test_declarative_list_rendering.py", "tests/test_arrow_callback_rendering.py", "tests/test_expressive_composition_security.py"):
