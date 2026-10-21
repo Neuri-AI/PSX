@@ -1513,3 +1513,47 @@ def test_native_link_and_textarea_font_measurement_revisions(component):
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("tag,content", (("Button", ""), ("button", "Save")))
+def test_inherited_css_color_survives_native_disabled_state_transitions(tag, content):
+    """Inherited paint and native enabled state evolve without replacing the handle."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color, enabled):
+        attributes = 'label="Save"' if tag == "Button" else ""
+        return psx(
+            f'<div style="color: {color}"><{tag} key="action" {attributes} '
+            f'enabled={{enabled}}>{content}</{tag}></div>',
+            scope={"enabled": enabled},
+        )
+
+    try:
+        mounted = reconciler.render(view("#123456", True))
+        control = mounted.children[0].handle.widget
+        assert mounted.children[0].node.css_computed.properties["color"].value == "#123456"
+
+        for color, enabled in (("#654321", False), ("#123456", True)):
+            updated = reconciler.render(view(color, enabled))
+            assert updated.children[0].handle.widget is control
+            if backend == "qt":
+                assert control.isEnabled() is enabled
+                assert color in control.styleSheet()
+            elif backend == "tk":
+                from tkinter import ttk
+                assert ("disabled" in control.state()) is (not enabled)
+                assert ttk.Style(control).lookup(
+                    str(control.cget("style")), "foreground"
+                ) == color
+            else:
+                assert control.disabled is (not enabled)
+                assert tuple(control.color) == pytest.approx(
+                    tuple(int(color[i:i + 2], 16) / 255 for i in (1, 3, 5)) + (1,)
+                )
+    finally:
+        reconciler.unmount()
+        close()
