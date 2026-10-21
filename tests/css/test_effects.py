@@ -75,3 +75,27 @@ def test_paint_only_marked_tree_preserves_cinnamon_geometry_without_commit():
         assert len(commits) == 3
     finally:
         tree.unmount()
+
+
+def test_unstyled_independent_host_does_not_force_layout_on_sibling_repaint():
+    from psx.css.effects import StyleEffect
+    from psx.core.reconcile import _paint_only_css_update, Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx import psx
+
+    renderer = HeadlessRenderer()
+    reconciler = Reconciler(renderer)
+    old = reconciler.render(psx(
+        '<div><button key="paint" style="color: #112233">A</button>'
+        '<button key="plain">B</button></div>'
+    ))
+    try:
+        new = psx(
+            '<div><button key="paint" style="color: #445566">A</button>'
+            '<button key="plain">B</button></div>'
+        )
+        assert _paint_only_css_update(old, new)
+        changed = reconciler.render(new)
+        assert changed.children[1] is old.children[1]
+    finally:
+        reconciler.unmount()
