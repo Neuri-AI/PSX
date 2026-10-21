@@ -1320,3 +1320,37 @@ def test_native_rounded_border_pascal_and_html_controls(tag, alias):
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_semantic_rounded_border_and_background_updates():
+    from psx.markup.compile import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    def view(radius):
+        return psx(
+            f'<div style="background-color: #ddeeff; border-width: 2px;'
+            f' border-color: #123456; border-radius: {radius}px"><span>Content</span></div>'
+        )
+    try:
+        first = reconciler.render(view(8))
+        widget = first.handle.widget
+        if backend == "qt":
+            assert "border-radius: 8px" in widget.styleSheet()
+        elif backend == "tk":
+            assert len(widget._psx_css_border_corners) == 4
+        else:
+            assert tuple(widget._psx_css_stroke[3].rounded_rectangle)[-1] == pytest.approx(8)
+            assert tuple(widget._psx_css_paint_rect.radius)[0] == pytest.approx(8)
+        second = reconciler.render(view(12))
+        assert second.handle.widget is widget
+        if backend == "qt":
+            assert "border-radius: 12px" in widget.styleSheet()
+        elif backend == "tk":
+            assert all(int(c.cget("width")) == 12 for c in widget._psx_css_border_corners)
+        else:
+            assert tuple(widget._psx_css_stroke[3].rounded_rectangle)[-1] == pytest.approx(12)
+            assert tuple(widget._psx_css_paint_rect.radius)[0] == pytest.approx(12)
+    finally:
+        reconciler.unmount()
+        close()
