@@ -1013,10 +1013,14 @@ class QtRenderer:
             if "text-align" in styles and target.node_type in ("Button", "Link", "TextArea"):
                 declarations.append('text-align: ' + styles["text-align"] + ';')
             from psx.css.native_paint import native_border_paint
+            from psx.css.native_paint import native_border_radius
+            radius = native_border_radius(computed)
             border = native_border_paint(computed)
             if border is not None:
                 thickness, color = border
                 declarations.append(f"border: {thickness:g}px solid {color};")
+            if radius:
+                declarations.append(f"border-radius: {radius:g}px;")
             widget.setStyleSheet(
                 (widget._psx_css_base_stylesheet + " " + " ".join(declarations)).strip()
             )
