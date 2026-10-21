@@ -145,3 +145,57 @@ def test_incremental_solver_falls_back_when_measurement_environment_changes():
     )
     assert actual.boxes == engine.compute(current).boxes
     assert reused == []
+
+
+def test_repeated_context_updates_reuse_independent_subtree_across_1000_cycles():
+    """Cinnamon's incremental result must always equal a full solve."""
+    def snapshot(width, generation):
+        markup = psx(
+            '<Flex direction="row" width="350px" height="100px">'
+            f'<Flex width="{width}px" height="25px" flex_shrink="0">'
+            '<Flex width="20px" height="10px" /></Flex>'
+            '<Flex width="50px" height="25px" flex_shrink="0">'
+            '<Flex width="20px" height="10px" /></Flex>'
+            '</Flex>'
+        )
+        return prepare_native_layout_snapshot(
+            normalize_flex_tree(markup),
+            LayoutConstraints(AvailableSize(350, True), AvailableSize(100, True)),
+            generation=generation,
+        ).snapshot
+
+    engine = PythonLayoutEngine()
+    previous = snapshot(40, 1)
+    prior = engine.compute(previous)
+    receipts = 0
+    for generation in range(2, 1002):
+        current = snapshot(40 if generation % 2 else 60, generation)
+        reused = []
+        result = engine.compute_incremental(
+            current, previous_input=previous,
+            previous_result=prior, reused_contexts=reused,
+        )
+        assert result.boxes == engine.compute(current).boxes
+        independent = current.nodes[3].node_id
+        assert independent in reused, generation
+        receipts += 1
+        previous, prior = current, result
+    assert receipts == 1000
+
+
+def test_changed_measurements_invalidate_only_changed_context_when_structure_stable():
+    from psx.sfle.context_invalidation_plan import plan_context_invalidation
+    from psx.sfle.model import IntrinsicSizes, MeasuredBox
+    base = _input()
+    leaf = base.nodes[-1].node_id
+    size = IntrinsicSizes(16, 16, 12, 12, 16, 12)
+    prior = replace(base, measurements=(
+        MeasuredBox(leaf, size, base.constraints, 1),
+    ))
+    changed = replace(prior, generation=2, measurements=(
+        MeasuredBox(leaf, size, prior.constraints, 2),
+    ))
+    plan = plan_context_invalidation(prior, changed)
+    assert not plan.full_recompute
+    assert plan.dirty_nodes == frozenset({leaf})
+    assert base.nodes[1].node_id not in plan.dirty_nodes
