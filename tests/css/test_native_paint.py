@@ -157,5 +157,5 @@ def test_native_radius_rejects_percentage_and_negative_values():
     from psx.css.native_paint import native_border_radius
     with pytest.raises(ValueError, match="nonnegative px"):
         native_border_radius(_style("div {border-radius: 15%}"))
-    with pytest.raises((ValueError, Exception)):
+    with pytest.raises(ValueError):
         native_border_radius(_style("div {border-radius: -3px}"))
