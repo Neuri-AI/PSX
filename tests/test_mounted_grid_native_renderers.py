@@ -1401,3 +1401,85 @@ def test_native_semantic_named_red_rounded_background_without_border():
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("tag,alias", (("Button", "button"), ("Input", "input")))
+def test_native_control_font_measurement_revisions_are_incremental(tag, alias):
+    """Typed font changes invalidate intrinsic measurement, color-only does not."""
+    from psx.markup.compile import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(size, color, html):
+        name = alias if html else tag
+        attrs = 'label="Reflow me"' if name == "Button" else 'value="Reflow me"'
+        if name == "button":
+            attrs = ""
+        text = "Reflow me" if name == "button" else ""
+        font = f"font-size: {size}px; font-family: Roboto; " if size else ""
+        return psx(
+            f'<div><{name} key="measure" {attrs} style="{font}color: {color}">'
+            f'{text}</{name}></div>'
+        )
+
+    try:
+        for html in (False, True):
+            mounted = reconciler.render(view(18, "#123456", html))
+            widget = mounted.children[0].handle.widget
+            revision = widget._psx_css_font_revision
+            assert dict(revision)["font-size"] == 18
+            changed_color = reconciler.render(view(18, "#654321", html))
+            assert changed_color.children[0].handle.widget is widget
+            assert widget._psx_css_font_revision == revision
+
+            larger = reconciler.render(view(26, "#654321", html))
+            assert larger.children[0].handle.widget is widget
+            assert dict(widget._psx_css_font_revision)["font-size"] == 26
+            assert widget._psx_css_font_revision != revision
+
+            cleared = reconciler.render(view(None, "#654321", html))
+            assert cleared.children[0].handle.widget is widget
+            assert dict(widget._psx_css_font_revision)["font-size"] is None
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_native_text_line_height_and_content_measurement_revision():
+    """Text nodes remeasure for leading/content changes and keep the native handle."""
+    from psx.markup.compile import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(text, leading, color):
+        style = (f"font-size: 18px; line-height: {leading}px; "
+                 f"color: {color}")
+        return psx(f'<div><p key="paragraph" style="{style}">{text}</p></div>')
+
+    try:
+        first = reconciler.render(view("Short text", 36, "#123456"))
+        widget = first.children[0].children[0].handle.widget
+        first_revision = widget._psx_css_font_revision
+        assert first_revision[0] == "Short text"
+        assert dict(first_revision[1])["line-height"] == 36
+
+        color_only = reconciler.render(view("Short text", 36, "#654321"))
+        assert color_only.children[0].children[0].handle.widget is widget
+        assert widget._psx_css_font_revision == first_revision
+
+        leading_change = reconciler.render(view("Short text", 42, "#654321"))
+        assert leading_change.children[0].children[0].handle.widget is widget
+        assert dict(widget._psx_css_font_revision[1])["line-height"] == 42
+
+        wrapped = reconciler.render(view("Longer text that can wrap onto multiple lines", 42, "#654321"))
+        assert wrapped.children[0].children[0].handle.widget is widget
+        assert widget._psx_css_font_revision[0] == "Longer text that can wrap onto multiple lines"
+
+        removed = reconciler.render(psx('<div><p key="paragraph">Plain</p></div>'))
+        assert removed.children[0].children[0].handle.widget is widget
+        assert dict(widget._psx_css_font_revision[1])["line-height"] is None
+    finally:
+        reconciler.unmount()
+        close()
