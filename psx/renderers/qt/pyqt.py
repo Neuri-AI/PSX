@@ -310,7 +310,7 @@ def _make_resize_filter(core, on_resize, on_invalidation=None):
             ("ApplicationFontChange", "font"),
             ("PaletteChange", "theme"),
             ("ApplicationPaletteChange", "theme"),
-            ("StyleChange", "theme"),
+            ("StyleChange", "style"),
             ("ScreenChangeInternal", "dpi"),
             ("DevicePixelRatioChange", "dpi"),
         )
@@ -581,6 +581,18 @@ class QtRenderer:
         # as external theme changes (which would trigger a second layout).
         if getattr(watched, "_psx_css_projection_active", False):
             return
+        if reason == "style":
+            generation = getattr(watched, "_psx_css_qss_generation", 0)
+            consumed = getattr(watched, "_psx_css_qss_consumed", 0)
+            if (generation > consumed
+                    and getattr(watched, "_psx_css_last_applied_stylesheet", None)
+                    == watched.styleSheet()):
+                # Qt may deliver StyleChange after setStyleSheet returns.
+                # Consume only the outstanding, explicitly self-authored
+                # QSS generation. Later external style changes still reflow.
+                watched._psx_css_qss_consumed = generation
+                return
+            reason = "theme"
         if (id(watched) in self._sfle_style_watched_widgets
                 and self._sfle_mounted_root is not None
                 and self._sfle_constraints is not None):
@@ -1049,6 +1061,9 @@ class QtRenderer:
             if widget.styleSheet() != projected:
                 widget._psx_css_projection_active = True
                 try:
+                    widget._psx_css_qss_generation = (
+                        getattr(widget, "_psx_css_qss_generation", 0) + 1
+                    )
                     widget.setStyleSheet(projected)
                 finally:
                     widget._psx_css_projection_active = False
@@ -1067,9 +1082,13 @@ class QtRenderer:
         if target.widget.styleSheet() != projected:
             target.widget._psx_css_projection_active = True
             try:
+                target.widget._psx_css_qss_generation = (
+                    getattr(target.widget, "_psx_css_qss_generation", 0) + 1
+                )
                 target.widget.setStyleSheet(projected)
             finally:
                 target.widget._psx_css_projection_active = False
+            target.widget._psx_css_last_applied_stylesheet = projected
 
     # -- update -----------------------------------------------------------
 
