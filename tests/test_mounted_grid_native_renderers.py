@@ -1708,7 +1708,10 @@ def test_native_css_updates_preserve_control_state_and_owned_styling(component, 
                 if component in ("Checkbox", "Select"):
                     assert ("disabled" in widget.state()) is (not enabled)
                 elif component == "Link":
-                    assert str(widget.cget("state")) == ("normal" if enabled else "disabled")
+                    # tk.Label lacks a state option: the Link adapter gates
+                    # activation through its stored props and native cursor.
+                    assert widget._psx_link_props["enabled"] is enabled
+                    assert str(widget.cget("cursor")) == ("hand2" if enabled else "arrow")
                 else:
                     assert str(widget.cget("state")) in ("disabled", "normal")
             else:
