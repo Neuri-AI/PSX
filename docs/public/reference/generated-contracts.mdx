@@ -25,7 +25,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(label: 'str' = '', *, variant: 'str' = 'neutral', appearance: 'str' = 'filled', size: 'str' = 'medium', shape: 'str' = 'rounded', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 640
 - First docstring line: A noninteractive, intrinsically sized semantic status label.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_plugin_api.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_renderer_adapters.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_external_native_ports.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_plugin_api.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_renderer_adapters.py`, `tests/test_tk_public_behavior.py`
 
 ### `psx.Button`
 
@@ -41,7 +41,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(*, checked: 'bool' = False, enabled: 'bool' = True, on_change: 'Callable[[bool], None] | None' = None, key: 'str | int | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 332
 - First docstring line: Portable boolean checkbox with a boolean ``on_change`` callback.
-- Candidate tests (not behavioral certification): `tests/test_checkbox.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_kivy_renderer.py`, `tests/test_markup_css_binding.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_matrix.py`, `tests/test_pyqt_renderer.py`, `tests/test_pyside6_native_layout.py`, `tests/test_pyside6_renderer.py`
+- Candidate tests (not behavioral certification): `tests/test_checkbox.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_kivy_renderer.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_css_binding.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_matrix.py`, `tests/test_pyqt_renderer.py`, `tests/test_pyside6_native_layout.py`
 
 ### `psx.ComponentAdapter`
 
@@ -153,7 +153,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(label: 'str' = '', *, href: 'str | None' = None, on_click: 'Callable[[], None] | None' = None, color: 'str | None' = None, underline: 'bool' = True, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 573
 - First docstring line: Portable clickable text; external href or future-router callback.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
 ### `psx.MarkupSyntaxError`
 
@@ -233,7 +233,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(value: 'str | int', *, label: 'str' = '', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 485
 - First docstring line: Portable radio button.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_markup_css_binding.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_public_property_validation.py`, `tests/test_pyside6_native_layout.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_css_binding.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_public_property_validation.py`, `tests/test_pyside6_native_layout.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`
 
 ### `psx.RadioGroup`
 
@@ -241,7 +241,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(*children: 'object', value: 'str | int | None' = None, on_change: 'Callable[[str | int], None] | None' = None, orientation: 'str' = 'vertical', spacing: 'int' = 0, padding: 'int | tuple[int, int] | tuple[int, int, int, int]' = 0, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 506
 - First docstring line: Portable mutually exclusive group of ``Radio`` children.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
 ### `psx.Ref`
 
@@ -601,7 +601,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(label: 'str' = '', *, variant: 'str' = 'neutral', appearance: 'str' = 'filled', size: 'str' = 'medium', shape: 'str' = 'rounded', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 640
 - First docstring line: A noninteractive, intrinsically sized semantic status label.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_plugin_api.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_renderer_adapters.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_external_native_ports.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_plugin_api.py`, `tests/test_pyside6_external_native_ports.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_renderer_adapters.py`, `tests/test_tk_public_behavior.py`
 
 ### `psx.core.vnode.Box`
 
@@ -625,7 +625,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(*, checked: 'bool' = False, enabled: 'bool' = True, on_change: 'Callable[[bool], None] | None' = None, key: 'str | int | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 332
 - First docstring line: Portable boolean checkbox with a boolean ``on_change`` callback.
-- Candidate tests (not behavioral certification): `tests/test_checkbox.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_kivy_renderer.py`, `tests/test_markup_css_binding.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_matrix.py`, `tests/test_pyqt_renderer.py`, `tests/test_pyside6_native_layout.py`, `tests/test_pyside6_renderer.py`
+- Candidate tests (not behavioral certification): `tests/test_checkbox.py`, `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_kivy_renderer.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_css_binding.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_native_component_matrix.py`, `tests/test_pyqt_renderer.py`, `tests/test_pyside6_native_layout.py`
 
 ### `psx.core.vnode.Divider`
 
@@ -681,7 +681,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(label: 'str' = '', *, href: 'str | None' = None, on_click: 'Callable[[], None] | None' = None, color: 'str | None' = None, underline: 'bool' = True, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 573
 - First docstring line: Portable clickable text; external href or future-router callback.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
 ### `psx.core.vnode.NodeKind`
 
@@ -705,7 +705,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(value: 'str | int', *, label: 'str' = '', enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 485
 - First docstring line: Portable radio button.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_markup_css_binding.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_public_property_validation.py`, `tests/test_pyside6_native_layout.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tk_public_behavior.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_markup_css_binding.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_public_property_validation.py`, `tests/test_pyside6_native_layout.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`
 
 ### `psx.core.vnode.RadioGroup`
 
@@ -713,7 +713,7 @@ A candidate test is only a search match and **not** proof the behavior was teste
 - Signature: `(*children: 'object', value: 'str | int | None' = None, on_change: 'Callable[[str | int], None] | None' = None, orientation: 'str' = 'vertical', spacing: 'int' = 0, padding: 'int | tuple[int, int] | tuple[int, int, int, int]' = 0, enabled: 'bool' = True, key: 'Key | None' = None, ref: 'object | None' = None, **props: 'object') -> 'VNode'`
 - Implementation: `psx/core/vnode.py`, line 506
 - First docstring line: Portable mutually exclusive group of ``Radio`` children.
-- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tkinter_native_layout.py`
+- Candidate tests (not behavioral certification): `tests/test_flex_item_metadata.py`, `tests/test_kivy_native_layout.py`, `tests/test_kivy_public_behavior.py`, `tests/test_lowercase_markup_aliases.py`, `tests/test_mounted_grid_native_renderers.py`, `tests/test_native_component_capabilities.py`, `tests/test_public_contract_census.py`, `tests/test_qt_native_component_lifecycle.py`, `tests/test_qt_public_behavior.py`, `tests/test_tkinter_native_layout.py`
 
 ### `psx.core.vnode.Scroll`
 
