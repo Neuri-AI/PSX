@@ -1,0 +1,36 @@
+---
+title: "Native CSS visual capabilities"
+description: "Current bounded CSS painting support and backend-specific limits."
+---
+
+# Native CSS visual capabilities
+
+Velto uses PSX Markup and CSS Core to compute styles, while Qt, Tkinter and Kivy paint native widgets. A successfully computed CSS property **does not** imply that every native component paints it.
+
+This page describes an evolving implementation on the `feature/universal-box-model-and-styling` development branch, **not a stable release guarantee**. The per-component verification inventory is in `docs/architecture/css-native-component-capability-inventory.md`.
+
+| Visual CSS property | Portable implementation boundary |
+| --- | --- |
+| `color` | Explicit or author-inherited foreground on supported text-bearing native controls; Qt/Tk require opaque hex colors |
+| `background-color` | Native semantic formatting host painting; no general native-control background support claimed |
+| `font-family` | Native family selection where a font resource is available; Kivy font resolution is backend-specific |
+| `font-size` | Positive pixel sizes in supported native text controls |
+| `font-weight` | Portable 400/700 subset for native Text |
+| `line-height` | Bounded positive px text leading; Qt/Tk/Kivy have different, documented restrictions |
+| `text-align` | Left, right and center; no portable justified-text claim |
+| `border-color` / `border-width` | Explicit positive-pixel colored stroke; Cinnamon owns border geometry |
+| `border-radius` | A single nonnegative pixel radius; no per-corner, percentage or generic child clipping guarantee |
+
+## Renderer distinctions
+
+- **Qt:** uses instance-local native fonts, alignments and stylesheets; painting and disabled/focus appearance remain subject to Qt's native style machinery. CSS projection must not discard existing unrelated native styles.
+- **Tkinter:** uses local ttk styles and owned overlay frames/canvases for borders and corners. Some themes draw additional native borders; custom rounded clipping is not equivalent to browser CSS.
+- **Kivy:** uses native text properties and owned canvas paint/stroke instruction groups. Alpha foregrounds/strokes are possible where those drawing primitives accept RGBA.
+
+## Component and lifecycle constraints
+
+HTML-like `button` and `input` lower to existing native `Button` and `Input` components. PascalCase components remain first-class and preserve their public properties and events. `Text`, `Button`, `Input`, `TextArea`, `Checkbox`, `Radio`, `Select`, `Link` and `Badge` have individual paint branches; **individual properties must be verified per component and backend**. Containers like `Flex`, `Grid`, `Box` and `Scroll` participate in CSS resolution and layout without thereby promising full native painting.
+
+Style removal should restore only the CSS-owned native state. Keyed style updates should preserve native widget identity. Focus, selection, disabled state, callbacks and ownership must survive supported changes. Unsupported native values must produce explicit errors rather than silently degrade.
+
+The source-level contract and coverage are maintained in `docs/architecture/css-native-visual-paint-contract.md`; full CSS Core certification is reserved for P1.4.8. Pixel-perfect browser parity, native custom controls and unlisted CSS properties are **not advertised**.
