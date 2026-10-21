@@ -1629,7 +1629,7 @@ def test_native_css_control_border_updates_and_owned_paint_cleanup(component, at
 
     def view(color):
         paint = f' style="border-width: 2px; border-color: {color}; border-radius: 8px"' if color else ""
-        scope = {"checked": True, "options": (("a", "Alpha"), ("b", "Beta"))}
+        scope = {"checked": True, "options": ({"value": "a", "label": "Alpha"}, {"value": "b", "label": "Beta"})}
         return psx(f'<div><{component} key="native" {attributes}{paint} /></div>', scope=scope)
 
     try:
