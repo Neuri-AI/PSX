@@ -879,7 +879,7 @@ class TkinterRenderer:
                         corner.create_arc(*bounds, start=start, extent=90,
                                           style="arc", outline=color, width=n)
                         corner.place(**place)
-                        corner.lift()
+                        tk.Misc.tkraise(corner)
         if target.node_type == "Badge":
             from psx.css.native_paint import foreground_hex
             widget = target.widget
