@@ -999,6 +999,11 @@ class TkinterRenderer:
                         anchor=widget._psx_css_link_original_anchor,
                         foreground=widget._psx_css_link_original_foreground,
                     )
+                if self._sfle_constraints is not None and hasattr(widget, "_psx_css_font_revision"):
+                    revision = tuple((key, None) for key in ("font-family", "font-size", "font-weight"))
+                    if widget._psx_css_font_revision != revision:
+                        widget._psx_css_font_revision = revision
+                        self.request_sfle_invalidation("font", widget_id=id(widget))
                 return
             if not hasattr(widget, "_psx_css_link_font"):
                 widget._psx_css_link_original_font = widget.cget("font")
@@ -1020,6 +1025,12 @@ class TkinterRenderer:
             widget.configure(foreground=styles.get("color", widget._psx_css_link_original_foreground))
             if "text-align" in styles:
                 widget.configure(anchor={"left": "w", "center": "center", "right": "e"}[styles["text-align"]])
+            if self._sfle_constraints is not None:
+                revision = tuple((key, styles.get(key)) for key in
+                                 ("font-family", "font-size", "font-weight"))
+                if getattr(widget, "_psx_css_font_revision", None) != revision:
+                    widget._psx_css_font_revision = revision
+                    self.request_sfle_invalidation("font", widget_id=id(widget))
             return
         if target.node_type in ("Button", "Checkbox", "Input", "Radio", "Select"):
             from psx.css.native_paint import native_text_typography
