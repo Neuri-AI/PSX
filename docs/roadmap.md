@@ -353,6 +353,12 @@ This work is a distinct future implementation track. Its phase numbering (F0–F
 | F7 | CSS Advanced | Inheritance, variables, themes and advanced selectors in declared scope |
 | F8 | Compatibility and certification | Existing-component refactoring, public API regressions, backend capability matrix and Chromium differential evidence |
 
+### P1.4.6 — Native CSS Visual functional integration (closed for bounded supported subset)
+
+**Functional exit evidence:** [Native CSS component capability inventory and exact-SHA receipt](architecture/css-native-component-capability-inventory.md), certified against implementation SHA `a3b1301ae76e421f8920cff6a76ef37d996d6131` (13/13 GitHub Actions workflows successful, including executed Qt, Tkinter, Kivy, multi-binding Qt native jobs and public-behavior evidence aggregation). Native CSS property projection and exclusions are published in [the public catalog](public/reference/native-css-capabilities.mdx). The owner-approved public component contracts remain unchanged.
+
+The bounded native paint, typography, state/interaction, keyed lifecycle, inherited styling, Qt QSS, local Tk `ttk.Style`, Kivy canvas and cleanup functionality has direct mounted tests. This **does not** certify arbitrary CSS on native controls, unsupported visual values, pixel-perfect cross-platform rendering, cross-device DPI/theme regressions or global dependency-aware invalidation. The last two belong to P1.4.8 and P1.4.7; implementation changes after the recorded SHA require fresh test evidence.
+
 ### P1.4.8 — CSS Core integral certification (planned; not started)
 
 **Owner decision (2026-10-20):** Reserve P1.4.8 for the complete, independent certification of CSS Core, including the native visual capability matrix that was not previously recorded explicitly. P1.4.6 implements native paint/typography, P1.4.7 implements dependency-aware invalidation and performance; P1.4.8 **does not substitute for functional tests required during those increments**.
