@@ -183,3 +183,22 @@ def native_text_typography(computed: ComputedStyle | None, *, alpha: bool = Fals
             raise ValueError("Native Text line-height requires positive px units.")
         result["line-height"] = leading.value
     return result
+
+
+def native_border_paint(computed: ComputedStyle | None, *, alpha: bool = False):
+    """An explicitly colored positive pixel stroke; no invented native defaults."""
+    from psx.sfle.lengths import Length, LengthKind
+    if computed is None or "border-color" not in computed.specified:
+        return None
+    width = computed.properties["border-width"]
+    if not isinstance(width, Length) or width.kind != LengthKind.PX or width.value < 0:
+        raise ValueError("Native CSS border requires nonnegative px border-width.")
+    if width.value == 0:
+        return None
+    rgba = border_rgba(computed)
+    if rgba is None:
+        return None
+    if not alpha and rgba[3] != 1.0:
+        raise ValueError("Native border paint requires opaque colors.")
+    color = rgba if alpha else "#" + "".join(f"{round(c * 255):02x}" for c in rgba[:3])
+    return (float(width.value), color)
