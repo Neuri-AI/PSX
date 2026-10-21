@@ -144,3 +144,18 @@ def test_kivy_pixel_line_height_and_rejects_percentage_leading():
 def test_native_text_rejects_unrepresentable_intermediate_weight():
     with pytest.raises(ValueError, match="400 or 700"):
         native_text_typography(_style("div {font-weight: 500}"))
+
+
+def test_native_radius_accepts_positive_px_and_zero():
+    from psx.css.native_paint import native_border_radius
+    assert native_border_radius(_style("div {border-radius: 12px}")) == 12
+    assert native_border_radius(_style("div {border-radius: 0px}")) == 0
+    assert native_border_radius(None) == 0
+
+
+def test_native_radius_rejects_percentage_and_negative_values():
+    from psx.css.native_paint import native_border_radius
+    with pytest.raises(ValueError, match="nonnegative px"):
+        native_border_radius(_style("div {border-radius: 15%}"))
+    with pytest.raises((ValueError, Exception)):
+        native_border_radius(_style("div {border-radius: -3px}"))
