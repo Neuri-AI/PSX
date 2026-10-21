@@ -94,3 +94,79 @@ def test_native_invalidation_dependency_closure_retains_flex_siblings():
     assert "c" not in closure.layout_candidates
     with pytest.raises(ValueError, match="Unknown dirty"):
         plan_layout_dependents(request, frozenset({"missing"}))
+
+
+def test_targeted_typography_remeasurement_reuses_unaffected_native_sibling():
+    """Only the edited widget is measured; independent native metrics are cached."""
+    from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
+    from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes, MeasuredBox
+
+    left, right = object(), object()
+    constraints = LayoutConstraints(AvailableSize(300, True), AvailableSize(100, True))
+    intrinsic = IntrinsicSizes(10, 10, 12, 12, 10, 12)
+    cache = NativeIntrinsicCache()
+    measurements = {"left": 0, "right": 0}
+
+    def measure(label, generation):
+        def run():
+            measurements[label] += 1
+            return MeasuredBox(label, intrinsic, constraints, generation)
+        return run
+
+    def pass_over(generation, *, dirty=frozenset()):
+        round_ = cache.begin(dirty_widgets=dirty)
+        for label, widget in (("left", left), ("right", right)):
+            round_.read(widget=widget, props=("font-size", 18),
+                        constraints=constraints, node_id=label,
+                        generation=generation, measure=measure(label, generation))
+        round_.publish()
+        return round_
+
+    pass_over(1)
+    assert measurements == {"left": 1, "right": 1}
+    repeated = pass_over(2)
+    assert not repeated.measured
+    assert measurements == {"left": 1, "right": 1}
+
+    state = MeasurementInvalidations()
+    state.request("font", widget_id=id(left))
+    state.request("font", widget_id=id(left))
+    assert state.dirty_widgets == {id(left)}
+    target = pass_over(3, dirty=frozenset(state.dirty_widgets))
+    assert target.measured == {id(left)}
+    assert measurements == {"left": 2, "right": 1}
+    assert state.acknowledge(state.epoch)
+    assert not pass_over(4).measured
+    assert measurements == {"left": 2, "right": 1}
+
+
+def test_native_width_measurement_cache_reuses_independent_widths():
+    """Width-dependent wrapping invalidation must not evict independent leaves."""
+    from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
+
+    one, other = object(), object()
+    cache = NativeIntrinsicCache()
+    counts = {"one": 0, "other": 0}
+
+    def measurement(key):
+        counts[key] += 1
+        return (40, 16)
+
+    def round_trip(*, dirty=frozenset(), invalidate_all=False):
+        round_ = cache.begin(dirty_widgets=dirty, invalidate_all=invalidate_all)
+        for key, widget in (("one", one), ("other", other)):
+            round_.read_width(widget=widget, props=("font", "sans"),
+                              constraints=(300, 100), width=140,
+                              measure=lambda key=key: measurement(key))
+        round_.publish()
+        return round_
+
+    round_trip()
+    assert counts == {"one": 1, "other": 1}
+    assert not round_trip().measured_width
+    selected = round_trip(dirty=frozenset({id(one)}))
+    assert selected.measured_width == {(id(one), 140)}
+    assert counts == {"one": 2, "other": 1}
+    assert round_trip(invalidate_all=True).measured_width == {
+        (id(one), 140), (id(other), 140)
+    }
