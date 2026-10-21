@@ -1300,7 +1300,7 @@ def test_native_rounded_border_pascal_and_html_controls(tag, alias):
                 assert all(len(c.find_all()) == 1 for c in widget._psx_css_border_corners)
             else:
                 line = widget._psx_css_control_stroke[3]
-                assert tuple(line.rounded_rectangle)[-1] == pytest.approx(8)
+                assert widget._psx_css_stroke_radius == pytest.approx(8)
             second = reconciler.render(view(12, html))
             assert second.children[0].handle.widget is widget
             if backend == "qt":
@@ -1308,7 +1308,7 @@ def test_native_rounded_border_pascal_and_html_controls(tag, alias):
             elif backend == "tk":
                 assert all(int(c.cget("width")) == 12 for c in widget._psx_css_border_corners)
             else:
-                assert tuple(widget._psx_css_control_stroke[3].rounded_rectangle)[-1] == pytest.approx(12)
+                assert widget._psx_css_stroke_radius == pytest.approx(12)
             third = reconciler.render(view(0, html))
             assert third.children[0].handle.widget is widget
             if backend == "qt":
@@ -1340,7 +1340,7 @@ def test_native_semantic_rounded_border_and_background_updates():
         elif backend == "tk":
             assert len(widget._psx_css_border_corners) == 4
         else:
-            assert tuple(widget._psx_css_stroke[3].rounded_rectangle)[-1] == pytest.approx(8)
+            assert widget._psx_css_semantic_radius == pytest.approx(8)
             assert tuple(widget._psx_css_paint_rect.radius)[0] == pytest.approx(8)
         second = reconciler.render(view(12))
         assert second.handle.widget is widget
@@ -1349,7 +1349,7 @@ def test_native_semantic_rounded_border_and_background_updates():
         elif backend == "tk":
             assert all(int(c.cget("width")) == 12 for c in widget._psx_css_border_corners)
         else:
-            assert tuple(widget._psx_css_stroke[3].rounded_rectangle)[-1] == pytest.approx(12)
+            assert widget._psx_css_semantic_radius == pytest.approx(12)
             assert tuple(widget._psx_css_paint_rect.radius)[0] == pytest.approx(12)
     finally:
         reconciler.unmount()
