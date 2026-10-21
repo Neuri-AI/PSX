@@ -1190,6 +1190,9 @@ class TkinterRenderer:
                               fill=color, outline=color, width=0)
             corner.place(**place)
             tk.Misc.tkraise(corner)
+        # Border arcs are above the rounded fill if both declarations exist.
+        for border_corner in getattr(widget, "_psx_css_border_corners", ()):
+            tk.Misc.tkraise(border_corner)
 
     # -- update -----------------------------------------------------------
 
