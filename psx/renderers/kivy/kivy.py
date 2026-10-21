@@ -790,18 +790,12 @@ class KivyRenderer:
                 group = InstructionGroup()
                 paint = Color(*rgba)
                 line = Line(width=width)
-                if radius:
-                    line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
-                else:
-                    line.rectangle = (widget.x, widget.y, widget.width, widget.height)
+                line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
                 group.add(paint)
                 group.add(line)
                 def redraw(instance, _):
                     r = widget._psx_css_stroke_radius
-                    if r:
-                        line.rounded_rectangle = (instance.x, instance.y, instance.width, instance.height, r)
-                    else:
-                        line.rectangle = (instance.x, instance.y, instance.width, instance.height)
+                    line.rounded_rectangle = (instance.x, instance.y, instance.width, instance.height, r)
                 widget._psx_css_stroke_radius = radius
                 widget.canvas.after.add(group)
                 widget.bind(pos=redraw, size=redraw)
@@ -810,11 +804,7 @@ class KivyRenderer:
                 _, _, paint, line = existing_border
                 line.width, paint.rgba = stroke
                 widget._psx_css_stroke_radius = radius
-                if radius:
-                    line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
-                else:
-                    line.rounded_rectangle = ()
-                    line.rectangle = (widget.x, widget.y, widget.width, widget.height)
+                line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
         if target.node_type == "Text":
             from psx.css.native_paint import native_text_typography
             from psx.renderers.components.text import apply_kivy_text
