@@ -106,7 +106,11 @@ def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = Non
             tag = node.type.lower() if node.type in native_types else "__legacy_psx_host__"
             target = StyleTarget(tag)
             inline = ()
-        computed = resolve_style(sheet, target, inline=inline, inherited=inherited)
+        if source is not None and source.tag == "__psx_text_content__":
+            # Text content is not an element in CSS: inherit from its parent.
+            computed = resolve_style(Stylesheet(()), target, inherited=inherited)
+        else:
+            computed = resolve_style(sheet, target, inline=inline, inherited=inherited)
         children = tuple(visit(child, computed) for child in node.children)
         return replace(node, css_computed=computed, children=children)
 
