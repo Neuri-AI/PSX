@@ -83,15 +83,21 @@ def test_unstyled_independent_host_does_not_force_layout_on_sibling_repaint():
     from psx.renderers.headless import HeadlessRenderer
     from psx import psx
 
-    renderer = HeadlessRenderer()
+    from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(240, True), AvailableSize(120, True)),
+        measure_intrinsic=lambda _: IntrinsicSizes(40, 40, 15, 15, 40, 15),
+    )
     reconciler = Reconciler(renderer)
     old = reconciler.render(psx(
-        '<div><button key="paint" style="color: #112233">A</button>'
+        '<div style="width: 240px; height: 120px">'
+        '<button key="paint" style="color: #112233">A</button>'
         '<button key="plain">B</button></div>'
     ))
     try:
         new = psx(
-            '<div><button key="paint" style="color: #445566">A</button>'
+            '<div style="width: 240px; height: 120px"><button key="paint" style="color: #445566">A</button>'
             '<button key="plain">B</button></div>'
         )
         assert _paint_only_css_update(old, new)
