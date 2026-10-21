@@ -802,15 +802,21 @@ class TkinterRenderer:
         # Tk/ttk themes do not expose reliable bordercolor painting. Keep an
         # instance-local four-edge overlay instead of changing global ttk styles.
         if target.node_type in ("Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Text", "Badge") or target.node_type in FORMATTING_TAGS:
-            from psx.css.native_paint import native_border_paint
+            from psx.css.native_paint import native_border_paint, native_border_radius
             stroke = native_border_paint(computed)
+            radius = native_border_radius(computed)
             widget = target.widget
             edges = getattr(widget, "_psx_css_border_edges", None)
+            corners = getattr(widget, "_psx_css_border_corners", None)
             if stroke is None:
                 if edges is not None:
                     for edge in edges:
                         edge.destroy()
                     del widget._psx_css_border_edges
+                if corners is not None:
+                    for corner in corners:
+                        corner.destroy()
+                    del widget._psx_css_border_corners
             else:
                 thickness, color = stroke
                 if int(thickness) != thickness or thickness < 1:
@@ -819,9 +825,17 @@ class TkinterRenderer:
                     edges = tuple(tk.Frame(widget, borderwidth=0, highlightthickness=0, takefocus=0) for _ in range(4))
                     widget._psx_css_border_edges = edges
                 n = int(thickness)
+                if radius and (int(radius) != radius or radius < n):
+                    raise ValueError("Tk rounded borders require integer px radius >= border-width.")
+                r = int(radius)
                 placements = (
+                    dict(x=r, y=0, relwidth=1, width=-2*r, height=n),
+                    dict(x=r, rely=1, y=-n, relwidth=1, width=-2*r, height=n),
+                    dict(x=0, y=r, width=n, relheight=1, height=-2*r),
+                    dict(relx=1, x=-n, y=r, width=n, relheight=1, height=-2*r),
+                ) if r else (
                     dict(x=0, y=0, relwidth=1, height=n),
-                    dict(x=0, rely=1, anchor="sw", relwidth=1, height=n),
+                    dict(x=0, rely=1, y=-n, relwidth=1, height=n),
                     dict(x=0, y=0, width=n, relheight=1),
                     dict(relx=1, x=-n, y=0, width=n, relheight=1),
                 )
@@ -829,6 +843,43 @@ class TkinterRenderer:
                     edge.configure(background=color)
                     edge.place(**place)
                     edge.lift()
+                if not r:
+                    if corners is not None:
+                        for corner in corners:
+                            corner.destroy()
+                        del widget._psx_css_border_corners
+                else:
+                    if corners is None or int(corners[0].cget("width")) != r:
+                        if corners is not None:
+                            for corner in corners:
+                                corner.destroy()
+                        corners = tuple(
+                            tk.Canvas(widget, width=r, height=r, borderwidth=0,
+                                      highlightthickness=0, takefocus=0)
+                            for _ in range(4)
+                        )
+                        widget._psx_css_border_corners = corners
+                    # Tk Canvas has no transparent background. Sample the
+                    # native control's theme surface, never global widget styles.
+                    try:
+                        surface = str(widget.cget("background"))
+                    except tk.TclError:
+                        surface = str(ttk.Style(widget).lookup(widget.winfo_class(), "background") or "")
+                    if not surface:
+                        surface = str(ttk.Style(widget).lookup("TFrame", "background") or "#ffffff")
+                    positions = (
+                        (dict(x=0, y=0), (0, 0, 2*r, 2*r), 90),
+                        (dict(relx=1, x=-r, y=0), (-r, 0, r, 2*r), 0),
+                        (dict(x=0, rely=1, y=-r), (0, -r, 2*r, r), 180),
+                        (dict(relx=1, rely=1, x=-r, y=-r), (-r, -r, r, r), 270),
+                    )
+                    for corner, (place, bounds, start) in zip(corners, positions):
+                        corner.configure(background=surface)
+                        corner.delete("all")
+                        corner.create_arc(*bounds, start=start, extent=90,
+                                          style="arc", outline=color, width=n)
+                        corner.place(**place)
+                        corner.lift()
         if target.node_type == "Badge":
             from psx.css.native_paint import foreground_hex
             widget = target.widget
