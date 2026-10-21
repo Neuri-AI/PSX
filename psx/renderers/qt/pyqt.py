@@ -575,6 +575,12 @@ class QtRenderer:
         self._sfle_style_watched_widgets = watched
 
     def _sfle_on_native_semantic_change(self, watched, reason: str) -> None:
+        # Changes originating from PSX's own CSS projection already passed
+        # through typed style effects and the reconciler's geometry decision.
+        # Do not classify their synchronous Qt StyleChange/FontChange echoes
+        # as external theme changes (which would trigger a second layout).
+        if getattr(watched, "_psx_css_projection_active", False):
+            return
         if (id(watched) in self._sfle_style_watched_widgets
                 and self._sfle_mounted_root is not None
                 and self._sfle_constraints is not None):
@@ -983,7 +989,12 @@ class QtRenderer:
                 font.setPixelSize(round(styles["font-size"]))
             if "font-weight" in styles:
                 font.setBold(styles["font-weight"] == 700)
-            widget.setFont(font)
+            widget._psx_css_projection_active = True
+            try:
+                if widget.font() != font:
+                    widget.setFont(font)
+            finally:
+                widget._psx_css_projection_active = False
             if target.node_type == "Button":
                 leading = styles.get("line-height")
                 if leading is not None and (
@@ -1035,7 +1046,12 @@ class QtRenderer:
                 projected = (baseline + " " + authored).strip()
             else:
                 projected = baseline
-            widget.setStyleSheet(projected)
+            if widget.styleSheet() != projected:
+                widget._psx_css_projection_active = True
+                try:
+                    widget.setStyleSheet(projected)
+                finally:
+                    widget._psx_css_projection_active = False
             widget._psx_css_last_applied_stylesheet = projected
             if self._sfle_constraints is not None:
                 keys = ("font-family", "font-size", "font-weight", "line-height")
@@ -1047,7 +1063,13 @@ class QtRenderer:
             return
         if target.node_type not in FORMATTING_TAGS:
             return
-        target.widget.setStyleSheet(qt_semantic_stylesheet(computed))
+        projected = qt_semantic_stylesheet(computed)
+        if target.widget.styleSheet() != projected:
+            target.widget._psx_css_projection_active = True
+            try:
+                target.widget.setStyleSheet(projected)
+            finally:
+                target.widget._psx_css_projection_active = False
 
     # -- update -----------------------------------------------------------
 
