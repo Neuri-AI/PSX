@@ -1705,8 +1705,10 @@ def test_native_css_updates_preserve_control_state_and_owned_styling(component, 
             if backend == "qt":
                 assert widget.isEnabled() is enabled
             elif backend == "tk":
-                if component != "TextArea":
+                if component in ("Checkbox", "Select"):
                     assert ("disabled" in widget.state()) is (not enabled)
+                elif component == "Link":
+                    assert str(widget.cget("state")) == ("normal" if enabled else "disabled")
                 else:
                     assert str(widget.cget("state")) in ("disabled", "normal")
             else:
