@@ -23,7 +23,8 @@ def view(order=("a", "b")):
                   for key in order), gap=4)
 
 
-def make_renderer(backend):
+def make_renderer(backend, *, sfle=True):
+    layout = {"sfle_constraints": viewport(800), "engine": PythonLayoutEngine()} if sfle else {}
     if backend == "qt":
         binding = os.environ["PSX_QT_BINDING"]
         package = {"pyside6": "PySide6", "pyside2": "PySide2",
@@ -31,21 +32,18 @@ def make_renderer(backend):
         namespace = "pyside" if binding.startswith("pyside") else "pyqt"
         facade = importlib.import_module("psx.renderers.qt." + namespace)
         renderer = getattr(facade, package + "Renderer")(
-            argv=["psx-grid-lifecycle"], sfle_constraints=viewport(800),
-            engine=PythonLayoutEngine())
+            argv=["psx-grid-lifecycle"], **layout)
         return renderer, lambda: renderer.application.processEvents()
     if backend == "tk":
         import tkinter as tk
         from psx.renderers.tkinter import TkinterRenderer
         root = tk.Tk()
         root.withdraw()
-        renderer = TkinterRenderer(root=root, sfle_constraints=viewport(800),
-                                   engine=PythonLayoutEngine())
+        renderer = TkinterRenderer(root=root, **layout)
         return renderer, root.destroy
     if backend == "kivy":
         from psx.renderers.kivy.kivy import KivyRenderer
-        return KivyRenderer(sfle_constraints=viewport(800),
-                            engine=PythonLayoutEngine()), lambda: None
+        return KivyRenderer(**layout), lambda: None
     raise AssertionError("PSX_GRID_BACKEND must name a real native backend")
 
 
@@ -1737,7 +1735,7 @@ def test_native_radio_group_css_keeps_selection_callbacks_and_child_identity():
     from psx.markup.compile import psx
 
     backend = os.environ["PSX_GRID_BACKEND"]
-    renderer, close = make_renderer(backend)
+    renderer, close = make_renderer(backend, sfle=False)
     reconciler = Reconciler(renderer)
     events = []
 
