@@ -359,6 +359,20 @@ This work is a distinct future implementation track. Its phase numbering (F0–F
 
 The bounded native paint, typography, state/interaction, keyed lifecycle, inherited styling, Qt QSS, local Tk `ttk.Style`, Kivy canvas and cleanup functionality has direct mounted tests. This **does not** certify arbitrary CSS on native controls, unsupported visual values, pixel-perfect cross-platform rendering, cross-device DPI/theme regressions or global dependency-aware invalidation. The last two belong to P1.4.8 and P1.4.7; implementation changes after the recorded SHA require fresh test evidence.
 
+### P1.4.7 — Dependency-aware invalidation and performance (in progress)
+
+**Entry baseline:** P1.4.6 native CSS functional scope and reusable Cinnamon measurement caches. This increment reduces redundant commits and redundant measurement **without changing native paint, public component APIs, or Cinnamon's authority over geometry**.
+
+**Implementation work and exit evidence:**
+
+1. Coalesce duplicate content/font/theme/resource/DPI/viewport notifications while preserving strictly newer epochs for new reasons, newly dirty widgets and escalation to global invalidation; stale commits must never acknowledge current work.
+2. Reuse cached intrinsic and width-constrained measurements for unchanged widgets; invalidate changed leaves and their necessary layout contexts, without measuring unrelated siblings. Verify that changing constraints or fonts invalidates precisely the affected metrics.
+3. Preserve computed style's paint/measurement/geometry effect separation: paint-only edits must not trigger measurement; changing text, font size or line height must trigger dependent reflow, including restoration/removal.
+4. Integrate conditional incremental layout reuse and commit scheduling consistently in Qt (all supported bindings), Tkinter, Kivy and Headless where applicable. Compare resulting geometry against full Rust/Python computations.
+5. Provide reproducible repeated-update counters/benchmarks, regression tests for 1,000+ invalidation cycles, bounded cache ownership, and exact-SHA executed CI receipts.
+
+**Current implemented first slice:** direct tests for targeted native font and width-dependent cache reuse, plus duplicate-invalidation coalescing. Completion still requires full paint-only/layout boundary integration, native backend regression and performance receipts; **this phase is not yet closed**. Comprehensive device/theme/release-wide visual verification belongs to P1.4.8.
+
 ### P1.4.8 — CSS Core integral certification (planned; not started)
 
 **Owner decision (2026-10-20):** Reserve P1.4.8 for the complete, independent certification of CSS Core, including the native visual capability matrix that was not previously recorded explicitly. P1.4.6 implements native paint/typography, P1.4.7 implements dependency-aware invalidation and performance; P1.4.8 **does not substitute for functional tests required during those increments**.
