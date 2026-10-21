@@ -769,6 +769,35 @@ class KivyRenderer:
         from kivy.graphics import Color, InstructionGroup, Rectangle
 
         target = _handle(handle)
+        # Apply one owned stroke to both HTML-like boxes and PascalCase
+        # controls, before the typography branches return.
+        if target.node_type in ("Text", "Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Badge") or target.node_type in FORMATTING_TAGS:
+            from psx.css.native_paint import native_border_paint
+            from kivy.graphics import Line
+            stroke = native_border_paint(computed, alpha=True)
+            widget = target.widget
+            existing_border = getattr(widget, "_psx_css_control_stroke", None)
+            if stroke is None:
+                if existing_border is not None:
+                    group, redraw, _, _ = existing_border
+                    widget.unbind(pos=redraw, size=redraw)
+                    widget.canvas.after.remove(group)
+                    del widget._psx_css_control_stroke
+            elif existing_border is None:
+                width, rgba = stroke
+                group = InstructionGroup()
+                paint = Color(*rgba)
+                line = Line(rectangle=(widget.x, widget.y, widget.width, widget.height), width=width)
+                group.add(paint)
+                group.add(line)
+                def redraw(instance, _):
+                    line.rectangle = (instance.x, instance.y, instance.width, instance.height)
+                widget.canvas.after.add(group)
+                widget.bind(pos=redraw, size=redraw)
+                widget._psx_css_control_stroke = (group, redraw, paint, line)
+            else:
+                _, _, paint, line = existing_border
+                line.width, paint.rgba = stroke
         if target.node_type == "Text":
             from psx.css.native_paint import native_text_typography
             from psx.renderers.components.text import apply_kivy_text
