@@ -161,7 +161,7 @@ def _nodes(
         if isinstance(node, TextNode):
             value = _inline_text(node, scope, filename, lexical=lexical)
             if value:
-                result.append(Text(value))
+                result.append(replace(Text(value), css_source=parse_markup_style("__psx_text_content__")))
         elif isinstance(node, Fragment):
             result.append(VFragment(*_nodes(node.children, scope, resolver, filename, lexical=lexical)))
         elif isinstance(node, Element) and node.name == 'link':
