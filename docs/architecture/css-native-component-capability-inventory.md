@@ -23,22 +23,33 @@
 | `border-color` + `border-width` | Local QSS stroke | Owned edge overlays | Owned canvas stroke | Positive pixel width and explicit color; geometry remains Cinnamon-owned |
 | `border-radius` | Local QSS radius | Owned edge and corner canvases | Rounded rectangle stroke | Single nonnegative px; no universal child clipping or per-corner/percent radii |
 
-## Component-family inventory
+## Component / backend projection matrix
 
-These are **source dispatch observations**, not blanket support assertions. Relevant source: `psx/renderers/{qt/pyqt.py,tkinter/tkinter.py,kivy/kivy.py}` and `psx/css/native_paint.py`.
+Entries describe source-supported **bounded** native drawing paths, not browser pixel parity. `font` means `font-family`, positive pixel `font-size` and 400/700 `font-weight` where supported; `stroke` means the coupled pixel `border-color` + `border-width`, with single-pixel-unit `border-radius` when applicable.
 
-| Component family | Qt | Tkinter | Kivy | Required additional evidence |
+| Component | Qt (PyQt5/6, PySide2/6) | Tkinter | Kivy | Excluded / special contract |
 | --- | --- | --- | --- | --- |
-| HTML-like semantic hosts (`div`, `span`, `p`, headings) | Native host paint/typography | Native host paint/typography | Native host paint/typography | Composited pixels, external theme/stylesheet coexistence |
-| `Text` | Native QLabel/Text-document routes | ttk.Label / owned multiline Text | Label | DPI, wrapped measurement, removal/reflow across fonts |
-| `Button` / `button` | Native control foreground/type/border | Per-instance ttk type/foreground/border | Native Button/color/stroke | State transitions, focus and active theme behavior |
-| `Input` / `input` | Native input type/foreground/border | ttk.Entry type/foreground/border | TextInput foreground/stroke | Selection/caret/disabled/read-only and intrinsic sizing |
-| `TextArea` | Control-specific native route | Control-specific native route | TextInput route | Multiline/selection/scroll and style removal |
-| `Checkbox`, `Radio`, `Select` | Control-specific branches | Control-specific branches | Some branches only support text color or paint stroke | Per-control per-property acceptance; states and theme invariants |
-| `Badge`, `Link` | Specific control paths | Specific control paths | Specific control paths | Original paint restoration and capability negatives |
-| `Flex`, `Grid`, `GridItem`, `Scroll`, `Box` | Cascade/layout participation | Cascade/layout participation | Cascade/layout participation | Do **not** equate computed CSS with every native paint property |
-| Arbitrary `Native` / custom adapters | Not implied | Not implied | Not implied | Explicit opt-in/capability contract required |
+| HTML-like semantic hosts (`div`, `span`, `p`, headings) | Local background, foreground, typography, stroke/radius | Instance-local background, foreground, typography, owned edge/corner paint | Owned canvas background/stroke + native text properties | Flow and native geometry belong to Cinnamon; clipping/browser-composited pixels not promised |
+| `Text` | Native foreground and typography, QTextDocument leading | Native typography, owned multiline leading, edge paint | Label typography and owned stroke | Qt `Text` is not a generic CSS border painter; backend line-height bounds differ |
+| `Button` / `button` | Foreground, font, alignment, QSS stroke/radius | Local ttk typography/foreground and edge/corner paint | Native text properties and owned canvas stroke | Text leading has backend-specific constraints |
+| `Input` / `input` | Foreground, font, alignment, stroke | Foreground, local font, alignment, owned stroke | TextInput foreground/font/selection and stroke | Existing native controlled value/caret contracts retained |
+| `Checkbox` | Foreground/font and stroke | Instance-local ttk foreground/font and owned stroke | Owned stroke only | Kivy CheckBox has no portable CSS text foreground; do not advertise it |
+| `Radio` inside `RadioGroup` | Foreground/font and stroke | Instance-local ttk foreground/font and stroke | Label foreground and owned stroke | Kivy Radio does not project the general native font stack; native-group test uses the supported non-SFLE host until Block intrinsic group measurement is separately implemented |
+| `Select` | Foreground/font and stroke | Native combobox foreground/font and stroke | Spinner foreground/font and stroke | Selection remains controlled; alignment support varies |
+| `TextArea` / `textarea` | Foreground/font and stroke | Foreground/font, tag-based alignment, stroke | TextInput foreground/font and stroke | Read-only, selection, focus and live edit callbacks belong to the existing control adapter |
+| `Link` | Foreground/font, native QSS-preserving stroke | Tk Label foreground/font and stroke | Button-based foreground/font and stroke | Tk Label has no state option; enabled is enforced by the Link adapter and cursor |
+| `Badge` | Custom foreground painter | Custom foreground painter and owned stroke | Native foreground and owned stroke | Badge has no portable click/selection event; Qt Badge does **not** apply general QSS stroke |
+| `Flex`, `Grid`, `GridItem`, `Scroll`, custom `Native` | Resolution/layout only unless a specific paint host is declared | Resolution/layout only unless a specific paint host is declared | Resolution/layout only unless a specific paint host is declared | No blanket CSS paint support for arbitrary native widgets |
 
+### Native-state and theme evidence
+
+- **CSS updates:** keyed instances are checked by native handle identity; `color` and border paint update and reset without replacing the control.
+- **Events:** actual native checkbox toggles, radio selection, Select selection, Link activation and TextArea modification are exercised with updated event callbacks. Old `EventSlot` objects become inert after teardown.
+- **State:** enabled/disabled is checked through each backend's real state representation; readonly and selection through native editors; focus is checked when the headless toolkit permits acquiring it, and focus *capability* is always preserved.
+- **Qt QSS:** existing Link selector blocks and later manually installed QSS are recomposed as valid widget-local rules and restored on CSS removal; the unstyled sibling is unaffected.
+- **Tkinter theme:** css-derived ttk styles remain per-widget; `TButton` global theme lookups and unstyled siblings are unaffected. Tk rounded overlays still cannot promise transparent clip edges on every theme.
+- **Kivy Canvas:** owned instruction groups and position/size bindings are restored on CSS reset and unmount; unstyled sibling Canvas state is unchanged.
+- **Headless:** structural/source and geometry tests are applicable, but native paint readback is **not applicable**.
 ## Existing executable coverage
 
 - `tests/css/test_native_paint.py`: typed conversion and fail-closed/alpha/border/typography projector rules.
@@ -56,11 +67,24 @@ For **each advertised combination** of property, component and backend, require:
 5. For font changes, assert Cinnamon remeasures where necessary; for paint-only changes, assert no unnecessary measurement.
 6. Record negative support (value/unit/renderer) as a verified explicit rejection rather than silently skipping the combination.
 
-## Open verification gaps (do not certify yet)
+## Functional execution mapping and exclusions
 
-- Full per-component native state and event matrix for Checkbox, Radio, Select, TextArea, Link, Badge and themed widgets.
-- External manual Qt stylesheets and Tk/Kivy theme coexistence, pixel clipping and platform-specific rounded background differences.
-- Cross-platform native visual snapshots/readbacks and DPI/font/resource variations.
-- Exact-SHA receipts for newly added coverage (including the inherited color/disabled transition test) are pending workflow execution.
+The following behavior-specific tests run in the native layout workflow for the supported Qt bindings, Tkinter and Kivy (not generic parser-only substitutes):
 
-The **P1.4.6 functional-integration gate remains open** until the above applicable advertised combinations have direct executed native evidence. P1.4.8 separately owns the exhaustive immutable-SHA cross-platform release matrix.
+- `test_native_css_control_border_updates_and_owned_paint_cleanup` — border readback, keyed update and reset for Checkbox, Select, Badge, Link and TextArea.
+- `test_native_radio_group_css_keeps_selection_callbacks_and_child_identity` — actual native RadioGroup selection and updated callback under an explicitly supported non-SFLE group host.
+- `test_native_css_style_updates_keep_live_control_callbacks` — real native Checkbox toggle and Link activation, in-place callback retargeting, inert slots after unmount.
+- `test_native_select_css_retains_selection_and_latest_user_callback` — native Select choice, keyed CSS transition, callback and teardown.
+- `test_native_textarea_css_preserves_selection_readonly_and_edit_callbacks` — native editor selection, readonly transition, live edit and CSS removal.
+- `test_native_editor_css_keeps_focus_capability_and_active_focus_when_available` — focus capability and retained actual focus when the virtual display grants it.
+- `test_native_css_updates_preserve_control_state_and_owned_styling` — enabled/disabled transitions and identity on Checkbox, Select, Link and TextArea.
+- `test_native_css_visual_paint_is_instance_scoped_and_cleans_up`, `test_qt_css_merges_manually_installed_native_stylesheets` — local Qt QSS / ttk styles / Kivy canvas state and native/manual stylesheet coexistence.
+- `test_native_css_teardown_releases_active_control_paint` — active styled widgets release owned edges, canvases and Kivy instruction groups on unmount, even without an explicit CSS reset.
+- Existing `test_native_badge_css_foreground_is_applied_and_restored`, `test_native_css_typography_updates_text_without_replacing_widget`, `test_native_control_font_measurement_revisions_are_incremental` and related tests certify the other advertised paint/font/invalidation paths.
+- `tests/css/test_native_paint.py` exercises CSS source conversion and rejection of alpha on Qt/Tk, percentage radius/leading, unrepresentable weights and unsupported alignment.
+
+**Bounded exclusions (not advertised):** arbitrary control backgrounds; arbitrary native/custom widget styling; universal justified text, percent/elliptical/per-corner radius, child clipping and native browser pixel parity; Kivy Checkbox text coloring; Qt Badge CSS border paint; cross-device visual snapshots and DPI/font/theme pixel identity. An unprojected CSS property may still resolve in CSS Core; do not conflate its computed value with a native rendering guarantee. Unsupported values *within a projected property* fail closed where the projector validates them.
+
+**Remaining independent certification:** P1.4.8 owns release-wide exhaustive property × backend × supported OS/Python matrix, screenshot/pixel regressions, DPI/font/theme sweeps and immutable-SHA release acceptance. P1.4.7 owns generalized dependency-aware invalidation/performance. Neither substitutes for the native functional tests listed above.
+
+**CI verification:** record the final implementation SHA and all relevant workflow conclusions only after GitHub Actions completes successfully. Until then, this matrix documents tests committed and in validation, not a certified closure receipt.
