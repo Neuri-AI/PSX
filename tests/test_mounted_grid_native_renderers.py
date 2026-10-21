@@ -2245,7 +2245,8 @@ def test_native_css_teardown_releases_active_control_paint(component, attrs):
 
 def test_native_css_paint_burst_does_not_commit_cinnamon_geometry(request):
     """Record native renderer latency and actual commit counts, not inferred speedups."""
-    from time import perf_counter_ns
+    from time import perf_counter_ns, process_time_ns
+    import tracemalloc
     from psx.markup.compile import psx
 
     backend = os.environ["PSX_GRID_BACKEND"]
@@ -2272,6 +2273,11 @@ def test_native_css_paint_burst_does_not_commit_cinnamon_geometry(request):
         widget = mounted.children[0].handle.widget
         initial = rectangle(widget, backend)
         assert calls == 1
+        own_tracemalloc = not tracemalloc.is_tracing()
+        if own_tracemalloc:
+            tracemalloc.start()
+        snapshot_bytes = tracemalloc.get_traced_memory()[0]
+        started_cpu = process_time_ns()
         started = perf_counter_ns()
         for index in range(100):
             color = "#123456" if index % 2 else "#654321"
@@ -2279,6 +2285,10 @@ def test_native_css_paint_burst_does_not_commit_cinnamon_geometry(request):
             assert updated.children[0].handle.widget is widget
             assert rectangle(widget, backend) == initial
         elapsed = perf_counter_ns() - started
+        cpu_elapsed = process_time_ns() - started_cpu
+        current_bytes, peak_bytes = tracemalloc.get_traced_memory()
+        if own_tracemalloc:
+            tracemalloc.stop()
         # All hundred updates changed visual CSS, not dimensions. Native
         # widget identity and geometry remain stable across the burst.
         assert calls == 1
@@ -2287,6 +2297,15 @@ def test_native_css_paint_burst_does_not_commit_cinnamon_geometry(request):
         )
         request.node.user_properties.append(
             ("paint_100_layout_commits", calls - 1)
+        )
+        request.node.user_properties.append(
+            ("paint_100_cpu_ns", cpu_elapsed)
+        )
+        request.node.user_properties.append(
+            ("paint_100_memory_growth_bytes", current_bytes - snapshot_bytes)
+        )
+        request.node.user_properties.append(
+            ("paint_100_tracemalloc_peak_bytes", peak_bytes)
         )
         request.node.user_properties.append(
             ("backend", backend)
