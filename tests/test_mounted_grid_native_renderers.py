@@ -2276,8 +2276,6 @@ def test_native_css_paint_burst_does_not_commit_cinnamon_geometry(request):
         widget = mounted.children[0].handle.widget
         initial = rectangle(widget, backend)
         assert calls == 1
-        if backend == "qt":
-            renderer._psx_css_debug_events = []
         own_tracemalloc = not tracemalloc.is_tracing()
         if own_tracemalloc:
             tracemalloc.start()
@@ -2297,8 +2295,7 @@ def test_native_css_paint_burst_does_not_commit_cinnamon_geometry(request):
             assert calls == 1, (
                 f"paint index={index}, accepted={accepted}, "
                 f"pending_before={pending_before}, "
-                f"pending_after={tuple(sorted(state.pending)) if state else ()}, "
-                f"native_events={getattr(renderer, '_psx_css_debug_events', [])}"
+                f"pending_after={tuple(sorted(state.pending)) if state else ()}"
             )
         elapsed = perf_counter_ns() - started
         cpu_elapsed = process_time_ns() - started_cpu
