@@ -1272,3 +1272,50 @@ def test_native_css_border_on_pascal_and_html_controls(tag, alias):
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("tag,alias", (("Button", "button"), ("Input", "input")))
+def test_native_rounded_border_pascal_and_html_controls(tag, alias):
+    from psx.markup.compile import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(radius, html):
+        name = alias if html else tag
+        attrs = 'label="Go"' if name == "Button" else 'value="Go"' if name.lower() == "input" else ""
+        text = "Go" if name == "button" else ""
+        style = f' style="border-width: 2px; border-color: #8b5cf6; border-radius: {radius}px"'
+        return psx(f'<div><{name} key="rounded" {attrs}{style}>{text}</{name}></div>')
+
+    try:
+        for html in (False, True):
+            first = reconciler.render(view(8, html))
+            widget = first.children[0].handle.widget
+            if backend == "qt":
+                assert "border-radius: 8px" in widget.styleSheet()
+            elif backend == "tk":
+                assert len(widget._psx_css_border_corners) == 4
+                assert all(c.winfo_exists() for c in widget._psx_css_border_corners)
+            else:
+                line = widget._psx_css_control_stroke[3]
+                assert tuple(line.rounded_rectangle)[-1] == pytest.approx(8)
+            second = reconciler.render(view(12, html))
+            assert second.children[0].handle.widget is widget
+            if backend == "qt":
+                assert "border-radius: 12px" in widget.styleSheet()
+            elif backend == "tk":
+                assert all(int(c.cget("width")) == 12 for c in widget._psx_css_border_corners)
+            else:
+                assert tuple(widget._psx_css_control_stroke[3].rounded_rectangle)[-1] == pytest.approx(12)
+            third = reconciler.render(view(0, html))
+            assert third.children[0].handle.widget is widget
+            if backend == "qt":
+                assert "border-radius:" not in widget.styleSheet()
+            elif backend == "tk":
+                assert not hasattr(widget, "_psx_css_border_corners")
+            else:
+                assert not widget._psx_css_stroke_radius
+    finally:
+        reconciler.unmount()
+        close()
