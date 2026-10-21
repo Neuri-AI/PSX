@@ -895,7 +895,8 @@ class KivyRenderer:
             return
         widget = target.widget
         rgba = background_rgba(computed)
-        from psx.css.native_paint import border_rgba
+        from psx.css.native_paint import border_rgba, native_border_radius
+        radius = native_border_radius(computed)
         from psx.sfle.lengths import Length, LengthKind
         from kivy.graphics import Line
         border = border_rgba(computed)
@@ -914,11 +915,12 @@ class KivyRenderer:
         elif old_stroke is None:
             stroke_group = InstructionGroup()
             stroke_color = Color(*border)
-            stroke_line = Line(rectangle=(widget.x, widget.y, widget.width, widget.height), width=stroke_width)
+            stroke_line = Line(rounded_rectangle=(widget.x, widget.y, widget.width, widget.height, radius), width=stroke_width)
             stroke_group.add(stroke_color)
             stroke_group.add(stroke_line)
             def stroke_redraw(instance, _value):
-                stroke_line.rectangle = (instance.x, instance.y, instance.width, instance.height)
+                stroke_line.rounded_rectangle = (instance.x, instance.y, instance.width, instance.height, widget._psx_css_semantic_radius)
+            widget._psx_css_semantic_radius = radius
             widget.canvas.after.add(stroke_group)
             widget.bind(pos=stroke_redraw, size=stroke_redraw)
             widget._psx_css_stroke = (stroke_group, stroke_redraw, stroke_color, stroke_line)
@@ -926,6 +928,8 @@ class KivyRenderer:
             _, _, stroke_color, stroke_line = old_stroke
             stroke_color.rgba = border
             stroke_line.width = stroke_width
+            widget._psx_css_semantic_radius = radius
+            stroke_line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
         existing = getattr(widget, "_psx_css_paint", None)
         if rgba is None:
             if existing is not None:
@@ -933,11 +937,13 @@ class KivyRenderer:
                 widget.unbind(pos=redraw, size=redraw)
                 widget.canvas.before.remove(group)
                 del widget._psx_css_paint
+                del widget._psx_css_paint_rect
             return
         if existing is None:
             group = InstructionGroup()
             color = Color(*rgba)
-            rectangle = Rectangle(pos=widget.pos, size=widget.size)
+            from kivy.graphics import RoundedRectangle
+            rectangle = RoundedRectangle(pos=widget.pos, size=widget.size, radius=[radius] * 4)
             group.add(color)
             group.add(rectangle)
             def redraw(instance, _value):
@@ -946,9 +952,11 @@ class KivyRenderer:
             widget.canvas.before.add(group)
             widget.bind(pos=redraw, size=redraw)
             widget._psx_css_paint = (group, redraw, color)
+            widget._psx_css_paint_rect = rectangle
         else:
             _group, _redraw, color = existing
             color.rgba = rgba
+            widget._psx_css_paint_rect.radius = [radius] * 4
 
     # -- update -----------------------------------------------------------
 
