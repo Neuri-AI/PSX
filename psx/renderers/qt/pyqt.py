@@ -575,15 +575,6 @@ class QtRenderer:
         self._sfle_style_watched_widgets = watched
 
     def _sfle_on_native_semantic_change(self, watched, reason: str) -> None:
-        diagnostics = getattr(self, "_psx_css_debug_events", None)
-        if diagnostics is not None:
-            diagnostics.append((
-                reason, watched.metaObject().className(),
-                watched is self._sfle_watched_widget,
-                getattr(watched, "_psx_css_qss_generation", 0),
-                getattr(watched, "_psx_css_qss_consumed", 0),
-                getattr(watched, "_psx_css_projection_active", False),
-            ))
         # Changes originating from PSX's own CSS projection already passed
         # through typed style effects and the reconciler's geometry decision.
         # Do not classify their synchronous Qt StyleChange/FontChange echoes
