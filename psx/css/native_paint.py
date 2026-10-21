@@ -202,3 +202,14 @@ def native_border_paint(computed: ComputedStyle | None, *, alpha: bool = False):
         raise ValueError("Native border paint requires opaque colors.")
     color = rgba if alpha else "#" + "".join(f"{round(c * 255):02x}" for c in rgba[:3])
     return (float(width.value), color)
+
+
+def native_border_radius(computed: ComputedStyle | None) -> float:
+    """Bounded single-value CSS radius, in device-independent px."""
+    from psx.sfle.lengths import Length, LengthKind
+    if computed is None or "border-radius" not in computed.specified:
+        return 0.0
+    value = computed.properties["border-radius"]
+    if not isinstance(value, Length) or value.kind != LengthKind.PX or value.value < 0:
+        raise ValueError("Native CSS border-radius requires nonnegative px units.")
+    return float(value.value)
