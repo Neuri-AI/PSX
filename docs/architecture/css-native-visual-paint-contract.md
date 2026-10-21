@@ -112,3 +112,40 @@ Executed native tests must verify width-sensitive wrapped text, matched
 intrinsic heights, keyed style changes, style removal, native identity and
 resource teardown. Do not claim certification from source presence alone;
 require successful relevant native and Grid CI jobs for the immutable code SHA.
+
+
+## Native rounded border paint (P1.4.6 incremental scope)
+
+The shared CSS projector accepts a **single nonnegative px** value for
+`border-radius`. Percentage, corner-specific, elliptical, and negative
+values are not in this portable native subset. Border paint remains tied to
+an explicitly colored, positive-width CSS stroke (except Qt's semantic QSS
+radius, which can also round a styled background).
+
+* **Qt**: semantic hosts retain QSS radius; interactive Text-host controls
+  add local `border-radius: Npx` alongside their current native typography
+  and `border-color`/`border-width`. Keyed changes rebuild local QSS,
+  and removing the style restores the original widget stylesheet.
+* **Tkinter**: themed controls retain their original native widget and
+  event behavior. Four instance-owned `Frame` edges shorten around four
+  instance-owned, small `Canvas` arc corners; old canvases are destroyed on
+  radius changes and on CSS removal. Radius and border width must be
+  **integer device pixels**, with radius at least as large as stroke width.
+  Canvases sample the control's native/theme background; the clipping and
+  background of custom themes are not browser-equivalent. The native theme
+  may still paint its own underlying border.
+* **Kivy**: each interactive control owns one `canvas.after` stroke, drawn
+  as a rounded rectangle and rebound to geometry changes. Radius changes
+  update the existing instruction. A zero radius produces straight corners;
+  removing the CSS stroke unbinds and disposes its instruction group.
+  The stroke overlays, rather than replaces, Kivy's existing background.
+
+Tests in `tests/test_mounted_grid_native_renderers.py` cover PascalCase
+`Button`/`Input` and HTML-like `button`/`input`, including radius
+changes (8 to 12 px), resetting to zero, and identity preservation. This
+increment is only certified when its exact commit has successful native
+Qt/Tkinter/Kivy and Grid workflows.
+
+This work intentionally does not claim arbitrary per-corner radii,
+percentage radii, full clipping of child content, or exact theme-independent
+browser compositing. These are separate capabilities.
