@@ -40,9 +40,11 @@ def plan_layout_dependents(snapshot: LayoutInput, dirty: frozenset[str]) -> Depe
     candidates: set[str] = set(dirty)
     for node_id in dirty:
         parent = parents[node_id]
+        seen = {node_id}
         while parent is not None:
-            if parent == node_id or parent in ancestors:
+            if parent in seen:
                 raise ValueError("Cyclic layout dependency graph.")
+            seen.add(parent)
             ancestors.add(parent)
             parent = parents[parent]
     candidates.update(ancestors)
