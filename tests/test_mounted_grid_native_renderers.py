@@ -1341,7 +1341,7 @@ def test_native_semantic_rounded_border_and_background_updates():
             assert len(widget._psx_css_border_corners) == 4
         else:
             assert widget._psx_css_semantic_radius == pytest.approx(8)
-            assert tuple(widget._psx_css_paint_rect.radius)[0] == pytest.approx(8)
+            assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(8)
         second = reconciler.render(view(12))
         assert second.handle.widget is widget
         if backend == "qt":
@@ -1350,7 +1350,7 @@ def test_native_semantic_rounded_border_and_background_updates():
             assert all(int(c.cget("width")) == 12 for c in widget._psx_css_border_corners)
         else:
             assert widget._psx_css_semantic_radius == pytest.approx(12)
-            assert tuple(widget._psx_css_paint_rect.radius)[0] == pytest.approx(12)
+            assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(12)
     finally:
         reconciler.unmount()
         close()
