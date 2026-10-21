@@ -11,7 +11,9 @@ from tests.certification.public_behavior_census import CONTRACT, Feature, assert
 def _source(tag: str, attributes: str) -> str:
     if tag == 'img':
         return f'<img src="image.png" {attributes} />'
-    if tag in ('input', 'textarea'):
+    if tag == 'radio':
+        return f'<radio value="a" {attributes} />'
+    if tag in ('input', 'textarea', 'checkbox', 'select', 'radiogroup'):
         return f'<{tag} {attributes} />'
     return f'<{tag} {attributes}>Text</{tag}>'
 
