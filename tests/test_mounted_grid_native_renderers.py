@@ -2334,3 +2334,40 @@ def test_native_css_paint_burst_does_not_commit_cinnamon_geometry(request):
     finally:
         reconciler.unmount()
         close()
+
+
+def test_kivy_multiline_css_line_height_keeps_native_measurement_revision_and_identity():
+    """Kivy's bounded native line-height contract is a line-height ratio."""
+    if os.environ["PSX_GRID_BACKEND"] != "kivy":
+        pytest.skip("Kivy-only multiline native leading readback")
+    from psx.markup.compile import psx
+    renderer, close = make_renderer("kivy")
+    reconciler = Reconciler(renderer)
+
+    def view(leading):
+        style = (f' style="font-size: 18px; line-height: {leading}px"'
+                 if leading is not None else '')
+        return psx(
+            f'<div><p key="leading"{style}>'
+            'Several words here should wrap over multiple lines'
+            '</p></div>'
+        )
+
+    try:
+        mounted = reconciler.render(view(36))
+        widget = mounted.children[0].children[0].handle.widget
+        assert widget.line_height == pytest.approx(2.0)
+        assert dict(widget._psx_css_font_revision[1])["line-height"] == 36
+
+        larger = reconciler.render(view(45))
+        assert larger.children[0].children[0].handle.widget is widget
+        assert widget.line_height == pytest.approx(2.5)
+        assert dict(widget._psx_css_font_revision[1])["line-height"] == 45
+
+        cleared = reconciler.render(view(None))
+        assert cleared.children[0].children[0].handle.widget is widget
+        assert widget.line_height == pytest.approx(widget.property("line_height").defaultvalue)
+        assert dict(widget._psx_css_font_revision[1])["line-height"] is None
+    finally:
+        reconciler.unmount()
+        close()
