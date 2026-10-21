@@ -772,9 +772,10 @@ class KivyRenderer:
         # Apply one owned stroke to both HTML-like boxes and PascalCase
         # controls, before the typography branches return.
         if target.node_type in ("Text", "Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Badge"):
-            from psx.css.native_paint import native_border_paint
+            from psx.css.native_paint import native_border_paint, native_border_radius
             from kivy.graphics import Line
             stroke = native_border_paint(computed, alpha=True)
+            radius = native_border_radius(computed)
             widget = target.widget
             existing_border = getattr(widget, "_psx_css_control_stroke", None)
             if stroke is None:
@@ -783,21 +784,37 @@ class KivyRenderer:
                     widget.unbind(pos=redraw, size=redraw)
                     widget.canvas.after.remove(group)
                     del widget._psx_css_control_stroke
+                    del widget._psx_css_stroke_radius
             elif existing_border is None:
                 width, rgba = stroke
                 group = InstructionGroup()
                 paint = Color(*rgba)
-                line = Line(rectangle=(widget.x, widget.y, widget.width, widget.height), width=width)
+                line = Line(width=width)
+                if radius:
+                    line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
+                else:
+                    line.rectangle = (widget.x, widget.y, widget.width, widget.height)
                 group.add(paint)
                 group.add(line)
                 def redraw(instance, _):
-                    line.rectangle = (instance.x, instance.y, instance.width, instance.height)
+                    r = widget._psx_css_stroke_radius
+                    if r:
+                        line.rounded_rectangle = (instance.x, instance.y, instance.width, instance.height, r)
+                    else:
+                        line.rectangle = (instance.x, instance.y, instance.width, instance.height)
+                widget._psx_css_stroke_radius = radius
                 widget.canvas.after.add(group)
                 widget.bind(pos=redraw, size=redraw)
                 widget._psx_css_control_stroke = (group, redraw, paint, line)
             else:
                 _, _, paint, line = existing_border
                 line.width, paint.rgba = stroke
+                widget._psx_css_stroke_radius = radius
+                if radius:
+                    line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
+                else:
+                    line.rounded_rectangle = ()
+                    line.rectangle = (widget.x, widget.y, widget.width, widget.height)
         if target.node_type == "Text":
             from psx.css.native_paint import native_text_typography
             from psx.renderers.components.text import apply_kivy_text
