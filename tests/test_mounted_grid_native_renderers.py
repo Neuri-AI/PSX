@@ -1806,3 +1806,82 @@ def test_native_radio_group_css_keeps_selection_callbacks_and_child_identity():
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("component", ("Checkbox", "Link"))
+def test_native_css_style_updates_keep_live_control_callbacks(component):
+    """Native interactions use the latest callback after style-only keyed updates."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    seen = []
+
+    def view(color, generation):
+        style = (f' style="border-width: 2px; border-color: {color}"'
+                 if color else "")
+        if component == "Checkbox":
+            element = (
+                f'<Checkbox key="interactive" checked={{checked}} '
+                f'on_change={{callback}}{style}/>'
+            )
+            callback = lambda value: seen.append((generation, bool(value)))
+        else:
+            element = f'<Link key="interactive" label="Read" on_click={{callback}}{style}/>'
+            callback = lambda: seen.append((generation, "click"))
+        return psx(
+            "<div>" + element + "</div>",
+            scope={"callback": callback, "checked": False},
+        )
+
+    def activate(widget):
+        if component == "Checkbox":
+            if backend == "qt":
+                widget.setChecked(not widget.isChecked())
+            elif backend == "tk":
+                widget.invoke()
+            else:
+                widget.active = not widget.active
+        else:
+            if backend == "qt":
+                widget.click()
+            elif backend == "tk":
+                from psx.renderers.tkinter.link import TkLinkAdapter
+                TkLinkAdapter._activate(widget)
+            else:
+                widget.dispatch("on_release")
+
+    try:
+        first = reconciler.render(view("#123456", 1))
+        widget = first.children[0].handle.widget
+        slot = first.children[0].event_slots[
+            "on_change" if component == "Checkbox" else "on_click"
+        ][0]
+        activate(widget)
+        assert [event[0] for event in seen] == [1]
+
+        second = reconciler.render(view("#654321", 2))
+        assert second.children[0].handle.widget is widget
+        assert second.children[0].event_slots[
+            "on_change" if component == "Checkbox" else "on_click"
+        ][0] is slot
+        activate(widget)
+        assert [event[0] for event in seen] == [1, 2]
+
+        restored = reconciler.render(view(None, 3))
+        assert restored.children[0].handle.widget is widget
+        activate(widget)
+        assert [event[0] for event in seen] == [1, 2, 3]
+        reconciler.unmount()
+        old_events = tuple(seen)
+        if component == "Checkbox":
+            slot.invoke(True)
+        else:
+            slot.invoke()
+        assert tuple(seen) == old_events
+        if backend == "tk":
+            assert not widget.winfo_exists()
+    finally:
+        reconciler.unmount()
+        close()
