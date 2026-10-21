@@ -1883,3 +1883,59 @@ def test_native_css_style_updates_keep_live_control_callbacks(component):
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_select_css_retains_selection_and_latest_user_callback():
+    """Controlled selection and the native on_change binding survive CSS updates."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    events = []
+    options = ({"label": "Alpha", "value": "a"},
+               {"label": "Beta", "value": "b"})
+
+    def view(color, selected, generation):
+        style = f' style="color: {color}; border-width: 2px; border-color: {color}"' if color else ""
+        return psx(
+            f'<div><Select key="choice" options={{options}} value="{selected}" '
+            f'on_change={{callback}}{style}/></div>',
+            scope={"options": options,
+                   "callback": lambda value: events.append((generation, value))},
+        )
+
+    def select_value(widget, value):
+        if backend == "qt":
+            index = widget.findData(value)
+            assert index >= 0
+            widget.setCurrentIndex(index)
+        elif backend == "tk":
+            index = next(i for i, (_label, item) in enumerate(widget._psx_items)
+                         if item == value)
+            widget.current(index)
+            widget.event_generate("<<ComboboxSelected>>", when="now")
+        else:
+            widget.text = {"a": "Alpha", "b": "Beta"}[value]
+
+    try:
+        initial = reconciler.render(view("#123456", "a", 1))
+        widget = initial.children[0].handle.widget
+        slot = initial.children[0].event_slots["on_change"][0]
+        updated = reconciler.render(view("#654321", "a", 2))
+        assert updated.children[0].handle.widget is widget
+        assert updated.children[0].event_slots["on_change"][0] is slot
+        select_value(widget, "b")
+        assert events and events[-1] == (2, "b")
+
+        cleared = reconciler.render(view(None, "b", 3))
+        assert cleared.children[0].handle.widget is widget
+        select_value(widget, "a")
+        assert events[-1] == (3, "a")
+        reconciler.unmount()
+        before = tuple(events)
+        slot.invoke("b")
+        assert tuple(events) == before
+    finally:
+        reconciler.unmount()
+        close()
