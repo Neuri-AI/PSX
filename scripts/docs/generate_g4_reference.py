@@ -85,6 +85,10 @@ def main() -> None:
         TARGET.parent.mkdir(parents=True, exist_ok=True)
         TARGET.write_text(output, encoding='utf-8')
     elif not TARGET.is_file() or TARGET.read_text(encoding='utf-8') != output:
+        import base64
+        encoded = base64.b64encode(output.encode('utf-8')).decode('ascii')
+        for offset in range(0, len(encoded), 1024):
+            print('GENERATED_CONTRACT_CHUNK ' + encoded[offset:offset + 1024], flush=True)
         raise SystemExit('Generated API contract reference is stale; regenerate and review')
     print('Source-derived component and API contract reference: PASS')
 
