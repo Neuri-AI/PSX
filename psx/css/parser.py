@@ -24,7 +24,7 @@ class Selector:
 
     @property
     def specificity(self) -> tuple[int, int, int]:
-        return (int(self.node_id is not None), len(self.classes), int(self.tag is not None))
+        return (int(self.node_id is not None), len(self.classes), int(self.tag is not None and self.tag != "*"))
 
     def matches(self, tag: str, classes: frozenset[str], node_id: str | None) -> bool:
         return (self.tag is None or self.tag == "*" or self.tag == tag) and self.classes.issubset(classes) and (
