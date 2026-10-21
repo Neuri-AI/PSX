@@ -18,7 +18,7 @@ def test_font_properties_and_measurement_effect():
 
 
 @pytest.mark.parametrize("name,value", [
-    ("background-color", "red"),
+    ("background-color", "reedd"),
     ("font-size", "-1px"),
     ("font-family", "url(javascript:bad)"),
     ("font-weight", "650"),
