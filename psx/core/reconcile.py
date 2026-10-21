@@ -415,6 +415,8 @@ class Reconciler:
         if self._is_rendering:
             raise RuntimeError(
                 "Scheduler attempted to flush during rendering.")
+        invalidations = getattr(self.renderer, "_sfle_measurement_invalidations", None)
+        paint_only = invalidations is None or not invalidations.needs_commit()
         self._is_rendering = True
         try:
             for instance in dirty:
@@ -430,6 +432,12 @@ class Reconciler:
                     old_handle = None
                 rendered = self._evaluate_component(instance)
                 previous = instance.children[0]
+                # A queued hook update can change only CSS paint. Inspect
+                # its previous mounted subtree before mutating it; never
+                # bypass a structural, measurement or geometry change.
+                paint_only = (
+                    paint_only and _paint_only_css_update(previous, rendered)
+                )
                 instance.children = [self._reconcile(
                     previous, rendered, instance)]
                 try:
@@ -437,13 +445,16 @@ class Reconciler:
                 except RuntimeError:
                     new_handle = None
                 if new_handle is not old_handle:
+                    paint_only = False
                     ancestor = self._effective_ancestor(instance)
                     if ancestor is not None:
                         self._refresh_ancestor_layout(ancestor)
         finally:
             self._is_rendering = False
         commit_layout = getattr(self.renderer, "commit_layout", None)
-        if callable(commit_layout) and self.root is not None:
+        if (invalidations is not None and invalidations.needs_commit()):
+            paint_only = False
+        if callable(commit_layout) and self.root is not None and not paint_only:
             commit_layout(self.root)
         self._commit_refs()
         self.scheduler.run_effects()
