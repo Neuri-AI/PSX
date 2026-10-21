@@ -50,6 +50,26 @@ In the table below, `T` means a named test implementation exists; `C` means a *s
 
 **Incremental geometry and resource lifetime:** `tests/test_incremental_result_reuse.py`, `tests/test_native_measurement_invalidation.py`, `tests/test_native_resource_invalidation.py`, `tests/test_native_intrinsic_cache.py`, and native renderer rollback/ownership suites.
 
+## Independently retrieved per-backend native receipts
+
+**Receipt source:** [successful native layout workflow run 39664256939](https://github.com/Neuri-AI/PSX/actions/runs/39664256939), implementation SHA `59046cab35adaa3953f6ef88dbcaf0aeba16063a`. Six distinct `public-native-*.xml` artifact sets were downloaded and independently parsed (not inferred from the success checkmark). The CSS/typography/border/stylesheet family filter yields the following **318 individually identified test/backend records**:
+
+| Backend | Passed | Skipped | Failed | Scope |
+| --- | ---: | ---: | ---: | --- |
+| PySide6 | 53 | 0 | 0 | 53 named native CSS/visual testcases |
+| PyQt6 | 53 | 0 | 0 | Same tests on independent Qt 6 binding |
+| PySide2 | 53 | 0 | 0 | Same tests on Qt 5 binding |
+| PyQt5 | 53 | 0 | 0 | Same tests on independent Qt 5 binding |
+| Tkinter | 52 | 1 | 0 | One Qt-specific QSS test explicitly N/A |
+| Kivy | 51 | 2 | 0 | Qt-specific QSS N/A; multiline leading test skipped |
+| **Total** | **315** | **3** | **0** | **318 retrieved XML records** |
+
+Skips are **not** successes. The Kivy multiline `line-height` skip is a material uncovered cell if native multiline leading is advertised as implemented and must be either covered by a separate actually executed Kivy-specific test or explicitly narrowed in the public support contract. Per-backend public JUnit is **one evidence layer**, not a substitute for verified font/theme/DPI and screenshot sweeps; some separately executed geometry/native DPI jobs have no per-property paint readback. This audit does not establish coverage on every supported operating system/Python/binding combination.
+
+Exact artifact IDs at the same SHA: [PySide6 12375318668](https://github.com/Neuri-AI/PSX/actions/runs/39664256939/artifacts/12375318668), [PyQt6 12376796439](https://github.com/Neuri-AI/PSX/actions/runs/39664256939/artifacts/12376796439), [PySide2 12376606831](https://github.com/Neuri-AI/PSX/actions/runs/39664256939/artifacts/12376606831), [PyQt5 12376481945](https://github.com/Neuri-AI/PSX/actions/runs/39664256939/artifacts/12376481945), [Tkinter 12375173775](https://github.com/Neuri-AI/PSX/actions/runs/39664256939/artifacts/12375173775), [Kivy 12377172109](https://github.com/Neuri-AI/PSX/actions/runs/39664256939/artifacts/12377172109).
+
+**Reproducibility:** Download each ZIP, parse `public-native-*.xml` `testcase` elements, and cross-check `failure`, `error` and `skipped` child nodes. Filter names containing `css`, `font_measurement`, `line_height`, `rounded_border` or `stylesheet`. The exact name/backend/result rows are also exported as a machine-readable CSV in the current certification conversation. Never silently upgrade earlier-SHA receipts into later-SHA acceptance.
+
 ## Remaining independent exit blockers
 
 1. Compile **per-property × component × backend × operation** tested cases from public capability inventory, not just family-level named tests. Audit coverage for CSS removal/defaults, state-driven styling, invalid property values and every advertised renderer.
