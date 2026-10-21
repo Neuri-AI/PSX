@@ -27,7 +27,7 @@ class Selector:
         return (int(self.node_id is not None), len(self.classes), int(self.tag is not None))
 
     def matches(self, tag: str, classes: frozenset[str], node_id: str | None) -> bool:
-        return (self.tag is None or self.tag == tag) and self.classes.issubset(classes) and (
+        return (self.tag is None or self.tag == "*" or self.tag == tag) and self.classes.issubset(classes) and (
             self.node_id is None or self.node_id == node_id
         )
 
@@ -50,6 +50,8 @@ class CssSyntaxError(ValueError):
 
 def parse_selector(source: str) -> Selector:
     text = source.strip()
+    if text == "*":
+        return Selector("*", frozenset(), None)
     match = _SELECTOR.fullmatch(text)
     if not match or not text:
         raise CssSyntaxError(f"Unsupported CSS selector: {source!r}.")
