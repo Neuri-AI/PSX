@@ -70,7 +70,15 @@ class Reconciler:
         # needs native style projection, but no new Cinnamon geometry commit.
         # Component boundaries, props, structural edits and unsupported CSS
         # effects conservatively retain the regular layout commit.
-        paint_only = self.root is not None and _paint_only_css_update(self.root, node)
+        pending_measurement = getattr(self.renderer, "_sfle_measurement_invalidations", None)
+        pending_geometry = (
+            pending_measurement is not None and pending_measurement.needs_commit()
+        )
+        paint_only = (
+            self.root is not None
+            and not pending_geometry
+            and _paint_only_css_update(self.root, node)
+        )
         self._is_rendering = True
         try:
             if self.root is None:
