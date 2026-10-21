@@ -33,7 +33,7 @@ def test_inline_wins_and_does_not_mutate_sheet():
     "div span {width:5px}",
     "div {width: calc(1px + 1px)}",
     "div { width:10px",
-    "div {color:red}",
+    "div {color:rgb(1,2,3)}",
     "div {width:1px!important}",
 ])
 def test_unsupported_syntax_fails_closed(source):
