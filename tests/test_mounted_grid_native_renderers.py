@@ -1671,3 +1671,57 @@ def test_native_css_control_border_updates_and_owned_paint_cleanup(component, at
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("component,attrs", (
+    ("Checkbox", 'checked={checked} enabled={enabled}'),
+    ("Select", 'options={options} value="a" enabled={enabled}'),
+    ("Link", 'label="Documentation" enabled={enabled}'),
+    ("TextArea", 'value="Original" enabled={enabled} read_only={read_only}'),
+))
+def test_native_css_updates_preserve_control_state_and_owned_styling(component, attrs):
+    """Changing CSS cannot replace a controlled native widget or its logical state."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    options = ({"value": "a", "label": "Alpha"}, {"value": "b", "label": "Beta"})
+
+    def view(color, enabled=True):
+        style = f' style="color: {color}; border-width: 2px; border-color: #123456"' if color else ""
+        return psx(
+            f'<div><{component} key="stable" {attrs}{style} /></div>',
+            scope={"enabled": enabled, "checked": True, "read_only": True, "options": options},
+        )
+
+    try:
+        first = reconciler.render(view("#123456"))
+        widget = first.children[0].handle.widget
+        for color, enabled in (("#654321", False), ("#123456", True), (None, True)):
+            updated = reconciler.render(view(color, enabled))
+            assert updated.children[0].handle.widget is widget
+            assert updated.children[0].node.props["enabled"] is enabled
+            if backend == "qt":
+                assert widget.isEnabled() is enabled
+            elif backend == "tk":
+                if component != "TextArea":
+                    assert ("disabled" in widget.state()) is (not enabled)
+                else:
+                    assert str(widget.cget("state")) in ("disabled", "normal")
+            else:
+                assert widget.disabled is (not enabled)
+            if component == "Checkbox":
+                assert updated.children[0].node.props["checked"] is True
+            elif component == "Select":
+                assert updated.children[0].node.props["value"] == "a"
+            elif component == "TextArea":
+                assert updated.children[0].node.props["read_only"] is True
+        reconciler.unmount()
+        if backend == "tk":
+            assert not widget.winfo_exists()
+        elif backend == "kivy":
+            assert not hasattr(widget, "_psx_css_control_stroke")
+    finally:
+        reconciler.unmount()
+        close()
