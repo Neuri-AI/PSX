@@ -1939,3 +1939,81 @@ def test_native_select_css_retains_selection_and_latest_user_callback():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_textarea_css_preserves_selection_readonly_and_edit_callbacks():
+    """CSS-only changes preserve native editor selection, identity and live events."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    changes = []
+
+    def view(color, readonly, generation):
+        style = f' style="color: {color}; font-size: 20px"' if color else ""
+        return psx(
+            f'<div><TextArea key="editor" value="Editable text" '
+            f'read_only={{readonly}} on_change={{callback}}{style}/></div>',
+            scope={"readonly": readonly,
+                   "callback": lambda value: changes.append((generation, value))},
+        )
+
+    try:
+        initial = reconciler.render(view("#123456", False, 1))
+        widget = initial.children[0].handle.widget
+        slot = initial.children[0].event_slots["on_change"][0]
+        if backend == "qt":
+            widget.selectAll()
+            assert widget.textCursor().selectedText() == "Editable text"
+        elif backend == "tk":
+            widget.tag_add("sel", "1.0", "1.6")
+            assert len(widget.tag_ranges("sel")) == 2
+        else:
+            widget.select_text(0, 6)
+            assert widget.selection_text == "Editab"
+
+        updated = reconciler.render(view("#654321", False, 2))
+        assert updated.children[0].handle.widget is widget
+        assert updated.children[0].event_slots["on_change"][0] is slot
+        if backend == "qt":
+            assert widget.textCursor().selectedText() == "Editable text"
+        elif backend == "tk":
+            assert len(widget.tag_ranges("sel")) == 2
+        else:
+            assert widget.selection_text == "Editab"
+
+        locked = reconciler.render(view("#654321", True, 3))
+        assert locked.children[0].handle.widget is widget
+        if backend == "qt":
+            assert widget.isReadOnly()
+        elif backend == "tk":
+            assert str(widget.cget("state")) == "disabled"
+        else:
+            assert widget.readonly is True
+
+        restored = reconciler.render(view(None, False, 4))
+        assert restored.children[0].handle.widget is widget
+        if backend == "qt":
+            assert not widget.isReadOnly()
+            widget.setPlainText("Changed")
+        elif backend == "tk":
+            assert str(widget.cget("state")) == "normal"
+            widget.delete("1.0", "end")
+            widget.insert("1.0", "Changed")
+            widget.edit_modified(True)
+            widget.event_generate("<<Modified>>", when="now")
+        else:
+            assert widget.readonly is False
+            widget.text = "Changed"
+        assert changes and changes[-1] == (4, "Changed")
+
+        reconciler.unmount()
+        previous = tuple(changes)
+        slot.invoke("after unmount")
+        assert tuple(changes) == previous
+        if backend == "tk":
+            assert not widget.winfo_exists()
+    finally:
+        reconciler.unmount()
+        close()
