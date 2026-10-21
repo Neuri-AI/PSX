@@ -2133,3 +2133,61 @@ def test_qt_css_merges_manually_installed_native_stylesheets():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_editor_css_keeps_focus_capability_and_active_focus_when_available():
+    """Paint-only updates leave native focus support and any acquired focus intact."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color):
+        style = f' style="color: {color}; border-width: 2px; border-color: #123456"' if color else ""
+        return psx(f'<div><TextArea key="focus" value="Focusable"{style}/></div>')
+
+    try:
+        first = reconciler.render(view(None))
+        widget = first.children[0].handle.widget
+        if backend == "qt":
+            original = widget.focusPolicy()
+            widget.setFocus()
+            had_focus = widget.hasFocus()
+        elif backend == "tk":
+            original = str(widget.cget("takefocus"))
+            widget.focus_set()
+            had_focus = widget.focus_get() is widget
+        else:
+            widget.focus = True
+            had_focus = bool(widget.focus)
+            assert had_focus
+
+        changed = reconciler.render(view("#654321"))
+        assert changed.children[0].handle.widget is widget
+        if backend == "qt":
+            assert widget.focusPolicy() == original
+            if had_focus:
+                assert widget.hasFocus()
+        elif backend == "tk":
+            assert str(widget.cget("takefocus")) == original
+            if had_focus:
+                assert widget.focus_get() is widget
+        else:
+            assert widget.focus
+
+        cleared = reconciler.render(view(None))
+        assert cleared.children[0].handle.widget is widget
+        if backend == "qt":
+            assert widget.focusPolicy() == original
+            if had_focus:
+                assert widget.hasFocus()
+        elif backend == "tk":
+            assert str(widget.cget("takefocus")) == original
+            if had_focus:
+                assert widget.focus_get() is widget
+        else:
+            assert widget.focus
+    finally:
+        reconciler.unmount()
+        close()
