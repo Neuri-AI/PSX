@@ -1,6 +1,6 @@
-# CSS native visual paint — initial bounded dispatch contract
+# CSS native visual paint — bounded functional projection contract
 
-**Milestone:** P1.4.6, initial implementation slice (not full closure).
+**Milestone:** P1.4.6, bounded native functional subset closed at the certified implementation SHA. The initial-increment notes below are historical; this final closeout supersedes their former pending statements.
 **Branch:** `feature/universal-box-model-and-styling`.
 
 The CSS Core computes immutable styles independently of the toolkit. The
@@ -149,3 +149,14 @@ Qt/Tkinter/Kivy and Grid workflows.
 This work intentionally does not claim arbitrary per-corner radii,
 percentage radii, full clipping of child content, or exact theme-independent
 browser compositing. These are separate capabilities.
+
+
+## Native functional acceptance — closed bounded CSS Visual subset
+
+**Evidence implementation/test SHA:** `a3b1301ae76e421f8920cff6a76ef37d996d6131` ([commit checks](https://github.com/Neuri-AI/PSX/commit/a3b1301ae76e421f8920cff6a76ef37d996d6131/checks)). All **13 of 13** applicable PR workflow families concluded successfully, including [native selective validation](https://github.com/Neuri-AI/PSX/actions/runs/39636509512) and [integral Grid certification](https://github.com/Neuri-AI/PSX/actions/runs/39636509785). Native test jobs ran for Qt (PySide6, PySide2, PyQt5, PyQt6), Tkinter and Kivy; this is executed toolkit evidence, not parser-only assertions.
+
+The bounded certified functional implementation covers projected properties on `Checkbox`, `Radio`, `Select`, `TextArea`, `Link` and `Badge`, plus the existing HTML-like semantic hosts, Text, Button and Input. Tested cases include actual native selection/editing, maintained focus capability and acquired focus when supported by the test display, read-only and enabled state changes, latest callback dispatch, keyed native identity, inherited foreground, border/radius and typography changes and resets, unmount while painted, and teardown of owned Tk borders/Kivy Canvas instructions and event subscriptions. Qt recomposes widget-local CSS in valid QSS selector rules while preserving native Link stylesheets and subsequently installed manual QSS. Tk instance styles do not mutate global ttk theme definitions; Kivy owned Canvas paint does not alter unstyled siblings.
+
+**Defined exclusions remain unsupported rather than silently implied:** Qt Badge is not a general CSS border painter; Kivy Checkbox has no CSS text foreground; Radio selection belongs to RadioGroup; its standalone native test uses the supported non-SFLE grouping host rather than claiming intrinsic measurement under Cinnamon Block; generic native/custom widgets do not automatically receive CSS paint; theme-dependent pixel clipping, per-corner/percent radius, exact text justification, all platform fonts and browser screenshot parity are not part of this bounded projection.
+
+The exact per-component/backend capability table, functional tests and evidence are in [the native CSS component capability inventory](css-native-component-capability-inventory.md). This closeout satisfies **P1.4.6's bounded functional native visual gate** without claiming **P1.4.7** general dependency-aware invalidation or **P1.4.8** independent exhaustive device/theme/platform release certification. The feature PR remains draft and must not be merged without owner approval.
