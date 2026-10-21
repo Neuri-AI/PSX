@@ -404,3 +404,9 @@ This directory covers the root `psx.__all__` manifest. It is pinned to the [chec
 - Component property/default/event/child-policy data are defined in [portable contracts](https://github.com/Neuri-AI/PSX/blob/18a1cab5d8d6a059170c666313119530a4394b6f/psx/core/contracts.py), not safely inferred from abbreviated signatures.
 - A source declaration does not prove a native backend or OS/Python combination was behavior-tested.
 - Public submodules `psx.markup` and `psx.renderers` also expose names not all present in the root; this list is scoped to `psx.__all__`. Read [the conceptual API index](/reference/api-index) for topic-based navigation.
+
+## `WebView`
+
+- **Import:** `from psx import WebView`
+- **Declared in:** [`psx/extensions/__init__.py`](https://github.com/Neuri-AI/PSX/tree/feature/universal-box-model-and-styling/psx/extensions)
+- **Category:** advanced native extension; availability requires backend-specific validation
