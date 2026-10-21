@@ -1,7 +1,7 @@
 # CSS invalidation and native performance certification
 
 **Scope:** P1.4.7, incremental layout, intrinsic measurements and UI-thread work suppression.
-**Status:** Functional test coverage implemented; exact final commit SHA and workflow conclusions must be confirmed before declaring the phase closed.
+**Status:** Native functional and performance gates certified at implementation SHA `59046cab35adaa3953f6ef88dbcaf0aeba16063a` (13/13 workflows successful); subsequent documentation/diagnostic cleanup commits require their own final green CI receipt.
 **Authority:** Cinnamon inside PSX owns geometry. Qt, Tkinter and Kivy retain native paint and measurement ownership. No parallel layout engine is introduced.
 
 ## Behavior-specific evidence
@@ -29,6 +29,21 @@ The native test `test_native_css_paint_burst_does_not_commit_cinnamon_geometry` 
 - `backend`: the native renderer used.
 
 Timing metrics are measurements, not fixed acceptance thresholds: shared CI virtual machines, fonts, native themes and display backends affect absolute values. The stable acceptance gate is geometry identity, correct native visual changes and a measurable absence of unnecessary layout commits. A numerical speedup across different workloads is **not** claimed from these counters.
+
+### Executed native measurements — immutable baseline
+
+The following values were extracted from the published JUnit `public-native-*.xml` artifacts of the [successful native layout run 39664256939](https://github.com/Neuri-AI/PSX/actions/runs/39664256939) at SHA `59046cab35adaa3953f6ef88dbcaf0aeba16063a`. Each sample covers 100 consecutive **paint-only** updates on real UI widgets; measurements reflect that runner and must not be interpreted as machine-independent latency targets.
+
+| Native backend | Wall time / 100 updates | CPU time / 100 updates | Layout commits | Live Python traced allocation delta |
+| --- | ---: | ---: | ---: | ---: |
+| PySide6 (Qt 6) | 714.1 ms | 714.1 ms | **0** | +318,969 bytes |
+| PyQt6 (Qt 6) | 466.7 ms | 466.7 ms | **0** | +245,902 bytes |
+| PySide2 (Qt 5) | 330.8 ms | 330.8 ms | **0** | +97,726 bytes |
+| PyQt5 (Qt 5) | 305.8 ms | 305.8 ms | **0** | +124,342 bytes |
+| Tkinter | 714.1 ms | 710.5 ms | **0** | +88,002 bytes |
+| Kivy | 612.3 ms | 612.3 ms | **0** | +71,534 bytes |
+
+These samples show measured CPU and latency; the **zero unnecessary Cinnamon commits** assertion is the performance acceptance gate. They do *not* show zero allocations or prove absence of long-term native memory growth. The separately executed 1,000-round cache soak enforces bounded Python measurement entries and correct disposal. The native run artifacts include [PySide6](https://github.com/Neuri-AI/PSX/actions/runs/39664256939/artifacts/12375318668), [PyQt6](https://github.com/Neuri-AI/PSX/actions/runs/39664256939/artifacts/12376796439), [PySide2](https://github.com/Neuri-AI/PSX/actions/runs/39664256939/artifacts/12376606831), [PyQt5](https://github.com/Neuri-AI/PSX/actions/runs/39664256939/artifacts/12376481945), [Tkinter](https://github.com/Neuri-AI/PSX/actions/runs/39664256939/artifacts/12375173775) and [Kivy](https://github.com/Neuri-AI/PSX/actions/runs/39664256939/artifacts/12377172109).
 
 ### Reference measurement-work reduction
 
