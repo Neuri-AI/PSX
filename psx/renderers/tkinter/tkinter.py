@@ -799,6 +799,36 @@ class TkinterRenderer:
         """Apply CSS backgrounds through an instance-scoped ttk Frame style."""
         from psx.css.native_paint import background_hex
         target = _as_handle(handle)
+        # Tk/ttk themes do not expose reliable bordercolor painting. Keep an
+        # instance-local four-edge overlay instead of changing global ttk styles.
+        if target.node_type in ("Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Text", "Badge") or target.node_type in FORMATTING_TAGS:
+            from psx.css.native_paint import native_border_paint
+            stroke = native_border_paint(computed)
+            widget = target.widget
+            edges = getattr(widget, "_psx_css_border_edges", None)
+            if stroke is None:
+                if edges is not None:
+                    for edge in edges:
+                        edge.destroy()
+                    del widget._psx_css_border_edges
+            else:
+                thickness, color = stroke
+                if int(thickness) != thickness or thickness < 1:
+                    raise ValueError("Tk border painting requires positive integer device pixels.")
+                if edges is None:
+                    edges = tuple(tk.Frame(widget, borderwidth=0, highlightthickness=0, takefocus=0) for _ in range(4))
+                    widget._psx_css_border_edges = edges
+                n = int(thickness)
+                placements = (
+                    dict(x=0, y=0, relwidth=1, height=n),
+                    dict(x=0, rely=1, anchor="sw", relwidth=1, height=n),
+                    dict(x=0, y=0, width=n, relheight=1),
+                    dict(relx=1, x=-n, y=0, width=n, relheight=1),
+                )
+                for edge, place in zip(edges, placements):
+                    edge.configure(background=color)
+                    edge.place(**place)
+                    edge.lift()
         if target.node_type == "Badge":
             from psx.css.native_paint import foreground_hex
             widget = target.widget
