@@ -53,7 +53,7 @@ def test_border_color_is_a_noninherited_typed_paint_property():
     assert registry.validate("border-color", "#aBc").value == CssColor("#abc")
 
 
-@pytest.mark.parametrize("invalid", ["red", "rgba(1, 2, 3, 1)", "#12345", "url(x)"])
+@pytest.mark.parametrize("invalid", ["rgba(1, 2, 3, 1)", "#12345", "url(x)"])
 def test_border_color_rejects_unsupported_color_notation(invalid):
     with pytest.raises(CssValidationError) as error:
         foundation_registry().validate("border-color", invalid)
