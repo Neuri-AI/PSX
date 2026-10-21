@@ -1742,10 +1742,10 @@ def test_native_radio_group_css_keeps_selection_callbacks_and_child_identity():
     def view(color, selected, generation):
         css = f' style="color: {color}; border-color: {color}; border-width: 2px"' if color else ""
         return psx(
-            f'<div><RadioGroup key="group" value="{selected}" on_change={{callback}}>'
+            f'<RadioGroup key="group" value="{selected}" on_change={{callback}}>'
             f'<Radio key="a" value="a" label="Alpha"{css}/>'
             f'<Radio key="b" value="b" label="Beta"{css}/>'
-            '</RadioGroup></div>',
+            '</RadioGroup>',
             scope={"callback": lambda value: events.append((generation, value))},
         )
 
@@ -1758,7 +1758,7 @@ def test_native_radio_group_css_keeps_selection_callbacks_and_child_identity():
 
     try:
         first = reconciler.render(view("#123456", "a", 1))
-        group = first.children[0]
+        group = first
         group_widget = group.handle.widget
         radio_a, radio_b = (item.handle.widget for item in group.children)
         if backend == "qt":
@@ -1774,9 +1774,9 @@ def test_native_radio_group_css_keeps_selection_callbacks_and_child_identity():
             )
 
         updated = reconciler.render(view("#654321", "a", 2))
-        assert updated.children[0].handle.widget is group_widget
-        assert updated.children[0].children[0].handle.widget is radio_a
-        assert updated.children[0].children[1].handle.widget is radio_b
+        assert updated.handle.widget is group_widget
+        assert updated.children[0].handle.widget is radio_a
+        assert updated.children[1].handle.widget is radio_b
 
         if backend == "qt":
             assert radio_a.isChecked()
@@ -1790,8 +1790,8 @@ def test_native_radio_group_css_keeps_selection_callbacks_and_child_identity():
         assert events == [(2, "b")]
 
         restored = reconciler.render(view(None, "b", 3))
-        assert restored.children[0].handle.widget is group_widget
-        assert restored.children[0].children[1].handle.widget is radio_b
+        assert restored.handle.widget is group_widget
+        assert restored.children[1].handle.widget is radio_b
         if backend == "qt":
             assert radio_b.isChecked()
             assert "#654321" not in radio_b.styleSheet()
