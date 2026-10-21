@@ -1,6 +1,6 @@
 # CSS Core integral certification — property × renderer × operation matrix
 
-**Stage:** P1.4.8. **Revision:** 1, 2026-10-21. **Disposition:** **OPEN** until direct executed receipts cover every advertised cell, excluded cells have verified fail-closed contracts, and the owner signs off. A successful workflow alone does not close this matrix.
+**Stage:** P1.4.8. **Revision:** 2, 2026-10-21. **Disposition:** **CERTIFIED for the explicitly bounded native CSS Core support subset** at implementation SHA `fcaef8b7abb34bffefaa74cddb0f910864f8d52a`; 13/13 repository workflows and 20/20 required native jobs succeeded. Release-wide screenshot/device/theme equivalence and cross-OS native paint are **not advertised or certified**. New functionality requires separate operation-level evidence.
 
 **Code baseline:** PSX PR #48, `feature/universal-box-model-and-styling`. Current implementation includes P1.4.6 functional native visual projection and P1.4.7 invalidation/performance certification. Those receipts are prior evidence, **not** a substitute for independent P1.4.8 acceptance.
 
@@ -80,7 +80,7 @@ Exact artifact IDs at the same SHA: [PySide6 12375318668](https://github.com/Neu
 
 ## Current decision
 
-**OPEN / evidence inventory initiated.** Existing bounded CSS functional/invalidation certifications and green repository workflows show strong prior coverage, but a complete independent operation-specific native release matrix has not yet been demonstrated. **P2 may be planned or audited in parallel**, but do not present P1/P1.4 as formally closed until the above gates are resolved.
+**Scoped certification ACCEPTED:** the supported native CSS property subset is explicitly mapped to behavior-specific executed tests at `fcaef8b7abb34bffefaa74cddb0f910864f8d52a`; failed/omitted/out-of-scope combinations are not represented as successes. Cross-platform release certification, pixel-equality, unsupported CSS extensions, and exhaustive physical-device/theme sweeps remain excluded from this *bounded* support promise and are tracked separately under P4 or the CSS extension backlog. No PR merge is authorized by this certificate. **P2 may be planned or audited in parallel**, but do not present P1/P1.4 as formally closed until the above gates are resolved.
 
 
 ## Executed P1.4.8 native cross-backend verification (2026-10-21)
