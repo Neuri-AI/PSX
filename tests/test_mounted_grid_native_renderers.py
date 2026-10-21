@@ -1557,3 +1557,56 @@ def test_inherited_css_color_survives_native_disabled_state_transitions(tag, con
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("component,attribute", (
+    ("Link", 'label="Documentation"'),
+    ("TextArea", 'value="Editable text"'),
+))
+def test_native_text_controls_css_foreground_change_and_style_removal(component, attribute):
+    """Mounted links and editors retain native identity and restore foreground."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color):
+        style = f' style="color: {color}"' if color is not None else ""
+        return psx(
+            f'<div><{component} key="control" {attribute}{style} /></div>'
+        )
+
+    def foreground(widget):
+        if backend == "qt":
+            return widget.styleSheet()
+        if backend == "tk":
+            return str(widget.cget("foreground"))
+        value = widget.foreground_color if component == "TextArea" else widget.color
+        return tuple(value)
+
+    try:
+        first = reconciler.render(view(None))
+        widget = first.children[0].handle.widget
+        original = foreground(widget)
+        for color in ("#123456", "#654321"):
+            current = reconciler.render(view(color))
+            assert current.children[0].handle.widget is widget
+            if backend == "qt":
+                assert color in foreground(widget)
+            elif backend == "tk":
+                assert foreground(widget) == color
+            else:
+                expected = tuple(int(color[i:i + 2], 16) / 255 for i in (1, 3, 5)) + (1,)
+                assert foreground(widget) == pytest.approx(expected)
+        reset = reconciler.render(view(None))
+        assert reset.children[0].handle.widget is widget
+        if backend == "qt":
+            assert "#654321" not in foreground(widget)
+        elif backend == "tk":
+            assert foreground(widget) == original
+        else:
+            assert foreground(widget) == pytest.approx(original)
+    finally:
+        reconciler.unmount()
+        close()
