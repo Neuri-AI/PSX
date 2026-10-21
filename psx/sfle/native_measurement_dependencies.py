@@ -23,6 +23,11 @@ class DependencyClosure:
 
 def plan_layout_dependents(snapshot: LayoutInput, dirty: frozenset[str]) -> DependencyClosure:
     parents = {node.node_id: node.parent_id for node in snapshot.nodes}
+    if len(parents) != len(snapshot.nodes):
+        raise ValueError("Duplicate node identity in dependency snapshot.")
+    for node_id, parent in parents.items():
+        if parent is not None and parent not in parents:
+            raise ValueError(f"Missing layout parent {parent!r} for {node_id!r}.")
     children: dict[str, set[str]] = {node_id: set() for node_id in parents}
     for node_id, parent in parents.items():
         if parent is not None:
@@ -36,6 +41,8 @@ def plan_layout_dependents(snapshot: LayoutInput, dirty: frozenset[str]) -> Depe
     for node_id in dirty:
         parent = parents[node_id]
         while parent is not None:
+            if parent == node_id or parent in ancestors:
+                raise ValueError("Cyclic layout dependency graph.")
             ancestors.add(parent)
             parent = parents[parent]
     candidates.update(ancestors)
