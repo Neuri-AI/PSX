@@ -588,7 +588,8 @@ class QtRenderer:
         # through typed style effects and the reconciler's geometry decision.
         # Do not classify their synchronous Qt StyleChange/FontChange echoes
         # as external theme changes (which would trigger a second layout).
-        if getattr(watched, "_psx_css_projection_active", False):
+        if (getattr(self, "_sfle_css_projection_depth", 0)
+                or getattr(watched, "_psx_css_projection_active", False)):
             return
         if reason in ("style", "palette"):
             generation = getattr(watched, "_psx_css_qss_generation", 0)
@@ -953,6 +954,16 @@ class QtRenderer:
         return QtHandle(node.type, widget, props=dict(node.props))
 
     def apply_css(self, handle: object, computed: object) -> None:
+        """Project one CSS transaction without interpreting Qt's own events as external."""
+        self._sfle_css_projection_depth = (
+            getattr(self, "_sfle_css_projection_depth", 0) + 1
+        )
+        try:
+            self._apply_css_projected(handle, computed)
+        finally:
+            self._sfle_css_projection_depth -= 1
+
+    def _apply_css_projected(self, handle: object, computed: object) -> None:
         """Paint explicit CSS backgrounds on Cinnamon-owned semantic hosts."""
         from psx.css.native_paint import qt_semantic_stylesheet
         target = _handle(handle)
