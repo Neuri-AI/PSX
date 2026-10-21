@@ -210,13 +210,18 @@ def test_dependent_layout_plan_rejects_cycles_and_unknown_parents():
     plan = plan_layout_dependents(shared, frozenset({"left", "right"}))
     assert plan.ancestors == {"root"}
     assert plan.layout_candidates == {"root", "left", "right"}
-    cyclic = snapshot((
+    # LayoutInput correctly rejects malformed topology before execution;
+    # exercise the dependency planner's own defensive guard in isolation.
+    from types import SimpleNamespace
+    cyclic = SimpleNamespace(nodes=(
         LayoutNode("a", "b", "Flex", ()),
         LayoutNode("b", "a", "Flex", ()),
     ))
     with pytest.raises(ValueError, match="Cyclic"):
         plan_layout_dependents(cyclic, frozenset({"a"}))
-    missing = snapshot((LayoutNode("a", "absent", "Flex", ()),))
+    missing = SimpleNamespace(nodes=(
+        LayoutNode("a", "absent", "Flex", ()),
+    ))
     with pytest.raises(ValueError, match="Missing layout parent"):
         plan_layout_dependents(missing, frozenset({"a"}))
 
