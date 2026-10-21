@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "source": "psx/__init__.py",
-  "export_count": 56,
+  "export_count": 57,
   "exports": [
     {
       "name": "App",
@@ -12,12 +12,20 @@
       "imported_from": "core.vnode.Badge"
     },
     {
+      "name": "builtin_component_registry",
+      "imported_from": "core.registry.builtin_component_registry"
+    },
+    {
       "name": "Button",
       "imported_from": "core.vnode.Button"
     },
     {
       "name": "Checkbox",
       "imported_from": "core.vnode.Checkbox"
+    },
+    {
+      "name": "component",
+      "imported_from": "core.component.component"
     },
     {
       "name": "ComponentAdapter",
@@ -30,6 +38,10 @@
     {
       "name": "ComponentRegistry",
       "imported_from": "core.registry.ComponentRegistry"
+    },
+    {
+      "name": "create_element",
+      "imported_from": "core.vnode.create_element"
     },
     {
       "name": "Divider",
@@ -76,12 +88,20 @@
       "imported_from": "core.vnode.Link"
     },
     {
+      "name": "load_plugins",
+      "imported_from": "plugins.load_plugins"
+    },
+    {
       "name": "MarkupSyntaxError",
       "imported_from": "core.errors.MarkupSyntaxError"
     },
     {
       "name": "Native",
       "imported_from": "core.native.Native"
+    },
+    {
+      "name": "native_widget",
+      "imported_from": "core.vnode.native_widget"
     },
     {
       "name": "NativeOwnership",
@@ -92,16 +112,12 @@
       "imported_from": "core.native.NativeWidget"
     },
     {
-      "name": "PLUGIN_ENTRY_POINT_GROUP",
-      "imported_from": "plugins.PLUGIN_ENTRY_POINT_GROUP"
-    },
-    {
-      "name": "PSXError",
-      "imported_from": "core.errors.PSXError"
-    },
-    {
       "name": "Plugin",
       "imported_from": "plugins.Plugin"
+    },
+    {
+      "name": "PLUGIN_ENTRY_POINT_GROUP",
+      "imported_from": "plugins.PLUGIN_ENTRY_POINT_GROUP"
     },
     {
       "name": "PluginAPI",
@@ -110,6 +126,14 @@
     {
       "name": "ProgressBar",
       "imported_from": "core.vnode.ProgressBar"
+    },
+    {
+      "name": "psx",
+      "imported_from": "markup.psx"
+    },
+    {
+      "name": "PSXError",
+      "imported_from": "core.errors.PSXError"
     },
     {
       "name": "Radio",
@@ -122,6 +146,18 @@
     {
       "name": "Ref",
       "imported_from": "core.hooks.Ref"
+    },
+    {
+      "name": "register_adapter",
+      "imported_from": "plugins.register_adapter"
+    },
+    {
+      "name": "register_component",
+      "imported_from": "plugins.register_component"
+    },
+    {
+      "name": "renderer_capabilities",
+      "imported_from": "plugins.renderer_capabilities"
     },
     {
       "name": "RendererAdapterRegistry",
@@ -176,46 +212,6 @@
       "imported_from": "core.errors.ThreadViolationError"
     },
     {
-      "name": "VNode",
-      "imported_from": "core.vnode.VNode"
-    },
-    {
-      "name": "builtin_component_registry",
-      "imported_from": "core.registry.builtin_component_registry"
-    },
-    {
-      "name": "component",
-      "imported_from": "core.component.component"
-    },
-    {
-      "name": "create_element",
-      "imported_from": "core.vnode.create_element"
-    },
-    {
-      "name": "load_plugins",
-      "imported_from": "plugins.load_plugins"
-    },
-    {
-      "name": "native_widget",
-      "imported_from": "core.vnode.native_widget"
-    },
-    {
-      "name": "psx",
-      "imported_from": "markup.psx"
-    },
-    {
-      "name": "register_adapter",
-      "imported_from": "plugins.register_adapter"
-    },
-    {
-      "name": "register_component",
-      "imported_from": "plugins.register_component"
-    },
-    {
-      "name": "renderer_capabilities",
-      "imported_from": "plugins.renderer_capabilities"
-    },
-    {
       "name": "use_effect",
       "imported_from": "core.hooks.use_effect"
     },
@@ -226,6 +222,14 @@
     {
       "name": "use_state",
       "imported_from": "core.hooks.use_state"
+    },
+    {
+      "name": "VNode",
+      "imported_from": "core.vnode.VNode"
+    },
+    {
+      "name": "WebView",
+      "imported_from": "extensions.WebView"
     }
   ]
 }
