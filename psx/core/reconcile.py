@@ -66,6 +66,11 @@ class Reconciler:
         """Mount or update the single root description."""
         if self._is_rendering:
             raise RuntimeError("PSX rendering is not re-entrant.")
+        # A completely stable host tree with only paint-class CSS changes
+        # needs native style projection, but no new Cinnamon geometry commit.
+        # Component boundaries, props, structural edits and unsupported CSS
+        # effects conservatively retain the regular layout commit.
+        paint_only = self.root is not None and _paint_only_css_update(self.root, node)
         self._is_rendering = True
         try:
             if self.root is None:
@@ -76,7 +81,7 @@ class Reconciler:
         finally:
             self._is_rendering = False
         commit_layout = getattr(self.renderer, "commit_layout", None)
-        if callable(commit_layout):
+        if callable(commit_layout) and not paint_only:
             commit_layout(root)
         self._commit_refs()
         self.scheduler.run_effects()
@@ -452,6 +457,34 @@ class Reconciler:
                 # than PSX's private renderer handle.
                 ref.current = getattr(
                     handle, "widget", handle) if instance.node.kind is NodeKind.NATIVE else handle
+
+
+def _paint_only_css_update(old: MountedInstance, new: VNode) -> bool:
+    """Prove that a host subtree changed only in non-geometric CSS paint.
+
+    Never infer layout invariance through component or native boundaries,
+    changed props, or reordered children. A missing style snapshot is also
+    treated conservatively because it may contain inherited geometry.
+    """
+    from psx.css.cascade import ComputedStyle
+    from psx.css.effects import StyleEffect, classify_style_change
+
+    previous = old.node
+    if (previous.kind is not NodeKind.HOST or new.kind is not NodeKind.HOST
+            or not _compatible(previous, new)
+            or previous.props != new.props
+            or len(old.children) != len(new.children)):
+        return False
+    if not isinstance(previous.css_computed, ComputedStyle) or not isinstance(
+            new.css_computed, ComputedStyle):
+        return False
+    effect = classify_style_change(previous.css_computed, new.css_computed)
+    if effect & ~StyleEffect.PAINT:
+        return False
+    return all(
+        _paint_only_css_update(child, declaration)
+        for child, declaration in zip(old.children, new.children)
+    )
 
 
 def _compatible(old: VNode, new: VNode) -> bool:
