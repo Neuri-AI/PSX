@@ -72,9 +72,8 @@ def _valid_identifier(value: str) -> bool:
 def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = None) -> VNode:
     """Decorate immutable VNodes with computed styles and preserve all public props.
 
-    CSS matching applies only to elements carrying lowercase-markup CSS source
-    metadata. Nested component trees remain opaque; a legacy host cannot be
-    targeted implicitly via a similarly named HTML selector.
+    CSS matching covers markup elements and builtin VNodes. Custom lexical
+    component hosts remain opaque while inherited CSS can flow to children.
     """
     if stylesheet is None:
         sheet = Stylesheet(())
@@ -95,17 +94,19 @@ def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = Non
             target = StyleTarget(source.tag, source.classes, source.node_id)
             inline = source.inline
         else:
-            # Anonymous Text leaves inherit typography from HTML-like hosts.
-            # Other legacy hosts retain their isolated selector identity.
-            target = StyleTarget("__legacy_psx_host__")
+            # Builtin VNodes created programmatically also participate in the
+            # global CSS cascade. Unknown/lexical components retain an opaque
+            # selector identity; their children still inherit text properties.
+            native_types = {
+                "Button", "Input", "TextArea", "Checkbox", "Radio",
+                "Select", "Link", "Badge", "SpinBox", "Text", "Flex",
+                "Grid", "GridItem", "Box", "Scroll", "Slider", "Spacer",
+                "Divider", "Image", "ProgressBar", "RadioGroup", "Switch",
+            }
+            tag = node.type.lower() if node.type in native_types else "__legacy_psx_host__"
+            target = StyleTarget(tag)
             inline = ()
         computed = resolve_style(sheet, target, inline=inline, inherited=inherited)
-        # Anonymous text VNodes are normalized from element content and have
-        # no CSS selector metadata of their own. Inherit the parent's computed
-        # typography explicitly so native Text adapters render the same style
-        # as the formatting host. Keep legacy component selector isolation.
-        if node.type == "Text" and source is None and inherited is not None:
-            computed = resolve_style(Stylesheet(()), StyleTarget("__anonymous_text__"), inherited=inherited)
         children = tuple(visit(child, computed) for child in node.children)
         return replace(node, css_computed=computed, children=children)
 
