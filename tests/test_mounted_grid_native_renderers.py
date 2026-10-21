@@ -1483,3 +1483,33 @@ def test_native_text_line_height_and_content_measurement_revision():
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("component", ("Link", "TextArea"))
+def test_native_link_and_textarea_font_measurement_revisions(component):
+    """Additional text-bearing controls update font measurements without a remount."""
+    from psx.markup.compile import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    prop = 'label="Example"' if component == "Link" else 'value="Several lines of text"'
+
+    def view(size):
+        style = f' style="font-size: {size}px; font-family: Roboto"' if size else ""
+        return psx(f'<div><{component} key="typography" {prop}{style} /></div>')
+
+    try:
+        mounted = reconciler.render(view(18))
+        widget = mounted.children[0].handle.widget
+        assert dict(widget._psx_css_font_revision)["font-size"] == 18
+
+        enlarged = reconciler.render(view(26))
+        assert enlarged.children[0].handle.widget is widget
+        assert dict(widget._psx_css_font_revision)["font-size"] == 26
+
+        restored = reconciler.render(view(None))
+        assert restored.children[0].handle.widget is widget
+        assert dict(widget._psx_css_font_revision)["font-size"] is None
+    finally:
+        reconciler.unmount()
+        close()
