@@ -21,6 +21,24 @@ This page describes an evolving implementation on the `feature/universal-box-mod
 | `border-color` / `border-width` | Explicit positive-pixel colored stroke; Cinnamon owns border geometry |
 | `border-radius` | A single nonnegative pixel radius; no per-corner, percentage or generic child clipping guarantee |
 
+## HTML-like PSX Markup aliases
+
+The same native components and CSS visual projections are available from lowercase markup tags. These are aliases to the existing portable contracts, **not separate renderers**:
+
+| HTML-like tag | Native component |
+| --- | --- |
+| `<button>` | `Button` |
+| `<input>` | `Input` |
+| `<textarea>` | `TextArea` |
+| `<checkbox>` | `Checkbox` |
+| `<radio>` | `Radio` |
+| `<radiogroup>` | `RadioGroup` |
+| `<select>` | `Select` |
+| `<a>` | `Link` |
+| `<badge>` | `Badge` |
+
+The portable `Radio` must be placed in a `RadioGroup` for portable selection semantics. `Select` continues to use its validated `options` property; HTML `<option>` children are not implemented. Lowercase `checkbox` and `radio` are PSX markup aliases, **not standard HTML tags**. Unlike a browser's `input type="checkbox"`, they preserve the exact corresponding native component contract. CSS styling and native events are resolved after alias lowering.
+
 ## Native control coverage
 
 The table below names **native paint projections**, not just CSS properties that can be parsed or inherited. `Text` and semantic HTML-like formatting hosts have separate text/background rules. A colored border needs both a positive pixel `border-width` and `border-color`.
