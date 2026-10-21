@@ -1354,3 +1354,50 @@ def test_native_semantic_rounded_border_and_background_updates():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_semantic_named_red_rounded_background_without_border():
+    from psx.markup.compile import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color, radius):
+        style = (f'background-color: {color}; border-radius: {radius}px'
+                 if color else '')
+        return psx(f'<div style="{style}"><p>Rounded background</p></div>')
+
+    try:
+        first = reconciler.render(view("red", 18))
+        widget = first.handle.widget
+        if backend == "qt":
+            assert "background-color: #ff0000" in widget.styleSheet()
+            assert "border-radius: 18px" in widget.styleSheet()
+        elif backend == "tk":
+            corners = widget._psx_css_background_corners
+            assert len(corners) == 4
+            assert all(int(c.cget("width")) == 18 for c in corners)
+            assert all(len(c.find_all()) == 1 for c in corners)
+            assert all(str(c.itemcget(c.find_all()[0], "fill")) == "#ff0000" for c in corners)
+        else:
+            assert tuple(widget._psx_css_paint[2].rgba) == pytest.approx((1, 0, 0, 1))
+            assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(18)
+        updated = reconciler.render(view("#0000ff", 8))
+        assert updated.handle.widget is widget
+        if backend == "qt":
+            assert "border-radius: 8px" in widget.styleSheet()
+        elif backend == "tk":
+            assert all(int(c.cget("width")) == 8 for c in widget._psx_css_background_corners)
+        else:
+            assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(8)
+        cleared = reconciler.render(view(None, 0))
+        assert cleared.handle.widget is widget
+        if backend == "qt":
+            assert "border-radius" not in widget.styleSheet()
+        elif backend == "tk":
+            assert not hasattr(widget, "_psx_css_background_corners")
+        else:
+            assert not hasattr(widget, "_psx_css_paint")
+    finally:
+        reconciler.unmount()
+        close()
