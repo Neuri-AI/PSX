@@ -299,3 +299,13 @@ def test_programmatic_builtin_vnodes_receive_global_type_selectors():
     assert styled_root.css_computed.properties["color"] == CssColor("#123456")
     assert styled_root.children[0].css_computed.properties["font-size"] == Length.px(24)
     assert styled_root.children[1].css_computed.properties["color"] == CssColor("#123456")
+
+
+def test_universal_selector_does_not_override_parent_class_for_implicit_text():
+    from psx.css.context import scoped_css_resources
+    with scoped_css_resources(["theme.css"], resolver=lambda _: (
+        "* { color: #111111 } .accent { color: #aabbcc }"
+    )):
+        node = psx('<p class="accent">Inherited text</p>')
+    assert node.css_computed.properties["color"] == CssColor("#aabbcc")
+    assert node.children[0].css_computed.properties["color"] == CssColor("#aabbcc")
