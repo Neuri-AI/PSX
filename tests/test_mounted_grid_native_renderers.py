@@ -2396,7 +2396,7 @@ def test_native_css_certified_background_update_and_reset(shade):
             assert str(ttk.Style(host).lookup(host.cget("style"), "background")).lower() == shade
         else:
             rgba = tuple(int(shade[i:i+2], 16) / 255 for i in (1, 3, 5))
-            assert tuple(host._psx_css_paint_color.rgba)[:3] == pytest.approx(rgba)
+            assert tuple(host._psx_css_paint[2].rgba)[:3] == pytest.approx(rgba)
         changed = reconciler.render(view("#654321"))
         assert changed.handle.widget is host
         assert changed.children[0].handle.widget is button
