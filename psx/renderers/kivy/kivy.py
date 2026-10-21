@@ -771,7 +771,7 @@ class KivyRenderer:
         target = _handle(handle)
         # Apply one owned stroke to both HTML-like boxes and PascalCase
         # controls, before the typography branches return.
-        if target.node_type in ("Text", "Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Badge") or target.node_type in FORMATTING_TAGS:
+        if target.node_type in ("Text", "Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Badge"):
             from psx.css.native_paint import native_border_paint
             from kivy.graphics import Line
             stroke = native_border_paint(computed, alpha=True)
