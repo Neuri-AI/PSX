@@ -308,7 +308,7 @@ def _make_resize_filter(core, on_resize, on_invalidation=None):
         for name, reason in (
             ("FontChange", "font"),
             ("ApplicationFontChange", "font"),
-            ("PaletteChange", "theme"),
+            ("PaletteChange", "palette"),
             ("ApplicationPaletteChange", "theme"),
             ("StyleChange", "style"),
             ("ScreenChangeInternal", "dpi"),
@@ -581,15 +581,16 @@ class QtRenderer:
         # as external theme changes (which would trigger a second layout).
         if getattr(watched, "_psx_css_projection_active", False):
             return
-        if reason == "style":
+        if reason in ("style", "palette"):
             generation = getattr(watched, "_psx_css_qss_generation", 0)
             consumed = getattr(watched, "_psx_css_qss_consumed", 0)
             if (generation > consumed
                     and getattr(watched, "_psx_css_last_applied_stylesheet", None)
                     == watched.styleSheet()):
-                # Qt may deliver StyleChange after setStyleSheet returns.
-                # Consume only the outstanding, explicitly self-authored
-                # QSS generation. Later external style changes still reflow.
+                # Qt may deliver StyleChange or PaletteChange *after* its
+                # CSS setStyleSheet call returns. Consume only the pending
+                # explicitly self-authored QSS generation; external palette
+                # and system-theme events still invalidate normally.
                 watched._psx_css_qss_consumed = generation
                 return
             reason = "theme"
