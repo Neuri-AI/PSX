@@ -1610,3 +1610,64 @@ def test_native_text_controls_css_foreground_change_and_style_removal(component,
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("component,attributes", (
+    ("Checkbox", 'checked={checked}'),
+    ("Select", 'options={options} value="a"'),
+    ("Badge", 'label="Status"'),
+    ("Link", 'label="Open"'),
+    ("TextArea", 'value="Editable"'),
+))
+def test_native_css_control_border_updates_and_owned_paint_cleanup(component, attributes):
+    """Mounted component CSS strokes update in place and release owned overlays."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color):
+        paint = f' style="border-width: 2px; border-color: {color}; border-radius: 8px"' if color else ""
+        scope = {"checked": True, "options": (("a", "Alpha"), ("b", "Beta"))}
+        return psx(f'<div><{component} key="native" {attributes}{paint} /></div>', scope=scope)
+
+    try:
+        mounted = reconciler.render(view("#123456"))
+        widget = mounted.children[0].handle.widget
+        if backend == "qt":
+            if component == "Badge":
+                # Badge has a custom painter and currently only projects foreground.
+                assert not hasattr(widget, "_psx_css_base_stylesheet")
+            else:
+                assert "2px solid #123456" in widget.styleSheet()
+        elif backend == "tk":
+            assert len(widget._psx_css_border_edges) == 4
+            assert all(edge.winfo_exists() for edge in widget._psx_css_border_edges)
+        else:
+            assert widget._psx_css_control_stroke[3].width == pytest.approx(2)
+
+        changed = reconciler.render(view("#654321"))
+        assert changed.children[0].handle.widget is widget
+        if backend == "qt" and component != "Badge":
+            assert "2px solid #654321" in widget.styleSheet()
+        elif backend == "tk":
+            assert all(str(edge.cget("background")) == "#654321"
+                       for edge in widget._psx_css_border_edges)
+        elif backend == "kivy":
+            assert tuple(widget._psx_css_control_stroke[2].rgba) == pytest.approx(
+                (101 / 255, 67 / 255, 33 / 255, 1)
+            )
+
+        restored = reconciler.render(view(None))
+        assert restored.children[0].handle.widget is widget
+        if backend == "qt" and component != "Badge":
+            assert "2px solid" not in widget.styleSheet()
+        elif backend == "tk":
+            assert not hasattr(widget, "_psx_css_border_edges")
+            assert not hasattr(widget, "_psx_css_border_corners")
+        elif backend == "kivy":
+            assert not hasattr(widget, "_psx_css_control_stroke")
+    finally:
+        reconciler.unmount()
+        close()
