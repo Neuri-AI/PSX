@@ -264,3 +264,38 @@ def test_pascal_and_html_buttons_share_type_selector():
         html = psx('<button>Go</button>')
     assert pascal.css_computed.properties["color"] == CssColor("#123456")
     assert html.css_computed.properties["color"] == CssColor("#123456")
+
+
+def test_universal_selector_applies_to_pascal_and_html_like_controls():
+    from psx.css.context import scoped_css_resources
+    with scoped_css_resources(["theme.css"], resolver=lambda _: (
+        "* { color: #aabbcc; font-family: Arial }"
+        ".accent { color: #223344 }"
+        "button { font-size: 22px }"
+    )):
+        tree = psx(
+            '<div><Button label="Save" class="accent" />'
+            '<button>Save</button><Text value="Title" />'
+            '<Flex><Input value="Text" /></Flex></div>'
+        )
+    assert tree.css_computed.properties["color"] == CssColor("#aabbcc")
+    pascal, html, text_node, flex = tree.children
+    assert pascal.css_computed.properties["color"] == CssColor("#223344")
+    assert html.css_computed.properties["font-size"] == Length.px(22)
+    assert pascal.css_computed.properties["font-size"] == Length.px(22)
+    assert text_node.css_computed.properties["font-family"] == "Arial"
+    assert flex.css_computed.properties["color"] == CssColor("#aabbcc")
+    assert flex.children[0].css_computed.properties["color"] == CssColor("#aabbcc")
+
+
+def test_programmatic_builtin_vnodes_receive_global_type_selectors():
+    from psx.css.markup import compute_markup_styles
+    from psx.css.parser import parse_stylesheet
+    from psx.core.vnode import Button, Flex, Text
+    root = Flex(Button("Save"), Text("Label"))
+    styled_root = compute_markup_styles(root, parse_stylesheet(
+        "* { color: #123456 } button { font-size: 24px }"
+    ))
+    assert styled_root.css_computed.properties["color"] == CssColor("#123456")
+    assert styled_root.children[0].css_computed.properties["font-size"] == Length.px(24)
+    assert styled_root.children[1].css_computed.properties["color"] == CssColor("#123456")
