@@ -2241,3 +2241,64 @@ def test_native_css_teardown_releases_active_control_paint(component, attrs):
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_css_paint_burst_does_not_commit_cinnamon_geometry(request):
+    """Record native renderer latency and actual commit counts, not inferred speedups."""
+    from time import perf_counter_ns
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    calls = 0
+    original_commit = renderer.commit_layout
+
+    def counted(root):
+        nonlocal calls
+        calls += 1
+        return original_commit(root)
+
+    renderer.commit_layout = counted
+
+    def view(color, width=180):
+        return psx(
+            f'<div style="width: {width}px; color: {color}">'
+            '<button key="save" label="Save"/></div>'
+        )
+
+    try:
+        mounted = reconciler.render(view("#123456"))
+        widget = mounted.children[0].handle.widget
+        initial = rectangle(widget, backend)
+        assert calls == 1
+        started = perf_counter_ns()
+        for index in range(100):
+            color = "#123456" if index % 2 else "#654321"
+            updated = reconciler.render(view(color))
+            assert updated.children[0].handle.widget is widget
+            assert rectangle(widget, backend) == initial
+        elapsed = perf_counter_ns() - started
+        # All hundred updates changed visual CSS, not dimensions. Native
+        # widget identity and geometry remain stable across the burst.
+        assert calls == 1
+        request.node.user_properties.append(
+            ("paint_100_elapsed_ns", elapsed)
+        )
+        request.node.user_properties.append(
+            ("paint_100_layout_commits", calls - 1)
+        )
+        request.node.user_properties.append(
+            ("backend", backend)
+        )
+
+        started = perf_counter_ns()
+        resized = reconciler.render(view("#123456", 210))
+        assert resized.children[0].handle.widget is widget
+        assert calls == 2
+        request.node.user_properties.append(
+            ("geometry_update_elapsed_ns", perf_counter_ns() - started)
+        )
+    finally:
+        reconciler.unmount()
+        close()
