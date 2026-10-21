@@ -87,4 +87,14 @@ The following behavior-specific tests run in the native layout workflow for the 
 
 **Remaining independent certification:** P1.4.8 owns release-wide exhaustive property × backend × supported OS/Python matrix, screenshot/pixel regressions, DPI/font/theme sweeps and immutable-SHA release acceptance. P1.4.7 owns generalized dependency-aware invalidation/performance. Neither substitutes for the native functional tests listed above.
 
-**CI verification:** record the final implementation SHA and all relevant workflow conclusions only after GitHub Actions completes successfully. Until then, this matrix documents tests committed and in validation, not a certified closure receipt.
+## Functional certification receipt — implementation SHA
+
+**Implementation SHA:** `a3b1301ae76e421f8920cff6a76ef37d996d6131`  
+**Evidence:** [Actions at the exact implementation SHA](https://github.com/Neuri-AI/PSX/commit/a3b1301ae76e421f8920cff6a76ef37d996d6131/checks), [PR #48](https://github.com/Neuri-AI/PSX/pull/48).  
+**Result:** 13/13 repository workflows completed with `success`; zero failures or pending workflows for this SHA.
+
+The `Native layout selective validation` workflow completed successfully. Its actual job matrix includes Qt native components; PySide6, PySide2, PyQt5, PyQt6 SFLE parity; Tkinter native components; Kivy native components; native wheel/fallback jobs for macOS, macOS Intel and Windows; public behavior receipt aggregation; and the required CI conclusion job. These jobs have `success`, not `skipped`, in GitHub Actions.
+
+**P1.4.6 functional scope:** verified mounted native CSS foreground/border/radius and typography subsets; six-control projection inventory including Radio within RadioGroup; keyed style updates, inherited color, original paint restoration, enabled/disabled, user selection, editor readonly/selection and focus capability, live event-slot rebinding, native QSS/ttk/canvas coexistence, and paint disposal on unmount. Both supported behavior and **explicit exclusions** above are part of this bounded certification. This closes the **functional native-visual increment**; it is not a claim of browser pixel parity, exhaustive device/OS/DPI tests or generalized invalidation, which remain scoped to P1.4.8 and P1.4.7 respectively.
+
+The repository must not treat later changed implementation commits as covered by the above SHA until their own workflows finish. Any downstream release gate still requires the independent full property/backend matrix and owner acceptance.
