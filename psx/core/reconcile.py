@@ -483,10 +483,15 @@ def _paint_only_css_update(old: MountedInstance, new: VNode) -> bool:
             or previous.props != new.props
             or len(old.children) != len(new.children)):
         return False
-    if not isinstance(previous.css_computed, ComputedStyle) or not isinstance(
+    if previous.css_computed is None and new.css_computed is None:
+        # An unchanged sibling with no CSS source cannot invalidate layout.
+        effect = StyleEffect.NONE
+    elif isinstance(previous.css_computed, ComputedStyle) and isinstance(
             new.css_computed, ComputedStyle):
+        effect = classify_style_change(previous.css_computed, new.css_computed)
+    else:
+        # An attached or detached computed source requires normal commit.
         return False
-    effect = classify_style_change(previous.css_computed, new.css_computed)
     if effect & ~StyleEffect.PAINT:
         return False
     return all(
