@@ -2371,3 +2371,40 @@ def test_kivy_multiline_css_line_height_keeps_native_measurement_revision_and_id
     finally:
         reconciler.unmount()
         close()
+
+
+@pytest.mark.parametrize("shade", ("#123456", "#abcdef", "#ff0000"))
+def test_native_css_certified_background_update_and_reset(shade):
+    """P1.4.8 checks a real host painter across all three native adapters."""
+    from psx.markup.compile import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color):
+        style = f' style="background-color: {color}"' if color else ""
+        return psx(f'<div{style}><button key="stay" label="Save"/></div>')
+
+    try:
+        mounted = reconciler.render(view(shade))
+        host = mounted.handle.widget
+        button = mounted.children[0].handle.widget
+        if backend == "qt":
+            assert shade in host.styleSheet()
+        elif backend == "tk":
+            from tkinter import ttk
+            assert str(ttk.Style(host).lookup(host.cget("style"), "background")).lower() == shade
+        else:
+            rgba = tuple(int(shade[i:i+2], 16) / 255 for i in (1, 3, 5))
+            assert tuple(host._psx_css_paint_color.rgba)[:3] == pytest.approx(rgba)
+        changed = reconciler.render(view("#654321"))
+        assert changed.handle.widget is host
+        assert changed.children[0].handle.widget is button
+        removed = reconciler.render(view(None))
+        assert removed.handle.widget is host
+        assert removed.children[0].handle.widget is button
+        if backend == "qt":
+            assert "background-color: #654321" not in host.styleSheet()
+    finally:
+        reconciler.unmount()
+        close()
