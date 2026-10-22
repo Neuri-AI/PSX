@@ -2709,3 +2709,69 @@ def test_native_keyed_tree_reconciliation_soak():
             }
             Path(report_path).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         tracemalloc.stop()
+
+
+def test_qt_binding_only_signal_wrapper_reference_soak():
+    """Reference workload isolating Qt binding allocations from PSX retention."""
+    if os.environ["PSX_GRID_BACKEND"] != "qt":
+        pytest.skip("Qt binding-only reference workload")
+    import gc
+    import json
+    import tracemalloc
+    from collections import Counter
+    from pathlib import Path
+    from benchmarks.resource_baseline import process_memory
+
+    binding = os.environ["PSX_QT_BINDING"]
+    package = {"pyside6": "PySide6", "pyside2": "PySide2",
+               "pyqt5": "PyQt5", "pyqt6": "PyQt6"}[binding]
+    widgets = importlib.import_module(package + ".QtWidgets")
+    core = importlib.import_module(package + ".QtCore")
+    app = widgets.QApplication.instance() or widgets.QApplication(["psx-wrapper-reference"])
+    cycles = int(os.environ.get("PSX_TREE_SOAK_CYCLES", "12"))
+    report_path = os.environ.get("PSX_BINDING_REFERENCE_REPORT")
+    assert cycles > 0
+    tracemalloc.start()
+    checkpoints = []
+    baseline_counts = None
+    final_counts = None
+    before_process = process_memory()
+
+    def on_click():
+        return None
+
+    try:
+        for cycle in range(cycles):
+            parent = widgets.QWidget()
+            button = widgets.QPushButton(parent)
+            button.clicked.connect(on_click)
+            button.click()
+            button.clicked.disconnect(on_click)
+            parent.deleteLater()
+            del parent, button
+            app.processEvents()
+            core.QCoreApplication.sendPostedEvents(None, core.QEvent.Type.DeferredDelete)
+            if (cycle + 1) % max(1, cycles // 4) == 0 or cycle + 1 == cycles:
+                gc.collect()
+                counts = Counter(f"{type(obj).__module__}.{type(obj).__qualname__}" for obj in gc.get_objects())
+                if baseline_counts is None:
+                    baseline_counts = counts
+                final_counts = counts
+                traced, peak = tracemalloc.get_traced_memory()
+                checkpoints.append({"cycle": cycle + 1,
+                                    "gc_objects": len(gc.get_objects()),
+                                    "traced_current_bytes": traced,
+                                    "traced_peak_bytes": peak,
+                                    "process_memory": process_memory()})
+    finally:
+        if report_path:
+            report = {
+                "schema": 1, "binding": binding, "cycles": cycles,
+                "checkpoints": checkpoints,
+                "gc_object_type_growth": (final_counts - baseline_counts).most_common(25),
+                "process_memory_before": before_process,
+                "process_memory_after": process_memory(),
+                "scope": "Qt-only QWidget plus signal churn; no PSX reconciler/layout",
+            }
+            Path(report_path).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        tracemalloc.stop()
