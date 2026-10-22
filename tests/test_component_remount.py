@@ -221,8 +221,12 @@ def test_nested_cleanup_error_keeps_updated_render_and_other_effects(tmp_path, m
 
     @component
     def Child():
-        use_effect(lambda: (lambda: events.append("last")), [])
-        use_effect(lambda: fail, [])
+        if change[0]:
+            use_effect(lambda: None, [])
+            use_effect(lambda: None, [])
+        else:
+            use_effect(lambda: (lambda: events.append("last")), [])
+            use_effect(lambda: fail, [])
         ref = use_ref("held")
         if not change[0]:
             refs.append(ref)
