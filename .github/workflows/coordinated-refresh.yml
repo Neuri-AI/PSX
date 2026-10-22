@@ -4,6 +4,7 @@ on:
     branches: [feature/intelligent-hot-reload]
     paths:
       - 'psx/devtools/**'
+      - 'psx/core/reconcile.py'
       - 'tests/test_coordinated_refresh.py'
       - 'tests/test_native_coordinated_refresh.py'
       - 'tests/test_component_remount.py'
