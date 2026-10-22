@@ -198,8 +198,7 @@ class Reconciler:
                 return instance
 
             instance.handle = self.renderer.create(
-                _without_runtime_props(node), parent.native_handle(
-                ) if parent and parent.handle else None
+                _without_runtime_props(node), self._effective_parent_handle(instance)
             )
             self._apply_css(instance.handle, node.css_computed)
             self._queue_ref(instance, node.props.get("ref"))
