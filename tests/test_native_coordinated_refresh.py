@@ -66,3 +66,47 @@ def test_compatible_refresh_keeps_native_window_label_and_hook_state(monkeypatch
     finally:
         context.app.unmount()
         close()
+
+
+def test_incompatible_hooks_remount_only_boundary_and_preserve_native_widget(monkeypatch, tmp_path):
+    from psx import use_ref
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    source = tmp_path / "main.py"
+    source.write_text("class Example: pass\n", encoding="utf-8")
+    context = Example()
+
+    def render_before(self):
+        state, _ = use_state(13)
+        return Flex(Text(f"before:{state}"))
+
+    def render_after(self):
+        state, _ = use_state(13)
+        use_ref()
+        return Flex(Text(f"after:{state}"))
+
+    holder = [render_before]
+    def root():
+        return holder[0](context)
+    definition = component(root)
+    context._development_render = holder
+    context._development_root_definition = definition
+    context.app = App(definition, renderer=renderer)
+    monkeypatch.setattr(refresh, "_reload_policy", lambda _: object())
+    monkeypatch.setattr(refresh, "_project_modules", lambda *_: (frozenset(), {}))
+    monkeypatch.setattr(refresh, "_load_updated_class", lambda *_: SimpleNamespace(render=render_after))
+    try:
+        context.app.mount()
+        old_boundary = context.app.reconciler.root
+        old_host = old_boundary.native_handle()
+        old_label = old_boundary.children[0].children[0].handle.widget
+        assert refresh.refresh_context_source(context, source, ("main.py",))
+        assert context.app.reconciler.root is not old_boundary
+        assert old_boundary.disposed
+        assert context.app.reconciler.root.native_handle() is old_host
+        assert context.app.reconciler.root.children[0].children[0].handle.widget is old_label
+        assert _native_text(old_label, backend) == "after:13"
+    finally:
+        context.app.unmount()
+        close()
