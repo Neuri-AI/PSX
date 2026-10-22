@@ -137,3 +137,37 @@ def test_multiple_failing_effect_cleanups_still_release_all_hook_slots(engine):
     assert mounted.hooks == []
     assert mounted.children == []
     assert reconciler.root is None
+
+
+@pytest.mark.parametrize("engine", ("python", "rust"))
+def test_failed_layout_commit_does_not_retain_queued_refs_after_unmount(engine):
+    class Payload:
+        pass
+
+    payload = Payload()
+    reference = weakref.ref(payload)
+    renderer = make_renderer(engine)
+    reconciler = Reconciler(renderer)
+    from psx.core.hooks import Ref
+    native_ref = Ref()
+
+    # This callback is retained by the pending VNode, before refs are committed.
+    declaration = Flex(Button("pending", ref=native_ref,
+                              on_click=lambda item=payload: item),
+                       width="640px", height="480px")
+
+    def fail_commit(_root):
+        raise RuntimeError("layout rejected")
+
+    renderer.commit_layout = fail_commit
+    with pytest.raises(RuntimeError, match="layout rejected"):
+        reconciler.render(declaration)
+    assert reconciler._pending_refs
+    del declaration, payload
+    reconciler.unmount()
+    renderer.operations.clear()
+    gc.collect()
+    assert reconciler._pending_refs == []
+    assert reconciler.root is None
+    assert native_ref.current is None
+    assert reference() is None
