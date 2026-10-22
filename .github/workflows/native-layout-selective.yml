@@ -159,6 +159,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e . pytest
+      - run: python -m pytest -q tests/test_disposed_state_payloads.py
       - name: Verify headless resource baseline instrument
         run: python -m pytest -q tests/test_resource_baseline.py
       - name: Capture headless resource baseline
