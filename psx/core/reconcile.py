@@ -37,6 +37,7 @@ class Reconciler:
         self.root: MountedInstance | None = None
         self._is_rendering = False
         self._coordinated_remount = False
+        self._coordinated_remount_applied = False
         self._pending_refs: list[tuple[MountedInstance,
                                        Ref[object] | None]] = []
         self.scheduler = Scheduler(renderer.schedule_ui, self._flush_dirty)
@@ -105,6 +106,7 @@ class Reconciler:
                     replacement if child is instance else child
                     for child in parent.children
                 ]
+            self._coordinated_remount_applied = True
             try:
                 replacement_handle = replacement.native_handle()
             except RuntimeError:
