@@ -239,7 +239,7 @@ Ownership remains split: Pydux owns data snapshot validation and subscriber noti
 
 Executed same-SHA evidence:
 - Pydux `d4495be4914ab38255d5871d3ade45422003015c`: [development state recovery checks](https://github.com/Neuri-AI/Pydux/actions/runs/39873460714), success (core regressions and snapshot error cases).
-- Qyro `a7995cbc5d2ca3ee08e7a7a53a042ce4bb9a5891`: [development settings validation](https://github.com/Neuri-AI/qyro/actions/runs/39873618109), success (pinned Pydux integration, state rollback, committed-remount isolation and existing context tests).
-- PSX `76a41ce53c655e05d6e4ed14159a3b50fd6372a4`: [component refresh validation](https://github.com/Neuri-AI/PSX/actions/runs/39873677607); exact-SHA outcome must be verified independently before marking this increment certified.
+- Qyro `0548655b730cbc9a8b4aaa3a6275b2598ab88e12`: [development settings validation](https://github.com/Neuri-AI/qyro/actions/runs/39873867510), success (pinned Pydux and current PSX integration, state rollback, committed-remount isolation and existing context tests).
+- PSX `9b1e585a7ce612451765a2f7a27e2ddccae334fe`: [component refresh validation](https://github.com/Neuri-AI/PSX/actions/runs/39873807147), success (source validation followed by corrected save, remount outcome isolation, native Qt/Tkinter/Kivy suites).
 
 **Remaining boundaries:** process-restart handshake and cross-process snapshot exchange belong to controlled restart; source import side effects, native mutations and subscription ownership are not globally transactional. A snapshot can only be restored when its data remains compatible with the current selectors. Non-JSON store data is intentionally not preserved. Extended repeated-edit soak and Windows/macOS verification remain integrated-certification tasks. No public markup, prop, event or hook API is introduced in this increment, so new-public-operation census is N/A.
