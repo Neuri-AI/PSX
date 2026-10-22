@@ -299,37 +299,58 @@ register_primitive(
 
 # -- renderer ---------------------------------------------------------------
 
+_RESIZE_FILTER_TYPES = {}
+
+
 def _make_resize_filter(core, on_resize, on_invalidation=None):
-    """Observe root viewport and native style/DPI changes without owning layout."""
-    qevents = getattr(core.QEvent, "Type", core.QEvent)
-    event_type = getattr(qevents, "Resize")
-    semantic_types = {
-        value: reason
-        for name, reason in (
-            ("FontChange", "font"),
-            ("ApplicationFontChange", "font"),
-            ("PaletteChange", "palette"),
-            ("ApplicationPaletteChange", "theme"),
-            ("StyleChange", "style"),
-            ("ScreenChangeInternal", "dpi"),
-            ("DevicePixelRatioChange", "dpi"),
-        )
-        if (value := getattr(qevents, name, None)) is not None
-    }
+    """Reuse one QObject subclass per binding; keep callbacks instance-local.
 
-    class ResizeFilter(core.QObject):
-        def eventFilter(self, watched, event):
-            if event.type() == event_type:
-                size = event.size()
-                on_resize(watched, size.width(), size.height())
-            elif on_invalidation is not None:
-                reason = semantic_types.get(event.type())
-                if reason is not None:
-                    on_invalidation(watched, reason)
-            return False
+    Defining a new Python QObject subclass on every native render creates
+    accumulating Shiboken wrapper metadata on PySide even after teardown.
+    """
+    filter_type = _RESIZE_FILTER_TYPES.get(core.QObject)
+    if filter_type is None:
+        qevents = getattr(core.QEvent, "Type", core.QEvent)
+        event_type = getattr(qevents, "Resize")
+        semantic_types = {
+            value: reason
+            for name, reason in (
+                ("FontChange", "font"),
+                ("ApplicationFontChange", "font"),
+                ("PaletteChange", "palette"),
+                ("ApplicationPaletteChange", "theme"),
+                ("StyleChange", "style"),
+                ("ScreenChangeInternal", "dpi"),
+                ("DevicePixelRatioChange", "dpi"),
+            )
+            if (value := getattr(qevents, name, None)) is not None
+        }
 
-    return ResizeFilter()
+        class ResizeFilter(core.QObject):
+            def __init__(self, resize_handler, invalidation_handler):
+                super().__init__()
+                self._resize_handler = resize_handler
+                self._invalidation_handler = invalidation_handler
 
+            def eventFilter(self, watched, event):
+                if event.type() == event_type:
+                    callback = self._resize_handler
+                    if callback is not None:
+                        size = event.size()
+                        callback(watched, size.width(), size.height())
+                elif self._invalidation_handler is not None:
+                    reason = semantic_types.get(event.type())
+                    if reason is not None:
+                        self._invalidation_handler(watched, reason)
+                return False
+
+            def discard_callbacks(self):
+                self._resize_handler = None
+                self._invalidation_handler = None
+
+        filter_type = ResizeFilter
+        _RESIZE_FILTER_TYPES[core.QObject] = filter_type
+    return filter_type(on_resize, on_invalidation)
 
 def _make_dispatcher(core):
     """Build a QObject bridge that queues work from any Python thread onto the Qt loop."""
