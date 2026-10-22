@@ -351,10 +351,18 @@ jobs:
           PSX_SOAK_CYCLES: "2048"
           PSX_SOAK_REPORT: native-image-soak-qt-${{ matrix.binding }}.json
         run: python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_image_churn_releases_owned_decoded_buffers
+      - name: Capture prolonged qt keyed tree ownership samples
+        env:
+          PSX_GRID_BACKEND: qt
+          PSX_TREE_SOAK_CYCLES: "512"
+          PSX_TREE_SOAK_REPORT: native-tree-soak-qt-${{ matrix.binding }}.json
+        run: python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_keyed_tree_reconciliation_soak
       - uses: actions/upload-artifact@v4
         with:
           name: native-image-soak-qt-${{ matrix.binding }}
-          path: native-image-soak-qt-${{ matrix.binding }}.json
+          path: |
+            native-image-soak-qt-${{ matrix.binding }}.json
+            native-tree-soak-qt-${{ matrix.binding }}.json
           if-no-files-found: error
       - name: Certify public native Qt property behavior with semantic JUnit evidence
         run: |
@@ -415,10 +423,18 @@ jobs:
           PSX_SOAK_CYCLES: "2048"
           PSX_SOAK_REPORT: native-image-soak-kivy.json
         run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_image_churn_releases_owned_decoded_buffers
+      - name: Capture prolonged kivy keyed tree ownership samples
+        env:
+          PSX_GRID_BACKEND: kivy
+          PSX_TREE_SOAK_CYCLES: "512"
+          PSX_TREE_SOAK_REPORT: native-tree-soak-kivy.json
+        run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_keyed_tree_reconciliation_soak
       - uses: actions/upload-artifact@v4
         with:
           name: native-image-soak-kivy
-          path: native-image-soak-kivy.json
+          path: |
+            native-image-soak-kivy.json
+            native-tree-soak-kivy.json
           if-no-files-found: error
       - name: Certify Kivy public native updates through real SDL2 widgets
         run: |
@@ -474,10 +490,18 @@ jobs:
           PSX_SOAK_CYCLES: "2048"
           PSX_SOAK_REPORT: native-image-soak-tk.json
         run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_image_churn_releases_owned_decoded_buffers
+      - name: Capture prolonged tk keyed tree ownership samples
+        env:
+          PSX_GRID_BACKEND: tk
+          PSX_TREE_SOAK_CYCLES: "512"
+          PSX_TREE_SOAK_REPORT: native-tree-soak-tk.json
+        run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_keyed_tree_reconciliation_soak
       - uses: actions/upload-artifact@v4
         with:
           name: native-image-soak-tk
-          path: native-image-soak-tk.json
+          path: |
+            native-image-soak-tk.json
+            native-tree-soak-tk.json
           if-no-files-found: error
       - name: Certify Tk native public properties with feature-level JUnit
         run: |
