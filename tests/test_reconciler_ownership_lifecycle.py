@@ -174,3 +174,60 @@ def test_failed_layout_commit_does_not_retain_queued_refs_after_unmount(engine):
     # Repeated disposal must remain harmless after the failed transaction.
     reconciler.unmount()
     assert reconciler._pending_refs == []
+
+
+@pytest.mark.parametrize("engine", ("python", "rust"))
+def test_effect_owned_async_task_cancels_before_late_widget_callback(engine):
+    import asyncio
+
+    class Payload:
+        pass
+
+    loop = asyncio.new_event_loop()
+    payload = Payload()
+    reference = weakref.ref(payload)
+    seed = {"payload": payload}
+    called = []
+    scheduled = []
+
+    @component
+    def Item():
+        def effect():
+            current = seed.pop("payload")
+
+            async def delayed_update():
+                try:
+                    await asyncio.sleep(30)
+                    called.append(current)
+                finally:
+                    called.append("task-finalized")
+
+            task = loop.create_task(delayed_update())
+            scheduled.append(task)
+            return task.cancel
+
+        use_effect(effect, ())
+        return Text("task owner")
+
+    tree = Reconciler(make_renderer(engine))
+    try:
+        tree.render(Item())
+        # Enter the coroutine and confirm it is awaiting delayed completion.
+        loop.run_until_complete(asyncio.sleep(0))
+        assert not scheduled[0].done()
+        del payload
+        tree.unmount()
+        loop.run_until_complete(asyncio.gather(*scheduled, return_exceptions=True))
+        assert called == ["task-finalized"]
+        scheduled.clear()
+        gc.collect()
+        assert reference() is None
+        assert tree.root is None
+    finally:
+        if tree.root is not None:
+            tree.unmount()
+        for task in scheduled:
+            task.cancel()
+        if scheduled:
+            loop.run_until_complete(asyncio.gather(*scheduled, return_exceptions=True))
+        loop.close()
