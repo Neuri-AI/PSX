@@ -227,3 +227,19 @@ Coordinated source edits now enable narrowly scoped remounting of mounted compon
 **Public behavior census:** N/A for this increment because no new public props, events, components or user-facing methods were introduced. These tests exercise internal development-only reconciliation and the existing public hooks.
 
 **Certification:** the final code-and-CI commit `c1754cf348a6564abd40f0914c90a2b7854eb543` passed the [coordinated refresh workflow](https://github.com/Neuri-AI/PSX/actions/runs/39871005567): functional remount, hook lifecycle, CI selector and real mounted Qt, Tkinter and Kivy jobs completed successfully. The subsequent `5f67a15c338ee26ff30d503227c2668fe9ce9f90` commit changes only this architecture document; product tests are not required for that documentation-only difference. This certifies targeted remount, not later recovery, restart or extended soak work.
+
+
+## Development state recovery: implemented incremental scope
+
+During a source refresh, Qyro retains the existing Pydux store instance instead of replacing its reducer, middleware or subscription identities. When the project explicitly sets `hot_reload.preserve_state: true`, Qyro can capture a detached, size-bounded JSON snapshot before applying a source change. If the change is rejected without committing an incompatible-component replacement, it restores the previous store data in the same instance and notifies existing subscribers using Pydux's normal selective notification path.
+
+The Pydux snapshot helper validates an exact versioned envelope, rejects non-JSON state, NaN, oversized content and incompatible selector state before writing. It does not serialize live widgets, closures, reducers, subscriptions or middleware, and does not automatically export user data to a process supervisor. Failed effect cleanup **after** a committed remount must not restore the previous store behind an already replaced view. A previously committed remount does not mark a later invalid edit as committed.
+
+Ownership remains split: Pydux owns data snapshot validation and subscriber notification; Qyro owns developer opt-in and recovery invocation; PSX owns reconciliation and remount commit status. CLI supervision and configuration ownership are unchanged. All feature code and behavioral tests live in the owning repositories; this PSX specification remains the canonical architectural record.
+
+Executed same-SHA evidence:
+- Pydux `d4495be4914ab38255d5871d3ade45422003015c`: [development state recovery checks](https://github.com/Neuri-AI/Pydux/actions/runs/39873460714), success (core regressions and snapshot error cases).
+- Qyro `a7995cbc5d2ca3ee08e7a7a53a042ce4bb9a5891`: [development settings validation](https://github.com/Neuri-AI/qyro/actions/runs/39873618109), success (pinned Pydux integration, state rollback, committed-remount isolation and existing context tests).
+- PSX `76a41ce53c655e05d6e4ed14159a3b50fd6372a4`: [component refresh validation](https://github.com/Neuri-AI/PSX/actions/runs/39873677607); exact-SHA outcome must be verified independently before marking this increment certified.
+
+**Remaining boundaries:** process-restart handshake and cross-process snapshot exchange belong to controlled restart; source import side effects, native mutations and subscription ownership are not globally transactional. A snapshot can only be restored when its data remains compatible with the current selectors. Non-JSON store data is intentionally not preserved. Extended repeated-edit soak and Windows/macOS verification remain integrated-certification tasks. No public markup, prop, event or hook API is introduced in this increment, so new-public-operation census is N/A.
