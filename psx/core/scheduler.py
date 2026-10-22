@@ -46,6 +46,18 @@ class Scheduler:
         for runner in queued:
             runner()
 
+    def discard_pending(self) -> None:
+        """Release queued component/effect closures after root teardown.
+
+        A renderer may still deliver a previously scheduled UI callback;
+        with empty queues that callback becomes inert. New mounts may enqueue
+        fresh work independently.
+        """
+        with self._lock:
+            self._dirty.clear()
+            self._effects.clear()
+            self._pending = False
+
     def _flush(self) -> None:
         with self._lock:
             dirty = tuple(self._dirty.values())
