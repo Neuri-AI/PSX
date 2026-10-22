@@ -38,4 +38,20 @@ Results are environment- and allocator-specific. Python traced byte differences 
 - Public API impact: **N/A** — no public component, method, prop, event or capability is introduced. This is a development-only benchmark under `benchmarks/` and tests under `tests/`.
 - Kivy long-run memory growth is intentionally **out of scope for this iteration**, per owner decision; do not treat this as a resolved risk.
 
-**Exit status:** initial inventory/instrumentation; recording and certifying concrete environmental baseline numbers remains required for full completion of this audit increment.
+## Executed Linux headless baseline
+
+**Implementation SHA:** `6779fca3ed44a2f35d4525eb2a8b94ba5b3b83be`. [Native CI run and JSON artifact](https://github.com/Neuri-AI/PSX/actions/runs/39809663985/artifacts/12440330245).
+
+**Environment:** CPython 3.12.15, Linux 7.0.0-1017-azure x86_64, glibc 2.39; 16 nodes, 100 measured cycles and 10 warmup cycles.
+
+| Workload | Mean ms/cycle | p95 ms/cycle | Traced delta after teardown (bytes) | Traced peak (bytes) |
+| --- | ---: | ---: | ---: | ---: |
+| Mount/unmount | 36.5516 | 38.6942 | +4,912 | 1,911,855 |
+| Keyed reorder | 35.5891 | 37.4610 | -68,875 | 1,273,284 |
+| State-like update | 36.2177 | 38.2310 | -65,318 | 1,180,548 |
+| Idle | 0.0005 | 0.0006 | -57,273 | 286,377 |
+
+The process peak RSS high-water observed was 29,863,936 bytes; instantaneous RSS and USS were not collected. The Python traced deltas reflect allocator/cache conditions, not leak verdicts. No native widget memory conclusion follows.
+
+**Initial audit increment status:** instrument implemented, actually executed and machine-specific baseline captured with immutable implementation SHA and original JSON. Full native resource ownership and leak audits are later P2 work. Kivy long-running memory growth remains explicitly deferred to a separate iteration.
+
