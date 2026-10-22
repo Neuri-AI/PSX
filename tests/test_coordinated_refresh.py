@@ -344,3 +344,24 @@ def test_invalid_edit_resets_stale_previous_remount_status(tmp_path, monkeypatch
         refresh.refresh_context_source(context, entry, ("main.py",))
     assert reconciler._coordinated_remount_applied is False
     assert context._development_render[0] is original
+
+
+def test_rejected_syntax_edit_can_be_corrected_without_restarting(tmp_path, monkeypatch):
+    entry = tmp_path / "main.py"
+    context, reconciler, old_render = make_context(entry)
+    monkeypatch.setattr(refresh, "_reload_policy", lambda _: object())
+    monkeypatch.setattr(refresh, "_project_modules", lambda *_: (frozenset(), {}))
+    replacement = lambda self: "recovered"
+    monkeypatch.setattr(
+        refresh, "_load_updated_class",
+        lambda *_: SimpleNamespace(render=replacement),
+    )
+    entry.write_text("def broken(:\n", encoding="utf-8")
+    with pytest.raises(SyntaxError):
+        refresh.refresh_context_source(context, entry, ("main.py",))
+    assert context._development_render[0] is old_render
+    assert reconciler.calls == []
+    entry.write_text("class Example: pass\n", encoding="utf-8")
+    assert refresh.refresh_context_source(context, entry, ("main.py",))
+    assert context._development_render[0] is replacement
+    assert reconciler.calls == [reconciler.root]
