@@ -337,3 +337,61 @@ class PySide6RendererTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_pydux_selector_unsubscribes_when_native_component_unmounts():
+    """An external store must not own the PSX tree after native teardown."""
+    import gc
+    import weakref
+    from pydux import StoreProvider, use_selector
+    from psx import Text, component
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.qt.pyside import PySide6Renderer
+
+    class Store:
+        def __init__(self):
+            self.listeners = []
+            self.state = {"count": 1}
+            self.disposed = 0
+
+        def get_state(self):
+            return self.state
+
+        def dispatch(self, action):
+            self.state = action
+            for listener in tuple(self.listeners):
+                listener(self.state["count"])
+
+        def select(self, selector, listener, equality_fn=None, fire_immediately=False):
+            def notify():
+                listener(selector(self.state))
+            self.listeners.append(notify)
+            if fire_immediately:
+                notify()
+
+            def unsubscribe():
+                self.disposed += 1
+                self.listeners.remove(notify)
+            return unsubscribe
+
+    renderer = PySide6Renderer(argv=["psx-pydux-lifetime"])
+    reconciler = Reconciler(renderer)
+    store = Store()
+    @component
+    def Reader():
+        count = use_selector(lambda state: state["count"])
+        return Text(str(count))
+
+    mounted = reconciler.render(StoreProvider(store, Reader()))
+    retained = weakref.ref(mounted)
+    assert len(store.listeners) == 1
+    assert mounted.children[0].children[0].handle.widget.text() == "1"
+    reconciler.unmount()
+    renderer.application.processEvents()
+    assert store.listeners == []
+    assert store.disposed == 1
+    del mounted
+    gc.collect()
+    assert retained() is None
+    store.dispatch({"count": 3})
+    assert reconciler.root is None
