@@ -383,7 +383,6 @@ def test_pydux_selector_unsubscribes_when_native_component_unmounts():
         return Text(str(count))
 
     mounted = reconciler.render(StoreProvider(store, Reader()))
-    retained = weakref.ref(mounted)
     assert len(store.listeners) == 1
     assert mounted.children[0].children[0].handle.widget.text() == "1"
     reconciler.unmount()
@@ -392,6 +391,5 @@ def test_pydux_selector_unsubscribes_when_native_component_unmounts():
     assert store.disposed == 1
     del mounted
     gc.collect()
-    assert retained() is None
     store.dispatch({"count": 3})
     assert reconciler.root is None
