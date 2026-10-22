@@ -155,3 +155,21 @@ A message envelope consists of `version` (integer, initially `1`), `request_id` 
 | Integrated certification | Edit/revert/save storms, multiple remounts, stylesheet and imports across Qt/Tk/Kivy | Per-repository exact-SHA CI plus executed cross-repo integration receipts; memory/watchers/handles do not grow unbounded |
 
 **Scope of this architecture increment:** specification and real-source ownership mapping only. No production module, workflow, public API, watcher, settings parser or transport is added in this increment. Functional/native tests and CI routing are **not applicable to a documentation-only diff**, and public-behavior census is **N/A**. This specification is ready for implementation handoff, but the complete hot reload feature remains uncertified.
+
+### Source-development coordination implementation evidence
+
+The first coordinated development path is now implemented on the feature branches for **Velto CLI** and **Qyro Engine**. This is a deliberately limited transport and configuration increment, not selective Fast Refresh certification.
+
+- **CLI**: `velto start` resolves base, host-platform and development settings; `--no-hot-reload` disables the opt-in supervisor; the source runner passes source-mode flags and starts exactly one CLI-owned polling watcher when enabled. Changes are debounced and sent as versioned, project-relative JSON messages over an authenticated loopback child connection. The authored entry point is monitored, with generated directories excluded.
+- **Engine**: development settings are recursively merged only for explicitly marked source launches, and never in frozen mode; `VeltoContext` conditionally creates a passive receiver during its live `run()` and closes it at shutdown. Incoming source notifications are validated and retained in a bounded queue pending the PSX classification/application stage. The child does **not** touch native widgets from the receiving thread.
+- **Boundary**: notifications are **not yet executed as PSX component patches**; they are only delivered and validated. Applying notifications and selecting Fast Refresh/remount/restart are separate implementation increments. Restart requests/acknowledgments and recovery remain future work.
+
+Executed GitHub Actions evidence:
+
+| Repository | Source SHA | Workflow | Result |
+| --- | --- | --- | --- |
+| Velto CLI | `e21c80a256c486711c2931e2da15c77cf562677a` | [Development launch validation](https://github.com/Neuri-AI/Velto-CLI/actions/runs/39863029883) | Success, including CLI→Qyro actual child notification |
+| Qyro Engine | `f26fa7d91fed48fb5177786d60f595252098add0` | [Development settings validation](https://github.com/Neuri-AI/qyro/actions/runs/39861558699) | Success, including frozen-mode receiver prohibition |
+
+All architecture and progress documentation remains in this PSX repository. These code/CI SHA links record only the integration slices exercised; they are **not** proof of production-ready complete Hot Reloading.
+
