@@ -36,14 +36,30 @@ def make_renderer(engine_name='python'):
 
 def process_memory():
     """Return optional process memory metrics; never silently substitute tracemalloc."""
+    snapshot = {"rss_live_bytes": None, "uss_bytes": None}
+    try:
+        import psutil
+        process = psutil.Process()
+        snapshot["rss_live_bytes"] = process.memory_info().rss
+        try:
+            snapshot["uss_bytes"] = process.memory_full_info().uss
+        except (AttributeError, OSError, PermissionError):
+            pass
+    except ImportError:
+        if sys.platform.startswith("linux"):
+            try:
+                pages = int(Path("/proc/self/statm").read_text().split()[1])
+                snapshot["rss_live_bytes"] = pages * __import__("os").sysconf("SC_PAGE_SIZE")
+            except (OSError, ValueError, IndexError):
+                pass
     try:
         import resource
     except ImportError:
-        return {"rss_peak_bytes": None, "rss_peak_unit": None, "uss_bytes": None}
+        return {"rss_peak_bytes": None, "rss_peak_unit": None, **snapshot}
     raw = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     # Darwin reports bytes, Linux reports KiB. ru_maxrss is HIGH-WATER, not live RSS.
     factor = 1 if sys.platform == "darwin" else 1024
-    return {"rss_peak_bytes": int(raw * factor), "rss_peak_unit": "high_water", "uss_bytes": None}
+    return {"rss_peak_bytes": int(raw * factor), "rss_peak_unit": "high_water", **snapshot}
 
 
 def view(size, revision=0, reverse=False):
@@ -63,6 +79,8 @@ def sample(*, nodes=16, cycles=100, warmup=10, scenario="mount_unmount", engine=
     tree = None
     elapsed = []
     checkpoints = []
+    cpu_before_ns = time.process_time_ns()
+    wall_before_ns = time.perf_counter_ns()
     try:
         def one(index):
             nonlocal tree
@@ -93,7 +111,8 @@ def sample(*, nodes=16, cycles=100, warmup=10, scenario="mount_unmount", engine=
                 gc.collect()
                 current, peak = tracemalloc.get_traced_memory()
                 checkpoints.append({"cycle": i + 1, "traced_current_bytes": current,
-                                    "traced_peak_bytes": peak, "gc_objects": len(gc.get_objects())})
+                                    "traced_peak_bytes": peak, "gc_objects": len(gc.get_objects()),
+                                    "process_memory": process_memory()})
         if tree is not None:
             tree.unmount()
             tree = None
@@ -103,7 +122,9 @@ def sample(*, nodes=16, cycles=100, warmup=10, scenario="mount_unmount", engine=
         if tree is not None:
             tree.unmount()
         tracemalloc.stop()
-    return {"scenario": scenario, "engine": engine, "cycles": cycles, "nodes": nodes, "warmup": warmup,
+    return {"scenario": scenario, "engine": engine,
+            "cpu_total_ms": round((time.process_time_ns() - cpu_before_ns) / 1_000_000, 4),
+            "wall_total_ms": round((time.perf_counter_ns() - wall_before_ns) / 1_000_000, 4), "cycles": cycles, "nodes": nodes, "warmup": warmup,
             "mean_ms": round(statistics.mean(elapsed) / 1_000_000, 4),
             "p95_ms": round(sorted(elapsed)[(len(elapsed) * 95 + 99) // 100 - 1] / 1_000_000, 4),
             "traced_before_bytes": before, "traced_after_teardown_bytes": after,
@@ -114,7 +135,7 @@ def sample(*, nodes=16, cycles=100, warmup=10, scenario="mount_unmount", engine=
 def run(*, nodes=16, cycles=100, warmup=10, engines=('python', 'rust')):
     return {"schema": 1, "runtime": {"python": sys.version.split()[0],
             "platform": platform.platform(), "implementation": platform.python_implementation()},
-            "scope": "headless-only; no native widget counts or native leak certification",
+            "scope": "headless-only; native resource ownership is tested separately; no leak verdict",
             "measurements": [sample(nodes=nodes, cycles=cycles, warmup=warmup, scenario=name, engine=engine)
                              for engine in engines
                              for name in ("mount_unmount", "keyed_reorder",
