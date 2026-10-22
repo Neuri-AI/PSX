@@ -174,3 +174,39 @@ Original per-backend native JSON bundles: [PyQt6](https://github.com/Neuri-AI/PS
 4. Headless diagnostic-history retention initially contaminated keyed/update memory slopes. Benchmark-local log clearing corrected this **measurement artifact** without changing the production logging interface. Therefore use this exact SHA's corrected dual-engine JSON, not the earlier contaminated run, for future reference.
 
 **Scope and exit:** The reproducible prolonged-workload harness, real native stress execution, dual Cinnamon engine observations, process memory/CPU checkpoints, raw CI artifacts and candid analysis are complete. This closes the **benchmarking/instrumentation deliverable**, not the overall P2 leak-free exit gate. The unresolved PySide and Kivy growth and allocator attribution must remain visible in integral certification. Additional multi-hour real-application sessions are not established by these cycle-bounded runs; do not claim otherwise. Public API impact is **N/A**.
+
+
+## P2.7 — Integral ownership and performance certification
+
+**Code receipt:** `06d3a8eef13ef9d6bc903386297389e1ce38ff80`, [native CI](https://github.com/Neuri-AI/PSX/actions/runs/39843742264), [Grid integral CI](https://github.com/Neuri-AI/PSX/actions/runs/39843742224). All **7/7 workflows** concluded success at this exact code SHA. This final gate integrates P2.1–P2.6; the old P2.6 measurements remain preserved above.
+
+### PySide blocker: root cause and before/after
+
+Under repeated native keyed mounts PSX previously defined fresh subclasses of `QLabel` (Text), `QPushButton` (Button), HTML label widgets and `QObject` resize filters **on every creation or commit**. PySide/Shiboken retained wrapper/type metadata even when widget objects were deleted. The renderer now caches these subclasses by their toolkit base type and reuses them. On teardown it also detaches the resize filter, discards the callbacks that capture its renderer and schedules the filter's native deletion. No new public API has been introduced.
+
+The regression suite covers reuse of Qt text/button types across 16 remounts, reuse of the resize filter type across 16 commits, release of event-filter callbacks and object-type-growth envelopes after 512 full native keyed churn cycles. The PySide benchmark contains exact 128-cycle checkpoints, explicit `QCoreApplication.sendPostedEvents(DeferredDelete)`, post-GC weakref/tuple diagnostics and both PyQt bindings as reference controls. The CI envelope for retained weakrefs and tuples is **at most 64 of each type between the first and last checkpoint**, calibrated from the observed post-fix range while allowing CI variation, rather than an invented universal RSS limit.
+
+| Retained object type between checkpoints | PySide2 prior | PySide2 corrected | PySide6 prior | PySide6 corrected |
+| --- | ---: | ---: | ---: | ---: |
+| `weakref.ReferenceType` | +1,174 | **+22** | +1,174 | **+22** |
+| `builtins.tuple` | +1,197 | **no positive drift among top retained types** | +1,125 | **no positive drift among top retained types** |
+
+Original pre-fix JSON: [PySide2](https://github.com/Neuri-AI/PSX/actions/runs/39836826222/artifacts/12450589904) / [PySide6](https://github.com/Neuri-AI/PSX/actions/runs/39836826222/artifacts/12450563636); post-fix at the exact certified SHA: [PySide2](https://github.com/Neuri-AI/PSX/actions/runs/39843742264/artifacts/12454263207) / [PySide6](https://github.com/Neuri-AI/PSX/actions/runs/39843742264/artifacts/12453813193). Object-type-level reduction, not native process RSS alone, grounds the fix. A standalone Qt `QWidget` + signal-connection churn control was also added to the CI to separate framework-owned bindings from Qt-only behavior.
+
+### Exit matrix and approved scope boundary
+
+| Contract | Executed evidence / decision |
+| --- | --- |
+| VNode, reconciler, hooks and exception cleanup | **PASS** — dual Cinnamon engines, queued reference regression, cleanup failures, pending scheduler/effect disposal |
+| Native event connections and widgets | **PASS** — exercised PySide2/6, PyQt5/6, Tkinter and Kivy toolkits, including failed disconnects |
+| Pydux selectors, async effects and observer callbacks | **PASS** — real Pydux Store on native PySide6, effect-task cancellation on both Cinnamon engines, watcher shutdown and late-callback fences |
+| Cinnamon caches, image buffers and reference release | **PASS** — cache churn, failure transactions, owned Qt/Tk/Kivy Image destruction and resource watch weakrefs |
+| Reproducible baselines and benchmarking | **PASS** — 400-cycle Headless x 2 Cinnamon engines, 2,048 native image cycles and 512 native keyed subtree cycles for all 6 toolkit bindings; exact-SHA JSON with mean/p95, RSS/USS, GC and CPU |
+| PySide binding wrapper metadata growth | **PASS after fix** — cached QObject/widget subclasses, 16-remount contract tests and 512-cycle quantitative regression; before/after samples above |
+| Kivy historical long-duration memory growth | **EXPLICIT DEFERRED EXCEPTION** — tracked in [issue #51](https://github.com/Neuri-AI/PSX/issues/51). Earlier native benchmarks showed persistent growth; this gate **does not** certify Kivy multi-hour memory stability. The user separately excluded the investigation from this increment |
+| Tk keyed-tree native USS drift | **DOCUMENTED LIMITATION** — increased USS but stable GC object counts; no unsupported claim of toolkit allocator leak or fully returned RSS |
+| Multi-hour production applications, macOS/Windows live widget soak | **NOT EXECUTED** — P2.6/P2.7 are bounded CI workloads; separate host-native application testing is required before claiming those guarantees |
+
+**Certification decision:** P2 implementation and **scoped automated native/Headless memory lifecycle contracts are complete** at the cited code SHA. Full universal memory stability is **not certified**, specifically Kivy's separately deferred issue and unmeasured extended application sessions. A green CI validates the documented acceptance workloads, not absence of every possible leak. The scoped Kivy exception is visible and owner-approved, not a hidden pass. A functional freeze or merge should not silently expand the claim.
+
+**Public capability census:** N/A — internal lifetime fixes and benchmarking instrumentation do not change the public component surface. No release/PR merge was performed by this certification.
