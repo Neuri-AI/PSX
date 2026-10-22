@@ -210,3 +210,20 @@ Executed certification:
 Public census is **N/A** because no new public markup, property, event or user API is introduced. Native routing and runtime-specific functional tests are executed.
 
 Explicitly not certified here: atomic rollback after arbitrary native commit failures, complete foreign-module side-effect recovery, Pydux cross-process snapshot restore, restart handshake and extended repeated-edit resource soaks. Those are separate downstream obligations.
+
+## 11. Incompatible component hook remount: implemented behavior
+
+Coordinated source edits now enable narrowly scoped remounting of mounted components whose hook **count or kind** becomes incompatible. This is internal reconciler behavior rather than a new public user-facing API. It is only enabled while applying a coordinated source edit; ordinary reconciliation retains its established hook diagnostics.
+
+- A candidate is evaluated against a new mounted component instance before discarding the last working boundary. Invalid render candidates leave the previous live instance intact.
+- An incompatible root remount replaces its hook owner and makes captured old state setters inert. Its compatible native descendants are reconciled in place, preserving the host widget where safe.
+- An incompatible nested component is remounted at its existing parent position without remounting the parent or independent siblings. Hook and reference lifetime follow the replaced boundary; its descendants use ordinary key/type compatibility.
+- Existing effect cleanups are attempted in reverse registration order; even if one raises, remaining cleanups execute, old hook slots and refs release and the committed replacement stays installed. The cleanup exception remains visible rather than being silently suppressed.
+- Qt, Tkinter and Kivy tests exercise real mounted root and nested component updates and verify native handle/sibling retention. Tkinter native-parent resolution through transparent component boundaries was corrected rather than weakening the tests.
+- No separate native widget manager or file watcher was introduced. The CLI-to-Qyro source notification and PSX UI-thread scheduling remain unchanged.
+
+**Boundaries:** hot reload of a component that changes type/key is handled by existing reconciliation identity semantics; complete recovery of arbitrary side effects, transactional rollback of failed native mutations, cross-process snapshots and restarts are not certified here. Hook compatibility is determined by the runtime’s actual ordered slot contract rather than guessing from source-text differences.
+
+**Public behavior census:** N/A for this increment because no new public props, events, components or user-facing methods were introduced. These tests exercise internal development-only reconciliation and the existing public hooks.
+
+**Certification:** behavioral unit coverage, hook cleanup failures, CI selector checks and native mounted Qt/Tk/Kivy suites are executed in the [coordinated refresh workflow](https://github.com/Neuri-AI/PSX/actions/workflows/coordinated-refresh.yml). Exact-SHA execution receipts must be checked against the branch head before this stage is considered finally certified.
