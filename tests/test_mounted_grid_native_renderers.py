@@ -2537,10 +2537,25 @@ def test_native_image_churn_releases_owned_decoded_buffers(tmp_path):
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
     ))
     backend = os.environ["PSX_GRID_BACKEND"]
+    soak_report = os.environ.get("PSX_SOAK_REPORT")
+    cycles = int(os.environ.get("PSX_SOAK_CYCLES", "12"))
+    if cycles <= 0:
+        raise ValueError("Native image soak requires positive cycles.")
+    if soak_report:
+        import gc
+        import json
+        import platform
+        import sys
+        import time
+        import tracemalloc
+        tracemalloc.start()
+        wall_start = time.perf_counter_ns()
+        cpu_start = time.process_time_ns()
+        checkpoints = []
     renderer, close = make_renderer(backend, sfle=False)
     tree = Reconciler(renderer)
     try:
-        for _ in range(12):
+        for cycle in range(cycles):
             mounted = tree.render(Image(str(png), width=10, height=10))
             handle = mounted.handle
             widget = handle.widget
@@ -2558,6 +2573,25 @@ def test_native_image_churn_releases_owned_decoded_buffers(tmp_path):
             else:
                 assert widget._psx_sfle_invalidate is None
                 assert widget.parent is None
+            if soak_report and ((cycle + 1) % max(1, cycles // 4) == 0 or cycle + 1 == cycles):
+                gc.collect()
+                current, peak = tracemalloc.get_traced_memory()
+                checkpoints.append({"cycle": cycle + 1, "traced_current_bytes": current,
+                                    "traced_peak_bytes": peak, "gc_objects": len(gc.get_objects())})
     finally:
         tree.unmount()
         close()
+        if soak_report:
+            gc.collect()
+            current, peak = tracemalloc.get_traced_memory()
+            report = {"schema": 1, "backend": backend,
+                      "qt_binding": os.environ.get("PSX_QT_BINDING") if backend == "qt" else None,
+                      "python": sys.version.split()[0], "platform": platform.platform(),
+                      "cycles": cycles, "checkpoints": checkpoints,
+                      "after_teardown_traced_bytes": current, "traced_peak_bytes": peak,
+                      "wall_total_ms": round((time.perf_counter_ns() - wall_start) / 1e6, 3),
+                      "cpu_total_ms": round((time.process_time_ns() - cpu_start) / 1e6, 3),
+                      "scope": "real native image mount/unmount; not a GPU allocator leak verdict"}
+            from pathlib import Path
+            Path(soak_report).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+            tracemalloc.stop()
