@@ -2622,6 +2622,7 @@ def test_native_image_churn_releases_owned_decoded_buffers(tmp_path):
 def test_native_keyed_tree_reconciliation_soak():
     """Measure sustained native subtree mount, reordering and teardown."""
     import gc
+    from collections import Counter
     import json
     import platform
     import sys
@@ -2638,6 +2639,8 @@ def test_native_keyed_tree_reconciliation_soak():
     renderer, close = make_renderer(backend, sfle=True)
     tree = Reconciler(renderer)
     checkpoints = []
+    object_type_baseline = None
+    object_type_final = None
     cycle_times_ns = []
     tracemalloc.start()
     baseline_memory = process_memory()
@@ -2672,6 +2675,10 @@ def test_native_keyed_tree_reconciliation_soak():
             if (cycle + 1) % max(1, cycles // 4) == 0 or cycle + 1 == cycles:
                 gc.collect()
                 current, peak = tracemalloc.get_traced_memory()
+                counts = Counter(f"{type(obj).__module__}.{type(obj).__qualname__}" for obj in gc.get_objects())
+                if object_type_baseline is None:
+                    object_type_baseline = counts
+                object_type_final = counts
                 checkpoints.append({
                     "cycle": cycle + 1,
                     "traced_current_bytes": current,
@@ -2690,6 +2697,7 @@ def test_native_keyed_tree_reconciliation_soak():
                 "qt_binding": os.environ.get("PSX_QT_BINDING") if backend == "qt" else None,
                 "python": sys.version.split()[0], "platform": platform.platform(),
                 "cycles": cycles, "checkpoints": checkpoints,
+                "gc_object_type_growth": (object_type_final - object_type_baseline).most_common(25),
                 "mean_cycle_ms": round(sum(cycle_times_ns) / len(cycle_times_ns) / 1e6, 4),
                 "p95_cycle_ms": round(sorted(cycle_times_ns)[(len(cycle_times_ns) * 95 + 99) // 100 - 1] / 1e6, 4),
                 "process_memory_before": baseline_memory,
