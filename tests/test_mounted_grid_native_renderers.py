@@ -2525,3 +2525,39 @@ def test_disposed_native_component_ignores_queued_state_ui_callbacks():
     finally:
         tree.unmount()
         close()
+
+
+def test_native_image_churn_releases_owned_decoded_buffers(tmp_path):
+    """Image adapters release their own decoded resources on every unmount."""
+    import base64
+    from psx import Image
+
+    png = tmp_path / "pixel.png"
+    png.write_bytes(base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/nZkAAAAASUVORK5CYII="
+    ))
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend, sfle=False)
+    tree = Reconciler(renderer)
+    try:
+        for _ in range(12):
+            mounted = tree.render(Image(str(png), width=10, height=10))
+            handle = mounted.handle
+            widget = handle.widget
+            tree.unmount()
+            assert tree.root is None
+            assert handle.props == {}
+            assert widget._psx_props is None
+            if backend == "qt":
+                assert widget._psx_pixmap_cache is None
+                renderer.application.processEvents()
+            elif backend == "tk":
+                assert widget._psx_image_cache is None
+                assert widget._psx_photo is None
+                assert not widget.winfo_exists()
+            else:
+                assert widget._psx_sfle_invalidate is None
+                assert widget.parent is None
+    finally:
+        tree.unmount()
+        close()
