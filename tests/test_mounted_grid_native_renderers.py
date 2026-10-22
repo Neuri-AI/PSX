@@ -2534,7 +2534,7 @@ def test_native_image_churn_releases_owned_decoded_buffers(tmp_path):
 
     png = tmp_path / "pixel.png"
     png.write_bytes(base64.b64decode(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/nZkAAAAASUVORK5CYII="
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
     ))
     backend = os.environ["PSX_GRID_BACKEND"]
     renderer, close = make_renderer(backend, sfle=False)
