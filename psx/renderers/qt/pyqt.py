@@ -299,6 +299,9 @@ register_primitive(
 
 # -- renderer ---------------------------------------------------------------
 
+_QT_NATIVE_LABEL_TYPES = {}
+_QT_CSS_TEXT_TYPES = {}
+_QT_CSS_BUTTON_TYPES = {}
 _RESIZE_FILTER_TYPES = {}
 
 
@@ -837,15 +840,19 @@ class QtRenderer:
                 qt_widgets = self._widgets
                 base_widget = self._widget
 
-                class NativeLabelHost(base_widget):
-                    def mousePressEvent(self, event):
-                        for editor in self.findChildren(qt_widgets.QLineEdit):
-                            if editor.isEnabled():
-                                editor.setFocus()
-                                break
-                        super().mousePressEvent(event)
+                widget_type = _QT_NATIVE_LABEL_TYPES.get(base_widget)
+                if widget_type is None:
+                    class NativeLabelHost(base_widget):
+                        def mousePressEvent(self, event):
+                            for editor in self.findChildren(qt_widgets.QLineEdit):
+                                if editor.isEnabled():
+                                    editor.setFocus()
+                                    break
+                            super().mousePressEvent(event)
+                    widget_type = NativeLabelHost
+                    _QT_NATIVE_LABEL_TYPES[base_widget] = widget_type
 
-                widget = NativeLabelHost()
+                widget = widget_type()
             else:
                 widget = self._widget()
             return QtHandle(node.type, widget, props=dict(node.props))
@@ -883,79 +890,87 @@ class QtRenderer:
             gui = __import__(self._binding_package + ".QtGui", fromlist=["QTextDocument"])
             core = __import__(self._binding_package + ".QtCore", fromlist=["QSize"])
 
-            class CssMeasuredTextLabel(label_class):
-                """QLabel-compatible text host with native QTextDocument line spacing."""
+            widget_type = _QT_CSS_TEXT_TYPES.get(label_class)
+            if widget_type is None:
+                class CssMeasuredTextLabel(label_class):
+                    """QLabel-compatible text host with native QTextDocument line spacing."""
 
-                def __init__(self):
-                    super().__init__()
-                    self._psx_css_line_height = None
-                    self._psx_css_document = None
-
-                def _psx_sync_line_height(self, height):
-                    self._psx_css_line_height = height
-                    if height is None:
+                    def __init__(self):
+                        super().__init__()
+                        self._psx_css_line_height = None
                         self._psx_css_document = None
+
+                    def _psx_sync_line_height(self, height):
+                        self._psx_css_line_height = height
+                        if height is None:
+                            self._psx_css_document = None
+                            self.updateGeometry()
+                            self.update()
+                            return
+                        document = gui.QTextDocument(self)
+                        document.setDocumentMargin(0)
+                        document.setDefaultFont(self.font())
+                        cursor = gui.QTextCursor(document)
+                        cursor.insertText(self.text())
+                        cursor.select(getattr(gui.QTextCursor, "SelectionType", gui.QTextCursor).Document)
+                        block = gui.QTextBlockFormat()
+                        kinds = getattr(gui.QTextBlockFormat, "LineHeightTypes", gui.QTextBlockFormat)
+                        block.setLineHeight(float(height), getattr(kinds.FixedHeight, 'value', kinds.FixedHeight))
+                        block.setAlignment(self.alignment())
+                        cursor.setBlockFormat(block)
+                        char = gui.QTextCharFormat()
+                        char.setForeground(self.palette().color(self.foregroundRole()))
+                        cursor.mergeCharFormat(char)
+                        self._psx_css_document = document
                         self.updateGeometry()
                         self.update()
-                        return
-                    document = gui.QTextDocument(self)
-                    document.setDocumentMargin(0)
-                    document.setDefaultFont(self.font())
-                    cursor = gui.QTextCursor(document)
-                    cursor.insertText(self.text())
-                    cursor.select(getattr(gui.QTextCursor, "SelectionType", gui.QTextCursor).Document)
-                    block = gui.QTextBlockFormat()
-                    kinds = getattr(gui.QTextBlockFormat, "LineHeightTypes", gui.QTextBlockFormat)
-                    block.setLineHeight(float(height), getattr(kinds.FixedHeight, 'value', kinds.FixedHeight))
-                    block.setAlignment(self.alignment())
-                    cursor.setBlockFormat(block)
-                    char = gui.QTextCharFormat()
-                    char.setForeground(self.palette().color(self.foregroundRole()))
-                    cursor.mergeCharFormat(char)
-                    self._psx_css_document = document
-                    self.updateGeometry()
-                    self.update()
 
-                def sizeHint(self):
-                    if self._psx_css_document is None:
-                        return super().sizeHint()
-                    self._psx_css_document.setTextWidth(-1)
-                    size = self._psx_css_document.size()
-                    return core.QSize(max(1, round(size.width())), max(1, round(size.height())))
+                    def sizeHint(self):
+                        if self._psx_css_document is None:
+                            return super().sizeHint()
+                        self._psx_css_document.setTextWidth(-1)
+                        size = self._psx_css_document.size()
+                        return core.QSize(max(1, round(size.width())), max(1, round(size.height())))
 
-                def heightForWidth(self, width):
-                    if self._psx_css_document is None:
-                        return super().heightForWidth(width)
-                    self._psx_css_document.setTextWidth(max(1, width))
-                    return max(1, round(self._psx_css_document.size().height()))
+                    def heightForWidth(self, width):
+                        if self._psx_css_document is None:
+                            return super().heightForWidth(width)
+                        self._psx_css_document.setTextWidth(max(1, width))
+                        return max(1, round(self._psx_css_document.size().height()))
 
-                def paintEvent(self, event):
-                    if self._psx_css_document is None:
-                        return super().paintEvent(event)
-                    self._psx_css_document.setTextWidth(max(1, self.width()))
-                    painter = gui.QPainter(self)
-                    self._psx_css_document.drawContents(painter)
-                    painter.end()
+                    def paintEvent(self, event):
+                        if self._psx_css_document is None:
+                            return super().paintEvent(event)
+                        self._psx_css_document.setTextWidth(max(1, self.width()))
+                        painter = gui.QPainter(self)
+                        self._psx_css_document.drawContents(painter)
+                        painter.end()
+                widget_type = CssMeasuredTextLabel
+                _QT_CSS_TEXT_TYPES[label_class] = widget_type
 
-            widget = CssMeasuredTextLabel()
+            widget = widget_type()
         elif node.type == "Button":
             button_class = self._widget_class("Button")
 
-            class CssMeasuredButton(button_class):
-                def __init__(self):
-                    super().__init__()
-                    self._psx_css_line_height = None
+            widget_type = _QT_CSS_BUTTON_TYPES.get(button_class)
+            if widget_type is None:
+                class CssMeasuredButton(button_class):
+                    def __init__(self):
+                        super().__init__()
+                        self._psx_css_line_height = None
 
-                def sizeHint(self):
-                    natural = super().sizeHint()
-                    if self._psx_css_line_height is not None:
-                        extra = max(0, round(
-                            self._psx_css_line_height - self.fontMetrics().height()
-                        ))
-                        natural.setHeight(natural.height() + extra)
-                    return natural
+                    def sizeHint(self):
+                        natural = super().sizeHint()
+                        if self._psx_css_line_height is not None:
+                            extra = max(0, round(
+                                self._psx_css_line_height - self.fontMetrics().height()
+                            ))
+                            natural.setHeight(natural.height() + extra)
+                        return natural
+                widget_type = CssMeasuredButton
+                _QT_CSS_BUTTON_TYPES[button_class] = widget_type
 
-            widget = CssMeasuredButton()
+            widget = widget_type()
         else:
             widget = self._widget_class(node.type)()
         spec.apply(widget, node.props, self._binding_package)
