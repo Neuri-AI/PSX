@@ -404,3 +404,47 @@ def test_pydux_selector_unsubscribes_when_native_component_unmounts():
         del mounted
         gc.collect()
         assert reconciler.root is None
+
+
+def test_actual_pydux_store_releases_native_component_selector_subscriptions():
+    """Exercise the real Pydux Store, not only a compatible subscription port."""
+    from pydux import StoreProvider, configure_store, create_slice, use_selector
+    from psx import Text, component
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.qt.pyside import PySide6Renderer
+
+    counter = create_slice(
+        name="counter",
+        initial_state={"count": 0},
+        reducers={
+            "increment": lambda state, action: state.update(
+                {"count": state["count"] + 1}
+            ),
+        },
+    )
+    store = configure_store({"counter": counter})
+    renderer = PySide6Renderer(argv=["psx-real-pydux-lifetime"])
+    reconciler = Reconciler(renderer)
+
+    def select_count(state):
+        return state["counter"]["count"]
+
+    @component
+    def Reader():
+        return Text(str(use_selector(select_count)))
+
+    try:
+        for iteration in range(8):
+            mounted = reconciler.render(StoreProvider(store, Reader()))
+            assert len(store._subscriptions) == 1
+            assert mounted.children[0].children[0].handle.widget.text() == str(iteration)
+            store.dispatch(counter.actions.increment())
+            renderer.application.processEvents()
+            assert mounted.children[0].children[0].handle.widget.text() == str(iteration + 1)
+            reconciler.unmount()
+            renderer.application.processEvents()
+            assert store._subscriptions == []
+        store.dispatch(counter.actions.increment())
+        assert reconciler.root is None
+    finally:
+        reconciler.unmount()
