@@ -67,6 +67,9 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
     if source not in changed and not modules_changed and not css_changed:
         return False
 
+    # Each attempted edit has its own commit outcome; a previously committed
+    # remount must not suppress recovery of a later rejected syntax edit.
+    app.reconciler._coordinated_remount_applied = False
     for path in sorted(changed):
         if path.suffix == ".py" and (path == source or path in module_paths.values()):
             ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
