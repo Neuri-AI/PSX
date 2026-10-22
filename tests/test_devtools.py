@@ -230,3 +230,46 @@ def test_stopped_watcher_releases_observer_capture(tmp_path: Path) -> None:
     assert reference() is None
     assert watcher._pending == set()
     assert watcher._snapshot == {}
+
+
+def test_stopped_reloader_drops_queued_native_refresh(monkeypatch, tmp_path: Path) -> None:
+    from types import SimpleNamespace
+    from psx.devtools.qyro_reload import QyroComponentReloader, ModuleReloadPolicy
+    import psx.devtools.qyro_reload as reload_module
+
+    source = tmp_path / "screen.py"
+    source.write_text("class Screen: pass", encoding="utf-8")
+    queued = []
+    applied = []
+
+    class Renderer:
+        def schedule_ui(self, callback):
+            queued.append(callback)
+
+    class Host:
+        render = lambda self: None
+
+    host = Host()
+    host._psx_mount = SimpleNamespace(app=SimpleNamespace(renderer=Renderer()))
+    host._psx_root_component = object()
+    reloader = QyroComponentReloader.__new__(QyroComponentReloader)
+    reloader.host = host
+    reloader.report = lambda _: None
+    reloader.source = source
+    reloader.root = tmp_path
+    reloader.policy = ModuleReloadPolicy()
+    reloader.modules = frozenset()
+    reloader.module_paths = {}
+    reloader._watcher = None
+    reloader._watch_epoch = 1
+    reloader._apply_update = lambda *_args: applied.append(True)
+    monkeypatch.setattr(reload_module, "_reload_policy", lambda _host: ModuleReloadPolicy())
+    monkeypatch.setattr(reload_module, "_project_modules",
+                        lambda *_args: (frozenset(), {}))
+    monkeypatch.setattr(reload_module, "_load_updated_class",
+                        lambda *_args: SimpleNamespace(render=lambda self: None))
+    reloader._on_changes((source,))
+    assert len(queued) == 1
+    reloader.stop()
+    queued.pop()()
+    assert applied == []
