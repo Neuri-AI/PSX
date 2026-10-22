@@ -19,13 +19,17 @@ from psx import Flex, Text
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
 from psx.sfle.engine import PythonLayoutEngine
+from psx.sfle.backend import RustLayoutEngine, load_layout_engine
 from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
 
-def make_renderer():
+def make_renderer(engine_name='python'):
+    engine = PythonLayoutEngine() if engine_name == 'python' else load_layout_engine()
+    if engine_name not in ('python', 'rust') or engine.backend_name != engine_name:
+        raise RuntimeError(f'Requested Cinnamon {engine_name} but loaded {engine.backend_name}')
     return HeadlessRenderer(
         sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)),
-        engine=PythonLayoutEngine(),
+        engine=engine,
         measure_intrinsic=lambda _: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
     )
 
@@ -48,7 +52,7 @@ def view(size, revision=0, reverse=False):
                   for i in indices), direction="column")
 
 
-def sample(*, nodes=16, cycles=100, warmup=10, scenario="mount_unmount"):
+def sample(*, nodes=16, cycles=100, warmup=10, scenario="mount_unmount", engine="python"):
     if nodes < 1 or cycles < 1 or warmup < 0:
         raise ValueError("nodes and cycles must be positive and warmup nonnegative")
     supported = ("mount_unmount", "keyed_reorder", "state_like_update", "idle")
@@ -63,17 +67,17 @@ def sample(*, nodes=16, cycles=100, warmup=10, scenario="mount_unmount"):
         def one(index):
             nonlocal tree
             if scenario == "mount_unmount":
-                tree = Reconciler(make_renderer())
+                tree = Reconciler(make_renderer(engine))
                 tree.render(view(nodes, index))
                 tree.unmount()
                 tree = None
             elif scenario == "idle":
                 if tree is None:
-                    tree = Reconciler(make_renderer())
+                    tree = Reconciler(make_renderer(engine))
                     tree.render(view(nodes))
             else:
                 if tree is None:
-                    tree = Reconciler(make_renderer())
+                    tree = Reconciler(make_renderer(engine))
                 tree.render(view(nodes, index if scenario == "state_like_update" else 0,
                                  reverse=bool(index % 2) if scenario == "keyed_reorder" else False))
 
@@ -99,7 +103,7 @@ def sample(*, nodes=16, cycles=100, warmup=10, scenario="mount_unmount"):
         if tree is not None:
             tree.unmount()
         tracemalloc.stop()
-    return {"scenario": scenario, "cycles": cycles, "nodes": nodes, "warmup": warmup,
+    return {"scenario": scenario, "engine": engine, "cycles": cycles, "nodes": nodes, "warmup": warmup,
             "mean_ms": round(statistics.mean(elapsed) / 1_000_000, 4),
             "p95_ms": round(sorted(elapsed)[(len(elapsed) * 95 + 99) // 100 - 1] / 1_000_000, 4),
             "traced_before_bytes": before, "traced_after_teardown_bytes": after,
@@ -107,11 +111,12 @@ def sample(*, nodes=16, cycles=100, warmup=10, scenario="mount_unmount"):
             "checkpoints": checkpoints, "process_memory": process_memory()}
 
 
-def run(*, nodes=16, cycles=100, warmup=10):
+def run(*, nodes=16, cycles=100, warmup=10, engines=('python', 'rust')):
     return {"schema": 1, "runtime": {"python": sys.version.split()[0],
             "platform": platform.platform(), "implementation": platform.python_implementation()},
             "scope": "headless-only; no native widget counts or native leak certification",
-            "measurements": [sample(nodes=nodes, cycles=cycles, warmup=warmup, scenario=name)
+            "measurements": [sample(nodes=nodes, cycles=cycles, warmup=warmup, scenario=name, engine=engine)
+                             for engine in engines
                              for name in ("mount_unmount", "keyed_reorder",
                                           "state_like_update", "idle")]}
 
@@ -121,9 +126,11 @@ def main(argv=None):
     parser.add_argument("--nodes", type=int, default=16)
     parser.add_argument("--cycles", type=int, default=100)
     parser.add_argument("--warmup", type=int, default=10)
+    parser.add_argument("--engine", choices=("python", "rust", "both"), default="both")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)
-    result = run(nodes=args.nodes, cycles=args.cycles, warmup=args.warmup)
+    result = run(nodes=args.nodes, cycles=args.cycles, warmup=args.warmup,
+                 engines=('python', 'rust') if args.engine == 'both' else (args.engine,))
     output = json.dumps(result, indent=2, sort_keys=True)
     if args.output:
         args.output.write_text(output + "\n", encoding="utf-8")
