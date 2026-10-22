@@ -63,7 +63,7 @@ class Reconciler:
             # place; the caller will unmount and remount it.
             return False
 
-    def remount_component(self, instance: MountedInstance, *, commit: bool = True) -> MountedInstance:
+    def remount_component(self, instance: MountedInstance, *, node: VNode | None = None, commit: bool = True) -> MountedInstance:
         """Replace one incompatible hook boundary without remounting siblings.
 
         Called on the renderer owner thread after a failed compatible render.
@@ -74,7 +74,7 @@ class Reconciler:
         if instance.disposed or instance.node.kind is not NodeKind.COMPONENT:
             raise ValueError("Only a live component boundary can be remounted.")
         parent = instance.parent
-        replacement = MountedInstance(node=instance.node, parent=parent)
+        replacement = MountedInstance(node=node if node is not None else instance.node, parent=parent)
         # First validate the new hook sequence and VNode without altering the
         # live descendant tree. An invalid candidate cannot destroy the UI.
         rendered = self._evaluate_component(replacement)
@@ -231,7 +231,7 @@ class Reconciler:
             except HookOrderError:
                 old.node = previous_node
                 if self._coordinated_remount:
-                    return self.remount_component(old, commit=False)
+                    return self.remount_component(old, node=node, commit=False)
                 raise
             except Exception:
                 old.node = previous_node
