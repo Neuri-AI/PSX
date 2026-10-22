@@ -2745,11 +2745,11 @@ def test_qt_binding_only_signal_wrapper_reference_soak():
     final_counts = None
     before_process = process_memory()
 
-    def on_click():
-        return None
-
     try:
         for cycle in range(cycles):
+            # Each PSX event binding constructs a fresh application callback;
+            # reusing one callback would hide binding-level identity caches.
+            on_click = lambda current=cycle: current
             parent = widgets.QWidget()
             button = widgets.QPushButton(parent)
             button.clicked.connect(on_click)
