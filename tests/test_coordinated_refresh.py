@@ -331,3 +331,16 @@ def test_local_from_import_rebinds_after_dependency_edit(tmp_path, monkeypatch):
     finally:
         context.app.unmount()
         sys.modules.pop("refresh_helper", None)
+
+
+def test_invalid_edit_resets_stale_previous_remount_status(tmp_path, monkeypatch):
+    entry = tmp_path / "main.py"
+    entry.write_text("def broken(:\n", encoding="utf-8")
+    context, reconciler, original = make_context(entry)
+    reconciler._coordinated_remount_applied = True
+    monkeypatch.setattr(refresh, "_reload_policy", lambda _: object())
+    monkeypatch.setattr(refresh, "_project_modules", lambda *_: (frozenset(), {}))
+    with pytest.raises(SyntaxError):
+        refresh.refresh_context_source(context, entry, ("main.py",))
+    assert reconciler._coordinated_remount_applied is False
+    assert context._development_render[0] is original
