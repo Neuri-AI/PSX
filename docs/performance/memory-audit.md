@@ -1,0 +1,41 @@
+# Resource lifecycle and performance baseline
+
+**Scope:** Initial measurement audit (P2.1 planning traceability). No production lifecycle API changes. This instrument measures **Headless only**, deliberately avoiding native timing comparisons.
+
+## Reproducible run
+
+From a checkout with this branch installed:
+
+```bash
+python benchmarks/resource_baseline.py --nodes 16 --cycles 100 --warmup 10 --output resource-baseline.json
+python -m pytest -q tests/test_resource_baseline.py tests/test_ci_impact.py
+```
+
+The JSON captures Python/runtime/platform, independent mount/unmount, keyed reorder, state-like content change and idle workloads, per-operation mean/p95 wall latency, traced live bytes before workload and after explicit unmount/GC, traced peak bytes, intermediate checkpoints and GC object counts. Where available `resource.getrusage` reports **peak** RSS, not instantaneous RSS. USS is explicitly `null` without a supported provider. Native QObject/widget counts, GPU buffers, subscriptions and native signal counts are **not** measured by this harness; there must be no inferred PASS for these metrics. Callbacks are not instrumented by this minimal harness.
+
+Results are environment- and allocator-specific. Python traced byte differences are observations; neither a positive delta nor a stable peak is alone proof of a leak or of its absence. No fabricated timing target, leak threshold or machine-independent baseline is used.
+
+## Existing audit surfaces
+
+| Risk | Available current evidence | Next audit |
+| --- | --- | --- |
+| VNode/reconciler | Headless mount/unmount and keyed-reorder probes; existing reconciliation tests | Check weakrefs and live handler counts after repeated native teardown |
+| Hooks/effects | Existing hook scheduler/effect tests | Capture cleanup closure lifetime and active effect counts |
+| Qt widgets | Existing native lifecycle and teardown tests | Track both QObject destruction and Python wrapper references |
+| Tkinter | Existing native lifecycle tests | Track Tk bindings and widgets after teardown |
+| Kivy | Existing mounted lifecycle tests | **Long-running memory-growth investigation explicitly deferred by owner to a separate iteration** |
+| Pydux | External integration, not measured here | Audit subscription ownership in a dedicated increment |
+| Async | Not measured | Add cancellation/late-callback ownership probes |
+| Cinnamon | NativeIntrinsicCache generation-bounded tests and incremental solve parity | Sample cache entry counts before/after mount/unmount |
+| Resources | Existing image/canvas lifetime tests | Quantify live buffers/assets and eviction |
+| Diagnostics | Not measured | Count observer/log references after teardown |
+
+## Audit execution and baseline acceptance
+
+- This increment introduces a reproducible **instrument**, not an alleged recorded runtime measurement. CI must actually execute `tests/test_resource_baseline.py`; its JUnit receipt and exact SHA establish whether measurements and validation ran.
+- Capture real numeric JSON per environment before setting per-scenario regression thresholds; **do not** claim CPU, USS, native-widget counts or native-platform memory as measured until a suitable instrument exists.
+- For subsequent increments, establish a fixed warmup, repeated teardown, stable observation window and compare like-for-like environment baselines. Keep real memory growth and allocator high-water behavior distinct.
+- Public API impact: **N/A** — no public component, method, prop, event or capability is introduced. This is a development-only benchmark under `benchmarks/` and tests under `tests/`.
+- Kivy long-run memory growth is intentionally **out of scope for this iteration**, per owner decision; do not treat this as a resolved risk.
+
+**Exit status:** initial inventory/instrumentation; recording and certifying concrete environmental baseline numbers remains required for full completion of this audit increment.
