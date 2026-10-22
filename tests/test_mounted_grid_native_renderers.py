@@ -2783,3 +2783,30 @@ def test_qt_binding_only_signal_wrapper_reference_soak():
             }
             Path(report_path).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         tracemalloc.stop()
+
+
+def test_qt_viewport_filter_class_is_reused_and_owned_callbacks_are_discarded():
+    """Repeated native commits must not create a QObject subclass per mount."""
+    if os.environ["PSX_GRID_BACKEND"] != "qt":
+        pytest.skip("Qt-specific QObject observer lifetime")
+    from psx import Flex
+
+    renderer, close = make_renderer("qt", sfle=True)
+    tree = Reconciler(renderer)
+    filter_class = None
+    try:
+        for cycle in range(16):
+            tree.render(Flex(Text(str(cycle)), width="100%", height=200))
+            active_filter = renderer._sfle_resize_filter
+            assert active_filter is not None
+            if filter_class is None:
+                filter_class = type(active_filter)
+            assert type(active_filter) is filter_class
+            tree.unmount()
+            assert renderer._sfle_resize_filter is None
+            assert active_filter._resize_handler is None
+            assert active_filter._invalidation_handler is None
+            _flush_qt_disposal(renderer)
+    finally:
+        tree.unmount()
+        close()
