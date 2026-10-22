@@ -18,6 +18,16 @@ from pathlib import Path
 from psx import Flex, Text
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
+from psx.sfle.engine import PythonLayoutEngine
+from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+
+def make_renderer():
+    return HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda _: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+    )
 
 
 def process_memory():
@@ -53,7 +63,7 @@ def sample(*, nodes=16, cycles=100, warmup=10, scenario="mount_unmount"):
         def one(index):
             nonlocal tree
             if scenario == "mount_unmount":
-                tree = Reconciler(HeadlessRenderer())
+                tree = Reconciler(make_renderer())
                 tree.render(view(nodes, index))
                 tree.unmount()
                 tree = None
