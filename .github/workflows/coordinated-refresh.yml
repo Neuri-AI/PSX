@@ -5,6 +5,8 @@ on:
     paths:
       - 'psx/devtools/**'
       - 'tests/test_coordinated_refresh.py'
+      - 'tests/test_ci_impact.py'
+      - 'scripts/ci/impact.py'
       - '.github/workflows/coordinated-refresh.yml'
   workflow_dispatch:
 jobs:
@@ -17,4 +19,4 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install pytest
       - run: python -m pip install -e . --no-deps
-      - run: python -m pytest -q tests/test_coordinated_refresh.py
+      - run: python -m pytest -q tests/test_coordinated_refresh.py tests/test_ci_impact.py
