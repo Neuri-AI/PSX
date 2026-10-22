@@ -52,6 +52,19 @@ def process_memory():
                 snapshot["rss_live_bytes"] = pages * __import__("os").sysconf("SC_PAGE_SIZE")
             except (OSError, ValueError, IndexError):
                 pass
+    if snapshot["uss_bytes"] is None and sys.platform.startswith("linux"):
+        try:
+            # USS is private resident pages; do not confuse this with peak RSS.
+            private_kib = 0
+            found = False
+            for line in Path("/proc/self/smaps_rollup").read_text().splitlines():
+                if line.startswith(("Private_Clean:", "Private_Dirty:", "Private_Hugetlb:")):
+                    private_kib += int(line.split()[1])
+                    found = True
+            if found:
+                snapshot["uss_bytes"] = private_kib * 1024
+        except (OSError, ValueError, IndexError):
+            pass
     try:
         import resource
     except ImportError:
