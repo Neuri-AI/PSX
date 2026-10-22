@@ -17,11 +17,13 @@ def test_keyed_subtree_removal_releases_previous_node_payload():
     reference = weakref.ref(payload)
     renderer = HeadlessRenderer()
     reconciler = Reconciler(renderer)
-    reconciler.render(Text("first", key="old", on_click=lambda: payload))
-    reconciler.render(Text("second", key="new"))
-    # The callback above is a closure over the local payload variable.
-    # Release the external owner before checking the old mounted tree.
+    def create_old_node(held):
+        return Text("first", key="old", on_click=lambda item=held: item)
+    reconciler.render(create_old_node(payload))
     del payload
+    gc.collect()
+    assert reference() is not None
+    reconciler.render(Text("second", key="new"))
     gc.collect()
     assert reference() is None
     reconciler.unmount()
