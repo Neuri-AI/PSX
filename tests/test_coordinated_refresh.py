@@ -105,3 +105,55 @@ def test_unrelated_file_does_not_trigger_refresh(tmp_path, monkeypatch):
     assert refresh.refresh_context_source(context, entry, ("unrelated.json",)) is False
     assert reconciler.calls == []
     assert context._development_render[0] is original
+
+
+def test_real_headless_component_refresh_preserves_native_handle_and_hook_state(
+    tmp_path, monkeypatch
+):
+    from psx import App, Text, component, use_state
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+    entry = tmp_path / "main.py"
+    entry.write_text("class Example: pass", encoding="utf-8")
+    prefix = ["before"]
+
+    def render(_ctx):
+        count, _ = use_state(7)
+        return Text(f"{prefix[0]}:{count}")
+
+    class Demo:
+        pass
+
+    holder = [render]
+    def root():
+        return holder[0](context)
+
+    definition = component(root)
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+    )
+    app = App(definition, renderer=renderer)
+    context = SimpleNamespace(
+        app=app, _development_root_definition=definition, _development_render=holder,
+    )
+    app.mount()
+    original = app.reconciler.root.native_handle()
+    assert original.props["value"] == "before:7"
+
+    def updated(_ctx):
+        count, _ = use_state(7)
+        return Text(f"after:{count}")
+
+    monkeypatch.setattr(refresh, "_reload_policy", lambda host: object())
+    monkeypatch.setattr(refresh, "_project_modules", lambda *args: (frozenset(), {}))
+    monkeypatch.setattr(refresh, "_load_updated_class", lambda *args: SimpleNamespace(render=updated))
+    try:
+        assert refresh.refresh_context_source(context, entry, ("main.py",))
+        assert app.reconciler.root.native_handle() is original
+        assert original.props["value"] == "after:7"
+    finally:
+        app.unmount()
