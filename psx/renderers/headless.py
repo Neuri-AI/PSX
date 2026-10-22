@@ -424,6 +424,12 @@ class HeadlessRenderer:
     def _adapter_destroy(self, handle: object) -> None:
         target = _handle(handle)
         target.destroyed = True
+        # External diagnostic consumers may retain a destroyed HeadlessHandle.
+        # Its prop snapshot must not keep application event closures alive.
+        for name in tuple(target.props):
+            if name.startswith("on_"):
+                target.props.pop(name, None)
+        target.events.clear()
         self.operations.append(("destroy", target))
 
     def schedule_ui(self, callback: Callable[[], None]) -> None:
