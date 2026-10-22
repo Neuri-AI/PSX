@@ -91,3 +91,67 @@ Implementation is planned as seven internal stages, from shared architecture thr
 ## 7. Existing baseline and scope boundary
 
 Current M8 baseline: `psx.devtools` watcher/debounce/process restart, constrained `ComponentRefreshManager`, local import discovery, and opt-in JSON snapshot registry. Current implementation may restart for hook-structure or bootstrap edits and is more conservative about third-party imports. Those behaviors are **baseline limitations to replace in F6**, not approved target behavior. See [M8 baseline](../m8-hot-reloading.md) and [roadmap](../roadmap.md).
+
+## 8. Verified integration inventory and migration boundaries
+
+This inventory was checked against actual repository source before implementation. It is not a statement that cross-repository coordination already works.
+
+| Owner | Verified current integration point | Missing work or compatibility hazard |
+| --- | --- | --- |
+| Velto CLI (`release`) | `velto_cli/cmdline/commands/start.py` calls `RunApplicationUseCase.execute()`; `velto_cli/application/use_cases/start.py` resolves the entry and invokes `AppRunnerPort.run_from_source`; `velto_cli/adapters/process/runners.py` executes the child with `PSX_SOURCE_ENTRY` after preparing inline PSX Markup. | No coordinated refresh transport or declared `--no-hot-reload` option at these entry points. Alter the existing use-case, runner port and CLI command, not an unrelated coordinator or duplicate launcher. |
+| Velto CLI settings | `SettingsRepository` in `velto_cli/adapters/persistence/storage.py` reads `settings/base.json` and applies explicit platform/profile files via recursive `_deep_merge`. Secrets are reapplied at highest precedence. | `development.json` must be explicitly activated for source development; never rely on implicit discovery. Do not repurpose `build.json` or override release/signing behavior. |
+| Qyro Engine (`release`) | `JsonSettingsAdapter.get_raw_settings()` reads `base.json`, applies a single recognized platform JSON with shallow top-level `dict.update`, and then processes secrets. `VeltoContext.app_settings` exposes those settings and `VeltoContext.is_frozen` reads boot metadata. | A shallow override currently replaces a whole `hot_reload` object. Implement a narrowly scoped recursive merge with identical source-profile precedence; ensure source-vs-frozen context is known **before** any development services are allocated. |
+| Qyro Engine application lifecycle | `VeltoContext.mount()` creates the backend-specific renderer, wraps the PSX root in `StoreProvider` when a Pydux-compatible store is present, mounts `App`, then presents native Qt/Tk/Kivy widgets. `unmount()` delegates to `App.unmount()`. | Coordinate with the existing application instance. UI-thread dispatch and mount/remount boundaries cannot be implemented safely by directly mutating widgets from CLI's file-watching thread. |
+| PSX (`feature/intelligent-hot-reload`) | `psx/devtools/qyro_reload.py` already has `QyroComponentReloader`, imports/project discovery, `schedule_ui` and hook-error remount; `psx/devtools/config.py` checks frozen mode. `psx/devtools/state.py` offers explicitly registered JSON snapshots with size limits. | Existing M8 watcher/process supervisor overlaps proposed CLI ownership; migrate responsibilities without running two watchers or two process supervisors. Ensure stale work cancellation, safe transactional code swap, selective boundaries and rollback. |
+| Pydux (`main`) | `pydux/core/store.py` has `Store.get_state`, `dispatch`, `select` and unsubscribe closures protected by its `RLock`; the existing Qyro context discovers stores and provides them to PSX. | First preserve a compatible store object across refresh by not replacing it. Native store serialization or automatic store recreation is **not** required for in-process refresh. Restart snapshot integration must be explicit, registered, validated and defer to application-defined reducers/restorers. |
+
+### Concrete lifecycle and protocol ownership
+
+1. **CLI is the single workspace watcher and child-process supervisor.** It starts from the existing `velto start` code path and communicates source changes to the running development application; it alone may request a child-process restart. PSX's existing development watcher is a migration input, not a second watcher left running. The child still owns the only toolkit event loop.
+2. **Qyro is the runtime boundary.** It verifies mode/frozen status, associates each request with the currently mounted `VeltoContext` generation, and delegates safe UI classifications and mutations to PSX. Signals and queues must not run native UI code on the watcher thread.
+3. **PSX owns UI update decisions and application of compatible updates.** It evaluates source and dependency impact against component identity and hook signature, stages candidate changes, and applies only on the native UI thread. A rejected candidate leaves the prior committed tree and render callable intact. If safe in-process recovery fails, it returns an explicit escalation reason to the coordinator.
+4. **Pydux owns store state and subscription correctness.** In-process updates retain the same Store where compatible, while unmounted component subscriptions are released. Cross-process state export is optional and must be application-registered rather than attempted by snapshotting every store.
+
+### Correlated coordination messages (design contract, not implemented transport)
+
+A message envelope consists of `version` (integer, initially `1`), `request_id` (unique within a running supervisor session), `kind` (`change`, `decision`, `result`), and the relevant data. `change` includes normalized project-relative changed paths and the current generation. `decision` includes an action (`fast_refresh`, `component_remount`, `process_restart`, `no_action`), a concrete reason, affected module/component identifiers where known and whether eligible state can be retained. `result` includes success/failure/rejection plus whether the previous UI was preserved. Invalid version, wrong session, stale generation, duplicate request, malformed payload, or paths escaping the project root must **fail closed** without applying to widgets.
+
+**Reason taxonomy:** `compatible_source_change`, `style_change`, `hook_signature_changed`, `component_identity_changed`, `native_widget_incompatible`, `backend_changed`, `runtime_bootstrap_changed`, `loaded_native_extension_changed`, `unsafe_global_initialization`, `source_validation_failed`, `unavailable_dependency`, `stale_request`, `development_disabled` and `frozen_runtime`. The taxonomy is descriptive and can be extended compatibly, but unknown codes never authorize escalation or widget mutations. Exact transport encoding, acknowledgment and bounded buffering are implementation decisions for the supervision increment, not public API commitments today.
+
+### Classification decision table
+
+| Observed change | Lowest safe target | Preservation / handling |
+| --- | --- | --- |
+| Compatible markup, text, callback or component body | Fast Refresh | Reevaluate affected component boundaries; retain hook and native widget identity when valid |
+| CSS stylesheet or global variable used by mounted nodes | Fast Refresh | Invalidate all affected style/layout contexts, not a fixed number of nodes; independent contexts remain intact |
+| Local module function and `from module import symbol` | Fast Refresh when safely rebindable | Update dependent project-owned consumers; reject in-place update if non-reinitializable globals make it unsafe |
+| First import of installed third-party dependency, including `pandas` | Fast Refresh if safe to load | Loading a previously unimported extension is not replacing an already loaded native binary |
+| Add/remove/reorder/change kind of hooks | Component Remount | Unmount smallest safe boundary, clean effects and subscriptions, reset only incompatible local state |
+| Component type/key/native widget contract incompatible with reuse | Component Remount | Keep unaffected parent window and independent components; close replaced handles |
+| Source syntax error / invalid markup candidate | No application, report failure | Keep last committed UI, continue watching for corrected save |
+| Application entry file changes compatible render logic | Fast Refresh or Component Remount | Entry filename alone is not justification for process restart |
+| Backend selection, interpreter or native event-loop bootstrap changes | Process Restart | Cleanly terminate child and recreate under supervisor; restore only compatible registered state |
+| Already-loaded incompatible native binary replacement | Process Restart | Do not attempt unsafe in-process reload of binary modules |
+| Frozen or production execution | No action | No watcher, IPC refresh bridge or restart-on-source-change service may be started |
+
+### Configuration merge and safety rules
+
+- Source development: read `settings/base.json`, then the host platform profile, and finally `settings/development.json`; merge nested objects recursively, including `hot_reload`. Scalars/lists replace earlier values. CLI invocation disable has precedence over all JSON configuration. The **effective activation** additionally requires development mode and non-frozen runtime; frozen prohibition is absolute.
+- Existing `base.json` values work without duplicating them in `development.json`. Project-local development settings are never treated as production overrides. `settings/release.json`, `settings/sign.json`, and `settings/secrets.json` retain their existing build, signing and protected-data responsibilities and are **not** merged into hot reload configuration merely to make the feature work.
+- A missing development profile is valid; malformed or non-object explicit development settings must yield actionable development diagnostics, not silently activate a watcher. `hot_reload.enabled` must have a well-defined boolean value, with a conservative OFF default when no explicit project or developer opt-in exists.
+- Watch paths are project-relative, normalized and guarded against traversal/symlink escape. Ignore `.git`, virtual environments, editor temporary files, caches, build and distribution directories. Always monitor the authored entry file, not only a temporary PSX-transformed copy.
+- `strategy=auto` means minimum safe impact; `fallback=restart` applies only after a reasoned unsafe-in-process classification, never to every new import or `main.py` edit. Snapshot state is opt-in, versioned and bounded JSON; never serialize widgets, stores themselves, secrets, closures or native handles.
+
+## 9. Implementation handoff and certification boundaries
+
+| Internal increment | Concrete deliverable | Exit evidence required |
+| --- | --- | --- |
+| Architecture and shared contract | This canonical PSX specification, backed by audited entry points, configuration precedence, ownership, decision matrix and fail-closed rules | Source inspection and documentation-only diff; no new product feature implied |
+| Development supervision | CLI command/options and settings adapter coordinate exactly one watcher with Engine, child-handshake and source/frozen safety | Executed tests for CLI and Engine in their own repositories; disabled/frozen and invalid settings regressions |
+| Compatible refresh | PSX recompiles/rebinds safe changes, including markup, CSS and project imports, then selectively commits on UI thread | Real Qt/Tk/Kivy tests; CI routing and public census when required |
+| Targeted remount | Incompatible hooks, keys and native handle changes remount only necessary boundaries | Teardown/cleanup and retained-state tests including failures |
+| Shared state and recovery | Preserved Pydux instances, registered restart snapshots and source validation rollback | Pydux and Qyro integration tests, syntax recovery and malformed-state tests |
+| Controlled restart | Only unsafe native/process changes restart the child; reason codes and safe optional restore | CLI/Engine/PSX end-to-end child process tests |
+| Integrated certification | Edit/revert/save storms, multiple remounts, stylesheet and imports across Qt/Tk/Kivy | Per-repository exact-SHA CI plus executed cross-repo integration receipts; memory/watchers/handles do not grow unbounded |
+
+**Scope of this architecture increment:** specification and real-source ownership mapping only. No production module, workflow, public API, watcher, settings parser or transport is added in this increment. Functional/native tests and CI routing are **not applicable to a documentation-only diff**, and public-behavior census is **N/A**. This specification is ready for implementation handoff, but the complete hot reload feature remains uncertified.
