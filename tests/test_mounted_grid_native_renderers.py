@@ -2600,3 +2600,82 @@ def test_native_image_churn_releases_owned_decoded_buffers(tmp_path):
             from pathlib import Path
             Path(soak_report).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
             tracemalloc.stop()
+
+
+def test_native_keyed_tree_reconciliation_soak():
+    """Measure sustained native subtree mount, reordering and teardown."""
+    import gc
+    import json
+    import platform
+    import sys
+    import time
+    import tracemalloc
+    from pathlib import Path
+    from psx import Button, Flex
+    from benchmarks.resource_baseline import process_memory
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    report_path = os.environ.get("PSX_TREE_SOAK_REPORT")
+    cycles = int(os.environ.get("PSX_TREE_SOAK_CYCLES", "12"))
+    assert cycles > 0
+    renderer, close = make_renderer(backend, sfle=False)
+    tree = Reconciler(renderer)
+    checkpoints = []
+    tracemalloc.start()
+    baseline_memory = process_memory()
+    start_wall = time.perf_counter_ns()
+    start_cpu = time.process_time_ns()
+
+    try:
+        for cycle in range(cycles):
+            first = Flex(
+                Button("A", key="a", on_click=lambda: None),
+                Text(str(cycle), key="b"),
+                direction="column",
+            )
+            second = Flex(
+                Text(str(cycle + 1), key="b"),
+                Button("A", key="a", on_click=lambda: None),
+                direction="column",
+            )
+            tree.render(first)
+            tree.render(second)
+            tree.unmount()
+            assert tree.root is None
+            if backend == "qt":
+                renderer.application.processEvents()
+            elif backend == "tk":
+                renderer.flush()
+            else:
+                from kivy.clock import Clock
+                Clock.tick()
+            if (cycle + 1) % max(1, cycles // 4) == 0 or cycle + 1 == cycles:
+                gc.collect()
+                current, peak = tracemalloc.get_traced_memory()
+                checkpoints.append({
+                    "cycle": cycle + 1,
+                    "traced_current_bytes": current,
+                    "traced_peak_bytes": peak,
+                    "gc_objects": len(gc.get_objects()),
+                    "process_memory": process_memory(),
+                })
+    finally:
+        tree.unmount()
+        close()
+        if report_path:
+            gc.collect()
+            current, peak = tracemalloc.get_traced_memory()
+            report = {
+                "schema": 1, "backend": backend,
+                "qt_binding": os.environ.get("PSX_QT_BINDING") if backend == "qt" else None,
+                "python": sys.version.split()[0], "platform": platform.platform(),
+                "cycles": cycles, "checkpoints": checkpoints,
+                "process_memory_before": baseline_memory,
+                "process_memory_after": process_memory(),
+                "after_teardown_traced_bytes": current, "traced_peak_bytes": peak,
+                "wall_total_ms": round((time.perf_counter_ns() - start_wall) / 1e6, 3),
+                "cpu_total_ms": round((time.process_time_ns() - start_cpu) / 1e6, 3),
+                "scope": "real native keyed tree and widget lifecycle; diagnostic, not leak verdict",
+            }
+            Path(report_path).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        tracemalloc.stop()
