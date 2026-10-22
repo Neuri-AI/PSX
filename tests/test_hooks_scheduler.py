@@ -229,3 +229,31 @@ def test_unmount_releases_queued_state_and_effect_payloads_without_ui_flush():
     renderer.flush()
     assert tree.root.children[0].handle.props["value"] == "2"
     tree.unmount()
+
+
+def test_undelivered_ui_flush_does_not_own_disposed_reconciler():
+    import gc
+    import weakref
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx import component, use_state, Text
+
+    renderer = HeadlessRenderer()
+    setters = []
+
+    @component
+    def Component():
+        value, set_value = use_state(0)
+        setters.append(set_value)
+        return Text(str(value))
+
+    tree = Reconciler(renderer)
+    tree.render(Component())
+    setters.pop()(1)
+    assert renderer._pending
+    tree.unmount()
+    reference = weakref.ref(tree)
+    del tree
+    gc.collect()
+    assert reference() is None
+    renderer.flush()
