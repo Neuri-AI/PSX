@@ -80,7 +80,14 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
         if source in changed or modules_changed:
             candidate = _load_updated_class(source, type(context), frozenset(module_paths))
             compiled[0] = candidate.render
-        if app.reconciler.try_reevaluate(instance):
+        reconciler = app.reconciler
+        previously_enabled = reconciler._coordinated_remount
+        reconciler._coordinated_remount = True
+        try:
+            compatible = reconciler.try_reevaluate(instance)
+        finally:
+            reconciler._coordinated_remount = previously_enabled
+        if compatible:
             # A targeted reevaluation must finish the same layout/ref/effect
             # commit that a normal reconciler render performs.
             renderer = app.reconciler.renderer
