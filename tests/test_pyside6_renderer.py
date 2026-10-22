@@ -353,6 +353,7 @@ def test_pydux_selector_unsubscribes_when_native_component_unmounts():
             self.listeners = []
             self.state = {"count": 1}
             self.disposed = 0
+            self.inspector = type("Inspector", (), {"stop": lambda owner: setattr(owner, "stops", getattr(owner, "stops", 0) + 1)})()
 
         def get_state(self):
             return self.state
@@ -382,14 +383,20 @@ def test_pydux_selector_unsubscribes_when_native_component_unmounts():
         count = use_selector(lambda state: state["count"])
         return Text(str(count))
 
-    mounted = reconciler.render(StoreProvider(store, Reader()))
-    assert len(store.listeners) == 1
-    assert mounted.children[0].children[0].handle.widget.text() == "1"
-    reconciler.unmount()
-    renderer.application.processEvents()
-    assert store.listeners == []
-    assert store.disposed == 1
-    del mounted
-    gc.collect()
-    store.dispatch({"count": 3})
-    assert reconciler.root is None
+    for iteration in range(12):
+        mounted = reconciler.render(StoreProvider(store, Reader()))
+        assert len(store.listeners) == 1
+        assert mounted.children[0].children[0].handle.widget.text() == str(iteration + 1)
+        # A state change while mounted must reach the native widget normally.
+        store.dispatch({"count": iteration + 2})
+        renderer.application.processEvents()
+        assert mounted.children[0].children[0].handle.widget.text() == str(iteration + 2)
+        reconciler.unmount()
+        renderer.application.processEvents()
+        assert store.listeners == []
+        assert store.disposed == iteration + 1
+        assert store._pydux_psx_inspector_leases == 0
+        assert store.inspector.stops == iteration + 1
+        del mounted
+        gc.collect()
+        assert reconciler.root is None
