@@ -1,0 +1,20 @@
+name: Coordinated component refresh validation
+on:
+  push:
+    branches: [feature/intelligent-hot-reload]
+    paths:
+      - 'psx/devtools/**'
+      - 'tests/test_coordinated_refresh.py'
+      - '.github/workflows/coordinated-refresh.yml'
+  workflow_dispatch:
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest
+      - run: python -m pip install -e . --no-deps
+      - run: python -m pytest -q tests/test_coordinated_refresh.py
