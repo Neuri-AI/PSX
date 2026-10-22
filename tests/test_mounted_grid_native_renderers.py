@@ -2810,3 +2810,29 @@ def test_qt_viewport_filter_class_is_reused_and_owned_callbacks_are_discarded():
     finally:
         tree.unmount()
         close()
+
+
+def test_qt_text_and_button_host_types_remain_constant_across_mounts():
+    """A new native widget must not create a new Qt QObject-derived Python type."""
+    if os.environ["PSX_GRID_BACKEND"] != "qt":
+        pytest.skip("Qt wrapper class ownership")
+    from psx import Button, Flex
+
+    renderer, close = make_renderer("qt", sfle=True)
+    tree = Reconciler(renderer)
+    reference_types = None
+    try:
+        for cycle in range(16):
+            mounted = tree.render(Flex(
+                Text(str(cycle), key="text"),
+                Button("Action", key="button"),
+                direction="column", width="100%", height=200))
+            current_types = tuple(type(child.handle.widget) for child in mounted.children)
+            if reference_types is None:
+                reference_types = current_types
+            assert current_types == reference_types
+            tree.unmount()
+            _flush_qt_disposal(renderer)
+    finally:
+        tree.unmount()
+        close()
