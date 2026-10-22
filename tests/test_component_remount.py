@@ -138,3 +138,50 @@ def test_cleanup_failure_still_disposes_previous_hook_slots(tmp_path, monkeypatc
         assert context.app.reconciler.root.native_handle().children[0].props["value"] == "after"
     finally:
         context.app.unmount()
+
+
+def test_nested_hook_change_remounts_only_child_and_preserves_sibling(tmp_path, monkeypatch):
+    source = tmp_path / "main.py"
+    source.write_text("class Example: pass", encoding="utf-8")
+    mode = ["before"]
+    old_setters = []
+
+    @component
+    def Child():
+        state, setter = use_state(19)
+        if mode[0] == "before":
+            old_setters.append(setter)
+        else:
+            use_ref()
+        return Flex(Text(f"{mode[0]}:{state}"))
+
+    def before(_):
+        return Flex(Child(), Text("independent"))
+
+    def after(_):
+        mode[0] = "after"
+        return Flex(Child(), Text("independent"))
+
+    context = mounted(source, before)
+    try:
+        root = context.app.reconciler.root
+        parent_flex = root.children[0]
+        old_child = parent_flex.children[0]
+        sibling = parent_flex.children[1]
+        host = root.native_handle()
+        sibling_widget = sibling.handle
+        child_widget = old_child.native_handle()
+        assert invoke(context, source, after, monkeypatch)
+        new_root = context.app.reconciler.root
+        assert new_root is root
+        assert new_root.native_handle() is host
+        assert parent_flex.children[1] is sibling
+        assert sibling.handle is sibling_widget
+        assert parent_flex.children[0] is not old_child
+        assert old_child.disposed
+        assert parent_flex.children[0].native_handle() is child_widget
+        old_setters[0]("stale")
+        context.app.renderer.flush()
+        assert parent_flex.children[0].children[0].children[0].handle.props["value"] == "after:19"
+    finally:
+        context.app.unmount()
