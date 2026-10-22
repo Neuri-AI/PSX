@@ -122,3 +122,55 @@ The native regression `test_native_event_replacement_and_teardown_disconnects_re
 **Ownership boundary.** Do not clear the framework-global Kivy texture cache or destroy borrowed native widgets: those are managed by Kivy and the external owner respectively. This stage verifies release of PSX-owned resource references, not native allocator RSS returning to baseline, GPU-driver cache eviction, arbitrary third-party widgets or all global toolkit caches. The previously deferred long-duration Kivy memory-growth investigation remains outside this increment. Extended RSS/USS, image churn under prolonged load and cross-platform resource-growth envelopes belong to P2.6.
 
 **P2.5 exit:** Cache publication/eviction and teardown contracts, native owned Image buffers and resource watcher disposal have executable regressions and successful exact-SHA CI receipts. No public API or behavior contracts were added, so a new public census cell is N/A. This is not a claim that all process/global memory has been freed or that multi-hour sessions are certified.
+
+
+## Prolonged resource and native lifecycle benchmarking
+
+**Executed implementation SHA:** `3415ce4e334d39b6d19eb6d3a4599b9a616b395a`. All seven required PR workflows concluded `success`: [Native selective validation](https://github.com/Neuri-AI/PSX/actions/runs/39836826222), [Grid integral certification](https://github.com/Neuri-AI/PSX/actions/runs/39836826481). The CI run built and installed the actual Rust extension and also measured the explicit Python layout engine. The data below are from **downloaded, inspected JSON artifacts**, not estimates.
+
+### Instrumentation and sampling conditions
+
+- Headless: CPython 3.12.15; Linux x86_64 (Azure); 16 nodes, 30 warmup cycles and **400 measured cycles per scenario and per Cinnamon engine**. Exactly four workloads: mount/unmount, keyed reordering, state-like content update, idle. Each reports mean/p95 wall time per operation, process CPU time, traced Python bytes, live RSS, Linux USS, peak RSS, GC object counts and checkpoints after every 100 cycles. The benchmark clears Headless's diagnostic operation history after active reconciliations so that the diagnostic log does not falsely appear as retained mounted trees.
+- Real native widgets: Qt/PySide6, PySide2, PyQt6 and PyQt5; Tkinter; Kivy under Xvfb/SDL2. Each toolkit executes **2,048 Image mount/unmount cycles** and **512 keyed subtree mount/reorder/unmount cycles**. Captured JSON includes mean/p95 per cycle, CPU time, live RSS, USS, Python allocations and GC objects, sampled with GC at 25%, 50%, 75%, and 100% of cycles. Qt explicitly flushes `deleteLater` deferred-deletion events before checkpoints. The keyed-tree native workload uses Cinnamon Python; the Rust/Python dual run is Headless, so the native results must not be labeled a Rust-vs-Python native comparison.
+- No machine-independent memory threshold or universal absence-of-leaks claim is inferred from allocator high water. For native drift figures below, the delta is **last checkpoint minus first checkpoint** (75% of the loop, after GC), not end-minus-pristine-process startup.
+
+[Headless 400-cycle Rust/Python JSON](https://github.com/Neuri-AI/PSX/actions/runs/39836826222/artifacts/12451292650).
+
+| Headless workload | Python mean / p95 (ms) | Rust mean / p95 (ms) | Python / Rust traced after-teardown delta (bytes) |
+| --- | ---: | ---: | ---: |
+| Mount/unmount | 67.2535 / 70.3929 | 15.8435 / 18.8480 | +26,810 / +17,226 |
+| Keyed reorder | 64.4783 / 67.0722 | 15.1483 / 17.0140 | -43,007 / -47,076 |
+| Content update | 65.3877 / 68.2610 | 15.5069 / 17.1921 | -45,523 / -49,592 |
+| Idle | 0.0014 / 0.0020 | 0.0016 / 0.0022 | -44,689 / -48,638 |
+
+The active Headless workloads measured roughly 4.2x more completed cycles per second when selecting Rust; this is end-to-end workload throughput rather than an isolated Cinnamon solver factor or native display FPS. After diagnostic-history exclusion, the active keyed/update workloads show **three or fewer extra GC-tracked objects across the four checkpoints**. The single-run values remain environment-sensitive.
+
+### Native image and keyed-subtree observations
+
+Each row reports mean/p95 wall milliseconds per cycle, traced-Python drift MiB, USS drift MiB, and net GC-tracked object count across the first-to-last checkpoints.
+
+| Backend / workload | Cycles | Mean / p95 ms | Traced drift MiB | USS drift MiB | GC object drift |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| PyQt6 / Image | 2,048 | 0.440 / 0.466 | +0.056 | -0.066 | -10 |
+| PyQt6 / keyed tree | 512 | 77.656 / 79.817 | +0.235 | +1.020 | +3 |
+| PyQt5 / Image | 2,048 | 0.200 / 0.217 | +0.056 | +0.203 | -13 |
+| PyQt5 / keyed tree | 512 | 44.671 / 47.158 | +0.239 | +1.410 | +3 |
+| PySide2 / Image | 2,048 | 0.457 / 0.486 | +0.076 | +0.223 | +2 |
+| PySide2 / keyed tree | 512 | 64.651 / 65.767 | +1.580 | +3.293 | +2,560 |
+| PySide6 / Image | 2,048 | 0.229 / 0.234 | +0.151 | +0.309 | +5 |
+| PySide6 / keyed tree | 512 | 47.083 / 51.583 | +1.540 | +2.145 | +2,285 |
+| Tkinter / Image | 2,048 | 7.520 / 8.204 | +0.065 | +0.203 | -10 |
+| Tkinter / keyed tree | 512 | 44.844 / 46.421 | +0.015 | +6.613 | +3 |
+| Kivy / Image | 2,048 | 2.127 / 2.195 | +5.050 | +11.242 | +24,259 |
+| Kivy / keyed tree | 512 | 87.736 / 90.026 | +2.228 | +3.883 | +10,371 |
+
+Original per-backend native JSON bundles: [PyQt6](https://github.com/Neuri-AI/PSX/actions/runs/39836826222/artifacts/12451238392), [PyQt5](https://github.com/Neuri-AI/PSX/actions/runs/39836826222/artifacts/12450758443), [PySide2](https://github.com/Neuri-AI/PSX/actions/runs/39836826222/artifacts/12450589904), [PySide6](https://github.com/Neuri-AI/PSX/actions/runs/39836826222/artifacts/12450563636), [Tkinter](https://github.com/Neuri-AI/PSX/actions/runs/39836826222/artifacts/12451351499), [Kivy](https://github.com/Neuri-AI/PSX/actions/runs/39836826222/artifacts/12451645926).
+
+**Interpretation and explicit carry-forward risks:**
+
+1. Kivy shows consistent measured growth in both native workloads, including GC-tracked objects and Python allocations. This is **not** evidence of memory stability. The owner previously excluded the full historical Kivy growth investigation from P2, so this remains an explicitly **unresolved, separately owned** investigation, not a suppressed PASS.
+2. PySide2 and PySide6 keyed-subtree churn show additional retained GC-tracked objects even after explicitly flushing Qt deferred deletes; PyQt5/PyQt6 do not show a matching GC-object-count trend. The binding-specific growth requires object-type/referrer analysis before P2 can be declared leak-free. Treat these as **P2.7 certification blockers unless explained or fixed**. Do not infer that all remaining allocations represent permanently live widgets merely from the aggregate count.
+3. Tkinter keyed-tree USS increases while its GC-tracked object count remains nearly flat; this alone cannot distinguish the Tcl allocator, toolkit caches or a native-resource leak. The original report contains checkpoint evidence for investigation rather than an unsupported verdict.
+4. Headless diagnostic-history retention initially contaminated keyed/update memory slopes. Benchmark-local log clearing corrected this **measurement artifact** without changing the production logging interface. Therefore use this exact SHA's corrected dual-engine JSON, not the earlier contaminated run, for future reference.
+
+**Scope and exit:** The reproducible prolonged-workload harness, real native stress execution, dual Cinnamon engine observations, process memory/CPU checkpoints, raw CI artifacts and candid analysis are complete. This closes the **benchmarking/instrumentation deliverable**, not the overall P2 leak-free exit gate. The unresolved PySide and Kivy growth and allocator attribution must remain visible in integral certification. Additional multi-hour real-application sessions are not established by these cycle-bounded runs; do not claim otherwise. Public API impact is **N/A**.
