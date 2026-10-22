@@ -25,6 +25,7 @@ def test_keyed_subtree_removal_releases_previous_node_payload(engine):
     gc.collect()
     assert reference() is not None
     reconciler.render(Text("second", key="new"))
+    renderer.operations.clear()  # The debug operation log is an explicit external observer.
     gc.collect()
     assert reference() is None
     reconciler.unmount()
