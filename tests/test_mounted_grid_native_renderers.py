@@ -2527,6 +2527,16 @@ def test_disposed_native_component_ignores_queued_state_ui_callbacks():
         close()
 
 
+def _flush_qt_disposal(renderer):
+    """Qt processEvents alone does not guarantee deleteLater delivery."""
+    binding = os.environ["PSX_QT_BINDING"]
+    module = {"pyside6": "PySide6", "pyside2": "PySide2",
+              "pyqt5": "PyQt5", "pyqt6": "PyQt6"}[binding]
+    core = importlib.import_module(module + ".QtCore")
+    renderer.application.processEvents()
+    core.QCoreApplication.sendPostedEvents(None, core.QEvent.Type.DeferredDelete)
+
+
 def test_native_image_churn_releases_owned_decoded_buffers(tmp_path):
     """Image adapters release their own decoded resources on every unmount."""
     import base64
@@ -2567,7 +2577,7 @@ def test_native_image_churn_releases_owned_decoded_buffers(tmp_path):
             assert widget._psx_props is None
             if backend == "qt":
                 assert widget._psx_pixmap_cache is None
-                renderer.application.processEvents()
+                _flush_qt_disposal(renderer)
             elif backend == "tk":
                 assert widget._psx_image_cache is None
                 assert widget._psx_photo is None
@@ -2643,7 +2653,7 @@ def test_native_keyed_tree_reconciliation_soak():
             tree.unmount()
             assert tree.root is None
             if backend == "qt":
-                renderer.application.processEvents()
+                _flush_qt_disposal(renderer)
             elif backend == "tk":
                 renderer.flush()
             else:
