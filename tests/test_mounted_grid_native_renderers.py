@@ -2488,3 +2488,40 @@ def test_native_event_replacement_and_teardown_disconnects_real_toolkit_callback
     finally:
         reconciler.unmount()
         close()
+
+
+def test_disposed_native_component_ignores_queued_state_ui_callbacks():
+    """Qt/Tk/Kivy must not re-render a destroyed widget from a late UI flush."""
+    from psx import component, use_state
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend, sfle=False)
+    tree = Reconciler(renderer)
+    setters = []
+    renders = []
+
+    @component
+    def Counter():
+        value, setter = use_state(0)
+        setters.append(setter)
+        renders.append(value)
+        return Text(str(value))
+
+    try:
+        for _ in range(8):
+            tree.render(Counter())
+            setter = setters.pop()
+            setter(1)
+            tree.unmount()
+            if backend == "qt":
+                renderer.application.processEvents()
+            elif backend == "tk":
+                renderer.flush()
+            else:
+                from kivy.clock import Clock
+                Clock.tick()
+            assert tree.root is None
+        assert renders == [0] * 8
+    finally:
+        tree.unmount()
+        close()
