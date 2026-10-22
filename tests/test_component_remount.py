@@ -185,3 +185,24 @@ def test_nested_hook_change_remounts_only_child_and_preserves_sibling(tmp_path, 
         assert parent_flex.children[0].children[0].children[0].handle.props["value"] == "after:19"
     finally:
         context.app.unmount()
+
+
+def test_replaced_ref_hook_releases_reference_and_old_setter(tmp_path, monkeypatch):
+    source = tmp_path / "main.py"
+    source.write_text("class Example: pass", encoding="utf-8")
+    retained_refs = []
+    def before(_):
+        ref = use_ref("owned")
+        retained_refs.append(ref)
+        return Flex(Text("before"))
+    def after(_):
+        use_state(1)
+        return Flex(Text("after"))
+    context = mounted(source, before)
+    try:
+        assert retained_refs[0].current == "owned"
+        assert invoke(context, source, after, monkeypatch)
+        assert retained_refs[0].current is None
+        assert context.app.reconciler.root.native_handle().children[0].props["value"] == "after"
+    finally:
+        context.app.unmount()
