@@ -116,6 +116,7 @@ class Reconciler:
         # A failed layout commit can leave ref assignments queued. Do not
         # retain disposed instances or application-owned refs across teardown.
         self._pending_refs.clear()
+        self.scheduler.discard_pending()
         _raise_cleanup_error(errors)
 
     def _apply_css(self, handle: object, computed: object) -> None:
