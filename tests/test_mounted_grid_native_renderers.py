@@ -2442,7 +2442,21 @@ def test_native_event_replacement_and_teardown_disconnects_real_toolkit_callback
             else:
                 widget.dispatch("on_release")
             assert calls[-2:] == [("old", cycle), ("new", cycle)]
-            reconciler.unmount()
+            if cycle == 4:
+                original_unbind = renderer.unbind_event
+
+                def disconnect_then_fail(subscription):
+                    original_unbind(subscription)
+                    raise RuntimeError("native disconnect failure")
+
+                renderer.unbind_event = disconnect_then_fail
+                try:
+                    with pytest.raises(RuntimeError, match="native disconnect failure"):
+                        reconciler.unmount()
+                finally:
+                    renderer.unbind_event = original_unbind
+            else:
+                reconciler.unmount()
             assert reconciler.root is None
             assert updated.disposed
             assert updated.event_slots == {}
