@@ -113,6 +113,9 @@ class Reconciler:
                 invalidate_layout()
             except Exception as error:
                 errors.append(error)
+        # A failed layout commit can leave ref assignments queued. Do not
+        # retain disposed instances or application-owned refs across teardown.
+        self._pending_refs.clear()
         _raise_cleanup_error(errors)
 
     def _apply_css(self, handle: object, computed: object) -> None:
