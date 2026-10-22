@@ -171,6 +171,13 @@ jobs:
       - run: python -m pytest -q tests/test_reconciler_ownership_lifecycle.py
       - name: Capture Rust and Python resource baselines
         run: python benchmarks/resource_baseline.py --nodes 16 --cycles 100 --warmup 10 --engine both --output resource-baseline.json > /dev/null
+      - name: Capture prolonged dual-engine CPU and memory observations
+        run: python benchmarks/resource_baseline.py --nodes 16 --cycles 400 --warmup 30 --engine both --output resource-baseline-soak.json > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: headless-resource-soak
+          path: resource-baseline-soak.json
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: headless-resource-baseline
@@ -338,6 +345,17 @@ jobs:
           python -m tests.certification.native_acceptance_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c6.json
           python -m tests.certification.native_invalidation_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c5.json
           python -m psx.sfle.native_external_ownership_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c4.json
+      - name: Capture prolonged Qt native image ownership samples
+        env:
+          PSX_GRID_BACKEND: qt
+          PSX_SOAK_CYCLES: "256"
+          PSX_SOAK_REPORT: native-image-soak-qt-${{ matrix.binding }}.json
+        run: python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_image_churn_releases_owned_decoded_buffers
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-image-soak-qt-${{ matrix.binding }}
+          path: native-image-soak-qt-${{ matrix.binding }}.json
+          if-no-files-found: error
       - name: Certify public native Qt property behavior with semantic JUnit evidence
         run: |
           PSX_GRID_BACKEND=qt python -m pytest -q tests/test_qt_public_behavior.py tests/test_mounted_grid_native_renderers.py --junitxml=public-native-qt.xml
@@ -391,6 +409,17 @@ jobs:
           python -m tests.certification.native_acceptance_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-c6.json
           python -m tests.certification.native_invalidation_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-c5.json
           python -m psx.sfle.native_external_ownership_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-c4.json
+      - name: Capture prolonged Kivy native image ownership samples
+        env:
+          PSX_GRID_BACKEND: kivy
+          PSX_SOAK_CYCLES: "256"
+          PSX_SOAK_REPORT: native-image-soak-kivy.json
+        run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_image_churn_releases_owned_decoded_buffers
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-image-soak-kivy
+          path: native-image-soak-kivy.json
+          if-no-files-found: error
       - name: Certify Kivy public native updates through real SDL2 widgets
         run: |
           PSX_GRID_BACKEND=kivy xvfb-run -a python -m pytest -q tests/test_kivy_public_behavior.py tests/test_mounted_grid_native_renderers.py --junitxml=public-native-kivy.xml
@@ -439,6 +468,17 @@ jobs:
           python -m tests.certification.native_acceptance_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-c6.json
           python -m tests.certification.native_invalidation_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-c5.json
           python -m psx.sfle.native_external_ownership_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-c4.json
+      - name: Capture prolonged Tk native image ownership samples
+        env:
+          PSX_GRID_BACKEND: tk
+          PSX_SOAK_CYCLES: "256"
+          PSX_SOAK_REPORT: native-image-soak-tk.json
+        run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_image_churn_releases_owned_decoded_buffers
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-image-soak-tk
+          path: native-image-soak-tk.json
+          if-no-files-found: error
       - name: Certify Tk native public properties with feature-level JUnit
         run: |
           PSX_GRID_BACKEND=tk xvfb-run -a python -m pytest -q tests/test_tk_public_behavior.py tests/test_mounted_grid_native_renderers.py --junitxml=public-native-tk.xml
