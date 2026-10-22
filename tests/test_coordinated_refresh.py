@@ -285,3 +285,49 @@ def test_stylesheet_edit_recomputes_css_without_remounting_headless_component(
         assert last.properties["color"] == CssColor("#000")
     finally:
         context.app.unmount()
+
+
+def test_local_from_import_rebinds_after_dependency_edit(tmp_path, monkeypatch):
+    import importlib
+    import sys
+    from psx import App, Flex, Text, component
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    helper = tmp_path / "refresh_helper.py"
+    helper.write_text("def label():\n    return 'before module edit'\n", encoding="utf-8")
+    source = tmp_path / "main.py"
+    source.write_text(
+        "from refresh_helper import label\n"
+        "from psx import Flex, Text\n"
+        "class ExternalExample:\n"
+        "    def render(self):\n"
+        "        return Flex(Text(label()))\n",
+        encoding="utf-8",
+    )
+    context = ExternalExample()
+    holder = [lambda self: Flex(Text("before module edit"))]
+    def root():
+        return holder[0](context)
+    definition = component(root)
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+    )
+    context.app = App(definition, renderer=renderer)
+    context._development_root_definition = definition
+    context._development_render = holder
+    importlib.import_module("refresh_helper")
+    try:
+        context.app.mount()
+        host = context.app.reconciler.root.native_handle()
+        helper.write_text("def label():\n    return 'after module edit'\n", encoding="utf-8")
+        assert refresh.refresh_context_source(context, source, ("refresh_helper.py",))
+        assert context.app.reconciler.root.native_handle() is host
+        assert host.children[0].props["value"] == "after module edit"
+    finally:
+        context.app.unmount()
+        sys.modules.pop("refresh_helper", None)
