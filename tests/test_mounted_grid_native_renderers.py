@@ -2618,7 +2618,7 @@ def test_native_keyed_tree_reconciliation_soak():
     report_path = os.environ.get("PSX_TREE_SOAK_REPORT")
     cycles = int(os.environ.get("PSX_TREE_SOAK_CYCLES", "12"))
     assert cycles > 0
-    renderer, close = make_renderer(backend, sfle=False)
+    renderer, close = make_renderer(backend, sfle=True)
     tree = Reconciler(renderer)
     checkpoints = []
     tracemalloc.start()
