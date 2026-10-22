@@ -238,3 +238,50 @@ def test_new_installed_third_party_import_can_load_in_process(tmp_path):
     refreshed = _load_updated_class(authored, ExternalExample, frozenset())
     import pandas
     assert refreshed.render(ExternalExample()) == pandas.__version__
+
+
+def test_stylesheet_edit_recomputes_css_without_remounting_headless_component(
+    tmp_path, monkeypatch
+):
+    from psx import App, component
+    from psx.css.context import scoped_css_resources
+    from psx.css.visual_values import CssColor
+    from psx.markup.compile import psx
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+    source = tmp_path / "main.py"
+    source.write_text("class Example: pass", encoding="utf-8")
+    css = tmp_path / "theme.css"
+    css.write_text(".panel {color: #fff}", encoding="utf-8")
+    context = SimpleNamespace()
+    def render_view(self):
+        with scoped_css_resources(["theme.css"], resolver=lambda _: css.read_text()):
+            return psx('<div class="panel">Hello</div>')
+    holder = [render_view]
+    def root():
+        return holder[0](context)
+    definition = component(root)
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+    )
+    context.app = App(definition, renderer=renderer)
+    context._development_root_definition = definition
+    context._development_render = holder
+    monkeypatch.setattr(refresh, "_reload_policy", lambda _: object())
+    monkeypatch.setattr(refresh, "_project_modules", lambda *_: (frozenset(), {}))
+    try:
+        context.app.mount()
+        original = context.app.reconciler.root.native_handle()
+        first = context.app.reconciler.root.children[0].node.css_computed
+        assert first.properties["color"] == CssColor("#fff")
+        css.write_text(".panel {color: #000}", encoding="utf-8")
+        assert refresh.refresh_context_source(context, source, ("theme.css",))
+        assert context.app.reconciler.root.native_handle() is original
+        last = context.app.reconciler.root.children[0].node.css_computed
+        assert last.properties["color"] == CssColor("#000")
+    finally:
+        context.app.unmount()
