@@ -69,11 +69,11 @@ def sample(*, nodes=16, cycles=100, warmup=10, scenario="mount_unmount"):
                 tree = None
             elif scenario == "idle":
                 if tree is None:
-                    tree = Reconciler(HeadlessRenderer())
+                    tree = Reconciler(make_renderer())
                     tree.render(view(nodes))
             else:
                 if tree is None:
-                    tree = Reconciler(HeadlessRenderer())
+                    tree = Reconciler(make_renderer())
                 tree.render(view(nodes, index if scenario == "state_like_update" else 0,
                                  reverse=bool(index % 2) if scenario == "keyed_reorder" else False))
 
