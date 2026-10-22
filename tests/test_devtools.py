@@ -209,3 +209,24 @@ def test_qyro_settings_default_to_enabled_when_key_is_absent() -> None:
         container = Container()
 
     assert _reload_policy(Host()).enabled
+
+
+def test_stopped_watcher_releases_observer_capture(tmp_path: Path) -> None:
+    import gc
+    import weakref
+
+    class Payload:
+        pass
+
+    captured = Payload()
+    reference = weakref.ref(captured)
+    callback = lambda paths, value=captured: value
+    watcher = PollingFileWatcher(tmp_path, callback)
+    watcher.start()
+    del callback, captured
+    assert reference() is not None
+    watcher.stop()
+    gc.collect()
+    assert reference() is None
+    assert watcher._pending == set()
+    assert watcher._snapshot == {}
