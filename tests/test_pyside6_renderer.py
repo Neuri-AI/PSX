@@ -378,9 +378,13 @@ def test_pydux_selector_unsubscribes_when_native_component_unmounts():
     renderer = PySide6Renderer(argv=["psx-pydux-lifetime"])
     reconciler = Reconciler(renderer)
     store = Store()
+
+    def select_count(state):
+        return state["count"]
+
     @component
     def Reader():
-        count = use_selector(lambda state: state["count"])
+        count = use_selector(select_count)
         return Text(str(count))
 
     for iteration in range(12):
