@@ -24,6 +24,8 @@ def _is_docs(path: str) -> bool:
 
 
 def _classify_path(path: str) -> set[str]:
+    if path == "benchmarks/resource_baseline.py":
+        return {"core"}
     if path in ("scripts/ci/impact.py", "tests/test_ci_impact.py") or path.startswith("scripts/ci/"):
         return {"router"}
     if path.startswith(".github/workflows/"):
