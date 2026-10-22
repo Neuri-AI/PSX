@@ -13,6 +13,8 @@ class FakeReconciler:
         self.root = root
         self.compatible = compatible
         self.calls = []
+        self.renderer = SimpleNamespace(commit_layout=lambda root: None)
+        self.scheduler = SimpleNamespace(run_effects=lambda: None)
 
     def try_reevaluate(self, instance):
         self.calls.append(instance)
