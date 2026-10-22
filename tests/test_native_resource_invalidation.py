@@ -77,3 +77,32 @@ def test_native_invalidation_failed_image_decode_is_retried_without_another_file
     assert watch.changed() == (instance,)
     watch.acknowledge(instance)
     assert watch.changed() == ()
+
+
+def test_resource_watch_releases_previous_mounted_tree_on_sync_and_clear(tmp_path):
+    import gc
+    import weakref
+
+    class MountedImage:
+        def __init__(self, path):
+            self.node = Image(str(path))
+            self.handle = object()
+            self.children = ()
+            self.disposed = False
+
+    path = tmp_path / "pixel.png"
+    path.write_bytes(b"initial")
+    watch = ImageResourceWatch()
+    for _ in range(128):
+        owner = MountedImage(path)
+        reference = weakref.ref(owner)
+        tree = SimpleNamespace(node=Flex(), children=(owner,),
+                               handle=object(), disposed=False)
+        assert watch.sync(tree)
+        del tree, owner
+        # A mounted tree is an intentional owner until a new sync or clear.
+        assert reference() is not None
+        watch.clear()
+        gc.collect()
+        assert reference() is None
+        assert not watch._tracked
