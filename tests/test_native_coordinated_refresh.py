@@ -110,3 +110,57 @@ def test_incompatible_hooks_remount_only_boundary_and_preserve_native_widget(mon
     finally:
         context.app.unmount()
         close()
+
+
+def test_nested_incompatible_component_preserves_native_sibling(monkeypatch, tmp_path):
+    from psx import use_ref
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    source = tmp_path / "main.py"
+    source.write_text("class Example: pass\n", encoding="utf-8")
+    context = Example()
+    updated = [False]
+
+    @component
+    def Child():
+        count, _ = use_state(11)
+        if updated[0]:
+            use_ref()
+        return Flex(Text(f"{'after' if updated[0] else 'before'}:{count}"))
+
+    def render_before(self):
+        return Flex(Child(), Text("independent"))
+
+    def render_after(self):
+        updated[0] = True
+        return Flex(Child(), Text("independent"))
+
+    holder = [render_before]
+    def root():
+        return holder[0](context)
+
+    definition = component(root)
+    context._development_render = holder
+    context._development_root_definition = definition
+    context.app = App(definition, renderer=renderer)
+    monkeypatch.setattr(refresh, "_reload_policy", lambda _: object())
+    monkeypatch.setattr(refresh, "_project_modules", lambda *_: (frozenset(), {}))
+    monkeypatch.setattr(refresh, "_load_updated_class", lambda *_: SimpleNamespace(render=render_after))
+    try:
+        context.app.mount()
+        parent = context.app.reconciler.root.children[0]
+        previous_child = parent.children[0]
+        independent = parent.children[1].handle.widget
+        child_widget = previous_child.native_handle().widget
+        assert refresh.refresh_context_source(context, source, ("main.py",))
+        assert previous_child.disposed
+        assert parent.children[0] is not previous_child
+        assert parent.children[0].native_handle().widget is child_widget
+        assert parent.children[1].handle.widget is independent
+        assert _native_text(independent, backend) == "independent"
+        inner_text = parent.children[0].children[0].children[0].handle.widget
+        assert _native_text(inner_text, backend) == "after:11"
+    finally:
+        context.app.unmount()
+        close()
