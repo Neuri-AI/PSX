@@ -111,3 +111,29 @@ def test_repeated_keyed_reconciliation_releases_removed_subtree_payloads(engine)
     renderer.operations.clear()
     gc.collect()
     assert all(ref() is None for ref in weak)
+
+
+@pytest.mark.parametrize("engine", ("python", "rust"))
+def test_multiple_failing_effect_cleanups_still_release_all_hook_slots(engine):
+    callbacks = []
+    released = []
+    @component
+    def Example():
+        for index in range(3):
+            def effect(which=index):
+                def cleanup():
+                    released.append(which)
+                    raise RuntimeError(f"failed cleanup {which}")
+                return cleanup
+            use_effect(effect, ())
+        return Flex(Text("three effects"), width="640px", height="480px")
+
+    renderer = make_renderer(engine)
+    reconciler = Reconciler(renderer)
+    mounted = reconciler.render(Example())
+    with pytest.raises(RuntimeError, match="failed cleanup 2"):
+        reconciler.unmount()
+    assert released == [2, 1, 0]
+    assert mounted.hooks == []
+    assert mounted.children == []
+    assert reconciler.root is None
