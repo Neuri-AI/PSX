@@ -79,3 +79,11 @@ The state setter closure is externally retainable by application code. Disposal 
 **After explicit teardown, traced retained delta (bytes):** Python +4,916 / -68,867 / -65,310 / -57,273, and Rust +4,900 / -72,880 / -69,323 / -61,222, respectively. This is a synthetic Headless workload; differences must not be attributed solely to Cinnamon's solver without isolating the full measured call graph. Single-environment timings are a baseline, not a general-purpose performance claim.
 
 The earlier Python-only figures used different test-run conditions and cannot be directly treated as a before/after speedup. The JSON records actual values and setup, and future comparisons should use matched environments.
+
+## Reconciliation and hook ownership acceptance
+
+The exact executable revision `4216a8fa79da8e1901e9f7f99fdf8bab1cfd4c69` completed **7/7 PR workflows successfully** (including Native layout selective validation and Grid integral certification). The native-layout core job installed a release-built Rust wheel and ran the parameterized teardown tests with **both** `RustLayoutEngine` and `PythonLayoutEngine`. See [executed CI](https://github.com/Neuri-AI/PSX/actions/runs/39817089006) and [exact SHA checks](https://github.com/Neuri-AI/PSX/commit/4216a8fa79da8e1901e9f7f99fdf8bab1cfd4c69/checks).
+
+The executed ownership regressions cover external state setters, keyed-node replacement and repeated keyed subtree churn (including callbacks retaining payloads), ref clearing on unmount, effect-owned payload collection following cleanup exceptions, reverse-order cleanup of multiple failing effects, and empty hook slots/root after teardown. The benchmark additionally produces distinct engine-tagged wall-time and Python traced-memory entries for four Headless workloads; its Rust-vs-Python comparison is **not** native UI FPS or an isolated solver-only speedup.
+
+**Scoped status:** P2.1 instrumentation and baseline captured; P2.2 VNode/reconciliation/hooks ownership checks passed for the tested Headless workloads and both Cinnamon engines. Qt/Tk/Kivy native resource ownership, Pydux subscriptions, async work, image/GPU resources and broader long-run soak remain future increments. As explicitly directed by the owner, the *long-running Kivy memory-growth investigation* is deferred to a **separate iteration**.
