@@ -2548,7 +2548,9 @@ def test_native_image_churn_releases_owned_decoded_buffers(tmp_path):
         import sys
         import time
         import tracemalloc
+        from benchmarks.resource_baseline import process_memory
         tracemalloc.start()
+        starting_memory = process_memory()
         wall_start = time.perf_counter_ns()
         cpu_start = time.process_time_ns()
         checkpoints = []
@@ -2577,7 +2579,8 @@ def test_native_image_churn_releases_owned_decoded_buffers(tmp_path):
                 gc.collect()
                 current, peak = tracemalloc.get_traced_memory()
                 checkpoints.append({"cycle": cycle + 1, "traced_current_bytes": current,
-                                    "traced_peak_bytes": peak, "gc_objects": len(gc.get_objects())})
+                                    "traced_peak_bytes": peak, "gc_objects": len(gc.get_objects()),
+                                    "process_memory": process_memory()})
     finally:
         tree.unmount()
         close()
@@ -2588,6 +2591,8 @@ def test_native_image_churn_releases_owned_decoded_buffers(tmp_path):
                       "qt_binding": os.environ.get("PSX_QT_BINDING") if backend == "qt" else None,
                       "python": sys.version.split()[0], "platform": platform.platform(),
                       "cycles": cycles, "checkpoints": checkpoints,
+                      "process_memory_before": starting_memory,
+                      "process_memory_after": process_memory(),
                       "after_teardown_traced_bytes": current, "traced_peak_bytes": peak,
                       "wall_total_ms": round((time.perf_counter_ns() - wall_start) / 1e6, 3),
                       "cpu_total_ms": round((time.process_time_ns() - cpu_start) / 1e6, 3),
