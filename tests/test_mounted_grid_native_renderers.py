@@ -2623,6 +2623,7 @@ def test_native_keyed_tree_reconciliation_soak():
     """Measure sustained native subtree mount, reordering and teardown."""
     import gc
     from collections import Counter
+    import weakref
     import json
     import platform
     import sys
@@ -2641,6 +2642,7 @@ def test_native_keyed_tree_reconciliation_soak():
     checkpoints = []
     object_type_baseline = None
     object_type_final = None
+    target_samples = []
     cycle_times_ns = []
     tracemalloc.start()
     baseline_memory = process_memory()
@@ -2679,6 +2681,11 @@ def test_native_keyed_tree_reconciliation_soak():
                 if object_type_baseline is None:
                     object_type_baseline = counts
                 object_type_final = counts
+                all_objects = gc.get_objects()
+                weakrefs = [obj for obj in all_objects if type(obj) is weakref.ReferenceType]
+                targets = Counter("dead" if item() is None else f"{type(item()).__module__}.{type(item()).__qualname__}" for item in weakrefs)
+                target_samples.append({"cycle": cycle + 1, "weakref_targets": targets.most_common(16)})
+                del weakrefs, all_objects
                 checkpoints.append({
                     "cycle": cycle + 1,
                     "traced_current_bytes": current,
@@ -2698,6 +2705,7 @@ def test_native_keyed_tree_reconciliation_soak():
                 "python": sys.version.split()[0], "platform": platform.platform(),
                 "cycles": cycles, "checkpoints": checkpoints,
                 "gc_object_type_growth": (object_type_final - object_type_baseline).most_common(25),
+                "gc_weakref_target_snapshots": target_samples,
                 "mean_cycle_ms": round(sum(cycle_times_ns) / len(cycle_times_ns) / 1e6, 4),
                 "p95_cycle_ms": round(sorted(cycle_times_ns)[(len(cycle_times_ns) * 95 + 99) // 100 - 1] / 1e6, 4),
                 "process_memory_before": baseline_memory,
