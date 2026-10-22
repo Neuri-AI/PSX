@@ -110,7 +110,7 @@ def test_unrelated_file_does_not_trigger_refresh(tmp_path, monkeypatch):
 def test_real_headless_component_refresh_preserves_native_handle_and_hook_state(
     tmp_path, monkeypatch
 ):
-    from psx import App, Text, component, use_state
+    from psx import App, Flex, Text, component, use_state
     from psx.renderers.headless import HeadlessRenderer
     from psx.sfle.engine import PythonLayoutEngine
     from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
@@ -121,7 +121,7 @@ def test_real_headless_component_refresh_preserves_native_handle_and_hook_state(
 
     def render(_ctx):
         count, _ = use_state(7)
-        return Text(f"{prefix[0]}:{count}")
+        return Flex(Text(f"{prefix[0]}:{count}"))
 
     class Demo:
         pass
@@ -142,11 +142,11 @@ def test_real_headless_component_refresh_preserves_native_handle_and_hook_state(
     )
     app.mount()
     original = app.reconciler.root.native_handle()
-    assert original.props["value"] == "before:7"
+    assert original.children[0].props["value"] == "before:7"
 
     def updated(_ctx):
         count, _ = use_state(7)
-        return Text(f"after:{count}")
+        return Flex(Text(f"after:{count}"))
 
     monkeypatch.setattr(refresh, "_reload_policy", lambda host: object())
     monkeypatch.setattr(refresh, "_project_modules", lambda *args: (frozenset(), {}))
@@ -154,6 +154,6 @@ def test_real_headless_component_refresh_preserves_native_handle_and_hook_state(
     try:
         assert refresh.refresh_context_source(context, entry, ("main.py",))
         assert app.reconciler.root.native_handle() is original
-        assert original.props["value"] == "after:7"
+        assert original.children[0].props["value"] == "after:7"
     finally:
         app.unmount()
