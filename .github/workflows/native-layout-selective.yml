@@ -269,7 +269,7 @@ jobs:
       - run: python -m pip install -e '.[pyside6]' pytest
       - name: Install pinned Pydux dependency required by existing PySide6 integration tests
         run: |
-          python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@56e6df858bc0e1ae598cd1cab0aa384c921cf253"
+          python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@8de71cee892c5e65a5b5fb223829f4525680a543"
       - run: python -m pytest -q tests/test_pyside6_renderer.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_native_layout.py tests/test_pyside6_external_native_ports.py tests/sfle/test_grid_native_measurement.py tests/sfle/test_grid_native_commit.py --junitxml=scroll-qt-operations.xml
       - run: python -m tests.certification.scroll_operation_receipts --backend qt --junit scroll-qt-operations.xml --out scroll-qt-operations.json
       - uses: actions/upload-artifact@v4
