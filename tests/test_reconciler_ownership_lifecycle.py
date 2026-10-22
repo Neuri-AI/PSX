@@ -6,16 +6,17 @@ import pytest
 
 from psx import Text, component, use_effect, use_ref, use_state
 from psx.core.reconcile import Reconciler
-from psx.renderers.headless import HeadlessRenderer
+from benchmarks.resource_baseline import make_renderer
 
 
-def test_keyed_subtree_removal_releases_previous_node_payload():
+@pytest.mark.parametrize('engine', ('python', 'rust'))
+def test_keyed_subtree_removal_releases_previous_node_payload(engine):
     class Payload:
         pass
 
     payload = Payload()
     reference = weakref.ref(payload)
-    renderer = HeadlessRenderer()
+    renderer = make_renderer(engine)
     reconciler = Reconciler(renderer)
     def create_old_node(held):
         return Text("first", key="old", on_click=lambda item=held: item)
@@ -29,7 +30,8 @@ def test_keyed_subtree_removal_releases_previous_node_payload():
     reconciler.unmount()
 
 
-def test_ref_cleared_and_effect_cleanup_runs_even_when_it_raises():
+@pytest.mark.parametrize('engine', ('python', 'rust'))
+def test_ref_cleared_and_effect_cleanup_runs_even_when_it_raises(engine):
     refs = []
     calls = []
 
@@ -46,7 +48,7 @@ def test_ref_cleared_and_effect_cleanup_runs_even_when_it_raises():
         use_effect(effect, ())
         return Text("mounted", ref=ref)
 
-    reconciler = Reconciler(HeadlessRenderer())
+    reconciler = Reconciler(make_renderer(engine))
     reconciler.render(Example())
     assert refs[0].current is not None
     with pytest.raises(RuntimeError, match="cleanup failed"):
@@ -56,7 +58,8 @@ def test_ref_cleared_and_effect_cleanup_runs_even_when_it_raises():
     assert reconciler.root is None
 
 
-def test_effect_cleanup_releases_captured_payload_even_on_exception():
+@pytest.mark.parametrize('engine', ('python', 'rust'))
+def test_effect_cleanup_releases_captured_payload_even_on_exception(engine):
     class Payload:
         pass
 
@@ -76,7 +79,7 @@ def test_effect_cleanup_releases_captured_payload_even_on_exception():
         use_effect(effect, ())
         return Text("effect")
 
-    reconciler = Reconciler(HeadlessRenderer())
+    reconciler = Reconciler(make_renderer(engine))
     reconciler.render(Example())
     with pytest.raises(ValueError, match="effect cleanup"):
         reconciler.unmount()
