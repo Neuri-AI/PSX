@@ -348,7 +348,7 @@ jobs:
       - name: Capture prolonged Qt native image ownership samples
         env:
           PSX_GRID_BACKEND: qt
-          PSX_SOAK_CYCLES: "256"
+          PSX_SOAK_CYCLES: "2048"
           PSX_SOAK_REPORT: native-image-soak-qt-${{ matrix.binding }}.json
         run: python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_image_churn_releases_owned_decoded_buffers
       - uses: actions/upload-artifact@v4
@@ -412,7 +412,7 @@ jobs:
       - name: Capture prolonged Kivy native image ownership samples
         env:
           PSX_GRID_BACKEND: kivy
-          PSX_SOAK_CYCLES: "256"
+          PSX_SOAK_CYCLES: "2048"
           PSX_SOAK_REPORT: native-image-soak-kivy.json
         run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_image_churn_releases_owned_decoded_buffers
       - uses: actions/upload-artifact@v4
@@ -471,7 +471,7 @@ jobs:
       - name: Capture prolonged Tk native image ownership samples
         env:
           PSX_GRID_BACKEND: tk
-          PSX_SOAK_CYCLES: "256"
+          PSX_SOAK_CYCLES: "2048"
           PSX_SOAK_REPORT: native-image-soak-tk.json
         run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_image_churn_releases_owned_decoded_buffers
       - uses: actions/upload-artifact@v4
