@@ -92,6 +92,10 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
                 commit_refs()
             app.reconciler.scheduler.run_effects()
             return True
+        remount = getattr(app.reconciler, 'remount_component', None)
+        if callable(remount):
+            remount(instance)
+            return True
         compiled[0] = previous
         return False
     except Exception:
