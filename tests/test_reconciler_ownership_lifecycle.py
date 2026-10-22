@@ -4,7 +4,7 @@ import weakref
 
 import pytest
 
-from psx import Text, component, use_effect, use_ref, use_state
+from psx import Button, Flex, Text, component, use_effect, use_ref, use_state
 from psx.core.reconcile import Reconciler
 from benchmarks.resource_baseline import make_renderer
 
@@ -19,12 +19,12 @@ def test_keyed_subtree_removal_releases_previous_node_payload(engine):
     renderer = make_renderer(engine)
     reconciler = Reconciler(renderer)
     def create_old_node(held):
-        return Text("first", key="old", on_click=lambda item=held: item)
+        return Flex(Button("first", key="old", on_click=lambda item=held: item), width="640px", height="480px")
     reconciler.render(create_old_node(payload))
     del payload
     gc.collect()
     assert reference() is not None
-    reconciler.render(Text("second", key="new"))
+    reconciler.render(Flex(Button("second", key="new"), width="640px", height="480px"))
     renderer.operations.clear()  # The debug operation log is an explicit external observer.
     gc.collect()
     assert reference() is None
@@ -47,7 +47,7 @@ def test_ref_cleared_and_effect_cleanup_runs_even_when_it_raises(engine):
                 raise RuntimeError("cleanup failed")
             return cleanup
         use_effect(effect, ())
-        return Text("mounted", ref=ref)
+        return Flex(Text("mounted", ref=ref), width="640px", height="480px")
 
     reconciler = Reconciler(make_renderer(engine))
     reconciler.render(Example())
@@ -78,7 +78,7 @@ def test_effect_cleanup_releases_captured_payload_even_on_exception(engine):
                 raise ValueError("effect cleanup")
             return cleanup
         use_effect(effect, ())
-        return Text("effect")
+        return Flex(Text("effect"), width="640px", height="480px")
 
     reconciler = Reconciler(make_renderer(engine))
     reconciler.render(Example())
