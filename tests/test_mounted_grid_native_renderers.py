@@ -2693,6 +2693,14 @@ def test_native_keyed_tree_reconciliation_soak():
                     "gc_objects": len(gc.get_objects()),
                     "process_memory": process_memory(),
                 })
+        if (backend == "qt" and cycles >= 512
+                and os.environ["PSX_QT_BINDING"].startswith("pyside")):
+            # Calibrated on real PySide2/6 512-cycle benchmarks: after caching
+            # QObject subclass types, wrapper/tuple drift is at most 22/1.
+            # Allow CI allocator variance but reject per-widget linear growth.
+            accumulated = object_type_final - object_type_baseline
+            assert accumulated.get("weakref.ReferenceType", 0) <= 64
+            assert accumulated.get("builtins.tuple", 0) <= 64
     finally:
         tree.unmount()
         close()
