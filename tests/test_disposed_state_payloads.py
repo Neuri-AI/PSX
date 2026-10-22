@@ -13,10 +13,11 @@ def test_retained_setter_does_not_hold_disposed_state_payload():
     value = Payload()
     reference = weakref.ref(value)
     captured = {}
+    seed = {"value": value}
 
     @component
     def Item():
-        current, set_current = use_state(value)
+        current, set_current = use_state(seed.pop("value", None))
         captured["setter"] = set_current
         return Text("item")
 
