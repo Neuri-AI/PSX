@@ -243,3 +243,10 @@ Executed same-SHA evidence:
 - PSX `9b1e585a7ce612451765a2f7a27e2ddccae334fe`: [component refresh validation](https://github.com/Neuri-AI/PSX/actions/runs/39873807147), success (source validation followed by corrected save, remount outcome isolation, native Qt/Tkinter/Kivy suites).
 
 **Remaining boundaries:** process-restart handshake and cross-process snapshot exchange belong to controlled restart; source import side effects, native mutations and subscription ownership are not globally transactional. A snapshot can only be restored when its data remains compatible with the current selectors. Non-JSON store data is intentionally not preserved. Extended repeated-edit soak and Windows/macOS verification remain integrated-certification tasks. No public markup, prop, event or hook API is introduced in this increment, so new-public-operation census is N/A.
+
+
+## Controlled process restart implementation progress
+
+Velto CLI now supervises replacement child processes using one retained filesystem watcher. Changes to configured framework or binding trigger restart; invalid settings do not. The existing authenticated child channel also accepts bounded restart requests with explicit backend/bootstrap/loaded-native-extension reason codes. Qyro requests such a restart for a changed extension already loaded in its interpreter, rather than restarting for every new import. Tests: CLI https://github.com/Neuri-AI/Velto-CLI/actions/runs/39874870863 and Qyro https://github.com/Neuri-AI/qyro/actions/runs/39874840282.
+
+This increment remains OPEN: the original PSX-prepared source entry still needs regeneration on every child launch, and opt-in Pydux snapshot handoff and restore across processes has not been wired. Broader native Qt/Tkinter/Kivy restart certification, failure recovery, and interpreter/bootstrap compatibility remain unverified. This is development-only internal infrastructure, with no new public PSX behavior; public census N/A.
