@@ -2408,3 +2408,69 @@ def test_native_css_certified_background_update_and_reset(shade):
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_event_replacement_and_teardown_disconnects_real_toolkit_callbacks():
+    """Exercise actual Qt signals, Tk commands and Kivy event dispatch."""
+    from psx import Button
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend, sfle=False)
+    reconciler = Reconciler(renderer)
+    calls = []
+    try:
+        for cycle in range(8):
+            original = reconciler.render(
+                Button("Action", on_click=lambda n=cycle: calls.append(("old", n)))
+            )
+            widget = original.handle.widget
+            if backend == "qt":
+                widget.click()
+            elif backend == "tk":
+                widget.invoke()
+            else:
+                widget.dispatch("on_release")
+            updated = reconciler.render(
+                Button("Action", on_click=lambda n=cycle: calls.append(("new", n)))
+            )
+            assert updated.handle.widget is widget
+            slot = updated.event_slots["on_click"][0]
+            if backend == "qt":
+                widget.click()
+            elif backend == "tk":
+                widget.invoke()
+            else:
+                widget.dispatch("on_release")
+            assert calls[-2:] == [("old", cycle), ("new", cycle)]
+            reconciler.unmount()
+            assert reconciler.root is None
+            assert updated.disposed
+            assert updated.event_slots == {}
+            assert slot.invoke() is None
+            if backend == "qt":
+                renderer.application.processEvents()
+                # Queued Qt deleteLater may require a deferred-delete flush.
+                core = importlib.import_module(
+                    {"pyside6": "PySide6", "pyside2": "PySide2",
+                     "pyqt5": "PyQt5", "pyqt6": "PyQt6"}[
+                        os.environ["PSX_QT_BINDING"]] + ".QtCore")
+                core.QCoreApplication.sendPostedEvents(
+                    None, core.QEvent.Type.DeferredDelete)
+                if os.environ["PSX_QT_BINDING"].startswith("pyside"):
+                    wrapper = importlib.import_module(
+                        "shiboken6" if os.environ["PSX_QT_BINDING"] == "pyside6"
+                        else "shiboken2")
+                    assert not wrapper.isValid(widget)
+                else:
+                    sip = importlib.import_module(
+                        "PyQt6.sip" if os.environ["PSX_QT_BINDING"] == "pyqt6"
+                        else "sip")
+                    assert sip.isdeleted(widget)
+            elif backend == "tk":
+                assert not widget.winfo_exists()
+            else:
+                assert widget.parent is None
+        assert len(calls) == 16
+    finally:
+        reconciler.unmount()
+        close()
