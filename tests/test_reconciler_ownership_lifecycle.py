@@ -87,3 +87,27 @@ def test_effect_cleanup_releases_captured_payload_even_on_exception(engine):
     gc.collect()
     assert reference() is None
     assert cleanups == ["called"]
+
+
+@pytest.mark.parametrize("engine", ("python", "rust"))
+def test_repeated_keyed_reconciliation_releases_removed_subtree_payloads(engine):
+    class Payload:
+        pass
+
+    renderer = make_renderer(engine)
+    reconciler = Reconciler(renderer)
+    weak = []
+    for index in range(12):
+        payload = Payload()
+        weak.append(weakref.ref(payload))
+        reconciler.render(Flex(
+            Button("click", key=str(index), on_click=lambda item=payload: item),
+            width="640px", height="480px"))
+        del payload
+        renderer.operations.clear()
+        gc.collect()
+        assert all(ref() is None for ref in weak[:-1])
+    reconciler.unmount()
+    renderer.operations.clear()
+    gc.collect()
+    assert all(ref() is None for ref in weak)
