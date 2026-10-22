@@ -6,6 +6,7 @@ on:
       - 'psx/devtools/**'
       - 'tests/test_coordinated_refresh.py'
       - 'tests/test_native_coordinated_refresh.py'
+      - 'tests/test_component_remount.py'
       - 'tests/test_ci_impact.py'
       - 'scripts/ci/impact.py'
       - '.github/workflows/coordinated-refresh.yml'
@@ -20,7 +21,7 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install pytest pandas
       - run: python -m pip install -e . --no-deps
-      - run: python -m pytest -q tests/test_coordinated_refresh.py tests/test_ci_impact.py
+      - run: python -m pytest -q tests/test_coordinated_refresh.py tests/test_component_remount.py tests/test_ci_impact.py
 
   native-refresh:
     runs-on: ubuntu-latest
