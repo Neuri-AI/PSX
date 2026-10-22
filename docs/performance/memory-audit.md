@@ -1,13 +1,13 @@
 # Resource lifecycle and performance baseline
 
-**Scope:** Initial measurement audit (P2.1 planning traceability). No production lifecycle API changes. This instrument measures **Headless only**, deliberately avoiding native timing comparisons.
+**Scope:** Initial measurement audit (P2.1 planning traceability). No production lifecycle API changes. This instrument measures **Headless only**, with **Cinnamon Rust and Cinnamon Python explicitly separated**, avoiding native toolkit timing comparisons.
 
 ## Reproducible run
 
 From a checkout with this branch installed:
 
 ```bash
-python benchmarks/resource_baseline.py --nodes 16 --cycles 100 --warmup 10 --output resource-baseline.json
+python benchmarks/resource_baseline.py --nodes 16 --cycles 100 --warmup 10 --engine both --output resource-baseline.json
 python -m pytest -q tests/test_resource_baseline.py tests/test_ci_impact.py
 ```
 
@@ -55,3 +55,7 @@ The process peak RSS high-water observed was 29,863,936 bytes; instantaneous RSS
 
 **Initial audit increment status:** instrument implemented, actually executed and machine-specific baseline captured with immutable implementation SHA and original JSON. Full native resource ownership and leak audits are later P2 work. Kivy long-running memory growth remains explicitly deferred to a separate iteration.
 
+
+## Dual engine acceptance
+
+The Rust sample requires the installed `_sfle_native` wheel, negotiated by `load_layout_engine()`, and fails explicitly if Rust cannot be selected; it must never relabel the Python fallback as Rust. The CI core job builds a Rust release wheel via maturin and records separate `engine=rust` and `engine=python` entries under identical benchmark parameters. The historical timings above are **Python-only** and must not be reinterpreted as Rust numbers. P2.2 ownership regressions also instantiate both engines while exercising teardown. Long-running Kivy memory growth remains excluded.
