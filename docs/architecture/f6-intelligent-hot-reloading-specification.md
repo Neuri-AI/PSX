@@ -197,3 +197,16 @@ All architecture and progress documentation remains in this PSX repository. Thes
 **Architecture boundary:** direct component-root Fast Refresh and unchanged-native-widget projection are certified above. Arbitrary subcomponent-level remounts, hook signature migration, crash-restart communication, globally transactional rollback of module side effects, Pydux snapshot restore, repeated soak runs and cross-platform Windows/macOS integration remain later work. In particular, the source-change supervisor currently relays notifications, but does not yet implement the final coordinated process-restart protocol.
 
 All source/certification code stays with its owning repository. This document is the only added canonical project-wide architecture report.
+
+## Targeted component remount: implementation and certification
+
+Incompatible hook sequences now replace the smallest affected mounted component boundary during coordinated source refresh, without restarting the process. Stable native descendants and independent siblings are retained. Old state setters become inert; effect teardown continues despite a cleanup exception, and component-owned refs are released. Nested replacement uses the incoming VNode identity; transparent component boundaries resolve real native parents (including Tkinter masters). Ordinary state updates do not automatically activate this remount policy.
+
+Executed certification:
+- PSX source `69430915ca87681d85f5b9c3fbc2b1f26caf93fe`: [live Qt, Tkinter, Kivy and headless regression run](https://github.com/Neuri-AI/PSX/actions/runs/39869188674), both jobs successful. Tests exercise added/removed hooks, nested siblings, stale setters, failed effect cleanup and refs.
+- Qyro source `01d9580bd4eacb20d83a90149037a534a7d7e6c2`: [mounted context and PSX integration run](https://github.com/Neuri-AI/qyro/actions/runs/39869287978), successful.
+- CLI source supervisor unchanged: [existing development coordination regression](https://github.com/Neuri-AI/Velto-CLI/actions/runs/39863029883), successful.
+
+Public census is **N/A** because no new public markup, property, event or user API is introduced. Native routing and runtime-specific functional tests are executed.
+
+Explicitly not certified here: atomic rollback after arbitrary native commit failures, complete foreign-module side-effect recovery, Pydux cross-process snapshot restore, restart handshake and extended repeated-edit resource soaks. Those are separate downstream obligations.
