@@ -63,3 +63,19 @@ The Rust sample requires the installed `_sfle_native` wheel, negotiated by `load
 ## Hook and reconciler lifecycle audit
 
 The state setter closure is externally retainable by application code. Disposal now clears `_StateSlot.value` to release the obsolete payload even if the setter remains referenced; setters stay inert after disposal. Executable tests cover this invariant plus keyed subtree removal, `use_ref` clearing, `use_effect` cleanup exceptions and effect-owned payload release. Ownership regressions use an explicit Flex root and both Cinnamon engine implementations once the native Rust wheel is installed. These are tests of reference release, not a long-running heap-growth verdict. No public API, property, event, or component surface changes, so the public capability census is N/A.
+
+
+## First directly measured Rust versus Python comparison
+
+**Implementation SHA:** `07c0a8df3476b905488f7b90ba123ba82e2eac4f`. [Original dual-engine JSON artifact](https://github.com/Neuri-AI/PSX/actions/runs/39813985995/artifacts/12442150403). CPython 3.12.15; Linux x86_64, 16 nodes, 10 warmup cycles, 100 measured cycles per scenario. The workflow installs the actual maturin-built `_sfle_native` wheel and refuses to treat a Python fallback as Rust.
+
+| Headless workload | Python mean / p95 (ms) | Rust mean / p95 (ms) |
+| --- | ---: | ---: |
+| Mount/unmount | 49.9696 / 52.6761 | 11.7703 / 13.5140 |
+| Keyed reorder | 48.4896 / 50.5785 | 11.5673 / 11.9966 |
+| State-like content update | 48.6448 / 51.0994 | 11.6183 / 11.8288 |
+| Idle | 0.0010 / 0.0013 | 0.0008 / 0.0012 |
+
+**After explicit teardown, traced retained delta (bytes):** Python +4,916 / -68,867 / -65,310 / -57,273, and Rust +4,900 / -72,880 / -69,323 / -61,222, respectively. This is a synthetic Headless workload; differences must not be attributed solely to Cinnamon's solver without isolating the full measured call graph. Single-environment timings are a baseline, not a general-purpose performance claim.
+
+The earlier Python-only figures used different test-run conditions and cannot be directly treated as a before/after speedup. The JSON records actual values and setup, and future comparisons should use matched environments.
