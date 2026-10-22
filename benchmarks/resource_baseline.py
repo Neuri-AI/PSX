@@ -98,6 +98,10 @@ def sample(*, nodes=16, cycles=100, warmup=10, scenario="mount_unmount", engine=
                     tree = Reconciler(make_renderer(engine))
                 tree.render(view(nodes, index if scenario == "state_like_update" else 0,
                                  reverse=bool(index % 2) if scenario == "keyed_reorder" else False))
+                # The Headless adapter retains a verbose diagnostic operation log.
+                # It is not the retained mounted tree: exclude this synthetic
+                # test-only history from lifecycle memory measurements.
+                tree.renderer.operations.clear()
 
         for i in range(warmup):
             one(i)
@@ -136,6 +140,7 @@ def run(*, nodes=16, cycles=100, warmup=10, engines=('python', 'rust')):
     return {"schema": 1, "runtime": {"python": sys.version.split()[0],
             "platform": platform.platform(), "implementation": platform.python_implementation()},
             "scope": "headless-only; native resource ownership is tested separately; no leak verdict",
+            "diagnostic_operation_history": "discarded after active reconciliations",
             "measurements": [sample(nodes=nodes, cycles=cycles, warmup=warmup, scenario=name, engine=engine)
                              for engine in engines
                              for name in ("mount_unmount", "keyed_reorder",
