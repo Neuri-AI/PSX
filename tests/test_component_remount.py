@@ -206,3 +206,48 @@ def test_replaced_ref_hook_releases_reference_and_old_setter(tmp_path, monkeypat
         assert context.app.reconciler.root.native_handle().children[0].props["value"] == "after"
     finally:
         context.app.unmount()
+
+
+def test_nested_cleanup_error_keeps_updated_render_and_other_effects(tmp_path, monkeypatch):
+    source = tmp_path / "main.py"
+    source.write_text("class Example: pass", encoding="utf-8")
+    events = []
+    change = [False]
+    refs = []
+
+    def fail():
+        events.append("failed")
+        raise RuntimeError("failing effect")
+
+    @component
+    def Child():
+        use_effect(lambda: (lambda: events.append("last")), [])
+        use_effect(lambda: fail, [])
+        ref = use_ref("held")
+        if not change[0]:
+            refs.append(ref)
+        else:
+            use_state(1)
+        return Flex(Text("changed" if change[0] else "before"))
+
+    def before(_):
+        return Flex(Child(), Text("stable"))
+
+    def after(_):
+        change[0] = True
+        return Flex(Child(), Text("stable"))
+
+    context = mounted(source, before)
+    root = context.app.reconciler.root
+    old_child = root.children[0].children[0]
+    try:
+        with pytest.raises(RuntimeError, match="failing effect"):
+            invoke(context, source, after, monkeypatch)
+        assert old_child.disposed
+        assert refs[0].current is None
+        assert events == ["failed", "last"]
+        assert context._development_render[0] is after
+        assert root.children[0].children[1].handle.props["value"] == "stable"
+        assert root.children[0].children[0].children[0].children[0].handle.props["value"] == "changed"
+    finally:
+        context.app.unmount()
