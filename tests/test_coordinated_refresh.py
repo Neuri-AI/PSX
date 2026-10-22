@@ -203,3 +203,22 @@ def test_real_python_source_rebinds_mounted_component(tmp_path, monkeypatch):
         assert original.children[0].props["value"] == "updated from file"
     finally:
         context.app.unmount()
+
+
+def test_invalid_changed_module_is_rejected_before_reload(tmp_path, monkeypatch):
+    entry = tmp_path / "main.py"
+    entry.write_text("class Example: pass", encoding="utf-8")
+    dependency = tmp_path / "helper.py"
+    dependency.write_text("def broken(:\n", encoding="utf-8")
+    context, _, original = make_context(entry)
+    monkeypatch.setattr(refresh, "_reload_policy", lambda _: object())
+    monkeypatch.setattr(
+        refresh, "_project_modules",
+        lambda *_: (frozenset({"helper"}), {"helper": dependency}),
+    )
+    reloaded = []
+    monkeypatch.setattr(refresh, "_reload_module", reloaded.append)
+    with pytest.raises(SyntaxError):
+        refresh.refresh_context_source(context, entry, ("helper.py",))
+    assert reloaded == []
+    assert context._development_render[0] is original
