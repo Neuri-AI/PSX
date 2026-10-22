@@ -526,3 +526,11 @@ class RoutingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_coordinated_refresh_routes_to_all_native_renderer_consumers():
+    from scripts.ci.impact import classify
+
+    for changed in ("psx/devtools/coordinated_refresh.py", "tests/test_coordinated_refresh.py"):
+        selected = set(classify([changed])["selected"])
+        assert {"core", "qt", "kivy", "tkinter", "headless"} <= selected
