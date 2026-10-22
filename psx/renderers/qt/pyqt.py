@@ -787,7 +787,11 @@ class QtRenderer:
                     pass
             self._sfle_style_watched_widgets.clear()
             self._sfle_watched_widget = None
+            event_filter = self._sfle_resize_filter
             self._sfle_resize_filter = None
+            if event_filter is not None:
+                event_filter.discard_callbacks()
+                event_filter.deleteLater()
             self._sfle_resize_baseline = None
             self.sfle_result = None
             self._sfle_physical_commit_error = None
