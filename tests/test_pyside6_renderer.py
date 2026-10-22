@@ -422,7 +422,7 @@ def test_actual_pydux_store_releases_native_component_selector_subscriptions():
             ),
         },
     )
-    store = configure_store({"counter": counter})
+    store = configure_store({"counter": counter}, devtools=False)
     renderer = PySide6Renderer(argv=["psx-real-pydux-lifetime"])
     reconciler = Reconciler(renderer)
 
