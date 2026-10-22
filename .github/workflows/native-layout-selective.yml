@@ -364,6 +364,17 @@ jobs:
             native-image-soak-qt-${{ matrix.binding }}.json
             native-tree-soak-qt-${{ matrix.binding }}.json
           if-no-files-found: error
+      - name: Capture Qt binding-only QWidget and signal reference observations
+        env:
+          PSX_GRID_BACKEND: qt
+          PSX_TREE_SOAK_CYCLES: "512"
+          PSX_BINDING_REFERENCE_REPORT: native-binding-reference-qt-${{ matrix.binding }}.json
+        run: python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_qt_binding_only_signal_wrapper_reference_soak
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-binding-reference-qt-${{ matrix.binding }}
+          path: native-binding-reference-qt-${{ matrix.binding }}.json
+          if-no-files-found: error
       - name: Certify public native Qt property behavior with semantic JUnit evidence
         run: |
           PSX_GRID_BACKEND=qt python -m pytest -q tests/test_qt_public_behavior.py tests/test_mounted_grid_native_renderers.py --junitxml=public-native-qt.xml
