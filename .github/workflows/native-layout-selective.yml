@@ -160,6 +160,7 @@ jobs:
           cache: pip
       - run: python -m pip install -e . pytest
       - run: python -m pytest -q tests/test_disposed_state_payloads.py
+      - run: python -m pytest -q tests/test_reconciler_ownership_lifecycle.py
       - name: Verify headless resource baseline instrument
         run: python -m pytest -q tests/test_resource_baseline.py
       - uses: dtolnay/rust-toolchain@stable
