@@ -171,3 +171,6 @@ def test_failed_layout_commit_does_not_retain_queued_refs_after_unmount(engine):
     assert reconciler.root is None
     assert native_ref.current is None
     assert reference() is None
+    # Repeated disposal must remain harmless after the failed transaction.
+    reconciler.unmount()
+    assert reconciler._pending_refs == []
