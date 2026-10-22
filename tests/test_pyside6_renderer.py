@@ -361,7 +361,7 @@ def test_pydux_selector_unsubscribes_when_native_component_unmounts():
         def dispatch(self, action):
             self.state = action
             for listener in tuple(self.listeners):
-                listener(self.state["count"])
+                listener()
 
         def select(self, selector, listener, equality_fn=None, fire_immediately=False):
             def notify():
