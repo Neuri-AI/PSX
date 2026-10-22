@@ -534,3 +534,14 @@ def test_coordinated_refresh_routes_to_all_native_renderer_consumers():
     for changed in ("psx/devtools/coordinated_refresh.py", "tests/test_coordinated_refresh.py"):
         selected = set(classify([changed])["selected"])
         assert {"core", "qt", "kivy", "tkinter", "headless"} <= selected
+
+
+def test_hook_remount_and_native_lifecycle_select_each_backend():
+    from scripts.ci.impact import classify
+
+    for changed in (
+        'psx/core/reconcile.py', 'psx/core/hooks.py',
+        'tests/test_component_remount.py', 'tests/test_native_coordinated_refresh.py',
+    ):
+        selected = set(classify([changed])['selected'])
+        assert {'core', 'qt', 'kivy', 'tkinter', 'headless'} <= selected
