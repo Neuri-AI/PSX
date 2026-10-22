@@ -7,7 +7,7 @@ from typing import cast
 
 from psx.renderers.protocol import Renderer
 
-from .errors import DuplicateKeyError
+from .errors import DuplicateKeyError, HookOrderError
 from .events import EventSlot
 from .hooks import Ref, abort_render, begin_render, dispose_hooks, end_render
 from .instance import MountedInstance
@@ -36,6 +36,7 @@ class Reconciler:
         self.renderer = renderer
         self.root: MountedInstance | None = None
         self._is_rendering = False
+        self._coordinated_remount = False
         self._pending_refs: list[tuple[MountedInstance,
                                        Ref[object] | None]] = []
         self.scheduler = Scheduler(renderer.schedule_ui, self._flush_dirty)
@@ -62,7 +63,7 @@ class Reconciler:
             # place; the caller will unmount and remount it.
             return False
 
-    def remount_component(self, instance: MountedInstance) -> MountedInstance:
+    def remount_component(self, instance: MountedInstance, *, commit: bool = True) -> MountedInstance:
         """Replace one incompatible hook boundary without remounting siblings.
 
         Called on the renderer owner thread after a failed compatible render.
@@ -112,11 +113,12 @@ class Reconciler:
                 ancestor = self._effective_ancestor(replacement)
                 if ancestor is not None:
                     self._refresh_ancestor_layout(ancestor)
-            commit_layout = getattr(self.renderer, "commit_layout", None)
-            if callable(commit_layout) and self.root is not None:
-                commit_layout(self.root)
-            self._commit_refs()
-            self.scheduler.run_effects()
+            if commit:
+                commit_layout = getattr(self.renderer, "commit_layout", None)
+                if callable(commit_layout) and self.root is not None:
+                    commit_layout(self.root)
+                self._commit_refs()
+                self.scheduler.run_effects()
         except Exception:
             # Failed native replacement may be partially committed; do not
             # claim transactional rollback of arbitrary renderer mutations.
@@ -226,6 +228,11 @@ class Reconciler:
                 previous = old.children[0]
                 old.children = [self._reconcile(previous, rendered, old)]
                 return old
+            except HookOrderError:
+                old.node = previous_node
+                if self._coordinated_remount:
+                    return self.remount_component(old, commit=False)
+                raise
             except Exception:
                 old.node = previous_node
                 raise
