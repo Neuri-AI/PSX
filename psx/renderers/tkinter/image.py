@@ -62,8 +62,17 @@ class TkImageAdapter:
         return None
 
     def destroy(self, renderer, handle):
-        if handle.widget.winfo_exists():
-            handle.widget.destroy()
+        widget = handle.widget
+        if widget.winfo_exists():
+            widget.configure(image="")
+            widget.destroy()
+        # Tcl image objects and Pillow buffers may outlive widget destruction
+        # while external observers still hold a Python handle.
+        widget._psx_photo = None
+        widget._psx_image_cache = None
+        widget._psx_source = None
+        widget._psx_props = None
+        handle.props = {}
 
     @staticmethod
     def _load_and_apply(widget, props):
