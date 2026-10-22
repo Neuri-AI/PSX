@@ -4,6 +4,7 @@ This module never watches the filesystem or owns a child process.
 """
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 import os
 
@@ -65,6 +66,10 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
     css_changed = any(path.suffix.lower() == ".css" for path in changed)
     if source not in changed and not modules_changed and not css_changed:
         return False
+
+    for path in sorted(changed):
+        if path.suffix == ".py" and (path == source or path in module_paths.values()):
+            ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
     previous = compiled[0]
     try:
