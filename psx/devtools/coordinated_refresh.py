@@ -5,6 +5,7 @@ This module never watches the filesystem or owns a child process.
 from __future__ import annotations
 
 from pathlib import Path
+import os
 
 from psx.core.vnode import NodeKind
 
@@ -36,7 +37,8 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
     dedicated remount stage rather than forcing an unsafe partial update.
     """
     source = source.resolve()
-    root = source.parent
+    project = Path(os.environ.get('VELTO_PROJECT_ROOT', os.getcwd())).resolve()
+    root = project if source.is_relative_to(project) else source.parent
     changed = set()
     for relative in paths:
         candidate = (root / relative).resolve()
