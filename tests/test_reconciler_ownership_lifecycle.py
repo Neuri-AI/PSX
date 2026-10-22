@@ -207,7 +207,7 @@ def test_effect_owned_async_task_cancels_before_late_widget_callback(engine):
             return task.cancel
 
         use_effect(effect, ())
-        return Text("task owner")
+        return Flex(Text("task owner"), width="640px", height="480px")
 
     tree = Reconciler(make_renderer(engine))
     try:
