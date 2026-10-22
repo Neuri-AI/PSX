@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import threading
+import weakref
 from collections.abc import Callable
 
 from .instance import MountedInstance
@@ -32,7 +33,16 @@ class Scheduler:
             if self._pending:
                 return
             self._pending = True
-        self._schedule_ui(self._flush)
+        # Renderer queues may outlive a disposed root. Never keep the entire
+        # reconciler alive solely through an undelivered UI callback.
+        owner = weakref.ref(self)
+
+        def flush_if_alive() -> None:
+            current = owner()
+            if current is not None:
+                current._flush()
+
+        self._schedule_ui(flush_if_alive)
 
     def queue_effect(self, instance: MountedInstance, index: int, runner: Callable[[], None]) -> None:
         with self._lock:
