@@ -82,6 +82,7 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
             compiled[0] = candidate.render
         reconciler = app.reconciler
         previously_enabled = getattr(reconciler, '_coordinated_remount', False)
+        reconciler._coordinated_remount_applied = False
         reconciler._coordinated_remount = True
         try:
             compatible = reconciler.try_reevaluate(instance)
@@ -108,6 +109,6 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
     except Exception:
         # Cleanup can raise after the replacement is mounted. Never restore
         # an obsolete render callable onto an already replaced boundary.
-        if not instance.disposed:
+        if not instance.disposed and not getattr(app.reconciler, '_coordinated_remount_applied', False):
             compiled[0] = previous
         raise
