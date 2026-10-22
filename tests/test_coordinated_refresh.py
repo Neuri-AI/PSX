@@ -157,3 +157,47 @@ def test_real_headless_component_refresh_preserves_native_handle_and_hook_state(
         assert original.children[0].props["value"] == "after:7"
     finally:
         app.unmount()
+
+
+class ExternalExample:
+    def render(self):
+        raise RuntimeError("Source candidate not yet loaded")
+
+
+def test_real_python_source_rebinds_mounted_component(tmp_path, monkeypatch):
+    from psx import App, Flex, Text, component
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+    source = tmp_path / "main.py"
+    source.write_text(
+        "from psx import Flex, Text\n"
+        "class ExternalExample:\n"
+        "    def render(self):\n"
+        "        return Flex(Text('updated from file'))\n",
+        encoding="utf-8",
+    )
+    context = ExternalExample()
+    holder = [lambda self: Flex(Text("previous view"))]
+    def root():
+        return holder[0](context)
+    definition = component(root)
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+    )
+    context.app = App(definition, renderer=renderer)
+    context._development_root_definition = definition
+    context._development_render = holder
+    context.app.mount()
+    original = context.app.reconciler.root.native_handle()
+    monkeypatch.setattr(refresh, "_reload_policy", lambda _: object())
+    monkeypatch.setattr(refresh, "_project_modules", lambda *a: (frozenset(), {}))
+    try:
+        assert refresh.refresh_context_source(context, source, ("main.py",))
+        assert context.app.reconciler.root.native_handle() is original
+        assert original.children[0].props["value"] == "updated from file"
+    finally:
+        context.app.unmount()
