@@ -99,5 +99,8 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
         compiled[0] = previous
         return False
     except Exception:
-        compiled[0] = previous
+        # Cleanup can raise after the replacement is mounted. Never restore
+        # an obsolete render callable onto an already replaced boundary.
+        if not instance.disposed:
+            compiled[0] = previous
         raise
