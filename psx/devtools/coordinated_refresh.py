@@ -81,7 +81,7 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
             candidate = _load_updated_class(source, type(context), frozenset(module_paths))
             compiled[0] = candidate.render
         reconciler = app.reconciler
-        previously_enabled = reconciler._coordinated_remount
+        previously_enabled = getattr(reconciler, '_coordinated_remount', False)
         reconciler._coordinated_remount = True
         try:
             compatible = reconciler.try_reevaluate(instance)
