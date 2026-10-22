@@ -173,3 +173,27 @@ Executed GitHub Actions evidence:
 
 All architecture and progress documentation remains in this PSX repository. These code/CI SHA links record only the integration slices exercised; they are **not** proof of production-ready complete Hot Reloading.
 
+
+## 10. Compatible Fast Refresh: implemented integration and executed receipts
+
+**Scope of this increment:** load compatible Python/PSX Markup source changes and local dependency edits into a mounted `VeltoContext` through the CLI→Qyro notification channel; use the existing PSX reconciler and renderer UI scheduler rather than creating a second watcher or replacing the native window. Incompatible hook changes **remain outside this increment** and are handled by the subsequent targeted-remount work.
+
+### Implemented behavior
+
+- Qyro's `VeltoContext` maintains a replaceable compiled render callable and stable root component identity. The existing development receiver forwards changes to the renderer's `schedule_ui`; the worker never mutates widgets.
+- PSX's `psx/devtools/coordinated_refresh.py` accepts project-relative changes, validates the project boundary, preflights changed Python syntax, discovers project-local imports and evaluates compatible changes through `Reconciler.try_reevaluate`. It then commits layout, refs and scheduled effects through the existing reconciler/renderer. The mounted window and compatible component hooks survive in-place changes.
+- Local imports, including `from module import symbol`, are rebound when project-owned dependencies change. Previously unimported installed third-party dependencies, including `pandas`, can be imported without an automatic process restart. Already loaded native extensions are **not** arbitrarily reloaded.
+- CSS-file notifications cause a reevaluation of the mounted root and fresh stylesheet computation. CSS updates use the existing style and Cinnamon geometry pipeline; unrelated native handles survive compatible updates.
+- Syntax errors detected before module replacement and incompatible hook signatures reject the candidate and retain the previous compiled render function. The guaranteed atomicity of complex native update failures and complete restoration of arbitrary side effects are **not claimed** here.
+
+### Executed tests and boundaries
+
+| Test domain | Exact source SHA / run | Verified behavior |
+| --- | --- | --- |
+| PSX direct and real native Qt, Tkinter and Kivy | `7e1674a568015c814038a7dc9d1e48f5094471b8` — [Coordinated component refresh validation](https://github.com/Neuri-AI/PSX/actions/runs/39866178324) | Mounted native widget and hook identity retained; real authored Python updates; CSS recomputation; project-module rebinding; newly loaded `pandas`; invalid-source refusal; CI impact routing |
+| Qyro Engine actual `VeltoContext` + pinned PSX source | `bfd41439ac2fd50cdeb495995ef63fdb65d7eebc` — [Development settings validation](https://github.com/Neuri-AI/qyro/actions/runs/39866382244) | Live Qyro context mounts a real PSX headless tree, applies an authored file change and retains native host and hook state; notification dispatch occurs on the renderer thread; frozen guard remains tested |
+| Velto CLI existing supervisor / source notification baseline | `e21c80a256c486711c2931e2da15c77cf562677a` — [Development launch validation](https://github.com/Neuri-AI/Velto-CLI/actions/runs/39863029883) | Authenticated, debounced CLI→Qyro child notification channel and source settings |
+
+**Architecture boundary:** direct component-root Fast Refresh and unchanged-native-widget projection are certified above. Arbitrary subcomponent-level remounts, hook signature migration, crash-restart communication, globally transactional rollback of module side effects, Pydux snapshot restore, repeated soak runs and cross-platform Windows/macOS integration remain later work. In particular, the source-change supervisor currently relays notifications, but does not yet implement the final coordinated process-restart protocol.
+
+All source/certification code stays with its owning repository. This document is the only added canonical project-wide architecture report.
