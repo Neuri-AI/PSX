@@ -489,6 +489,10 @@ class RoutingTests(unittest.TestCase):
             {"router", "chromium"},
         )
 
+    def test_headless_resource_baseline_routes_to_core_suite(self):
+        self.assertEqual(self.selected("benchmarks/resource_baseline.py"), {"core"})
+        self.assertEqual(self.selected("tests/test_resource_baseline.py"), {"core"})
+
     def test_test_only_change_runs_corresponding_family(self):
         self.assertEqual(self.selected("tests/test_kivy_renderer.py"), {"kivy"})
         self.assertEqual(self.selected("tests/browser/test_sfle_chromium.py"), {"chromium"})
