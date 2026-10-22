@@ -83,6 +83,25 @@ class QyroComponentReloader:
             self._watcher.stop()
             self._watcher = None
 
+    def apply_external_changes(self, paths: tuple[Path, ...]) -> None:
+        """Accept changes from the CLI-owned watcher without starting another.
+
+        CLI delivers normalized, project-relative paths. The existing
+        scheduling path checks mount identity and dispatches native work to
+        the renderer's UI thread.
+        """
+        root = self.root.resolve()
+        resolved: list[Path] = []
+        for path in paths:
+            candidate = (root / path).resolve()
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                self.report("FAILED: source path escapes application root")
+                return
+            resolved.append(candidate)
+        self._on_changes(tuple(resolved))
+
     # -- watcher thread: pure Python only ---------------------------------
 
     def _on_changes(self, paths: tuple[Path, ...]) -> None:
