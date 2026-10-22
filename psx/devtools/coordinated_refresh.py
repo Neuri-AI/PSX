@@ -76,6 +76,16 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
             candidate = _load_updated_class(source, type(context), frozenset(module_paths))
             compiled[0] = candidate.render
         if app.reconciler.try_reevaluate(instance):
+            # A targeted reevaluation must finish the same layout/ref/effect
+            # commit that a normal reconciler render performs.
+            renderer = app.reconciler.renderer
+            commit_layout = getattr(renderer, 'commit_layout', None)
+            if callable(commit_layout):
+                commit_layout(app.reconciler.root)
+            commit_refs = getattr(app.reconciler, '_commit_refs', None)
+            if callable(commit_refs):
+                commit_refs()
+            app.reconciler.scheduler.run_effects()
             return True
         compiled[0] = previous
         return False
