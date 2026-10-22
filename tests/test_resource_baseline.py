@@ -19,6 +19,12 @@ class ResourceBaselineTests(unittest.TestCase):
             self.assertTrue(case["checkpoints"])
             self.assertIn("rss_peak_bytes", case["process_memory"])
             self.assertIn("uss_bytes", case["process_memory"])
+            self.assertIn("rss_live_bytes", case["process_memory"])
+            self.assertGreaterEqual(case["cpu_total_ms"], 0)
+            self.assertGreaterEqual(case["wall_total_ms"], 0)
+            for checkpoint in case["checkpoints"]:
+                self.assertIn("rss_live_bytes", checkpoint["process_memory"])
+                self.assertIn("uss_bytes", checkpoint["process_memory"])
 
     def test_rust_selection_never_silently_falls_back_to_python(self):
         with patch('benchmarks.resource_baseline.load_layout_engine', return_value=PythonLayoutEngine()):
@@ -34,3 +40,13 @@ class ResourceBaselineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ResourceSoakContractTests(unittest.TestCase):
+    def test_checkpoint_intervals_and_teardown_are_recorded_for_longer_probe(self):
+        result = sample(nodes=4, cycles=12, warmup=2, engine="python")
+        self.assertEqual([item["cycle"] for item in result["checkpoints"]], [3, 6, 9, 12])
+        self.assertEqual(result["cycles"], 12)
+        self.assertIsInstance(result["traced_after_teardown_bytes"], int)
+        self.assertTrue(all(item["gc_objects"] > 0 for item in result["checkpoints"]))
+        self.assertGreaterEqual(result["process_memory"]["rss_peak_bytes"] or 0, 0)
