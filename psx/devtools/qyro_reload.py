@@ -9,6 +9,7 @@ import importlib
 import importlib.util
 import inspect
 import os
+import weakref
 from pathlib import Path
 import sys
 import tempfile
@@ -58,12 +59,14 @@ class QyroComponentReloader:
         self.policy = _reload_policy(host)
         self.modules, self.module_paths = _project_modules(self.source, self.root, self.policy)
         self._watcher: PollingFileWatcher | None = None
+        self._watch_epoch = 0
 
     def start(self) -> bool:
         config = HotReloadConfig.from_environment(root=self.source.parent)
         if not config.effective_enabled or not self.policy.enabled:
             self.report("DISABLED: frozen runtime or production configuration")
             return False
+        self._watch_epoch += 1
         self._watcher = PollingFileWatcher(
             self.source.parent,
             self._on_changes,
@@ -75,6 +78,7 @@ class QyroComponentReloader:
         return True
 
     def stop(self) -> None:
+        self._watch_epoch += 1
         if self._watcher is not None:
             self._watcher.stop()
             self._watcher = None
@@ -111,7 +115,20 @@ class QyroComponentReloader:
             # watcher thread only replaces the render attribute and hands the
             # reconcile to the scheduler, which is thread-safe on all backends.
             renderer = mounted.app.renderer
-            renderer.schedule_ui(lambda: self._apply_update(mounted, root_component))
+            expected_epoch = self._watch_epoch
+            owner = weakref.ref(self)
+
+            def apply_if_current() -> None:
+                reloader = owner()
+                if reloader is None or reloader._watch_epoch != expected_epoch:
+                    return
+                live_mount = getattr(reloader.host, "_psx_mount", None)
+                live_component = getattr(reloader.host, "_psx_root_component", None)
+                if live_mount is None or live_component is None:
+                    return
+                reloader._apply_update(live_mount, live_component)
+
+            renderer.schedule_ui(apply_if_current)
         except Exception as exc:
             # Keep the last successful tree alive; the next save retries.
             self.report(f"FAILED: {exc}")

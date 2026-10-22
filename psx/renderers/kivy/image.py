@@ -94,3 +94,8 @@ class KivyImageAdapter:
         widget._psx_sfle_invalidate = None
         if widget.parent is not None:
             widget.parent.remove_widget(widget)
+        # Drop our owner-side references; Kivy's global texture cache is
+        # managed separately by Kivy and is not owned by this Image widget.
+        widget.source = ""
+        widget._psx_props = None
+        handle.props = {}

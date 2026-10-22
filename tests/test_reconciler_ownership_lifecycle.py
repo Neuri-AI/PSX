@@ -1,0 +1,233 @@
+"""Lifecycle ownership regressions for VNodes, keyed subtrees and hooks."""
+import gc
+import weakref
+
+import pytest
+
+from psx import Button, Flex, Text, component, use_effect, use_ref, use_state
+from psx.core.reconcile import Reconciler
+from benchmarks.resource_baseline import make_renderer
+
+
+@pytest.mark.parametrize('engine', ('python', 'rust'))
+def test_keyed_subtree_removal_releases_previous_node_payload(engine):
+    class Payload:
+        pass
+
+    payload = Payload()
+    reference = weakref.ref(payload)
+    renderer = make_renderer(engine)
+    reconciler = Reconciler(renderer)
+    def create_old_node(held):
+        return Flex(Button("first", key="old", on_click=lambda item=held: item), width="640px", height="480px")
+    reconciler.render(create_old_node(payload))
+    del payload
+    gc.collect()
+    assert reference() is not None
+    reconciler.render(Flex(Button("second", key="new"), width="640px", height="480px"))
+    renderer.operations.clear()  # The debug operation log is an explicit external observer.
+    gc.collect()
+    assert reference() is None
+    reconciler.unmount()
+
+
+@pytest.mark.parametrize('engine', ('python', 'rust'))
+def test_ref_cleared_and_effect_cleanup_runs_even_when_it_raises(engine):
+    refs = []
+    calls = []
+
+    @component
+    def Example():
+        ref = use_ref()
+        refs.append(ref)
+        def effect():
+            calls.append("setup")
+            def cleanup():
+                calls.append("cleanup")
+                raise RuntimeError("cleanup failed")
+            return cleanup
+        use_effect(effect, ())
+        return Flex(Text("mounted", ref=ref), width="640px", height="480px")
+
+    reconciler = Reconciler(make_renderer(engine))
+    reconciler.render(Example())
+    assert refs[0].current is not None
+    with pytest.raises(RuntimeError, match="cleanup failed"):
+        reconciler.unmount()
+    assert refs[0].current is None
+    assert calls == ["setup", "cleanup"]
+    assert reconciler.root is None
+
+
+@pytest.mark.parametrize('engine', ('python', 'rust'))
+def test_effect_cleanup_releases_captured_payload_even_on_exception(engine):
+    class Payload:
+        pass
+
+    seed = {"value": Payload()}
+    reference = weakref.ref(seed["value"])
+    cleanups = []
+
+    @component
+    def Example():
+        def effect():
+            value = seed.pop("value")
+            def cleanup():
+                cleanups.append("called")
+                assert value is not None
+                raise ValueError("effect cleanup")
+            return cleanup
+        use_effect(effect, ())
+        return Flex(Text("effect"), width="640px", height="480px")
+
+    reconciler = Reconciler(make_renderer(engine))
+    reconciler.render(Example())
+    with pytest.raises(ValueError, match="effect cleanup"):
+        reconciler.unmount()
+    gc.collect()
+    assert reference() is None
+    assert cleanups == ["called"]
+
+
+@pytest.mark.parametrize("engine", ("python", "rust"))
+def test_repeated_keyed_reconciliation_releases_removed_subtree_payloads(engine):
+    class Payload:
+        pass
+
+    renderer = make_renderer(engine)
+    reconciler = Reconciler(renderer)
+    weak = []
+    for index in range(12):
+        payload = Payload()
+        weak.append(weakref.ref(payload))
+        reconciler.render(Flex(
+            Button("click", key=str(index), on_click=lambda item=payload: item),
+            width="640px", height="480px"))
+        del payload
+        renderer.operations.clear()
+        gc.collect()
+        assert all(ref() is None for ref in weak[:-1])
+    reconciler.unmount()
+    renderer.operations.clear()
+    gc.collect()
+    assert all(ref() is None for ref in weak)
+
+
+@pytest.mark.parametrize("engine", ("python", "rust"))
+def test_multiple_failing_effect_cleanups_still_release_all_hook_slots(engine):
+    callbacks = []
+    released = []
+    @component
+    def Example():
+        for index in range(3):
+            def effect(which=index):
+                def cleanup():
+                    released.append(which)
+                    raise RuntimeError(f"failed cleanup {which}")
+                return cleanup
+            use_effect(effect, ())
+        return Flex(Text("three effects"), width="640px", height="480px")
+
+    renderer = make_renderer(engine)
+    reconciler = Reconciler(renderer)
+    mounted = reconciler.render(Example())
+    with pytest.raises(RuntimeError, match="failed cleanup 2"):
+        reconciler.unmount()
+    assert released == [2, 1, 0]
+    assert mounted.hooks == []
+    assert mounted.children == []
+    assert reconciler.root is None
+
+
+@pytest.mark.parametrize("engine", ("python", "rust"))
+def test_failed_layout_commit_does_not_retain_queued_refs_after_unmount(engine):
+    class Payload:
+        pass
+
+    payload = Payload()
+    reference = weakref.ref(payload)
+    renderer = make_renderer(engine)
+    reconciler = Reconciler(renderer)
+    from psx.core.hooks import Ref
+    native_ref = Ref()
+
+    # This callback is retained by the pending VNode, before refs are committed.
+    declaration = Flex(Button("pending", ref=native_ref,
+                              on_click=lambda item=payload: item),
+                       width="640px", height="480px")
+
+    def fail_commit(_root):
+        raise RuntimeError("layout rejected")
+
+    renderer.commit_layout = fail_commit
+    with pytest.raises(RuntimeError, match="layout rejected"):
+        reconciler.render(declaration)
+    assert reconciler._pending_refs
+    del declaration, payload
+    reconciler.unmount()
+    renderer.operations.clear()
+    gc.collect()
+    assert reconciler._pending_refs == []
+    assert reconciler.root is None
+    assert native_ref.current is None
+    assert reference() is None
+    # Repeated disposal must remain harmless after the failed transaction.
+    reconciler.unmount()
+    assert reconciler._pending_refs == []
+
+
+@pytest.mark.parametrize("engine", ("python", "rust"))
+def test_effect_owned_async_task_cancels_before_late_widget_callback(engine):
+    import asyncio
+
+    class Payload:
+        pass
+
+    loop = asyncio.new_event_loop()
+    payload = Payload()
+    reference = weakref.ref(payload)
+    seed = {"payload": payload}
+    called = []
+    scheduled = []
+
+    @component
+    def Item():
+        def effect():
+            current = seed.pop("payload")
+
+            async def delayed_update():
+                try:
+                    await asyncio.sleep(30)
+                    called.append(current)
+                finally:
+                    called.append("task-finalized")
+
+            task = loop.create_task(delayed_update())
+            scheduled.append(task)
+            return task.cancel
+
+        use_effect(effect, ())
+        return Flex(Text("task owner"), width="640px", height="480px")
+
+    tree = Reconciler(make_renderer(engine))
+    try:
+        tree.render(Item())
+        # Enter the coroutine and confirm it is awaiting delayed completion.
+        loop.run_until_complete(asyncio.sleep(0))
+        assert not scheduled[0].done()
+        del payload
+        tree.unmount()
+        loop.run_until_complete(asyncio.gather(*scheduled, return_exceptions=True))
+        assert called == ["task-finalized"]
+        scheduled.clear()
+        gc.collect()
+        assert reference() is None
+        assert tree.root is None
+    finally:
+        if tree.root is not None:
+            tree.unmount()
+        for task in scheduled:
+            task.cancel()
+        if scheduled:
+            loop.run_until_complete(asyncio.gather(*scheduled, return_exceptions=True))
+        loop.close()

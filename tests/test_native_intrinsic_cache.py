@@ -112,3 +112,72 @@ def test_native_invalidation_targeted_resource_change_remeasures_only_its_widget
     run(dirty=frozenset((id(alpha),)))
     assert calls == ["alpha", "beta", "alpha"]
     assert cache.last_measured == {id(alpha)}
+
+
+def test_cache_discards_obsolete_identity_and_width_entries_after_successful_round():
+    """Churn may not accumulate past widgets or prior width samples."""
+    import gc
+    import weakref
+
+    class Payload:
+        pass
+
+    cache = NativeIntrinsicCache()
+    constraints = LayoutConstraints(AvailableSize(120, True), AvailableSize(60, True))
+    prior = None
+    for index in range(128):
+        payload = Payload()
+        reference = weakref.ref(payload)
+        tx = cache.begin()
+        widget = object()
+        tx.read(widget=widget, props={"payload": payload},
+                constraints=constraints, node_id="current", generation=index + 1,
+                measure=lambda: MeasuredBox(
+                    "current", IntrinsicSizes(8, 8, 8, 8, 8, 8),
+                    constraints, index + 1))
+        tx.read_width(widget=widget, props={"payload": payload},
+                      constraints=constraints, width=index + 1,
+                      measure=lambda: (10, 20))
+        tx.publish()
+        assert len(cache.entries) == 1
+        assert len(cache.width_entries) == 1
+        if prior is not None:
+            gc.collect()
+            assert prior() is None
+        prior = reference
+        del tx, payload
+    cache.clear()
+    gc.collect()
+    assert prior() is None
+    assert not cache.entries and not cache.width_entries
+    assert not cache.last_measured and not cache.last_width_measured
+
+
+def test_failed_round_preserves_last_committed_cache_and_clear_drops_refs():
+    import gc
+    import weakref
+
+    class Payload:
+        pass
+
+    cache = NativeIntrinsicCache()
+    constraints = LayoutConstraints(AvailableSize(100, True), AvailableSize(100, True))
+    payload = Payload()
+    retained = weakref.ref(payload)
+    widget = object()
+    tx = cache.begin()
+    tx.read(widget=widget, props={"owned": payload},
+            constraints=constraints, node_id="leaf", generation=1,
+            measure=lambda: MeasuredBox("leaf",
+                IntrinsicSizes(4, 4, 4, 4, 4, 4), constraints, 1))
+    tx.publish()
+    del tx, payload
+    with pytest.raises(ValueError, match="failed decode"):
+        cache.begin(invalidate_all=True).read(
+            widget=widget, props={}, constraints=constraints,
+            node_id="leaf", generation=2,
+            measure=lambda: (_ for _ in ()).throw(ValueError("failed decode")))
+    assert retained() is not None
+    cache.clear()
+    gc.collect()
+    assert retained() is None

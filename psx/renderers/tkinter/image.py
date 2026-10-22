@@ -62,8 +62,17 @@ class TkImageAdapter:
         return None
 
     def destroy(self, renderer, handle):
-        if handle.widget.winfo_exists():
-            handle.widget.destroy()
+        widget = handle.widget
+        if widget.winfo_exists():
+            widget.configure(image="")
+            widget.destroy()
+        # Tcl image objects and Pillow buffers may outlive widget destruction
+        # while external observers still hold a Python handle.
+        widget._psx_photo = None
+        widget._psx_image_cache = None
+        widget._psx_source = None
+        widget._psx_props = None
+        handle.props = {}
 
     @staticmethod
     def _load_and_apply(widget, props):
@@ -87,7 +96,8 @@ class TkImageAdapter:
         # Full path with Pillow.
         if widget._psx_source != source:
             try:
-                widget._psx_image_cache = PILImage.open(source).convert("RGBA")
+                with PILImage.open(source) as decoded:
+                    widget._psx_image_cache = decoded.convert("RGBA")
             except (OSError, PILImage.UnidentifiedImageError):
                 widget._psx_image_cache = None
             widget._psx_source = source
@@ -95,6 +105,7 @@ class TkImageAdapter:
         pil = widget._psx_image_cache
         if pil is None:
             widget.configure(image="", text=props["alt"])
+            widget._psx_photo = None
             return
 
         src_w, src_h = pil.size
@@ -103,6 +114,7 @@ class TkImageAdapter:
         )
         if target_w <= 0 or target_h <= 0:
             widget.configure(image="", text=props["alt"])
+            widget._psx_photo = None
             return
 
         x, y, w, h = compute_fit_rect(

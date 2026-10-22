@@ -2408,3 +2408,439 @@ def test_native_css_certified_background_update_and_reset(shade):
     finally:
         reconciler.unmount()
         close()
+
+
+def test_native_event_replacement_and_teardown_disconnects_real_toolkit_callbacks():
+    """Exercise actual Qt signals, Tk commands and Kivy event dispatch."""
+    from psx import Button
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend, sfle=False)
+    reconciler = Reconciler(renderer)
+    calls = []
+    try:
+        for cycle in range(8):
+            original = reconciler.render(
+                Button("Action", on_click=lambda n=cycle: calls.append(("old", n)))
+            )
+            widget = original.handle.widget
+            if backend == "qt":
+                widget.click()
+            elif backend == "tk":
+                widget.invoke()
+            else:
+                widget.dispatch("on_release")
+            updated = reconciler.render(
+                Button("Action", on_click=lambda n=cycle: calls.append(("new", n)))
+            )
+            assert updated.handle.widget is widget
+            slot = updated.event_slots["on_click"][0]
+            if backend == "qt":
+                widget.click()
+            elif backend == "tk":
+                widget.invoke()
+            else:
+                widget.dispatch("on_release")
+            assert calls[-2:] == [("old", cycle), ("new", cycle)]
+            if cycle == 4:
+                original_unbind = renderer.unbind_event
+
+                def disconnect_then_fail(subscription):
+                    original_unbind(subscription)
+                    raise RuntimeError("native disconnect failure")
+
+                renderer.unbind_event = disconnect_then_fail
+                try:
+                    with pytest.raises(RuntimeError, match="native disconnect failure"):
+                        reconciler.unmount()
+                finally:
+                    renderer.unbind_event = original_unbind
+            else:
+                reconciler.unmount()
+            assert reconciler.root is None
+            assert updated.disposed
+            assert updated.event_slots == {}
+            assert slot.invoke() is None
+            if backend == "qt":
+                renderer.application.processEvents()
+                # Queued Qt deleteLater may require a deferred-delete flush.
+                core = importlib.import_module(
+                    {"pyside6": "PySide6", "pyside2": "PySide2",
+                     "pyqt5": "PyQt5", "pyqt6": "PyQt6"}[
+                        os.environ["PSX_QT_BINDING"]] + ".QtCore")
+                core.QCoreApplication.sendPostedEvents(
+                    None, core.QEvent.Type.DeferredDelete)
+                if os.environ["PSX_QT_BINDING"].startswith("pyside"):
+                    wrapper = importlib.import_module(
+                        "shiboken6" if os.environ["PSX_QT_BINDING"] == "pyside6"
+                        else "shiboken2")
+                    assert not wrapper.isValid(widget)
+                else:
+                    sip = importlib.import_module(
+                        "PyQt6.sip" if os.environ["PSX_QT_BINDING"] == "pyqt6"
+                        else "sip")
+                    assert sip.isdeleted(widget)
+            elif backend == "tk":
+                assert not widget.winfo_exists()
+            else:
+                assert widget.parent is None
+        assert len(calls) == 16
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_disposed_native_component_ignores_queued_state_ui_callbacks():
+    """Qt/Tk/Kivy must not re-render a destroyed widget from a late UI flush."""
+    from psx import component, use_state
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend, sfle=False)
+    tree = Reconciler(renderer)
+    setters = []
+    renders = []
+
+    @component
+    def Counter():
+        value, setter = use_state(0)
+        setters.append(setter)
+        renders.append(value)
+        return Text(str(value))
+
+    try:
+        for _ in range(8):
+            tree.render(Counter())
+            setter = setters.pop()
+            setter(1)
+            tree.unmount()
+            if backend == "qt":
+                renderer.application.processEvents()
+            elif backend == "tk":
+                renderer.flush()
+            else:
+                from kivy.clock import Clock
+                Clock.tick()
+            assert tree.root is None
+        assert renders == [0] * 8
+    finally:
+        tree.unmount()
+        close()
+
+
+def _flush_qt_disposal(renderer):
+    """Qt processEvents alone does not guarantee deleteLater delivery."""
+    binding = os.environ["PSX_QT_BINDING"]
+    module = {"pyside6": "PySide6", "pyside2": "PySide2",
+              "pyqt5": "PyQt5", "pyqt6": "PyQt6"}[binding]
+    core = importlib.import_module(module + ".QtCore")
+    renderer.application.processEvents()
+    core.QCoreApplication.sendPostedEvents(None, core.QEvent.Type.DeferredDelete)
+
+
+def test_native_image_churn_releases_owned_decoded_buffers(tmp_path):
+    """Image adapters release their own decoded resources on every unmount."""
+    import base64
+    from psx import Image
+
+    png = tmp_path / "pixel.png"
+    png.write_bytes(base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"
+    ))
+    backend = os.environ["PSX_GRID_BACKEND"]
+    soak_report = os.environ.get("PSX_SOAK_REPORT")
+    cycles = int(os.environ.get("PSX_SOAK_CYCLES", "12"))
+    if cycles <= 0:
+        raise ValueError("Native image soak requires positive cycles.")
+    if soak_report:
+        import gc
+        import json
+        import platform
+        import sys
+        import time
+        import tracemalloc
+        from benchmarks.resource_baseline import process_memory
+        tracemalloc.start()
+        starting_memory = process_memory()
+        wall_start = time.perf_counter_ns()
+        cpu_start = time.process_time_ns()
+        checkpoints = []
+        cycle_times_ns = []
+    renderer, close = make_renderer(backend, sfle=False)
+    tree = Reconciler(renderer)
+    try:
+        for cycle in range(cycles):
+            if soak_report:
+                cycle_start_ns = time.perf_counter_ns()
+            mounted = tree.render(Image(str(png), width=10, height=10))
+            handle = mounted.handle
+            widget = handle.widget
+            tree.unmount()
+            assert tree.root is None
+            assert handle.props == {}
+            assert widget._psx_props is None
+            if backend == "qt":
+                assert widget._psx_pixmap_cache is None
+                _flush_qt_disposal(renderer)
+            elif backend == "tk":
+                assert widget._psx_image_cache is None
+                assert widget._psx_photo is None
+                assert not widget.winfo_exists()
+            else:
+                assert widget._psx_sfle_invalidate is None
+                assert widget.parent is None
+            if soak_report:
+                cycle_times_ns.append(time.perf_counter_ns() - cycle_start_ns)
+            if soak_report and ((cycle + 1) % max(1, cycles // 4) == 0 or cycle + 1 == cycles):
+                gc.collect()
+                current, peak = tracemalloc.get_traced_memory()
+                checkpoints.append({"cycle": cycle + 1, "traced_current_bytes": current,
+                                    "traced_peak_bytes": peak, "gc_objects": len(gc.get_objects()),
+                                    "process_memory": process_memory()})
+    finally:
+        tree.unmount()
+        close()
+        if soak_report:
+            gc.collect()
+            current, peak = tracemalloc.get_traced_memory()
+            report = {"schema": 1, "backend": backend,
+                      "qt_binding": os.environ.get("PSX_QT_BINDING") if backend == "qt" else None,
+                      "python": sys.version.split()[0], "platform": platform.platform(),
+                      "cycles": cycles, "checkpoints": checkpoints,
+                      "mean_cycle_ms": round(sum(cycle_times_ns) / len(cycle_times_ns) / 1e6, 4),
+                      "p95_cycle_ms": round(sorted(cycle_times_ns)[(len(cycle_times_ns) * 95 + 99) // 100 - 1] / 1e6, 4),
+                      "process_memory_before": starting_memory,
+                      "process_memory_after": process_memory(),
+                      "after_teardown_traced_bytes": current, "traced_peak_bytes": peak,
+                      "wall_total_ms": round((time.perf_counter_ns() - wall_start) / 1e6, 3),
+                      "cpu_total_ms": round((time.process_time_ns() - cpu_start) / 1e6, 3),
+                      "scope": "real native image mount/unmount; not a GPU allocator leak verdict"}
+            from pathlib import Path
+            Path(soak_report).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+            tracemalloc.stop()
+
+
+def test_native_keyed_tree_reconciliation_soak():
+    """Measure sustained native subtree mount, reordering and teardown."""
+    import gc
+    from collections import Counter
+    import weakref
+    import json
+    import platform
+    import sys
+    import time
+    import tracemalloc
+    from pathlib import Path
+    from psx import Button, Flex
+    from benchmarks.resource_baseline import process_memory
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    report_path = os.environ.get("PSX_TREE_SOAK_REPORT")
+    cycles = int(os.environ.get("PSX_TREE_SOAK_CYCLES", "12"))
+    assert cycles > 0
+    renderer, close = make_renderer(backend, sfle=True)
+    tree = Reconciler(renderer)
+    checkpoints = []
+    object_type_baseline = None
+    object_type_final = None
+    target_samples = []
+    cycle_times_ns = []
+    tracemalloc.start()
+    baseline_memory = process_memory()
+    start_wall = time.perf_counter_ns()
+    start_cpu = time.process_time_ns()
+
+    try:
+        for cycle in range(cycles):
+            cycle_start_ns = time.perf_counter_ns()
+            first = Flex(
+                Button("A", key="a", on_click=lambda: None),
+                Text(str(cycle), key="b"),
+                direction="column",
+            )
+            second = Flex(
+                Text(str(cycle + 1), key="b"),
+                Button("A", key="a", on_click=lambda: None),
+                direction="column",
+            )
+            tree.render(first)
+            tree.render(second)
+            tree.unmount()
+            assert tree.root is None
+            if backend == "qt":
+                _flush_qt_disposal(renderer)
+            elif backend == "tk":
+                renderer.flush()
+            else:
+                from kivy.clock import Clock
+                Clock.tick()
+            cycle_times_ns.append(time.perf_counter_ns() - cycle_start_ns)
+            if (cycle + 1) % max(1, cycles // 4) == 0 or cycle + 1 == cycles:
+                gc.collect()
+                current, peak = tracemalloc.get_traced_memory()
+                counts = Counter(f"{type(obj).__module__}.{type(obj).__qualname__}" for obj in gc.get_objects())
+                if object_type_baseline is None:
+                    object_type_baseline = counts
+                object_type_final = counts
+                all_objects = gc.get_objects()
+                weakrefs = [obj for obj in all_objects if type(obj) is weakref.ReferenceType]
+                targets = Counter("dead" if item() is None else f"{type(item()).__module__}.{type(item()).__qualname__}" for item in weakrefs)
+                target_samples.append({"cycle": cycle + 1, "weakref_targets": targets.most_common(16)})
+                del weakrefs, all_objects
+                checkpoints.append({
+                    "cycle": cycle + 1,
+                    "traced_current_bytes": current,
+                    "traced_peak_bytes": peak,
+                    "gc_objects": len(gc.get_objects()),
+                    "process_memory": process_memory(),
+                })
+        if (backend == "qt" and cycles >= 512
+                and os.environ["PSX_QT_BINDING"].startswith("pyside")):
+            # Calibrated on real PySide2/6 512-cycle benchmarks: after caching
+            # QObject subclass types, wrapper/tuple drift is at most 22/1.
+            # Allow CI allocator variance but reject per-widget linear growth.
+            accumulated = object_type_final - object_type_baseline
+            assert accumulated.get("weakref.ReferenceType", 0) <= 64
+            assert accumulated.get("builtins.tuple", 0) <= 64
+    finally:
+        tree.unmount()
+        close()
+        if report_path:
+            gc.collect()
+            current, peak = tracemalloc.get_traced_memory()
+            report = {
+                "schema": 1, "backend": backend,
+                "qt_binding": os.environ.get("PSX_QT_BINDING") if backend == "qt" else None,
+                "python": sys.version.split()[0], "platform": platform.platform(),
+                "cycles": cycles, "checkpoints": checkpoints,
+                "gc_object_type_growth": (object_type_final - object_type_baseline).most_common(25),
+                "gc_weakref_target_snapshots": target_samples,
+                "mean_cycle_ms": round(sum(cycle_times_ns) / len(cycle_times_ns) / 1e6, 4),
+                "p95_cycle_ms": round(sorted(cycle_times_ns)[(len(cycle_times_ns) * 95 + 99) // 100 - 1] / 1e6, 4),
+                "process_memory_before": baseline_memory,
+                "process_memory_after": process_memory(),
+                "after_teardown_traced_bytes": current, "traced_peak_bytes": peak,
+                "wall_total_ms": round((time.perf_counter_ns() - start_wall) / 1e6, 3),
+                "cpu_total_ms": round((time.process_time_ns() - start_cpu) / 1e6, 3),
+                "scope": "real native keyed tree and widget lifecycle; diagnostic, not leak verdict",
+            }
+            Path(report_path).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        tracemalloc.stop()
+
+
+def test_qt_binding_only_signal_wrapper_reference_soak():
+    """Reference workload isolating Qt binding allocations from PSX retention."""
+    if os.environ["PSX_GRID_BACKEND"] != "qt":
+        pytest.skip("Qt binding-only reference workload")
+    import gc
+    import json
+    import tracemalloc
+    from collections import Counter
+    from pathlib import Path
+    from benchmarks.resource_baseline import process_memory
+
+    binding = os.environ["PSX_QT_BINDING"]
+    package = {"pyside6": "PySide6", "pyside2": "PySide2",
+               "pyqt5": "PyQt5", "pyqt6": "PyQt6"}[binding]
+    widgets = importlib.import_module(package + ".QtWidgets")
+    core = importlib.import_module(package + ".QtCore")
+    app = widgets.QApplication.instance() or widgets.QApplication(["psx-wrapper-reference"])
+    cycles = int(os.environ.get("PSX_TREE_SOAK_CYCLES", "12"))
+    report_path = os.environ.get("PSX_BINDING_REFERENCE_REPORT")
+    assert cycles > 0
+    tracemalloc.start()
+    checkpoints = []
+    baseline_counts = None
+    final_counts = None
+    before_process = process_memory()
+
+    try:
+        for cycle in range(cycles):
+            # Each PSX event binding constructs a fresh application callback;
+            # reusing one callback would hide binding-level identity caches.
+            on_click = lambda current=cycle: current
+            parent = widgets.QWidget()
+            button = widgets.QPushButton(parent)
+            button.clicked.connect(on_click)
+            button.click()
+            button.clicked.disconnect(on_click)
+            parent.deleteLater()
+            del parent, button
+            app.processEvents()
+            core.QCoreApplication.sendPostedEvents(None, core.QEvent.Type.DeferredDelete)
+            if (cycle + 1) % max(1, cycles // 4) == 0 or cycle + 1 == cycles:
+                gc.collect()
+                counts = Counter(f"{type(obj).__module__}.{type(obj).__qualname__}" for obj in gc.get_objects())
+                if baseline_counts is None:
+                    baseline_counts = counts
+                final_counts = counts
+                traced, peak = tracemalloc.get_traced_memory()
+                checkpoints.append({"cycle": cycle + 1,
+                                    "gc_objects": len(gc.get_objects()),
+                                    "traced_current_bytes": traced,
+                                    "traced_peak_bytes": peak,
+                                    "process_memory": process_memory()})
+    finally:
+        if report_path:
+            report = {
+                "schema": 1, "binding": binding, "cycles": cycles,
+                "checkpoints": checkpoints,
+                "gc_object_type_growth": (final_counts - baseline_counts).most_common(25),
+                "process_memory_before": before_process,
+                "process_memory_after": process_memory(),
+                "scope": "Qt-only QWidget plus signal churn; no PSX reconciler/layout",
+            }
+            Path(report_path).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        tracemalloc.stop()
+
+
+def test_qt_viewport_filter_class_is_reused_and_owned_callbacks_are_discarded():
+    """Repeated native commits must not create a QObject subclass per mount."""
+    if os.environ["PSX_GRID_BACKEND"] != "qt":
+        pytest.skip("Qt-specific QObject observer lifetime")
+    from psx import Flex
+
+    renderer, close = make_renderer("qt", sfle=True)
+    tree = Reconciler(renderer)
+    filter_class = None
+    try:
+        for cycle in range(16):
+            tree.render(Flex(Text(str(cycle)), width="100%", height=200))
+            active_filter = renderer._sfle_resize_filter
+            assert active_filter is not None
+            if filter_class is None:
+                filter_class = type(active_filter)
+            assert type(active_filter) is filter_class
+            tree.unmount()
+            assert renderer._sfle_resize_filter is None
+            assert active_filter._resize_handler is None
+            assert active_filter._invalidation_handler is None
+            _flush_qt_disposal(renderer)
+    finally:
+        tree.unmount()
+        close()
+
+
+def test_qt_text_and_button_host_types_remain_constant_across_mounts():
+    """A new native widget must not create a new Qt QObject-derived Python type."""
+    if os.environ["PSX_GRID_BACKEND"] != "qt":
+        pytest.skip("Qt wrapper class ownership")
+    from psx import Button, Flex
+
+    renderer, close = make_renderer("qt", sfle=True)
+    tree = Reconciler(renderer)
+    reference_types = None
+    try:
+        for cycle in range(16):
+            mounted = tree.render(Flex(
+                Text(str(cycle), key="text"),
+                Button("Action", key="button"),
+                direction="column", width="100%", height=200))
+            current_types = tuple(type(child.handle.widget) for child in mounted.children)
+            if reference_types is None:
+                reference_types = current_types
+            assert current_types == reference_types
+            tree.unmount()
+            _flush_qt_disposal(renderer)
+    finally:
+        tree.unmount()
+        close()

@@ -159,6 +159,30 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install -e . pytest
+      - run: python -m pytest -q tests/test_disposed_state_payloads.py
+      - name: Verify watcher and delayed refresh lifecycle cleanup
+        run: python -m pytest -q tests/test_devtools.py
+      - name: Verify headless resource baseline instrument
+        run: python -m pytest -q tests/test_resource_baseline.py
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python -m pip install "maturin>=1.8,<2"
+      - run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
+      - run: python -m pip install --no-deps --find-links wheelhouse "psx-sfle-native==0.1.0"
+      - run: python -m pytest -q tests/test_reconciler_ownership_lifecycle.py
+      - name: Capture Rust and Python resource baselines
+        run: python benchmarks/resource_baseline.py --nodes 16 --cycles 100 --warmup 10 --engine both --output resource-baseline.json > /dev/null
+      - name: Capture prolonged dual-engine CPU and memory observations
+        run: python benchmarks/resource_baseline.py --nodes 16 --cycles 400 --warmup 30 --engine both --output resource-baseline-soak.json > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: headless-resource-soak
+          path: resource-baseline-soak.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: headless-resource-baseline
+          path: resource-baseline.json
+          if-no-files-found: error
       - run: python -m pytest -q tests/css/test_properties.py tests/css/test_parser_and_cascade.py tests/css/test_cache.py tests/css/test_visual_values.py tests/css/test_effects.py tests/css/test_property_catalog.py tests/css/test_catalog.py tests/css/test_tree.py tests/css/test_sources.py tests/css/test_context.py tests/css/test_geometry_handoff.py tests/css/test_box_flow_geometry.py tests/css/test_native_paint.py tests/test_markup_css_binding.py tests/test_css_markup_census.py tests/test_core.py tests/test_spacer.py tests/test_divider.py tests/test_markup_transform.py tests/test_expressive_markup_syntax.py tests/test_expressive_conditional_rendering.py tests/test_declarative_list_rendering.py tests/test_arrow_callback_rendering.py tests/test_expressive_composition_security.py tests/test_ref_m0_characterization.py tests/test_component_contracts.py tests/test_component_registry.py tests/test_lowercase_markup_aliases.py tests/test_markup_registry.py tests/test_markup.py tests/test_hooks_scheduler.py tests/test_component_lexical_runtime.py tests/test_renderer_adapters.py tests/test_source_naming_conventions.py tests/test_legacy_layout_inventory.py tests/test_scroll_offsets.py tests/test_scroll_events.py tests/test_scroll_transactions.py tests/test_scroll_operation_receipts.py tests/test_native_scroll_hosts.py tests/test_flex_layout_contract.py tests/test_grid_contract.py tests/test_flex_item_metadata.py tests/test_native_layout_snapshot.py tests/test_p1_canonical_box_style.py tests/test_native_component_capabilities.py tests/test_native_component_matrix.py tests/test_native_operation_contracts.py tests/test_native_external_ownership_contracts.py tests/test_native_measurement_invalidation.py tests/test_layout_change_effects.py tests/test_incremental_result_reuse.py tests/test_native_invalidation_receipts.py tests/test_native_intrinsic_cache.py tests/test_native_geometry_write_suppression.py tests/test_native_resource_invalidation.py tests/test_external_native_geometry_ports.py tests/test_width_dependent_intrinsic_measurement.py tests/test_native_pixel_scale.py tests/test_native_geometry_precision.py tests/test_native_component_integration.py tests/test_native_acceptance_receipts.py tests/test_component_family_policy.py tests/test_headless_native_layout.py
       - name: Verify source-derived public behavior inventory and receipt integrity
         run: python -m pytest -q tests/test_public_behavior_census.py tests/test_public_contract_census.py tests/test_public_property_validation.py tests/test_grid_contract.py tests/test_lowercase_markup_aliases.py tests/test_css_markup_census.py --junitxml=public-behavior-core.xml
@@ -254,7 +278,7 @@ jobs:
       - run: python -m pip install -e '.[pyside6]' pytest
       - name: Install pinned Pydux dependency required by existing PySide6 integration tests
         run: |
-          python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@56e6df858bc0e1ae598cd1cab0aa384c921cf253"
+          python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@8de71cee892c5e65a5b5fb223829f4525680a543"
       - run: python -m pytest -q tests/test_pyside6_renderer.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_native_layout.py tests/test_pyside6_external_native_ports.py tests/sfle/test_grid_native_measurement.py tests/sfle/test_grid_native_commit.py --junitxml=scroll-qt-operations.xml
       - run: python -m tests.certification.scroll_operation_receipts --backend qt --junit scroll-qt-operations.xml --out scroll-qt-operations.json
       - uses: actions/upload-artifact@v4
@@ -321,6 +345,36 @@ jobs:
           python -m tests.certification.native_acceptance_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c6.json
           python -m tests.certification.native_invalidation_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c5.json
           python -m psx.sfle.native_external_ownership_receipts --backend qt --junit native-layout-qt-dpi.xml --out native-layout-qt-dpi-c4.json
+      - name: Capture prolonged Qt native image ownership samples
+        env:
+          PSX_GRID_BACKEND: qt
+          PSX_SOAK_CYCLES: "2048"
+          PSX_SOAK_REPORT: native-image-soak-qt-${{ matrix.binding }}.json
+        run: python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_image_churn_releases_owned_decoded_buffers
+      - name: Capture prolonged qt keyed tree ownership samples
+        env:
+          PSX_GRID_BACKEND: qt
+          PSX_TREE_SOAK_CYCLES: "512"
+          PSX_TREE_SOAK_REPORT: native-tree-soak-qt-${{ matrix.binding }}.json
+        run: python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_keyed_tree_reconciliation_soak
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-image-soak-qt-${{ matrix.binding }}
+          path: |
+            native-image-soak-qt-${{ matrix.binding }}.json
+            native-tree-soak-qt-${{ matrix.binding }}.json
+          if-no-files-found: error
+      - name: Capture Qt binding-only QWidget and signal reference observations
+        env:
+          PSX_GRID_BACKEND: qt
+          PSX_TREE_SOAK_CYCLES: "512"
+          PSX_BINDING_REFERENCE_REPORT: native-binding-reference-qt-${{ matrix.binding }}.json
+        run: python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_qt_binding_only_signal_wrapper_reference_soak
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-binding-reference-qt-${{ matrix.binding }}
+          path: native-binding-reference-qt-${{ matrix.binding }}.json
+          if-no-files-found: error
       - name: Certify public native Qt property behavior with semantic JUnit evidence
         run: |
           PSX_GRID_BACKEND=qt python -m pytest -q tests/test_qt_public_behavior.py tests/test_mounted_grid_native_renderers.py --junitxml=public-native-qt.xml
@@ -374,6 +428,25 @@ jobs:
           python -m tests.certification.native_acceptance_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-c6.json
           python -m tests.certification.native_invalidation_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-c5.json
           python -m psx.sfle.native_external_ownership_receipts --backend kivy --junit native-layout-kivy.xml --out native-layout-kivy-c4.json
+      - name: Capture prolonged Kivy native image ownership samples
+        env:
+          PSX_GRID_BACKEND: kivy
+          PSX_SOAK_CYCLES: "2048"
+          PSX_SOAK_REPORT: native-image-soak-kivy.json
+        run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_image_churn_releases_owned_decoded_buffers
+      - name: Capture prolonged kivy keyed tree ownership samples
+        env:
+          PSX_GRID_BACKEND: kivy
+          PSX_TREE_SOAK_CYCLES: "512"
+          PSX_TREE_SOAK_REPORT: native-tree-soak-kivy.json
+        run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_keyed_tree_reconciliation_soak
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-image-soak-kivy
+          path: |
+            native-image-soak-kivy.json
+            native-tree-soak-kivy.json
+          if-no-files-found: error
       - name: Certify Kivy public native updates through real SDL2 widgets
         run: |
           PSX_GRID_BACKEND=kivy xvfb-run -a python -m pytest -q tests/test_kivy_public_behavior.py tests/test_mounted_grid_native_renderers.py --junitxml=public-native-kivy.xml
@@ -422,6 +495,25 @@ jobs:
           python -m tests.certification.native_acceptance_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-c6.json
           python -m tests.certification.native_invalidation_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-c5.json
           python -m psx.sfle.native_external_ownership_receipts --backend tk --junit native-layout-tk.xml --out native-layout-tk-c4.json
+      - name: Capture prolonged Tk native image ownership samples
+        env:
+          PSX_GRID_BACKEND: tk
+          PSX_SOAK_CYCLES: "2048"
+          PSX_SOAK_REPORT: native-image-soak-tk.json
+        run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_image_churn_releases_owned_decoded_buffers
+      - name: Capture prolonged tk keyed tree ownership samples
+        env:
+          PSX_GRID_BACKEND: tk
+          PSX_TREE_SOAK_CYCLES: "512"
+          PSX_TREE_SOAK_REPORT: native-tree-soak-tk.json
+        run: xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py::test_native_keyed_tree_reconciliation_soak
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-image-soak-tk
+          path: |
+            native-image-soak-tk.json
+            native-tree-soak-tk.json
+          if-no-files-found: error
       - name: Certify Tk native public properties with feature-level JUnit
         run: |
           PSX_GRID_BACKEND=tk xvfb-run -a python -m pytest -q tests/test_tk_public_behavior.py tests/test_mounted_grid_native_renderers.py --junitxml=public-native-tk.xml

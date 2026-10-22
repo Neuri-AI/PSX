@@ -181,3 +181,79 @@ def test_state_driven_css_paint_burst_skips_layout_but_reflows_dimensions():
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_unmount_releases_queued_state_and_effect_payloads_without_ui_flush():
+    import gc
+    import weakref
+    from psx import component, Text, use_state, use_effect
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+
+    class Payload:
+        pass
+
+    renderer = HeadlessRenderer()
+    tree = Reconciler(renderer)
+    held = {}
+    payload = Payload()
+    reference = weakref.ref(payload)
+
+    @component
+    def Item():
+        value, setter = use_state(0)
+        held["setter"] = setter
+        use_effect(lambda: None, (value,))
+        return Text(str(value))
+
+    tree.render(Item())
+    # Queue an update whose renderer callback is not dispatched yet.
+    held["setter"](1)
+    assert tree.scheduler._dirty
+    # Explicitly queue an effect closure that captures an otherwise unowned object.
+    tree.scheduler.queue_effect(tree.root, 99, lambda captured=payload: captured)
+    del payload
+    gc.collect()
+    assert reference() is not None
+    tree.unmount()
+    gc.collect()
+    assert tree.scheduler._dirty == {}
+    assert tree.scheduler._effects == {}
+    assert reference() is None
+    # A stale scheduled UI callback must not re-render disposed components.
+    renderer.flush()
+    assert tree.root is None
+    # The same reconciler remains reusable after teardown.
+    tree.render(Item())
+    held["setter"](2)
+    renderer.flush()
+    assert tree.root.children[0].handle.props["value"] == "2"
+    tree.unmount()
+
+
+def test_undelivered_ui_flush_does_not_own_disposed_reconciler():
+    import gc
+    import weakref
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx import component, use_state, Text
+
+    renderer = HeadlessRenderer()
+    setters = []
+
+    @component
+    def Component():
+        value, set_value = use_state(0)
+        setters.append(set_value)
+        return Text(str(value))
+
+    tree = Reconciler(renderer)
+    tree.render(Component())
+    setters.pop()(1)
+    assert renderer._pending
+    tree.unmount()
+    reference = weakref.ref(tree)
+    del tree
+    gc.collect()
+    assert reference() is None
+    renderer.flush()

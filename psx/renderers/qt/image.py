@@ -55,8 +55,15 @@ class QtImageAdapter:
         return None
 
     def destroy(self, renderer, handle):
-        handle.widget.setParent(None)
-        handle.widget.deleteLater()
+        widget = handle.widget
+        # A retained native handle must not retain decoded or composed pixmaps.
+        widget.clear()
+        widget._psx_pixmap_cache = None
+        widget._psx_source = None
+        widget._psx_props = None
+        handle.props = {}
+        widget.setParent(None)
+        widget.deleteLater()
 
     # -- helpers ----------------------------------------------------------
 

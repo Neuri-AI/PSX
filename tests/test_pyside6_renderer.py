@@ -337,3 +337,114 @@ class PySide6RendererTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_pydux_selector_unsubscribes_when_native_component_unmounts():
+    """An external store must not own the PSX tree after native teardown."""
+    import gc
+    import weakref
+    from pydux import StoreProvider, use_selector
+    from psx import Text, component
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.qt.pyside import PySide6Renderer
+
+    class Store:
+        def __init__(self):
+            self.listeners = []
+            self.state = {"count": 1}
+            self.disposed = 0
+            self.inspector = type("Inspector", (), {"stop": lambda owner: setattr(owner, "stops", getattr(owner, "stops", 0) + 1)})()
+
+        def get_state(self):
+            return self.state
+
+        def dispatch(self, action):
+            self.state = action
+            for listener in tuple(self.listeners):
+                listener()
+
+        def select(self, selector, listener, equality_fn=None, fire_immediately=False):
+            def notify():
+                listener(selector(self.state))
+            self.listeners.append(notify)
+            if fire_immediately:
+                notify()
+
+            def unsubscribe():
+                self.disposed += 1
+                self.listeners.remove(notify)
+            return unsubscribe
+
+    renderer = PySide6Renderer(argv=["psx-pydux-lifetime"])
+    reconciler = Reconciler(renderer)
+    store = Store()
+
+    def select_count(state):
+        return state["count"]
+
+    @component
+    def Reader():
+        count = use_selector(select_count)
+        return Text(str(count))
+
+    for iteration in range(12):
+        mounted = reconciler.render(StoreProvider(store, Reader()))
+        assert len(store.listeners) == 1
+        assert mounted.children[0].children[0].handle.widget.text() == str(iteration + 1)
+        # A state change while mounted must reach the native widget normally.
+        store.dispatch({"count": iteration + 2})
+        renderer.application.processEvents()
+        assert mounted.children[0].children[0].handle.widget.text() == str(iteration + 2)
+        reconciler.unmount()
+        renderer.application.processEvents()
+        assert store.listeners == []
+        assert store.disposed == iteration + 1
+        assert store._pydux_psx_inspector_leases == 0
+        assert store.inspector.stops == iteration + 1
+        del mounted
+        gc.collect()
+        assert reconciler.root is None
+
+
+def test_actual_pydux_store_releases_native_component_selector_subscriptions():
+    """Exercise the real Pydux Store, not only a compatible subscription port."""
+    from pydux import StoreProvider, configure_store, create_slice, use_selector
+    from psx import Text, component
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.qt.pyside import PySide6Renderer
+
+    counter = create_slice(
+        name="counter",
+        initial_state={"count": 0},
+        reducers={
+            "increment": lambda state, action: state.update(
+                {"count": state["count"] + 1}
+            ),
+        },
+    )
+    store = configure_store({"counter": counter}, devtools=False)
+    renderer = PySide6Renderer(argv=["psx-real-pydux-lifetime"])
+    reconciler = Reconciler(renderer)
+
+    def select_count(state):
+        return state["counter"]["count"]
+
+    @component
+    def Reader():
+        return Text(str(use_selector(select_count)))
+
+    try:
+        for iteration in range(8):
+            mounted = reconciler.render(StoreProvider(store, Reader()))
+            assert len(store._subscriptions) == 1
+            assert mounted.children[0].children[0].handle.widget.text() == str(iteration)
+            store.dispatch(counter.actions.increment())
+            renderer.application.processEvents()
+            assert mounted.children[0].children[0].handle.widget.text() == str(iteration + 1)
+            reconciler.unmount()
+            renderer.application.processEvents()
+            assert store._subscriptions == []
+        store.dispatch(counter.actions.increment())
+        assert reconciler.root is None
+    finally:
+        reconciler.unmount()
