@@ -9,27 +9,29 @@ from pathlib import Path
 import sys
 
 from psx import App, Flex, Text
+from psx.sfle.model import AvailableSize, LayoutConstraints
+viewport = LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True))
 
 backend = sys.argv[1]
 marker = Path(sys.argv[2])
 if backend == "qt":
     from psx.renderers.qt.pyside import PySide6Renderer
     from PySide6.QtCore import QTimer
-    renderer = PySide6Renderer(argv=["native-restart-child"])
+    renderer = PySide6Renderer(argv=["native-restart-child"], sfle_constraints=viewport)
     def stop():
         renderer.application.quit()
     def schedule():
         QTimer.singleShot(250, stop)
 elif backend == "tk":
     from psx.renderers.tkinter import TkinterRenderer
-    renderer = TkinterRenderer()
+    renderer = TkinterRenderer(sfle_constraints=viewport)
     def schedule():
         renderer.root.after(250, renderer.root.quit)
 elif backend == "kivy":
     from psx.renderers.kivy import KivyRenderer
     from kivy.clock import Clock
     from kivy.base import stopTouchApp
-    renderer = KivyRenderer()
+    renderer = KivyRenderer(sfle_constraints=viewport)
     def schedule():
         Clock.schedule_once(lambda dt: stopTouchApp(), .25)
 else:
