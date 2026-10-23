@@ -108,7 +108,11 @@ def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
             if css_name == "font-family":
                 if not isinstance(value, str) or not value or any(c in value for c in '{};:"\\\\'):
                     raise ValueError("Invalid native Qt font-family.")
-                declarations.append(f'font-family: "{value}";')
+                declarations.append("font-family: " + ", ".join(
+                    name.strip() if name.strip() in ("serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui")
+                    else '"' + name.strip() + '"'
+                    for name in value.split(",")
+                ) + ";")
             else:
                 if not isinstance(value, Length) or value.kind != LengthKind.PX or value.value <= 0:
                     raise ValueError("Qt font-size requires positive px units.")
@@ -159,7 +163,9 @@ def native_text_typography(computed: ComputedStyle | None, *, alpha: bool = Fals
         family = computed.properties["font-family"]
         if not isinstance(family, str) or not family.strip():
             raise ValueError("CSS font-family must be validated.")
-        result["font-family"] = family
+        # Toolkit font setters generally accept one family, not CSS lists.
+        # Keep the leading preferred face; the QSS bridge carries the stack.
+        result["font-family"] = family.split(",", 1)[0].strip()
     if "font-size" in computed.specified:
         size = computed.properties["font-size"]
         if not isinstance(size, Length) or size.kind is not LengthKind.PX or size.value <= 0:
