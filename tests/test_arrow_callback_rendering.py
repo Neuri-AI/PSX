@@ -145,8 +145,8 @@ class ArrowCallbacksTests(unittest.TestCase):
         self.assertEqual([node.key for node in root.children], [0, 1, 2, 3])
         self.assertEqual([node.type for node in root.children], ["h1"] * 4)
         self.assertEqual(
-            [node.css_source.inline[0].value for node in root.children],
-            colors,
+            [node.css_source.inline[0].value.value for node in root.children],
+            [color.lower() for color in colors],
         )
         self.assertEqual(
             [node.children[0].props["value"] for node in root.children], colors
@@ -159,7 +159,7 @@ class ArrowCallbacksTests(unittest.TestCase):
         )
         root = view(None, [{"kind": "active", "color": "#123456"}])
         self.assertEqual(root.css_source.classes, frozenset({"chip", "active"}))
-        self.assertEqual(root.css_source.inline[0].value, "#123456")
+        self.assertEqual(root.css_source.inline[0].value.value, "#123456")
 
     def test_missing_lexical_variable_in_style_has_markup_diagnostic(self):
         view, _ = compiled('<div style="background-color: ${missing}" />')
