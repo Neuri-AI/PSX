@@ -324,7 +324,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         host_box = _geometry(widgets[root_id])
         # Semantic Block roots can be content-height while the Tk window
         # remains viewport-sized. Keep the strict check for Flex roots.
-        semantic_root = snapshot.nodes[0].component in FORMATTING_TAGS
+        semantic_root = dict(prepared.identities)[root_id].type in FORMATTING_TAGS
         if not semantic_root and (abs(host_box["width"] - border_root.width) > 1.0 or abs(
             host_box["height"] - border_root.height
         ) > 1.0):
