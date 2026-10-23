@@ -65,6 +65,16 @@ class PreparedNativeLayoutSnapshot:
             for key, value in overrides.items():
                 if key not in explicit:
                     style[key] = value
+            if computed is not None:
+                for css, target in (
+                    ("flex-grow", "flex_grow"),
+                    ("flex-shrink", "flex_shrink"),
+                    ("flex-basis", "flex_basis"),
+                    ("align-self", "align_self"),
+                    ("order", "order"),
+                ):
+                    if css in computed.specified and target not in explicit:
+                        style[target] = computed.properties[css]
             component = node.component
             if computed is not None and original.kind is NodeKind.HOST:
                 from psx.markup.html_aliases import FORMATTING_TAGS
@@ -80,6 +90,7 @@ class PreparedNativeLayoutSnapshot:
                             ("flex-wrap", "wrap"),
                             ("justify-content", "justify_content"),
                             ("align-items", "align_items"),
+                            ("align-content", "align_content"),
                         ):
                             if css in specified:
                                 style[target] = computed.properties[css]
