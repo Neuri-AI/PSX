@@ -1,0 +1,5 @@
+{
+  "app_name": "Hello Velto",
+  "framework": "pyside6",
+  "window": { "width": 640, "height": 400 }
+}
