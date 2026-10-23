@@ -476,7 +476,7 @@ def test_root_fragment_mounts_multiple_siblings_and_updates_state_without_native
         ]
         previous = mounted.children[0].native_handle()
         set_count[-1](lambda count: count + 1)
-        renderer.flush_ui()
+        renderer.flush()
         assert reconciler.root is mounted
         assert mounted.children[0].native_handle() is previous
         assert mounted.children[0].children[1].children[0].handle.props["value"] == "Count: 1"
