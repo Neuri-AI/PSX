@@ -5,7 +5,6 @@ import json
 import os
 from pathlib import Path
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -29,6 +28,7 @@ def test_documented_files_are_exact_copy() -> None:
     snippets = {
         "settings/base.json": _code_block(text, "json", "Create `settings/base.json`"),
         "main.py": _code_block(text, "python", "Create `main.py`"),
+        "pyproject.toml": _code_block(text, "toml", "Create `pyproject.toml`"),
     }
     for relative, snippet in snippets.items():
         expected = (EXAMPLE / relative).read_text(encoding="utf-8")
@@ -48,7 +48,9 @@ def test_extracted_application_mounts_and_runs() -> None:
         (root / "settings/base.json").write_text(
             _code_block(text, "json", "Create `settings/base.json`"), encoding="utf-8"
         )
-        shutil.copy(EXAMPLE / "pyproject.toml", root / "pyproject.toml")
+        (root / "pyproject.toml").write_text(
+            _code_block(text, "toml", "Create `pyproject.toml`"), encoding="utf-8"
+        )
         environment = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
         # The complete copied application remains unchanged. Only the test
         # harness instantiates it, checks the real native widget, and exits.
