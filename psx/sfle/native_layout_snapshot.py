@@ -228,6 +228,20 @@ def prepare_native_layout_snapshot(
             name == "Divider" and node.effective_children
         ):
             name = "Flex"
+        # A block formatting host nested in a Flex tree participates as a
+        # column-sized item. Preserve its original VNode/native identity;
+        # only the solver-facing formatting context changes. The dedicated
+        # measured Block/Inline kernel still owns semantic flow roots.
+        from psx.sfle.display_context import resolve_display, OuterDisplay, InnerDisplay
+        nested_block = (
+            roots[0].type == "Flex"
+            and node.source.kind is NodeKind.HOST
+            and node.source.type in FORMATTING_TAGS
+            and resolve_display(node.source.type, node.source.props.get("display")).outer is OuterDisplay.BLOCK
+            and resolve_display(node.source.type, node.source.props.get("display")).inner is InnerDisplay.FLOW
+        )
+        if nested_block:
+            name = "Flex"
         # Preserve specified snapshot values for both layout engines while
         # carrying an immutable, typed box representation alongside them.
         box_props = (
@@ -237,7 +251,11 @@ def prepare_native_layout_snapshot(
             else node.source.props
         )
         box_style = normalize_item_box_style(box_props, owner=str(node.type))
-        nodes.append(LayoutNode(identifier, parent_id, name, _style(node.source)))
+        style = dict(_style(node.source))
+        if nested_block:
+            style.pop("display", None)
+            style["direction"] = "column"
+        nodes.append(LayoutNode(identifier, parent_id, name, tuple(sorted(style.items()))))
         box_styles.append((identifier, box_style))
         origins.append((identifier, node.source))
         # A Grid participates in the enclosing Flex solver as one measured
