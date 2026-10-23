@@ -346,6 +346,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             node_id: dict(widget.place_info())
             for node_id, widget in widgets.items() if node_id != root_id
         }
+        root_before = dict(widgets[root_id].place_info()) if semantic_root else None
         previous_wraps = {
             node_id: widget.cget("wraplength")
             for node_id, widget in leaf_widgets.items()
@@ -357,6 +358,14 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
         try:
+            # The Tk window owns the viewport. A semantic CSS root is a
+            # separate frame with the border-box size computed by Cinnamon.
+            if semantic_root:
+                widgets[root_id].place(
+                    x=round(border_root.x), y=round(border_root.y),
+                    width=round(border_root.width),
+                    height=round(border_root.height),
+                )
             # F2 checks signed 1/64px precision before mutating a single child.
             committer(result)
             mixed_receipts = mixed_grid.commit(mixed_plans)
@@ -429,6 +438,8 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
         except BaseException:
+            if root_before is not None:
+                widgets[root_id].place_configure(**root_before)
             restore_scroll_hosts(scroll_before)
             mixed_grid.restore(mixed_before)
             for node_id, old_wrap in previous_wraps.items():
