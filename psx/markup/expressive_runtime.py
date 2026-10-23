@@ -204,6 +204,10 @@ def element(
         raise MarkupSyntaxError(
             f"{name} does not accept children", filename=filename, line=line, column=column
         )
+    if name in ("p", "h1", "h2", "h3", "h4", "h5", "h6"):
+        # A numeric zero is visible paragraph content, not a false branch.
+        children = tuple(Text("0") if type(child) is int and child == 0 else child
+                         for child in children)
     normalized = tuple(_flatten(children))
     if name in ("p", "h1", "h2", "h3", "h4", "h5", "h6"):
         # Adjacent literal and expression text share one inline text box.
