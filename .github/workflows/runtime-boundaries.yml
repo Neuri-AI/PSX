@@ -8,6 +8,7 @@ on:
       - "scripts/check_runtime_boundaries.py"
       - ".github/workflows/runtime-boundaries.yml"
   pull_request:
+    types: [ready_for_review]
     paths:
       - "psx/**"
       - "scripts/check_runtime_boundaries.py"
