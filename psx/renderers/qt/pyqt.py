@@ -856,8 +856,8 @@ class QtRenderer:
                 widget = widget_type()
             else:
                 widget = self._widget()
-            if parent is None:
-                # A semantic root is a content-height box, not the native
+            if parent is None and node.props.get("display") == "block":
+                # A block root is a content-height box, not the native
                 # top-level window. Keep the window as an independent viewport
                 # so CSS backgrounds paint only the measured semantic box.
                 viewport = self._widget()
