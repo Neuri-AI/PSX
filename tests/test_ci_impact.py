@@ -8,6 +8,28 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_documented_beginner_app_is_routed_to_real_qt_reproduction(self):
+        expected = {"router", "qt"}
+        for path in (
+            "examples/documented_hello/main.py",
+            "examples/documented_hello/settings/base.json",
+            "examples/documented_hello/pyproject.toml",
+            "tests/certification/verify_documented_hello.py",
+            ".github/workflows/documented-example-reproduction.yml",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), expected)
+        self.assertEqual(
+            self.selected("docs/public/getting-started/first-app.mdx"), set()
+        )
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/documented-example-reproduction.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("tests/certification/verify_documented_hello.py", workflow)
+        self.assertIn("3.11", workflow)
+        self.assertIn("3.12", workflow)
+
     def test_full_native_event_loop_and_resource_tests_route_to_all_consumers(self):
         expected = {"core", "headless", "qt", "kivy", "tkinter"}
         for path in (
