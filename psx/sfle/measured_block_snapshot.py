@@ -186,7 +186,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                 atoms.append(InlineAtom(
                     content_width + horizontal,
                     content_height + vertical,
-                    baseline + sum(group[0] for group in all_edges),
+                    min(max(0.0, baseline), content_height) + sum(group[0] for group in all_edges),
                 ))
                 fragments.append(node)
                 return
