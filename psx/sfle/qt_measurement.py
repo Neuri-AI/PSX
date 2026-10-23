@@ -119,10 +119,18 @@ class QtMeasurementSource:
             if derived < 0:
                 raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT, "Qt heightForWidth returned invalid size.")
             height = float(derived)
+        # Inline form controls participate in their text baseline, not their
+        # bottom widget edge. Qt sizeHint alone does not provide a baseline.
+        baseline = None
+        if any(widget.inherits(name) for name in ("QLineEdit", "QPushButton")):
+            font_metrics = widget.fontMetrics()
+            baseline = min(height, max(0.0,
+                (height - float(font_metrics.height())) / 2.0
+                + float(font_metrics.ascent())))
         metrics = IntrinsicSizes(
             min_content_width=min_width, max_content_width=max(width, min_width),
             min_content_height=min_height, max_content_height=max(height, min_height),
-            preferred_width=width, preferred_height=height,
+            preferred_width=width, preferred_height=height, baseline=baseline,
         )
         # Qt sizeHint is NOT a proof of CSS min-content/max-content for wrapped
         # text. Consumers requiring exact intrinsic widths must supply richer
