@@ -77,6 +77,24 @@ assert app.handle is None
         )
         assert result.returncode == 0, (result.stdout, result.stderr)
         assert "DOCUMENTED_HELLO_NATIVE_MOUNT_OK" in result.stdout
+        # Run the public main.py entrypoint itself. The harness only arranges
+        # a bounded Qt event-loop exit so CI does not need a human to close it.
+        entrypoint_harness = """
+import runpy
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication
+qt = QApplication.instance() or QApplication([])
+QTimer.singleShot(1200, qt.quit)
+runpy.run_path('main.py', run_name='__main__')
+print('DOCUMENTED_HELLO_ENTRYPOINT_OK', flush=True)
+"""
+        execution = subprocess.run(
+            [sys.executable, "-c", entrypoint_harness], cwd=root,
+            env=environment, text=True, capture_output=True,
+            timeout=90, check=False,
+        )
+        assert execution.returncode == 0, (execution.stdout, execution.stderr)
+        assert "DOCUMENTED_HELLO_ENTRYPOINT_OK" in execution.stdout
 
 
 if __name__ == "__main__":
