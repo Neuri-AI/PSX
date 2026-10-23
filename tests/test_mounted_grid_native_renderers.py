@@ -1371,6 +1371,9 @@ def test_native_semantic_named_red_rounded_background_without_border():
         if backend == "qt":
             assert "background-color: #ff0000" in widget.styleSheet()
             assert "border-radius: 18px" in widget.styleSheet()
+            assert widget.parentWidget() is not None
+            assert widget.window() is not widget
+            assert 0 < widget.height() < widget.window().height()
         elif backend == "tk":
             corners = widget._psx_css_background_corners
             assert len(corners) == 4
