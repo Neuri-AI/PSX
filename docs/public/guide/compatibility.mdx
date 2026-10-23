@@ -1,0 +1,31 @@
+---
+title: "Compatibility and support"
+description: "Python, operating system and native backend evidence."
+---
+
+All five first-party distributions use version **0.1.0** and declare **Python `>=3.10,<3.13.20`**. That bound is the installed package requirement, not permission to assume every Python micro-release was individually tested.
+
+## Wheel and optional-backend installation
+
+| Backend | Linux | Windows | macOS ARM64 |
+| --- | --- | --- | --- |
+| PySide6 | Verified | Verified | Verified |
+| PyQt6 | Verified | Verified | Verified |
+| PyQt5 | Verified | Verified | Verified |
+| Kivy | Verified | Verified | Verified |
+| PySide2, Python 3.10 | Verified | Verified | Not available on tested macOS ARM64 |
+| Tkinter | Provided by host Python/Tcl-Tk | Provided by host Python/Tcl-Tk | Provided by host Python/Tcl-Tk |
+
+The first four rows are **installation and import checks on Python 3.12**, not comprehensive interactive native GUI certification. PySide2 checks use Python 3.10. See [19-cell installer evidence](https://github.com/Neuri-AI/Velto/actions/runs/39957504956).
+
+## Actual native integration
+
+Linux Python 3.12 has verified full Qyro–PSX–Cinnamon–Pydux integration for **PySide6, Tkinter and Kivy**, each using Cinnamon Rust and Python. [CI receipt](https://github.com/Neuri-AI/Velto/actions/runs/39962860498).
+
+Native Kivy was separately certified on a physical macOS ARM64 system (Python 3.12.15, Kivy 2.3.1, 10/10 tests) and on Windows GitHub Actions using ANGLE/SDL2 ([Windows receipt](https://github.com/Neuri-AI/PSX/actions/runs/39951131528)). Those executions have different source revisions and are not equivalent to rerunning the complete integrated pipeline there.
+
+## Frozen application distribution
+
+A frozen **Tkinter/Linux** project was successfully built and executed in both PyInstaller `onedir` and `onefile`, including Qyro's protected `.pak` resources and a `tar.gz` release bundle, on Python 3.11 and 3.12. [Frozen CI receipt](https://github.com/Neuri-AI/Velto/actions/runs/39967824985).
+
+**Not yet established:** frozen Windows/macOS applications, signed installers, notarization, frozen Qt/Kivy distribution and multi-hour memory stability. See [known release limits](/guide/release-readiness).
