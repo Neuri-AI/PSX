@@ -7,6 +7,8 @@ The [installation guide](/getting-started/installation) installs Velto and PySid
 
 ## Project files
 
+The exact files below are checked in at [the documented Hello application](https://github.com/Neuri-AI/PSX/tree/develop/examples/documented_hello). The documentation certification compares the contents of these code blocks byte-for-byte against the checked-in project, then mounts them using a real Qt renderer.
+
 Create `settings/base.json`:
 
 ```json
@@ -35,6 +37,15 @@ if __name__ == "__main__":
     HelloApp().run()
 ```
 
+Create `pyproject.toml` in the same directory:
+
+```toml
+[project]
+name = "documented-velto-hello"
+version = "0.1.0"
+requires-python = ">=3.10,<3.13.20"
+```
+
 The `render()` method returns PSX Markup, not an HTML page. `Flex` produces a native layout and `Text` produces a native-compatible text control. Qyro reads `settings/base.json`; this example needs **no** `<Window>` tag.
 
 Run from the project root:
@@ -43,7 +54,9 @@ Run from the project root:
 velto start
 ```
 
-The CLI runs the project with its configured native backend. Use `velto start --no-hot-reload` to disable development reload. The exact CI-verified application path includes Qyro settings bootstrap, PSX Markup, both Cinnamon engines, and native renderer lifetimes; [see the functional receipt](https://github.com/Neuri-AI/Velto/actions/runs/39962860498).
+The application displays a native window with **Hello, Velto!**. Close the window to end the program. To reproduce the source-faithful automated smoke from a PSX checkout with the ecosystem already installed, run `python tests/certification/verify_documented_hello.py`; it checks all three required file bodies against this page and exercises the actual native entry point.
+
+The CLI runs the project with its configured native backend. For automated checks, the [exact public source verification](https://github.com/Neuri-AI/PSX/blob/develop/tests/certification/verify_documented_hello.py) copies this page's files into a clean directory and mounts the native Qt widget. Use `velto start --no-hot-reload` to disable development reload. The exact checked-in files from this guide were copied and executed by [beginner example CI](https://github.com/Neuri-AI/PSX/actions/runs/39974488324) on Linux Python 3.11 and 3.12. It verified a real Qt native text widget, committed Cinnamon layout, unmount and the unchanged `main.py` entry point. The broader Qyro/PSX/Pydux and both-Cinnamon-engine integration has its own [functional receipt](https://github.com/Neuri-AI/Velto/actions/runs/39962860498).
 
 <Note>
 The full CLI-generated template may include additional settings, resources and dependencies. This intentionally minimal file tree is for learning the core application contract; create an official scaffold with `velto init --framework pyside6` if you want a complete generated project.
