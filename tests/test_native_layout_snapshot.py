@@ -396,3 +396,22 @@ def test_flex_item_css_properties_reach_cinnamon_without_overriding_explicit_met
     assert styles["flex_basis"] == Length.px(40)
     assert styles["order"] == 3
     assert styles["align_self"] == "center"
+
+
+def test_semantic_css_flex_root_has_intrinsic_height_constraint():
+    from psx.css.markup import compute_markup_styles
+    root = compute_markup_styles(
+        psx("<div><p>Text</p></div>"),
+        "div { display: flex; gap: 10px; flex-direction: row; }",
+    )
+    snapshot = _prepare(root).css_geometry_snapshot()
+    assert snapshot.constraints.width.definite
+    assert not snapshot.constraints.height.definite
+    assert snapshot.nodes[0].component == "Flex"
+    explicit = compute_markup_styles(
+        psx("<div><p>Text</p></div>"),
+        "div { display: flex; height: 30px; }",
+    )
+    explicit_snapshot = _prepare(explicit).css_geometry_snapshot()
+    assert explicit_snapshot.constraints.height.definite
+    assert dict(explicit_snapshot.nodes[0].style)["layout_height"] == Length.px(30)
