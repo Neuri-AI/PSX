@@ -8,6 +8,18 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_coordinated_refresh_stress_routes_every_mounted_backend(self):
+        expected = {"core", "qt", "kivy", "tkinter"}
+        self.assertEqual(self.selected("tests/test_native_coordinated_refresh.py"), expected)
+        self.assertEqual(self.selected(".github/workflows/coordinated-refresh.yml"),
+                         expected | {"router"})
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/coordinated-refresh.yml").read_text(encoding="utf-8")
+        for backend in ("qt", "tk", "kivy"):
+            self.assertIn(f"PSX_GRID_BACKEND={backend}", workflow)
+        self.assertIn("tests/test_native_coordinated_refresh.py", workflow)
+
     def test_markup_styles_bind_without_bypassing_native_regression_suites(self):
         self.assertEqual(self.selected("tests/test_markup_css_binding.py"),
                          {"core", "headless", "qt", "kivy", "tkinter"})
