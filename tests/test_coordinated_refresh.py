@@ -365,3 +365,38 @@ def test_rejected_syntax_edit_can_be_corrected_without_restarting(tmp_path, monk
     assert refresh.refresh_context_source(context, entry, ("main.py",))
     assert context._development_render[0] is replacement
     assert reconciler.calls == [reconciler.root]
+
+
+def test_root_host_switch_requests_restart_before_native_teardown():
+    from psx import Flex, Text, component, psx
+    from psx.core.errors import RootHostTransitionRequiresRestart
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+    current = [psx("<div><p>Before</p></div>")]
+
+    @component
+    def root():
+        return current[0]
+
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(480, True), AvailableSize(320, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda node: IntrinsicSizes(12, 80, 18, 18, 80, 18),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(root())
+        original = mounted.native_handle()
+        current[0] = Flex(Text("After"), direction="column")
+        reconciler._coordinated_remount = True
+        with pytest.raises(RootHostTransitionRequiresRestart):
+            reconciler.try_reevaluate(mounted)
+        assert mounted.native_handle() is original
+        assert not mounted.children[0].disposed
+    finally:
+        reconciler._coordinated_remount = False
+        reconciler.unmount()
