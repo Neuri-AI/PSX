@@ -4,6 +4,8 @@ on:
     branches: [feature/intelligent-hot-reload]
     paths:
       - 'tests/test_native_event_loop_process.py'
+      - 'tests/test_native_supervised_restart.py'
+      - 'tests/certification/native_supervised_child.py'
       - 'tests/certification/native_event_loop_child.py'
       - 'tests/test_native_refresh_resource_soak.py'
       - 'tests/test_native_coordinated_refresh.py'
@@ -29,6 +31,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.os == 'windows-latest' && matrix.backend == 'tk' && '3.11' || '3.12' }}
+      - uses: actions/checkout@v4
+        with:
+          repository: Neuri-AI/Velto-CLI
+          ref: 75590348b3edb25d0d004bb11e3e2d0d127e5577
+          path: partner-cli
       - name: Prepare Linux display and native libraries
         if: runner.os == 'Linux'
         run: |
@@ -39,9 +46,10 @@ jobs:
         run: |
           python -m pip install pytest psutil
           python -m pip install -e '.[pyside6,kivy]'
+          python -m pip install -e partner-cli --no-deps
       - name: Native process and refresh certification on Linux
         if: runner.os == 'Linux'
-        run: xvfb-run -a python -m pytest -q tests/test_native_event_loop_process.py tests/test_native_coordinated_refresh.py tests/test_native_refresh_resource_soak.py
+        run: xvfb-run -a python -m pytest -q tests/test_native_event_loop_process.py tests/test_native_supervised_restart.py tests/test_native_coordinated_refresh.py tests/test_native_refresh_resource_soak.py
       - name: Native process and refresh certification on Windows and macOS
         if: runner.os != 'Linux'
-        run: python -m pytest -q tests/test_native_event_loop_process.py tests/test_native_coordinated_refresh.py tests/test_native_refresh_resource_soak.py
+        run: python -m pytest -q tests/test_native_event_loop_process.py tests/test_native_supervised_restart.py tests/test_native_coordinated_refresh.py tests/test_native_refresh_resource_soak.py
