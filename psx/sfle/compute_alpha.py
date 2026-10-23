@@ -1410,9 +1410,13 @@ def compute_snapshot(
             # them through the immutable snapshot supports row and column
             # first-baseline groups without deriving one from widget bounds.
             baseline_from_cross_start=(
-                (measures[node_id].intrinsic.baseline if main_horizontal
-                 else measures[node_id].intrinsic.orthogonal_baseline)
-                if node_id in measures else None
+                min(cross, max(0.0, measured_baseline))
+                if node_id in measures and (
+                    measured_baseline := (
+                        measures[node_id].intrinsic.baseline if main_horizontal
+                        else measures[node_id].intrinsic.orthogonal_baseline
+                    )
+                ) is not None else None
             ),
         )
         resolved.append(MarginTreeNode(node_id,parent_id,width,height,item=item,
