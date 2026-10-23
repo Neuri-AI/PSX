@@ -75,6 +75,23 @@ class CssPropertyRegistry:
         prop = self._properties.get(name)
         if prop is None:
             raise CssValidationError(CssDiagnostic(name, "unknown-property", f"Unsupported CSS property: {name!r}."))
+        if prop.grammar == "nonnegative-number":
+            from math import isfinite
+            try:
+                number = float(value)
+            except (TypeError, ValueError) as exc:
+                raise CssValidationError(CssDiagnostic(name, "invalid-value", f"Invalid CSS number for {name!r}.")) from exc
+            if isinstance(value, bool) or not isfinite(number) or number < 0:
+                raise CssValidationError(CssDiagnostic(name, "invalid-value", f"Invalid CSS number for {name!r}."))
+            return CssDeclaration(name, number)
+        if prop.grammar == "integer":
+            try:
+                number = int(value)
+            except (TypeError, ValueError) as exc:
+                raise CssValidationError(CssDiagnostic(name, "invalid-value", f"Invalid CSS integer for {name!r}.")) from exc
+            if isinstance(value, bool) or str(value).strip() not in (str(number), f"+{number}"):
+                raise CssValidationError(CssDiagnostic(name, "invalid-value", f"Invalid CSS integer for {name!r}."))
+            return CssDeclaration(name, number)
         if prop.grammar == "keyword":
             if not isinstance(value, str) or value not in prop.choices:
                 raise CssValidationError(CssDiagnostic(name, "invalid-value", f"Unsupported CSS value for {name!r}: {value!r}."))
@@ -105,6 +122,12 @@ def foundation_registry() -> CssPropertyRegistry:
         CssProperty("flex-wrap", "nowrap", False, grammar="keyword", choices=frozenset({"nowrap", "wrap", "wrap-reverse"})),
         CssProperty("justify-content", "flex-start", False, grammar="keyword", choices=frozenset({"flex-start", "flex-end", "center", "space-between", "space-around", "space-evenly"})),
         CssProperty("align-items", "stretch", False, grammar="keyword", choices=frozenset({"stretch", "flex-start", "flex-end", "center"})),
+        CssProperty("align-content", "stretch", False, grammar="keyword", choices=frozenset({"stretch", "flex-start", "flex-end", "center", "space-between", "space-around", "space-evenly"})),
+        CssProperty("align-self", "auto", False, grammar="keyword", choices=frozenset({"auto", "stretch", "flex-start", "flex-end", "center", "baseline"})),
+        CssProperty("flex-grow", 0.0, False, grammar="nonnegative-number"),
+        CssProperty("flex-shrink", 1.0, False, grammar="nonnegative-number"),
+        CssProperty("flex-basis", Length(LengthKind.AUTO), False, keywords=frozenset({LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT})),
+        CssProperty("order", 0, False, grammar="integer"),
         CssProperty("width", Length(LengthKind.AUTO), False, keywords=frozenset({LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT, LengthKind.FIT_CONTENT})),
         CssProperty("height", Length(LengthKind.AUTO), False, keywords=frozenset({LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT, LengthKind.FIT_CONTENT})),
         CssProperty("min-width", Length.px(0), False, keywords=frozenset({LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT})),
