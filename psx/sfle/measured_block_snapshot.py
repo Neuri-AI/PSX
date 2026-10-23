@@ -14,11 +14,11 @@ from psx.markup.html_aliases import FORMATTING_TAGS
 from .errors import DiagnosticCode, SFLECapabilityError
 from .flow_layout import InlineAtom, layout_inline_atoms
 from .fixed_point import LayoutUnit
-from .model import BoxRect, LayoutInput, LayoutResult, Rect
+from .model import AvailableSize, BoxRect, LayoutConstraints, LayoutInput, LayoutNode, LayoutResult, Rect
 from .lengths import Length, LengthKind, parse_length
 
 
-def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
+def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) -> LayoutResult:
     """Layout a bounded Block/Inline tree, retaining exact VNode identities."""
     if not snapshot.nodes or snapshot.nodes[0].component not in FORMATTING_TAGS:
         raise SFLECapabilityError(
@@ -42,6 +42,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         children[node.parent_id].append(node)
     metrics = {item.node_id: item.intrinsic for item in snapshot.measurements}
     geometry: dict[str, Rect] = {}
+    composed_boxes: dict[str, BoxRect] = {}
     containing_width: dict[str, float] = {}
     containing_height: dict[str, float | None] = {
         root.node_id: snapshot.constraints.height.value if snapshot.constraints.height.definite else None,
@@ -164,6 +165,47 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
             )
         return metrics[node.node_id]
 
+    def flex_node(node, x: float, y: float, available: float) -> float:
+        """Compose a nested CSS Flex context using the selected Cinnamon engine."""
+        from .backend import load_layout_engine
+
+        selected_engine = flex_engine if flex_engine is not None else load_layout_engine()
+        descendants = []
+        pending = [node.node_id]
+        selected = set()
+        while pending:
+            current = pending.pop()
+            selected.add(current)
+            pending.extend(child.node_id for child in children[current])
+        for item in snapshot.nodes:
+            if item.node_id in selected:
+                descendants.append(LayoutNode(
+                    item.node_id,
+                    None if item.node_id == node.node_id else item.parent_id,
+                    item.component, item.style,
+                ))
+        constraints = LayoutConstraints(
+            AvailableSize(available, True), AvailableSize(None, False),
+        )
+        local = LayoutInput(
+            snapshot.schema_version, snapshot.generation, snapshot.direction,
+            constraints, tuple(descendants),
+            tuple(measured for measured in snapshot.measurements
+                  if measured.node_id in selected),
+        )
+        solved = dict(selected_engine.compute(local).boxes)
+        root_border = solved[node.node_id].border
+        dx, dy = x - root_border.x, y - root_border.y
+        for identifier, boxes in solved.items():
+            def shift(rect):
+                return quantized_rect(rect.x + dx, rect.y + dy,
+                                      rect.width, rect.height)
+            translated = BoxRect(*(shift(getattr(boxes, part))
+                                   for part in ("content", "padding", "border", "margin")))
+            composed_boxes[identifier] = translated
+            geometry[identifier] = translated.content
+        return solved[node.node_id].margin.height
+
     def inline_run(nodes, x: float, y: float, available: float) -> float:
         atoms = []
         owners = []
@@ -281,7 +323,10 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                 pending.clear()
 
         for child in children[node.node_id]:
-            if display(child) == "inline" or (display(child) is None and child.component != "Text"):
+            if child.component == "Flex":
+                flush()
+                cursor += flex_node(child, content_x, content_y + cursor, used_width)
+            elif display(child) == "inline" or (display(child) is None and child.component != "Text"):
                 pending.append(child)
             else:
                 flush()
@@ -307,6 +352,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         root_height = constrained_dimension(root, "height", width, content_height)
         geometry[root.node_id] = quantized_rect(0.0, 0.0, root_width, root_height)
 
-    result = tuple((node.node_id, box_rect(node, geometry[node.node_id]))
+    result = tuple((node.node_id, composed_boxes.get(node.node_id)
+                    or box_rect(node, geometry[node.node_id]))
                    for node in snapshot.nodes)
     return LayoutResult(snapshot.schema_version, snapshot.generation, result)
