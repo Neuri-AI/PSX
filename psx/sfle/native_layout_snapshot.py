@@ -124,7 +124,23 @@ class PreparedNativeLayoutSnapshot:
                 style.setdefault("direction", "column")
                 node = replace(node, component="Flex", style=tuple(sorted(style.items())))
             normalized.append(node)
-        return replace(baseline, nodes=tuple(normalized))
+        constraints = baseline.constraints
+        if normalized and normalized[0].component == "Flex":
+            root_source = originals[normalized[0].node_id]
+            from psx.markup.html_aliases import FORMATTING_TAGS
+            root_style = dict(normalized[0].style)
+            if (root_source.kind is NodeKind.HOST
+                    and root_source.type in FORMATTING_TAGS
+                    and "layout_height" not in root_style
+                    and "height" not in root_style):
+                # A CSS flex div has auto content height. The native window
+                # remains viewport-sized, but its flex formatting context
+                # must not inherit the viewport as a definite block size.
+                from psx.sfle.model import AvailableSize, LayoutConstraints
+                constraints = LayoutConstraints(
+                    constraints.width, AvailableSize(None, False),
+                )
+        return replace(baseline, nodes=tuple(normalized), constraints=constraints)
 
     def canonical_snapshot(self) -> LayoutInput:
         """Build engine-ready typed item lengths without changing source props.
