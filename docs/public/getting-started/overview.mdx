@@ -1,147 +1,18 @@
 ---
-title: "Getting started"
-description: "Install Velto and run your first native Python application."
+title: "Get started with Velto"
+description: "Install the GitHub sources, create a project and open a native window."
 ---
 
-Build your first **native desktop application** with Velto in just a few steps.
+Velto builds native desktop interfaces with Python and **PSX Markup**. Start with a supported graphical environment and Python **`>=3.10,<3.13.20`**; Python 3.12 is the first-tutorial default.
 
-We'll use **PySide6 (Qt 6)** and PSX Markup to display a simple Hello World window. No previous experience with Velto is required.
+## Your learning path
 
-## 1. Prepare your environment
+1. [Install Velto](/getting-started/installation) from the five current GitHub source repositories. The current `0.1.0` ecosystem is not uniformly published on PyPI.
+2. [Create a native application](/getting-started/first-app) using `VeltoContext`, `psx` and `settings/base.json`.
+3. [Learn PSX Markup](/learn/psx-markup) for tags and expressions, and [components](/learn/components) for reusable UI.
+4. [Add Pydux state](/learn/state-and-events) and understand how the reconciler updates native widgets.
+5. [Prepare a distribution](/guide/distribution) only after checking the platform [compatibility matrix](/guide/compatibility).
 
-You'll need **Python 3.10–3.13**, an Internet connection, and a graphical desktop environment on Windows, macOS, or Linux.
+No browser or HTML DOM is involved. Qyro boots your application, PSX manages markup and native renderers, Cinnamon calculates geometry inside PSX, and Pydux handles shared state.
 
-Create a workspace and a virtual environment:
-
-```bash
-mkdir my-velto-projects
-cd my-velto-projects
-python -m venv .venv
-```
-
-Activate your environment:
-
-<Tabs>
-  <Tab title="macOS / Linux">
-
-    ```bash
-    source .venv/bin/activate
-    ```
-
-  </Tab>
-  <Tab title="Windows PowerShell">
-
-    ```powershell
-    .venv\Scripts\Activate.ps1
-    ```
-
-  </Tab>
-  <Tab title="Windows CMD">
-
-    ```bat
-    .venv\Scripts\activate.bat
-    ```
-
-  </Tab>
-</Tabs>
-
-## 2. Install Velto
-
-Install Velto using pip:
-
-```bash
-pip install velto
-```
-
-## 3. Create your first application
-
-Use the CLI to generate a new PySide6 project:
-
-```bash
-velto init --name my-first-velto-app --framework pyside6
-```
-
-Follow the prompts if the CLI asks for additional information.
-
-Once initialization is complete, open your project:
-
-```bash
-cd my-first-velto-app
-```
-
-<Tip>
-  Velto automatically generates the application structure, configuration, resources, and starter code. You don't need to create these files manually.
-</Tip>
-
-## 4. Run your application
-
-Start the application:
-
-```bash
-velto start
-```
-
-Your first native window should appear:
-
-![Native Velto application displaying Hello World](/screenshots/velto-hello-world.png)
-
-## 5. Understand your first application
-
-Open `main.py`. The generated application looks like this:
-
-```python
-import sys
-from qyro import VeltoContext
-from psx import psx
-
-class MyFirstVeltoApp(VeltoContext):
-    def render(self):
-        return psx("""
-            <Flex>
-                <Text>Hello, World!</Text>
-            </Flex>
-        """)
-
-if __name__ == "__main__":
-    sys.exit(MyFirstVeltoApp().run())
-```
-
-There are only three things you need to understand for now:
-
-- **`VeltoContext`** manages your application's lifecycle.
-- **`render()` and `psx()`** describe the interface using PSX Markup.
-- **`run()`** starts the native application.
-
-The `<Flex>` component provides a layout, while `<Text>` displays the greeting.
-
-## 6. Make it yours
-
-Change the greeting in `main.py`:
-
-```xml
-<Flex>
-    <Text>My first Velto application!</Text>
-</Flex>
-```
-
-Save your changes, close the application, and run it again:
-
-```bash
-velto start
-```
-
-Your window will now display your updated message.
-
-You've just built and modified your first native Python interface with Velto!
-
-## What's next?
-
-Now that your application is running, explore the next guides:
-
-- [Project structure](/getting-started/project-structure) — Understand the generated files and configuration.
-- [How Velto works](/getting-started/how-velto-works) — Learn how PSX becomes native UI.
-- [PSX Markup](/learn/psx-markup) — Build more complex interfaces using declarative components.
-
-<Note>
-  If you encounter installation or startup problems, see [Install Velto](/getting-started/installation) for additional setup guidance.
-</Note>
+**How to verify:** the [installed native integration suite](https://github.com/Neuri-AI/Velto/actions/runs/39962860498) runs real PySide6, Tkinter and Kivy application mounts on Linux with Rust and Python Cinnamon. It does not certify every OS/backend combination.
