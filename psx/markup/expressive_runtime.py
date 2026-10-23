@@ -205,6 +205,25 @@ def element(
             f"{name} does not accept children", filename=filename, line=line, column=column
         )
     normalized = tuple(_flatten(children))
+    if name in ("p", "h1", "h2", "h3", "h4", "h5", "h6"):
+        # Adjacent literal and expression text share one inline text box.
+        # Independent native Text hosts would otherwise enter block flow on
+        # separate lines even though they are one paragraph text run.
+        joined = []
+        for child in normalized:
+            if (joined and child.type == "Text" and joined[-1].type == "Text"
+                    and child.key is None and joined[-1].key is None
+                    and child.css_source is None and joined[-1].css_source is None
+                    and {k: v for k, v in child.props.items() if k != "value"}
+                    == {k: v for k, v in joined[-1].props.items() if k != "value"}):
+                previous = joined[-1]
+                joined[-1] = Text(
+                    str(previous.props["value"]) + str(child.props["value"]),
+                    **{k: v for k, v in previous.props.items() if k != "value"},
+                )
+            else:
+                joined.append(child)
+        normalized = tuple(joined)
     if contract is not None and contract.child_policy == "none-or-single" and len(normalized) > 1:
         raise MarkupSyntaxError(
             f"{name} accepts at most one child", filename=filename, line=line, column=column
