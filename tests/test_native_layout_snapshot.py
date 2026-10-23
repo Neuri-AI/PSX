@@ -380,3 +380,19 @@ def test_stylesheet_display_block_retains_flow_kernel():
     snapshot = _prepare(styled).css_geometry_snapshot()
     assert snapshot.nodes[0].component == "div"
     assert dict(snapshot.nodes[0].style)["display"] == "block"
+
+
+def test_flex_item_css_properties_reach_cinnamon_without_overriding_explicit_metadata():
+    from psx.css.markup import compute_markup_styles
+    source = psx('<Flex><div class="item"><p>Hello</p></div></Flex>')
+    styled = compute_markup_styles(
+        source, ".item { flex-grow: 2; flex-shrink: 0;"
+        " flex-basis: 40px; order: 3; align-self: center; }")
+    snapshot = _prepare(styled).css_geometry_snapshot()
+    item = snapshot.nodes[1]
+    styles = dict(item.style)
+    assert styles["flex_grow"] == 2
+    assert styles["flex_shrink"] == 0
+    assert styles["flex_basis"] == Length.px(40)
+    assert styles["order"] == 3
+    assert styles["align_self"] == "center"
