@@ -1,14 +1,12 @@
 ---
 title: "Conditional rendering"
-description: "Choose the UI for the current state in ordinary Python"
+description: "Choose a subtree without breaking hook order."
 ---
 
-# Conditional rendering
-
-For ordinary Python components, choose a value or subtree with normal Python conditional expressions. **Do not call hooks conditionally**: they must appear in the same order on every render.
+A component can select content based on state. Hooks such as `use_state`, `use_selector` and `use_effect` must be called in the same order during every render.
 
 ```python
-from psx import Text, component, use_state
+from velto.ui import Text, component, use_state
 
 @component
 def Status():
@@ -16,8 +14,6 @@ def Status():
     return Text("Online" if online else "Offline")
 ```
 
-This is an **illustrative fragment**, not a standalone application: the setter is deliberately unused. The full mounted, tested model of state updates appears in [state and events](/learn/state-and-events). The static expressive markup compiler separately supports its documented restricted conditional expressions; do not assume arbitrary Python execution inside template braces.
+This is an **illustrative component fragment**, not a standalone app. Its setter is unused. Attach the component to a mounted `VeltoContext` application and update its state from an event handler.
 
-## Verify and continue
-
-After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.
+PSX Markup additionally supports authored conditional expressions under its compiler contract; that does not mean arbitrary Python code is evaluated inside braces. Read [PSX Markup](/learn/psx-markup) and [state](/learn/state-and-events).
