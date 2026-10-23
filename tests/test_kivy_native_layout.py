@@ -117,16 +117,18 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert root.handle.widget.size_hint == [None, None]
             assert round(root.handle.widget.width) == 240
             assert round(root.handle.widget.height) == 140
-            assert round(alpha.width) == 240
-            assert round(beta.width) == 240
-            assert round(alpha.y) == round(beta.y + beta.height)
+            assert 0 < round(alpha.width) < 240
+            assert 0 < round(beta.width) < 240
+            assert round(alpha.y) == round(beta.y)
+            assert round(beta.x) == round(alpha.x + alpha.width)
             assert renderer.sfle_result.geometry_commit_error <= 1
             updated = reconciler.render(psx(
                 '<div><button key="b">Beta</button><button key="a">Alpha</button></div>'
             ))
             assert updated.children[0].handle.widget is beta
             assert updated.children[1].handle.widget is alpha
-            assert round(beta.y) == round(alpha.y + alpha.height)
+            assert round(beta.y) == round(alpha.y)
+            assert round(alpha.x) == round(beta.x + beta.width)
             reconciler.unmount()
             assert alpha.parent is None and beta.parent is None
         """)
@@ -2522,9 +2524,10 @@ def test_html_flow_public_native_geometry_receipt_kivy(request):
             psx("<div><button>First</button><button>Second</button></div>")
         )
         first, second = (child.handle.widget for child in root.children)
-        assert round(first.width) == 220
-        assert round(second.width) == 220
-        assert round(first.y) == round(second.y + second.height)
+        assert 0 < round(first.width) < 220
+        assert 0 < round(second.width) < 220
+        assert round(first.y) == round(second.y)
+        assert round(second.x) == round(first.x + first.width)
         assert first.parent is root.handle.widget
         assert renderer.sfle_result.geometry_commit_error <= 1
         reconciler.unmount()
