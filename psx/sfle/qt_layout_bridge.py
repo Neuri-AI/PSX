@@ -357,12 +357,23 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             for node_id, widget in bindings.items()
             if node_id != snapshot.nodes[0].node_id
         }
+        root_id = snapshot.nodes[0].node_id
+        root_widget = bindings[root_id].widget
+        semantic_shell = getattr(root_widget, "_psx_sfle_viewport_shell", None)
+        original_root_geometry = root_widget.geometry() if semantic_shell is not None else None
         from psx.sfle.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
         scroll_before = capture_scroll_hosts("qt", bindings)
         mixed_before = mixed_grid.snapshot()
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
         try:
+            if semantic_shell is not None:
+                # The window owns the viewport; the semantic host receives
+                # exactly its intrinsic Cinnamon border box.
+                box = dict(result.boxes)[root_id].border
+                root_widget.setGeometry(round(box.x), round(box.y),
+                                        round(box.width), round(box.height))
+                root_widget.show()
             committer(result)
             mixed_receipts = mixed_grid.commit(mixed_plans)
             for node in snapshot.nodes:
@@ -425,6 +436,8 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
         except BaseException:
+            if original_root_geometry is not None:
+                root_widget.setGeometry(original_root_geometry)
             restore_scroll_hosts(scroll_before)
             mixed_grid.restore(mixed_before)
             for node_id, values in before.items():
