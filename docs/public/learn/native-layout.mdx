@@ -1,20 +1,27 @@
 ---
-title: "Native layout with Cinnamon"
-description: "Understand geometry, Flex and Grid boundaries"
+title: "Native layout and Cinnamon"
+description: "How Flex, Grid, CSS geometry and native rendering relate."
 ---
 
-# Native layout with Cinnamon
-
-Cinnamon is Velto's renderer-neutral layout authority. Renderer adapters measure and mount actual backend widgets but do not replace the layout calculation with an independent browser engine. The native renderer and viewport constraints are essential inputs when a layout primitive requires geometry.
+**Cinnamon** is the layout engine *inside PSX*. It calculates renderer-neutral geometry before native controls receive their rectangles. The primary engine is Rust; Python provides a fallback. Both engines are verified explicitly in native integration CI.
 
 ```python
-from psx import Flex, Text
+from velto.ui import psx
 
-node = Flex(Text("Item"), direction="column", gap=12)
+view = psx("""
+    <Flex direction="column" gap="12px">
+        <Text value="First" />
+        <Text value="Second" />
+    </Flex>
+""")
 ```
 
-This is a **VNode declaration fragment**, not a standalone mounted application. In particular, mounting `Flex` with Headless **without explicit Cinnamon/SFLE viewport constraints raises `RendererCapabilityError`**. The [Hello World](/getting-started/first-app) example deliberately uses `Fragment` for a geometry-free Headless lesson. Responsive `Grid`/ `GridItem` require their documented structural child policies and native geometry support; a registry entry alone does not guarantee availability.
+The window size comes from Qyro project settings and supplies constraints for layout. `Flex` and `Grid` have real geometric effects; a headless renderer without proper viewport constraints may reject geometry-bearing layouts.
 
-## Verify and continue
+## Styling and geometry
 
-After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.
+CSS-like properties are handled by PSX; Cinnamon resolves supported sizes, margins, padding and layout arrangements. Backend-native widgets are responsible for the final appearance and interaction, not their own independent competing layout calculations.
+
+See [CSS and the box model](/guide/styling) and [supported backends](/guide/compatibility). Some web concepts, such as arbitrary browser floats or full browser fragmentation, are not promised by this engine.
+
+**Verify:** [native Qyro integration, six combinations](https://github.com/Neuri-AI/Velto/actions/runs/39962860498) asserts committed geometry using real Cinnamon Rust and Python engines.
