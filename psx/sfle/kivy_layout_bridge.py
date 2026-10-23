@@ -353,7 +353,10 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         root_id = snapshot.nodes[0].node_id
         root_rect = boxes[root_id].border
         host = bindings[root_id].widget
-        if any(abs(got - expected) > 1.0 for got, expected in (
+        # The native viewport stays fixed; a semantic flow root may have
+        # intrinsic content height independently of that viewport.
+        semantic_root = snapshot.nodes[0].component in FORMATTING_TAGS
+        if not semantic_root and any(abs(got - expected) > 1.0 for got, expected in (
             (host.width, root_rect.width), (host.height, root_rect.height),
         )):
             raise SFLEError(
