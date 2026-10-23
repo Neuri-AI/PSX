@@ -7,7 +7,7 @@ from typing import cast
 
 from psx.renderers.protocol import Renderer
 
-from .errors import DuplicateKeyError
+from .errors import DuplicateKeyError, HookOrderError
 from .events import EventSlot
 from .hooks import Ref, abort_render, begin_render, dispose_hooks, end_render
 from .instance import MountedInstance
@@ -36,6 +36,8 @@ class Reconciler:
         self.renderer = renderer
         self.root: MountedInstance | None = None
         self._is_rendering = False
+        self._coordinated_remount = False
+        self._coordinated_remount_applied = False
         self._pending_refs: list[tuple[MountedInstance,
                                        Ref[object] | None]] = []
         self.scheduler = Scheduler(renderer.schedule_ui, self._flush_dirty)
@@ -61,6 +63,71 @@ class Reconciler:
             # The component's structure changed. Leave the current subtree in
             # place; the caller will unmount and remount it.
             return False
+
+    def remount_component(self, instance: MountedInstance, *, node: VNode | None = None, commit: bool = True) -> MountedInstance:
+        """Replace one incompatible hook boundary without remounting siblings.
+
+        Called on the renderer owner thread after a failed compatible render.
+        The former instance becomes inert so retained state setters cannot
+        schedule work against the replacement. Compatible native descendants
+        are reconciled in place; only changed descendants are recreated.
+        """
+        if instance.disposed or instance.node.kind is not NodeKind.COMPONENT:
+            raise ValueError("Only a live component boundary can be remounted.")
+        parent = instance.parent
+        replacement = MountedInstance(node=node if node is not None else instance.node, parent=parent)
+        # First validate the new hook sequence and VNode without altering the
+        # live descendant tree. An invalid candidate cannot destroy the UI.
+        rendered = self._evaluate_component(replacement)
+        previous = instance.children[0]
+        try:
+            previous_handle = instance.native_handle()
+        except RuntimeError:
+            previous_handle = None
+
+        # Retained setters and callbacks from the old boundary must go inert
+        # before the replacement becomes visible. Dispose every old effect,
+        # even if one user cleanup throws.
+        cleanup_error = None
+        instance.disposed = True
+        try:
+            dispose_hooks(instance)
+        except Exception as exc:
+            cleanup_error = exc
+        instance.contexts.clear()
+        instance.children = []
+        try:
+            replacement.children = [self._reconcile(previous, rendered, replacement)]
+            replacement.children[0].parent = replacement
+            if parent is None:
+                self.root = replacement
+            else:
+                parent.children = [
+                    replacement if child is instance else child
+                    for child in parent.children
+                ]
+            self._coordinated_remount_applied = True
+            try:
+                replacement_handle = replacement.native_handle()
+            except RuntimeError:
+                replacement_handle = None
+            if replacement_handle is not previous_handle:
+                ancestor = self._effective_ancestor(replacement)
+                if ancestor is not None:
+                    self._refresh_ancestor_layout(ancestor)
+            if commit:
+                commit_layout = getattr(self.renderer, "commit_layout", None)
+                if callable(commit_layout) and self.root is not None:
+                    commit_layout(self.root)
+                self._commit_refs()
+                self.scheduler.run_effects()
+        except Exception:
+            # Failed native replacement may be partially committed; do not
+            # claim transactional rollback of arbitrary renderer mutations.
+            raise
+        if cleanup_error is not None:
+            raise cleanup_error
+        return replacement
 
     def render(self, node: VNode) -> MountedInstance:
         """Mount or update the single root description."""
@@ -133,8 +200,7 @@ class Reconciler:
                 return instance
 
             instance.handle = self.renderer.create(
-                _without_runtime_props(node), parent.native_handle(
-                ) if parent and parent.handle else None
+                _without_runtime_props(node), self._effective_parent_handle(instance)
             )
             self._apply_css(instance.handle, node.css_computed)
             self._queue_ref(instance, node.props.get("ref"))
@@ -163,6 +229,11 @@ class Reconciler:
                 previous = old.children[0]
                 old.children = [self._reconcile(previous, rendered, old)]
                 return old
+            except HookOrderError:
+                old.node = previous_node
+                if self._coordinated_remount:
+                    return self.remount_component(old, node=node, commit=False)
+                raise
             except Exception:
                 old.node = previous_node
                 raise

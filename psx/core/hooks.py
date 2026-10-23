@@ -137,6 +137,8 @@ def dispose_hooks(instance: MountedInstance) -> None:
                 # A caller may retain a state setter beyond unmount. Its captured
                 # slot must not keep an obsolete state payload alive.
                 slot.value = None
+            if isinstance(slot, _RefSlot):
+                slot.ref.current = None
             if isinstance(slot, _EffectSlot) and slot.cleanup is not None:
                 cleanup, slot.cleanup = slot.cleanup, None
                 try:

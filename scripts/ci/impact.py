@@ -24,6 +24,22 @@ def _is_docs(path: str) -> bool:
 
 
 def _classify_path(path: str) -> set[str]:
+    if path == ".github/workflows/development-reload-certification.yml":
+        return {"router", "core", "headless", "qt", "kivy", "tkinter"}
+    if path in {
+        "tests/test_native_event_loop_process.py",
+        "tests/certification/native_event_loop_child.py",
+        "tests/test_native_supervised_restart.py",
+        "tests/certification/native_supervised_child.py",
+        "tests/test_native_refresh_resource_soak.py",
+    }:
+        return {"core", "headless", "qt", "kivy", "tkinter"}
+    if path == ".github/workflows/cross-platform-native-reload.yml":
+        return {"router", "core", "headless", "qt", "kivy", "tkinter"}
+    if path == "tests/test_native_coordinated_refresh.py":
+        return {"core", "headless", "qt", "kivy", "tkinter"}
+    if path == ".github/workflows/coordinated-refresh.yml":
+        return {"router", "core", "headless", "qt", "kivy", "tkinter"}
     if path == "benchmarks/resource_baseline.py":
         return {"core"}
     if path in ("scripts/ci/impact.py", "tests/test_ci_impact.py") or path.startswith("scripts/ci/"):
@@ -150,6 +166,10 @@ def _classify_path(path: str) -> set[str]:
         return {"core", "qt", "kivy", "tkinter", "headless"}
     if path in ("psx/__init__.py", "psx/core/native.py") or path.startswith("psx/core/"):
         return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
+    if path in ("psx/core/reconcile.py", "psx/core/hooks.py", "tests/test_component_remount.py", "tests/test_native_coordinated_refresh.py"):
+        return {"core", "headless", "qt", "kivy", "tkinter"}
+    if path.startswith("psx/devtools/") or path == "tests/test_coordinated_refresh.py":
+        return {"core", "headless", "qt", "kivy", "tkinter"}
     if path.startswith("psx/markup/") or path in ("tests/test_expressive_markup_syntax.py", "tests/test_expressive_conditional_rendering.py", "tests/test_declarative_list_rendering.py", "tests/test_arrow_callback_rendering.py", "tests/test_expressive_composition_security.py"):
         return {"core", "headless"}
     if path.startswith("psx/"):

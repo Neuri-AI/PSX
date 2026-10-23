@@ -1,0 +1,68 @@
+name: Coordinated component refresh validation
+on:
+  push:
+    branches: [feature/intelligent-hot-reload]
+    paths:
+      - 'psx/devtools/**'
+      - 'psx/core/reconcile.py'
+      - 'tests/test_coordinated_refresh.py'
+      - 'tests/test_native_coordinated_refresh.py'
+      - 'tests/test_native_event_loop_process.py'
+      - 'tests/test_native_supervised_restart.py'
+      - 'tests/certification/native_supervised_child.py'
+      - 'tests/test_native_refresh_resource_soak.py'
+      - 'tests/certification/native_event_loop_child.py'
+      - 'tests/test_component_remount.py'
+      - 'tests/test_ci_impact.py'
+      - 'scripts/ci/impact.py'
+      - '.github/workflows/coordinated-refresh.yml'
+  workflow_dispatch:
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest pandas
+      - run: python -m pip install -e . --no-deps
+      - run: python -m pytest -q tests/test_coordinated_refresh.py tests/test_component_remount.py tests/test_ci_impact.py
+
+  native-refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      QT_QPA_PLATFORM: offscreen
+      KIVY_NO_ARGS: "1"
+      KIVY_NO_CONSOLELOG: "1"
+      PSX_MEMORY_REPORT_DIR: native-reports
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/checkout@v4
+        with:
+          repository: Neuri-AI/Velto-CLI
+          ref: 75590348b3edb25d0d004bb11e3e2d0d127e5577
+          path: partner-cli
+      - name: Install native bindings
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth python3-tk libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libmtdev1 libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-ttf-2.0-0
+          python -m pip install -e '.[pyside6,kivy]' pytest psutil
+          python -m pip install -e partner-cli --no-deps
+      - name: Qt real mounted refresh
+        run: PSX_GRID_BACKEND=qt PSX_QT_BINDING=pyside6 xvfb-run -a python -m pytest -q tests/test_native_coordinated_refresh.py tests/test_native_event_loop_process.py tests/test_native_supervised_restart.py tests/test_native_refresh_resource_soak.py
+      - name: Tkinter real mounted refresh
+        run: PSX_GRID_BACKEND=tk xvfb-run -a python -m pytest -q tests/test_native_coordinated_refresh.py tests/test_native_event_loop_process.py tests/test_native_supervised_restart.py tests/test_native_refresh_resource_soak.py
+      - name: Kivy real mounted refresh
+        run: PSX_GRID_BACKEND=kivy xvfb-run -a python -m pytest -q tests/test_native_coordinated_refresh.py tests/test_native_event_loop_process.py tests/test_native_supervised_restart.py tests/test_native_refresh_resource_soak.py
+      - name: Archive native resource soak samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-native-refresh-memory
+          path: native-reports/
+          if-no-files-found: warn
