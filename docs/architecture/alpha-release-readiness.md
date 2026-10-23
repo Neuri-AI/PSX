@@ -3,7 +3,7 @@
 **Review:** 2026-10-23  
 **Tracking:** P4.5, example reproduction and alpha-release preparation  
 **Documentation owner:** PSX (architecture and public developer docs)  
-**Status:** release preparation in progress; no published release, signed binary or all-platform frozen support is claimed.
+**Status:** documented native beginner application reproduced successfully; source-alpha preparation checklist ready, but no published release, signed binary or all-platform frozen support is claimed.
 
 ## Version and API boundaries
 
@@ -29,7 +29,7 @@ The existing Velto facade re-exports the PSX, Qyro Engine and Pydux identities, 
 | --- | --- |
 | Installation of five first-party 0.1.0 GitHub packages | **Verified** at selected Python versions/OS cells; clean install instructions must use GitHub |
 | Native Qyro → PSX → Cinnamon → Pydux lifecycle | **Verified** on Linux for specified toolkits and engines |
-| Beginner's published example executed byte-for-byte | **Pending exact-copy CI until current workflow passes** |
+| Beginner's published example executed byte-for-byte | **Verified** with GitHub Actions #39974488324, 2/2 on Linux Python 3.11/3.12, source SHA `34f411eeb16e8084e20b6e406e8b096f9f20156d` |
 | Public support matrix and known incompatibilities | **Documented** in `docs/public/guide/compatibility.mdx`; retain PySide2/macOS ARM64 exclusion |
 | Documentation site and source-generated public API signatures | **Verified** in P4.4 docs workflows, with new changes revalidated on their own SHA |
 | Human-independent reproduction of *every* published tutorial on every platform | **Not established**; historical native examples and new exact-copy test do not cover all pages |
@@ -44,9 +44,9 @@ The existing Velto facade re-exports the PSX, Qyro Engine and Pydux identities, 
 
 ## Reproduction process for beginner documentation
 
-The version-controlled example at `examples/documented_hello/` is synchronized with the exact `settings/base.json` and `main.py` fenced blocks in `docs/public/getting-started/first-app.mdx`. The test copies the snippets from the *page*, not from the example directory, into an isolated project root, installs real ecosystem GitHub sources, and checks a real PySide6 widget and Cinnamon geometry. The test's subprocess owns its native QApplication and must unmount the Qyro context.
+The [executed exact-copy receipt](https://github.com/Neuri-AI/PSX/actions/runs/39974488324) passed both tested Python versions. The version-controlled example at `examples/documented_hello/` is synchronized with the exact `settings/base.json` and `main.py` fenced blocks in `docs/public/getting-started/first-app.mdx`. The test copies the snippets from the *page*, not from the example directory, into an isolated project root, installs real ecosystem GitHub sources, and checks a real PySide6 widget and Cinnamon geometry. The test's subprocess owns its native QApplication and must unmount the Qyro context.
 
-After the run passes, link its immutable Actions run and exact source SHA here. Do not describe the snippet as separately certified until then.
+The test executes the original `main.py` through a bounded real Qt event loop as well as verifying the native widget and layout. A separate standalone manual reader session was not performed; this is automated reproduction, not human usability signoff.
 
 ## Next decisions before announcing an alpha
 
@@ -56,3 +56,9 @@ After the run passes, link its immutable Actions run and exact source SHA here. 
 4. Freeze public compatibility wording to the executable evidence, document known issues and release blockers, and verify CI on the final release commit.
 
 No new runtime API or public props were added: **public behavior census N/A** for this documentation/test-only increment. Architecture and public release records remain solely in PSX.
+
+## P4.5 scoped disposition
+
+**DONE for the scoped example and release-preparation deliverables:** exact code fences for `main.py`, `settings/base.json`, and `pyproject.toml` match checked-in source; the full application can mount, unmount and run its real Qt entry point in an isolated project; Python 3.11 and 3.12 CI both passed on exact feature revision `34f411eeb16e8084e20b6e406e8b096f9f20156d`. Historical six examples retain separate matrix tests. The release-readiness checklist catalogs verified scope and blockers without asserting publication or complete binary portability.
+
+**Global P4/public-release gate remains OPEN**, because the exact-copy native test is only Linux/Qt, not an independent human reader on every platform, and the unexecuted installer/signing/frozen other-backend/long-duration cases above cannot be marked passed. Explicit owner decision required before a GitHub/PyPI tag or any binary launch. P4.5 does not waive those qualifications.
