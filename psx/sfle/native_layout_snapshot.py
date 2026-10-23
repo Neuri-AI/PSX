@@ -110,7 +110,7 @@ class PreparedNativeLayoutSnapshot:
         # Keep the semantic VNode identity but translate block children of
         # CSS Flex containers into vertical inner layout contexts.
         from psx.markup.html_aliases import FORMATTING_TAGS
-        mapped = {node.node_id: node for node in converted}
+        mapped: dict[str, LayoutNode] = {}
         normalized = []
         for node in converted:
             parent = mapped.get(node.parent_id)
@@ -118,12 +118,15 @@ class PreparedNativeLayoutSnapshot:
             style = dict(node.style)
             if (parent is not None and parent.component == "Flex"
                     and origin.kind is NodeKind.HOST
-                    and origin.type in FORMATTING_TAGS
-                    and style.get("display", origin.props.get("display")) == "block"):
-                style.pop("display", None)
-                style.setdefault("direction", "column")
-                node = replace(node, component="Flex", style=tuple(sorted(style.items())))
+                    and origin.type in FORMATTING_TAGS):
+                display = style.get("display", origin.props.get("display"))
+                if display in ("block", "inline"):
+                    style.pop("display", None)
+                    style.setdefault("direction", "column" if display == "block" else "row")
+                    node = replace(node, component="Flex",
+                                   style=tuple(sorted(style.items())))
             normalized.append(node)
+            mapped[node.node_id] = node
         constraints = baseline.constraints
         if normalized and normalized[0].component == "Flex":
             root_source = originals[normalized[0].node_id]
