@@ -1307,13 +1307,27 @@ class QtRenderer:
         self._dispatcher.requested.emit(callback)
 
     def transition_root(self, previous, replacement) -> None:
-        """Present a new UI root before retiring the old Qt window."""
+        """Replace the root content without replacing the native Qt window."""
         old = _handle(previous).widget
         new = _handle(replacement).widget
-        previous_window = getattr(old, "_psx_sfle_viewport_shell", old)
-        replacement_window = getattr(new, "_psx_sfle_viewport_shell", new)
-        if previous_window is replacement_window:
+        previous_window = getattr(old, "_psx_sfle_viewport_shell", None)
+        replacement_window = getattr(new, "_psx_sfle_viewport_shell", None)
+        if previous_window is not None:
+            if replacement_window is not None and replacement_window is not previous_window:
+                # This provisional shell was never presented to the user.
+                new.setParent(previous_window)
+                replacement_window.deleteLater()
+            else:
+                new.setParent(previous_window)
+            new._psx_sfle_viewport_shell = previous_window
+            # Unmounting the former root must not destroy the reused viewport.
+            old._psx_sfle_viewport_shell = None
+            new.show()
             return
+        # Legacy roots without a shell cannot transfer native ownership safely.
+        # Keep their established presentation behavior.
+        previous_window = old
+        replacement_window = replacement_window or new
         replacement_window.setGeometry(previous_window.geometry())
         replacement_window.show()
         replacement_window.raise_()
