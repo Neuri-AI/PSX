@@ -18,3 +18,9 @@ Change the project setting:
 Keep the same Python `VeltoContext` subclass and PSX Markup; run with `velto start`. For UI tests, use a real display or Xvfb on Linux, and check that you can open and close the window.
 
 **Verification:** [native Tkinter integrated application](https://github.com/Neuri-AI/Velto/actions/runs/39962860498) passed Cinnamon Rust/Python and Pydux state updates; [frozen Linux Tkinter release](https://github.com/Neuri-AI/Velto/actions/runs/39967824985) passed `onefile`/`onedir` with protected resources. This does not certify frozen installers on Windows or macOS.
+
+## Troubleshooting
+
+If `import tkinter` fails with `_tkinter` unavailable, install or select a Python distribution compiled with Tcl/Tk support. A bare `pip install tkinter` is not the portable solution. On Linux, `no display name` or `couldn't connect to display` means the GUI session is not available; run on a desktop or use Xvfb in CI. If the settings are ignored, verify that `framework` is the lowercase value `tkinter` in `settings/base.json`, and that the command runs from that project's root.
+
+For a reproducible native check, consult the [installed Tkinter integration receipt](https://github.com/Neuri-AI/Velto/actions/runs/39962860498).
