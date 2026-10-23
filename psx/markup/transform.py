@@ -152,6 +152,11 @@ def _has_expressive_interpolation(source: str) -> bool:
     # even without an arrow or conditional expression elsewhere in the tree.
     if "${" in source:
         return True
+    # Legacy brace interpolation is enabled only for CSS/class attributes.
+    # Preserve quoted literals in all unrelated attributes.
+    import re
+    if re.search(r'(?:style|class|class_name)\s*=\s*["\'][^"\']*\{[A-Za-z_][A-Za-z0-9_.\[\]]*\}[^"\']*["\']', source):
+        return True
     depth = 0
     quoted: str | None = None
     index = 0
