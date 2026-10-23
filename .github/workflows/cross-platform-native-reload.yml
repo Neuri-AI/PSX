@@ -27,6 +27,7 @@ jobs:
       KIVY_NO_ARGS: '1'
       KIVY_NO_CONSOLELOG: '1'
       PSX_MEMORY_REPORT_DIR: native-reports
+      KIVY_GL_BACKEND: ${{ matrix.os == 'windows-latest' && matrix.backend == 'kivy' && 'angle_sdl2' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -48,6 +49,9 @@ jobs:
           python -m pip install pytest pytest-timeout psutil
           python -m pip install -e '.[pyside6,kivy]'
           python -m pip install -e partner-cli --no-deps
+      - name: Install Windows Kivy ANGLE renderer
+        if: runner.os == 'Windows' && matrix.backend == 'kivy'
+        run: python -m pip install kivy_deps.angle kivy_deps.sdl2
       - name: Native process and refresh certification on Linux
         if: runner.os == 'Linux'
         run: xvfb-run -a python -m pytest -q --timeout=300 tests/test_native_event_loop_process.py tests/test_native_supervised_restart.py tests/test_native_coordinated_refresh.py tests/test_native_refresh_resource_soak.py
