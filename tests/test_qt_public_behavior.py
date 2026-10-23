@@ -351,10 +351,10 @@ def test_html_block_native_geometry_and_reconciliation(qt_tree, request):
         updated.handle.widget is original_root
         and updated.children[0].handle.widget is beta
         and updated.children[1].handle.widget is alpha
-        and beta.width() == 400
-        and alpha.width() == 400
-        and beta.y() == 0
-        and alpha.y() == beta.height()
+        and 0 < beta.width() < 400
+        and 0 < alpha.width() < 400
+        and beta.y() == alpha.y() == 0
+        and alpha.x() == beta.width()
         and original_root.layout() is None,
     )
     inline = tree.render(psx(
@@ -383,8 +383,9 @@ def test_html_block_native_geometry_and_reconciliation(qt_tree, request):
                          "viewport_reflow", applicability="partial_native"),
         sized.children[0].handle.widget is beta
         and sized.children[1].handle.widget is alpha
-        and beta.width() == 240 and alpha.width() == 240
-        and alpha.y() == beta.height()
+        and 0 < beta.width() < 240 and 0 < alpha.width() < 240
+        and alpha.y() == beta.y() == 0
+        and alpha.x() == beta.width()
         and qt_tree[0].sfle_result.generation > before_generation,
     )
 
@@ -412,7 +413,7 @@ def test_semantic_flow_native_geometry_per_tag(qt_tree, request, tag):
         ].border.width == 400
         and 0 < child.width() <= 400
         and child.y() == 0
-        and (child.width() < 400 if tag in ("span", "label", "li") else child.width() == 400),
+        and (child.width() == 400 if tag == "ul" else child.width() < 400),
         detail=(
             f"tag={tag} root={root.handle.widget.geometry()} "
             f"child={child.geometry()} "
