@@ -96,7 +96,24 @@ class PreparedNativeLayoutSnapshot:
                         style["display"] = display
             converted.append(replace(node, component=component,
                                      style=tuple(sorted(style.items()))))
-        return replace(baseline, nodes=tuple(converted))
+        # Keep the semantic VNode identity but translate block children of
+        # CSS Flex containers into vertical inner layout contexts.
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        mapped = {node.node_id: node for node in converted}
+        normalized = []
+        for node in converted:
+            parent = mapped.get(node.parent_id)
+            origin = originals[node.node_id]
+            style = dict(node.style)
+            if (parent is not None and parent.component == "Flex"
+                    and origin.kind is NodeKind.HOST
+                    and origin.type in FORMATTING_TAGS
+                    and style.get("display", origin.props.get("display")) == "block"):
+                style.pop("display", None)
+                style.setdefault("direction", "column")
+                node = replace(node, component="Flex", style=tuple(sorted(style.items())))
+            normalized.append(node)
+        return replace(baseline, nodes=tuple(normalized))
 
     def canonical_snapshot(self) -> LayoutInput:
         """Build engine-ready typed item lengths without changing source props.
