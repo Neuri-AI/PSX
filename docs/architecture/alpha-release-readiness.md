@@ -62,3 +62,19 @@ No new runtime API or public props were added: **public behavior census N/A** fo
 **DONE for the scoped example and release-preparation deliverables:** exact code fences for `main.py`, `settings/base.json`, and `pyproject.toml` match checked-in source; the full application can mount, unmount and run its real Qt entry point in an isolated project; Python 3.11 and 3.12 CI both passed on exact feature revision `34f411eeb16e8084e20b6e406e8b096f9f20156d`. Historical six examples retain separate matrix tests. The release-readiness checklist catalogs verified scope and blockers without asserting publication or complete binary portability.
 
 **Global P4/public-release gate remains OPEN**, because the exact-copy native test is only Linux/Qt, not an independent human reader on every platform, and the unexecuted installer/signing/frozen other-backend/long-duration cases above cannot be marked passed. Explicit owner decision required before a GitHub/PyPI tag or any binary launch. P4.5 does not waive those qualifications.
+
+## Audited integration revision snapshot (not a release tag)
+
+At the start of the publication handoff, the selected first-party branches pointed to the following immutable revisions. These are a **candidate bill of materials**, not proof that an unreleased PyPI package or installer exists:
+
+| Distribution/repository | Integration branch | Inspected SHA |
+| --- | --- | --- |
+| PSX / `velto-core` | `develop` (prior to this documentation PR) | `60b4bcceb46c17f06725e08b3bc98ec37ee340f0` |
+| Pydux / `pydux` | `main` | `fe4fab64ba3d4e8104a4c071a7303737c94fc010` |
+| Qyro Engine / `qyro-engine` | `release` | `8d1ad4e2c11912abfa749ddbfa5d1f4b29a79b34` |
+| Velto CLI / `velto-cli` | `release` | `315a1ce34866045832ebe8d0f0606ac77d9e3ea5` |
+| Velto facade / `velto` | `main` | `53b9fd9eda66189535e1c7284dd0e3df7519c207` |
+
+On any final source-alpha tag, **replace the preliminary PSX SHA with the merged final `develop` SHA**, pin dependency refs for all packages and repeat resolver/example CI on the exact release bill of materials. CI jobs that clone moving branches have per-run `source-shas.txt` artifacts; they are not permission to claim that a later moving head was tested at the prior revision.
+
+No GitHub release, version tag, PyPI upload, installer signing or public binary publication was performed as part of this handoff.
