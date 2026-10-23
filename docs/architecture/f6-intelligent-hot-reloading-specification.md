@@ -245,8 +245,35 @@ Executed same-SHA evidence:
 **Remaining boundaries:** process-restart handshake and cross-process snapshot exchange belong to controlled restart; source import side effects, native mutations and subscription ownership are not globally transactional. A snapshot can only be restored when its data remains compatible with the current selectors. Non-JSON store data is intentionally not preserved. Extended repeated-edit soak and Windows/macOS verification remain integrated-certification tasks. No public markup, prop, event or hook API is introduced in this increment, so new-public-operation census is N/A.
 
 
-## Controlled process restart implementation progress
+## Controlled process restart: implemented coordination and recovery handoff
 
-Velto CLI now supervises replacement child processes using one retained filesystem watcher. Changes to configured framework or binding trigger restart; invalid settings do not. The existing authenticated child channel also accepts bounded restart requests with explicit backend/bootstrap/loaded-native-extension reason codes. Qyro requests such a restart for a changed extension already loaded in its interpreter, rather than restarting for every new import. Tests: CLI https://github.com/Neuri-AI/Velto-CLI/actions/runs/39874870863 and Qyro https://github.com/Neuri-AI/qyro/actions/runs/39874840282.
+Velto CLI is the sole supervisor of development child processes. The same filesystem watcher survives child replacement. The supervisor reads the effective development backend from base, active-platform and development settings; only a changed effective framework/binding identity triggers backend restart. Ordinary source, markup, stylesheet, and development-only setting edits remain on the existing refresh path. Invalid JSON is not treated as an authorized restart reason, and edits to unrelated platform profiles do not restart the current backend.
 
-This increment remains OPEN: the original PSX-prepared source entry still needs regeneration on every child launch, and opt-in Pydux snapshot handoff and restore across processes has not been wired. Broader native Qt/Tkinter/Kivy restart certification, failure recovery, and interpreter/bootstrap compatibility remain unverified. This is development-only internal infrastructure, with no new public PSX behavior; public census N/A.
+Qyro identifies a replaced project native extension by matching an edited extension file against extensions already loaded into the running interpreter. A first import of an installed third-party/native package is not an automatic restart. For loaded replacements Qyro issues an explicit restart request. The child-to-supervisor loopback protocol validates version, kind and a bounded set of reasons, using an authenticated connection and credentials rotated for each new child generation. The supervisor requests restart preparation and accepts an acknowledgment, with a bounded timeout rather than waiting indefinitely on a blocked GUI thread.
+
+Restart preparation supports an **explicit opt-in** JSON-only Pydux state handoff, through a private session directory managed and deleted by the CLI. Qyro captures its discovered/registered compatible store on the GUI owner thread and acknowledges preparation. A newly started Qyro process can restore the versioned state into its fresh store *before* mounting the PSX provider/root. The snapshot is capped, rejected if incompatible or malformed, and consumed once. Store objects, reducers, callbacks, secrets by special serialization, subscriptions and native widgets are not themselves serialized. Cross-process state preservation is best effort, not a guarantee for arbitrary application resources.
+
+Source-mode restart regenerates the authored PSX-prepared entry point for each child generation, rather than reusing a potentially stale transformed file. The terminated child is waited for with a graceful timeout and forced termination fallback. Existing CLI source-mode and Qyro frozen-mode guards remain in force: a frozen application never starts the coordinated watcher/receiver, even when configuration requests hot reloading.
+
+The project may opt in with the existing development profile, e.g.:
+
+```json
+{
+  "hot_reload": {
+    "enabled": true,
+    "preserve_state": true,
+    "state": {
+      "snapshot_on_restart": true,
+      "restore_on_restart": true
+    }
+  }
+}
+```
+
+**Executed evidence at exact source commits:**
+
+- Velto CLI `286cef4cf9fd1db3a9ad2df6f4302e2068b19672`: [development supervisor validation](https://github.com/Neuri-AI/Velto-CLI/actions/runs/39876381591), success. Exercises a real replaced child, authenticated restart requests, restart-state prepare/ack handoff, one watcher across generations, entry-source re-preparation, effective-backend classification, and existing child notifications.
+- Qyro Engine `fa47de34f1d068be574542221d6bb7bca8e0ff7b`: [development settings validation](https://github.com/Neuri-AI/qyro/actions/runs/39875702188), success. Covers loaded/unloaded native-extension classification, opted-in snapshot capture/restore, malformed/oversized state rejection, frozen/disabled guards, and existing context refresh regressions.
+- Pydux `d4495be4914ab38255d5871d3ade45422003015c`: [state recovery validation](https://github.com/Neuri-AI/Pydux/actions/runs/39873460714), success. Verifies detached versioned JSON snapshots and store subscription restoration rules.
+
+**Boundaries and next certification gate:** the tested restart decisions cover changed effective backend settings and edits to already-loaded native extension files; they do not claim general automatic detection of all unsafe global initializers, interpreter changes or arbitrary foreign process resources. A rejected process launch after a restart is not yet guaranteed to retain an operational previous native window. Long-running save storms, startup-failure recovery and actual repeated Qt/Tkinter/Kivy restart tests remain for integrated certification. Snapshot restoration is restricted to JSON-safe compatible Pydux data and does not rehydrate native handles or running tasks. This increment introduces internal development orchestration, not new public PSX markup, props or events: public-behavior census N/A.
