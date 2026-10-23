@@ -25,9 +25,9 @@ def _is_docs(path: str) -> bool:
 
 def _classify_path(path: str) -> set[str]:
     if path == "tests/test_native_coordinated_refresh.py":
-        return {"core", "qt", "kivy", "tkinter"}
+        return {"core", "headless", "qt", "kivy", "tkinter"}
     if path == ".github/workflows/coordinated-refresh.yml":
-        return {"router", "core", "qt", "kivy", "tkinter"}
+        return {"router", "core", "headless", "qt", "kivy", "tkinter"}
     if path == "benchmarks/resource_baseline.py":
         return {"core"}
     if path in ("scripts/ci/impact.py", "tests/test_ci_impact.py") or path.startswith("scripts/ci/"):
