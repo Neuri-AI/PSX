@@ -48,3 +48,11 @@ The CLI runs the project with its configured native backend. Use `velto start --
 <Note>
 The full CLI-generated template may include additional settings, resources and dependencies. This intentionally minimal file tree is for learning the core application contract; create an official scaffold with `velto init --framework pyside6` if you want a complete generated project.
 </Note>
+
+## Troubleshooting
+
+If `velto` is not recognized, activate your Python environment and verify that the CLI was installed from the **Velto-CLI** GitHub repository. If a Python import fails, reinstall the five local source packages as shown in [installation](/getting-started/installation), then run `python -m pip check`.
+
+If the application cannot find `settings/base.json`, run `velto start` **from the project root**. If Qt cannot create a window, confirm that the chosen Python environment has PySide6 installed and that your session supports graphical windows. A remote or headless Linux terminal may need a display server; simply importing PySide6 is not evidence that its native UI can open.
+
+If markup raises a syntax error, start with the minimal `Flex`/`Text` example above and preserve quoted attribute literals. Do not add a browser `<Window>` element.
