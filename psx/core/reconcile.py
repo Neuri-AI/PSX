@@ -218,6 +218,18 @@ class Reconciler:
         self, old: MountedInstance, node: VNode, parent: MountedInstance | None
     ) -> MountedInstance:
         if not _compatible(old.node, node):
+            if (self._coordinated_remount
+                    and old.node.kind is NodeKind.HOST
+                    and node.kind is NodeKind.HOST):
+                ancestor = parent
+                while ancestor is not None and ancestor.node.kind in (
+                        NodeKind.COMPONENT, NodeKind.FRAGMENT):
+                    ancestor = ancestor.parent
+                if ancestor is None:
+                    from .errors import RootHostTransitionRequiresRestart
+                    raise RootHostTransitionRequiresRestart(
+                        "Root host type changed; restart the development process."
+                    )
             self._unmount(old, detach=old.attached)
             return self._mount(node, parent)
 
