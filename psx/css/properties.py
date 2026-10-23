@@ -67,6 +67,10 @@ class CssPropertyRegistry:
     def validate(self, name: str, value: Length | int | float | str) -> CssDeclaration:
         if not isinstance(name, str):
             raise CssValidationError(CssDiagnostic(str(name), "invalid-name", "CSS property name must be a string."))
+        # CSS background is a shorthand. The certified solid-color subset
+        # maps directly to background-color; unsupported images/layers still fail.
+        if name == "background":
+            name = "background-color"
         prop = self._properties.get(name)
         if prop is None:
             raise CssValidationError(CssDiagnostic(name, "unknown-property", f"Unsupported CSS property: {name!r}."))
