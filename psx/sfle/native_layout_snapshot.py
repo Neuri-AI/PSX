@@ -65,7 +65,37 @@ class PreparedNativeLayoutSnapshot:
             for key, value in overrides.items():
                 if key not in explicit:
                     style[key] = value
-            converted.append(replace(node, style=tuple(sorted(style.items()))))
+            component = node.component
+            if computed is not None and original.kind is NodeKind.HOST:
+                from psx.markup.html_aliases import FORMATTING_TAGS
+                if original.type in FORMATTING_TAGS:
+                    specified = computed.specified
+                    display = (computed.properties["display"] if "display" in specified
+                               else original.props.get("display", "block"))
+                    if display in ("flex", "inline-flex"):
+                        component = "Flex"
+                        style.pop("display", None)
+                        for css, target in (
+                            ("flex-direction", "direction"),
+                            ("flex-wrap", "wrap"),
+                            ("justify-content", "justify_content"),
+                            ("align-items", "align_items"),
+                        ):
+                            if css in specified:
+                                style[target] = computed.properties[css]
+                        if "flex-direction" not in specified:
+                            style.setdefault("direction", "row")
+                        if "gap" in specified:
+                            style["row_gap"] = computed.properties["gap"]
+                            style["column_gap"] = computed.properties["gap"]
+                        if "row-gap" in specified:
+                            style["row_gap"] = computed.properties["row-gap"]
+                        if "column-gap" in specified:
+                            style["column_gap"] = computed.properties["column-gap"]
+                    elif "display" in specified:
+                        style["display"] = display
+            converted.append(replace(node, component=component,
+                                     style=tuple(sorted(style.items()))))
         return replace(baseline, nodes=tuple(converted))
 
     def canonical_snapshot(self) -> LayoutInput:
