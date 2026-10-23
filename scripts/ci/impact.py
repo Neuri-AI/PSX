@@ -41,6 +41,8 @@ def _classify_path(path: str) -> set[str]:
         return {"core", "headless", "qt", "kivy", "tkinter"}
     if path == ".github/workflows/cross-platform-native-reload.yml":
         return {"router", "core", "headless", "qt", "kivy", "tkinter"}
+    if path == "tests/test_markup_inline_text_coalescing.py":
+        return {"core", "headless", "qt", "kivy", "tkinter"}
     if path == "tests/test_native_coordinated_refresh.py":
         return {"core", "headless", "qt", "kivy", "tkinter"}
     if path == ".github/workflows/coordinated-refresh.yml":
