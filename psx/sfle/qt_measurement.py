@@ -122,7 +122,9 @@ class QtMeasurementSource:
         # Inline form controls participate in their text baseline, not their
         # bottom widget edge. Qt sizeHint alone does not provide a baseline.
         baseline = None
-        if any(widget.inherits(name) for name in ("QLineEdit", "QPushButton")):
+        if callable(getattr(widget, "inherits", None)) and any(
+            widget.inherits(name) for name in ("QLineEdit", "QPushButton")
+        ):
             font_metrics = widget.fontMetrics()
             baseline = min(height, max(0.0,
                 (height - float(font_metrics.height())) / 2.0
