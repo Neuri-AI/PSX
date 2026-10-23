@@ -71,7 +71,7 @@ def _classify_path(path: str) -> set[str]:
         return result
     if path == "psx/css/native_paint.py" or path == "tests/css/test_native_paint.py":
         return {"core", "qt", "kivy", "tkinter"}
-    if path in ("psx/css/properties.py", "tests/css/test_parser_and_cascade.py"):
+    if path in ("psx/css/properties.py", "psx/css/parser.py", "psx/css/cascade.py", "psx/css/markup.py", "tests/css/test_parser_and_cascade.py"):
         # CSS display/Flex vocabulary drives all layout engines and native adapters.
         return {"core", "sfle", "rust", "chromium", "headless", "qt", "kivy", "tkinter"}
     if path in ("psx/sfle/native_layout_snapshot.py", "tests/test_native_layout_snapshot.py"):
