@@ -24,6 +24,11 @@ def _is_docs(path: str) -> bool:
 
 
 def _classify_path(path: str) -> set[str]:
+    if path.startswith("examples/documented_hello/") or path in {
+        "tests/certification/verify_documented_hello.py",
+        ".github/workflows/documented-example-reproduction.yml",
+    }:
+        return {"router", "qt"}
     if path == ".github/workflows/development-reload-certification.yml":
         return {"router", "core", "headless", "qt", "kivy", "tkinter"}
     if path in {
