@@ -131,7 +131,8 @@ class Reconciler:
 
     def render(self, node: VNode) -> MountedInstance:
         """Mount or update the single root description."""
-        if node.kind is NodeKind.FRAGMENT:
+        if (node.kind is NodeKind.FRAGMENT
+                and getattr(self.renderer, "_sfle_constraints", None) is not None):
             from .vnode import create_element
             node = create_element("div", *node.children)
         if self._is_rendering:
@@ -511,7 +512,9 @@ class Reconciler:
             abort_render(token)
             raise
         end_render(token)
-        if isinstance(result, VNode) and result.kind is NodeKind.FRAGMENT and instance.parent is None:
+        if (isinstance(result, VNode) and result.kind is NodeKind.FRAGMENT
+                and instance.parent is None
+                and getattr(self.renderer, "_sfle_constraints", None) is not None):
             # A root Fragment is a transparent authoring boundary. Give its
             # native siblings a private flow viewport, not a public div VNode.
             from .vnode import create_element
