@@ -228,13 +228,21 @@ class Reconciler:
                 if ancestor is None:
                     # Prepare the replacement before touching the mounted
                     # root. Keep the parent component and its hook cells alive.
-                    candidate = self._mount(node, parent)
+                    restore = getattr(self.renderer, "restore_root", None)
+                    try:
+                        candidate = self._mount(node, parent)
+                    except BaseException:
+                        if callable(restore):
+                            restore(old.native_handle())
+                        raise
                     try:
                         transition = getattr(self.renderer, "transition_root", None)
                         if callable(transition):
                             transition(old.native_handle(), candidate.native_handle())
                     except BaseException:
                         self._unmount(candidate, detach=candidate.attached)
+                        if callable(restore):
+                            restore(old.native_handle())
                         raise
                     self._unmount(old, detach=old.attached)
                     return candidate
