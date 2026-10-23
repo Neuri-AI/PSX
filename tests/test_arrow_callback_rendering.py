@@ -161,6 +161,32 @@ class ArrowCallbacksTests(unittest.TestCase):
         self.assertEqual(root.css_source.classes, frozenset({"chip", "active"}))
         self.assertEqual(root.css_source.inline[0].value.value, "#123456")
 
+    def test_original_div_map_supports_braced_style_variable(self):
+        markup = """
+        <div>
+            {
+                items.map((color, index) => (
+                    <div key={index} style="height: 50px; background: {color};">{color}</div>
+                ))
+            }
+        </div>
+        """
+        view, result = compiled(markup)
+        colors = ["#15370D", "#728E6D", "#E5CD82", "#FFF2B4"]
+        node = view(None, colors)
+        self.assertEqual(result.transformed_calls, 1)
+        self.assertEqual([child.key for child in node.children], list(range(4)))
+        self.assertEqual([child.children[0].props["value"] for child in node.children], colors)
+        for item, color in zip(node.children, colors):
+            self.assertIn(("background", color.lower()),
+                          [(decl.name, getattr(decl.value, "value", decl.value))
+                           for decl in item.css_source.inline])
+
+    def test_braced_class_variable_is_resolved(self):
+        view, _ = compiled('<div class="chip {items[0].kind}" />')
+        node = view(None, [{"kind": "active"}])
+        self.assertEqual(node.css_source.classes, frozenset({"chip", "active"}))
+
     def test_missing_lexical_variable_in_style_has_markup_diagnostic(self):
         view, _ = compiled('<div style="background-color: ${missing}" />')
         with self.assertRaisesRegex(MarkupSyntaxError, "Unknown lexical identifier"):
