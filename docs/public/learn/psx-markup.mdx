@@ -1,28 +1,40 @@
 ---
-title: "PSX markup"
-description: "Learn static markup transformation and quoted attributes"
+title: "PSX Markup"
+description: "Read tags, attributes, values and expressions."
 ---
 
-# PSX markup
+**PSX Markup** is Velto's supported authoring syntax for native interfaces. Tags form a tree of VNodes. They do not create browser DOM nodes.
 
-PSX markup is JSX-like syntax compiled into ordinary Python expressions. **Static authored templates** are transformed by the CLI before running; this avoids unrestricted `eval` or hidden local-variable discovery.
+## Tags and nested content
 
 ```python
-from psx import psx
+from velto.ui import psx
 
-message = "Hello, Velto!"
-node = psx("<Text>{message}</Text>")
+node = psx("""
+    <Flex direction="column" gap="12px">
+        <Text value="Welcome" />
+        <Button text="Continue" />
+    </Flex>
+""")
 ```
 
-This is an **illustrative source fragment**, **not runnable directly** without the static transformation step. Put the snippet in a module and transform it from the repository root with:
+Quoted attributes, such as `gap="12px"`, are literals. Braces represent an expression or a reference, **not** inferred conversion of quoted strings to Python numbers.
 
-```bash
-python -m psx.markup.transform path/to/source.py -o path/to/generated.py
-python path/to/generated.py
+## Values in a component
+
+The installed integration test exercises this explicit-scope form:
+
+```python
+from velto.ui import psx
+
+name = "World"
+view = psx('<Text value={greeting} />', scope={"greeting": f"Hello, {name}"})
 ```
 
-To run a complete, behavior-tested example without transformation, begin with [first app](/getting-started/first-app). For static properties, write `gap="12"`, **not** `gap={12}`. Braces denote supported references/expressions, not arbitrary constant wrappers. The dynamic explicitly scoped template route has a separate, more restricted contract.
+The `scope` argument is for explicit or generated name resolution. In normal project source, use the supported authored expression syntax and let the development toolchain process the file. Do not use the obsolete `psx.markup.transform` command or `eval`.
 
-## Verify and continue
+## Identity and updates
 
-After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.
+When markup is returned by a component and state changes, the reconciler compares its VNodes and updates native widgets. Stable `key` values matter for lists. Read [lists and keys](/learn/lists-and-keys) and [state](/learn/state-and-events).
+
+**Verify:** the [integration CI](https://github.com/Neuri-AI/Velto/actions/runs/39962860498) mounts markup on PySide6, Tkinter and Kivy. It does not assert that every possible JavaScript-like expression is supported.

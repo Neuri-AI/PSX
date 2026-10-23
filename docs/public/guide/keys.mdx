@@ -1,0 +1,22 @@
+---
+title: "Keys and identity"
+description: "Keep native widgets and component state stable during reconciliation."
+---
+
+PSX stores interface descriptions as VNodes. When a component rerenders, the reconciler compares the new tree with the existing one and updates actual native controls.
+
+A **key** identifies a repeated child among its siblings. Give changing lists stable, unique keys derived from your data, not their current array positions. That allows reordering to preserve identity where the component's reconciliation contract permits it.
+
+```python
+from velto.ui import psx
+
+item_id = "item-42"
+view = psx('<Text value={label} key={item_key} />',
+           scope={"label": "Task", "item_key": item_id})
+```
+
+The explicit scope above is useful for demonstrating how a key value reaches the markup runtime; ordinary generated project source can use supported authored expressions.
+
+**What to verify:** reorder your items and ensure that native focus, state and cleanup behave as expected. Keys help the reconciler identify children; they do not guarantee persistence of incompatible component hooks after remount.
+
+See [state](/learn/state-and-events) and [development refresh](/guide/hot-reload).

@@ -1,21 +1,23 @@
 ---
 title: "Project structure"
-description: "Organize a small Velto learning project"
+description: "Understand the files used by Qyro and the Velto CLI."
 ---
 
-# Project structure
+Velto CLI can scaffold a complete project with `velto init --framework pyside6`. The precise generated files depend on the selected template; do not assume each template has an identical tree.
 
-The checked-in examples live in `examples/f5_5_beginner/`. Each file is an entry point, and `test_examples.py` verifies the behavior through the Headless renderer. In these lessons `App` owns the mount, `@component` declares the tree, and `unmount()` cleans it up.
+A minimal conceptually useful layout is:
 
 ```text
-examples/f5_5_beginner/
-├── hello_world.py
-├── counter.py
-└── test_examples.py
+my-app/
+├── main.py
+├── pyproject.toml
+├── settings/
+│   └── base.json
+└── resources/
 ```
 
-After [installation](/getting-started/installation), run `python examples/f5_5_beginner/hello_world.py` from the repository root. This folder needs no separate settings file because each script explicitly selects `renderer="headless"`. Desktop window settings belong to the relevant native host/runtime, not a markup `<Window>` component.
+**`main.py`** contains a `VeltoContext` subclass whose `render()` returns PSX Markup. **`settings/base.json`** specifies the `app_name`, the `framework` (for example `pyside6`) and the `window` dimensions. **`resources/`** stores application assets. **`pyproject.toml`** identifies the project and is required by certain CLI packaging guards.
 
-## Verify and continue
+The development command is `velto start`. The distribution commands are `velto build` and `velto bundle`. In frozen projects, Qyro can load settings and assets from the protected `.pak`; never assume the executable's working directory equals the original source directory.
 
-After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.
+**How to verify:** [packaged executable suite](https://github.com/Neuri-AI/Velto/actions/runs/39967824985) starts frozen projects using a real settings file and a protected asset extracted from a release archive.

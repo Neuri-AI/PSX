@@ -1,26 +1,22 @@
 ---
 title: "Effects and cleanup"
-description: "Run work after commits and clean it up on unmount"
+description: "Run a side effect after commit and release it on unmount."
 ---
 
-# Effects and cleanup
-
-The `use_effect` hook schedules a callback after a UI commit. It optionally returns a zero-argument cleanup function, called before the next applicable effect and during unmount.
+A PSX `use_effect` hook schedules work after a component is committed. An effect may return a zero-argument cleanup function, which the runtime invokes when appropriate before re-running the effect or releasing the component.
 
 ```python
-from psx import Text, component, use_effect
+from velto.ui import Text, component, use_effect
 
 @component
-def Observed():
-    def setup():
+def ConnectionStatus():
+    def subscribe():
         print("mounted")
         return lambda: print("unmounted")
-    use_effect(setup, [])
-    return Text("Effect example")
+    use_effect(subscribe, [])
+    return Text("Connected")
 ```
 
-This is an **illustrative component fragment**, not a full runnable program. An empty dependency sequence keeps the effect stable when the dependencies do not change. Do not perform `use_effect` inside loops or conditionals. See [state and events](/learn/state-and-events) for an executable hook example.
+This fragment illustrates lifecycle shape only. Replace prints with a real subscription and cleanup in your application. Never call hooks conditionally or inside changing loops.
 
-## Verify and continue
-
-After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.
+**Verification:** component and hook lifecycle behaviors are covered in PSX's runtime tests; the [integrated native suite](https://github.com/Neuri-AI/Velto/actions/runs/39962860498) verifies Pydux provider teardown, not every possible effect side effect.

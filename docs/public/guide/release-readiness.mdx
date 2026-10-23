@@ -1,0 +1,18 @@
+---
+title: "Release readiness and known limits"
+description: "Read the evidence before claiming platform support."
+---
+
+The Velto packages are on the `0.1.0` series and declare **Python `>=3.10,<3.13.20`**.
+
+Current evidence distinguishes:
+
+- [Installed wheels and optional backend extras](https://github.com/Neuri-AI/Velto/actions/runs/39957504956): Python 3.10–3.13 tested, Qt and Kivy extras installed on Linux, Windows and macOS ARM64 with the documented PySide2 restriction.
+- [Mounted application integration](https://github.com/Neuri-AI/Velto/actions/runs/39962860498): Linux PySide6/Tkinter/Kivy and both Cinnamon engines.
+- [Windows Kivy native restart](https://github.com/Neuri-AI/PSX/actions/runs/39951131528) and physical Mac ARM64 Kivy certification supplied separately.
+- [Linux frozen Tkinter distribution](https://github.com/Neuri-AI/Velto/actions/runs/39967824985): both PyInstaller modes, protected `.pak` and extracted archive.
+- [Native resource sampling](https://github.com/Neuri-AI/Velto/actions/runs/39967825020): two-minute tests, **not** multi-hour longevity.
+
+**Release work still open:** Windows/macOS frozen binaries, code signing and notarization, frozen Qt/Kivy builds, longer memory observations and manual execution of every tutorial and example on each claimed platform.
+
+See [compatibility](/guide/compatibility) for the OS and backend matrix. Every support statement must retain its platform, Python version and tested revision.

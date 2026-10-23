@@ -1,0 +1,10 @@
+---
+title: "Advanced APIs"
+description: "Extend component registries and native rendering without bypassing PSX."
+---
+
+Most applications need `VeltoContext`, `psx`, hooks and state exports. Advanced public PSX APIs are forwarded by the `velto.ui` facade without wrapping their identity, including `VNode`, `ComponentRegistry`, `RendererAdapterRegistry`, `Plugin`, `register_component`, `register_adapter` and `native_widget`.
+
+Registries and native widgets are extension boundaries, **not** a reason to bypass Cinnamon's layout authority. Use them only when implementing adapters or integrating a compatible toolkit widget. See [extension reference](/reference/extensions-and-native) and [native integration](/guide/native-integration).
+
+Do not depend on a browser DOM, `eval`, or the obsolete `psx.markup.transform` command. Consult the actual public API reference for accepted signatures before authoring an extension.

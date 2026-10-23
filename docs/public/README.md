@@ -1,16 +1,34 @@
-# Velto Public Documentation (Mintlify)
+# Velto public documentation
 
-**Status:** F5.5 APPROVED / IMPLEMENTATION NOT STARTED.
+Canonical developer-facing Mintlify documentation for Velto. Start with [the introduction](introduction.mdx), [installation](getting-started/installation.mdx), and [the first application](getting-started/first-app.mdx).
 
-This directory (`docs/public/`) is the canonical home for all **public-facing, Mintlify-compatible `.mdx` developer documentation** on the repository's `develop` branch.
+**Current scope:** first-party packages `0.1.0`, Python `>=3.10,<3.13.20`. Velto is a native Python framework using **PSX Markup**, not a browser DOM. The documentation explains Qyro Engine, PSX (including Cinnamon), Pydux, the CLI, and the public facade from inspected source.
 
-**READ FIRST:**
-- [Normative F5.5 contract](../architecture/f5-5-public-documentation-contract.md)
-- [Gate status, evidence and future-agent handoff](../architecture/f5-5-public-documentation-progress.md)
-- [PSX roadmap](../roadmap.md)
+## Page map
 
-Do not use outdated feature branches, historical example snippets or the discussion's standalone starter archive as authoritative API documentation. Verify all public API claims on the current `develop` code and tests; pin the immutable SHA, document only supported behavior, and link complete, reproducible, CI-tested application examples.
+- Getting started: overview, GitHub installation, first application, project structure, execution with Tkinter and an architecture walkthrough.
+- Language and UI: PSX Markup, conditions, lists and keys, components, hooks, state and native layout.
+- Practical guides: box-model styling, identity, native integration, hot reload, performance, distribution, compatibility, advanced APIs and release limitations.
+- Existing component, API and gallery references remain accessible. Their source-specific signatures and examples should be checked against their original API contract before reusing them in other projects.
 
-Planned entry points: `docs.json`, `introduction.mdx`, `getting-started/`, `learn/`, `components/`, `api/`, `guides/`, `concepts/`, `examples/`.
+## Evidence and limitations
 
-**No Mintlify build, public page, API census or runnable example is certified merely by creating this directory.** G1 audits source before pages are published.
+See [compatibility](guide/compatibility.mdx), [distribution](guide/distribution.mdx), and [release readiness](guide/release-readiness.mdx). Supported package installations, native integration, resource checks and frozen releases have different platform evidence; **no single CI receipt certifies all of them**. A rendered documentation page or import smoke test is not an executable sample application.
+
+Developer examples are expected to use Python, PSX Markup and native toolkits, not browser HTML; no `<Window>` tag or `psx.markup.transform` command is required.
+
+## Validate
+
+From the PSX root:
+
+```bash
+python scripts/docs/validate_public_site.py
+python -m unittest discover -s tests -p test_docs_public_site.py -v
+cd docs/public
+npm install --no-package-lock --no-audit --no-fund
+npm run validate
+npm run links
+npm run a11y
+```
+
+The docs workflow runs those checks, and its success must be read from the exact head commit. Documentation-only changes do not introduce runtime capabilities and should route **zero** product tests. See [documentation verification handoff](../architecture/public-documentation-verification.md) for review status and unresolved reproduction coverage.

@@ -1,26 +1,20 @@
 ---
-title: "Advanced extensions and native APIs"
-description: "Understand optional registry, plugin, renderer adapter and native widget APIs."
+title: "Extensions and native APIs"
+description: "Public component registries, native widgets and plugins in PSX."
 ---
 
-# Advanced extensions and native APIs
+The `velto.ui` facade re-exports original PSX extension interfaces without identity-changing wrappers. Advanced symbols include `ComponentRegistry`, `ComponentDefinition`, `register_component`, `RendererAdapterRegistry`, `register_adapter`, `ComponentAdapter`, `Plugin`, `PluginAPI`, `load_plugins`, `Native`, `NativeWidget` and `NativeOwnership`.
 
-These names are part of the root `psx` exports and serve advanced library and native integration use cases. Consult [source exports](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/psx/__init__.py) and [registry](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/psx/core/registry.py) for exact contracts.
+## Registering a component
 
-## Component registration
+Custom components usually begin with `@component`; advanced registration is for extending the reusable registry. A registry entry identifies an operation the renderer might be able to mount, not a proof of native support.
 
-`ComponentDefinition`, `ComponentRegistry`, `builtin_component_registry`, `register_component`: definitions and registration mechanisms. A registered name alone does not prove a renderer can mount it. Never replace built-ins or mutate a global registry without reviewing collision behavior.
+## Native widget ownership
 
-## Renderer adapters
+`Native` is the extension boundary for toolkit-native controls. It must be used with a matching backend and ownership policy; external Qt widgets, such as pyqtgraph plots, are not interchangeable with Kivy or Tkinter objects. The renderer owns UI updates and Cinnamon remains responsible for geometric layout.
 
-`ComponentAdapter`, `RendererAdapterRegistry`, `register_adapter`, `RendererCapabilities`, `renderer_capabilities`: backend adapter contracts and capability discovery. Capability information must be interpreted for the actual renderer and version, not inferred from documentation navigation.
+## Plugins and adapters
 
-## Native widget declarations
+Plugins and renderer adapters are integration points for advanced library authors. Do not bypass reconciliation or create a parallel layout engine. Use the [generated public contracts](/reference/generated-contracts) and the [native capability matrix](/reference/native-css-capabilities) for signature and support details.
 
-`Native`, `NativeWidget`, `NativeOwnership`, `native_widget`: integrate native controls with explicit ownership and renderer constraints. Native widgets belong to a toolkit and are not implicitly portable across different backends.
-
-## Plugins
-
-`Plugin`, `PluginAPI`, `PLUGIN_ENTRY_POINT_GROUP`, `load_plugins` are extension APIs. F5.5 does not add new Pydux or CLI functionality and does not certify their upcoming releases.
-
-These are **orientation entries**, not complete signature and lifecycle contracts; G4 remains open until each advanced symbol has its own verified API details and test evidence.
+**Validation scope:** [installed native app integration](https://github.com/Neuri-AI/Velto/actions/runs/39962860498) covers PySide6, Tkinter and Kivy applications; an embedded third-party widget requires additional toolkit-specific execution evidence. See [native integration guide](/guide/native-integration).

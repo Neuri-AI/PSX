@@ -1,105 +1,21 @@
 ---
-title: "Meet Velto"
-description: "Write native Python interfaces with familiar HTML/JSX-like markup—without a browser."
+title: "Velto"
+description: "Build native Python interfaces with PSX Markup."
 ---
 
-**What if building a native Python interface felt as familiar as writing HTML or JSX?**
+Velto is a Python framework for native desktop user interfaces. **PSX Markup** is the official way to describe UI structure with nested tags and Python expressions. It resembles HTML or JSX, but the final interface is rendered by a native UI toolkit; no browser or HTML DOM is involved.
 
-That is the idea behind **Velto**: a Python UI framework centered on **PSX Markup**, a markup syntax for describing interfaces using tags, attributes, and nested elements.
+## One interface, separate responsibilities
 
-You write the structure of your interface in a familiar, readable format. Velto processes that structure into a **Virtual DOM (VDOM)**: a tree of **virtual nodes (VNodes)** representing the interface. A **reconciler** compares interface descriptions when they change, and a supported native renderer applies the necessary updates to real desktop widgets. **There is no browser or HTML DOM between your markup and the native UI.**
+- **PSX** parses markup, creates VNodes, reconciles updates and owns the renderer adapters.
+- **Cinnamon**, inside PSX, computes layout. Rust is the primary engine and Python is a fallback.
+- **Qyro Engine** supplies `VeltoContext`, application configuration, resources and execution lifecycle.
+- **Pydux** supplies state, stores and selectors.
+- **Velto CLI** creates, starts, builds and bundles desktop projects.
+- The **`velto` facade** exposes those APIs without introducing wrapper objects.
 
-## A familiar way to write interfaces
-
-If you have seen HTML, you already know the basic shape:
-
-```html
-<div>
-  <h1>Welcome!</h1>
-  <button>Get started</button>
-</div>
-```
-
-PSX Markup follows the same *visual idea*: elements have names, attributes describe them, and indentation makes the hierarchy easy to read.
-
-Here is what a Velto interface can look like:
-
-```python
-from psx import psx
-
-view = psx("""
-    <Flex direction="column" gap="12">
-        <Text>Welcome to Velto!</Text>
-        <Button>Get started</Button>
-    </Flex>
-""")
-```
+Read [installation](/getting-started/installation), then [your first application](/getting-started/first-app). The platform and Python restrictions in [compatibility](/guide/compatibility) describe measured coverage rather than promising that every renderer supports every feature.
 
 <Note>
-  This is a **markup syntax illustration**, not a complete runnable application. To open a window you also need the appropriate application setup and a native renderer. The [getting started guide](/getting-started/overview) walks through those steps.
+The currently verified ecosystem distribution version is `0.1.0`. This is alpha-stage software, not a stability promise for every public API or packaged executable.
 </Note>
-
-### Read the markup like HTML
-
-- **`<Flex>`** is a layout container. Its children are arranged according to its layout settings.
-- **`direction="column"`** and **`gap="12"`** are attributes. Here they describe a vertical arrangement and spacing.
-- **`<Text>`** describes text content.
-- **`<Button>`** describes an interactive control.
-- **Closing tags** and **nesting** tell Velto which elements belong together.
-
-The tags are **Velto components**, not browser HTML elements. They are designed to map to the framework's UI system and supported native backends.
-
-## Familiar syntax, a different rendering target
-
-<Steps>
-  <Step title="Write PSX Markup">
-    Describe the interface using nested tags, attributes and supported expressions.
-  </Step>
-  <Step title="Velto processes the markup">
-    Velto produces a **Virtual DOM** made of **VNodes**. Its reconciler manages changes to that virtual tree. Cinnamon calculates layout geometry where required.
-  </Step>
-  <Step title="A native renderer creates widgets">
-    A selected renderer connects the interface to a supported toolkit such as Qt, Tkinter or Kivy. The result is a desktop UI, not a web page embedded in Chromium.
-  </Step>
-</Steps>
-
-**HTML/JSX in a browser:** markup or components → browser DOM → browser rendering.
-
-**PSX Markup in Velto:** markup → Virtual DOM → reconciliation and layout → native renderer → native toolkit widgets.
-
-The **Virtual DOM is not the browser DOM**. It is Velto's in-memory description of the interface; the final controls are native widgets. The resemblance to HTML/JSX is about the **developer experience**, not about reusing a browser as a rendering engine.
-
-## Markup does not force a programming style
-
-Using PSX Markup does **not** mean you must write your entire application in a declarative or React-like style.
-
-Markup is the way you express the **interface structure**. Your application logic is still Python. You can organize that logic using functions, callbacks, reusable components, state and hooks where they are useful.
-
-As you learn Velto, you will encounter two related ideas:
-
-- **Markup:** the readable, HTML/JSX-inspired syntax used to describe a UI tree.
-- **State-driven updates:** an optional way to make that UI respond to changing data without manually updating every widget.
-
-They complement each other, but **they are not the same thing**. You can start by learning tags and attributes before learning hooks.
-
-## What makes Velto different?
-
-Python already has powerful native UI toolkits. Velto does not replace their native rendering capabilities; it gives you a **shared authoring experience** above them.
-
-- **HTML/JSX-like markup:** express UI structure with tags and nesting rather than manually assembling every widget.
-- **Native rendering:** use toolkit widgets through supported renderer integrations instead of shipping a browser for the interface.
-- **Reusable components:** organize an interface into smaller, understandable pieces.
-- **Python application logic:** keep behavior, data processing and application code in Python.
-- **Optional state and hooks:** adopt reactive patterns when they help, rather than treating them as the definition of the framework.
-
-## Start building
-
-You do not need to understand Cinnamon, reconciliation or renderer internals before your first lesson.
-
-1. [**Getting started**](/getting-started/overview) — understand the learning path and prerequisites.
-2. [**Install Velto**](/getting-started/installation) — prepare a working Python environment.
-3. [**Your first application**](/getting-started/first-app) — run a complete example and see how Velto mounts a UI tree.
-4. [**Native Tkinter walkthrough**](/getting-started/native-tkinter) — move from Headless execution to actual desktop widgets.
-5. [**How Velto works**](/concepts/architecture) — explore markup processing, layout and native rendering when you are ready.
-
-**The goal is simple: write interfaces with the familiarity of HTML/JSX, and run them as native Python applications.**

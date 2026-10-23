@@ -1,12 +1,28 @@
 ---
-title: "Component catalog"
-description: "How portable component reference pages will describe contracts and backend support."
+title: "Components and controls"
+description: "Choose HTML-like PSX elements or reusable integrated native components."
 ---
 
-# Component catalog
+A PSX component returns or composes VNodes; the renderer builds real native widgets. For new applications, **lowercase HTML-like tags** are recommended where supported. They are *PSX Markup elements*, not browser HTML DOM nodes.
 
-A component is an interface building block. Some accept text or child components; others restrict children. Every component reference will list its real properties and defaults, events, child policy, and backend-specific behavior.
+## Integrated components
 
-The source of truth is the component registry and its contracts in the current `develop` branch, not HTML attributes or React conventions.
+The integrated component APIs include **`Flex`**, **`Grid`**, **`GridItem`**, **`Scroll`** and **`Native`**. They supplement PSX Markup's ordinary elements and retain their public API compatibility. You can use `@component` to build reusable components.
 
-The detailed catalog is part of G4. Until then, **do not assume** that an HTML attribute or event name works in Velto. Read [How Velto works](/concepts/architecture) for the rendering model.
+```python
+from velto.ui import psx
+
+view = psx("""
+    <Flex direction="column" gap="12px">
+        <Text value="Projects" />
+    </Flex>
+""")
+```
+
+This is a **VNode fragment**, not a complete runnable application. Start with [first app](/getting-started/first-app) to mount it.
+
+## Backend differences
+
+A component's name being exported does not guarantee every property, native event, sizing behavior or embedded widget works on every toolkit. See [source-derived component contracts](/reference/generated-contracts), [component API descriptions](/reference/component-contracts), [native capability details](/reference/native-css-capabilities) and [OS compatibility](/guide/compatibility).
+
+The `Native` boundary is toolkit-specific; a PySide6 widget such as a pyqtgraph plot cannot be mounted as if it were Kivy. Read [native integration](/guide/native-integration).

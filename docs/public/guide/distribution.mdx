@@ -1,0 +1,17 @@
+---
+title: "Build and distribute"
+description: "Freeze Velto applications and resolve protected Qyro resources."
+---
+
+From a valid initialized project, the CLI can build a frozen native executable:
+
+```bash
+velto build --mode onedir --console
+velto bundle --format tar.gz --no-resources
+```
+
+The CLI requires a project `pyproject.toml`. For resource-protected builds, enable `resource_protection.enabled` in `build.json`. Qyro stores protected settings and resources in a `.pak`; resolve packaged assets using **`get_resource`** rather than relative source-tree paths.
+
+**Executed evidence:** [four Linux Tkinter builds](https://github.com/Neuri-AI/Velto/actions/runs/39967824985) passed Python 3.11/3.12 × PyInstaller `onedir`/`onefile`. Each built, bundled, extracted and launched outside the source tree and verified the protected resource. This is not evidence for signed Windows installers, notarized macOS applications or frozen Qt/Kivy distributions.
+
+Read [release limitations](/guide/release-readiness) before publishing an installer.

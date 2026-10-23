@@ -1,22 +1,39 @@
 ---
 title: "Components"
-description: "Understand portable constructors and component functions"
+description: "Choose HTML-like elements, integrated components and reusable component functions."
 ---
 
-# Components
+Velto supports recommended **lowercase HTML-like elements** as well as integrated components such as `Flex`, `Grid`, `GridItem`, `Scroll` and `Native`.
 
-A **component** is a reusable function returning a VNode. `@component` wraps the function so the reconciler can track its identity and hooks. A **portable component** such as `Text` or `Button` has a backend-independent contract, but support for individual properties still depends on validated contracts and native receipts.
+## Layout components
 
 ```python
-from psx import Fragment, Text, component
+from velto.ui import psx
+
+view = psx("""
+    <Flex direction="column" gap="16px">
+        <Text value="Dashboard" />
+        <Scroll>
+            <Text value="Scrollable content" />
+        </Scroll>
+    </Flex>
+""")
+```
+
+`Flex` arranges children; `Grid` and `GridItem` support the framework's 12-column responsive grid. `Scroll` delegates scroll interaction to an actual toolkit adapter. For standard controls, prefer the HTML-like tags appropriate to the desired markup behavior, and consult the [component contracts](/reference/component-contracts) for supported properties.
+
+## Your own components
+
+`@component` marks a Python component function whose VNode identity and hooks are managed by the reconciler:
+
+```python
+from velto.ui import component, Text
 
 @component
 def Greeting():
-    return Fragment(Text("Welcome"))
+    return Text("Hello")
 ```
 
-This code is an **illustrative fragment**; the runnable project is [Hello World](/getting-started/first-app). The real `Text` constructor accepts a value and optional formatting arguments. `Fragment` groups children but does not calculate layout geometry. Components must return a valid VNode.
+This is a component fragment, not a complete application. You can return it as part of a mounted UI tree. Read [native embedding](/guide/native-integration) for the `Native` boundary and [hooks](/learn/effects) for effects and cleanup.
 
-## Verify and continue
-
-After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.
+**Verify:** inspect the specific renderer's supported properties and test with the backend you intend to ship. An exported component name alone does not prove identical backend capabilities.

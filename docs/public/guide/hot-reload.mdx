@@ -1,0 +1,16 @@
+---
+title: "Development and hot reload"
+description: "Understand Fast Refresh, component remount and process restart."
+---
+
+Run an initialized project with `velto start`. Disable development reload with:
+
+```bash
+velto start --no-hot-reload
+```
+
+Development updates have three levels: **Fast Refresh** for compatible changes retaining eligible state; **Component Remount** for incompatible hooks or component structure, possibly resetting local state; and **Process Restart** when the application must rebuild its native event loop.
+
+Source-edit errors are handled by the development recovery path, rather than silently accepted as valid code. Frozen binaries do **not** run hot reload. Changes in settings and resource packaging should therefore be checked before freezing.
+
+**Verify:** [Linux native restart certification](https://github.com/Neuri-AI/PSX/actions/runs/39945400491), [Windows Kivy](https://github.com/Neuri-AI/PSX/actions/runs/39951131528). The exact behavior depends on which update class applies.

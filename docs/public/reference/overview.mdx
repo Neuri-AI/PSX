@@ -1,12 +1,12 @@
 ---
-title: "Python reference"
-description: "How to read source-verified everyday and extension API references."
+title: "Python API reference"
+description: "Find verified exports, call signatures, exceptions and native extension boundaries."
 ---
 
-# Python reference
+Velto exposes a small set of application-facing modules which directly re-export Qyro, PSX and Pydux. The root `velto` package exports `VeltoContext` and `__version__`. For UI use `velto.ui`; for state use `velto.state`; for Qyro resources use `velto.runtime`.
 
-The reference will be divided into **Everyday APIs** (components, state, markup and applications) and **Advanced APIs** (registries, plugins, native interoperability, lifecycle and public exceptions).
+The detailed [source-derived API reference](/reference/generated-contracts) is generated from PSX's currently checked-out public symbols and component contracts. Treat its signatures and defaults as declaration evidence, **not** proof of identical behavior on every renderer.
 
-Every published API page must show its actual `psx` import, signature, parameters, return value, errors, lifecycle restrictions, and source/test evidence pinned to a commit.
+Follow these references in order: [application and hooks](/reference/application-and-state), [component contracts](/reference/component-contracts), [errors](/reference/errors), [native/extension APIs](/reference/extensions-and-native), and [CSS capability matrix](/reference/native-css-capabilities).
 
-The detailed pages will be delivered in G4. A public name listed in an audit snapshot is not by itself proof of a supported behavior. See [Component catalog](/components/overview) and [Core concepts](/concepts/overview).
+For a complete application see [getting started](/getting-started/first-app). For platform restrictions consult [compatibility](/guide/compatibility). Do not derive guaranteed support from an exported symbol name alone.

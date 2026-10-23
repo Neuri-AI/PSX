@@ -1,12 +1,12 @@
 ---
-title: "Core concepts"
-description: "A plain-language map of Velto concepts and their boundaries."
+title: "Concepts"
+description: "The essential terms of Velto's architecture."
 ---
 
-# Core concepts
+**PSX Markup** describes native UI structure using tags, attributes and expressions. **VNode** is PSX's in-memory interface representation, and the **reconciler** updates native widgets without requiring the application window to be recreated on every compatible state change.
 
-A **component** describes what should appear in the interface. A **VNode** is an intermediate description of that interface, not a native widget. **Reconciliation** compares descriptions so the runtime can update existing widgets when possible. A **renderer** performs the backend-specific widget operations.
+**Cinnamon** is PSX's geometry engine, running in Rust where installed and using a Python fallback. **Qyro Engine** manages the application context, configuration and resources. **Pydux** provides state, actions and selectors. **Velto CLI** manages project creation and development, building and bundling.
 
-Cinnamon computes layout geometry. Backends perform their own measurement and widget operations but must not introduce competing layout geometry authorities.
+The public **`velto` facade** exposes the original Qyro, PSX and Pydux interfaces. Velto is a native UI framework, **not an HTML/browser framework**.
 
-Start with [How Velto works](/concepts/architecture). The [Python reference](/reference/overview) will link every documented behavior to source evidence.
+Start with [your first app](/getting-started/first-app), [markup](/learn/psx-markup), [layout](/learn/native-layout) and [state](/learn/state-and-events). Review [compatibility](/guide/compatibility) before assuming a feature is available on a particular operating system.
