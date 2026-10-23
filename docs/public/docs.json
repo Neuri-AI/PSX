@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Velto",
-  "description": "Developer documentation for Velto's declarative Python native UI framework.",
+  "description": "Native Python interfaces with PSX Markup, Qyro Engine, Cinnamon and Pydux.",
   "colors": {
     "primary": "#7C3AED",
     "light": "#8B5CF6",
@@ -37,13 +37,27 @@
       {
         "group": "Learn Velto",
         "pages": [
-          "learn/components",
           "learn/psx-markup",
-          "learn/state-and-events",
           "learn/conditional-rendering",
           "learn/lists-and-keys",
+          "learn/components",
+          "learn/state-and-events",
           "learn/effects",
           "learn/native-layout"
+        ]
+      },
+      {
+        "group": "Practical guides",
+        "pages": [
+          "guide/styling",
+          "guide/keys",
+          "guide/native-integration",
+          "guide/hot-reload",
+          "guide/performance",
+          "guide/distribution",
+          "guide/advanced",
+          "guide/compatibility",
+          "guide/release-readiness"
         ]
       },
       {
