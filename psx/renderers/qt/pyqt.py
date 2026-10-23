@@ -1097,6 +1097,10 @@ class QtRenderer:
                 declarations.append(f'font-weight: {styles["font-weight"]};')
             if "color" in styles:
                 declarations.append('color: ' + styles["color"] + ';')
+            from psx.css.native_paint import background_hex
+            background = background_hex(computed)
+            if background is not None:
+                declarations.append(f"background-color: {background};")
             if "text-align" in styles and target.node_type in ("Button", "Link", "TextArea"):
                 declarations.append('text-align: ' + styles["text-align"] + ';')
             from psx.css.native_paint import native_border_paint

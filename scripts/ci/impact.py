@@ -69,6 +69,8 @@ def _classify_path(path: str) -> set[str]:
         elif name == "ci.yml":
             result.add("core")
         return result
+    if path == "tests/test_qt_css_control_background.py":
+        return {"qt"}
     if path == "psx/css/native_paint.py" or path == "tests/css/test_native_paint.py":
         return {"core", "qt", "kivy", "tkinter"}
     if path in ("psx/css/properties.py", "psx/css/parser.py", "psx/css/cascade.py", "psx/css/markup.py", "tests/css/test_parser_and_cascade.py"):
