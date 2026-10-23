@@ -353,7 +353,7 @@ impl Flow<'_> {
         let mut pending = Vec::new();
         let children = self.children[index].clone();
         for child in children {
-            if self.display(child)? != Some(false) {
+            if self.display(child)? == Some(true) || (self.display(child)?.is_none() && self.input.nodes[child].component != "Text") {
                 pending.push(child);
             } else {
                 if !pending.is_empty() {
