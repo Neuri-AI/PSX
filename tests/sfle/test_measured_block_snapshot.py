@@ -110,3 +110,24 @@ def test_fractional_native_metrics_land_on_fixed_point_grid():
             value = getattr(box.border, axis)
             assert value * 64 == round(value * 64)
     assert dict(result.boxes)["text"].border.y == round(12.3 * 64) / 64
+
+
+def test_native_input_and_button_keep_intrinsic_width_under_block_parent():
+    base = snapshot()
+    nodes = (
+        LayoutNode("root", None, "div", ()),
+        LayoutNode("input", "root", "Input", ()),
+        LayoutNode("button", "root", "Button", ()),
+    )
+    measures = (
+        MeasuredBox("input", IntrinsicSizes(185, 185, 22, 22, 185, 22), base.constraints, 1),
+        MeasuredBox("button", IntrinsicSizes(66, 66, 22, 22, 66, 22), base.constraints, 1),
+    )
+    boxes = dict(compute_measured_block_snapshot(LayoutInput(
+        1, base.generation, base.direction, base.constraints, nodes, measures,
+    )).boxes)
+    assert boxes["input"].border.width == 185
+    assert boxes["button"].border.width == 66
+    assert boxes["button"].border.y == 22
+    assert boxes["root"].border.width == 240
+    assert boxes["root"].border.height == 44
