@@ -2847,3 +2847,25 @@ def test_qt_text_and_button_host_types_remain_constant_across_mounts():
     finally:
         tree.unmount()
         close()
+
+
+def test_css_div_flex_row_gap_renders_distinct_native_positions():
+    from psx.css.markup import compute_markup_styles
+    from psx import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        source = psx("<div><p>Alpha</p><p>Beta</p></div>")
+        styled = compute_markup_styles(
+            source, "div { display: flex; gap: 10px; flex-direction: row; }")
+        root = reconciler.render(styled)
+        first, second = (child.handle.widget for child in root.children)
+        left = rectangle(first, backend)
+        right = rectangle(second, backend)
+        assert right[0] >= left[0] + left[2] + 9
+        assert renderer.sfle_result is not None
+        assert renderer.sfle_result.geometry_commit_error <= 1
+    finally:
+        reconciler.unmount()
+        close()
