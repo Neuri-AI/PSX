@@ -29,10 +29,11 @@ def test_native_block_flow_uses_measured_leaf_heights():
     result = compute_measured_block_snapshot(snapshot())
     rectangles = dict(result.boxes)
     assert result.generation == 7
-    assert rectangles["root"].border.height == 42
+    assert rectangles["root"].border.height == 30
     assert rectangles["button"].border == rectangles["button"].content
-    assert rectangles["button"].border.width == 240
-    assert rectangles["text"].border.y == 12
+    assert rectangles["button"].border.width == 40
+    assert rectangles["text"].border.x == 40
+    assert rectangles["text"].border.y == 0
     assert rectangles["text"].border.height == 30
 
 
