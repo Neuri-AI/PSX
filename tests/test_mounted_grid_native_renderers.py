@@ -2869,3 +2869,30 @@ def test_css_div_flex_row_gap_renders_distinct_native_positions():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_css_display_switch_reflows_same_semantic_native_div():
+    from psx.css.markup import compute_markup_styles
+    from psx import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        source = psx("<div><p>Alpha</p><p>Beta</p></div>")
+        column = compute_markup_styles(source, "div { display: block; }")
+        row = compute_markup_styles(source,
+            "div { display: flex; gap: 10px; flex-direction: row; }")
+        first = reconciler.render(column)
+        host = first.handle.widget
+        assert first.children[0].handle.widget is not first.children[1].handle.widget
+        second = reconciler.render(row)
+        assert second.handle.widget is host
+        a, b = (child.handle.widget for child in second.children)
+        left, right = rectangle(a, backend), rectangle(b, backend)
+        assert right[0] >= left[0] + left[2] + 9
+        restored = reconciler.render(column)
+        assert restored.handle.widget is host
+        assert renderer.sfle_result is not None
+    finally:
+        reconciler.unmount()
+        close()
