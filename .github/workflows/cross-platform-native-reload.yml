@@ -1,7 +1,9 @@
 name: Cross-platform native reload certification
 on:
   push:
-    branches: [feature/intelligent-hot-reload]
+    branches: [feature/intelligent-hot-reload, feature/css-flex-and-live-host-transitions]
+  pull_request:
+    branches: [develop]
     paths:
       - 'tests/test_native_event_loop_process.py'
       - 'tests/test_native_supervised_restart.py'
