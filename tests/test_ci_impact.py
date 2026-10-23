@@ -8,6 +8,22 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_full_native_event_loop_and_resource_tests_route_to_all_consumers(self):
+        expected = {"core", "headless", "qt", "kivy", "tkinter"}
+        for path in (
+            "tests/test_native_event_loop_process.py",
+            "tests/certification/native_event_loop_child.py",
+            "tests/test_native_supervised_restart.py",
+            "tests/certification/native_supervised_child.py",
+            "tests/test_native_refresh_resource_soak.py",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), expected)
+        self.assertEqual(
+            self.selected(".github/workflows/cross-platform-native-reload.yml"),
+            expected | {"router"},
+        )
+
     def test_coordinated_refresh_stress_routes_every_mounted_backend(self):
         expected = {"core", "headless", "qt", "kivy", "tkinter"}
         self.assertEqual(self.selected("tests/test_native_coordinated_refresh.py"), expected)
