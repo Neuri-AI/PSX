@@ -260,3 +260,55 @@ def test_repeated_hook_signature_changes_release_old_boundaries(monkeypatch, tmp
     finally:
         context.app.unmount()
         close()
+
+
+def test_root_host_transition_is_fast_refresh_on_native_backend(monkeypatch, tmp_path):
+    from psx import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    source = tmp_path / "main.py"
+    source.write_text("class Example: pass\n", encoding="utf-8")
+    context = Example()
+    current = [False]
+
+    def render_before(self):
+        state, _ = use_state(19)
+        return psx(f"<div><p>before:{state}</p></div>")
+
+    def render_after(self):
+        state, _ = use_state(19)
+        return Flex(Text(f"after:{state}"), direction="column")
+
+    def render_back(self):
+        state, _ = use_state(19)
+        return psx(f"<div><p>restored:{state}</p></div>")
+
+    holder = [render_before]
+    def root():
+        return holder[0](context)
+    definition = component(root)
+    context._development_render = holder
+    context._development_root_definition = definition
+    context.app = App(definition, renderer=renderer)
+    choice = [render_after]
+    monkeypatch.setattr(refresh, "_reload_policy", lambda _: object())
+    monkeypatch.setattr(refresh, "_project_modules", lambda *_: (frozenset(), {}))
+    monkeypatch.setattr(refresh, "_load_updated_class",
+                        lambda *_: SimpleNamespace(render=choice[0]))
+    try:
+        context.app.mount()
+        boundary = context.app.reconciler.root
+        assert boundary.native_handle().node_type == "div"
+        assert refresh.refresh_context_source(context, source, ("main.py",))
+        assert context.app.reconciler.root is boundary
+        assert not boundary.disposed
+        assert boundary.native_handle().node_type == "Flex"
+        assert _native_text(boundary.children[0].children[0].handle.widget, backend) == "after:19"
+        choice[0] = render_back
+        assert refresh.refresh_context_source(context, source, ("main.py",))
+        assert context.app.reconciler.root is boundary
+        assert boundary.native_handle().node_type == "div"
+        assert _native_text(boundary.children[0].children[0].children[0].handle.widget, backend) == "restored:19"
+    finally:
+        context.app.unmount()
+        close()

@@ -226,10 +226,26 @@ class Reconciler:
                         NodeKind.COMPONENT, NodeKind.FRAGMENT):
                     ancestor = ancestor.parent
                 if ancestor is None:
-                    from .errors import RootHostTransitionRequiresRestart
-                    raise RootHostTransitionRequiresRestart(
-                        "Root host type changed; restart the development process."
-                    )
+                    # Prepare the replacement before touching the mounted
+                    # root. Keep the parent component and its hook cells alive.
+                    restore = getattr(self.renderer, "restore_root", None)
+                    try:
+                        candidate = self._mount(node, parent)
+                    except BaseException:
+                        if callable(restore):
+                            restore(old.native_handle())
+                        raise
+                    try:
+                        transition = getattr(self.renderer, "transition_root", None)
+                        if callable(transition):
+                            transition(old.native_handle(), candidate.native_handle())
+                    except BaseException:
+                        self._unmount(candidate, detach=candidate.attached)
+                        if callable(restore):
+                            restore(old.native_handle())
+                        raise
+                    self._unmount(old, detach=old.attached)
+                    return candidate
             self._unmount(old, detach=old.attached)
             return self._mount(node, parent)
 

@@ -355,3 +355,77 @@ def test_flex_nested_headings_occupy_separate_measured_vertical_space():
     assert rectangles[second_heading].border.y >= (
         rectangles[paragraph].border.y + rectangles[paragraph].border.height
     )
+
+
+def test_stylesheet_display_flex_uses_cinnamon_row_and_gap():
+    from psx.css.markup import compute_markup_styles
+    markup = psx("<div><p>First</p><p>Second</p></div>")
+    styled = compute_markup_styles(markup, "div { display: flex; gap: 10px; flex-direction: row; }")
+    snapshot = _prepare(styled).css_geometry_snapshot()
+    root, first, first_text, second, second_text = snapshot.nodes
+    assert root.component == "Flex"
+    props = dict(root.style)
+    assert "display" not in props
+    assert props["direction"] == "row"
+    assert props["row_gap"] == Length.px(10)
+    assert props["column_gap"] == Length.px(10)
+    assert first.component == second.component == "Flex"
+    assert dict(first.style)["direction"] == "column"
+    assert dict(second.style)["direction"] == "column"
+
+
+def test_stylesheet_display_block_retains_flow_kernel():
+    from psx.css.markup import compute_markup_styles
+    styled = compute_markup_styles(psx("<div><p>Text</p></div>"), "div { display: block; }")
+    snapshot = _prepare(styled).css_geometry_snapshot()
+    assert snapshot.nodes[0].component == "div"
+    assert dict(snapshot.nodes[0].style)["display"] == "block"
+
+
+def test_flex_item_css_properties_reach_cinnamon_without_overriding_explicit_metadata():
+    from psx.css.markup import compute_markup_styles
+    source = psx('<Flex><div class="item"><p>Hello</p></div></Flex>')
+    styled = compute_markup_styles(
+        source, ".item { flex-grow: 2; flex-shrink: 0;"
+        " flex-basis: 40px; order: 3; align-self: center; }")
+    snapshot = _prepare(styled).css_geometry_snapshot()
+    item = snapshot.nodes[1]
+    styles = dict(item.style)
+    assert styles["flex_grow"] == 2
+    assert styles["flex_shrink"] == 0
+    assert styles["flex_basis"] == Length.px(40)
+    assert styles["order"] == 3
+    assert styles["align_self"] == "center"
+
+
+def test_semantic_css_flex_root_has_intrinsic_height_constraint():
+    from psx.css.markup import compute_markup_styles
+    root = compute_markup_styles(
+        psx("<div><p>Text</p></div>"),
+        "div { display: flex; gap: 10px; flex-direction: row; }",
+    )
+    snapshot = _prepare(root).css_geometry_snapshot()
+    assert snapshot.constraints.width.definite
+    assert not snapshot.constraints.height.definite
+    assert snapshot.nodes[0].component == "Flex"
+    explicit = compute_markup_styles(
+        psx("<div><p>Text</p></div>"),
+        "div { display: flex; height: 30px; }",
+    )
+    explicit_snapshot = _prepare(explicit).css_geometry_snapshot()
+    assert explicit_snapshot.constraints.height.definite
+    assert dict(explicit_snapshot.nodes[0].style)["layout_height"] == Length.px(30)
+
+
+def test_nested_list_inline_fragment_does_not_leak_display_into_flex_solver():
+    from psx.css.markup import compute_markup_styles
+    root = compute_markup_styles(
+        psx("<div><ul><li>First</li><li>Second</li></ul></div>"),
+        "div { display: flex; flex-direction: row; gap: 10px; }",
+    )
+    snapshot = _prepare(root).css_geometry_snapshot()
+    from psx.markup.html_aliases import FORMATTING_TAGS
+    assert all(node.component not in FORMATTING_TAGS for node in snapshot.nodes)
+    assert all("display" not in dict(node.style) for node in snapshot.nodes)
+    assert any(dict(node.style).get("direction") == "row"
+               for node in snapshot.nodes[1:])

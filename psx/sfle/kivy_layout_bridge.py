@@ -355,7 +355,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         host = bindings[root_id].widget
         # The native viewport stays fixed; a semantic flow root may have
         # intrinsic content height independently of that viewport.
-        semantic_root = snapshot.nodes[0].component in FORMATTING_TAGS
+        semantic_root = dict(prepared.identities)[root_id].type in FORMATTING_TAGS
         if not semantic_root and any(abs(got - expected) > 1.0 for got, expected in (
             (host.width, root_rect.width), (host.height, root_rect.height),
         )):
@@ -388,6 +388,12 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         from psx.sfle.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
         scroll_before = capture_scroll_hosts("kivy", bindings)
         mixed_before = mixed_grid.snapshot()
+        paint_rect = getattr(host, "_psx_css_paint_rect", None) if semantic_root else None
+        paint_before = ((tuple(paint_rect.pos), tuple(paint_rect.size))
+                        if paint_rect is not None else None)
+        native_stroke = getattr(host, "_psx_css_stroke", None) if semantic_root else None
+        stroke_before = (tuple(native_stroke[3].rounded_rectangle)
+                         if native_stroke is not None else None)
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                             "Stale semantic invalidation before native geometry.")
@@ -395,6 +401,19 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             # F2 already validates the fixed-point grid and applies a pure
             # parent-relative bottom-left transform in precomputed order.
             committer(result)
+            if semantic_root:
+                # The root native Widget fills Kivy's Window, but its CSS
+                # background/border must paint only the semantic border box.
+                local_x = host.x + root_rect.x
+                local_y = host.y + host.height - root_rect.y - root_rect.height
+                if paint_rect is not None:
+                    paint_rect.pos = (local_x, local_y)
+                    paint_rect.size = (root_rect.width, root_rect.height)
+                if native_stroke is not None:
+                    native_stroke[3].rounded_rectangle = (
+                        local_x, local_y, root_rect.width, root_rect.height,
+                        getattr(host, "_psx_css_semantic_radius", 0),
+                    )
             mixed_receipts = mixed_grid.commit(mixed_plans)
             for node in snapshot.nodes:
                 if node.parent_id is not None:
@@ -473,6 +492,10 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Stale generation during native readback.")
         except BaseException:
+            if paint_before is not None:
+                paint_rect.pos, paint_rect.size = paint_before
+            if stroke_before is not None:
+                native_stroke[3].rounded_rectangle = stroke_before
             restore_scroll_hosts(scroll_before)
             mixed_grid.restore(mixed_before)
             for node_id, previous in previous_text_sizes.items():

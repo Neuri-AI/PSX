@@ -2,6 +2,7 @@ name: Canonical box geometry certification
 
 on:
   pull_request:
+    types: [ready_for_review]
     branches: [develop]
     paths:
       - "psx/sfle/canonical_box_style.py"

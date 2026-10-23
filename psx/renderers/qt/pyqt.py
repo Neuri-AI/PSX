@@ -1306,6 +1306,18 @@ class QtRenderer:
     def schedule_ui(self, callback: Callable[[], None]) -> None:
         self._dispatcher.requested.emit(callback)
 
+    def transition_root(self, previous, replacement) -> None:
+        """Present a new UI root before retiring the old Qt window."""
+        old = _handle(previous).widget
+        new = _handle(replacement).widget
+        previous_window = getattr(old, "_psx_sfle_viewport_shell", old)
+        replacement_window = getattr(new, "_psx_sfle_viewport_shell", new)
+        if previous_window is replacement_window:
+            return
+        replacement_window.setGeometry(previous_window.geometry())
+        replacement_window.show()
+        replacement_window.raise_()
+
     def run(self) -> int:
         return self.application.exec()
 

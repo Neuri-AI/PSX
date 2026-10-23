@@ -65,8 +65,85 @@ class PreparedNativeLayoutSnapshot:
             for key, value in overrides.items():
                 if key not in explicit:
                     style[key] = value
-            converted.append(replace(node, style=tuple(sorted(style.items()))))
-        return replace(baseline, nodes=tuple(converted))
+            if computed is not None:
+                for css, target in (
+                    ("flex-grow", "flex_grow"),
+                    ("flex-shrink", "flex_shrink"),
+                    ("flex-basis", "flex_basis"),
+                    ("align-self", "align_self"),
+                    ("order", "order"),
+                ):
+                    if css in computed.specified and target not in explicit:
+                        style[target] = computed.properties[css]
+            component = node.component
+            if computed is not None and original.kind is NodeKind.HOST:
+                from psx.markup.html_aliases import FORMATTING_TAGS
+                if original.type in FORMATTING_TAGS:
+                    specified = computed.specified
+                    display = (computed.properties["display"] if "display" in specified
+                               else original.props.get("display", "block"))
+                    if display in ("flex", "inline-flex"):
+                        component = "Flex"
+                        style.pop("display", None)
+                        for css, target in (
+                            ("flex-direction", "direction"),
+                            ("flex-wrap", "wrap"),
+                            ("justify-content", "justify_content"),
+                            ("align-items", "align_items"),
+                            ("align-content", "align_content"),
+                        ):
+                            if css in specified:
+                                style[target] = computed.properties[css]
+                        if "flex-direction" not in specified:
+                            style.setdefault("direction", "row")
+                        if "gap" in specified:
+                            style["row_gap"] = computed.properties["gap"]
+                            style["column_gap"] = computed.properties["gap"]
+                        if "row-gap" in specified:
+                            style["row_gap"] = computed.properties["row-gap"]
+                        if "column-gap" in specified:
+                            style["column_gap"] = computed.properties["column-gap"]
+                    elif "display" in specified:
+                        style["display"] = display
+            converted.append(replace(node, component=component,
+                                     style=tuple(sorted(style.items()))))
+        # Keep the semantic VNode identity but translate block children of
+        # CSS Flex containers into vertical inner layout contexts.
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        mapped: dict[str, LayoutNode] = {}
+        normalized = []
+        for node in converted:
+            parent = mapped.get(node.parent_id)
+            origin = originals[node.node_id]
+            style = dict(node.style)
+            if (parent is not None and parent.component == "Flex"
+                    and origin.kind is NodeKind.HOST
+                    and origin.type in FORMATTING_TAGS):
+                display = style.get("display", origin.props.get("display"))
+                if display in ("block", "inline"):
+                    style.pop("display", None)
+                    style.setdefault("direction", "column" if display == "block" else "row")
+                    node = replace(node, component="Flex",
+                                   style=tuple(sorted(style.items())))
+            normalized.append(node)
+            mapped[node.node_id] = node
+        constraints = baseline.constraints
+        if normalized and normalized[0].component == "Flex":
+            root_source = originals[normalized[0].node_id]
+            from psx.markup.html_aliases import FORMATTING_TAGS
+            root_style = dict(normalized[0].style)
+            if (root_source.kind is NodeKind.HOST
+                    and root_source.type in FORMATTING_TAGS
+                    and "layout_height" not in root_style
+                    and "height" not in root_style):
+                # A CSS flex div has auto content height. The native window
+                # remains viewport-sized, but its flex formatting context
+                # must not inherit the viewport as a definite block size.
+                from psx.sfle.model import AvailableSize, LayoutConstraints
+                constraints = LayoutConstraints(
+                    constraints.width, AvailableSize(None, False),
+                )
+        return replace(baseline, nodes=tuple(normalized), constraints=constraints)
 
     def canonical_snapshot(self) -> LayoutInput:
         """Build engine-ready typed item lengths without changing source props.

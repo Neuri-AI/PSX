@@ -70,7 +70,7 @@ class RoutingTests(unittest.TestCase):
                          {"core", "headless", "qt", "kivy", "tkinter"})
 
     def test_internal_css_foundations_route_to_executed_core_tests(self):
-        self.assertEqual(self.selected("psx/css/properties.py"), {"core"})
+        self.assertEqual(self.selected("psx/css/properties.py"), {"core", "sfle", "rust", "chromium", "headless", "qt", "kivy", "tkinter"})
         self.assertEqual(self.selected("tests/css/test_properties.py"), {"core"})
         from pathlib import Path
         workflow = (Path(__file__).resolve().parents[1] /
@@ -435,7 +435,7 @@ class RoutingTests(unittest.TestCase):
 
     def test_shared_native_bridges_trigger_all_downstream_consumers(self):
         all_consumers = {"core", "headless", "qt", "kivy", "tkinter"}
-        for filename in ("native_layout_snapshot.py", "canonical_box_style.py",
+        for filename in ("canonical_box_style.py",
                          "external_native_geometry_ports.py"):
             self.assertEqual(self.selected(f"psx/sfle/{filename}"), all_consumers)
 
@@ -595,3 +595,21 @@ def test_hook_remount_and_native_lifecycle_select_each_backend():
     ):
         selected = set(classify([changed])['selected'])
         assert {'core', 'qt', 'kivy', 'tkinter', 'headless'} <= selected
+
+
+def test_css_flex_geometry_changes_select_native_and_language_parity():
+    from scripts.ci.impact import classify
+    all_consumers = {"core", "sfle", "rust", "chromium", "headless", "qt", "kivy", "tkinter"}
+    for path in ("psx/css/properties.py", "tests/css/test_parser_and_cascade.py",
+                 "psx/sfle/native_layout_snapshot.py", "tests/test_native_layout_snapshot.py"):
+        assert set(classify([path])["selected"]) == all_consumers
+    assert set(classify(["psx/css/cache.py"])["selected"]) == {"core"}
+    assert classify(["docs/css.mdx"])["selected"] == []
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    native = (root / ".github/workflows/native-layout-selective.yml").read_text()
+    reload = (root / ".github/workflows/cross-platform-native-reload.yml").read_text()
+    for name in ("tests/css/test_parser_and_cascade.py", "tests/test_native_layout_snapshot.py",
+                 "tests/test_mounted_grid_native_renderers.py"):
+        assert name in native
+    assert "tests/test_native_coordinated_refresh.py" in reload

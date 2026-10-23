@@ -2,6 +2,7 @@ name: F5.5 beginner example behavior
 
 on:
   pull_request:
+    types: [ready_for_review]
     branches: [develop]
     paths:
       - "examples/f5_5_beginner/**"

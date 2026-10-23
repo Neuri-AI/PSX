@@ -66,3 +66,33 @@ def test_background_solid_color_shorthand_matches_longhand():
 def test_background_image_shorthand_is_not_silently_accepted():
     with pytest.raises(CssSyntaxError):
         parse_stylesheet("div { background: url(image.png) }")
+
+
+def test_flex_css_longhands_validate_typed_values():
+    registry = foundation_registry()
+    sheet = parse_stylesheet(
+        "div { display: flex; flex-direction: row; gap: 10px;"
+        " flex-wrap: wrap; justify-content: space-between;"
+        " align-items: center; align-content: stretch;"
+        " flex-grow: 2.5; flex-shrink: 0; flex-basis: 30px;"
+        " align-self: flex-end; order: -2; }"
+    )
+    computed = resolve_style(sheet, StyleTarget("div"))
+    assert computed.properties["display"] == "flex"
+    assert computed.properties["flex-direction"] == "row"
+    assert computed.properties["gap"] == Length.px(10)
+    assert computed.properties["flex-grow"] == 2.5
+    assert computed.properties["flex-shrink"] == 0
+    assert computed.properties["flex-basis"] == Length.px(30)
+    assert computed.properties["order"] == -2
+
+
+@pytest.mark.parametrize("name,value", (
+    ("display", "table"), ("flex-direction", "sideways"),
+    ("flex-grow", "-1"), ("flex-grow", "NaN"),
+    ("order", "1.5"), ("flex-basis", "-2px"),
+))
+def test_invalid_flex_css_is_rejected(name, value):
+    from psx.css.properties import CssValidationError
+    with pytest.raises(CssValidationError):
+        foundation_registry().validate(name, value)

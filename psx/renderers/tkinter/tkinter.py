@@ -1405,6 +1405,10 @@ class TkinterRenderer:
         """Drain queued work now; intended for deterministic tests on the Tk thread."""
         self._drain_pending()
 
+    def restore_root(self, previous) -> None:
+        """Keep Tk's last committed native root after a failed replacement."""
+        self._sfle_root_widget = _as_handle(previous).widget
+
     def run(self) -> int:
         self.root.mainloop()
         return 0

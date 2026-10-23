@@ -2847,3 +2847,78 @@ def test_qt_text_and_button_host_types_remain_constant_across_mounts():
     finally:
         tree.unmount()
         close()
+
+
+def test_css_div_flex_row_gap_renders_distinct_native_positions():
+    from psx.css.markup import compute_markup_styles
+    from psx import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        source = psx("<div><p>Alpha</p><p>Beta</p></div>")
+        styled = compute_markup_styles(
+            source, "div { display: flex; gap: 10px; flex-direction: row; }")
+        root = reconciler.render(styled)
+        first, second = (child.handle.widget for child in root.children)
+        left = rectangle(first, backend)
+        right = rectangle(second, backend)
+        assert right[0] >= left[0] + left[2] + 9
+        assert renderer.sfle_result is not None
+        assert renderer.sfle_result.geometry_commit_error <= 1
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_css_display_switch_reflows_same_semantic_native_div():
+    from psx.css.markup import compute_markup_styles
+    from psx import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        source = psx("<div><p>Alpha</p><p>Beta</p></div>")
+        column = compute_markup_styles(source, "div { display: block; }")
+        row = compute_markup_styles(source,
+            "div { display: flex; gap: 10px; flex-direction: row; }")
+        first = reconciler.render(column)
+        host = first.handle.widget
+        assert first.children[0].handle.widget is not first.children[1].handle.widget
+        second = reconciler.render(row)
+        assert second.handle.widget is host
+        a, b = (child.handle.widget for child in second.children)
+        left, right = rectangle(a, backend), rectangle(b, backend)
+        assert right[0] >= left[0] + left[2] + 9
+        restored = reconciler.render(column)
+        assert restored.handle.widget is host
+        assert renderer.sfle_result is not None
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_css_flex_div_uses_content_height_without_painting_full_viewport():
+    from psx import psx
+    from psx.css.markup import compute_markup_styles
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        markup = psx('<div style="background: #ff0000"><p>Small</p></div>')
+        styled = compute_markup_styles(markup, "div { display: flex; }")
+        root = reconciler.render(styled)
+        native = root.handle.widget
+        result = renderer.sfle_result
+        root_box = dict(result.boxes)[result.boxes[0][0]].border
+        assert 0 < root_box.height < 200
+        if backend == "kivy":
+            assert native.height == pytest.approx(200)
+            assert native._psx_css_paint_rect.size[1] == pytest.approx(root_box.height)
+        elif backend == "tk":
+            assert float(native.place_info()["height"]) == pytest.approx(root_box.height, abs=1)
+        else:
+            assert native.height() == pytest.approx(root_box.height, abs=1)
+    finally:
+        reconciler.unmount()
+        close()
