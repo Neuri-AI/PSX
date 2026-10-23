@@ -98,9 +98,36 @@ class ArrowCallbacksTests(unittest.TestCase):
             view(lambda: calls.append("clicked"))
         self.assertEqual(calls, [])
 
-    def test_invalid_two_arg_arrow_fails_closed(self):
-        with self.assertRaises(MarkupSyntaxError):
-            compiled('<Button on_click={(a, b) => handler(a)} />')
+    def test_two_arg_arrow_captures_both_callback_arguments(self):
+        calls = []
+        view, _ = compiled('<Button on_click={(a, b) => handler(a, b)} />')
+        callback = view(lambda a, b: calls.append((a, b))).props["on_click"]
+        callback("item", 3)
+        self.assertEqual(calls, [("item", 3)])
+
+    def test_mapped_items_receive_lexical_indices(self):
+        view, _ = compiled(
+            '<Flex>{items.map((item, index) => '
+            '<Text key={index}>{item}</Text>)}</Flex>'
+        )
+        node = view(lambda: None, ["red", "green", "blue"])
+        self.assertEqual([child.key for child in node.children], [0, 1, 2])
+        self.assertEqual([child.props["value"] for child in node.children],
+                         ["red", "green", "blue"])
+
+    def test_mapped_callbacks_bind_item_and_index_independently(self):
+        calls = []
+        view, _ = compiled(
+            '<Flex>{items.map((item, index) => '
+            '<Button key={item.id} label={item.label} '
+            'on_click={() => handler(item.id, index)} />)}</Flex>'
+        )
+        node = view(lambda item, index: calls.append((item, index)),
+                    [{"id": "first", "label": "First"},
+                     {"id": "second", "label": "Second"}])
+        node.children[1].props["on_click"]()
+        node.children[0].props["on_click"]()
+        self.assertEqual(calls, [("second", 1), ("first", 0)])
 
     def test_runtime_explicit_scope_still_rejects_arrows(self):
         with self.assertRaises(MarkupSyntaxError):
