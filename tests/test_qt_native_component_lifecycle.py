@@ -71,6 +71,26 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.reconciler.unmount()
         self.renderer.application.processEvents()
 
+    def test_root_flex_and_div_transitions_keep_the_same_native_window(self):
+        """A compatible source refresh changes host type, not the Qt window."""
+        self.reconciler._coordinated_remount = True
+        first = self.reconciler.render(Flex(
+            Button("Go", key="button"), direction="column",
+        ))
+        window = first.handle.widget.window()
+        window.show()
+        self.renderer.application.processEvents()
+        second = self.reconciler.render(psx(
+            "<div><button>Go</button></div>"
+        ))
+        self.assertIs(second.handle.widget.window(), window)
+        self.assertTrue(window.isVisible())
+        third = self.reconciler.render(Flex(
+            Button("Go", key="button"), direction="column",
+        ))
+        self.assertIs(third.handle.widget.window(), window)
+        self.assertTrue(window.isVisible())
+
     def test_portable_native_event_payloads_from_real_qt_controls(self):
         from psx import Slider, Select, SpinBox
 
