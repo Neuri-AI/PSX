@@ -2916,7 +2916,7 @@ def test_css_flex_div_uses_content_height_without_painting_full_viewport():
             assert native.height == pytest.approx(200)
             assert native._psx_css_paint_rect.size[1] == pytest.approx(root_box.height)
         elif backend == "tk":
-            assert native.winfo_height() == pytest.approx(root_box.height, abs=1)
+            assert float(native.place_info()["height"]) == pytest.approx(root_box.height, abs=1)
         else:
             assert native.height() == pytest.approx(root_box.height, abs=1)
     finally:
