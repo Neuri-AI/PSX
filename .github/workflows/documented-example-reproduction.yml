@@ -1,0 +1,64 @@
+name: Documented native application reproduction
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "docs/public/getting-started/first-app.mdx"
+      - "examples/documented_hello/**"
+      - "tests/certification/verify_documented_hello.py"
+      - ".github/workflows/documented-example-reproduction.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reproduce-beginner-native-app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: PSX
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Clone the actual first-party dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth=1 --branch main https://github.com/Neuri-AI/Pydux.git Pydux
+          git clone --depth=1 --branch release https://github.com/Neuri-AI/qyro.git qyro
+          git clone --depth=1 --branch release https://github.com/Neuri-AI/Velto-CLI.git Velto-CLI
+          git clone --depth=1 --branch main https://github.com/Neuri-AI/Velto.git Velto
+          for directory in PSX Pydux qyro Velto-CLI Velto; do
+            echo "$directory: $(git -C "$directory" rev-parse HEAD)" | tee -a source-shas.txt
+          done
+      - name: Install actual Velto developer environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e ./Pydux
+          python -m pip install -e "./PSX[pyside6]"
+          python -m pip install -e ./qyro
+          python -m pip install -e ./Velto-CLI
+          python -m pip install -e "./Velto[pyside6]"
+          python -m pip check
+          velto --help
+      - name: Copy exact public guide and execute mounted native UI
+        run: python PSX/tests/certification/verify_documented_hello.py
+      - name: Preserve tested source revisions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: documented-hello-python-${{ matrix.python }}
+          path: source-shas.txt
+          if-no-files-found: warn
