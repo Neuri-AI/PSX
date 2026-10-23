@@ -1,21 +1,17 @@
 ---
-title: "Lists and stable keys"
-description: "Render dynamic collections without confusing component identity"
+title: "Lists and keys"
+description: "Keep identity stable when repeated children change order."
 ---
 
-# Lists and stable keys
-
-For a list of values, create one VNode per item with a stable `key`. Keys are local to siblings and may be strings or integers, but not booleans. Duplicate sibling keys are rejected by reconciliation.
+Use a stable `key` for each sibling child in a dynamic list. Prefer data IDs rather than list indexes if items can be inserted, removed or reordered. Duplicate sibling keys are rejected.
 
 ```python
-from psx import Fragment, Text
+from velto.ui import Fragment, Text
 
-labels = ["Alpha", "Beta"]
-node = Fragment(*(Text(label, key=label) for label in labels))
+tasks = [{"id": "a", "label": "Plan"}, {"id": "b", "label": "Build"}]
+view = Fragment(*(Text(t["label"], key=t["id"]) for t in tasks))
 ```
 
-This is a **standalone VNode construction fragment**, not a mounted application. A real interactive example is linked from [first app](/getting-started/first-app). Use durable IDs from the underlying data for keys; do not use changing positions when elements can be reordered. A changed key intentionally allows subtree identity to change.
+This is an **unmounted VNode fragment**. It demonstrates the identity contract, not a complete application. Changes in keys may cause remounts; stable keys help the reconciler preserve eligible native widgets and component state.
 
-## Verify and continue
-
-After following [installation](/getting-started/installation), run `cd examples/f5_5_beginner && python -m unittest -v test_examples` to exercise the two complete Headless project examples. It does **not** certify each illustrative fragment or a native backend. For observable output and troubleshooting, refer to [first app](/getting-started/first-app). Source baseline: `develop` at `cfbb93cd6a5990bc5ad38df82b28205270ae060f`; new lessons require CI verification on the PR head.
+See [components](/learn/components), [state](/learn/state-and-events) and [Hot Reload](/guide/hot-reload). Check identity behavior on your chosen native toolkit.
