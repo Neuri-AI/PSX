@@ -1,48 +1,33 @@
 ---
-title: "Application, hooks and markup APIs"
-description: "Learn the verified App lifecycle, ordered hooks, and safe PSX markup boundaries."
+title: "Application, markup and state APIs"
+description: "Understand the Qyro application facade, PSX hooks and Pydux store lifecycle."
 ---
 
-# Application, hooks and markup APIs
-
-Source: [application facade](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/psx/app.py), [hooks](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/psx/core/hooks.py), and [markup transform](https://github.com/Neuri-AI/PSX/blob/6243911ebb65668793fe412af0720053a239fbb2/psx/markup/transform.py).
-
-## `App`
+## The application entry point
 
 ```python
-App(root: VNode | ComponentType, *, renderer: str | Renderer | None = None, providers: tuple[object, ...] = (), settings: Mapping[str, object] | None = None)
+from velto import VeltoContext
+from velto.ui import psx
+
+class Example(VeltoContext):
+    def render(self):
+        return psx('<Text value="Hello" />')
 ```
 
-`mount()` returns the renderer handle; `unmount()` tears down the tree; `run()` mounts and enters the renderer's run loop, returning an integer. Select a renderer explicitly when not using Qyro. The `settings` accepted by `App` currently support only `grid.breakpoints`; they are **not** a generic window configuration schema. Invalid settings or missing renderer configuration raise `RendererConfigurationError`.
+`VeltoContext` is the **Qyro Engine** class exposed through the facade, not a new wrapper. Application settings such as `framework` and `window` are read from project configuration. Run from a valid project using `velto start` or use the documented `VeltoContext` lifecycle. There is no `<Window>` markup element.
 
-## `use_state`
+## PSX components and hooks
 
-```python
-use_state(initial: T | Callable[[], T]) -> tuple[T, Callable[[T | Callable[[T], T]], None]]
-```
+The `velto.ui` module re-exports `App`, `psx`, `component`, `VNode`, `use_state`, `use_effect` and `use_ref`. Components must call hooks in the same order on each render. `use_state` returns a state value and a setter; `use_effect` can return cleanup work; `use_ref` retains a reference.
 
-Returns the current value and a setter. A setter accepts a replacement value or a function from the previous state to the next state; updates that are equal for supported scalars do not trigger a new render. State setters must not run during component rendering (`ThreadViolationError`), and disposed component setters do nothing.
+PSX Markup accepts quoted literal attributes and supported expressions. The verified installed integration test exercises explicit scope with `psx(..., scope={"label": "..."})`. Do **not** rely on `eval` or an obsolete separate `psx.markup.transform` command. A VNode expression fragment alone does not initialize a native window.
 
-## `use_ref` and `Ref`
+## Shared state
 
-```python
-use_ref(initial: T | None = None) -> Ref[T]
-```
+The `velto.state` facade directly exports Pydux `Action`, `Store`, `StoreProvider`, `configure_store`, `create_slice`, `use_dispatch` and `use_selector`. On a `VeltoContext` subclass, the validated integration uses a `pydux_store` and `use_selector`; dispatching an `Action` causes an eligible rerender and the provider is cleaned up on unmount.
 
-The returned `Ref` has a mutable `current` field and remains associated with the hook's position in the component.
+See [state with a real reducer](/learn/state-and-events), the [actual cross-package integration test](https://github.com/Neuri-AI/Velto/blob/main/tests/test_installed_runtime_integration.py) and [its passing six-way native CI](https://github.com/Neuri-AI/Velto/actions/runs/39962860498).
 
-## `use_effect`
+## Boundaries
 
-```python
-use_effect(callback: Callable[[], Callable[[], None] | None], dependencies: Sequence[object] | None = None) -> None
-```
-
-An effect is queued after rendering. The optional cleanup function runs before the next applicable effect and on teardown; changing the order or number of hooks raises `HookOrderError`. Hook functions may only be used while a function component is rendering.
-
-## `psx` markup
-
-For authored Python source, use the static transform to resolve lexical bindings; don't teach arbitrary runtime `eval`. Static attribute values such as `gap="12"` are quoted, while braces are reserved for supported references/expressions. See the [markup lesson](/learn/psx-markup).
-
-## Complete executable example
-
-The tested [Headless counter](/learn/state-and-events) demonstrates `App`, `@component`, `use_state` and `on_click`, including queued updates and teardown. These hooks are not general-purpose functions to call outside a component.
+The PSX `App` interface is lower-level than `VeltoContext`. If building a custom embedding or renderer, consult the [generated PSX signatures](/reference/generated-contracts). Native lifecycle, renderer selection and widget ownership must match your actual backend.
