@@ -7,6 +7,8 @@ The [installation guide](/getting-started/installation) installs Velto and PySid
 
 ## Project files
 
+The exact files below are checked in at [the documented Hello application](https://github.com/Neuri-AI/PSX/tree/develop/examples/documented_hello). The documentation certification compares the contents of these code blocks byte-for-byte against the checked-in project, then mounts them using a real Qt renderer.
+
 Create `settings/base.json`:
 
 ```json
@@ -35,6 +37,15 @@ if __name__ == "__main__":
     HelloApp().run()
 ```
 
+Create `pyproject.toml` in the same directory:
+
+```toml
+[project]
+name = "documented-velto-hello"
+version = "0.1.0"
+requires-python = ">=3.10,<3.13.20"
+```
+
 The `render()` method returns PSX Markup, not an HTML page. `Flex` produces a native layout and `Text` produces a native-compatible text control. Qyro reads `settings/base.json`; this example needs **no** `<Window>` tag.
 
 Run from the project root:
@@ -43,7 +54,7 @@ Run from the project root:
 velto start
 ```
 
-The CLI runs the project with its configured native backend. Use `velto start --no-hot-reload` to disable development reload. The exact CI-verified application path includes Qyro settings bootstrap, PSX Markup, both Cinnamon engines, and native renderer lifetimes; [see the functional receipt](https://github.com/Neuri-AI/Velto/actions/runs/39962860498).
+The CLI runs the project with its configured native backend. For automated checks, the [exact public source verification](https://github.com/Neuri-AI/PSX/blob/develop/tests/certification/verify_documented_hello.py) copies this page's files into a clean directory and mounts the native Qt widget. Use `velto start --no-hot-reload` to disable development reload. The exact CI-verified application path includes Qyro settings bootstrap, PSX Markup, both Cinnamon engines, and native renderer lifetimes; [see the functional receipt](https://github.com/Neuri-AI/Velto/actions/runs/39962860498).
 
 <Note>
 The full CLI-generated template may include additional settings, resources and dependencies. This intentionally minimal file tree is for learning the core application contract; create an official scaffold with `velto init --framework pyside6` if you want a complete generated project.
