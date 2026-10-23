@@ -19,7 +19,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         backend: [qt, tk, kivy]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 35
+    timeout-minutes: 18
     env:
       PSX_GRID_BACKEND: ${{ matrix.backend }}
       PSX_QT_BINDING: pyside6
@@ -45,15 +45,15 @@ jobs:
       - name: Install native toolkit and diagnostics
         shell: bash
         run: |
-          python -m pip install pytest psutil
+          python -m pip install pytest pytest-timeout psutil
           python -m pip install -e '.[pyside6,kivy]'
           python -m pip install -e partner-cli --no-deps
       - name: Native process and refresh certification on Linux
         if: runner.os == 'Linux'
-        run: xvfb-run -a python -m pytest -q tests/test_native_event_loop_process.py tests/test_native_supervised_restart.py tests/test_native_coordinated_refresh.py tests/test_native_refresh_resource_soak.py
+        run: xvfb-run -a python -m pytest -q --timeout=300 tests/test_native_event_loop_process.py tests/test_native_supervised_restart.py tests/test_native_coordinated_refresh.py tests/test_native_refresh_resource_soak.py
       - name: Native process and refresh certification on Windows and macOS
         if: runner.os != 'Linux'
-        run: python -m pytest -q tests/test_native_event_loop_process.py tests/test_native_supervised_restart.py tests/test_native_coordinated_refresh.py tests/test_native_refresh_resource_soak.py
+        run: python -m pytest -q --timeout=300 tests/test_native_event_loop_process.py tests/test_native_supervised_restart.py tests/test_native_coordinated_refresh.py tests/test_native_refresh_resource_soak.py
       - name: Upload native memory observations
         if: always()
         uses: actions/upload-artifact@v4
