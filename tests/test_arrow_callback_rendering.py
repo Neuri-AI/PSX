@@ -178,7 +178,7 @@ class ArrowCallbacksTests(unittest.TestCase):
         self.assertEqual([child.key for child in node.children], list(range(4)))
         self.assertEqual([child.children[0].props["value"] for child in node.children], colors)
         for item, color in zip(node.children, colors):
-            self.assertIn(("background", color.lower()),
+            self.assertIn(("background-color", color.lower()),
                           [(decl.name, getattr(decl.value, "value", decl.value))
                            for decl in item.css_source.inline])
 
