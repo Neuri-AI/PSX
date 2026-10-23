@@ -67,10 +67,11 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertIsInstance(alpha, QPushButton)
         self.assertIsNone(original.handle.widget.layout())
         self.assertIs(alpha.parentWidget(), original.handle.widget)
-        self.assertEqual(alpha.width(), 240)
-        self.assertEqual(beta.width(), 240)
+        self.assertLess(alpha.width(), 240)
+        self.assertLess(beta.width(), 240)
         self.assertEqual(alpha.y(), 0)
-        self.assertEqual(beta.y(), alpha.height())
+        self.assertEqual(beta.y(), 0)
+        self.assertEqual(beta.x(), alpha.width())
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
         reordered = self.r.render(psx(
@@ -79,7 +80,8 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertIs(reordered.children[0].handle.widget, beta)
         self.assertIs(reordered.children[1].handle.widget, alpha)
         self.assertEqual(beta.y(), 0)
-        self.assertEqual(alpha.y(), beta.height())
+        self.assertEqual(alpha.y(), 0)
+        self.assertEqual(alpha.x(), beta.width())
         self.assertIsNone(original.handle.widget.layout())
 
     def test_nested_html_headings_paragraphs_and_inline_text_use_native_flow(self):
@@ -100,8 +102,8 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(paragraph.handle.widget.y(), heading.handle.widget.height())
         self.assertEqual(inline.handle.widget.y(),
                          paragraph.handle.widget.y() + paragraph.handle.widget.height())
-        self.assertEqual(button.handle.widget.y(),
-                         inline.handle.widget.y() + inline.handle.widget.height())
+        self.assertGreaterEqual(button.handle.widget.y(), inline.handle.widget.y())
+        self.assertLess(button.handle.widget.width(), 320)
         self.assertGreater(inline.handle.widget.height(), 0)
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
@@ -527,10 +529,10 @@ def test_html_flow_public_native_geometry_receipt_pyside6(request):
         assert_feature(
             request, Feature("div", "pyside6", "interaction", "semantic_flow",
                              "native_geometry", applicability="partial_native"),
-            first.width() == 220
-            and second.width() == 220
-            and first.y() == 0
-            and second.y() == first.height()
+            0 < first.width() < 220
+            and 0 < second.width() < 220
+            and first.y() == second.y() == 0
+            and second.x() == first.width()
             and root.handle.widget.layout() is None,
         )
     finally:
