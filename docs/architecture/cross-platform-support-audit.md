@@ -56,3 +56,18 @@ Velto CLI's metadata includes classifiers reaching Python 3.15 despite its actua
 Build a deterministic, offline-installable **metadata and dependency-resolution test** against built distributions or installed wheel metadata for the four repositories. Test the declared Python intersections and optional extra combinations before proposing compatible constraint changes. Connect those tests to selective CI routing, capture exact-SHA results, then proceed to native multi-OS installation and frozen-mode verification. The audit itself does not alter public behavior or claim product-test execution.
 
 P4 exit gate remains **OPEN**: public support matrix must match tested evidence; examples must be executable; documentation reviewed page by page; exceptions and release blockers linked.
+
+
+## Metadata correction approved by owner (2026-10-23)
+
+The owner confirmed that every Velto-family distribution currently has version `0.1.0` and approved one common `requires-python` range: `>=3.10,<3.13.20`. Initial discrepancies were actual stale manifests, not a previously released 1.0 series:
+
+- PSX: set `requires-python = ">=3.10,<3.13.20"`.
+- Pydux: set `requires-python = ">=3.10,<3.13.20"`; replace both `qyro-engine>=1.0.0a1,<2.0.0` references (the `qyro` and `all` extras) with `qyro-engine>=0.1.0,<1.0.0`; remove Python 3.14/3.15 classifiers.
+- Facade Velto: set `requires-python = ">=3.10,<3.13.20"` and replace the core and every optional-backend `qyro-engine>=1.0.0a1,<2.0.0` reference with `qyro-engine>=0.1.0,<1.0.0`.
+- Velto CLI: its existing Python range and Qyro dependency were correct; remove Python 3.14/3.15 classifiers.
+- Qyro Engine: its version and Python range were correct; remove `velto>=0.1.0,<1.0.0` as a reverse dependency. The public facade is the consumer of Qyro, not a required dependency of the Qyro runtime; keeping it creates a circular installation dependency.
+
+Python extra dependency *environment markers* use a `python_version` major.minor value, not a full micro version. Therefore their `python_version < '3.14'` constraints are retained where appropriate rather than attempting `python_version < '3.13.20'`. The package-level `requires-python` is authoritative for the exact micro bound.
+
+These changes align manifests; they are not by themselves fresh wheel-install or cross-platform execution evidence. Run the actual packaging and dependency-resolution checks before marking the install-compatibility gate complete. Historical uncorrected metadata above is preserved as the baseline audit trail.
