@@ -739,6 +739,7 @@ class QtRenderer:
         # Subscribe only after the mounted SFLE root is fully certified.
         # The observer watches the real root QWidget, not a nested Flex.
         widget = root.native_handle().widget
+        widget = getattr(widget, "_psx_sfle_viewport_shell", widget)
         if widget is not self._sfle_watched_widget:
             if self._sfle_watched_widget is not None:
                 self._sfle_watched_widget.removeEventFilter(self._sfle_resize_filter)
@@ -855,6 +856,15 @@ class QtRenderer:
                 widget = widget_type()
             else:
                 widget = self._widget()
+            if parent is None:
+                # A semantic root is a content-height box, not the native
+                # top-level window. Keep the window as an independent viewport
+                # so CSS backgrounds paint only the measured semantic box.
+                viewport = self._widget()
+                viewport.resize(round(self._sfle_constraints.width.value),
+                                round(self._sfle_constraints.height.value))
+                widget.setParent(viewport)
+                widget._psx_sfle_viewport_shell = viewport
             return QtHandle(node.type, widget, props=dict(node.props))
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
             if self._sfle_constraints is None:
@@ -1233,8 +1243,12 @@ class QtRenderer:
 
     def _adapter_destroy(self, handle: object) -> None:
         target = _handle(handle)
+        viewport = getattr(target.widget, "_psx_sfle_viewport_shell", None)
         if not _release(target):
             target.widget.deleteLater()
+        if viewport is not None:
+            viewport.close()
+            viewport.deleteLater()
 
     # -- events -----------------------------------------------------------
 
