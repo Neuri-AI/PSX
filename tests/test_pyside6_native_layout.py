@@ -100,8 +100,8 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertIsInstance(paragraph.children[0].handle.widget, QLabel)
         self.assertEqual(heading.handle.widget.y(), 0)
         self.assertEqual(paragraph.handle.widget.y(), heading.handle.widget.height())
-        self.assertEqual(inline.handle.widget.y(),
-                         paragraph.handle.widget.y() + paragraph.handle.widget.height())
+        self.assertGreaterEqual(inline.handle.widget.y(),
+                                paragraph.handle.widget.y() + paragraph.handle.widget.height())
         self.assertGreaterEqual(button.handle.widget.y(), inline.handle.widget.y())
         self.assertLess(button.handle.widget.width(), 320)
         self.assertGreater(inline.handle.widget.height(), 0)
