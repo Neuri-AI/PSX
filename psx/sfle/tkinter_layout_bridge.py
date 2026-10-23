@@ -322,9 +322,12 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         rectangles = dict(result.boxes)
         border_root = rectangles[root_id].border
         host_box = _geometry(widgets[root_id])
-        if abs(host_box["width"] - border_root.width) > 1.0 or abs(
+        # Semantic Block roots can be content-height while the Tk window
+        # remains viewport-sized. Keep the strict check for Flex roots.
+        semantic_root = snapshot.nodes[0].component in FORMATTING_TAGS
+        if not semantic_root and (abs(host_box["width"] - border_root.width) > 1.0 or abs(
             host_box["height"] - border_root.height
-        ) > 1.0:
+        ) > 1.0):
             raise SFLEError(
                 DiagnosticCode.LAYOUT_CONSTRAINT,
                 "Tk root border box differs from the native viewport; "

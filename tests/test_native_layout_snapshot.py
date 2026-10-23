@@ -311,3 +311,47 @@ def test_canonical_lengths_preserve_native_image_attributes_and_percent_referenc
     assert prepared.identities[1][1].props["width"] == 80
     assert prepared.identities[1][1].props["height"] == 30
     assert dict(prepared.snapshot.nodes[1].style)["layout_width"] == "50%"
+
+
+def test_block_headings_nested_in_flex_use_column_solver_without_display_leak():
+    tree = psx("""<Flex direction="column"><h1>Heading 1</h1><p>Paragraph</p><h2>Heading 2</h2></Flex>""")
+    prepared = _prepare(tree)
+    nodes = prepared.css_geometry_snapshot().nodes
+    assert [item.component for item in nodes] == [
+        "Flex", "Flex", "Text", "Flex", "Text", "Flex", "Text",
+    ]
+    for item in (nodes[1], nodes[3], nodes[5]):
+        assert dict(item.style)["direction"] == "column"
+        assert "display" not in dict(item.style)
+    assert [vnode.type for _, vnode in prepared.identities] == [
+        "Flex", "h1", "Text", "p", "Text", "h2", "Text",
+    ]
+
+
+def test_block_root_preserves_semantic_display_for_measured_flow_kernel():
+    root = _prepare(psx("""<div><h1>Heading</h1><p>Paragraph</p></div>"""))
+    assert root.snapshot.nodes[0].component == "div"
+    assert dict(root.snapshot.nodes[0].style)["display"] == "block"
+
+
+def test_flex_nested_headings_occupy_separate_measured_vertical_space():
+    tree = psx("""<Flex direction="column"><h1>Heading 1</h1><p>Paragraph</p><h2>Heading 2</h2></Flex>""")
+    prepared = _prepare(tree)
+    text_nodes = [node for node in prepared.snapshot.nodes if node.component == "Text"]
+    measurements = tuple(
+        MeasuredBox(node.node_id, IntrinsicSizes(120, 120, size, size, 120, size),
+                    _constraints(), 1)
+        for node, size in zip(text_nodes, (36, 20, 32))
+    )
+    layout = replace(prepared.css_geometry_snapshot(), measurements=measurements)
+    rectangles = dict(PythonLayoutEngine().compute(layout).boxes)
+    heading, paragraph, second_heading = (
+        prepared.snapshot.nodes[i].node_id for i in (1, 3, 5)
+    )
+    assert rectangles[heading].border.height >= 36
+    assert rectangles[paragraph].border.y >= (
+        rectangles[heading].border.y + rectangles[heading].border.height
+    )
+    assert rectangles[second_heading].border.y >= (
+        rectangles[paragraph].border.y + rectangles[paragraph].border.height
+    )

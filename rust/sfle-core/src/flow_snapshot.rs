@@ -322,11 +322,7 @@ impl Flow<'_> {
         let parent_content_width = self.constrained_dimension(index, "width", available, content_available)?;
         let content_x = x + left;
         let content_y = y + top;
-        let mut parent_height = self.dimension(index, "height", available)?;
-        if parent_height.is_none() && index == 0 && self.input.constraints.height.definite {
-            parent_height = self.input.constraints.height.value
-                .map(|value| (value - top - bottom).max(0.0));
-        }
+        let parent_height = self.dimension(index, "height", available)?;
         for child in self.children[index].clone() {
             self.containing_height[child] = parent_height;
         }
@@ -417,31 +413,15 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
     } else {
         flow.block(0, 0.0, 0.0, width)?
     };
-    let height = if input.constraints.height.definite {
-        input.constraints.height.value.unwrap_or(content_height)
-    } else {
-        content_height
-    };
+    let height = content_height;
     let mut has_root_edges = false;
-    let mut vertical = 0.0;
     for group in ["margin", "padding", "border"] {
         for side in ["top", "right", "bottom", "left"] {
             let edge = flow.edge(0, group, side, width)?;
             has_root_edges |= edge != 0.0;
-            if matches!(side, "top" | "bottom") {
-                vertical += edge;
-            }
         }
     }
-    if has_root_edges {
-        if input.constraints.height.definite && flow.dimension(0, "height", height)?.is_none() {
-            let mut content = flow.boxes[0].clone().ok_or_else(|| {
-                error("SFLE_INVALID_TREE", "Missing root content geometry.", Some(&root.node_id))
-            })?;
-            content.height = flow.constrained_dimension(0, "height", height, (height - vertical).max(0.0))?;
-            flow.boxes[0] = Some(rect(content.x, content.y, content.width, content.height, &root.node_id)?);
-        }
-    } else {
+    if !has_root_edges {
         let root_width = flow.constrained_dimension(0, "width", width, width)?;
         let root_height = flow.constrained_dimension(0, "height", height, height)?;
         flow.boxes[0] = Some(rect(0.0, 0.0, root_width, root_height, &root.node_id)?);

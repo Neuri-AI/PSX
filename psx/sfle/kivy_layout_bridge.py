@@ -353,7 +353,10 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         root_id = snapshot.nodes[0].node_id
         root_rect = boxes[root_id].border
         host = bindings[root_id].widget
-        if any(abs(got - expected) > 1.0 for got, expected in (
+        # The native viewport stays fixed; a semantic flow root may have
+        # intrinsic content height independently of that viewport.
+        semantic_root = snapshot.nodes[0].component in FORMATTING_TAGS
+        if not semantic_root and any(abs(got - expected) > 1.0 for got, expected in (
             (host.width, root_rect.width), (host.height, root_rect.height),
         )):
             raise SFLEError(
@@ -436,10 +439,14 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                            LayoutUnit.from_nearest(parent.x)).to_px()
                 local_y = (LayoutUnit.from_nearest(border.y) -
                            LayoutUnit.from_nearest(parent.y)).to_px()
-                parent_height = (border.height
-                                 if getattr(bindings[node.parent_id].widget,
-                                            "_psx_sfle_scroll", False)
-                                 else parent.height)
+                parent_widget = bindings[node.parent_id].widget
+                if getattr(parent_widget, "_psx_sfle_scroll", False):
+                    parent_height = border.height
+                elif (node.parent_id == root_id
+                      and getattr(parent_widget, "_psx_sfle_semantic_viewport", False)):
+                    parent_height = float(parent_widget.height)
+                else:
+                    parent_height = parent.height
                 projected_y = (LayoutUnit.from_nearest(parent_height) -
                                LayoutUnit.from_nearest(local_y) -
                                LayoutUnit.from_nearest(border.height)).to_px()
