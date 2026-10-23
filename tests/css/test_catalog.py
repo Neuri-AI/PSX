@@ -12,7 +12,7 @@ def test_catalog_is_complete_for_internal_properties():
 
 
 @pytest.mark.parametrize("name", [
-    "background-image", "grid-template-columns", "flex-direction",
+    "background-image", "grid-template-columns",
     "overflow", "position", "transition", "box-sizing",
 ])
 def test_planned_properties_are_visible_but_not_falsely_accepted(name):
@@ -24,3 +24,11 @@ def test_planned_properties_are_visible_but_not_falsely_accepted(name):
 def test_catalog_cannot_be_mutated():
     with pytest.raises(TypeError):
         css_capability_catalog()["new-property"] = "not allowed"
+
+
+@pytest.mark.parametrize("name", [
+    "display", "flex-direction", "flex-grow", "flex-shrink",
+    "flex-basis", "justify-content", "align-items", "align-self",
+])
+def test_supported_flex_declarations_are_catalogued_as_active(name):
+    assert css_capability_catalog()[name].status == "parsed-internal"

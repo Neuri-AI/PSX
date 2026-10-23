@@ -392,8 +392,10 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         paint_before = ((tuple(paint_rect.pos), tuple(paint_rect.size))
                         if paint_rect is not None else None)
         native_stroke = getattr(host, "_psx_css_stroke", None) if semantic_root else None
-        stroke_before = (tuple(native_stroke[3].rounded_rectangle)
-                         if native_stroke is not None else None)
+        previous_stroke_rect = (native_stroke[3].rounded_rectangle
+                                if native_stroke is not None else None)
+        stroke_before = (tuple(previous_stroke_rect)
+                         if previous_stroke_rect is not None else None)
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                             "Stale semantic invalidation before native geometry.")

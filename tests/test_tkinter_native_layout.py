@@ -102,8 +102,9 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(beta.winfo_manager(), "place")
         first_rect, second_rect = rect(alpha), rect(beta)
         self.assertEqual(first_rect[0], 0)
-        self.assertEqual(first_rect[2], 240)
-        self.assertEqual(second_rect[1], first_rect[3])
+        self.assertLess(first_rect[2], 240)
+        self.assertEqual(second_rect[0], first_rect[2])
+        self.assertEqual(second_rect[1], 0)
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
         second = self.reconciler.render(psx(
@@ -112,7 +113,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertIs(second.children[0].handle.widget, beta)
         self.assertIs(second.children[1].handle.widget, alpha)
         self.assertEqual(rect(beta)[1], 0)
-        self.assertEqual(rect(alpha)[1], rect(beta)[3])
+        self.assertEqual(rect(alpha)[0], rect(beta)[2])
+        self.assertEqual(rect(alpha)[1], 0)
 
     def test_portable_text_and_activation_event_payloads_from_tk_widgets(self):
         from psx import Input
@@ -1679,8 +1681,8 @@ def test_html_flow_public_native_geometry_receipt_tkinter(request):
         assert_feature(
             request, Feature("div", "tkinter", "interaction", "semantic_flow",
                              "native_geometry", applicability="partial_native"),
-            a[0] == 0 and a[2] == 220
-            and b[2] == 220 and b[1] == a[3]
+            a[0] == 0 and 0 < a[2] < 220
+            and 0 < b[2] < 220 and b[0] == a[2] and b[1] == 0
             and first.winfo_manager() == "place",
         )
     finally:

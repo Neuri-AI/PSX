@@ -22,17 +22,9 @@ class CssCapability:
 
 _PLANNED: dict[str, tuple[str, str]] = {
     "box-sizing": ("box-model", "geometry"),
-    "display": ("layout", "geometry"),
     "overflow": ("overflow", "native"),
     "overflow-x": ("overflow", "native"),
     "overflow-y": ("overflow", "native"),
-    "flex-direction": ("flexbox", "geometry"),
-    "flex-grow": ("flexbox", "geometry"),
-    "flex-shrink": ("flexbox", "geometry"),
-    "flex-basis": ("flexbox", "geometry"),
-    "justify-content": ("flexbox", "geometry"),
-    "align-items": ("flexbox", "geometry"),
-    "align-self": ("flexbox", "geometry"),
     "border-style": ("border", "paint"),
     "background-image": ("background", "paint"),
     "background-size": ("background", "paint"),

@@ -194,9 +194,10 @@ def test_measured_div_commits_actual_headless_block_rectangles():
     try:
         root = reconciler.render(psx("<div><button>Save</button><button>Next</button></div>"))
         assert root.handle.geometry.width == 240
-        assert root.handle.geometry.height == 24  # auto height follows two measured buttons
+        assert root.handle.geometry.height == 12  # buttons share an intrinsic inline run
         assert root.children[0].handle.geometry.y == 0
-        assert root.children[1].handle.geometry.y == 12
+        assert root.children[1].handle.geometry.y == 0
+        assert root.children[1].handle.geometry.x == 10
         assert measured == ["Button", "Button"]
         assert renderer.sfle_result is not None
         assert [node_id for node_id, _ in renderer.sfle_result.boxes]
@@ -250,7 +251,7 @@ def test_display_change_reflows_without_replacing_keyed_headless_handles():
         container = block.handle
         left, right = (child.handle for child in block.children)
         generation = backend.sfle_result.generation
-        assert (right.geometry.x, right.geometry.y) == (0, 12)
+        assert (right.geometry.x, right.geometry.y) == (30, 0)
         inline = tree.render(psx(
             '<div display="inline"><button key="a">Alpha</button><button key="b">Beta</button></div>'
         ))
@@ -344,7 +345,8 @@ def test_headless_display_change_reflows_without_replacing_keyed_handles(request
         '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
     ))
     first, second = (item.handle for item in initial.children)
-    assert second.geometry.y == first.geometry.height
+    assert second.geometry.x == first.geometry.width
+    assert second.geometry.y == 0
     updated = reconciler.render(psx(
         '<div display="inline"><button key="a">Alpha</button>'
         '<button key="b">Beta</button></div>'
@@ -371,8 +373,9 @@ def test_headless_display_change_reflows_without_replacing_keyed_handles(request
                          "viewport_reflow", applicability="partial_native"),
         resized.children[0].handle is first
         and resized.children[1].handle is second
-        and first.geometry.width == 120 and second.geometry.width == 120
-        and second.geometry.y == first.geometry.height
+        and first.geometry.width == 60 and second.geometry.width == 60
+        and second.geometry.x == first.geometry.width
+        and second.geometry.y == 0
         and renderer.sfle_result.generation > previous_generation,
     )
     reconciler.unmount()
@@ -409,9 +412,9 @@ def test_headless_semantic_flow_native_geometry_receipt(request, tag):
             root.handle.geometry.width == 200
             and child.x == 0 and child.y == 0
             and child.height == 12
-            and (child.width == 60 if tag in ("span", "label")
-                 else child.width == 120 if tag == "li"
-                 else child.width == 200),
+            and (child.width == 120 if tag == "li"
+                 else child.width == 200 if tag == "ul"
+                 else child.width == 60),
         )
     finally:
         tree.unmount()
