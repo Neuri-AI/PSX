@@ -20,7 +20,9 @@ _HELPERS = {
     "_psx_expr_fragment": "fragment",
     "_psx_expr_lexical": "lexical",
     "_psx_expr_member": "member",
+    "_psx_expr_index": "index",
     "_psx_expr_conditional": "conditional",
+    "_psx_expr_compute_styles": "compute_expressive_markup_styles",
     "_psx_expr_map_children": "map_children",
 }
 

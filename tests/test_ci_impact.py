@@ -161,6 +161,10 @@ class RoutingTests(unittest.TestCase):
                     ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
         self.assertIn("tests/test_expressive_composition_security.py", workflow)
 
+    def test_component_arrow_runtime_routes_to_core_and_headless(self):
+        self.assertEqual(self.selected("tests/test_component_lexical_runtime.py"),
+                         {"core", "headless"})
+
     def test_arrow_callback_paths_select_core_and_headless(self):
         self.assertEqual(self.selected("tests/test_arrow_callback_rendering.py"),
                          {"core", "headless"})

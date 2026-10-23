@@ -206,8 +206,15 @@ class ExpressiveParser:
             return None
         try:
             self.skip()
-            params = () if self.take(")") else (self.identifier(),)
-            if params:
+            params = ()
+            if not self.take(")"):
+                first = self.identifier()
+                params = (first,)
+                if self.take(","):
+                    second = self.identifier()
+                    if second == first:
+                        self.error("Arrow parameters must have distinct names")
+                    params = (first, second)
                 self.expect(")")
             if not self.take("=>"):
                 self.pos = mark
@@ -329,8 +336,8 @@ class ExpressiveParser:
                 name = self.identifier()
                 if name == "map" and self.take("("):
                     callback = self.expression()
-                    if not isinstance(callback, Arrow) or len(callback.parameters) != 1:
-                        self.error(".map() requires one arrow callback argument", start)
+                    if not isinstance(callback, Arrow) or len(callback.parameters) not in (1, 2):
+                        self.error(".map() requires an arrow callback with item and optional index", start)
                     self.expect(")")
                     if isinstance(callback.body, Element) and not any(
                         name == "key" for name, _ in callback.body.attributes

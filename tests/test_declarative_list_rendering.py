@@ -109,10 +109,10 @@ class DeclarativeListsTests(unittest.TestCase):
         self.assertEqual(tuple(x.key for x in view([{"id": 1, "label": "One"}]).children),
                          (1,))
 
-    def test_static_grammar_rejects_missing_key_or_two_parameters(self):
+    def test_static_grammar_rejects_missing_key_or_extra_parameters(self):
         for markup in (
             '<Flex>{items.map((item) => <Text value={item.label} />)}</Flex>',
-            '<Flex>{items.map((item, index) => <Text key={item.id} />)}</Flex>',
+            '<Flex>{items.map((item, index, extra) => <Text key={item.id} />)}</Flex>',
         ):
             with self.subTest(markup=markup):
                 with self.assertRaises(MarkupSyntaxError):

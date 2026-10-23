@@ -76,8 +76,8 @@ def conditional(value: object) -> object:
 
 
 def map_children(
-    iterable: object, callback: Callable[[object], object],
-    filename: str, line: int, column: int,
+    iterable: object, callback: Callable[..., object],
+    with_index: bool, filename: str, line: int, column: int,
 ) -> tuple[VNode, ...]:
     """Materialize an ordered, keyed dynamic list once per render.
 
@@ -93,8 +93,8 @@ def map_children(
         ) from error
     result: list[VNode] = []
     keys: set[str | int] = set()
-    for item in iterator:
-        output = callback(item)
+    for index, item in enumerate(iterator):
+        output = callback(item, index) if with_index else callback(item)
         if output is None or output is False:
             continue
         if not isinstance(output, VNode):
