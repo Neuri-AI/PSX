@@ -2922,3 +2922,36 @@ def test_css_flex_div_uses_content_height_without_painting_full_viewport():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_fragment_root_mounts_multiple_html_siblings_on_native_backends():
+    from psx import component, psx, use_state
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    @component
+    def Example():
+        value, _ = use_state(21)
+        return psx(
+            f"<><h1>Hello World!</h1><p>Welcome to Velto</p>"
+            f"<p>Count: {value}</p><button>Increment</button></>"
+        )
+
+    try:
+        boundary = reconciler.render(Example())
+        assert boundary.node.kind.value == "component"
+        viewport_host = boundary.children[0]
+        assert viewport_host.node.type == "div"
+        assert [c.node.type for c in viewport_host.children] == [
+            "h1", "p", "p", "Button",
+        ]
+        boxes = dict(renderer.sfle_result.boxes)
+        assert len(boxes) >= 8
+        head, welcome, counter, button = viewport_host.children
+        assert rectangle(head.handle.widget, backend)[2] > 0
+        assert rectangle(button.handle.widget, backend)[2] < 800
+        assert renderer.sfle_result.geometry_commit_error <= 1
+    finally:
+        reconciler.unmount()
+        close()
