@@ -71,3 +71,31 @@ The owner confirmed that every Velto-family distribution currently has version `
 Python extra dependency *environment markers* use a `python_version` major.minor value, not a full micro version. Therefore their `python_version < '3.14'` constraints are retained where appropriate rather than attempting `python_version < '3.13.20'`. The package-level `requires-python` is authoritative for the exact micro bound.
 
 These changes align manifests; they are not by themselves fresh wheel-install or cross-platform execution evidence. Run the actual packaging and dependency-resolution checks before marking the install-compatibility gate complete. Historical uncorrected metadata above is preserved as the baseline audit trail.
+
+
+## Completed installability matrix — P4.1 final qualification (2026-10-23)
+
+All five package sources were built as wheels from the current integration branches. The facade's previously overlooked `qyro-engine>=1.0.0a1,<2.0.0` constraints in its optional backend and sentry extras were corrected to `>=0.1.0,<1.0.0` on `Neuri-AI/Velto:feature/backend-wheel-certification`. The first CI attempt also proved why testing only `pip check` is insufficient: pip could select an unrelated `pydux==0.2.2` from PyPI instead of the local source-built `0.1.0`. The final workflow **installs the source-built Pydux 0.1.0 wheel first** and asserts version `0.1.0` for all installed family distributions.
+
+**Executed integrated five-wheel installations:** Python **3.10, 3.11, 3.12 and 3.13** passed building and installing the five `0.1.0` wheels in independent clean environments, `pip check`, `velto --help`, and facade identity checks on Ubuntu. [Wheel/backend CI execution #39957277605](https://github.com/Neuri-AI/Velto/actions/runs/39957277605) contains the executed cells. These outcomes are bounded by the selected interpreter patch versions and the declared common requirement `>=3.10,<3.13.20`; they are not proof of every micro version.
+
+### OS/backend extras (clean wheel installation; NOT GUI rendering)
+
+| Backend extra | Linux, Python 3.12 | Windows, Python 3.12 | macOS ARM64, Python 3.12 |
+| --- | --- | --- | --- |
+| `velto[pyside6]` | PASS | PASS | PASS |
+| `velto[pyqt6]` | PASS | PASS | PASS |
+| `velto[pyqt5]` | PASS | PASS | PASS |
+| `velto[kivy]` | PASS | PASS | PASS |
+
+| Restricted backend | Linux, Python 3.10 | Windows, Python 3.10 | macOS ARM64, Python 3.10 |
+| --- | --- | --- | --- |
+| `velto[pyside2]` | PASS | PASS | **UNSUPPORTED: PySide2 5.15 wheel unavailable** |
+
+`tkinter` is supplied with the Python distribution and is not a facade optional extra. Its importability and native Tcl/Tk display operation must be distinguished; the separate PSX native event-loop matrix covers exercised Tkinter paths, including caveats for certain GitHub-hosted Windows runners.
+
+The tested positive cells verify an installable wheel/extra and importable backend with `pip check`; they do **not** automatically imply native window creation, full renderer behavior, frozen packaging, native embedding, or sustained runtime stability. Specifically, a hosted macOS Kivy failure to create OpenGL context in a separate *UI* workflow does not invalidate its successful extra installation or the owner's physical macOS native 10/10 certification.
+
+**Source/version policy:** all first-party distributions remain `0.1.0` with common Python requirement `>=3.10,<3.13.20`. Backend marker expressions (`python_version`) retain major.minor precision and package-level `requires-python` enforces the micro-version bound. Never promote unsupported combinations into the public support matrix.
+
+**P4.1 scope and handoff:** The core support/installation matrix and backend extra resolution checks are complete to the precisely qualified extent recorded above. P4.2 will cover full `VeltoContext` → PSX/Cinnamon → native renderer → Pydux lifecycle integration and behavioral testing. P4.3 will handle frozen `.pak`, packaging and long-duration soaks. Documentation remains canonical in PSX, with CI executable checks in the facade repository.
