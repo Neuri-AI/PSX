@@ -1,0 +1,12 @@
+---
+title: "Performance and resources"
+description: "Layout engine selection and the limits of measured native stability."
+---
+
+Cinnamon is PSX's geometry authority, with a native **Rust** engine and a **Python** fallback. Native renderers apply the committed layout; they do not independently replace the layout math.
+
+A changing VNode tree is reconciled to update eligible native controls without recreating the whole window on every compatible update. Different widgets and operating systems have different costs.
+
+**Measured coverage:** [six-way installed native integration](https://github.com/Neuri-AI/Velto/actions/runs/39962860498) checked both engines. [Sustained resource tests](https://github.com/Neuri-AI/Velto/actions/runs/39967825020) exercised **2,000** Tkinter/Pydux updates over **at least 120 seconds** per engine, sampling RSS and Python allocations and verifying cleanup. These bounds are not a promise of multi-hour leak freedom, nor a benchmark comparing absolute Rust/Python speed.
+
+Use stable keys, release component subscriptions on unmount and independently test the backend your product actually uses.
