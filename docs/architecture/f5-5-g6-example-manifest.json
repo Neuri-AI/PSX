@@ -4,25 +4,22 @@
   "examples": [
     {
       "slug": "getting-started/first-app",
-      "entry": "examples/f5_5_beginner/hello_world.py",
+      "entry": "examples/documented_hello/main.py",
       "test_paths": [
-        "examples/f5_5_beginner/test_examples.py"
+        "tests/certification/verify_documented_hello.py"
       ],
       "commands": [
-        "python examples/f5_5_beginner/hello_world.py",
-        "cd examples/f5_5_beginner && python -m unittest -v test_examples"
+        "python tests/certification/verify_documented_hello.py"
       ],
       "coverage": [
         {
-          "backend": "headless",
+          "backend": "pyside6",
           "os": "ubuntu-latest",
           "python": [
-            "3.10",
             "3.11",
-            "3.12",
-            "3.13"
+            "3.12"
           ],
-          "workflow": ".github/workflows/f5-5-beginner-examples.yml"
+          "workflow": ".github/workflows/documented-example-reproduction.yml"
         }
       ]
     },
