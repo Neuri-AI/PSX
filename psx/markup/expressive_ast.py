@@ -442,34 +442,32 @@ class ExpressiveParser:
             self.pos += 1
         self.error("Unterminated f-string", start)
 
-    def _quoted_attribute(self) -> str | InterpolatedString:
-        """Compile ${...} interpolations only in authored quoted JSX attributes."""
+    def _quoted_attribute(self, name: str) -> str | InterpolatedString:
+        """Bind lexical placeholders in quoted style/class strings at compile time."""
         start = self.pos
         literal = self._string().value
-        if "${" not in literal:
+        if name not in ("style", "class", "class_name"):
+            return literal
+        import re
+        # Support both ${name} and {name} in CSS/class values. Other attributes
+        # preserve their quoted literal contract.
+        pattern = re.compile(r"\$?\{([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*|\[[0-9]+\])*)\}")
+        matches = tuple(pattern.finditer(literal))
+        if not matches:
             return literal
         parts: list[Literal | Expression] = []
         cursor = 0
-        while True:
-            opening = literal.find("${", cursor)
-            if opening == -1:
-                if cursor < len(literal):
-                    parts.append(Literal(literal[cursor:], self.location(start)))
-                break
-            if opening > cursor:
-                parts.append(Literal(literal[cursor:opening], self.location(start)))
-            closing = literal.find("}", opening + 2)
-            if closing == -1:
-                self.error("Unclosed quoted attribute interpolation", start + opening + 1)
-            expression = literal[opening + 2:closing].strip()
-            if not expression:
-                self.error("Empty quoted attribute interpolation", start + opening + 1)
-            loc = self.location(start + opening + 1)
+        for match in matches:
+            if match.start() > cursor:
+                parts.append(Literal(literal[cursor:match.start()], self.location(start)))
+            loc = self.location(start + match.start() + 1)
             parts.append(parse_expressive_expression(
-                expression, filename=self.filename, line=loc.line,
-                column=loc.column + 2,
+                match.group(1), filename=self.filename, line=loc.line,
+                column=loc.column + (3 if match.group().startswith("$") else 2),
             ))
-            cursor = closing + 1
+            cursor = match.end()
+        if cursor < len(literal):
+            parts.append(Literal(literal[cursor:], self.location(start)))
         return InterpolatedString(tuple(parts), self.location(start))
 
     def jsx(self) -> Expression:
@@ -491,7 +489,7 @@ class ExpressiveParser:
             if self.take("="):
                 self.skip()
                 if self.source.startswith(('"', "'"), self.pos):
-                    value: str | Expression | bool = self._quoted_attribute()
+                    value: str | Expression | bool = self._quoted_attribute(name)
                 elif self.take("{"):
                     value = self.expression()
                     if isinstance(value, Literal):
