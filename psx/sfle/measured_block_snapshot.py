@@ -281,7 +281,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
                 pending.clear()
 
         for child in children[node.node_id]:
-            if display(child) != "block":
+            if display(child) == "inline" or (display(child) is None and child.component != "Text"):
                 pending.append(child)
             else:
                 flush()
