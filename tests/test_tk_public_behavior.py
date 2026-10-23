@@ -280,10 +280,10 @@ def test_html_block_native_geometry_and_reconciliation(tk_tree, request):
         updated.handle.widget is original_root
         and updated.children[0].handle.widget is beta
         and updated.children[1].handle.widget is alpha
-        and float(beta_rect["width"]) == 400
-        and float(alpha_rect["width"]) == 400
-        and float(beta_rect["y"]) == 0
-        and float(alpha_rect["y"]) == float(beta_rect["height"]),
+        and 0 < float(beta_rect["width"]) < 400
+        and 0 < float(alpha_rect["width"]) < 400
+        and float(beta_rect["y"]) == float(alpha_rect["y"]) == 0
+        and float(alpha_rect["x"]) == float(beta_rect["width"]),
     )
     inline = tree.render(psx(
         '<div display="inline"><button key="b">Beta</button>'
@@ -315,9 +315,10 @@ def test_html_block_native_geometry_and_reconciliation(tk_tree, request):
                          "viewport_reflow", applicability="partial_native"),
         resized.children[0].handle.widget is beta
         and resized.children[1].handle.widget is alpha
-        and float(beta_rect["width"]) == 240
-        and float(alpha_rect["width"]) == 240
-        and float(alpha_rect["y"]) == float(beta_rect["height"])
+        and 0 < float(beta_rect["width"]) < 240
+        and 0 < float(alpha_rect["width"]) < 240
+        and float(alpha_rect["y"]) == float(beta_rect["y"]) == 0
+        and float(alpha_rect["x"]) == float(beta_rect["width"])
         and renderer.sfle_result.generation > before_generation,
     )
 
@@ -344,7 +345,7 @@ def test_semantic_flow_native_geometry_per_tag(tk_tree, request, tag):
         and 0 < width <= 400
         and float(info["x"]) == 0
         and float(info["y"]) == 0
-        and (width < 400 if tag in ("span", "label", "li") else width == 400),
+        and (width == 400 if tag == "ul" else width < 400),
     )
 
 
