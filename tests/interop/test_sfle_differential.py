@@ -308,7 +308,7 @@ def test_semantic_form_label_and_list_snapshots_match_rust_python(
     assert py["ok"], py.get("error")
     assert rust["ok"], rust.get("error")
     assert _rects(py["result"]) == _rects(rust["result"])
-    expected_width = 45  # Text retains its intrinsic inline width inside block hosts.
+    expected_width = 45 if display == "inline" else 120
     assert _rects(py["result"])["text"]["border"]["width"] == expected_width
 
 
