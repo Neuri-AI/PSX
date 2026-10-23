@@ -24,6 +24,8 @@ def _is_docs(path: str) -> bool:
 
 
 def _classify_path(path: str) -> set[str]:
+    if path == ".github/workflows/development-reload-certification.yml":
+        return {"router", "core", "headless", "qt", "kivy", "tkinter"}
     if path == "tests/test_native_coordinated_refresh.py":
         return {"core", "headless", "qt", "kivy", "tkinter"}
     if path == ".github/workflows/coordinated-refresh.yml":
