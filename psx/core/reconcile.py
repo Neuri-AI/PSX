@@ -508,6 +508,11 @@ class Reconciler:
             abort_render(token)
             raise
         end_render(token)
+        if isinstance(result, VNode) and result.kind is NodeKind.FRAGMENT and instance.parent is None:
+            # A root Fragment is a transparent authoring boundary. Give its
+            # native siblings a private flow viewport, not a public div VNode.
+            from .vnode import create_element
+            result = create_element("div", *result.children)
         if not isinstance(result, VNode):
             # type: ignore[union-attr]
             raise TypeError(f"Component {component.name} must return a VNode.")
