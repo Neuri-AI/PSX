@@ -707,6 +707,10 @@ class KivyRenderer:
                     raise RendererCapabilityError(
                         "Kivy Block root requires definite viewport dimensions.")
                 handle.widget.size = (viewport.width.value, viewport.height.value)
+                # The native root is the viewport, while its CSS flow box
+                # may have intrinsic content height. Kivy child coordinates
+                # must be projected against the physical viewport height.
+                handle.widget._psx_sfle_semantic_viewport = True
                 self._root = handle.widget
             return handle
         if node.kind is NodeKind.HOST and node.type in ("Grid", "GridItem"):
