@@ -277,3 +277,10 @@ The project may opt in with the existing development profile, e.g.:
 - Pydux `d4495be4914ab38255d5871d3ade45422003015c`: [state recovery validation](https://github.com/Neuri-AI/Pydux/actions/runs/39873460714), success. Verifies detached versioned JSON snapshots and store subscription restoration rules.
 
 **Boundaries and next certification gate:** the tested restart decisions cover changed effective backend settings and edits to already-loaded native extension files; they do not claim general automatic detection of all unsafe global initializers, interpreter changes or arbitrary foreign process resources. A rejected process launch after a restart is not yet guaranteed to retain an operational previous native window. Long-running save storms, startup-failure recovery and actual repeated Qt/Tkinter/Kivy restart tests remain for integrated certification. Snapshot restoration is restricted to JSON-safe compatible Pydux data and does not rehydrate native handles or running tasks. This increment introduces internal development orchestration, not new public PSX markup, props or events: public-behavior census N/A.
+
+
+## Failed child startup recovery
+
+Velto CLI retains its single development watcher when a child exits with a nonzero status. It does not immediately respawn failed code; it waits for another source save before launching a new child. The real-subprocess regression succeeded at commit `f9c317bcffa45b7d02eda379c7734930919af7a4` (https://github.com/Neuri-AI/Velto-CLI/actions/runs/39877137209). Bounded waits and escalation for a child that ignores termination passed at commit `49c1b6895ca299a223a82626934d02c1297d16c4` (https://github.com/Neuri-AI/Velto-CLI/actions/runs/39877278848).
+
+Remaining limits: a failed replacement does not guarantee preservation of the old native window; automatic classification of arbitrary interpreter or global external-resource incompatibilities has not been implemented. Native cross-backend soak certification remains pending. No public PSX props, hooks, events, or markup were added; public-behavior census N/A.
