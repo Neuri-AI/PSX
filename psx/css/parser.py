@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass
 
 from .properties import CssValidationError, foundation_registry
+from psx.sfle.lengths import Length
 
 _IDENT = r"[a-zA-Z_][a-zA-Z0-9_-]*"
 _SELECTOR = re.compile(rf"^(?P<tag>{_IDENT})?(?P<qualifiers>(?:[.#]{_IDENT})*)$")
@@ -106,6 +107,14 @@ def parse_stylesheet(source: str) -> Stylesheet:
                 raise CssSyntaxError(f"Malformed CSS declaration: {entry!r}.")
             name, value = (part.strip() for part in entry.split(":", 1))
             try:
+                if name == "flex":
+                    grow = registry.validate("flex-grow", value)
+                    declarations.extend((
+                        (grow.name, grow.value),
+                        ("flex-shrink", 1.0),
+                        ("flex-basis", Length.percent(0)),
+                    ))
+                    continue
                 declaration = registry.validate(name, value)
             except CssValidationError as exc:
                 raise CssSyntaxError(str(exc)) from exc
