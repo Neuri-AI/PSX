@@ -33,7 +33,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Neuri-AI/Velto-CLI
-          ref: 17c6c1733a47014f3f7661c4072742a4c7c743dc
+          ref: 75590348b3edb25d0d004bb11e3e2d0d127e5577
           path: partner-cli
       - name: Install complete development dependencies
         run: |
