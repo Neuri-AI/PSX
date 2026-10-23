@@ -355,3 +355,28 @@ def test_flex_nested_headings_occupy_separate_measured_vertical_space():
     assert rectangles[second_heading].border.y >= (
         rectangles[paragraph].border.y + rectangles[paragraph].border.height
     )
+
+
+def test_stylesheet_display_flex_uses_cinnamon_row_and_gap():
+    from psx.css.markup import compute_markup_styles
+    markup = psx("<div><p>First</p><p>Second</p></div>")
+    styled = compute_markup_styles(markup, "div { display: flex; gap: 10px; flex-direction: row; }")
+    snapshot = _prepare(styled).css_geometry_snapshot()
+    root, first, first_text, second, second_text = snapshot.nodes
+    assert root.component == "Flex"
+    props = dict(root.style)
+    assert "display" not in props
+    assert props["direction"] == "row"
+    assert props["row_gap"] == Length.px(10)
+    assert props["column_gap"] == Length.px(10)
+    assert first.component == second.component == "Flex"
+    assert dict(first.style)["direction"] == "column"
+    assert dict(second.style)["direction"] == "column"
+
+
+def test_stylesheet_display_block_retains_flow_kernel():
+    from psx.css.markup import compute_markup_styles
+    styled = compute_markup_styles(psx("<div><p>Text</p></div>"), "div { display: block; }")
+    snapshot = _prepare(styled).css_geometry_snapshot()
+    assert snapshot.nodes[0].component == "div"
+    assert dict(snapshot.nodes[0].style)["display"] == "block"
