@@ -120,15 +120,17 @@ def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast
         # Map is compiler syntax, not a Python list method. Its callback is a
         # lexical Python lambda generated at transform time, never evaluated
         # from a string and never shared across iterations.
-        parameter = node.callback.parameters[0]
+        parameters = node.callback.parameters
         callback = ast.Lambda(
-            args=ast.arguments(posonlyargs=[], args=[ast.arg(arg=parameter)],
+            args=ast.arguments(posonlyargs=[],
+                               args=[ast.arg(arg=name) for name in parameters],
                                kwonlyargs=[], kw_defaults=[], defaults=[]),
             body=lower(node.callback.body, filename=filename, child=True),
         )
         return _helper("map_children",
                        lower(node.iterable, filename=filename),
-                       callback, *_loc(node, filename))
+                       callback, ast.Constant(len(parameters) == 2),
+                       *_loc(node, filename))
     if isinstance(node, syntax.Fragment):
         return _helper("fragment", *(lower(part, filename=filename, child=True)
                                      for part in node.children if not _blank(part)))
