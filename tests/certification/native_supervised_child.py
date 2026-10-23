@@ -38,9 +38,11 @@ else:
 host, port = os.environ["VELTO_RELOAD_ENDPOINT"].split(":")
 with socket.create_connection((host, int(port)), timeout=5) as connection:
     connection.sendall((os.environ["VELTO_RELOAD_TOKEN"] + "\n").encode())
+    trace.with_suffix(".stage").write_text(f"{generation}:connected", encoding="utf-8")
     application = App(Flex(Text("Supervised native app")), renderer=renderer)
     try:
         handle = application.mount()
+        trace.with_suffix(".stage").write_text(f"{generation}:mounted", encoding="utf-8")
         if backend == "qt":
             handle.widget.show()
         if backend == "tk":
@@ -49,10 +51,12 @@ with socket.create_connection((host, int(port)), timeout=5) as connection:
             def restart():
                 payload = {"version": 1, "kind": "restart_request",
                            "reason": "runtime_bootstrap_changed"}
+                trace.with_suffix(".stage").write_text(f"{generation}:requested", encoding="utf-8")
                 connection.sendall((json.dumps(payload) + "\n").encode())
             schedule(restart)
         else:
             schedule(stop)
+        trace.with_suffix(".stage").write_text(f"{generation}:running", encoding="utf-8")
         result = renderer.run()
         if generation >= 2:
             trace.with_suffix(".clean").write_text("event_loop_exited")
