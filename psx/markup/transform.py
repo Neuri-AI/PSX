@@ -148,6 +148,10 @@ def _has_expressive_interpolation(source: str) -> bool:
     # The restricted M4A runtime never enters this transform.
     if "={{" in source or "={[" in source or "={(" in source:
         return True
+    # Quoted attribute interpolation is lexical expressive syntax as well,
+    # even without an arrow or conditional expression elsewhere in the tree.
+    if "${" in source:
+        return True
     depth = 0
     quoted: str | None = None
     index = 0
