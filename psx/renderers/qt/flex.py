@@ -56,5 +56,9 @@ class QtSFLEFlexAdapter:
         return None
 
     def destroy(self, renderer, handle):
+        shell = getattr(handle.widget, "_psx_sfle_viewport_shell", None)
         handle.widget.setParent(None)
         handle.widget.deleteLater()
+        if shell is not None:
+            shell.close()
+            shell.deleteLater()
