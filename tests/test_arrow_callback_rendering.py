@@ -129,6 +129,43 @@ class ArrowCallbacksTests(unittest.TestCase):
         node.children[0].props["on_click"]()
         self.assertEqual(calls, [("second", 1), ("first", 0)])
 
+    def test_html_heading_map_accepts_index_keys_and_dynamic_inline_css(self):
+        markup = """
+        <>
+            {
+                items.map((color, index) =>
+                    <h1 key={index} style="background-color: ${color}; height:100px">{color}</h1>)
+            }
+        </>
+        """
+        view, transformed = compiled(markup)
+        colors = ["#15370D", "#728E6D", "#E5CD82", "#FFF2B4"]
+        root = view(lambda: None, colors)
+        self.assertEqual(transformed.transformed_calls, 1)
+        self.assertEqual([node.key for node in root.children], [0, 1, 2, 3])
+        self.assertEqual([node.type for node in root.children], ["h1"] * 4)
+        self.assertEqual(
+            [node.css_source.inline[0].value.value for node in root.children],
+            [color.lower() for color in colors],
+        )
+        self.assertEqual(
+            [node.children[0].props["value"] for node in root.children], colors
+        )
+
+    def test_dynamic_class_and_style_attribute_interpolations(self):
+        view, _ = compiled(
+            '<div class="chip ${items[0].kind}" '
+            'style="background-color: ${items[0].color}; height: 40px" />'
+        )
+        root = view(None, [{"kind": "active", "color": "#123456"}])
+        self.assertEqual(root.css_source.classes, frozenset({"chip", "active"}))
+        self.assertEqual(root.css_source.inline[0].value.value, "#123456")
+
+    def test_missing_lexical_variable_in_style_has_markup_diagnostic(self):
+        view, _ = compiled('<div style="background-color: ${missing}" />')
+        with self.assertRaisesRegex(MarkupSyntaxError, "Unknown lexical identifier"):
+            view(None, [])
+
     def test_runtime_explicit_scope_still_rejects_arrows(self):
         with self.assertRaises(MarkupSyntaxError):
             psx('<Button on_click={() => handler()} />', scope={"handler": lambda: None})
