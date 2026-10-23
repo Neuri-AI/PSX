@@ -131,6 +131,9 @@ class Reconciler:
 
     def render(self, node: VNode) -> MountedInstance:
         """Mount or update the single root description."""
+        if node.kind is NodeKind.FRAGMENT:
+            from .vnode import create_element
+            node = create_element("div", *node.children)
         if self._is_rendering:
             raise RuntimeError("PSX rendering is not re-entrant.")
         # A completely stable host tree with only paint-class CSS changes
