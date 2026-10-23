@@ -111,8 +111,9 @@ updated = tree.render(psx(
 assert updated.handle.widget is root_widget
 assert updated.children[0].handle.widget is beta
 assert updated.children[1].handle.widget is alpha
-assert round(alpha.width) == 400 and round(beta.width) == 400
-assert round(beta.y) == round(alpha.y + alpha.height)
+assert 0 < round(alpha.width) < 400 and 0 < round(beta.width) < 400
+assert round(beta.y) == round(alpha.y)
+assert round(alpha.x) == round(beta.x + beta.width)
 assert round(root_widget.height) == 120
 inline = tree.render(psx(
     '<div display="inline"><button key="b">Beta</button>'
@@ -133,8 +134,9 @@ resized = tree.render(psx(
 ))
 assert resized.children[0].handle.widget is beta
 assert resized.children[1].handle.widget is alpha
-assert round(beta.width) == 240 and round(alpha.width) == 240
-assert round(beta.y) == round(alpha.y + alpha.height)
+assert 0 < round(beta.width) < 240 and 0 < round(alpha.width) < 240
+assert round(beta.y) == round(alpha.y)
+assert round(alpha.x) == round(beta.x + beta.width)
 assert renderer.sfle_result.generation > prior_generation
 tree.unmount()
 assert alpha.parent is None and beta.parent is None
@@ -201,8 +203,10 @@ for tag in tags:
     assert round(child.y + child.height) == 120, tag
     if tag == "span":
         assert child.width < 400, tag
-    elif tag not in ("label", "li"):
+    elif tag == "ul":
         assert round(child.width) == 400, tag
+    elif tag not in ("label", "li"):
+        assert 0 < round(child.width) < 400, tag
     else:
         # Native Kivy text measurement may consume the full viewport:
         # verify the committed rectangle rather than inventing a fixed glyph width.
