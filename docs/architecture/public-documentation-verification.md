@@ -21,6 +21,8 @@ Every listed page was rewritten or added from inspected public exports, Qyro/CLI
 | First application | `getting-started/overview.mdx`, `installation.mdx`, `first-app.mdx`, `project-structure.mdx`, `native-tkinter.mdx` | GitHub installation rather than unpublished PyPI assumptions; exact Python range; Qyro project settings and native toolkit |
 | Authoring | `learn/psx-markup.mdx`, `conditional-rendering.mdx`, `lists-and-keys.mdx`, `components.mdx`, `state-and-events.mdx`, `effects.mdx`, `native-layout.mdx` | PSX Markup, quoted literals, hooks, stable keys, live Pydux store, geometric authority |
 | Workflow and reference | `guide/styling.mdx`, `keys.mdx`, `native-integration.mdx`, `hot-reload.mdx`, `performance.mdx`, `distribution.mdx`, `advanced.mdx`, `compatibility.mdx`, `release-readiness.mdx` | CSS-like layout limitations; native ownership; dev modes; frozen Qyro resources; exact backend/platform limits |
+| Catalog/reference | `components/overview.mdx`, `reference/overview.mdx`, `reference/application-and-state.mdx`, `reference/extensions-and-native.mdx` | Current public facade, generated source contracts and backend ownership limitations |
+| Examples entry | `examples/overview.mdx` | Separates pinned historical PSX examples from current Velto facade integration receipts |
 | Navigation/editorial | `docs.json`, `README.md` | Real page slugs and reproducible documentation validation commands |
 
 ### Source authority and executable receipts
@@ -39,8 +41,14 @@ Every listed page was rewritten or added from inspected public exports, Qyro/CLI
 
 **Independent reader test:** *not yet externally certified*. The authored beginner project's exact source is illustrated in the page, but the 25-job installed integration suite exercises the same APIs with a different fixture (using explicit scope). Do not present the hello-world text block as an independently executed, exact-copy test unless a separately executed public example proves it. This belongs to the reproducible-example qualification in P4.5.
 
-**Component/reference limitations:** existing generated API tables and backend-specific component reference pages are retained rather than blindly republishing edited signatures. Not every constructor, prop, gallery fragment, mobile target or third-party native widget was independently re-executed by this editorial pass. These pages must keep their own stated source revisions and avoid unsupported compatibility guarantees.
+**Component/reference limitations:** existing generated API tables and backend-specific component reference pages are retained rather than blindly republishing edited signatures. Not every constructor, prop, gallery fragment, mobile target or third-party native widget was independently re-executed by this editorial pass. These pages must keep their own stated source revisions and avoid unsupported compatibility guarantees. The application/extension/reference indexes and example overview have now been reviewed and revised, but each individual historical example's exact pinned SHA remains its reproduction authority.
 
 **Release blockers retained as explicit public notes:** macOS/Windows frozen distribution and signing/notarization, frozen Qt/Kivy, broad OS/DPI/input/scroll verification, longer (multi-hour) soaks, and every-examples-on-every-OS independent reproduction. The published [compatibility guide](/guide/compatibility) is intentionally narrower than the union of public exports.
 
 **Disposition:** authoring and structural organization of the primary docs path are complete once exact-head docs CI passes. The project-wide P4 release gate remains open and P4.5 must cover independently executable examples and release-preparation evidence. No runtime/source API implementation was performed in this increment.
+
+## Additional editorial checks
+
+The previous integral documentation preflight identified missing beginner troubleshooting sections; the first-app and native-Tkinter lessons now include concrete diagnosis for environment setup, unavailable Tcl/Tk, missing display and incorrect project roots. The source-derived API contracts were regenerated directly by the repository's existing introspection tool rather than changing any reference validator or suppressing failures. The short-lived generation action was subsequently removed. Mintlify, structural/links/accessibility, generated-reference and integral-example checks must run on the final feature SHA before the editorial gate may be called green.
+
+The native integration guide now includes a **clearly marked illustrative** `Native(SineChart)` pyqtgraph example, based on the tested `Native(QLabel)` Qt constructor; it does **not** claim that pyqtgraph itself passed CI. Toolkit compatibility remains explicit.
