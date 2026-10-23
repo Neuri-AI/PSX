@@ -18,7 +18,7 @@ from .model import AvailableSize, BoxRect, LayoutConstraints, LayoutInput, Layou
 from .lengths import Length, LengthKind, parse_length
 
 
-def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
+def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) -> LayoutResult:
     """Layout a bounded Block/Inline tree, retaining exact VNode identities."""
     if not snapshot.nodes or snapshot.nodes[0].component not in FORMATTING_TAGS:
         raise SFLECapabilityError(
@@ -169,6 +169,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         """Compose a nested CSS Flex context using the selected Cinnamon engine."""
         from .backend import load_layout_engine
 
+        selected_engine = flex_engine if flex_engine is not None else load_layout_engine()
         descendants = []
         pending = [node.node_id]
         selected = set()
@@ -192,7 +193,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
             tuple(measured for measured in snapshot.measurements
                   if measured.node_id in selected),
         )
-        solved = dict(load_layout_engine().compute(local).boxes)
+        solved = dict(selected_engine.compute(local).boxes)
         root_border = solved[node.node_id].border
         dx, dy = x - root_border.x, y - root_border.y
         for identifier, boxes in solved.items():
