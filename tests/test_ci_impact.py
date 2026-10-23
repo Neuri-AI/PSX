@@ -9,7 +9,7 @@ class RoutingTests(unittest.TestCase):
         return set(classify(list(paths))["selected"])
 
     def test_coordinated_refresh_stress_routes_every_mounted_backend(self):
-        expected = {"core", "qt", "kivy", "tkinter"}
+        expected = {"core", "headless", "qt", "kivy", "tkinter"}
         self.assertEqual(self.selected("tests/test_native_coordinated_refresh.py"), expected)
         self.assertEqual(self.selected(".github/workflows/coordinated-refresh.yml"),
                          expected | {"router"})
