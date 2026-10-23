@@ -200,7 +200,9 @@ def test_repeated_refresh_invalid_save_and_recovery_retains_native_identity(monk
             replacement[0] = render_next
             if iteration % 7 == 0:
                 source.write_text("def broken(:\n", encoding="utf-8")
-                assert not refresh.refresh_context_source(context, source, ("main.py",))
+                import pytest
+                with pytest.raises(SyntaxError):
+                    refresh.refresh_context_source(context, source, ("main.py",))
                 assert context.app.reconciler.root.native_handle() is host
             source.write_text("class Example: pass\n", encoding="utf-8")
             assert refresh.refresh_context_source(context, source, ("main.py",))
