@@ -253,8 +253,6 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         used_width = constrained_dimension(node, "width", available, content_available)
         content_x, content_y = x + left, y + top
         parent_height = dimension(node, "height", available)
-        if parent_height is None and node.node_id == root.node_id and snapshot.constraints.height.definite:
-            parent_height = max(0.0, snapshot.constraints.height.value - top - bottom)
         for child in children[node.node_id]:
             containing_height[child.node_id] = parent_height
         mode = display(node)
@@ -304,28 +302,9 @@ def compute_measured_block_snapshot(snapshot: LayoutInput) -> LayoutResult:
         edges(root, group) != (0.0, 0.0, 0.0, 0.0)
         for group in ("margin", "padding", "border")
     )
-    if has_root_edges:
-        if snapshot.constraints.height.definite and dimension(root, "height", width) is None:
-            viewport_height = snapshot.constraints.height.value
-            vertical = sum(
-                group[0] + group[2]
-                for group in (edges(root, name) for name in ("margin", "padding", "border"))
-            )
-            prior = geometry[root.node_id]
-            geometry[root.node_id] = quantized_rect(
-                prior.x, prior.y, prior.width,
-                constrained_dimension(root, "height", viewport_height, max(0.0, viewport_height - vertical)),
-            )
-    else:
-        root_height = (
-            constrained_dimension(
-                root, "height", snapshot.constraints.height.value or content_height,
-                snapshot.constraints.height.value or content_height,
-            )
-            if snapshot.constraints.height.definite
-            else constrained_dimension(root, "height", width, content_height)
-        )
+    if not has_root_edges:
         root_width = constrained_dimension(root, "width", width, width)
+        root_height = constrained_dimension(root, "height", width, content_height)
         geometry[root.node_id] = quantized_rect(0.0, 0.0, root_width, root_height)
 
     result = tuple((node.node_id, box_rect(node, geometry[node.node_id]))
