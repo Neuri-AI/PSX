@@ -215,7 +215,7 @@ impl Flow<'_> {
                 atoms.push(InlineAtom {
                     width: self.constrained_dimension(index, "width", available, native.preferred_width)? + horizontal,
                     height: self.constrained_dimension(index, "height", available, native.preferred_height)? + vertical,
-                    baseline: native.baseline.unwrap_or(native.preferred_height) + top,
+                    baseline: native.baseline.unwrap_or(native.preferred_height).max(0.0).min(self.constrained_dimension(index, "height", available, native.preferred_height)?) + top,
                 });
                 leaves.push(index);
             }
