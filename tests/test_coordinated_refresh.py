@@ -400,3 +400,46 @@ def test_root_host_switch_requests_restart_before_native_teardown():
     finally:
         reconciler._coordinated_remount = False
         reconciler.unmount()
+
+
+def test_fast_refresh_swaps_div_and_flex_hosts_without_disposing_component():
+    from psx import Flex, Text, component, psx, use_state
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+    use_flex = [False]
+
+    @component
+    def root():
+        count, _ = use_state(7)
+        if use_flex[0]:
+            return Flex(Text(str(count)), direction="column")
+        return psx("<div><p>Count</p></div>")
+
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(360, True), AvailableSize(240, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda node: IntrinsicSizes(24, 80, 18, 18, 80, 18),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        boundary = reconciler.render(root())
+        first = boundary.native_handle()
+        reconciler._coordinated_remount = True
+        use_flex[0] = True
+        assert reconciler.try_reevaluate(boundary)
+        assert reconciler.root is boundary
+        assert not boundary.disposed
+        assert boundary.native_handle() is not first
+        assert boundary.native_handle().node_type == "Flex"
+        assert boundary.native_handle().children[0].props["value"] == "7"
+        use_flex[0] = False
+        assert reconciler.try_reevaluate(boundary)
+        assert reconciler.root is boundary
+        assert boundary.native_handle().node_type == "div"
+    finally:
+        reconciler._coordinated_remount = False
+        reconciler.unmount()
