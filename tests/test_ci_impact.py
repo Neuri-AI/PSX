@@ -69,6 +69,12 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(self.selected("tests/test_css_markup_census.py"),
                          {"core", "headless", "qt", "kivy", "tkinter"})
 
+    def test_qt_form_baseline_regression_is_executed(self):
+        self.assertEqual(self.selected("tests/sfle/test_qt_inline_form_baselines.py"), {"sfle", "qt"})
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/sfle/test_qt_inline_form_baselines.py", workflow)
+
     def test_qt_css_background_regression_is_executed_by_qt_job(self):
         self.assertEqual(self.selected("tests/test_qt_css_control_background.py"), {"qt"})
         from pathlib import Path
