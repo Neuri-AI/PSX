@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass
 
 from .properties import CssValidationError, foundation_registry
+from psx.sfle.lengths import Length
 
 _IDENT = r"[a-zA-Z_][a-zA-Z0-9_-]*"
 _SELECTOR = re.compile(rf"^(?P<tag>{_IDENT})?(?P<qualifiers>(?:[.#]{_IDENT})*)$")
@@ -21,15 +22,16 @@ class Selector:
     tag: str | None
     classes: frozenset[str]
     node_id: str | None
+    parent: Selector | None = None
 
     @property
     def specificity(self) -> tuple[int, int, int]:
-        return (int(self.node_id is not None), len(self.classes), int(self.tag is not None and self.tag != "*"))
+        return tuple(a + b for a, b in zip((int(self.node_id is not None), len(self.classes), int(self.tag is not None and self.tag != "*")), self.parent.specificity if self.parent else (0, 0, 0)))
 
-    def matches(self, tag: str, classes: frozenset[str], node_id: str | None) -> bool:
+    def matches(self, tag: str, classes: frozenset[str], node_id: str | None, parent: object = None) -> bool:
         return (self.tag is None or self.tag == "*" or self.tag == tag) and self.classes.issubset(classes) and (
             self.node_id is None or self.node_id == node_id
-        )
+        ) and (self.parent is None or (parent is not None and self.parent.matches(parent.tag, parent.classes, parent.node_id)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +52,13 @@ class CssSyntaxError(ValueError):
 
 def parse_selector(source: str) -> Selector:
     text = source.strip()
+    if '>' in text:
+        parts = text.split('>')
+        if len(parts) != 2 or not all(part.strip() for part in parts):
+            raise CssSyntaxError(f"Unsupported CSS selector: {source!r}.")
+        child = parse_selector(parts[1])
+        parent = parse_selector(parts[0])
+        return Selector(child.tag, child.classes, child.node_id, parent)
     if text == "*":
         return Selector("*", frozenset(), None)
     match = _SELECTOR.fullmatch(text)
@@ -98,6 +107,14 @@ def parse_stylesheet(source: str) -> Stylesheet:
                 raise CssSyntaxError(f"Malformed CSS declaration: {entry!r}.")
             name, value = (part.strip() for part in entry.split(":", 1))
             try:
+                if name == "flex":
+                    grow = registry.validate("flex-grow", value)
+                    declarations.extend((
+                        (grow.name, grow.value),
+                        ("flex-shrink", 1.0),
+                        ("flex-basis", Length.percent(0)),
+                    ))
+                    continue
                 declaration = registry.validate(name, value)
             except CssValidationError as exc:
                 raise CssSyntaxError(str(exc)) from exc

@@ -19,6 +19,7 @@ class StyleTarget:
     tag: str
     classes: frozenset[str] = frozenset()
     node_id: str | None = None
+    parent: StyleTarget | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +57,7 @@ def resolve_style(
     matched: list[tuple[tuple[int, int, int], int, int, str, object]] = []
     for rule in sheet.rules:
         for selector in rule.selectors:
-            if selector.matches(target.tag, target.classes, target.node_id):
+            if selector.matches(target.tag, target.classes, target.node_id, target.parent):
                 for index, (name, value) in enumerate(rule.declarations):
                     if name not in definitions.properties or definitions.validate(name, value).value != value:
                         raise ValueError(f"Invalid precompiled declaration: {name!r}")

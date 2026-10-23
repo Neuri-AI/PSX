@@ -96,3 +96,34 @@ def test_invalid_flex_css_is_rejected(name, value):
     from psx.css.properties import CssValidationError
     with pytest.raises(CssValidationError):
         foundation_registry().validate(name, value)
+
+
+def test_direct_child_selector_matches_only_immediate_parent():
+    stylesheet = parse_stylesheet(
+        ".color-list { display: flex; flex-direction: row; width: 100% }"
+        ".color-list > div { flex: 1 }"
+    )
+    parent = StyleTarget("div", frozenset({"color-list"}))
+    immediate = resolve_style(stylesheet, StyleTarget("div", parent=parent))
+    nested = resolve_style(stylesheet, StyleTarget(
+        "div", parent=StyleTarget("section", parent=parent)))
+    unrelated = resolve_style(stylesheet, StyleTarget("div"))
+    assert immediate.properties["flex-grow"] == 1.0
+    assert immediate.properties["flex-shrink"] == 1.0
+    assert immediate.properties["flex-basis"] == Length.percent(0)
+    assert "flex-grow" in immediate.specified
+    assert "flex-grow" not in nested.specified
+    assert "flex-grow" not in unrelated.specified
+    assert parse_selector(".color-list > div").specificity == (0, 1, 1)
+
+
+@pytest.mark.parametrize("selector", (".a > ", " > div", ".a > div > span", ".a div"))
+def test_unsupported_or_malformed_relationships_still_fail_closed(selector):
+    with pytest.raises(CssSyntaxError):
+        parse_selector(selector)
+
+
+@pytest.mark.parametrize("value", ("-1", "not-a-number", "1 1 auto", "NaN"))
+def test_unsupported_flex_shorthand_values_fail_closed(value):
+    with pytest.raises(CssSyntaxError):
+        parse_stylesheet(f".color-list > div {{ flex: {value}; }}")

@@ -82,16 +82,16 @@ def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = Non
     else:
         sheet = parse_stylesheet(stylesheet)
 
-    def visit(node: VNode, inherited: ComputedStyle | None) -> VNode:
+    def visit(node: VNode, inherited: ComputedStyle | None, parent: StyleTarget | None = None) -> VNode:
         if node.kind is NodeKind.FRAGMENT:
-            return replace(node, children=tuple(visit(child, inherited) for child in node.children))
+            return replace(node, children=tuple(visit(child, inherited, parent) for child in node.children))
         if node.kind is not NodeKind.HOST:
             return node
         source = node.css_source
         if source is not None and not isinstance(source, MarkupStyleSource):
             raise TypeError("Unexpected PSX CSS style source metadata.")
         if isinstance(source, MarkupStyleSource):
-            target = StyleTarget(source.tag, source.classes, source.node_id)
+            target = StyleTarget(source.tag, source.classes, source.node_id, parent)
             inline = source.inline
         else:
             # Builtin VNodes created programmatically also participate in the
@@ -104,14 +104,14 @@ def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = Non
                 "Divider", "Image", "ProgressBar", "RadioGroup", "Switch",
             }
             tag = node.type.lower() if node.type in native_types else "__legacy_psx_host__"
-            target = StyleTarget(tag)
+            target = StyleTarget(tag, parent=parent)
             inline = ()
         if source is not None and source.tag == "__psx_text_content__":
             # Text content is not an element in CSS: inherit from its parent.
             computed = resolve_style(Stylesheet(()), target, inherited=inherited)
         else:
             computed = resolve_style(sheet, target, inline=inline, inherited=inherited)
-        children = tuple(visit(child, computed) for child in node.children)
+        children = tuple(visit(child, computed, target) for child in node.children)
         return replace(node, css_computed=computed, children=children)
 
     return visit(root, None)
