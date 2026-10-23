@@ -2896,3 +2896,29 @@ def test_css_display_switch_reflows_same_semantic_native_div():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_css_flex_div_uses_content_height_without_painting_full_viewport():
+    from psx import psx
+    from psx.css.markup import compute_markup_styles
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        markup = psx('<div style="background: #ff0000"><p>Small</p></div>')
+        styled = compute_markup_styles(markup, "div { display: flex; }")
+        root = reconciler.render(styled)
+        native = root.handle.widget
+        result = renderer.sfle_result
+        root_box = dict(result.boxes)[result.boxes[0][0]].border
+        assert 0 < root_box.height < 200
+        if backend == "kivy":
+            assert native.height == pytest.approx(200)
+            assert native._psx_css_paint_rect.size[1] == pytest.approx(root_box.height)
+        elif backend == "tk":
+            assert native.winfo_height() == pytest.approx(root_box.height, abs=1)
+        else:
+            assert native.height() == pytest.approx(root_box.height, abs=1)
+    finally:
+        reconciler.unmount()
+        close()
