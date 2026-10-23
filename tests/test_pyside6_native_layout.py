@@ -102,7 +102,10 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(paragraph.handle.widget.y(), heading.handle.widget.height())
         self.assertGreaterEqual(inline.handle.widget.y(),
                                 paragraph.handle.widget.y() + paragraph.handle.widget.height())
-        self.assertGreaterEqual(button.handle.widget.y(), inline.handle.widget.y())
+        self.assertTrue(
+            button.handle.widget.x() >= inline.handle.widget.x() + inline.handle.widget.width()
+            or button.handle.widget.y() >= inline.handle.widget.y() + inline.handle.widget.height()
+        )
         self.assertLess(button.handle.widget.width(), 320)
         self.assertGreater(inline.handle.widget.height(), 0)
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
