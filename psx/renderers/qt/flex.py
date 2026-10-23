@@ -9,11 +9,41 @@ from psx.core.contracts import FLEX_CONTRACT
 from psx.core.errors import RendererCapabilityError
 
 
+_ROOT_FLEX_WIDGET_TYPES = {}
+
+
+def _root_flex_widget_type(base_widget):
+    widget_type = _ROOT_FLEX_WIDGET_TYPES.get(base_widget)
+    if widget_type is not None:
+        return widget_type
+
+    class RootFlexWidget(base_widget):
+        """Proxy external window operations to the stable native viewport."""
+
+        def show(self):
+            shell = getattr(self, "_psx_sfle_viewport_shell", None)
+            if shell is not None:
+                shell.show()
+            super().show()
+
+        def resize(self, *args):
+            shell = getattr(self, "_psx_sfle_viewport_shell", None)
+            if shell is not None:
+                shell.resize(*args)
+                return
+            super().resize(*args)
+
+    _ROOT_FLEX_WIDGET_TYPES[base_widget] = RootFlexWidget
+    return RootFlexWidget
+
+
 class QtSFLEFlexAdapter:
     def create(self, renderer, node, parent):
         from psx.renderers.qt.pyqt import QtHandle
         FLEX_CONTRACT.validate(node.props)
-        widget = renderer._widget()
+        widget = (_root_flex_widget_type(renderer._widget)()
+                  if parent is None and renderer._sfle_constraints is not None
+                  else renderer._widget())
         if parent is None and renderer._sfle_constraints is not None:
             viewport = renderer._widget()
             viewport.resize(round(renderer._sfle_constraints.width.value),
