@@ -29,6 +29,13 @@ class RustLayoutEngine:
         return CONTRACT_ONLY_CAPABILITIES
 
     def compute(self, request: LayoutInput) -> LayoutResult:
+        # Mixed Block/Flex contexts share one flow compositor, while each
+        # nested Flex context is solved by this Rust engine.
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        if (request.nodes and request.nodes[0].component in FORMATTING_TAGS
+                and any(node.component == "Flex" for node in request.nodes[1:])):
+            from .measured_block_snapshot import compute_measured_block_snapshot
+            return compute_measured_block_snapshot(request, flex_engine=self)
         return deserialize_response(
             self._module.compute_json(serialize_snapshot(request)), request
         )
