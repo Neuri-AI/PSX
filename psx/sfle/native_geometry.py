@@ -104,9 +104,13 @@ class NativeGeometryCommitter:
                 # Its bottom-left projection must use that content extent,
                 # not the clipped viewport height.
                 parent_widget = self._widgets.get(parent_id)
-                parent_height = (border.height
-                                 if getattr(parent_widget, "_psx_sfle_scroll", False)
-                                 else parent.height)
+                if getattr(parent_widget, "_psx_sfle_scroll", False):
+                    parent_height = border.height
+                elif (self._parents[parent_id] is None
+                      and getattr(parent_widget, "_psx_sfle_semantic_viewport", False)):
+                    parent_height = float(parent_widget.height)
+                else:
+                    parent_height = parent.height
                 y = (LayoutUnit.from_nearest(parent_height) - LayoutUnit.from_nearest(y)
                      - LayoutUnit.from_nearest(border.height)).to_px()
             placements.append((node_id, self._widgets[node_id], x, y, border.width, border.height))
