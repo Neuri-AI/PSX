@@ -134,6 +134,19 @@ class ExpressiveGrammarTests(unittest.TestCase):
         self.assertEqual(tree.callback.parameters, ("item",))
         self.assertIsInstance(tree.callback.body, Element)
 
+    def test_parsed_map_arrow_item_and_index(self):
+        tree = parse_expressive_expression(
+            "items.map((item, index) => <Text key={index}>{item}</Text>)"
+        )
+        self.assertIsInstance(tree, Map)
+        self.assertEqual(tree.callback.parameters, ("item", "index"))
+
+    def test_duplicate_map_parameters_are_rejected(self):
+        with self.assertRaises(MarkupSyntaxError):
+            parse_expressive_expression(
+                "items.map((item, item) => <Text key={item.id} />)"
+            )
+
     def test_parsed_zero_argument_arrow(self):
         tree = parse_expressive_expression("() => save()")
         self.assertIsInstance(tree, Arrow)
@@ -145,7 +158,7 @@ class ExpressiveGrammarTests(unittest.TestCase):
         self.assertIsInstance(tree.attributes[0][1], Arrow)
 
     def test_parsed_invalid_grammar_is_rejected(self):
-        for source in ("items.map((item, idx) => <Text />)", "items.map(save)",
+        for source in ("items.map((item, idx, extra) => <Text />)", "items.map(save)",
                        "async () => save()", "ready === True", "ready !== True",
                        "<Flex><Text /></Button>", "items.map((item) => <Text />"):
             with self.subTest(source=source):
