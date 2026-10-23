@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.os == 'windows-latest' && matrix.backend == 'tk' && '3.11' || '3.12' }}
       - name: Prepare Linux display and native libraries
         if: runner.os == 'Linux'
         run: |
