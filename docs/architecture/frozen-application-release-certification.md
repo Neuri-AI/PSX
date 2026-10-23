@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-23  
 **Tracking:** P4.3 (distribution and native resource stability)  
-**Status:** integration receipts executed; broader cross-platform release qualification remains separate.
+**Status:** P4.3 CLOSED for the tested Linux distribution and sustained-runtime scenarios; broader cross-platform release qualification remains separate.
 
 ## Scope and design authority
 
@@ -10,7 +10,7 @@ This certification uses real, installed Velto `0.1.0` distributions built from t
 
 Two separate capabilities have independently executed coverage:
 
-1. **Frozen distribution:** A real `VeltoContext` application with PSX Markup and a Tkinter window is built using `velto build`. The CLI creates an encrypted and authenticated `.velto/resources.pak` and includes the compiled runtime secret. The application asserts `is_frozen`, checks Qyro metadata and reads `fixtures/token.txt` using its public `get_resource` API; the expected bytes are not supplied as a separate source resource. `velto bundle --format tar.gz --no-resources` creates a distributable archive. The certification extracts it, explicitly confirms the absence of a raw `resources/` directory, launches the actual executable from an isolated working directory via Xvfb, exercises the native event loop and requires the success marker. Python versions 3.11/3.12 and onedir/onefile must be independently qualified by executed CI jobs.
+1. **Frozen distribution:** A real `VeltoContext` application with PSX Markup and a Tkinter window is built using `velto build`. The CLI creates an encrypted and authenticated `.velto/resources.pak` and includes the compiled runtime secret. The application asserts `is_frozen`, checks Qyro metadata and reads `fixtures/token.txt` using its public `get_resource` API; the expected bytes are not supplied as a separate source resource. `velto bundle --format tar.gz --no-resources` creates a distributable archive. The certification extracts it, explicitly confirms the absence of a raw `resources/` directory, launches the actual executable from an isolated working directory via Xvfb, exercises the native event loop and requires the success marker. Python versions 3.11/3.12 and both onedir/onefile have independently executed passing release jobs.
 2. **Sustained UI/resource ownership:** A real, mounted Tkinter application uses `VeltoContext`, JSON settings, PSX Markup, Pydux Store/StoreProvider/`use_selector`, and Cinnamon native geometry. Its 2,000 store dispatches are spread over **at least 120 seconds**, with Tcl events processed and 20 `psutil` RSS plus `tracemalloc` Python allocation samples taken every 100 updates. The final state must be observed after flushing queued native events. After the 300-update warmup, the remaining RSS growth must stay below **64 MiB** and Python allocation growth below **12 MiB**. The provider's inspector lease must be zero after teardown. Separate jobs assert actual **Python fallback** and built/installed **Rust PyO3** Cinnamon backends; the latter is never silently substituted with Python.
 
 ## Executed evidence (immutable SHAs)
@@ -22,7 +22,7 @@ Two separate capabilities have independently executed coverage:
 
 ## Result boundaries and risks
 
-The frozen tests prove **Linux Tkinter** distribution and .pak access. They do not prove signed/notarized macOS apps, Windows installer generation, frozen PySide6 or Kivy packages, onefile until the dedicated matrix has passed, or every CPU architecture. The resource soak is **two minutes per engine**, not multi-hour or overnight stability; no broader lifetime claim is supported. Python version 3.13 has package-resolver evidence from P4.1 but is not part of these frozen jobs. Encryption tamper, encrypted secrets and protected-resource extraction are already covered in Qyro's dedicated `tests/test_protected_bundle_runtime.py` but require their own executed versioned CI receipt before including them as end-to-end frozen release evidence.
+The frozen tests prove **Linux Tkinter** distribution, both onefile and onedir release archives, and .pak access. They do not prove signed/notarized macOS apps, Windows installer generation, frozen PySide6 or Kivy packages, or every CPU architecture. The resource soak is **two minutes per engine**, not multi-hour or overnight stability; no broader lifetime claim is supported. Python version 3.13 has package-resolver evidence from P4.1 but is not part of these frozen jobs. Encryption tamper, encrypted secrets and protected-resource extraction are already covered in Qyro's dedicated `tests/test_protected_bundle_runtime.py` but require their own executed versioned CI receipt before including them as end-to-end frozen release evidence.
 
 The project fixture explicitly sets `settings/base.json` version to `0.1.0`. The CLI release bundler reads the setting rather than `build.json` when determining its tarball filename; silently assuming the build manifest version generated a failed CI run. The `velto bundle` guard also requires a valid project `pyproject.toml`. The fixture now meets those real prerequisites rather than bypassing the CLI.
 
@@ -31,3 +31,12 @@ The project fixture explicitly sets `settings/base.json` version to `0.1.0`. The
 ## Exit and handoff
 
 P4.3 distribution and resource-stability scenarios are certified only for the explicitly passing matrix cells. A global Velto release certification remains **OPEN** until Windows/macOS frozen binary and installer/signing/notarization qualifications, relevant frozen Qt/Kivy paths, longer duration measurements and usable released example projects have evidence. The next P4 documentation/release gates must explicitly link those exceptions and not inflate this Linux proof into a universal platform claim.
+
+## Same-revision final CI closure
+
+**Exact tested facade revision:** `92928b2a59708a3a7716edac71bcb614a64d8d80`.
+
+- [Four-way frozen distribution run #39967824985](https://github.com/Neuri-AI/Velto/actions/runs/39967824985) — **4/4 PASS**, Linux CPython 3.11 and 3.12 × PyInstaller `onedir` and `onefile`; each invoked `velto build` → real `.pak` → `velto bundle --no-resources --format tar.gz` → archive extraction → isolated native window/event loop and protected `get_resource` read.
+- [Sustained native runtime run #39967825020](https://github.com/Neuri-AI/Velto/actions/runs/39967825020) — **2/2 PASS**, Linux CPython 3.12 × real Cinnamon Python/Rust, 2,000 real native Tkinter Pydux selector updates over >=120 seconds per engine; recorded memory samples and tested bounded RSS/allocated-Python growth plus final teardown. This is not an hours-long soak.
+
+**P4.3 scoped acceptance decision: CLOSED** with 6/6 same-commit jobs. Repeated package builds and real native source-independent execution have verified the distribution and protected resource path for Linux Tkinter, while native state ownership is separately verified under both Cinnamon engines. No PSX, Qyro, Pydux or CLI production change and no public-behavior census required. Cross-platform signed frozen deliverables, PySide6/Kivy frozen applications and longer soaks are explicitly outstanding *release qualifications*, not silently certified by these six Linux jobs.
