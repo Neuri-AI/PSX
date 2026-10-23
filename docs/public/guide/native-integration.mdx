@@ -1,0 +1,16 @@
+---
+title: "Native integration"
+description: "Work with toolkit-native controls and the Native component."
+---
+
+Velto renders to Qt, Tkinter and Kivy widgets; it does not embed browser HTML. **Cinnamon within PSX remains responsible for layout geometry**, while renderer adapters create and update the native controls.
+
+Use the integrated `Native` component to embed an existing compatible toolkit widget according to its ownership contract. For instance, a `pyqtgraph.PlotWidget` is a Qt widget and requires a matching Qt renderer, not Kivy or Tkinter.
+
+```python
+from velto.ui import Native
+```
+
+The import is verified by the facade exports. Construction and lifecycle depend on the toolkit and the supported `Native` API: follow [extension contracts](/reference/extensions-and-native) before transferring ownership of a third-party widget. Do not insert widgets from one toolkit into another toolkit's renderer.
+
+**Evidence:** [cross-package native integration](https://github.com/Neuri-AI/Velto/actions/runs/39962860498) verifies PySide6, Tkinter and Kivy with both Cinnamon engines. A specific third-party control must be tested separately.
