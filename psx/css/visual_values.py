@@ -72,9 +72,26 @@ def normalize_visual_value(name: str, value: str) -> CssColor | Length | int | s
             return int(value)
         raise ValueError("Unsupported font-weight.")
     if name == "font-family":
-        if not re.fullmatch(r"[a-zA-Z0-9 _,.-]{1,128}", value) or not value.strip():
+        if not isinstance(value, str) or not value.strip() or len(value) > 256:
             raise ValueError("Unsupported font-family.")
-        return value.strip()
+        # CSS font stacks permit quoted family names and generic fallbacks.
+        # Keep the original list so native renderers can choose a supported
+        # installed face without treating quotes as part of the family name.
+        names = [part.strip() for part in value.split(",")]
+        if not names or any(not part for part in names):
+            raise ValueError("Unsupported font-family.")
+        validated = []
+        for part in names:
+            if part[0] in ("'", '"'):
+                if len(part) < 3 or part[-1] != part[0]:
+                    raise ValueError("Unsupported font-family.")
+                family = part[1:-1]
+            else:
+                family = part
+            if not re.fullmatch(r"[a-zA-Z0-9 _.-]{1,128}", family) or not family.strip():
+                raise ValueError("Unsupported font-family.")
+            validated.append(family)
+        return ", ".join(validated)
     if name == "text-align":
         if value not in ("left", "right", "center", "start", "end", "justify"):
             raise ValueError("Unsupported text-align.")
