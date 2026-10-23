@@ -443,3 +443,64 @@ def test_fast_refresh_swaps_div_and_flex_hosts_without_disposing_component():
     finally:
         reconciler._coordinated_remount = False
         reconciler.unmount()
+
+
+def test_root_fragment_mounts_multiple_siblings_and_updates_state_without_native_wrapper_in_markup():
+    from psx import component, psx, use_state
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.core.vnode import NodeKind
+
+    set_count = []
+    @component
+    def Root():
+        count, set_value = use_state(0)
+        set_count.append(set_value)
+        return psx(f"<><h1>Hello World!</h1><p>Count: {count}</p><button>Increment</button></>")
+
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(AvailableSize(360, True),
+                                           AvailableSize(240, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda node: IntrinsicSizes(65, 65, 20, 20, 65, 20),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(Root())
+        assert mounted.node.kind is NodeKind.COMPONENT
+        assert mounted.children[0].node.type == "div"
+        assert [child.node.type for child in mounted.children[0].children] == [
+            "h1", "p", "Button",
+        ]
+        previous = mounted.children[0].native_handle()
+        set_count[-1](lambda count: count + 1)
+        renderer.flush_ui()
+        assert reconciler.root is mounted
+        assert mounted.children[0].native_handle() is previous
+        assert mounted.children[0].children[1].children[0].handle.props["value"] == "Count: 1"
+    finally:
+        reconciler.unmount()
+
+
+def test_direct_fragment_is_accepted_as_layout_root():
+    from psx import psx
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(AvailableSize(360, True),
+                                           AvailableSize(240, True)),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda _: IntrinsicSizes(75, 75, 22, 22, 75, 22),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(psx("<><h1>Title</h1><p>Body</p></>"))
+        assert mounted.node.type == "div"
+        assert len(mounted.children) == 2
+        assert renderer.sfle_result is not None
+    finally:
+        reconciler.unmount()
