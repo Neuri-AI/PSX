@@ -164,3 +164,50 @@ def test_nested_incompatible_component_preserves_native_sibling(monkeypatch, tmp
     finally:
         context.app.unmount()
         close()
+
+
+def test_repeated_refresh_invalid_save_and_recovery_retains_native_identity(monkeypatch, tmp_path):
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    source = tmp_path / "main.py"
+    source.write_text("class Example: pass\n", encoding="utf-8")
+    context = Example()
+    def render_before(self):
+        state, _ = use_state(23)
+        return Flex(Text(f"cycle:0:{state}"))
+    holder = [render_before]
+    def root():
+        return holder[0](context)
+    definition = component(root)
+    context._development_render = holder
+    context._development_root_definition = definition
+    context.app = App(definition, renderer=renderer)
+    replacement = [render_before]
+    monkeypatch.setattr(refresh, "_reload_policy", lambda _: object())
+    monkeypatch.setattr(refresh, "_project_modules", lambda *_: (frozenset(), {}))
+    monkeypatch.setattr(
+        refresh, "_load_updated_class",
+        lambda *_: SimpleNamespace(render=replacement[0]),
+    )
+    try:
+        context.app.mount()
+        host = context.app.reconciler.root.native_handle()
+        label = context.app.reconciler.root.children[0].children[0].handle.widget
+        for iteration in range(1, 31):
+            def render_next(self, index=iteration):
+                state, _ = use_state(23)
+                return Flex(Text(f"cycle:{index}:{state}"))
+            replacement[0] = render_next
+            if iteration % 7 == 0:
+                source.write_text("def broken(:\n", encoding="utf-8")
+                assert not refresh.refresh_context_source(context, source, ("main.py",))
+                assert context.app.reconciler.root.native_handle() is host
+            source.write_text("class Example: pass\n", encoding="utf-8")
+            assert refresh.refresh_context_source(context, source, ("main.py",))
+            assert context.app.reconciler.root.native_handle() is host
+            current = context.app.reconciler.root.children[0].children[0].handle.widget
+            assert current is label
+            assert _native_text(current, backend) == f"cycle:{iteration}:23"
+    finally:
+        context.app.unmount()
+        close()
