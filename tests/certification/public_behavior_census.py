@@ -304,6 +304,10 @@ def inventory() -> tuple[Feature, ...]:
                 "distinct_boxes", applicability="shared"),
         Feature("button", CONTRACT, "interaction", "css_box_geometry",
                 "margin_update", applicability="shared"),
+        Feature("div", CONTRACT, "interaction", "css_flex_formatting",
+                "typed_row_gap", applicability="shared"),
+        Feature("div", CONTRACT, "interaction", "css_flex_formatting",
+                "block_reflow", applicability="shared"),
     ))
     for scenario in ("linked_source", "relative_import", "invalid_rejection", "no_native_widget"):
         rows.append(Feature(
