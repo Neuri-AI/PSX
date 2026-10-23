@@ -141,3 +141,35 @@ def test_public_css_box_geometry_updates_native_headless_receipts(request):
         )
     finally:
         tree.unmount()
+
+
+def test_div_css_flex_public_formatting_receipts(request):
+    from psx.css.markup import compute_markup_styles
+    from psx.core.layout_tree import normalize_flex_tree
+    from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+    from psx.sfle.model import AvailableSize, LayoutConstraints
+    tree = psx("<div><p>First</p><p>Second</p></div>")
+    flexed = compute_markup_styles(
+        tree, "div { display: flex; gap: 10px; flex-direction: row; }")
+    block = compute_markup_styles(tree, "div { display: block; }")
+    constraints = LayoutConstraints(AvailableSize(400, True),
+                                    AvailableSize(200, True))
+    flex_input = prepare_native_layout_snapshot(
+        normalize_flex_tree(flexed), constraints, generation=1).css_geometry_snapshot()
+    block_input = prepare_native_layout_snapshot(
+        normalize_flex_tree(block), constraints, generation=2).css_geometry_snapshot()
+    props = dict(flex_input.nodes[0].style)
+    assert_feature(
+        request, Feature("div", CONTRACT, "interaction", "css_flex_formatting",
+                         "typed_row_gap", applicability="shared"),
+        flex_input.nodes[0].component == "Flex"
+        and props["direction"] == "row"
+        and props["column_gap"] == Length.px(10),
+    )
+    assert_feature(
+        request, Feature("div", CONTRACT, "interaction", "css_flex_formatting",
+                         "block_reflow", applicability="shared"),
+        block_input.nodes[0].component == "div"
+        and dict(block_input.nodes[0].style)["display"] == "block"
+        and block_input.nodes[0].node_id == flex_input.nodes[0].node_id,
+    )
