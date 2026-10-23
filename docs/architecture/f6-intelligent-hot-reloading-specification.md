@@ -1,6 +1,6 @@
 # F6 — Intelligent Hot Reloading: approved architectural requirements
 
-**Decision date:** 2026-10-17. **Status:** architecture approved; coordinated implementation authorized on 2026-10-22 but runtime changes and integral certification are not yet implemented. **Milestone:** M8. This file is the canonical cross-repository architecture specification, not evidence that the target behavior exists.
+**Decision date:** 2026-10-17. **Status:** coordinated development implementation exists; Linux native refresh/remount and pinned cross-repository lifecycle validation executed successfully on 2026-10-23. Full multi-OS release certification and long-duration resource soak remain open. **Milestone:** M8. This file is the canonical cross-repository architecture specification, not evidence that the target behavior exists.
 
 ## 1. Core contract
 
@@ -305,3 +305,18 @@ These additions are internal development capabilities with no public PSX operati
 - Qyro Engine `00a2814d2e1e1bcbf2051ffe6a6be317d8b439f6`: [GitHub Actions #39879711959](https://github.com/Neuri-AI/qyro/actions/runs/39879711959), success. Covers development-only backend fallback without mutating application settings and the frozen-mode prohibition, plus the existing state handoff and native-extension refresh regression suite.
 
 The implementation scope for supervised restart hardening is therefore complete **within the explicitly supported compatibility boundary**. Integrated soak and toolkit-specific repeated live native restart certification remain separate. The phrase “last working application” means relaunching a previous successfully connected backend with compatible current source and optional registered state, not retaining its original native widgets or guaranteeing rollback of arbitrary incompatible project code.
+
+
+## Integrated development reload certification — executed Linux baseline (2026-10-23)
+
+The integrated workflow `.github/workflows/development-reload-certification.yml` checks out immutable SHA versions of PSX, Qyro Engine, Pydux and Velto CLI, installs them together and executes the respective refresh, remount, snapshot, frozen-mode, source receiver, child supervision and recovery tests. The workflow uses **Pydux `d4495be4914ab38255d5871d3ade45422003015c`**, **Qyro `00a2814d2e1e1bcbf2051ffe6a6be317d8b439f6`**, and **Velto CLI `75590348b3edb25d0d004bb11e3e2d0d127e5577`**, including eight repeated authenticated subprocess restart generations and verification that the watcher thread is released.
+
+Real mounted native test coverage was expanded for all supported CI backends: Qt via PySide6, Tkinter and Kivy, using Xvfb in Linux. The native suite exercises Fast Refresh identity/state preservation, incompatible hooks and nested component remount with unaffected siblings, plus **30 repeated compatible source updates with intermittent syntax errors and recovery** and **20 successive incompatible hook-signature remounts** per backend. It asserts reuse of appropriate native handles, disposal of replaced boundaries, state values, corrected labels and the absence of unintended remounts. Routing tests guarantee these changes select the Qt, Tkinter, Kivy, core and headless consumers. No new public markup, component props, events or hooks were introduced; public-behavior census is N/A.
+
+**Green, executed receipts at the same PSX source SHA `bc2cc7cd0b866a042411e30165b15a713102bf90`:**
+
+- [Native Qt/Tkinter/Kivy and pure refresh validation — Actions #39943502876](https://github.com/Neuri-AI/PSX/actions/runs/39943502876): SUCCESS, includes the repeated native refresh/remount tests and routing checks.
+- [Pinned PSX/Qyro/Pydux/CLI integrated lifecycle — Actions #39943502601](https://github.com/Neuri-AI/PSX/actions/runs/39943502601): SUCCESS, includes development state recovery and subprocess supervision across the four repositories.
+- [Velto CLI repeated process supervision — Actions #39943222124](https://github.com/Neuri-AI/Velto-CLI/actions/runs/39943222124): SUCCESS at `75590348b3edb25d0d004bb11e3e2d0d127e5577`.
+
+**Certification boundary:** these are real native mounted refresh/remount tests and real subprocess restart tests, but the workflow does **not** yet launch an entire Qyro native application and restart its toolkit event loop end-to-end for each backend. It does not measure bounded heap/RSS slopes across hour-long native sessions, or certify Windows/macOS. Therefore the *Linux coordinated lifecycle and mounted-backend functional baseline* passes, while the full platform/native-process/long-duration release gate remains OPEN. No skipped or non-executed test is counted as evidence.
