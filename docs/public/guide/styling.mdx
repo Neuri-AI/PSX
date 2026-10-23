@@ -1,0 +1,28 @@
+---
+title: "Styling and the box model"
+description: "CSS-like styles applied to native widgets, without a browser."
+---
+
+PSX supports CSS-like styles and a universal box-oriented layout model. Styles influence layout measurement, geometry and painting where the selected renderer implements the capability. It is **not** a browser CSS engine or an HTML DOM.
+
+## Geometry
+
+A box's relevant concepts are content, padding, border and margin. Changes to dimensions and typography may require remeasurement and Cinnamon geometry invalidation. Purely visual changes can avoid unnecessary layout where the implementation supports that distinction.
+
+```python
+from velto.ui import psx
+
+view = psx("""
+    <div>
+        <span>Content</span>
+    </div>
+""")
+```
+
+This illustrates HTML-like PSX Markup structure. Do not treat arbitrary CSS properties as guaranteed: check the [native CSS capability matrix](/reference/native-css-capabilities) for the targeted renderer.
+
+## Stylesheet resources
+
+Stylesheet files can be resolved through Qyro resource handling, including source and frozen resource locations. In source projects keep assets in the configured resource tree. Frozen projects should use `get_resource` to obtain resource paths rather than computing paths relative to the current working directory.
+
+**Verification:** [Qyro/PSX native integration](https://github.com/Neuri-AI/Velto/actions/runs/39962860498) verifies layout commits. It does not independently certify every CSS property.
