@@ -37,6 +37,7 @@ class CssProperty:
     allows_negative: bool = False
     allows_percent: bool = True
     keywords: frozenset[LengthKind] = frozenset()
+    choices: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if not self.name or self.name != self.name.lower() or "_" in self.name:
@@ -74,6 +75,10 @@ class CssPropertyRegistry:
         prop = self._properties.get(name)
         if prop is None:
             raise CssValidationError(CssDiagnostic(name, "unknown-property", f"Unsupported CSS property: {name!r}."))
+        if prop.grammar == "keyword":
+            if not isinstance(value, str) or value not in prop.choices:
+                raise CssValidationError(CssDiagnostic(name, "invalid-value", f"Unsupported CSS value for {name!r}: {value!r}."))
+            return CssDeclaration(name, value)
         if prop.grammar == "visual":
             try:
                 return CssDeclaration(name, normalize_visual_value(name, value))
@@ -95,6 +100,11 @@ class CssPropertyRegistry:
 def foundation_registry() -> CssPropertyRegistry:
     """Deliberately narrow sizing vocabulary pending cascade and renderer contracts."""
     return CssPropertyRegistry((
+        CssProperty("display", "block", False, grammar="keyword", choices=frozenset({"block", "inline", "flex", "inline-flex"})),
+        CssProperty("flex-direction", "row", False, grammar="keyword", choices=frozenset({"row", "column", "row-reverse", "column-reverse"})),
+        CssProperty("flex-wrap", "nowrap", False, grammar="keyword", choices=frozenset({"nowrap", "wrap", "wrap-reverse"})),
+        CssProperty("justify-content", "flex-start", False, grammar="keyword", choices=frozenset({"flex-start", "flex-end", "center", "space-between", "space-around", "space-evenly"})),
+        CssProperty("align-items", "stretch", False, grammar="keyword", choices=frozenset({"stretch", "flex-start", "flex-end", "center"})),
         CssProperty("width", Length(LengthKind.AUTO), False, keywords=frozenset({LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT, LengthKind.FIT_CONTENT})),
         CssProperty("height", Length(LengthKind.AUTO), False, keywords=frozenset({LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT, LengthKind.FIT_CONTENT})),
         CssProperty("min-width", Length.px(0), False, keywords=frozenset({LengthKind.AUTO, LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT})),
