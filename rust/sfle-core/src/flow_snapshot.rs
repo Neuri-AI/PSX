@@ -203,7 +203,8 @@ impl Flow<'_> {
             None => {
                 let native = self.leaf(index)?;
                 let mut horizontal = 0.0;
-                            let mut top = 0.0;
+                let mut vertical = 0.0;
+                let mut top = 0.0;
                 for group in ["margin", "border", "padding"] {
                     horizontal += self.edge(index, group, "left", available)?
                         + self.edge(index, group, "right", available)?;
@@ -321,7 +322,7 @@ impl Flow<'_> {
         let parent_content_width = self.constrained_dimension(index, "width", available, content_available)?;
         let content_x = x + left;
         let content_y = y + top;
-        let mut parent_height = self.dimension(index, "height", available)?;
+        let parent_height = self.dimension(index, "height", available)?;
         for child in self.children[index].clone() {
             self.containing_height[child] = parent_height;
         }
@@ -414,7 +415,6 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
     };
     let height = content_height;
     let mut has_root_edges = false;
-    let mut vertical = 0.0;
     for group in ["margin", "padding", "border"] {
         for side in ["top", "right", "bottom", "left"] {
             let edge = flow.edge(0, group, side, width)?;
