@@ -415,3 +415,17 @@ def test_semantic_css_flex_root_has_intrinsic_height_constraint():
     explicit_snapshot = _prepare(explicit).css_geometry_snapshot()
     assert explicit_snapshot.constraints.height.definite
     assert dict(explicit_snapshot.nodes[0].style)["layout_height"] == Length.px(30)
+
+
+def test_nested_list_inline_fragment_does_not_leak_display_into_flex_solver():
+    from psx.css.markup import compute_markup_styles
+    root = compute_markup_styles(
+        psx("<div><ul><li>First</li><li>Second</li></ul></div>"),
+        "div { display: flex; flex-direction: row; gap: 10px; }",
+    )
+    snapshot = _prepare(root).css_geometry_snapshot()
+    from psx.markup.html_aliases import FORMATTING_TAGS
+    assert all(node.component not in FORMATTING_TAGS for node in snapshot.nodes)
+    assert all("display" not in dict(node.style) for node in snapshot.nodes)
+    assert any(dict(node.style).get("direction") == "row"
+               for node in snapshot.nodes[1:])
