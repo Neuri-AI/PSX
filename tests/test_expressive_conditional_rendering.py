@@ -158,7 +158,7 @@ def view(visible):
 
     def test_invalid_arrow_outside_approved_grammar_fails_closed(self):
         sources = (
-            '<Flex>{visible && <Button on_click={(item, index) => save(item)} />}</Flex>',
+            '<Flex>{visible && <Button on_click={(item, index, extra) => save(item)} />}</Flex>',
         )
         for markup in sources:
             with self.subTest(markup=markup):
