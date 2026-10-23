@@ -50,3 +50,19 @@ def test_computed_style_is_read_only():
 def test_stylesheet_source_is_bounded():
     with pytest.raises(CssSyntaxError):
         parse_stylesheet(" " * 262145)
+
+
+def test_background_solid_color_shorthand_matches_longhand():
+    from psx.css.markup import parse_markup_style
+
+    source = parse_markup_style("div", inline_value="background: #ff0000; color: #ffffff")
+    assert [declaration.name for declaration in source.inline] == ["background-color", "color"]
+    computed = resolve_style(parse_stylesheet("div { background: red }"), StyleTarget("div"))
+    assert str(computed.properties["background-color"]) == str(
+        foundation_registry().validate("background-color", "red").value
+    )
+
+
+def test_background_image_shorthand_is_not_silently_accepted():
+    with pytest.raises(CssSyntaxError):
+        parse_stylesheet("div { background: url(image.png) }")
