@@ -213,3 +213,50 @@ def test_repeated_refresh_invalid_save_and_recovery_retains_native_identity(monk
     finally:
         context.app.unmount()
         close()
+
+
+def test_repeated_hook_signature_changes_release_old_boundaries(monkeypatch, tmp_path):
+    from psx import use_ref
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    source = tmp_path / "main.py"
+    source.write_text("class Example: pass\n", encoding="utf-8")
+    context = Example()
+    active = [False]
+
+    def render_current(self):
+        state, _ = use_state(31)
+        if active[0]:
+            use_ref()
+        return Flex(Text(f"hooks:{int(active[0])}:{state}"))
+
+    holder = [render_current]
+    def root():
+        return holder[0](context)
+    definition = component(root)
+    context._development_render = holder
+    context._development_root_definition = definition
+    context.app = App(definition, renderer=renderer)
+    monkeypatch.setattr(refresh, "_reload_policy", lambda _: object())
+    monkeypatch.setattr(refresh, "_project_modules", lambda *_: (frozenset(), {}))
+    monkeypatch.setattr(refresh, "_load_updated_class",
+                        lambda *_: SimpleNamespace(render=render_current))
+    try:
+        context.app.mount()
+        native_host = context.app.reconciler.root.native_handle()
+        label = context.app.reconciler.root.children[0].children[0].handle.widget
+        for iteration in range(1, 21):
+            previous = context.app.reconciler.root
+            active[0] = not active[0]
+            assert refresh.refresh_context_source(context, source, ("main.py",))
+            latest = context.app.reconciler.root
+            assert previous.disposed
+            assert latest is not previous
+            assert latest.native_handle() is native_host
+            updated = latest.children[0].children[0].handle.widget
+            assert updated is label
+            assert _native_text(updated, backend) == f"hooks:{int(active[0])}:31"
+    finally:
+        context.app.unmount()
+        close()
