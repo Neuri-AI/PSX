@@ -355,7 +355,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         host = bindings[root_id].widget
         # The native viewport stays fixed; a semantic flow root may have
         # intrinsic content height independently of that viewport.
-        semantic_root = snapshot.nodes[0].component in FORMATTING_TAGS
+        semantic_root = dict(prepared.identities)[root_id].type in FORMATTING_TAGS
         if not semantic_root and any(abs(got - expected) > 1.0 for got, expected in (
             (host.width, root_rect.width), (host.height, root_rect.height),
         )):
