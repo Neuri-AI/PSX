@@ -133,8 +133,8 @@ class Reconciler:
         """Mount or update the single root description."""
         if (node.kind is NodeKind.FRAGMENT
                 and getattr(self.renderer, "_sfle_constraints", None) is not None):
-            from .vnode import create_element
-            node = create_element("div", *node.children)
+            from psx.markup.html_aliases import _html_div
+            node = _html_div(*node.children)
         if self._is_rendering:
             raise RuntimeError("PSX rendering is not re-entrant.")
         # A completely stable host tree with only paint-class CSS changes
@@ -517,8 +517,8 @@ class Reconciler:
                 and getattr(self.renderer, "_sfle_constraints", None) is not None):
             # A root Fragment is a transparent authoring boundary. Give its
             # native siblings a private flow viewport, not a public div VNode.
-            from .vnode import create_element
-            result = create_element("div", *result.children)
+            from psx.markup.html_aliases import _html_div
+            result = _html_div(*result.children)
         if not isinstance(result, VNode):
             # type: ignore[union-attr]
             raise TypeError(f"Component {component.name} must return a VNode.")
