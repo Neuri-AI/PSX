@@ -42,3 +42,25 @@ def test_stylesheet_cascade_and_inheritance_for_visual_values():
     assert child.properties["font-family"] == "Inter"
     assert child.properties["color"] == CssColor("#fff")
     assert child.properties["background-color"] == CssColor("#0000")
+
+
+def test_short_hex_color_is_valid_without_expansion():
+    from psx.css.parser import parse_stylesheet
+    from psx.css.cascade import resolve_style, StyleTarget
+    from psx.css.native_paint import foreground_hex
+    sheet = parse_stylesheet("p {color: #333}")
+    value = resolve_style(sheet, StyleTarget("p"))
+    assert value.properties["color"] == CssColor("#333")
+    assert foreground_hex(value) == "#333333"
+
+
+def test_quoted_font_stacks_and_generic_fallbacks():
+    assert normalize_visual_value("font-family", "'Zapfino', cursive") == "Zapfino, cursive"
+    assert normalize_visual_value("font-family", '"Times New Roman", serif') == "Times New Roman, serif"
+    assert normalize_visual_value("font-family", "Inter, Arial") == "Inter, Arial"
+
+
+@pytest.mark.parametrize("source", ("'Unclosed, serif", "'Bad; CSS', serif", "Zapfino,, serif", "'Zapfino', url(x)"))
+def test_malformed_font_stacks_fail_closed(source):
+    with pytest.raises(ValueError):
+        normalize_visual_value("font-family", source)

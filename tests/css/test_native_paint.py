@@ -159,3 +159,12 @@ def test_native_radius_rejects_percentage_and_negative_values():
         native_border_radius(_style("div {border-radius: 15%}"))
     with pytest.raises(ValueError):
         native_border_radius(_style("div {border-radius: -3px}"))
+
+
+def test_quoted_font_stack_projects_to_native_typography_and_qt_stylesheet():
+    computed = _style("div {color: #333; font-family: 'Zapfino', cursive}")
+    assert foreground_hex(computed) == "#333333"
+    assert native_text_typography(computed)["font-family"] == "Zapfino"
+    qss = qt_semantic_stylesheet(computed)
+    assert 'color: #333333;' in qss
+    assert 'font-family: "Zapfino", cursive;' in qss
