@@ -1211,6 +1211,10 @@ class KivyRenderer:
     def schedule_ui(self, callback: Callable[[], None]) -> None:
         Clock.schedule_once(lambda _delta: callback(), 0)
 
+    def restore_root(self, previous) -> None:
+        """Restore renderer ownership when a candidate root fails to mount."""
+        self._root = _handle(previous).widget
+
     def transition_root(self, previous, replacement) -> None:
         """Exchange Kivy's displayed root while keeping the event loop alive."""
         from kivy.core.window import Window
