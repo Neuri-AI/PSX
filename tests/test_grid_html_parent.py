@@ -129,9 +129,22 @@ def test_grid_item_css_flex_sidebar_with_nested_buttons_measures_in_qt():
     try:
         reconciler.render(tree)
         assert renderer.grid_result is not None
+        def verify_padding():
+            sidebar = reconciler.root.children[0].children[0].children[0]
+            content = sidebar.children[1]
+            sidebar_box = sidebar.handle.widget.geometry()
+            content_box = content.handle.widget.geometry()
+            assert content_box.x() == pytest.approx(12, abs=1)
+            assert content_box.x() + content_box.width() <= sidebar_box.width() - 12 + 1
+            for button in content.children:
+                child_box = button.handle.widget.geometry()
+                assert child_box.x() >= -1
+                assert child_box.x() + child_box.width() <= content_box.width() + 1
+        verify_padding()
         renderer.set_sfle_constraints(LayoutConstraints(
             AvailableSize(1100, True), AvailableSize(700, True)))
         renderer.commit_layout(reconciler.root)
         assert renderer.grid_result is not None
+        verify_padding()
     finally:
         reconciler.unmount()
