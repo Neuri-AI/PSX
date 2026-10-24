@@ -216,8 +216,8 @@ class HeadlessRenderer:
                     f"{node.type} requires an SFLE Grid layout backend with an explicit viewport.")
             if node.type == "GridItem" and (parent is None or _handle(parent).type != "Grid"):
                 raise RendererCapabilityError("GridItem must be a direct child of a mounted Grid.")
-            if node.type == "Grid" and parent is not None and _handle(parent).type not in ("GridItem", "Flex"):
-                raise RendererCapabilityError("Nested Grid must be the direct content root of GridItem.")
+            if node.type == "Grid" and parent is not None and _handle(parent).type not in ("GridItem", "Flex", "div", "main", "section", "article", "header", "footer"):
+                raise RendererCapabilityError("Grid must be inside a supported Cinnamon layout container.")
         if self._sfle_constraints is not None:
             if node.kind is NodeKind.NATIVE:
                 raise RendererCapabilityError(
