@@ -48,8 +48,8 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
         viewport_constraints=viewport_constraints,
     )
     normalized = prepared.css_geometry_snapshot()
-    if normalized.nodes[0].component not in FORMATTING_TAGS:
-        raise GridPackingError("GridItem flow root must retain block semantics.")
+    if normalized.nodes[0].component not in (*FORMATTING_TAGS, "Flex"):
+        raise GridPackingError("GridItem flow root must retain block or CSS Flex semantics.")
     identities = {}
     def visit(node):
         identities[path_identity(node.path)] = node
