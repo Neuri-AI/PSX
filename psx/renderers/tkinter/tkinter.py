@@ -767,8 +767,8 @@ class TkinterRenderer:
                     f"Native SFLE {self._sfle_backend} SFLE geometry not certified for {node.type!r}.")
             if node.type == "GridItem" and (parent is None or _as_handle(parent).node_type != "Grid"):
                 raise RendererCapabilityError("GridItem must be a direct child of a mounted Grid.")
-            if node.type == "Grid" and parent is not None and _as_handle(parent).node_type not in ("GridItem", "Flex"):
-                raise RendererCapabilityError("Nested Grid must be the direct content root of GridItem.")
+            if node.type == "Grid" and parent is not None and _as_handle(parent).node_type not in ("GridItem", "Flex", "div", "main", "section", "article", "header", "footer"):
+                raise RendererCapabilityError("Grid must be inside a supported Cinnamon layout container.")
             master = _as_handle(parent).widget if parent is not None else self.root
             return TkHandle(node.type, ttk.Frame(master), dict(node.props))
         if node.kind is NodeKind.HOST and node.type == "Flex":
