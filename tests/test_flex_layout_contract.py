@@ -29,12 +29,18 @@ def test_flex_default_props() -> None:
     assert tree.props["gap"] == 0
 
 
+def test_flex_accepts_viewport_dimensions():
+    node = Flex(width="12vw", height="100vh")
+    assert node.props["width"] == "12vw"
+    assert node.props["height"] == "100vh"
+
+
 @pytest.mark.parametrize("props", [
     {"direction": "invalid"}, {"wrap": "invalid"},
     {"justify_content": "invalid"}, {"align_items": "end"},
     {"align_self": "invalid"}, {"gap": -1},
     {"gap": "calc(2px+3px)"}, {"row_gap": -1},
-    {"width": True}, {"width": "12vw"},
+    {"width": True},
     {"flex_grow": -1}, {"flex_shrink": float("nan")},
     {"order": 2 ** 40}, {"order": True},
     {"padding": (1, 2, 3)}, {"padding": -4},
