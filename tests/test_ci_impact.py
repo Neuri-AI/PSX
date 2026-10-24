@@ -11,6 +11,9 @@ class RoutingTests(unittest.TestCase):
     def test_html_native_label_interactions_run_on_qt(self):
         self.assertEqual(self.selected("tests/test_qt_html_form_associations.py"), {"qt"})
 
+    def test_missing_qt_image_fallback_is_executed(self):
+        self.assertEqual(self.selected("tests/test_qt_missing_image_intrinsic.py"), {"qt"})
+
     def test_html_select_and_link_refresh_are_executed(self):
         self.assertEqual(self.selected("tests/test_html_select_options.py"), {"core", "qt", "kivy", "tkinter"})
         self.assertEqual(self.selected("tests/test_qt_link_refresh_navigation.py"), {"qt"})
