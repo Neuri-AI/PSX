@@ -901,7 +901,7 @@ class KivyRenderer:
             if "font-weight" in styles:
                 if not hasattr(widget, "bold"):
                     raise ValueError(f"Kivy {target.node_type} does not expose native font-weight.")
-                widget.bold = styles["font-weight"] == 700
+                widget.bold = styles["font-weight"] >= 600
             if "text-align" in styles:
                 if not hasattr(widget, "halign"):
                     raise ValueError(f"Kivy {target.node_type} does not support text-align.")
