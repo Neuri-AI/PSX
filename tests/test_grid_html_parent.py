@@ -174,3 +174,71 @@ def test_native_sidebar_button_applies_padding_cursor_and_no_border():
         assert button.cursor().shape() == shapes.PointingHandCursor
     finally:
         reconciler.unmount()
+
+
+def test_nested_grid_stacks_after_flex_header_in_grid_item_block_flow():
+    from psx.css.context import scoped_css_resources
+
+    markup = (
+        '<div class="layout"><Grid gap="0px">'
+        '<GridItem span="3"><div class="sidebar">Mi panel</div></GridItem>'
+        '<GridItem><div class="content">'
+        '<div class="header"><p>Reportes</p><p>Hola, Fredo</p></div>'
+        '<Grid gap="16px"><GridItem><h1>Contenido de Reportes</h1></GridItem></Grid>'
+        '</div></GridItem></Grid></div>'
+    )
+    css = (
+        '.layout { min-height: 100vh; }'
+        '.header { display: flex; flex-direction: row; '
+        'justify-content: space-between; align-items: center; '
+        'gap: 10px; padding: 16px 20px; background: blue; }'
+    )
+    with scoped_css_resources(["css/styles.css"], resolver=lambda _: css):
+        tree = psx(markup)
+
+    renderer = PySide6Renderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(800, True), AvailableSize(600, True)),
+        engine=PythonLayoutEngine(), argv=["nested-grid-after-flex"],
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(tree)
+
+        def find(instance, css_class=None, node_type=None):
+            source = instance.node.css_source
+            if (css_class is not None and source is not None
+                    and css_class in source.classes):
+                return instance
+            if node_type is not None and instance.node.type == node_type:
+                return instance
+            for child in instance.children:
+                match = find(child, css_class=css_class, node_type=node_type)
+                if match is not None:
+                    return match
+            return None
+
+        content = find(root, css_class="content")
+        header = find(root, css_class="header")
+        nested = next(
+            child for child in content.children if child.node.type == "Grid"
+        )
+        assert header.handle.widget.parentWidget() is content.handle.widget
+        assert nested.handle.widget.parentWidget() is content.handle.widget
+
+        def verify_vertical_stack():
+            header_rect = header.handle.widget.geometry()
+            grid_rect = nested.handle.widget.geometry()
+            assert header_rect.height() > 0
+            assert grid_rect.y() >= header_rect.y() + header_rect.height() - 1
+            assert grid_rect.height() > 0
+            item = nested.children[0]
+            assert item.handle.widget.parentWidget() is nested.handle.widget
+
+        verify_vertical_stack()
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(1060, True), AvailableSize(700, True)))
+        renderer.commit_layout(reconciler.root)
+        verify_vertical_stack()
+    finally:
+        reconciler.unmount()
