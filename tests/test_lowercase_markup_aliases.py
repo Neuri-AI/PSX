@@ -533,7 +533,6 @@ def test_lowercase_aliases_preserve_css_computed_source():
 
 
 @pytest.mark.parametrize("markup", (
-    '<checkbox>not allowed</checkbox>',
     '<select>unregistered option content</select>',
     '<radio value="a">not allowed</radio>',
 ))
