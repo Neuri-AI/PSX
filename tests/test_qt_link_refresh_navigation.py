@@ -2,7 +2,7 @@
 import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from psx.core.vnode import Link
+from psx.core.vnode import Flex, Link
 from psx.core.reconcile import Reconciler
 from psx.renderers.qt.pyside import PySide6Renderer
 from psx.sfle.engine import PythonLayoutEngine
@@ -21,12 +21,12 @@ def test_removed_click_handler_restores_href(monkeypatch):
     reconciler = Reconciler(renderer)
     clicked = []
     try:
-        reconciler.render(Link("Submit", on_click=lambda: clicked.append(True)))
-        widget = reconciler.root.handle.widget
+        reconciler.render(Flex(Link("Submit", on_click=lambda: clicked.append(True))))
+        widget = reconciler.root.children[0].handle.widget
         widget.click()
         assert clicked == [True] and not visited
-        reconciler.render(Link("Submit", href="https://google.com"))
-        assert reconciler.root.handle.widget is widget
+        reconciler.render(Flex(Link("Submit", href="https://google.com")))
+        assert reconciler.root.children[0].handle.widget is widget
         widget.click()
         assert clicked == [True]
         assert visited == ["https://google.com"]
