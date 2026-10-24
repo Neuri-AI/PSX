@@ -110,6 +110,19 @@ class RoutingTests(unittest.TestCase):
         workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
         self.assertIn("tests/sfle/test_qt_inline_form_baselines.py", workflow)
 
+    def test_qt_semantic_border_isolation_routes_to_qt(self):
+        from pathlib import Path
+        self.assertEqual(self.selected("tests/test_qt_semantic_border_scope.py"), {"qt"})
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/test_qt_semantic_border_scope.py", workflow)
+
+    def test_nested_grid_padding_routes_all_geometry_backends(self):
+        expected = {"core", "sfle", "headless", "qt", "kivy", "tkinter"}
+        self.assertEqual(self.selected("tests/sfle/test_nested_grid_content_width.py"), expected)
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/grid-integral-certification.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/sfle/test_nested_grid_content_width.py", workflow)
+
     def test_qt_css_background_regression_is_executed_by_qt_job(self):
         self.assertEqual(self.selected("tests/test_qt_css_control_background.py"), {"qt"})
         from pathlib import Path
