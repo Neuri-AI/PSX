@@ -30,7 +30,7 @@ def test_inline_wins_and_does_not_mutate_sheet():
 
 @pytest.mark.parametrize("source", [
     "@media screen {div {width:2px}}",
-    "div span {width:5px}",
+    "div span article {width:5px}",
     "div {width: calc(1px + 1px)}",
     "div { width:10px",
     "div {color:rgb(1,2,3)}",
