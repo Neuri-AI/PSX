@@ -1,0 +1,29 @@
+name: Component source refresh
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'psx/devtools/qyro_reload.py'
+      - 'psx/devtools/coordinated_refresh.py'
+      - 'tests/test_coordinated_refresh.py'
+      - '.github/workflows/component-source-refresh.yml'
+permissions:
+  contents: read
+jobs:
+  lexical-refresh:
+    name: New module-level components during fast refresh
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install -e . pytest pandas
+      - name: Newly declared lexical components
+        run: python -m pytest -q tests/test_coordinated_refresh.py -k 'hot_refresh_loads_new_top_level_decorated_component_without_restart or refresh_candidate_omits_unrelated_bootstrap_but_keeps_components or mounted_fast_refresh_adds_new_component_without_restart'
+      - name: Baseline lexical runtime
+        run: python -m pytest -q tests/test_component_lexical_runtime.py

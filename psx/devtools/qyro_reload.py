@@ -260,6 +260,15 @@ def _render_class_source(source: str, class_name: str, modules: frozenset[str]) 
     for statement in tree.body:
         if isinstance(statement, ast.ClassDef) and statement.name == class_name:
             selected.append(statement)
+        elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
+            isinstance(decorator, ast.Name) and decorator.id == "component"
+            or isinstance(decorator, ast.Attribute) and decorator.attr == "component"
+            for decorator in statement.decorator_list
+        ):
+            # The candidate render method resolves PSX component tags from its
+            # module globals. Include newly authored component definitions,
+            # without executing unrelated module-level application bootstrap.
+            selected.append(statement)
         elif isinstance(statement, ast.ImportFrom):
             selected.append(statement)
         elif isinstance(statement, ast.Import):
