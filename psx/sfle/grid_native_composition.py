@@ -6,7 +6,7 @@ native layout manager estimate. Native ports supply only terminal leaf metrics.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from collections.abc import Callable, Mapping
 from psx.core.grid_contract import GRID_BREAKPOINTS
 from typing import Protocol
@@ -19,8 +19,11 @@ from .grid_native_measurement import measure_grid_native
 from .grid_flex_composition import ComposedFlex, prepare_composed_flex
 from .grid_tree_measurement import PreparedGridMeasurement
 from .grid_native_plan import GridNativePlacement
-from .model import IntrinsicSizes, MeasuredBox
+from .model import IntrinsicSizes, MeasuredBox, LayoutConstraints, AvailableSize
 from .native_measurement import NativeMeasurementPort
+from .native_layout_snapshot import prepare_native_layout_snapshot
+from .measured_block_snapshot import compute_measured_block_snapshot
+from psx.markup.html_aliases import FORMATTING_TAGS
 from .native_layout_snapshot import path_identity
 
 
@@ -29,11 +32,52 @@ class NativeLeafMeasurement(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class ComposedFlow:
+    prepared: object
+    result: object
+    content_height: float
+
+
+def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine):
+    """Measure an HTML block subtree using Cinnamon's flow layout kernel."""
+    constraints = LayoutConstraints(AvailableSize(width, True),
+                                    AvailableSize(None, False))
+    prepared = prepare_native_layout_snapshot(flow, constraints, generation=generation)
+    normalized = prepared.css_geometry_snapshot()
+    if normalized.nodes[0].component not in FORMATTING_TAGS:
+        raise GridPackingError("GridItem flow root must retain block semantics.")
+    identities = {}
+    def visit(node):
+        identities[path_identity(node.path)] = node
+        for child in node.effective_children:
+            visit(child)
+    visit(flow)
+    measurements = []
+    for node in normalized.nodes[1:]:
+        if node.component in FORMATTING_TAGS or node.component == "Flex":
+            continue
+        origin = identities[node.node_id]
+        if origin.effective_children or origin.type == "Grid":
+            raise GridPackingError("Nested GridItem flow supports native leaf controls.")
+        intrinsic = measure_leaf(node.node_id, origin, width)
+        if not isinstance(intrinsic, IntrinsicSizes):
+            raise GridPackingError("GridItem flow leaf requires native IntrinsicSizes.")
+        measurements.append(MeasuredBox(node.node_id, intrinsic,
+            LayoutConstraints(AvailableSize(width, True),
+                              AvailableSize(None, False)), generation))
+    snapshot = replace(normalized, measurements=tuple(measurements))
+    solved = compute_measured_block_snapshot(snapshot, flex_engine=engine)
+    root_id = normalized.nodes[0].node_id
+    return ComposedFlow(prepared, solved, dict(solved.boxes)[root_id].border.height)
+
+
+@dataclass(frozen=True, slots=True)
 class ComposedGrid:
     grid: NormalizedLayoutNode
     prepared: PreparedGridMeasurement
     nested: dict[str, "ComposedGrid"]
     nested_flex: dict[str, ComposedFlex]
+    nested_flow: dict[str, ComposedFlow]
     content_height: float
 
 
@@ -69,6 +113,7 @@ def prepare_composed_grid(
         child_by_id[path_identity(item.path)] = effective[0]
     nested: dict[str, ComposedGrid] = {}
     nested_flex: dict[str, ComposedFlex] = {}
+    nested_flow: dict[str, ComposedFlow] = {}
 
     class Source:
         def port(self):
@@ -115,6 +160,14 @@ def prepare_composed_grid(
                 nested_flex[identifier] = flex
                 height = flex.content_height
                 return IntrinsicSizes(0, width, 0, height, width, height)
+            if child.kind is NodeKind.HOST and child.type in FORMATTING_TAGS and child.effective_children:
+                flow = prepare_composed_flow(
+                    child, width=width, generation=generation,
+                    measure_leaf=measure_leaf, engine=engine,
+                )
+                nested_flow[identifier] = flow
+                height = flow.content_height
+                return IntrinsicSizes(0, width, 0, height, width, height)
             if child.kind not in (NodeKind.HOST, NodeKind.NATIVE) or child.effective_children:
                 raise GridPackingError("Composite GridItem requires a supported nested Grid.")
             measured = measure_leaf(identifier, child, width)
@@ -131,7 +184,7 @@ def prepare_composed_grid(
     )
     height = max((placement.y + placement.height for placement in prepared.placements),
                  default=0.0)
-    return ComposedGrid(grid, prepared, nested, nested_flex, height)
+    return ComposedGrid(grid, prepared, nested, nested_flex, nested_flow, height)
 
 
 def compose_geometry_batch(
@@ -165,6 +218,30 @@ def compose_geometry_batch(
                 widgets[grid_id] = handles[id(child.source)]
                 heights[grid_id] = placement.height
                 walk(nested, child_height)
+            elif identifier in grid.nested_flow:
+                flow = grid.nested_flow[identifier]
+                flow_id = identifier + "/flow"
+                placements.append(GridNativePlacement(
+                    flow_id, 0, 0, placement.used_width, flow.content_height,
+                    placement.used_width, flow.content_height, False, False,
+                ))
+                widgets[flow_id] = handles[id(child.source)]
+                heights[flow_id] = placement.height
+                boxes = dict(flow.result.boxes)
+                for source_id, source in flow.prepared.identities[1:]:
+                    current = next(node for node in flow.prepared.snapshot.nodes
+                                   if node.node_id == source_id)
+                    rect = boxes[source_id].border
+                    parent = boxes[current.parent_id].border
+                    local_x, local_y = rect.x - parent.x, rect.y - parent.y
+                    segment_id = flow_id + "/" + source_id
+                    placements.append(GridNativePlacement(
+                        segment_id, max(0.0, local_x), max(0.0, local_y),
+                        rect.width, rect.height, rect.width, rect.height,
+                        False, False,
+                    ))
+                    widgets[segment_id] = handles[id(source)]
+                    heights[segment_id] = parent.height
             elif identifier in grid.nested_flex:
                 subflex = grid.nested_flex[identifier]
                 flex_id = identifier + "/flex"
