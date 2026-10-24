@@ -45,11 +45,22 @@ def _html_input(*children: object, **props: object) -> VNode:
     if children:
         raise TypeError("input is a void element.")
     kind = props.pop("type", "text")
-    if kind not in ("text", "password", "checkbox"):
-        raise ValueError("input type must be text, password, or checkbox.")
+    if kind not in ("text", "password", "checkbox", "radio"):
+        raise ValueError("input type must be text, password, checkbox, or radio.")
     name = props.pop("name", None)
     if name is not None and (not isinstance(name, str) or not name):
         raise ValueError("input name must be a nonempty string.")
+    if kind == "radio":
+        from psx.core.vnode import Radio
+        if name is None:
+            raise ValueError("input type='radio' requires a group name.")
+        value = props.pop("value", None)
+        if not isinstance(value, (str, int)) or isinstance(value, bool):
+            raise ValueError("input type='radio' requires a string/integer value.")
+        checked = props.pop("checked", False)
+        if not isinstance(checked, bool):
+            raise ValueError("input checked must be a boolean.")
+        return Radio(value=value, name=name, checked=checked, **props)
     if kind == "checkbox":
         from psx.core.vnode import Checkbox
         props.pop("value", None)  # checkbox changes carry a boolean checked state
