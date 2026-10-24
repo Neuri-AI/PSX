@@ -41,6 +41,12 @@ def _classify_path(path: str) -> set[str]:
         return {"core", "headless", "qt", "kivy", "tkinter"}
     if path == ".github/workflows/cross-platform-native-reload.yml":
         return {"router", "core", "headless", "qt", "kivy", "tkinter"}
+    if path == "tests/test_html_select_options.py":
+        return {"core", "qt", "kivy", "tkinter"}
+    if path == "tests/test_qt_missing_image_intrinsic.py":
+        return {"qt"}
+    if path == "tests/test_qt_link_refresh_navigation.py":
+        return {"qt"}
     if path == "tests/test_html_radio_grouping.py":
         return {"core", "qt", "kivy", "tkinter"}
     if path == "tests/test_html_form_content.py":

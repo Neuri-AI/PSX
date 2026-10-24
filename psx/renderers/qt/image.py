@@ -121,7 +121,9 @@ class QtImageAdapter:
         core = importlib.import_module(f"{binding}.QtCore")
         pixmap = widget._psx_pixmap_cache
         if pixmap is None or pixmap.isNull():
-            raise RendererCapabilityError("Qt Image has no decoded source for SFLE painting.")
+            # Keep the alt-text placeholder visible while the resource is unavailable.
+            widget.setText(str(widget._psx_props["alt"]))
+            return
         if width <= 0 or height <= 0:
             widget.setPixmap(gui.QPixmap())
             return

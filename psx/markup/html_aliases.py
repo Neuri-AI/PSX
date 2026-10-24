@@ -97,6 +97,42 @@ def _html_input(*children: object, **props: object) -> VNode:
     return Input(**props)
 
 
+def _html_select(*children: object, **props: object) -> VNode:
+    """Compile HTML option children into the native Select options contract."""
+    from psx.core.vnode import Select
+    options = []
+    for child in children:
+        if not isinstance(child, VNode) or child.type != "option":
+            raise TypeError("select accepts only option children.")
+        options.append({"label": child.props["label"], "value": child.props["value"]})
+    if "options" in props and children:
+        raise ValueError("select cannot combine options prop with option children.")
+    name = props.pop("name", None)
+    if name is not None and (not isinstance(name, str) or not name):
+        raise ValueError("select name must be a nonempty string.")
+    callback = props.get("on_change")
+    if callback is not None and name is not None:
+        def emit(value: str | int) -> object:
+            return callback(InputChangeEvent(InputEventTarget(name, value)))
+        props["on_change"] = emit
+    if children:
+        props["options"] = tuple(options)
+    return Select(**props)
+
+
+def _html_option(*children: object, **props: object) -> VNode:
+    """Option is compile-time markup only, never a native host."""
+    props.pop("key", None)
+    if set(props) != {"value"} or not isinstance(props["value"], (str, int)) or isinstance(props["value"], bool):
+        raise ValueError("option requires a string/integer value.")
+    if not children or any(not isinstance(c, VNode) or c.type != "Text" for c in children):
+        raise TypeError("option requires plain text.")
+    label = "".join(str(c.props["value"]) for c in children).strip()
+    if not label:
+        raise ValueError("option requires nonempty text.")
+    return create_element("option", value=props["value"], label=label)
+
+
 def _html_textarea(*children: object, **props: object) -> VNode:
     """Map named HTML textarea change callbacks to portable event targets."""
     from psx.core.vnode import TextArea
@@ -317,10 +353,11 @@ def markup_alias_definitions(
         source = definitions[native]
         result[alias] = ComponentDefinition(
             alias,
-            {"img": _html_img, "input": _html_input, "button": _html_button, "textarea": _html_textarea, "checkbox": _html_checkbox}.get(alias, source.constructor),
-            contract=None if alias == "checkbox" else source.contract,
+            {"img": _html_img, "input": _html_input, "button": _html_button, "textarea": _html_textarea, "checkbox": _html_checkbox, "select": _html_select, "option": _html_option}.get(alias, source.constructor),
+            contract=None if alias in ("checkbox", "select", "option") else source.contract,
             markup_integer_properties=source.markup_integer_properties,
         )
+    result.setdefault("option", ComponentDefinition("option", _html_option))
     # Generic formatting boxes are private markup constructors. They must
     # never masquerade as registered legacy/native toolkit primitives.
     for tag in FORMATTING_TAGS:
