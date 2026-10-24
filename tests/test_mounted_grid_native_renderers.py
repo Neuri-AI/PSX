@@ -2955,3 +2955,72 @@ def test_fragment_root_mounts_multiple_html_siblings_on_native_backends():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_grid_composition_reused_for_same_width_within_transaction(monkeypatch):
+    """Repeated intrinsic requests must not repeat native Grid measurement."""
+    from threading import get_ident
+    from types import SimpleNamespace
+    from psx.sfle.grid_native_commit import GridCommitBackend
+    from psx.sfle.grid_native_commit import GridCommitBackend
+    from psx.sfle import mixed_grid_native
+    from psx.sfle.mixed_grid_native import MountedMixedGrid
+
+    calls = []
+    composition = SimpleNamespace(content_height=75)
+    def measure(grid, **kwargs):
+        calls.append(kwargs["content_width"])
+        return composition
+
+    monkeypatch.setattr(mixed_grid_native, "prepare_composed_grid", measure)
+    bridge = object.__new__(MountedMixedGrid)
+    bridge.renderer = SimpleNamespace(
+        _sfle_owner_thread=get_ident(), _sfle_generation=4,
+        _sfle_engine=object(), _sfle_constraints=viewport(800),
+    )
+    bridge.generation = 4
+    bridge.grids = {"cards": object()}
+    bridge.handles = {}
+    bridge.backend = GridCommitBackend.QT
+    bridge.breakpoints = {}
+    bridge._composition_cache = {}
+    assert bridge.intrinsic("cards", 500).preferred_height == 75
+    assert bridge.intrinsic("cards", 500).preferred_height == 75
+    assert bridge.compose("cards", 500) is composition
+    assert calls == [500]
+    bridge.compose("cards", 540)
+    assert calls == [500, 540]
+    bridge.renderer._sfle_generation = 5
+    with pytest.raises(Exception, match="stale"):
+        bridge.compose("cards", 500)
+
+
+def test_grid_composition_failure_is_not_cached(monkeypatch):
+    from threading import get_ident
+    from types import SimpleNamespace
+    from psx.sfle.grid_native_commit import GridCommitBackend
+    from psx.sfle import mixed_grid_native
+    from psx.sfle.mixed_grid_native import MountedMixedGrid
+
+    count = [0]
+    def measure(grid, **kwargs):
+        count[0] += 1
+        if count[0] == 1:
+            raise RuntimeError("measurement failed")
+        return SimpleNamespace(content_height=15)
+    monkeypatch.setattr(mixed_grid_native, "prepare_composed_grid", measure)
+    bridge = object.__new__(MountedMixedGrid)
+    bridge.renderer = SimpleNamespace(
+        _sfle_owner_thread=get_ident(), _sfle_generation=1,
+        _sfle_engine=object(), _sfle_constraints=viewport(800),
+    )
+    bridge.generation = 1
+    bridge.grids = {"cards": object()}
+    bridge.handles = {}
+    bridge.backend = GridCommitBackend.QT
+    bridge.breakpoints = {}
+    bridge._composition_cache = {}
+    with pytest.raises(RuntimeError, match="measurement failed"):
+        bridge.compose("cards", 500)
+    assert bridge.compose("cards", 500).content_height == 15
+    assert count == [2]

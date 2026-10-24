@@ -29,6 +29,9 @@ class MountedMixedGrid:
         self.generation = generation
         self.breakpoints = getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS)
         self.grids = {}
+        # Reuse an immutable composition for repeated width requests within
+        # one layout transaction. A new MountedMixedGrid is built per commit.
+        self._composition_cache = {}
 
         def visit(node):
             if node.kind is NodeKind.HOST and node.type == "Grid":
@@ -47,6 +50,9 @@ class MountedMixedGrid:
         if not self._on_thread() or self.renderer._sfle_generation != self.generation:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                             "Mixed Grid measurement became stale or left the owner thread.")
+        key = (node_id, width)
+        if key in self._composition_cache:
+            return self._composition_cache[key]
         grid = self.grids[node_id]
 
         def measure_leaf(identifier, node, allocated_width):
@@ -72,7 +78,7 @@ class MountedMixedGrid:
                 raise GridPackingError("Mixed Grid needs measured terminal native leaves.")
             return result
 
-        return prepare_composed_grid(
+        composition = prepare_composed_grid(
             grid, content_width=width,
             generation=self.generation,
             current_generation=self.renderer._sfle_generation,
@@ -81,6 +87,9 @@ class MountedMixedGrid:
             engine=self.renderer._sfle_engine,
             viewport_constraints=self.renderer._sfle_constraints,
         )
+        # Never publish a partial result after a measurement exception.
+        self._composition_cache[key] = composition
+        return composition
 
     def intrinsic(self, node_id, width):
         measured = self.compose(node_id, width)
