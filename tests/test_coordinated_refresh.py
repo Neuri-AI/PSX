@@ -532,7 +532,7 @@ def test_hot_refresh_loads_new_top_level_decorated_component_without_restart(tmp
     view = candidate.render(ExternalExample())
     assert view.type == "div"
     assert view.children[0].kind is NodeKind.COMPONENT
-    assert view.children[0].type.__name__ == "SecondaryComponent"
+    assert view.children[0].type.name == "SecondaryComponent"
 
 
 def test_refresh_candidate_omits_unrelated_bootstrap_but_keeps_components():
