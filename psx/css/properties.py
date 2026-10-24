@@ -124,7 +124,11 @@ def expand_box_shorthand(
         return (registry.validate(name, value),)
     parts = value.split()
     if len(parts) == 1:
-        return (registry.validate(name, parts[0]),)
+        declaration = registry.validate(name, parts[0])
+        return (declaration,) + tuple(
+            registry.validate(f"{name}-{side}", parts[0])
+            for side in ("top", "right", "bottom", "left")
+        )
     if len(parts) not in (2, 3, 4):
         raise CssValidationError(CssDiagnostic(
             name, "invalid-value", f"Invalid CSS value for {name!r}: {value!r}.",
