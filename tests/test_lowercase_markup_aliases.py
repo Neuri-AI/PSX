@@ -26,7 +26,7 @@ def test_lowercase_and_pascalcase_are_both_available():
         ("button", "Button"), ("input", "Input"),
         ("textarea", "TextArea"), ("img", "Image")
     ):
-        assert (registry[lower].constructor is not registry[legacy].constructor) == (lower in {"img", "button", "input"})
+        assert (registry[lower].constructor is not registry[legacy].constructor) == (lower in {"img", "button", "input", "textarea"})
         assert registry[lower].contract is registry[legacy].contract
         assert not native_registry.contains(lower)
 
@@ -533,7 +533,6 @@ def test_lowercase_aliases_preserve_css_computed_source():
 
 
 @pytest.mark.parametrize("markup", (
-    '<checkbox>not allowed</checkbox>',
     '<select>unregistered option content</select>',
     '<radio value="a">not allowed</radio>',
 ))

@@ -29,7 +29,8 @@ def _html_img(*children: object, src: str | None = None, source: str | None = No
 @dataclass(frozen=True, slots=True)
 class InputEventTarget:
     name: str
-    value: str
+    value: str | bool
+    checked: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,11 +45,20 @@ def _html_input(*children: object, **props: object) -> VNode:
     if children:
         raise TypeError("input is a void element.")
     kind = props.pop("type", "text")
-    if kind not in ("text", "password"):
-        raise ValueError("input type must be 'text' or 'password'.")
+    if kind not in ("text", "password", "checkbox"):
+        raise ValueError("input type must be text, password, or checkbox.")
     name = props.pop("name", None)
     if name is not None and (not isinstance(name, str) or not name):
         raise ValueError("input name must be a nonempty string.")
+    if kind == "checkbox":
+        from psx.core.vnode import Checkbox
+        props.pop("value", None)  # checkbox changes carry a boolean checked state
+        callback = props.get("on_change")
+        if callback is not None and name is not None:
+            def emit(checked: bool) -> object:
+                return callback(InputChangeEvent(InputEventTarget(name, checked, checked)))
+            props["on_change"] = emit
+        return Checkbox(**props)
     if kind == "password":
         if "password" in props and props["password"] is not True:
             raise ValueError("input type='password' conflicts with password=False.")
@@ -61,6 +71,38 @@ def _html_input(*children: object, **props: object) -> VNode:
             return callback(InputChangeEvent(InputEventTarget(name, value)))
         props["on_change"] = emit
     return Input(**props)
+
+
+def _html_textarea(*children: object, **props: object) -> VNode:
+    """Map named HTML textarea change callbacks to portable event targets."""
+    from psx.core.vnode import TextArea
+    name = props.pop("name", None)
+    if name is not None and (not isinstance(name, str) or not name):
+        raise ValueError("textarea name must be a nonempty string.")
+    callback = props.get("on_change")
+    if callback is not None and name is not None:
+        def emit(value: str) -> object:
+            return callback(InputChangeEvent(InputEventTarget(name, value)))
+        props["on_change"] = emit
+    return TextArea(*children, **props)
+
+
+def _html_checkbox(*children: object, **props: object) -> VNode:
+    """Give a lowercase checkbox visible inline text without altering its native contract."""
+    from psx.core.vnode import Checkbox
+    key = props.pop("key", None)
+    checkbox = Checkbox(**props)
+    if not children:
+        return checkbox
+    text = []
+    for child in children:
+        if not isinstance(child, VNode) or child.type != "Text":
+            raise TypeError("checkbox accepts only text label content.")
+        text.append(str(child.props["value"]))
+    label = " ".join(" ".join(text).split())
+    if not label:
+        return checkbox
+    return create_element("span", checkbox, Text(label), key=key, display="inline")
 
 
 def _html_button(*children: object, **props: object) -> VNode:
@@ -169,6 +211,8 @@ def _formatting_host(
     allowed = {"ref", "layout_width", "layout_height"}
     if tag == "form":
         allowed.add("on_submit")
+    if tag == "label":
+        allowed.add("for")
     extra = set(props) - allowed
     if extra:
         raise ValueError(f"Unsupported {tag} properties: {sorted(extra)}")
@@ -249,8 +293,8 @@ def markup_alias_definitions(
         source = definitions[native]
         result[alias] = ComponentDefinition(
             alias,
-            {"img": _html_img, "input": _html_input, "button": _html_button}.get(alias, source.constructor),
-            contract=source.contract,
+            {"img": _html_img, "input": _html_input, "button": _html_button, "textarea": _html_textarea, "checkbox": _html_checkbox}.get(alias, source.constructor),
+            contract=None if alias == "checkbox" else source.contract,
             markup_integer_properties=source.markup_integer_properties,
         )
     # Generic formatting boxes are private markup constructors. They must
