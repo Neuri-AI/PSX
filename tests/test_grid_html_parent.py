@@ -97,3 +97,41 @@ def test_grid_item_nested_block_padding_keeps_text_inside_logo():
                 assert rect.x() == pytest.approx(0, abs=1)
     finally:
         reconciler.unmount()
+
+
+def test_grid_item_css_flex_sidebar_with_nested_buttons_measures_in_qt():
+    from psx.css.context import scoped_css_resources
+    markup = (
+        '<div class="layout"><Grid gap="0px"><GridItem span="3">'
+        '<div class="sidebar"><h4>Mi panel</h4>'
+        '<div class="sidebar-content"><button>Resumen</button>'
+        '<button>Usuarios</button><button>Reportes</button>'
+        '<button>Configuración</button></div></div>'
+        '</GridItem><GridItem><div class="content">hola</div></GridItem>'
+        '</Grid></div>'
+    )
+    css = (
+        '.layout {min-height: 100vh}'
+        '.sidebar {height: 100vh; background: #1f2430; '
+        'padding: 20px 12px; display: flex; flex-direction: column; gap: 10px}'
+        '.sidebar-content {display: flex; flex-direction: column; gap: 10px}'
+        '.sidebar-content > button {text-align: left; border: 1px solid #abcdef; '
+        'border-radius: 6px}'
+    )
+    with scoped_css_resources(["css/styles.css"], resolver=lambda _: css):
+        tree = psx(markup)
+    renderer = PySide6Renderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(800, True), AvailableSize(600, True)),
+        engine=PythonLayoutEngine(), argv=["grid-css-flex-sidebar"],
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        reconciler.render(tree)
+        assert renderer.grid_result is not None
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(1100, True), AvailableSize(700, True)))
+        renderer.commit_layout(reconciler.root)
+        assert renderer.grid_result is not None
+    finally:
+        reconciler.unmount()
