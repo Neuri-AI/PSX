@@ -366,7 +366,7 @@ def validate_flex_props(props: Mapping[str, object]) -> None:
             parsed = parse_length(value)
         except (TypeError, ValueError) as error:
             raise RendererCapabilityError(f"Invalid Flex.{name} length.") from error
-        allowed = {LengthKind.PX, LengthKind.PERCENT}
+        allowed = {LengthKind.PX, LengthKind.PERCENT, LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX}
         if allow_auto:
             allowed.add(LengthKind.AUTO)
         if allow_none:
