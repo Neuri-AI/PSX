@@ -1132,7 +1132,7 @@ class QtRenderer:
                 if "border-width" in computed.specified and border is None:
                     declarations.append("border: none;")
             if computed is not None:
-                value = computed.properties["cursor"]
+                value = computed.properties.get("cursor", "auto")
                 if "cursor" in computed.specified:
                     qt = self._qtcore.Qt
                     shapes = getattr(qt, "CursorShape", qt)
