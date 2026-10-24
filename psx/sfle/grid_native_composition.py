@@ -92,6 +92,47 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
     visit(flow)
     measurements = []
     nested_grids = {}
+    # A nested Grid participates in its containing block's *content* box.
+    # Its width is not the GridItem's original border-box width: intermediate
+    # HTML-like hosts can consume horizontal padding, borders and margins.
+    from .lengths import Length, LengthKind, parse_length
+    by_id = {node.node_id: node for node in normalized.nodes}
+
+    def nested_grid_width(node_id):
+        chain = []
+        parent_id = by_id[node_id].parent_id
+        while parent_id is not None:
+            ancestor = by_id[parent_id]
+            chain.append(ancestor)
+            parent_id = ancestor.parent_id
+        available = width
+        for ancestor in reversed(chain):
+            style = dict(ancestor.style)
+            if "layout_width" in style:
+                specified = parse_length(style["layout_width"])
+                if specified.kind is LengthKind.PX:
+                    available = float(specified.value)
+                elif specified.kind is LengthKind.PERCENT:
+                    available *= float(specified.value)
+                elif specified.kind not in (LengthKind.AUTO, LengthKind.NONE):
+                    raise GridPackingError("Nested Grid containing width is not resolvable.")
+                # An explicit width describes the content box, not border box.
+                continue
+            for group in ("margin", "border", "padding"):
+                for side in ("left", "right"):
+                    value = style.get(f"layout_{group}_{side}")
+                    if value is None:
+                        continue
+                    parsed = parse_length(value)
+                    if parsed.kind is LengthKind.PX:
+                        available -= float(parsed.value)
+                    elif parsed.kind is LengthKind.PERCENT:
+                        available -= width * float(parsed.value)
+                    else:
+                        raise GridPackingError("Nested Grid container edges require concrete lengths.")
+            available = max(0.0, available)
+        return available
+
     for node in normalized.nodes[1:]:
         if node.component in FORMATTING_TAGS or node.component == "Flex":
             continue
@@ -99,10 +140,11 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
         if origin.type == "Grid":
             if measure_grid is None:
                 raise GridPackingError("Nested Grid flow requires a Cinnamon Grid measurement callback.")
-            nested = measure_grid(origin, width)
+            available = nested_grid_width(node.node_id)
+            nested = measure_grid(origin, available)
             nested_grids[node.node_id] = nested
             height = nested.content_height
-            intrinsic = IntrinsicSizes(0, width, 0, height, width, height)
+            intrinsic = IntrinsicSizes(0, available, 0, height, available, height)
         else:
             if origin.effective_children:
                 raise GridPackingError("Nested GridItem flow supports native leaves and Grid hosts.")
