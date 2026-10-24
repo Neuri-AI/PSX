@@ -27,6 +27,10 @@ VISUAL_EFFECTS = {
     "color": "paint",
     "background-color": "paint",
     "border-color": "paint",
+    "border-top-color": "paint",
+    "border-right-color": "paint",
+    "border-bottom-color": "paint",
+    "border-left-color": "paint",
     "font-family": "measurement",
     "font-size": "measurement",
     "font-weight": "measurement",
@@ -39,7 +43,7 @@ VISUAL_EFFECTS = {
 def normalize_visual_value(name: str, value: str) -> CssColor | Length | int | str:
     if name not in VISUAL_EFFECTS:
         raise ValueError(f"Unsupported visual CSS property: {name!r}.")
-    if name in ("color", "background-color", "border-color"):
+    if name in ("color", "background-color", "border-color", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color"):
         # Common CSS named colors accepted by the portable native paint layer.
         # Normalize before typed hex validation so renderers share one format.
         named = {
