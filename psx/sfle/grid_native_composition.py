@@ -48,6 +48,39 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
         viewport_constraints=viewport_constraints,
     )
     normalized = prepared.css_geometry_snapshot()
+    if normalized.nodes[0].component == "Flex":
+        # Grid allocates a border-box width. An auto-sized CSS Flex host
+        # must give Cinnamon its *content* width, excluding its own edges.
+        # Otherwise stretched children paint across the parent's padding.
+        from .lengths import Length, LengthKind
+        root, *rest = normalized.nodes
+        style = dict(root.style)
+        if "layout_width" not in style and "width" not in style:
+            def edge(group, side):
+                value = style.get(f"layout_{group}_{side}")
+                if value is None:
+                    return 0.0
+                if isinstance(value, Length):
+                    if value.kind is LengthKind.PX:
+                        return float(value.value)
+                    if value.kind is LengthKind.PERCENT:
+                        return width * float(value.value)
+                if isinstance(value, (int, float)) and not isinstance(value, bool):
+                    return float(value)
+                raise GridPackingError(
+                    "CSS Flex auto-width edges must resolve against GridItem width."
+                )
+            horizontal = sum(
+                edge(group, side)
+                for group in ("padding", "border")
+                for side in ("left", "right")
+            )
+            style["layout_width"] = max(0.0, width - horizontal)
+            normalized = replace(
+                normalized, nodes=(
+                    replace(root, style=tuple(sorted(style.items()))), *rest
+                ),
+            )
     if normalized.nodes[0].component not in (*FORMATTING_TAGS, "Flex"):
         raise GridPackingError("GridItem flow root must retain block or CSS Flex semantics.")
     identities = {}
