@@ -52,17 +52,17 @@ class PreparedNativeLayoutSnapshot:
         descendant box. Neither the stylesheet nor the VNode is mutated.
         """
         from .lengths import Length, LengthKind, parse_length, resolve_viewport_length
-        viewport = {LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX}
-        viewport = self.viewport_constraints or self.snapshot.constraints
-        w = viewport.width.value
-        h = viewport.height.value
+        viewport_kinds = {LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX}
+        window = self.viewport_constraints or self.snapshot.constraints
+        w = window.width.value
+        h = window.height.value
         converted = []
         for node in snapshot.nodes:
             style = dict(node.style)
             for name, value in style.items():
                 if isinstance(value, str) and value.strip().lower().endswith(("vw", "vh", "vmin", "vmax")):
                     value = parse_length(value)
-                if isinstance(value, Length) and value.kind in viewport:
+                if isinstance(value, Length) and value.kind in viewport_kinds:
                     if w is None or h is None:
                         raise SFLECapabilityError(
                             DiagnosticCode.LAYOUT_CONSTRAINT,
