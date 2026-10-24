@@ -127,3 +127,43 @@ def test_unsupported_or_malformed_relationships_still_fail_closed(selector):
 def test_unsupported_flex_shorthand_values_fail_closed(value):
     with pytest.raises(CssSyntaxError):
         parse_stylesheet(f".color-list > div {{ flex: {value}; }}")
+
+
+@pytest.mark.parametrize("value,expected", (
+    ("20px", (20, 20, 20, 20)),
+    ("20px 12px", (20, 12, 20, 12)),
+    ("20px 12px 8px", (20, 12, 8, 12)),
+    ("20px 12px 8px 4px", (20, 12, 8, 4)),
+))
+@pytest.mark.parametrize("name", ("padding", "margin"))
+def test_clockwise_box_shorthand_resolves_all_sides(name, value, expected):
+    resolved = resolve_style(parse_stylesheet(f"div {{{name}: {value}}}"), StyleTarget("div"))
+    assert tuple(resolved.properties[f"{name}-{side}"] for side in
+                 ("top", "right", "bottom", "left")) == tuple(Length.px(x) for x in expected)
+
+
+def test_clockwise_shorthand_respects_order_and_inline_mapping():
+    from psx.css.markup import parse_markup_style
+    resolved = resolve_style(parse_stylesheet(
+        "div { padding-left: 7px; padding: 20px 12px; padding-top: 3px }"
+    ), StyleTarget("div"))
+    assert resolved.properties["padding-left"] == Length.px(12)
+    assert resolved.properties["padding-top"] == Length.px(3)
+    source = parse_markup_style("div", inline_value={
+        "padding": "20px 12px", "padding-right": "5px",
+    })
+    inline = resolve_style(parse_stylesheet(""), StyleTarget("div"), inline=source.inline)
+    assert inline.properties["padding-left"] == Length.px(12)
+    assert inline.properties["padding-right"] == Length.px(5)
+
+
+@pytest.mark.parametrize("name,value", (
+    ("padding", "20px 12px 8px 4px 1px"),
+    ("padding", "20px -1px"),
+    ("padding", "auto 12px"),
+    ("padding", "20px garbage"),
+    ("margin", "2px invalid"),
+))
+def test_invalid_clockwise_box_values_fail_closed(name, value):
+    with pytest.raises(CssSyntaxError):
+        parse_stylesheet(f"div {{{name}: {value}}}")
