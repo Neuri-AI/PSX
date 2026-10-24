@@ -89,6 +89,7 @@ def commit_headless_grid(renderer: object, root: object) -> None:
                 is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
                 breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
                 engine=renderer._sfle_engine,
+                viewport_constraints=renderer._sfle_constraints,
             )
             prepared = composed.prepared
             batch, widget_map, _ = compose_geometry_batch(
