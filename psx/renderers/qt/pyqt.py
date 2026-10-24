@@ -1177,7 +1177,16 @@ class QtRenderer:
             return
         if target.node_type not in FORMATTING_TAGS:
             return
-        projected = qt_semantic_stylesheet(computed)
+        authored = qt_semantic_stylesheet(computed)
+        # A bare QWidget stylesheet applies to matching descendant widgets.
+        # Scope semantic-host paint to this native widget so its border and
+        # background do not appear on nested <p>, <div> or controls.
+        css_name = getattr(target.widget, "_psx_css_object_name", None)
+        if css_name is None:
+            css_name = f"psx_css_{id(target.widget):x}"
+            target.widget._psx_css_object_name = css_name
+            target.widget.setObjectName(css_name)
+        projected = f"#{css_name} {{ {authored} }}" if authored else ""
         if target.widget.styleSheet() != projected:
             target.widget._psx_css_projection_active = True
             try:

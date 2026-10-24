@@ -91,7 +91,7 @@ def _classify_path(path: str) -> set[str]:
         return {"qt"}
     if path == "tests/test_qt_html_form_associations.py":
         return {"qt"}
-    if path == "tests/test_qt_css_control_background.py":
+    if path in ("tests/test_qt_css_control_background.py", "tests/test_qt_semantic_border_scope.py"):
         return {"qt"}
     if path == "psx/css/native_paint.py" or path == "tests/css/test_native_paint.py":
         return {"core", "qt", "kivy", "tkinter"}
@@ -120,6 +120,7 @@ def _classify_path(path: str) -> set[str]:
                  "psx/sfle/mixed_grid_native.py",
                  "psx/sfle/grid_flex_composition.py",
                  "tests/sfle/test_grid_native_commit.py",
+                 "tests/sfle/test_nested_grid_content_width.py",
                  "psx/sfle/grid_native_measurement.py", "tests/sfle/test_grid_native_measurement.py",
                  "psx/sfle/grid_tree_measurement.py", "tests/sfle/test_grid_tree_measurement.py"):
         return {"core", "sfle", "headless", "qt", "kivy", "tkinter"}

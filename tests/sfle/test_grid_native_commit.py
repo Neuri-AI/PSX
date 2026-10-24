@@ -214,3 +214,61 @@ def test_kivy_parent_height_mismatch_rejects_before_mutation():
             parent_height=100, parent_heights={"wrong": 100},
         )
     assert tuple(child.pos) == previous
+
+
+def test_unchanged_headless_grid_geometry_does_not_write_again():
+    class CountingWidget:
+        def __init__(self):
+            self._geometry = None
+            self.writes = 0
+
+        @property
+        def geometry(self):
+            return self._geometry
+
+        @geometry.setter
+        def geometry(self, rect):
+            self.writes += 1
+            self._geometry = rect
+
+    widgets = {"a": CountingWidget(), "b": CountingWidget()}
+    placements = (placement("a", 0, 0), placement("b", 40, 0))
+    commit(placements, widgets)
+    assert [w.writes for w in widgets.values()] == [1, 1]
+    commit(placements, widgets)
+    assert [w.writes for w in widgets.values()] == [1, 1]
+    commit((placement("a", 0, 0), placement("b", 44, 0)), widgets)
+    assert [w.writes for w in widgets.values()] == [1, 2]
+
+
+def test_unchanged_qt_grid_geometry_does_not_write_again():
+    qt = pytest.importorskip("PySide6.QtWidgets")
+    app = qt.QApplication.instance() or qt.QApplication([])
+
+    class CountingWidget(qt.QWidget):
+        def __init__(self, parent):
+            super().__init__(parent)
+            self.writes = 0
+
+        def setGeometry(self, *args):
+            self.writes += 1
+            return super().setGeometry(*args)
+
+    parent = qt.QWidget()
+    child = CountingWidget(parent)
+    try:
+        placements = (placement("a", 1, 2),)
+        kwargs = dict(
+            backend=GridCommitBackend.QT, widgets={"a": child},
+            generation=3, current_generation=lambda: 3,
+            is_ui_thread=lambda: True,
+        )
+        commit_grid_native_geometry(placements, **kwargs)
+        first = child.writes
+        assert first == 1
+        commit_grid_native_geometry(placements, **kwargs)
+        assert child.writes == first
+        commit_grid_native_geometry((placement("a", 2, 2),), **kwargs)
+        assert child.writes == first + 1
+    finally:
+        parent.deleteLater()

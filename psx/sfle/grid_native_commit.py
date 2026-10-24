@@ -134,7 +134,21 @@ def commit_grid_native_geometry(
         for node_id in ids:
             if current_generation() != generation or not is_ui_thread():
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated during native commit.")
-            write(widgets[node_id], target[node_id])
+            before = originals[node_id]
+            desired = target[node_id]
+            # Qt and Tk project logical rectangles to integral native pixels.
+            # Avoid triggering redundant geometry/change events on unchanged widgets.
+            if backend in (GridCommitBackend.QT, GridCommitBackend.TK):
+                unchanged = all(
+                    getattr(before, axis) == round(getattr(desired, axis))
+                    for axis in ("x", "y", "width", "height")
+                )
+            else:
+                unchanged = before == desired
+            if (unchanged and node_id not in absent_headless
+                    and node_id not in unplaced):
+                continue
+            write(widgets[node_id], desired)
         if current_generation() != generation or not is_ui_thread():
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before readback.")
         error = max((

@@ -1,0 +1,54 @@
+name: Grid resize performance
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - "psx/sfle/**"
+      - "psx/renderers/**"
+      - "benchmarks/grid_resize_profile.py"
+      - ".github/workflows/grid-resize-performance.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  profile:
+    name: Cinnamon Python and Rust Grid resize CPU profile
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install native Qt system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+      - name: Install PSX, PySide6 and native build tooling
+        run: |
+          python -m pip install -e '.[pyside6]' 'maturin>=1.8,<2' pytest
+          maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
+          python -m pip install --no-deps --find-links wheelhouse 'psx-sfle-native==0.1.0'
+          python -c "from psx.sfle.backend import load_layout_engine; assert load_layout_engine().backend_name == 'rust'"
+      - name: Execute repeated native Grid resize profiles
+        run: |
+          mkdir -p benchmark-results
+          python benchmarks/grid_resize_profile.py --engine both --cards 24 --cycles 100 --warmup 10 > benchmark-results/grid-resize.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("benchmark-results/grid-resize.json").read_text())
+          assert {item["engine"] for item in data} == {"python", "rust"}
+          for item in data:
+              assert item["cycles"] == 100
+              print(f'{item["engine"]}: CPU {item["mean_cpu_ms"]:.3f} ms/resize, wall {item["mean_wall_ms"]:.3f} ms/resize, p95 {item["p95_wall_ms"]:.3f} ms')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cinnamon-grid-resize-profiles
+          path: benchmark-results/
+          if-no-files-found: warn
