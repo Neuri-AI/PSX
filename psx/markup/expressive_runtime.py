@@ -209,8 +209,8 @@ def element(
         children = tuple(Text("0") if type(child) is int and child == 0 else child
                          for child in children)
     normalized = tuple(_flatten(children))
-    if name in ("p", "h1", "h2", "h3", "h4", "h5", "h6"):
-        # Adjacent literal and expression text share one inline text box.
+    if name in ("div", "main", "section", "article", "header", "footer", "nav", "form", "ul", "li", "p", "h1", "h2", "h3", "h4", "h5", "h6"):
+        # Adjacent plain text belongs to one measured inline run in a block box.
         # Independent native Text hosts would otherwise enter block flow on
         # separate lines even though they are one paragraph text run.
         joined = []
