@@ -38,11 +38,15 @@ class ComposedFlow:
     content_height: float
 
 
-def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine):
+def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
+                          viewport_constraints=None):
     """Measure an HTML block subtree using Cinnamon's flow layout kernel."""
     constraints = LayoutConstraints(AvailableSize(width, True),
                                     AvailableSize(None, False))
-    prepared = prepare_native_layout_snapshot(flow, constraints, generation=generation)
+    prepared = prepare_native_layout_snapshot(
+        flow, constraints, generation=generation,
+        viewport_constraints=viewport_constraints,
+    )
     normalized = prepared.css_geometry_snapshot()
     if normalized.nodes[0].component not in FORMATTING_TAGS:
         raise GridPackingError("GridItem flow root must retain block semantics.")
@@ -91,6 +95,7 @@ def prepare_composed_grid(
     is_ui_thread: Callable[[], bool],
     breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
     engine: object | None = None,
+    viewport_constraints: LayoutConstraints | None = None,
 ) -> ComposedGrid:
     """Measure nested Grid children bottom-up using parent-allocated widths.
 
@@ -135,6 +140,7 @@ def prepare_composed_grid(
                     current_generation=current_generation,
                     measure_leaf=measure_leaf, is_ui_thread=is_ui_thread,
                     breakpoints=breakpoints, engine=engine,
+                    viewport_constraints=viewport_constraints,
                 )
                 nested[identifier] = subgrid
                 height = subgrid.content_height
@@ -154,6 +160,7 @@ def prepare_composed_grid(
                             generation=generation, current_generation=current_generation,
                             measure_leaf=measure_leaf, is_ui_thread=is_ui_thread,
                             breakpoints=breakpoints, engine=engine,
+                            viewport_constraints=viewport_constraints,
                         ),
                     is_ui_thread=is_ui_thread, engine=engine,
                 )
@@ -164,6 +171,7 @@ def prepare_composed_grid(
                 flow = prepare_composed_flow(
                     child, width=width, generation=generation,
                     measure_leaf=measure_leaf, engine=engine,
+                    viewport_constraints=viewport_constraints,
                 )
                 nested_flow[identifier] = flow
                 height = flow.content_height
