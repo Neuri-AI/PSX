@@ -504,3 +504,50 @@ def test_direct_fragment_is_accepted_as_layout_root():
         assert renderer.sfle_result is not None
     finally:
         reconciler.unmount()
+
+
+def test_hot_refresh_loads_new_top_level_decorated_component_without_restart(tmp_path):
+    from psx.devtools.qyro_reload import _load_updated_class
+    from psx.core.vnode import NodeKind
+
+    source = tmp_path / "main.py"
+    source.write_text(
+        "from psx import component, psx\\n"
+        "class ExternalExample:\\n"
+        "    def render(self):\\n"
+        "        return psx('<div><p>Initial</p></div>')\\n",
+        encoding="utf-8",
+    )
+    source.write_text(
+        "from psx import component, psx\\n"
+        "@component\\n"
+        "def SecondaryComponent():\\n"
+        "    return psx('<p>Secondary Component</p>')\\n"
+        "class ExternalExample:\\n"
+        "    def render(self):\\n"
+        "        return psx('<div><SecondaryComponent /></div>')\\n",
+        encoding="utf-8",
+    )
+    candidate = _load_updated_class(source, ExternalExample, frozenset())
+    view = candidate.render(ExternalExample())
+    assert view.type == "div"
+    assert view.children[0].kind is NodeKind.COMPONENT
+    assert view.children[0].type.__name__ == "SecondaryComponent"
+
+
+def test_refresh_candidate_omits_unrelated_bootstrap_but_keeps_components():
+    from psx.devtools.qyro_reload import _render_class_source
+    source = (
+        "from psx import component, psx\\n"
+        "@component\\n"
+        "def SecondaryComponent():\\n"
+        "    return psx('<p>ok</p>')\\n"
+        "raise RuntimeError('must not execute startup')\\n"
+        "class ExternalExample:\\n"
+        "    def render(self):\\n"
+        "        return psx('<SecondaryComponent />')\\n"
+    )
+    candidate = _render_class_source(source, "ExternalExample", frozenset())
+    assert "def SecondaryComponent" in candidate
+    assert "must not execute startup" not in candidate
+
