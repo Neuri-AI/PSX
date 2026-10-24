@@ -44,6 +44,30 @@ class PreparedNativeLayoutSnapshot:
     identities: tuple[tuple[str, VNode], ...]
     box_styles: tuple[tuple[str, CanonicalItemBoxStyle], ...] = ()
 
+    def _resolve_viewport_units(self, snapshot: LayoutInput) -> LayoutInput:
+        """Convert viewport lengths at Cinnamon's input boundary.
+
+        The window content dimensions are the reference, not the size of each
+        descendant box. Neither the stylesheet nor the VNode is mutated.
+        """
+        from .lengths import Length, LengthKind, resolve_viewport_length
+        viewport = {LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX}
+        w = self.snapshot.constraints.width.value
+        h = self.snapshot.constraints.height.value
+        converted = []
+        for node in snapshot.nodes:
+            style = dict(node.style)
+            for name, value in style.items():
+                if isinstance(value, Length) and value.kind in viewport:
+                    if w is None or h is None:
+                        raise SFLECapabilityError(
+                            DiagnosticCode.LAYOUT_CONSTRAINT,
+                            "Viewport units require known window content dimensions.",
+                        )
+                    style[name] = resolve_viewport_length(value, w, h)
+            converted.append(replace(node, style=tuple(sorted(style.items()))))
+        return replace(snapshot, nodes=tuple(converted))
+
     def css_geometry_snapshot(self) -> LayoutInput:
         """Project computed CSS geometry into typed Cinnamon input, opt-in.
 
@@ -143,7 +167,7 @@ class PreparedNativeLayoutSnapshot:
                 constraints = LayoutConstraints(
                     constraints.width, AvailableSize(None, False),
                 )
-        return replace(baseline, nodes=tuple(normalized), constraints=constraints)
+        return self._resolve_viewport_units(replace(baseline, nodes=tuple(normalized), constraints=constraints))
 
     def canonical_snapshot(self) -> LayoutInput:
         """Build engine-ready typed item lengths without changing source props.
@@ -174,7 +198,7 @@ class PreparedNativeLayoutSnapshot:
                     if name in source_props and name in normalized:
                         normalized[name] = getattr(edges, side)
             nodes.append(replace(node, style=tuple(sorted(normalized.items()))))
-        return replace(self.snapshot, nodes=tuple(nodes))
+        return self._resolve_viewport_units(replace(self.snapshot, nodes=tuple(nodes)))
 
 
 # Retain the old class name for existing internal imports during migration.
