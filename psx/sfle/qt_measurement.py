@@ -58,10 +58,14 @@ class QtMeasurementSource:
         from psx.renderers.components.image import compute_target_size
         pixmap = getattr(widget, "_psx_pixmap_cache", None)
         if pixmap is None or pixmap.isNull():
-            raise SFLEError(
-                DiagnosticCode.UNSUPPORTED_MEASUREMENT,
-                "Qt Image source has no decodable intrinsic dimensions.",
-            )
+            # An unresolved local resource has no intrinsic image dimensions.
+            # Measure the accessible alt-text placeholder instead of aborting
+            # the entire Cinnamon render; hot reload may supply the file later.
+            props = widget._psx_props
+            hint = widget.sizeHint()
+            width = float(props["width"] or max(1, hint.width()))
+            height = float(props["height"] or max(1, hint.height()))
+            return IntrinsicSizes(width, width, height, height, width, height)
         props = widget._psx_props
         width, height = compute_target_size(
             pixmap.width(), pixmap.height(), props["width"], props["height"],
