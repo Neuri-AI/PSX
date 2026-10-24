@@ -551,3 +551,58 @@ def test_refresh_candidate_omits_unrelated_bootstrap_but_keeps_components():
     assert "def SecondaryComponent" in candidate
     assert "must not execute startup" not in candidate
 
+
+
+def test_mounted_fast_refresh_adds_new_component_without_restart(tmp_path, monkeypatch):
+    from psx import App, component, psx
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+
+    source = tmp_path / "main.py"
+    source.write_text(
+        "from psx import component, psx\n"
+        "class ExternalExample:\n"
+        "    def render(self):\n"
+        "        return psx('<div><p>Before</p></div>')\n",
+        encoding="utf-8",
+    )
+    context = ExternalExample()
+    holder = [lambda self: psx("<div><p>Before</p></div>")]
+
+    def root():
+        return holder[0](context)
+
+    definition = component(root)
+    renderer = HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(640, True), AvailableSize(480, True)
+        ),
+        engine=PythonLayoutEngine(),
+        measure_intrinsic=lambda _: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8),
+    )
+    context.app = App(definition, renderer=renderer)
+    context._development_root_definition = definition
+    context._development_render = holder
+    monkeypatch.setattr(refresh, "_reload_policy", lambda _: object())
+    monkeypatch.setattr(refresh, "_project_modules", lambda *_: (frozenset(), {}))
+    try:
+        context.app.mount()
+        original_root = context.app.reconciler.root.native_handle()
+        source.write_text(
+            "from psx import component, psx\n"
+            "@component\n"
+            "def SecondaryComponent():\n"
+            "    return psx('<p>Secondary Component</p>')\n"
+            "class ExternalExample:\n"
+            "    def render(self):\n"
+            "        return psx('<div><SecondaryComponent /></div>')\n",
+            encoding="utf-8",
+        )
+        assert refresh.refresh_context_source(context, source, ("main.py",))
+        assert context.app.reconciler.root.native_handle() is original_root
+        updated = context.app.reconciler.root.children[0].children[0]
+        assert updated.node.type.name == "SecondaryComponent"
+        assert not context.app.reconciler.root.disposed
+    finally:
+        context.app.unmount()
