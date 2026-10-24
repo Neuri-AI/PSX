@@ -193,6 +193,11 @@ class KivyMeasurementSource:
                         pass
             width = max([density_pixels(32)] + [x for x, _ in sizes])
             height = max([density_pixels(32)] + [y for _, y in sizes])
+            caption = getattr(widget, "_psx_label", None)
+            if caption is not None and caption.text:
+                caption.texture_update()
+                width += max(0.0, float(caption.texture_size[0])) + density_pixels(8)
+                height = max(height, float(caption.texture_size[1]))
         elif kind == "ProgressBar":
             # No content/text and no theme intrinsic-size interface in
             # Kivy ProgressBar: use a named portable design minimum instead

@@ -7,7 +7,7 @@ capability census. Generic flow tags need their own Cinnamon contexts.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import re
 
 from psx.core.registry import ComponentDefinition
@@ -24,6 +24,13 @@ def _html_img(*children: object, src: str | None = None, source: str | None = No
     if selected is None:
         raise ValueError("img requires src (or the legacy source property)")
     return Image(selected, **props)
+
+
+@dataclass(frozen=True, slots=True)
+class HtmlRadioData:
+    name: str
+    checked: bool
+    on_change: object | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,11 +52,28 @@ def _html_input(*children: object, **props: object) -> VNode:
     if children:
         raise TypeError("input is a void element.")
     kind = props.pop("type", "text")
-    if kind not in ("text", "password", "checkbox"):
-        raise ValueError("input type must be text, password, or checkbox.")
+    if kind not in ("text", "password", "checkbox", "radio"):
+        raise ValueError("input type must be text, password, checkbox, or radio.")
     name = props.pop("name", None)
     if name is not None and (not isinstance(name, str) or not name):
         raise ValueError("input name must be a nonempty string.")
+    if kind == "radio":
+        from psx.core.vnode import Radio
+        if name is None:
+            raise ValueError("input type='radio' requires a group name.")
+        value = props.pop("value", None)
+        if not isinstance(value, (str, int)) or isinstance(value, bool):
+            raise ValueError("input type='radio' requires a string/integer value.")
+        checked = props.pop("checked", False)
+        if not isinstance(checked, bool):
+            raise ValueError("input checked must be a boolean.")
+        callback = props.pop("on_change", None)
+        if callback is not None and not callable(callback):
+            raise ValueError("radio on_change must be callable.")
+        return replace(
+            Radio(value=value, **props),
+            markup_meta=HtmlRadioData(name, checked, callback),
+        )
     if kind == "checkbox":
         from psx.core.vnode import Checkbox
         props.pop("value", None)  # checkbox changes carry a boolean checked state

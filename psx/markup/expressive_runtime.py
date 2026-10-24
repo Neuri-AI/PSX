@@ -236,4 +236,9 @@ def element(
 
 # The lexical import hook already binds the element helper in every transformed
 # module, so attach the CSS source resolver here instead of adding a new global.
-element.compute_styles = compute_expressive_markup_styles
+def _compute_html_styles(root: VNode, links: tuple[str, ...]) -> VNode:
+    from .html_form_groups import compose_html_radio_groups
+    return compute_expressive_markup_styles(compose_html_radio_groups(root), links)
+
+
+element.compute_styles = _compute_html_styles

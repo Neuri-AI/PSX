@@ -84,6 +84,27 @@ EventDef = tuple[str, Callable[[Widget, EventSlot],
 # Factories for creating event callbacks for Kivy widgets
 
 
+class KivyLabeledCheckBox(KivyCheckBox):
+    """Keep the checkbox's clickable area inclusive of optional label text."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._psx_label = Label(
+            text="", halign="left", valign="middle",
+            size_hint=(None, None),
+        )
+        self.add_widget(self._psx_label)
+        self.bind(pos=self._layout_caption, size=self._layout_caption)
+        self._layout_caption()
+
+    def _layout_caption(self, *args):
+        label = self._psx_label
+        gap = 32
+        label.pos = (self.x + gap, self.y)
+        label.size = (max(0.0, self.width - gap), self.height)
+        label.text_size = label.size
+
+
 def _kivy_input_factory():
     return TextInput(multiline=False)
 
@@ -268,7 +289,7 @@ register_primitive(
     events={"on_click": ("on_release", emit_call)},
 )
 register_primitive(
-    "Checkbox", factory=KivyCheckBox,
+    "Checkbox", factory=KivyLabeledCheckBox,
     validate=validate_checkbox_props, apply=apply_kivy_checkbox, updated_props=updated_checkbox_props,
     events={"on_change": ("active", emit_active)},
 )

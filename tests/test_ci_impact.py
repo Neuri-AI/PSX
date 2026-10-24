@@ -8,6 +8,12 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_html_native_label_interactions_run_on_qt(self):
+        self.assertEqual(self.selected("tests/test_qt_html_form_associations.py"), {"qt"})
+
+    def test_html_radio_grouping_runs_on_native_backends(self):
+        self.assertEqual(self.selected("tests/test_html_radio_grouping.py"), {"core", "qt", "kivy", "tkinter"})
+
     def test_html_form_content_regression_is_executed(self):
         self.assertEqual(self.selected("tests/test_html_form_content.py"), {"core", "qt", "kivy", "tkinter"})
 

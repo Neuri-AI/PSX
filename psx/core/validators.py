@@ -298,6 +298,8 @@ def validate_input_builder(props: Mapping[str, object]) -> None:
 
 
 def validate_checkbox_props(props: Mapping[str, object]) -> None:
+    if "label" in props and not isinstance(props["label"], str):
+        raise RendererCapabilityError("Checkbox.label must be a str.")
     unknown = set(props) - CHECKBOX_PROPS - {"ref"}
     if unknown:
         raise RendererCapabilityError(
@@ -454,6 +456,7 @@ def validate_radio_props(props: Mapping[str, object]) -> None:
     enabled = props.get("enabled", RADIO_DEFAULTS["enabled"])
     if not isinstance(enabled, bool):
         raise RendererCapabilityError("Radio.enabled must be a bool.")
+
 
 
 def validate_radiogroup_props(props: Mapping[str, object]) -> None:
