@@ -298,6 +298,8 @@ def validate_input_builder(props: Mapping[str, object]) -> None:
 
 
 def validate_checkbox_props(props: Mapping[str, object]) -> None:
+    if "label" in props and not isinstance(props["label"], str):
+        raise RendererCapabilityError("Checkbox.label must be a str.")
     unknown = set(props) - CHECKBOX_PROPS - {"ref"}
     if unknown:
         raise RendererCapabilityError(
