@@ -123,3 +123,34 @@ def test_auto_margin_does_not_silently_center():
                   layout_margin_left=Length(LengthKind.AUTO))
     with pytest.raises(SFLECapabilityError, match="margin"):
         compute_measured_block_snapshot(_request(root, child))
+
+
+def test_nested_flex_space_between_respects_horizontal_padding():
+    from psx.sfle.engine import PythonLayoutEngine
+    root = _node("root", None, "div", display="block")
+    flex = _node(
+        "flex", "root", "Flex",
+        direction="row", justify_content="space-between",
+        layout_padding_top=Length.px(20),
+        layout_padding_right=Length.px(40),
+        layout_padding_bottom=Length.px(20),
+        layout_padding_left=Length.px(40),
+    )
+    first = _node("first", "flex", "Button")
+    last = _node("last", "flex", "Button")
+    from dataclasses import replace
+    request = _request(root, flex, first, last)
+    measured = tuple(
+        replace(entry, constraints=LayoutConstraints(
+            AvailableSize(20, True), AvailableSize(None, False)))
+        for entry in request.measurements
+    )
+    result = dict(compute_measured_block_snapshot(
+        replace(request, measurements=measured),
+        flex_engine=PythonLayoutEngine(),
+    ).boxes)
+    assert result["flex"].border.width == 200
+    assert result["flex"].content.width == 120
+    assert result["first"].border.x >= 40
+    assert result["last"].border.x + result["last"].border.width <= 160
+    assert result["last"].border.x + result["last"].border.width == 160
