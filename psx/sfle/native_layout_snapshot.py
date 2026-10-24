@@ -43,6 +43,7 @@ class PreparedNativeLayoutSnapshot:
     snapshot: LayoutInput
     identities: tuple[tuple[str, VNode], ...]
     box_styles: tuple[tuple[str, CanonicalItemBoxStyle], ...] = ()
+    viewport_constraints: LayoutConstraints | None = None
 
     def _resolve_viewport_units(self, snapshot: LayoutInput) -> LayoutInput:
         """Convert viewport lengths at Cinnamon's input boundary.
@@ -51,16 +52,17 @@ class PreparedNativeLayoutSnapshot:
         descendant box. Neither the stylesheet nor the VNode is mutated.
         """
         from .lengths import Length, LengthKind, parse_length, resolve_viewport_length
-        viewport = {LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX}
-        w = self.snapshot.constraints.width.value
-        h = self.snapshot.constraints.height.value
+        viewport_kinds = {LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX}
+        window = self.viewport_constraints or self.snapshot.constraints
+        w = window.width.value
+        h = window.height.value
         converted = []
         for node in snapshot.nodes:
             style = dict(node.style)
             for name, value in style.items():
                 if isinstance(value, str) and value.strip().lower().endswith(("vw", "vh", "vmin", "vmax")):
                     value = parse_length(value)
-                if isinstance(value, Length) and value.kind in viewport:
+                if isinstance(value, Length) and value.kind in viewport_kinds:
                     if w is None or h is None:
                         raise SFLECapabilityError(
                             DiagnosticCode.LAYOUT_CONSTRAINT,
@@ -291,6 +293,7 @@ def prepare_native_layout_snapshot(
     generation: int,
     direction: WritingDirection = WritingDirection.LTR,
     measurements: Iterable[MeasuredBox] = (),
+    viewport_constraints: LayoutConstraints | None = None,
 ) -> PreparedNativeLayoutSnapshot:
     """Create SFLE v1 input without native imports or implicit measurement.
 
@@ -372,4 +375,4 @@ def prepare_native_layout_snapshot(
     snapshot = LayoutInput(
         1, generation, direction, constraints, tuple(nodes), tuple(measurements)
     )
-    return PreparedNativeLayoutSnapshot(snapshot, tuple(origins), tuple(box_styles))
+    return PreparedNativeLayoutSnapshot(snapshot, tuple(origins), tuple(box_styles), viewport_constraints)
