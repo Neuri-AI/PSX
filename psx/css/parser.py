@@ -23,6 +23,7 @@ class Selector:
     classes: frozenset[str]
     node_id: str | None
     parent: Selector | None = None
+    descendant: bool = False
 
     @property
     def specificity(self) -> tuple[int, int, int]:
@@ -31,7 +32,10 @@ class Selector:
     def matches(self, tag: str, classes: frozenset[str], node_id: str | None, parent: object = None) -> bool:
         return (self.tag is None or self.tag == "*" or self.tag == tag) and self.classes.issubset(classes) and (
             self.node_id is None or self.node_id == node_id
-        ) and (self.parent is None or (parent is not None and self.parent.matches(parent.tag, parent.classes, parent.node_id)))
+        ) and (self.parent is None or (parent is not None and (
+            self.parent.matches(parent.tag, parent.classes, parent.node_id, parent.parent)
+            or (self.descendant and _ancestor_matches(self.parent, parent.parent))
+        )))
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,8 +54,21 @@ class CssSyntaxError(ValueError):
     pass
 
 
+def _ancestor_matches(selector: Selector, ancestor: object) -> bool:
+    while ancestor is not None:
+        if selector.matches(ancestor.tag, ancestor.classes, ancestor.node_id, ancestor.parent):
+            return True
+        ancestor = ancestor.parent
+    return False
+
+
 def parse_selector(source: str) -> Selector:
     text = source.strip()
+    if '>' not in text and len(text.split()) == 2:
+        ancestor, child_text = text.split()
+        child = parse_selector(child_text)
+        return Selector(child.tag, child.classes, child.node_id,
+                        parse_selector(ancestor), True)
     if '>' in text:
         parts = text.split('>')
         if len(parts) != 2 or not all(part.strip() for part in parts):
