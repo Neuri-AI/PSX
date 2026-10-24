@@ -194,3 +194,22 @@ def test_solid_border_shorthand_expands_into_typed_native_values():
 def test_unsupported_border_shorthand_fails_closed(bad):
     with pytest.raises(CssSyntaxError):
         parse_stylesheet(f"button {{border: {bad}}}")
+
+
+def test_border_none_and_pointer_cursor_in_button_styles():
+    sheet = parse_stylesheet(
+        "button {border: 2px solid #123456; border: none; "
+        "cursor: pointer; padding: 0px 10px}"
+    )
+    computed = resolve_style(sheet, StyleTarget("button"))
+    assert computed.properties["border-width"] == Length.px(0)
+    assert computed.properties["cursor"] == "pointer"
+    assert computed.properties["padding-left"] == Length.px(10)
+    assert computed.properties["padding-right"] == Length.px(10)
+    assert computed.properties["padding-top"] == Length.px(0)
+
+
+@pytest.mark.parametrize("invalid", ("grab", "wait", "pointer extra"))
+def test_cursor_rejects_unsupported_values(invalid):
+    with pytest.raises(CssSyntaxError):
+        parse_stylesheet(f"button {{cursor: {invalid}}}")
