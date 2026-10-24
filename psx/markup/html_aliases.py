@@ -77,6 +77,24 @@ def _html_textarea(*children: object, **props: object) -> VNode:
     return TextArea(*children, **props)
 
 
+def _html_checkbox(*children: object, **props: object) -> VNode:
+    """Give a lowercase checkbox visible inline text without altering its native contract."""
+    from psx.core.vnode import Checkbox
+    key = props.pop("key", None)
+    checkbox = Checkbox(**props)
+    if not children:
+        return checkbox
+    text = []
+    for child in children:
+        if not isinstance(child, VNode) or child.type != "Text":
+            raise TypeError("checkbox accepts only text label content.")
+        text.append(str(child.props["value"]))
+    label = " ".join(" ".join(text).split())
+    if not label:
+        return checkbox
+    return create_element("span", checkbox, Text(label), key=key, display="inline")
+
+
 def _html_button(*children: object, **props: object) -> VNode:
     """Tag HTML submit semantics on its callback, not on native Button props."""
     from psx.core.vnode import Button
@@ -263,8 +281,8 @@ def markup_alias_definitions(
         source = definitions[native]
         result[alias] = ComponentDefinition(
             alias,
-            {"img": _html_img, "input": _html_input, "button": _html_button, "textarea": _html_textarea}.get(alias, source.constructor),
-            contract=source.contract,
+            {"img": _html_img, "input": _html_input, "button": _html_button, "textarea": _html_textarea, "checkbox": _html_checkbox}.get(alias, source.constructor),
+            contract=None if alias == "checkbox" else source.contract,
             markup_integer_properties=source.markup_integer_properties,
         )
     # Generic formatting boxes are private markup constructors. They must
