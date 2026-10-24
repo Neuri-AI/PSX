@@ -2962,6 +2962,7 @@ def test_grid_composition_reused_for_same_width_within_transaction(monkeypatch):
     from threading import get_ident
     from types import SimpleNamespace
     from psx.sfle.grid_native_commit import GridCommitBackend
+    from psx.sfle.grid_native_commit import GridCommitBackend
     from psx.sfle import mixed_grid_native
     from psx.sfle.mixed_grid_native import MountedMixedGrid
 
@@ -2997,6 +2998,7 @@ def test_grid_composition_reused_for_same_width_within_transaction(monkeypatch):
 def test_grid_composition_failure_is_not_cached(monkeypatch):
     from threading import get_ident
     from types import SimpleNamespace
+    from psx.sfle.grid_native_commit import GridCommitBackend
     from psx.sfle import mixed_grid_native
     from psx.sfle.mixed_grid_native import MountedMixedGrid
 
