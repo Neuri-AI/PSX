@@ -1112,6 +1112,37 @@ class QtRenderer:
                 declarations.append(f"border: {thickness:g}px solid {color};")
             if radius:
                 declarations.append(f"border-radius: {radius:g}px;")
+            if target.node_type == "Button" and computed is not None:
+                from psx.sfle.lengths import LengthKind
+                # Qt owns the button's internal text insets. Reuse the
+                # validated CSS box sides rather than merely resizing its box.
+                if "padding" in computed.specified or any(
+                    f"padding-{side}" in computed.specified
+                    for side in ("top", "right", "bottom", "left")
+                ):
+                    values = []
+                    for side in ("top", "right", "bottom", "left"):
+                        length = computed.properties[f"padding-{side}"]
+                        if length.kind is not LengthKind.PX:
+                            raise ValueError("Qt Button padding requires pixel lengths.")
+                        values.append(length.value)
+                    declarations.append(
+                        "padding: " + " ".join(f"{value:g}px" for value in values) + ";"
+                    )
+                if "border-width" in computed.specified and border is None:
+                    declarations.append("border: none;")
+            if computed is not None:
+                value = computed.properties.get("cursor", "auto")
+                if "cursor" in computed.specified:
+                    qt = self._qtcore.Qt
+                    shapes = getattr(qt, "CursorShape", qt)
+                    widget.setCursor(
+                        shapes.PointingHandCursor if value == "pointer"
+                        else shapes.ArrowCursor
+                    )
+                elif hasattr(widget, "_psx_css_cursor_applied"):
+                    widget.unsetCursor()
+                widget._psx_css_cursor_applied = "cursor" in computed.specified
             baseline = widget._psx_css_base_stylesheet
             authored = " ".join(declarations)
             if authored and baseline.rstrip().endswith("}"):

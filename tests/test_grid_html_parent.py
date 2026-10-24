@@ -148,3 +148,29 @@ def test_grid_item_css_flex_sidebar_with_nested_buttons_measures_in_qt():
         verify_padding()
     finally:
         reconciler.unmount()
+
+
+def test_native_sidebar_button_applies_padding_cursor_and_no_border():
+    from psx.css.context import scoped_css_resources
+    with scoped_css_resources(["theme.css"], resolver=lambda _: (
+        "button {height: 38px; font-size: 14px; padding: 0px 10px; "
+        "border: none; cursor: pointer}"
+    )):
+        tree = psx('<div><Grid><GridItem><button>Resumen</button></GridItem></Grid></div>')
+    renderer = PySide6Renderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(640, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(), argv=["button-css-edges"],
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(tree)
+        button = root.children[0].children[0].children[0].handle.widget
+        qss = button.styleSheet().lower()
+        assert "padding: 0px 10px 0px 10px;" in qss
+        assert "border: none;" in qss
+        qt = renderer._qtcore.Qt
+        shapes = getattr(qt, "CursorShape", qt)
+        assert button.cursor().shape() == shapes.PointingHandCursor
+    finally:
+        reconciler.unmount()
