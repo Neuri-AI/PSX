@@ -1062,7 +1062,7 @@ class QtRenderer:
             if "font-size" in styles:
                 font.setPixelSize(round(styles["font-size"]))
             if "font-weight" in styles:
-                font.setBold(styles["font-weight"] == 700)
+                font.setBold(styles["font-weight"] >= 600)
             widget._psx_css_projection_active = True
             try:
                 if widget.font() != font:
