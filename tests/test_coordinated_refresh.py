@@ -512,20 +512,20 @@ def test_hot_refresh_loads_new_top_level_decorated_component_without_restart(tmp
 
     source = tmp_path / "main.py"
     source.write_text(
-        "from psx import component, psx\\n"
-        "class ExternalExample:\\n"
-        "    def render(self):\\n"
-        "        return psx('<div><p>Initial</p></div>')\\n",
+        "from psx import component, psx\n"
+        "class ExternalExample:\n"
+        "    def render(self):\n"
+        "        return psx('<div><p>Initial</p></div>')\n",
         encoding="utf-8",
     )
     source.write_text(
-        "from psx import component, psx\\n"
-        "@component\\n"
-        "def SecondaryComponent():\\n"
-        "    return psx('<p>Secondary Component</p>')\\n"
-        "class ExternalExample:\\n"
-        "    def render(self):\\n"
-        "        return psx('<div><SecondaryComponent /></div>')\\n",
+        "from psx import component, psx\n"
+        "@component\n"
+        "def SecondaryComponent():\n"
+        "    return psx('<p>Secondary Component</p>')\n"
+        "class ExternalExample:\n"
+        "    def render(self):\n"
+        "        return psx('<div><SecondaryComponent /></div>')\n",
         encoding="utf-8",
     )
     candidate = _load_updated_class(source, ExternalExample, frozenset())
@@ -538,14 +538,14 @@ def test_hot_refresh_loads_new_top_level_decorated_component_without_restart(tmp
 def test_refresh_candidate_omits_unrelated_bootstrap_but_keeps_components():
     from psx.devtools.qyro_reload import _render_class_source
     source = (
-        "from psx import component, psx\\n"
-        "@component\\n"
-        "def SecondaryComponent():\\n"
-        "    return psx('<p>ok</p>')\\n"
-        "raise RuntimeError('must not execute startup')\\n"
-        "class ExternalExample:\\n"
-        "    def render(self):\\n"
-        "        return psx('<SecondaryComponent />')\\n"
+        "from psx import component, psx\n"
+        "@component\n"
+        "def SecondaryComponent():\n"
+        "    return psx('<p>ok</p>')\n"
+        "raise RuntimeError('must not execute startup')\n"
+        "class ExternalExample:\n"
+        "    def render(self):\n"
+        "        return psx('<SecondaryComponent />')\n"
     )
     candidate = _render_class_source(source, "ExternalExample", frozenset())
     assert "def SecondaryComponent" in candidate
