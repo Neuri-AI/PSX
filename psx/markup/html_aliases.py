@@ -211,6 +211,8 @@ def _formatting_host(
     allowed = {"ref", "layout_width", "layout_height"}
     if tag == "form":
         allowed.add("on_submit")
+    if tag == "label":
+        allowed.add("for")
     extra = set(props) - allowed
     if extra:
         raise ValueError(f"Unsupported {tag} properties: {sorted(extra)}")
