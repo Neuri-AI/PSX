@@ -44,9 +44,11 @@ def css_layout_overrides(computed: ComputedStyle) -> dict[str, Length]:
                     raise TypeError(f"CSS geometry must be typed: {name}")
                 projected[target_prefix + side] = value
     width = props["border-width"]
-    if "border-width" in specified:
-        if not isinstance(width, Length):
-            raise TypeError("CSS border width must be a typed length.")
-        for side in _SIDES:
-            projected["layout_border_" + side] = width
+    for side in _SIDES:
+        name = f"border-{side}-width"
+        value = props[name] if name in specified else width
+        if name in specified or "border-width" in specified:
+            if not isinstance(value, Length):
+                raise TypeError("CSS border width must be a typed length.")
+            projected["layout_border_" + side] = value
     return projected
