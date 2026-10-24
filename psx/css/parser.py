@@ -132,7 +132,16 @@ def parse_stylesheet(source: str) -> Stylesheet:
                         ("flex-basis", Length.percent(0)),
                     ))
                     continue
-                expanded = expand_box_shorthand(registry, name, value)
+                if name == "border":
+                    tokens = value.split()
+                    if len(tokens) != 3 or tokens[1] != "solid":
+                        raise CssSyntaxError(f"Unsupported CSS border shorthand: {value!r}.")
+                    expanded = (
+                        registry.validate("border-width", tokens[0]),
+                        registry.validate("border-color", tokens[2]),
+                    )
+                else:
+                    expanded = expand_box_shorthand(registry, name, value)
             except CssValidationError as exc:
                 raise CssSyntaxError(str(exc)) from exc
             declarations.extend((item.name, item.value) for item in expanded)
