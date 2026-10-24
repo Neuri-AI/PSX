@@ -85,6 +85,8 @@ def _classify_path(path: str) -> set[str]:
         return result
     if path == "tests/sfle/test_qt_inline_form_baselines.py":
         return {"sfle", "qt"}
+    if path == "tests/test_grid_html_parent.py":
+        return {"qt"}
     if path == "tests/test_qt_html_form_associations.py":
         return {"qt"}
     if path == "tests/test_qt_css_control_background.py":
