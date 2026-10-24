@@ -8,6 +8,9 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_grid_inside_html_block_regression_runs_on_qt(self):
+        self.assertEqual(self.selected("tests/test_grid_html_parent.py"), {"qt"})
+
     def test_html_native_label_interactions_run_on_qt(self):
         self.assertEqual(self.selected("tests/test_qt_html_form_associations.py"), {"qt"})
 

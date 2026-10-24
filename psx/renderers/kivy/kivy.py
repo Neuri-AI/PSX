@@ -740,8 +740,8 @@ class KivyRenderer:
                     f"Native SFLE {self._sfle_backend} SFLE geometry not certified for {node.type!r}.")
             if node.type == "GridItem" and (parent is None or _handle(parent).node_type != "Grid"):
                 raise RendererCapabilityError("GridItem must be a direct child of a mounted Grid.")
-            if node.type == "Grid" and parent is not None and _handle(parent).node_type not in ("GridItem", "Flex"):
-                raise RendererCapabilityError("Nested Grid must be the direct content root of GridItem.")
+            if node.type == "Grid" and parent is not None and _handle(parent).node_type not in ("GridItem", "Flex", "div", "main", "section", "article", "header", "footer"):
+                raise RendererCapabilityError("Grid must be inside a supported Cinnamon layout container.")
             handle = KivyHandle(node.type, Widget(size_hint=(None, None)), dict(node.props))
             if parent is None:
                 self._root = handle.widget
