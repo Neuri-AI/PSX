@@ -50,7 +50,7 @@ class PreparedNativeLayoutSnapshot:
         The window content dimensions are the reference, not the size of each
         descendant box. Neither the stylesheet nor the VNode is mutated.
         """
-        from .lengths import Length, LengthKind, resolve_viewport_length
+        from .lengths import Length, LengthKind, parse_length, resolve_viewport_length
         viewport = {LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX}
         w = self.snapshot.constraints.width.value
         h = self.snapshot.constraints.height.value
@@ -58,6 +58,8 @@ class PreparedNativeLayoutSnapshot:
         for node in snapshot.nodes:
             style = dict(node.style)
             for name, value in style.items():
+                if isinstance(value, str) and value.strip().lower().endswith(("vw", "vh", "vmin", "vmax")):
+                    value = parse_length(value)
                 if isinstance(value, Length) and value.kind in viewport:
                     if w is None or h is None:
                         raise SFLECapabilityError(
