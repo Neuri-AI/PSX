@@ -32,11 +32,39 @@ def _association(node: VNode) -> tuple[VNode, str] | None:
     return radio, "".join(text_parts).strip()
 
 
+def _attach_checkbox_label(children: tuple[VNode, ...]) -> tuple[VNode, ...]:
+    """Associate a label with its adjacent checkbox using the authored id."""
+    result = list(children)
+    removed: set[int] = set()
+    for index, checkbox in enumerate(result):
+        if checkbox.type != "Checkbox":
+            continue
+        node_id = getattr(checkbox.css_source, "node_id", None)
+        if not node_id:
+            continue
+        for target_index, label in enumerate(result):
+            if label.type != "label" or label.props.get("for") != node_id:
+                continue
+            if target_index in removed:
+                continue
+            if any(c.type != "Text" for c in label.children):
+                continue
+            caption = "".join(str(c.props["value"]) for c in label.children).strip()
+            if not caption:
+                continue
+            result[index] = replace(
+                checkbox, props={**checkbox.props, "label": caption}
+            )
+            removed.add(target_index)
+            break
+    return tuple(item for index, item in enumerate(result) if index not in removed)
+
+
 def compose_html_radio_groups(node: VNode) -> VNode:
     """Build exclusive native groups from sibling HTML radio/label rows."""
     if not node.children:
         return node
-    normalized = tuple(compose_html_radio_groups(child) for child in node.children)
+    normalized = _attach_checkbox_label(tuple(compose_html_radio_groups(child) for child in node.children))
     grouped: dict[str, list[tuple[int, VNode, str]]] = {}
     for index, child in enumerate(normalized):
         pair = _association(child)
