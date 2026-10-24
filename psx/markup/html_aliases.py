@@ -105,7 +105,7 @@ def _html_select(*children: object, **props: object) -> VNode:
         if not isinstance(child, VNode) or child.type != "option":
             raise TypeError("select accepts only option children.")
         options.append({"label": child.props["label"], "value": child.props["value"]})
-    if "options" in props:
+    if "options" in props and children:
         raise ValueError("select cannot combine options prop with option children.")
     name = props.pop("name", None)
     if name is not None and (not isinstance(name, str) or not name):
@@ -115,11 +115,14 @@ def _html_select(*children: object, **props: object) -> VNode:
         def emit(value: str | int) -> object:
             return callback(InputChangeEvent(InputEventTarget(name, value)))
         props["on_change"] = emit
-    return Select(options=tuple(options), **props)
+    if children:
+        props["options"] = tuple(options)
+    return Select(**props)
 
 
 def _html_option(*children: object, **props: object) -> VNode:
     """Option is compile-time markup only, never a native host."""
+    props.pop("key", None)
     if set(props) != {"value"} or not isinstance(props["value"], (str, int)) or isinstance(props["value"], bool):
         raise ValueError("option requires a string/integer value.")
     if not children or any(not isinstance(c, VNode) or c.type != "Text" for c in children):
@@ -325,7 +328,6 @@ PORTABLE_HTML_ALIASES: Mapping[str, str] = {
     "radio": "Radio",
     "radiogroup": "RadioGroup",
     "select": "Select",
-    "option": "Select",
     "a": "Link",
     "badge": "Badge",
     "img": "Image",
@@ -355,6 +357,7 @@ def markup_alias_definitions(
             contract=None if alias in ("checkbox", "select", "option") else source.contract,
             markup_integer_properties=source.markup_integer_properties,
         )
+    result.setdefault("option", ComponentDefinition("option", _html_option))
     # Generic formatting boxes are private markup constructors. They must
     # never masquerade as registered legacy/native toolkit primitives.
     for tag in FORMATTING_TAGS:
