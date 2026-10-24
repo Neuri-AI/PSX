@@ -70,6 +70,11 @@ def test_invalid_flex_factors_fail_closed_on_native_control(value: object) -> No
         Text("hello", flex_grow=value)
 
 
+def test_viewport_dimensions_are_valid_item_metadata():
+    from psx.core.layout_item import validate_flex_item_props
+    validate_flex_item_props({"layout_width": "10vw", "layout_height": "50vh"})
+
+
 @pytest.mark.parametrize("property_name,value", [
     ("flex_basis", "calc(1px + 2px)"),
     ("flex_basis", True),
@@ -84,11 +89,6 @@ def test_invalid_flex_factors_fail_closed_on_native_control(value: object) -> No
     ("order", True),
     ("order", 2 ** 32),
 ])
-def test_viewport_dimensions_are_valid_item_metadata():
-    from psx.core.layout_item import validate_flex_item_props
-    validate_flex_item_props({"layout_width": "10vw", "layout_height": "50vh"})
-
-
 def test_adversarial_item_values_fail_closed(property_name: str, value: object) -> None:
     with pytest.raises(RendererCapabilityError, match=property_name):
         Button("Save", **{property_name: value})
