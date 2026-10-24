@@ -196,3 +196,15 @@ def test_css_viewport_lengths_reach_cinnamon_as_window_relative_px():
     assert child["layout_height"] == Length.px(100)
     assert child["layout_padding_left"] == Length.px(10)
     assert prepared.snapshot is original
+
+
+def test_two_value_padding_reaches_cinnamon_geometry():
+    prepared = _prepared(
+        '<div class="sidebar">hola</div>',
+        ".sidebar { padding: 20px 12px; height: 100vh }",
+    )
+    style = dict(prepared.css_geometry_snapshot().nodes[0].style)
+    assert style["layout_padding_top"] == Length.px(20)
+    assert style["layout_padding_right"] == Length.px(12)
+    assert style["layout_padding_bottom"] == Length.px(20)
+    assert style["layout_padding_left"] == Length.px(12)

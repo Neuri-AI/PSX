@@ -114,6 +114,39 @@ class CssPropertyRegistry:
         return CssDeclaration(name, length)
 
 
+def expand_box_shorthand(
+    registry: CssPropertyRegistry, name: str, value: object,
+) -> tuple[CssDeclaration, ...]:
+    """Expand CSS margin/padding clockwise into validated side declarations."""
+    if name not in ("margin", "padding"):
+        return (registry.validate(name, value),)
+    if not isinstance(value, str):
+        return (registry.validate(name, value),)
+    parts = value.split()
+    if len(parts) == 1:
+        declaration = registry.validate(name, parts[0])
+        return (declaration,) + tuple(
+            registry.validate(f"{name}-{side}", parts[0])
+            for side in ("top", "right", "bottom", "left")
+        )
+    if len(parts) not in (2, 3, 4):
+        raise CssValidationError(CssDiagnostic(
+            name, "invalid-value", f"Invalid CSS value for {name!r}: {value!r}.",
+        ))
+    if len(parts) == 2:
+        top, right = parts
+        clockwise = (top, right, top, right)
+    elif len(parts) == 3:
+        top, right, bottom = parts
+        clockwise = (top, right, bottom, right)
+    else:
+        clockwise = tuple(parts)
+    return tuple(
+        registry.validate(f"{name}-{side}", token)
+        for side, token in zip(("top", "right", "bottom", "left"), clockwise)
+    )
+
+
 def foundation_registry() -> CssPropertyRegistry:
     """Deliberately narrow sizing vocabulary pending cascade and renderer contracts."""
     return CssPropertyRegistry((
