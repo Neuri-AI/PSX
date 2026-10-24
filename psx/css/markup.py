@@ -13,7 +13,7 @@ from psx.core.vnode import NodeKind, VNode
 
 from .cascade import ComputedStyle, StyleTarget, resolve_style
 from .parser import Stylesheet, parse_stylesheet
-from .properties import CssDeclaration, foundation_registry
+from .properties import CssDeclaration, foundation_registry, expand_box_shorthand
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,7 +57,7 @@ def parse_markup_style(
             )
         elif isinstance(inline_value, Mapping):
             registry = foundation_registry()
-            inline = tuple(registry.validate(name, value) for name, value in inline_value.items())
+            inline = tuple(item for name, value in inline_value.items() for item in expand_box_shorthand(registry, name, value))
         else:
             raise TypeError("CSS style must be declaration text or a property mapping.")
     return MarkupStyleSource(tag, classes, id_value, inline)
