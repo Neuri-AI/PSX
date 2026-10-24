@@ -138,8 +138,15 @@ def test_nested_flex_space_between_respects_horizontal_padding():
     )
     first = _node("first", "flex", "Button")
     last = _node("last", "flex", "Button")
+    from dataclasses import replace
+    request = _request(root, flex, first, last)
+    measured = tuple(
+        replace(entry, constraints=LayoutConstraints(
+            AvailableSize(20, True), AvailableSize(None, False)))
+        for entry in request.measurements
+    )
     result = dict(compute_measured_block_snapshot(
-        _request(root, flex, first, last),
+        replace(request, measurements=measured),
         flex_engine=PythonLayoutEngine(),
     ).boxes)
     assert result["flex"].border.width == 200
