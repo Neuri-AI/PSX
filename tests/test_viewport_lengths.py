@@ -66,3 +66,39 @@ def test_viewport_units_recompute_after_window_resize():
 def test_invalid_viewport_values_fail_closed(source):
     with pytest.raises(ValueError):
         parse_length(source)
+
+
+def test_nested_flow_uses_window_viewport_instead_of_local_grid_constraints():
+    # GridItem composition has an allocated width but an intrinsically measured height.
+    # Neither constraint is the reference for viewport-relative CSS lengths.
+    root = Flex(Text("hello", layout_width="25vw", layout_height="50vh"))
+    normalized = normalize_flex_tree(root)
+    local = LayoutConstraints(AvailableSize(200, True), AvailableSize(None, False))
+    window = LayoutConstraints(AvailableSize(800, True), AvailableSize(600, True))
+    prepared = prepare_native_layout_snapshot(
+        normalized, local, generation=1, viewport_constraints=window,
+    )
+    resolved = [dict(node.style) for node in prepared.canonical_snapshot().nodes]
+    leaf = next(style for style in resolved if "layout_height" in style)
+    assert leaf["layout_width"] == Length.px(200)
+    assert leaf["layout_height"] == Length.px(300)
+    assert prepared.snapshot.constraints == local
+
+
+def test_nested_flow_viewport_lengths_recalculate_on_window_resize():
+    root = Flex(Text("hello", layout_height="100vh", layout_width="10vw"))
+    normalized = normalize_flex_tree(root)
+    local = LayoutConstraints(AvailableSize(250, True), AvailableSize(None, False))
+    results = []
+    for width, height in ((800, 600), (1200, 900)):
+        window = LayoutConstraints(AvailableSize(width, True), AvailableSize(height, True))
+        prepared = prepare_native_layout_snapshot(
+            normalized, local, generation=1, viewport_constraints=window,
+        )
+        leaf = next(dict(node.style) for node in prepared.canonical_snapshot().nodes
+                    if "layout_height" in dict(node.style))
+        results.append((leaf["layout_width"], leaf["layout_height"]))
+    assert results == [
+        (Length.px(80), Length.px(600)),
+        (Length.px(120), Length.px(900)),
+    ]
