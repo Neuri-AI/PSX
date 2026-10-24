@@ -141,9 +141,10 @@ def test_kivy_pixel_line_height_and_rejects_percentage_leading():
         native_text_typography(_style("div {line-height: 120%}"), line_height=True)
 
 
-def test_native_text_rejects_unrepresentable_intermediate_weight():
-    with pytest.raises(ValueError, match="400 or 700"):
-        native_text_typography(_style("div {font-weight: 500}"))
+@pytest.mark.parametrize("weight", range(100, 1000, 100))
+def test_native_text_accepts_standard_css_font_weights(weight):
+    computed = _style(f"div {{font-weight: {weight}}}")
+    assert native_text_typography(computed)["font-weight"] == weight
 
 
 def test_native_radius_accepts_positive_px_and_zero():

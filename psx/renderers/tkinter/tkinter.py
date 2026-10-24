@@ -969,7 +969,7 @@ class TkinterRenderer:
             if "font-size" in styles:
                 font.configure(size=-round(styles["font-size"]))
             if "font-weight" in styles:
-                font.configure(weight="bold" if styles["font-weight"] == 700 else "normal")
+                font.configure(weight="bold" if styles["font-weight"] >= 600 else "normal")
             widget.configure(font=font if styles else widget._psx_css_area_base_font)
             widget.configure(foreground=styles.get("color", widget._psx_css_area_base_foreground))
             tag = "_psx_css_text_align"
@@ -1020,7 +1020,7 @@ class TkinterRenderer:
             if "font-size" in styles:
                 font.configure(size=-round(styles["font-size"]))
             if "font-weight" in styles:
-                font.configure(weight="bold" if styles["font-weight"] == 700 else "normal")
+                font.configure(weight="bold" if styles["font-weight"] >= 600 else "normal")
             widget.configure(font=font)
             widget.configure(foreground=styles.get("color", widget._psx_css_link_original_foreground))
             if "text-align" in styles:
@@ -1081,7 +1081,7 @@ class TkinterRenderer:
                 family=styles.get("font-family", tkfont.nametofont("TkDefaultFont", root=widget).actual("family")),
                 size=-round(styles["font-size"]) if "font-size" in styles else
                      tkfont.nametofont("TkDefaultFont", root=widget).actual("size"),
-                weight="bold" if styles.get("font-weight") == 700 else "normal",
+                weight="bold" if styles.get("font-weight", 400) >= 600 else "normal",
             )
             if target.node_type in ("Input", "Select"):
                 widget.configure(font=font)
