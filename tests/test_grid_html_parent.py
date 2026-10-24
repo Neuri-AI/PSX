@@ -242,3 +242,66 @@ def test_nested_grid_stacks_after_flex_header_in_grid_item_block_flow():
         verify_vertical_stack()
     finally:
         reconciler.unmount()
+
+
+def test_dashboard_cards_fit_padded_content_without_clipping():
+    """Nested 12-column Grid must use .container's actual content width."""
+    from psx.css.context import scoped_css_resources
+
+    markup = (
+        '<div class="layout"><Grid gap="0px">'
+        '<GridItem span="3"><div class="sidebar">Navigation</div></GridItem>'
+        '<GridItem><div class="content">'
+        '<div class="header"><p>Resumen</p><p>Hola, Fredo</p></div>'
+        '<div class="container"><Grid gap="16px">'
+        '<GridItem span="3"><div class="card"><p>Usuarios</p><p>1248</p></div></GridItem>'
+        '<GridItem span="3"><div class="card"><p>Ventas</p><p>3456</p></div></GridItem>'
+        '<GridItem span="3"><div class="card"><p>Pedidos</p><p>356</p></div></GridItem>'
+        '<GridItem span="3"><div class="card"><p>Pendientes</p><p>12</p></div></GridItem>'
+        '</Grid></div></div></GridItem></Grid></div>'
+    )
+    css = (
+        '.content { height: 100vh; }'
+        '.header { display: flex; flex-direction: row; justify-content: space-between; '
+        'padding: 16px 20px; border-bottom: 1px solid #ccc; }'
+        '.container { padding: 16px; }'
+        '.card { background: #fff; padding: 16px; border: 1px solid #e0e0e0; }'
+    )
+    with scoped_css_resources(["css/styles.css"], resolver=lambda _: css):
+        tree = psx(markup)
+    renderer = PySide6Renderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(1100, True), AvailableSize(700, True)),
+        engine=PythonLayoutEngine(), argv=["dashboard-grid-padded-container"],
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(tree)
+
+        def find_class(instance, name):
+            source = instance.node.css_source
+            if source is not None and name in source.classes:
+                return instance
+            for child in instance.children:
+                found = find_class(child, name)
+                if found is not None:
+                    return found
+            return None
+
+        container = find_class(root, "container")
+        cards = find_class(root, "card")
+        grid = next(child for child in container.children if child.node.type == "Grid")
+        assert cards is not None
+        assert grid.handle.widget.width() <= container.handle.widget.width() - 32 + 1
+        for item in grid.children:
+            rect = item.handle.widget.geometry()
+            assert rect.x() >= -1
+            assert rect.x() + rect.width() <= grid.handle.widget.width() + 1
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(960, True), AvailableSize(700, True)))
+        renderer.commit_layout(root)
+        for item in grid.children:
+            rect = item.handle.widget.geometry()
+            assert rect.x() + rect.width() <= grid.handle.widget.width() + 1
+    finally:
+        reconciler.unmount()
