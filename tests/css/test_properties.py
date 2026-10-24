@@ -20,7 +20,6 @@ def test_unknown_properties_fail_closed():
 
 @pytest.mark.parametrize("value,code", [
     ("calc(100% - 2px)", "invalid-value"),
-    ("12vw", "invalid-value"),
     ("-1px", "negative-value"),
     ("none", "unsupported-keyword"),
     (True, "invalid-value"),
@@ -29,6 +28,10 @@ def test_invalid_values_are_rejected(value, code):
     with pytest.raises(CssValidationError) as error:
         foundation_registry().validate("width", value)
     assert error.value.diagnostic.code == code
+
+
+def test_viewport_width_is_a_valid_symbolic_length():
+    assert foundation_registry().validate("width", "12vw").value == Length(LengthKind.VW, 0.12)
 
 
 def test_registry_is_immutable_and_rejects_duplicate_definitions():
