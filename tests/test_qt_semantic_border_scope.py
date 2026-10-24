@@ -26,7 +26,7 @@ def test_semantic_header_border_is_scoped_to_host_widget():
     renderer.apply_css(QtHandle("div", header), computed)
     stylesheet = header.styleSheet()
     assert stylesheet.startswith(f"#{header.objectName()} {{")
-    assert "border-bottom: 1px solid #cccccc;" in stylesheet
+    assert "border-bottom: 1px solid #ccc;" in stylesheet
     assert greeting.styleSheet() == ""
     # Changing the host style must not introduce a generic QWidget selector
     # that also targets its children.
