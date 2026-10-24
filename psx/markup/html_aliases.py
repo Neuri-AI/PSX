@@ -29,7 +29,8 @@ def _html_img(*children: object, src: str | None = None, source: str | None = No
 @dataclass(frozen=True, slots=True)
 class InputEventTarget:
     name: str
-    value: str
+    value: str | bool
+    checked: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,11 +45,20 @@ def _html_input(*children: object, **props: object) -> VNode:
     if children:
         raise TypeError("input is a void element.")
     kind = props.pop("type", "text")
-    if kind not in ("text", "password"):
-        raise ValueError("input type must be 'text' or 'password'.")
+    if kind not in ("text", "password", "checkbox"):
+        raise ValueError("input type must be text, password, or checkbox.")
     name = props.pop("name", None)
     if name is not None and (not isinstance(name, str) or not name):
         raise ValueError("input name must be a nonempty string.")
+    if kind == "checkbox":
+        from psx.core.vnode import Checkbox
+        props.pop("value", None)  # checkbox changes carry a boolean checked state
+        callback = props.get("on_change")
+        if callback is not None and name is not None:
+            def emit(checked: bool) -> object:
+                return callback(InputChangeEvent(InputEventTarget(name, checked, checked)))
+            props["on_change"] = emit
+        return Checkbox(**props)
     if kind == "password":
         if "password" in props and props["password"] is not True:
             raise ValueError("input type='password' conflicts with password=False.")
