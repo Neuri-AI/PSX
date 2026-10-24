@@ -48,8 +48,8 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
         viewport_constraints=viewport_constraints,
     )
     normalized = prepared.css_geometry_snapshot()
-    if normalized.nodes[0].component not in FORMATTING_TAGS:
-        raise GridPackingError("GridItem flow root must retain block semantics.")
+    if normalized.nodes[0].component not in (*FORMATTING_TAGS, "Flex"):
+        raise GridPackingError("GridItem flow root must retain block or CSS Flex semantics.")
     identities = {}
     def visit(node):
         identities[path_identity(node.path)] = node
@@ -70,7 +70,27 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
             LayoutConstraints(AvailableSize(width, True),
                               AvailableSize(None, False)), generation))
     snapshot = replace(normalized, measurements=tuple(measurements))
-    solved = compute_measured_block_snapshot(snapshot, flex_engine=engine)
+    if normalized.nodes[0].component == "Flex":
+        from .width_dependent_intrinsic_measurement import (
+            compute_width_dependent, seed_unconstrained_width_measurements,
+        )
+        callbacks = {
+            node.node_id: (
+                lambda assigned_width, origin=identities[node.node_id]:
+                    measure_leaf(path_identity(origin.path), origin, assigned_width)
+            )
+            for node in normalized.nodes[1:]
+            if node.node_id in {item.node_id for item in measurements}
+        }
+        snapshot = seed_unconstrained_width_measurements(
+            snapshot, frozenset(callbacks),
+        )
+        solved = compute_width_dependent(
+            engine, snapshot, callbacks,
+            current_generation=lambda: generation,
+        )
+    else:
+        solved = compute_measured_block_snapshot(snapshot, flex_engine=engine)
     root_id = normalized.nodes[0].node_id
     return ComposedFlow(prepared, solved, dict(solved.boxes)[root_id].border.height)
 

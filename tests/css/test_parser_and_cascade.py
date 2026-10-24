@@ -30,7 +30,7 @@ def test_inline_wins_and_does_not_mutate_sheet():
 
 @pytest.mark.parametrize("source", [
     "@media screen {div {width:2px}}",
-    "div span {width:5px}",
+    "div span article {width:5px}",
     "div {width: calc(1px + 1px)}",
     "div { width:10px",
     "div {color:rgb(1,2,3)}",
@@ -117,7 +117,7 @@ def test_direct_child_selector_matches_only_immediate_parent():
     assert parse_selector(".color-list > div").specificity == (0, 1, 1)
 
 
-@pytest.mark.parametrize("selector", (".a > ", " > div", ".a > div > span", ".a div"))
+@pytest.mark.parametrize("selector", (".a > ", " > div", ".a > div > span", ".a div span"))
 def test_unsupported_or_malformed_relationships_still_fail_closed(selector):
     with pytest.raises(CssSyntaxError):
         parse_selector(selector)
@@ -167,3 +167,30 @@ def test_clockwise_shorthand_respects_order_and_inline_mapping():
 def test_invalid_clockwise_box_values_fail_closed(name, value):
     with pytest.raises(CssSyntaxError):
         parse_stylesheet(f"div {{{name}: {value}}}")
+
+
+def test_descendant_selector_matches_non_immediate_ancestor():
+    sheet = parse_stylesheet(".sidebar-content button { text-align: left }")
+    parent = StyleTarget("div", frozenset({"sidebar-content"}))
+    nested = StyleTarget("section", parent=parent)
+    match = resolve_style(sheet, StyleTarget("button", parent=nested))
+    miss = resolve_style(sheet, StyleTarget("button"))
+    assert match.properties["text-align"] == "left"
+    assert "text-align" in match.specified
+    assert "text-align" not in miss.specified
+
+
+def test_solid_border_shorthand_expands_into_typed_native_values():
+    sheet = parse_stylesheet("button {border: 2px solid #ff0000; border-radius: 6px}")
+    computed = resolve_style(sheet, StyleTarget("button"))
+    assert computed.properties["border-width"] == Length.px(2)
+    assert computed.properties["border-color"].value == "#ff0000"
+    assert computed.properties["border-radius"] == Length.px(6)
+
+
+@pytest.mark.parametrize("bad", (
+    "2px dotted red", "solid", "2px solid", "invalid solid red",
+))
+def test_unsupported_border_shorthand_fails_closed(bad):
+    with pytest.raises(CssSyntaxError):
+        parse_stylesheet(f"button {{border: {bad}}}")
