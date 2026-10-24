@@ -76,7 +76,7 @@ def measure_grid_native(
             raise GridPackingError("GridItem native measurement requires one mounted leaf.")
         if effective[0].effective_children and not (
             allow_nested and effective[0].kind is NodeKind.HOST
-            and effective[0].type in ("Grid", "Flex", "div", "main", "section", "article", "header", "footer")
+            and effective[0].type in ("Grid", "Flex", "div", "main", "section", "article", "header", "footer", "h1", "h2", "h3", "h4", "h5", "h6", "p")
         ):
             raise GridPackingError("Composite GridItem measurement is not yet supported.")
         identifier = path_identity(child.path)
