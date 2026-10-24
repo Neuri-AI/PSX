@@ -29,7 +29,8 @@ INPUT_PROPS = frozenset({
 CHECKBOX_PROPS = frozenset({
     "checked",
     "enabled",
-    "on_change"
+    "on_change",
+    "label",
 })
 
 TEXTAREA_PROPS = frozenset({
