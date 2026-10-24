@@ -53,7 +53,7 @@ def test_grid_item_nested_block_padding_keeps_text_inside_logo():
     from psx.css.context import scoped_css_resources
     source = (
         '<div class="layout"><Grid gap="0px">'
-        '<GridItem span={{"base": 3, "md": 3, "lg": 2}}>'
+        '<GridItem span="3">'
         '<div class="sidebar"><div class="logo" '
         'style="background: red; text-align: left;">Mi panel</div></div>'
         '</GridItem><GridItem><div>hola</div></GridItem></Grid></div>'
