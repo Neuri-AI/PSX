@@ -7,6 +7,7 @@ capability census. Generic flow tags need their own Cinnamon contexts.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 import re
 
 from psx.core.registry import ComponentDefinition
@@ -23,6 +24,61 @@ def _html_img(*children: object, src: str | None = None, source: str | None = No
     if selected is None:
         raise ValueError("img requires src (or the legacy source property)")
     return Image(selected, **props)
+
+
+@dataclass(frozen=True, slots=True)
+class InputEventTarget:
+    name: str
+    value: str
+
+
+@dataclass(frozen=True, slots=True)
+class InputChangeEvent:
+    target: InputEventTarget
+    type: str = "change"
+
+
+def _html_input(*children: object, **props: object) -> VNode:
+    """Lower HTML input attributes without changing legacy Input callbacks."""
+    from psx.core.vnode import Input
+    if children:
+        raise TypeError("input is a void element.")
+    kind = props.pop("type", "text")
+    if kind not in ("text", "password"):
+        raise ValueError("input type must be 'text' or 'password'.")
+    name = props.pop("name", None)
+    if name is not None and (not isinstance(name, str) or not name):
+        raise ValueError("input name must be a nonempty string.")
+    if kind == "password":
+        if "password" in props and props["password"] is not True:
+            raise ValueError("input type='password' conflicts with password=False.")
+        props["password"] = True
+    elif props.get("password") is True:
+        raise ValueError("input type='text' conflicts with password=True.")
+    callback = props.get("on_change")
+    if callback is not None and name is not None:
+        def emit(value: str) -> object:
+            return callback(InputChangeEvent(InputEventTarget(name, value)))
+        props["on_change"] = emit
+    return Input(**props)
+
+
+def _html_button(*children: object, **props: object) -> VNode:
+    """Tag HTML submit semantics on its callback, not on native Button props."""
+    from psx.core.vnode import Button
+    kind = props.pop("type", "submit")
+    if kind not in ("submit", "button", "reset"):
+        raise ValueError("button type must be submit, button, or reset.")
+    if kind == "reset":
+        raise ValueError("HTML form reset is not implemented.")
+    prior = props.get("on_click")
+    def click(*args: object) -> object:
+        if prior is not None:
+            return prior(*args)
+        return None
+    click._psx_form_submit_button = kind == "submit"
+    props["on_click"] = click
+    return Button(*children, **props)
 
 
 def _html_div(*children: object, display: str = "block", key: str | int | None = None, **props: object) -> VNode:
@@ -81,7 +137,8 @@ def _bind_form_submission(node: VNode, on_submit: object) -> VNode:
         return node
     if node.type == "form":
         return node
-    event = ("on_click" if node.type == "Button"
+    event = ("on_click" if node.type == "Button" and
+             getattr(node.props.get("on_click"), "_psx_form_submit_button", True)
              else "on_submit" if node.type == "Input" else None)
     changed = dict(node.props)
     if event is not None:
@@ -190,7 +247,7 @@ def markup_alias_definitions(
         source = definitions[native]
         result[alias] = ComponentDefinition(
             alias,
-            _html_img if alias == "img" else source.constructor,
+            {"img": _html_img, "input": _html_input, "button": _html_button}.get(alias, source.constructor),
             contract=source.contract,
             markup_integer_properties=source.markup_integer_properties,
         )
