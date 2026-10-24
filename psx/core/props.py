@@ -88,7 +88,7 @@ PROGRESSBAR_PROPS = frozenset({
     "indeterminate", "orientation", "enabled",
 })
 
-RADIO_PROPS = frozenset({"value", "label", "enabled", "name", "checked", "on_change"})
+RADIO_PROPS = frozenset({"value", "label", "enabled"})
 
 RADIOGROUP_PROPS = frozenset({
     "value", "on_change", "orientation", "spacing", "padding", "enabled",
