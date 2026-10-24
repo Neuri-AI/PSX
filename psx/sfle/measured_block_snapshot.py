@@ -177,12 +177,25 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
             current = pending.pop()
             selected.add(current)
             pending.extend(child.node_id for child in children[current])
+        # The parent supplies the available border-box width. For an
+        # auto-sized nested Flex, Cinnamon must lay out its children within
+        # the content box, leaving the Flex host's padding and border inside.
+        horizontal_edges = sum(
+            edges(node, group)[side]
+            for group in ("padding", "border", "margin")
+            for side in (1, 3)
+        )
         for item in snapshot.nodes:
             if item.node_id in selected:
+                style = dict(item.style)
+                if item.node_id == node.node_id and "layout_width" not in style:
+                    style["layout_width"] = Length.px(
+                        max(0.0, available - horizontal_edges)
+                    )
                 descendants.append(LayoutNode(
                     item.node_id,
                     None if item.node_id == node.node_id else item.parent_id,
-                    item.component, item.style,
+                    item.component, tuple(sorted(style.items())),
                 ))
         constraints = LayoutConstraints(
             AvailableSize(available, True), AvailableSize(None, False),
