@@ -802,12 +802,14 @@ class QtFamilySFLEParityTests(unittest.TestCase):
             self.assertEqual((widget.pixmap().width(), widget.pixmap().height()), (60, 28))
             self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
-    def test_image_invalid_source_fails_intrinsic_measurement(self):
+    def test_image_invalid_source_renders_accessible_placeholder(self):
         from psx import Image
-        with self.assertRaisesRegex(SFLEError, "intrinsic dimensions"):
-            self.reconciler.render(Flex(
-                Image("this-file-must-not-exist.png"), width=160, height=80,
-            ))
+        self.reconciler.render(Flex(
+            Image("this-file-must-not-exist.png", alt="Missing image"),
+            width=160, height=80,
+        ))
+        widget = self.reconciler.root.children[0].handle.widget
+        self.assertEqual(widget.text(), "Missing image")
 
     def test_portable_link_badge_divider_spacer_use_only_sfle_rectangles(self):
         from psx import Link, Badge, Divider, Spacer
