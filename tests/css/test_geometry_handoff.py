@@ -180,3 +180,19 @@ def test_dynamic_css_geometry_updates_preserve_mounted_widget_identity():
         assert (handle.geometry.x, handle.geometry.width) == (9, 60)
     finally:
         reconciler.unmount()
+
+
+def test_css_viewport_lengths_reach_cinnamon_as_window_relative_px():
+    prepared = _prepared(
+        '<div class="layout"><span class="sidebar">Sidebar</span></div>',
+        ".layout {width: 100vw; min-height: 100vh}"
+        ".sidebar {height: 50vh; padding-left: 5vmin}",
+    )
+    original = prepared.snapshot
+    resolved = prepared.css_geometry_snapshot()
+    root, child = [dict(node.style) for node in resolved.nodes[:2]]
+    assert root["layout_width"] == Length.px(400)
+    assert root["layout_min_height"] == Length.px(200)
+    assert child["layout_height"] == Length.px(100)
+    assert child["layout_padding_left"] == Length.px(10)
+    assert prepared.snapshot is original
