@@ -169,3 +169,11 @@ def test_quoted_font_stack_projects_to_native_typography_and_qt_stylesheet():
     qss = qt_semantic_stylesheet(computed)
     assert 'color: #333333;' in qss
     assert 'font-family: "Zapfino", cursive;' in qss
+
+
+def test_qt_paints_only_bottom_border_without_synthesizing_other_edges():
+    computed = _style("div {border-bottom: 1px solid #e0e0e0}")
+    rendered = qt_semantic_stylesheet(computed)
+    assert "border-bottom: 1px solid #e0e0e0;" in rendered
+    assert "border-top:" not in rendered
+    assert "border: 1px solid" not in rendered

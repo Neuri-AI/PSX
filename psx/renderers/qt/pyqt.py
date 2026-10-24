@@ -1110,6 +1110,8 @@ class QtRenderer:
             if border is not None:
                 thickness, color = border
                 declarations.append(f"border: {thickness:g}px solid {color};")
+            from psx.css.native_paint import native_side_border_styles
+            declarations.extend(native_side_border_styles(computed))
             if radius:
                 declarations.append(f"border-radius: {radius:g}px;")
             if target.node_type == "Button" and computed is not None:

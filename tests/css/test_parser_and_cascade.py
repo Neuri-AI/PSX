@@ -213,3 +213,25 @@ def test_border_none_and_pointer_cursor_in_button_styles():
 def test_cursor_rejects_unsupported_values(invalid):
     with pytest.raises(CssSyntaxError):
         parse_stylesheet(f"button {{cursor: {invalid}}}")
+
+
+@pytest.mark.parametrize("side", ("top", "right", "bottom", "left"))
+def test_side_border_shorthand_validates_width_and_color(side):
+    sheet = parse_stylesheet(f"div {{border-{side}: 1px solid #e0e0e0}}")
+    computed = resolve_style(sheet, StyleTarget("div"))
+    assert computed.properties[f"border-{side}-width"] == Length.px(1)
+    assert computed.properties[f"border-{side}-color"].value == "#e0e0e0"
+    assert computed.properties["border-width"] == Length.px(0)
+
+
+def test_side_border_none_resets_only_selected_edge():
+    computed = resolve_style(parse_stylesheet(
+        "div { border: 2px solid #123456; border-bottom: none }"
+    ), StyleTarget("div"))
+    assert computed.properties["border-width"] == Length.px(2)
+    assert computed.properties["border-bottom-width"] == Length.px(0)
+
+
+def test_invalid_side_border_rejected():
+    with pytest.raises(CssSyntaxError):
+        parse_stylesheet("div {border-bottom: 1px dashed #e0e0e0}")

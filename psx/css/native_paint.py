@@ -63,6 +63,33 @@ def foreground_hex(computed: ComputedStyle | None) -> str | None:
         raise ValueError("Native CSS foreground paint currently requires opaque colors.")
     return "#" + "".join(f"{round(channel * 255):02x}" for channel in rgba[:3])
 
+def native_side_border_styles(computed: ComputedStyle | None) -> tuple[str, ...]:
+    """Validated per-side solid borders for native Qt widget-local QSS."""
+    from psx.sfle.lengths import Length, LengthKind
+    if computed is None:
+        return ()
+    result = []
+    for side in ("top", "right", "bottom", "left"):
+        width_key = f"border-{side}-width"
+        color_key = f"border-{side}-color"
+        if width_key not in computed.specified and color_key not in computed.specified:
+            continue
+        width = computed.properties[width_key] if width_key in computed.specified else computed.properties["border-width"]
+        color = computed.properties[color_key] if color_key in computed.specified else computed.properties["border-color"]
+        if not isinstance(width, Length) or width.kind is not LengthKind.PX or width.value < 0:
+            raise ValueError("Native border sides require nonnegative pixel widths.")
+        if not isinstance(color, CssColor):
+            raise TypeError("Native border sides require validated CSS colors.")
+        rgba = color.value.lstrip("#")
+        if len(rgba) in (4, 8) and (rgba[-1] != "f" if len(rgba) == 4 else rgba[-2:] != "ff"):
+            raise ValueError("Qt border sides require opaque colors.")
+        result.append(
+            f"border-{side}: {width.value:g}px solid {color.value};"
+            if width.value else f"border-{side}: none;"
+        )
+    return tuple(result)
+
+
 def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
     """Compose bounded authored paint into a local Qt stylesheet."""
     from psx.sfle.lengths import Length, LengthKind
@@ -94,6 +121,7 @@ def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
                 raise ValueError("Qt border paint requires opaque colors.")
             border = "#" + "".join(f"{c:02x}" for c in channels[:3])
             declarations.append(f"border: {width.value:g}px solid {border};")
+    declarations.extend(native_side_border_styles(computed))
     if computed is not None and "border-radius" in computed.specified:
         radius = computed.properties["border-radius"]
         if not isinstance(radius, Length) or radius.kind != LengthKind.PX:
