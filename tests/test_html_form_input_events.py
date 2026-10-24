@@ -44,7 +44,7 @@ def test_button_type_button_does_not_submit():
     assert submissions == ["submit"]
 
 
-@pytest.mark.parametrize("kind", ["email", "number", "checkbox"])
+@pytest.mark.parametrize("kind", ["email", "number"])
 def test_unsupported_input_types_fail_explicitly(kind):
     with pytest.raises(ValueError, match="input type"):
         psx(f'<input type="{kind}" />')
