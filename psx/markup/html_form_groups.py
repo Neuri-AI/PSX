@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from psx.core.vnode import Radio, RadioGroup, VNode
-from .html_aliases import InputChangeEvent, InputEventTarget
+from .html_aliases import HtmlRadioData, InputChangeEvent, InputEventTarget
 
 
 def _association(node: VNode) -> tuple[VNode, str] | None:
@@ -16,7 +16,7 @@ def _association(node: VNode) -> tuple[VNode, str] | None:
     if node.type != "div":
         return None
     radio = next((c for c in node.children if c.type == "Radio"
-                  and isinstance(c.props.get("name"), str)), None)
+                  and isinstance(c.markup_meta, HtmlRadioData)), None)
     if radio is None:
         return None
     node_id = getattr(radio.css_source, "node_id", None)
@@ -71,7 +71,7 @@ def compose_html_radio_groups(node: VNode) -> VNode:
         if pair is None:
             continue
         radio, label = pair
-        name = radio.props["name"]
+        name = radio.markup_meta.name
         grouped.setdefault(name, []).append((index, radio, label))
     if not grouped:
         return replace(node, children=normalized) if normalized != node.children else node
@@ -88,12 +88,12 @@ def compose_html_radio_groups(node: VNode) -> VNode:
             if value in seen:
                 raise ValueError(f"Duplicate radio value {value!r} for name {name!r}.")
             seen.add(value)
-            if radio.props.get("checked", False):
+            if radio.markup_meta.checked:
                 checked_values.append(value)
             if handler is None:
-                handler = radio.props.get("on_change")
+                handler = radio.markup_meta.on_change
             props = {key: val for key, val in radio.props.items()
-                     if key not in ("name", "checked", "on_change", "value", "label")}
+                     if key not in ("value", "label")}
             plain = Radio(value, label=label, key=radio.key, **props)
             radios.append(replace(plain, css_source=radio.css_source,
                                   css_computed=radio.css_computed))
