@@ -8,6 +8,12 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_html_form_input_regression_is_executed(self):
+        from pathlib import Path
+        self.assertEqual(self.selected("tests/test_html_form_input_events.py"), {"core", "qt", "kivy", "tkinter"})
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/test_html_form_input_events.py", workflow)
+
     def test_mixed_paragraph_text_regression_runs_in_core_validation(self):
         from pathlib import Path
         self.assertGreaterEqual(self.selected("tests/test_markup_inline_text_coalescing.py"), {"core", "headless", "qt", "kivy", "tkinter"})
