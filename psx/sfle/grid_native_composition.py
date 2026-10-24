@@ -36,10 +36,11 @@ class ComposedFlow:
     prepared: object
     result: object
     content_height: float
+    nested_grids: dict[str, "ComposedGrid"]
 
 
 def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
-                          viewport_constraints=None):
+                          viewport_constraints=None, measure_grid=None):
     """Measure an HTML block subtree using Cinnamon's flow layout kernel."""
     constraints = LayoutConstraints(AvailableSize(width, True),
                                     AvailableSize(None, False))
@@ -90,13 +91,22 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
             visit(child)
     visit(flow)
     measurements = []
+    nested_grids = {}
     for node in normalized.nodes[1:]:
         if node.component in FORMATTING_TAGS or node.component == "Flex":
             continue
         origin = identities[node.node_id]
-        if origin.effective_children or origin.type == "Grid":
-            raise GridPackingError("Nested GridItem flow supports native leaf controls.")
-        intrinsic = measure_leaf(node.node_id, origin, width)
+        if origin.type == "Grid":
+            if measure_grid is None:
+                raise GridPackingError("Nested Grid flow requires a Cinnamon Grid measurement callback.")
+            nested = measure_grid(origin, width)
+            nested_grids[node.node_id] = nested
+            height = nested.content_height
+            intrinsic = IntrinsicSizes(0, width, 0, height, width, height)
+        else:
+            if origin.effective_children:
+                raise GridPackingError("Nested GridItem flow supports native leaves and Grid hosts.")
+            intrinsic = measure_leaf(node.node_id, origin, width)
         if not isinstance(intrinsic, IntrinsicSizes):
             raise GridPackingError("GridItem flow leaf requires native IntrinsicSizes.")
         measurements.append(MeasuredBox(node.node_id, intrinsic,
@@ -125,7 +135,8 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
     else:
         solved = compute_measured_block_snapshot(snapshot, flex_engine=engine)
     root_id = normalized.nodes[0].node_id
-    return ComposedFlow(prepared, solved, dict(solved.boxes)[root_id].border.height)
+    return ComposedFlow(prepared, solved, dict(solved.boxes)[root_id].border.height,
+                        nested_grids)
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,6 +236,17 @@ def prepare_composed_grid(
                     child, width=width, generation=generation,
                     measure_leaf=measure_leaf, engine=engine,
                     viewport_constraints=viewport_constraints,
+                    measure_grid=lambda subgrid, grid_width:
+                        prepare_composed_grid(
+                            subgrid, content_width=grid_width,
+                            generation=generation,
+                            current_generation=current_generation,
+                            measure_leaf=measure_leaf,
+                            is_ui_thread=is_ui_thread,
+                            breakpoints=breakpoints,
+                            engine=engine,
+                            viewport_constraints=viewport_constraints,
+                        ),
                 )
                 nested_flow[identifier] = flow
                 height = flow.content_height
@@ -303,6 +325,9 @@ def compose_geometry_batch(
                     ))
                     widgets[segment_id] = handles[id(source)]
                     heights[segment_id] = parent.height
+                    nested_grid = flow.nested_grids.get(source_id)
+                    if nested_grid is not None:
+                        walk(nested_grid, rect.height)
             elif identifier in grid.nested_flex:
                 subflex = grid.nested_flex[identifier]
                 flex_id = identifier + "/flex"

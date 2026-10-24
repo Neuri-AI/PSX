@@ -339,7 +339,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
             if child.component == "Flex":
                 flush()
                 cursor += flex_node(child, content_x, content_y + cursor, used_width)
-            elif display(child) == "inline" or (display(child) is None and child.component != "Text"):
+            elif display(child) == "inline" or (display(child) is None and child.component not in ("Text", "Grid")):
                 pending.append(child)
             else:
                 flush()
