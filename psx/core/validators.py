@@ -456,12 +456,7 @@ def validate_radio_props(props: Mapping[str, object]) -> None:
     enabled = props.get("enabled", RADIO_DEFAULTS["enabled"])
     if not isinstance(enabled, bool):
         raise RendererCapabilityError("Radio.enabled must be a bool.")
-    if "name" in props and (not isinstance(props["name"], str) or not props["name"]):
-        raise RendererCapabilityError("Radio.name must be a nonempty string.")
-    if "checked" in props and not isinstance(props["checked"], bool):
-        raise RendererCapabilityError("Radio.checked must be a bool.")
-    if "on_change" in props and props["on_change"] is not None and not callable(props["on_change"]):
-        raise RendererCapabilityError("Radio.on_change must be callable or None.")
+
 
 
 def validate_radiogroup_props(props: Mapping[str, object]) -> None:
