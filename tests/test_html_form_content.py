@@ -25,3 +25,15 @@ def test_lowercase_checkbox_child_text_is_visible():
 
 def test_empty_checkbox_stays_a_native_checkbox():
     assert psx("<checkbox />").type == "Checkbox"
+
+
+def test_html_input_checkbox_emits_checked_state():
+    events = []
+    node = psx('<input type="checkbox" name="scales" checked on_change={changed}/>',
+               scope={"changed": events.append})
+    assert node.type == "Checkbox"
+    assert node.props["checked"] is True
+    node.props["on_change"](False)
+    assert events[0].target.name == "scales"
+    assert events[0].target.value is False
+    assert events[0].target.checked is False
