@@ -70,10 +70,14 @@ def test_invalid_flex_factors_fail_closed_on_native_control(value: object) -> No
         Text("hello", flex_grow=value)
 
 
+def test_viewport_dimensions_are_valid_item_metadata():
+    from psx.core.layout_item import validate_flex_item_props
+    validate_flex_item_props({"layout_width": "10vw", "layout_height": "50vh"})
+
+
 @pytest.mark.parametrize("property_name,value", [
     ("flex_basis", "calc(1px + 2px)"),
     ("flex_basis", True),
-    ("layout_width", "10vw"),
     ("layout_width", -1),
     ("layout_min_width", "none"),
     ("layout_max_width", "auto"),

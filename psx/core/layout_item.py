@@ -19,12 +19,13 @@ from .props import FLEX_ITEM_PROPS
 _ITEM_ALIGN = frozenset({
     "auto", "stretch", "flex-start", "flex-end", "center", "baseline",
 })
+_VIEWPORT = frozenset({LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX})
 _SIZE = frozenset({
     LengthKind.PX, LengthKind.PERCENT, LengthKind.AUTO,
     LengthKind.MIN_CONTENT, LengthKind.MAX_CONTENT,
-})
+}) | _VIEWPORT
 _MAX_SIZE = (_SIZE - {LengthKind.AUTO}) | {LengthKind.NONE}
-_EDGE = frozenset({LengthKind.PX, LengthKind.PERCENT})
+_EDGE = frozenset({LengthKind.PX, LengthKind.PERCENT}) | _VIEWPORT
 _MARGIN = _EDGE | {LengthKind.AUTO}
 _LENGTH_RULES = {
     "flex_basis": _SIZE,
@@ -34,7 +35,7 @@ _LENGTH_RULES = {
     **{name: _MAX_SIZE for name in ("layout_max_width", "layout_max_height")},
     **{f"layout_margin_{side}": _MARGIN for side in ("top", "right", "bottom", "left")},
     **{f"layout_padding_{side}": _EDGE for side in ("top", "right", "bottom", "left")},
-    **{f"layout_border_{side}": frozenset({LengthKind.PX})
+    **{f"layout_border_{side}": frozenset({LengthKind.PX}) | _VIEWPORT
        for side in ("top", "right", "bottom", "left")},
 }
 

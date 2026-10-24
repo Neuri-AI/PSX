@@ -8,6 +8,10 @@ class RoutingTests(unittest.TestCase):
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
+    def test_viewport_units_route_to_both_cinnamon_engines_and_renderers(self):
+        self.assertEqual(self.selected("tests/test_viewport_lengths.py"),
+                         {"core", "sfle", "rust", "qt", "kivy", "tkinter", "headless"})
+
     def test_grid_inside_html_block_regression_runs_on_qt(self):
         self.assertEqual(self.selected("tests/test_grid_html_parent.py"), {"qt"})
 

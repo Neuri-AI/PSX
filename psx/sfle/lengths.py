@@ -17,6 +17,10 @@ class LengthKind(str, Enum):
 
     PX = "px"
     PERCENT = "percent"
+    VW = "vw"
+    VH = "vh"
+    VMIN = "vmin"
+    VMAX = "vmax"
     AUTO = "auto"
     MIN_CONTENT = "min-content"
     MAX_CONTENT = "max-content"
@@ -26,9 +30,10 @@ class LengthKind(str, Enum):
     NORMAL = "normal"
 
 
-_NUMERIC_KINDS = frozenset({LengthKind.PX, LengthKind.PERCENT})
+_NUMERIC_KINDS = frozenset({LengthKind.PX, LengthKind.PERCENT, LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX})
 _PERCENT_RE = re.compile(r"^([+-]?(?:\d+(?:\.\d*)?|\.\d+))%$")
 _PX_RE = re.compile(r"^([+-]?(?:\d+(?:\.\d*)?|\.\d+))px$")
+_VIEWPORT_RE = re.compile(r"^([+-]?(?:\d+(?:\.\d*)?|\.\d+))(vw|vh|vmin|vmax)$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,8 +73,7 @@ def parse_length(value: Length | int | float | str) -> Length:
 
     Property-specific restrictions (for instance no negative padding) belong
     to the shared layout-style validator, not this general-purpose parser.
-    CSS calc(), viewport units and arbitrary expressions are deliberately
-    unsupported.
+    CSS calc() and arbitrary expressions remain unsupported.
     """
 
     if isinstance(value, Length):
@@ -90,8 +94,29 @@ def parse_length(value: Length | int | float | str) -> Length:
     if percent:
         return Length.percent(float(percent.group(1)) / 100.0)
 
+    viewport = _VIEWPORT_RE.fullmatch(normalized)
+    if viewport:
+        return Length(LengthKind(viewport.group(2)), float(viewport.group(1)) / 100.0)
+
     px = _PX_RE.fullmatch(normalized)
     if px:
         return Length.px(float(px.group(1)))
 
     raise ValueError(f"Unsupported CSS length expression: {value!r}.")
+
+
+_VIEWPORT_KINDS = frozenset({LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX})
+
+
+def resolve_viewport_length(length: Length, width: float, height: float) -> Length:
+    """Resolve a viewport-relative length against logical window content bounds."""
+    if length.kind not in _VIEWPORT_KINDS:
+        return length
+    from math import isfinite
+    if any(isinstance(x, bool) or not isinstance(x, (int, float)) or not isfinite(x) or x < 0
+           for x in (width, height)):
+        raise ValueError("Viewport dimensions must be finite nonnegative values.")
+    size = {LengthKind.VW: width, LengthKind.VH: height,
+            LengthKind.VMIN: min(width, height),
+            LengthKind.VMAX: max(width, height)}[length.kind]
+    return Length.px(float(length.value) * size)
