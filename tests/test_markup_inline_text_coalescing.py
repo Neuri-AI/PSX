@@ -32,3 +32,22 @@ def test_heading_expression_is_one_text_host():
     heading = element("h2", {}, ("Count ", 4), "inline-count.py", 1, 1)
     assert len(heading.children) == 1
     assert heading.children[0].props["value"] == "Count 4"
+
+
+def test_div_adjacent_text_fragments_render_as_one_native_text_host():
+    from psx.core.vnode import Text
+    sidebar = element("div", {}, (
+        element("div", {}, ("Mi", " ", "panel"), "sidebar.py", 1, 1),
+    ), "sidebar.py", 1, 1)
+    logo = sidebar.children[0]
+    assert len(logo.children) == 1
+    assert logo.children[0].type == "Text"
+    assert logo.children[0].props["value"] == "Mi panel"
+
+
+def test_distinct_styled_text_nodes_in_div_remain_separate():
+    from psx.core.vnode import Text
+    logo = element("div", {}, (
+        Text("Mi", bold=True), Text(" panel"),
+    ), "sidebar.py", 1, 1)
+    assert len(logo.children) == 2
