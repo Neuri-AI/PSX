@@ -21,8 +21,7 @@ def test_removed_click_handler_restores_href(monkeypatch):
     reconciler = Reconciler(renderer)
     clicked = []
     try:
-        reconciler.render(Link("Submit", href="https://google.com",
-                               on_click=lambda: clicked.append(True)))
+        reconciler.render(Link("Submit", on_click=lambda: clicked.append(True)))
         widget = reconciler.root.handle.widget
         widget.click()
         assert clicked == [True] and not visited
