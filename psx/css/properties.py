@@ -190,4 +190,5 @@ def foundation_registry() -> CssPropertyRegistry:
         CssProperty("font-weight", 400, True, effect="measurement", grammar="visual"),
         CssProperty("line-height", Length.px(19.2), True, effect="measurement", grammar="visual"),
         CssProperty("text-align", "start", True, effect="paint", grammar="visual"),
+        CssProperty("cursor", "auto", False, effect="paint", grammar="keyword", choices=frozenset({"auto", "default", "pointer"})),
     ))
