@@ -5,10 +5,20 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from psx.core.reconcile import Reconciler
 from psx.markup.compile import psx
 from psx.renderers.qt.pyside import PySide6Renderer
+from psx.sfle.engine import PythonLayoutEngine
+from psx.sfle.model import AvailableSize, LayoutConstraints
+
+def make_renderer():
+    return PySide6Renderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(640, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(),
+        argv=["psx-html-forms"],
+    )
 
 
 def test_html_radio_labels_are_native_click_targets():
-    renderer = PySide6Renderer(argv=["psx-html-radio-native"])
+    renderer = make_renderer()
     reconciler = Reconciler(renderer)
     changes = []
     try:
@@ -36,7 +46,7 @@ def test_html_radio_labels_are_native_click_targets():
 
 
 def test_html_checkbox_associated_label_clicks_native_toggle():
-    renderer = PySide6Renderer(argv=["psx-html-checkbox-native"])
+    renderer = make_renderer()
     reconciler = Reconciler(renderer)
     try:
         root = psx('<div><input type="checkbox" id="agree" checked/>'
