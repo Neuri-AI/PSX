@@ -93,5 +93,7 @@ def test_grid_item_nested_block_padding_keeps_text_inside_logo():
             rect = node.handle.widget.geometry()
             assert rect.x() >= -1
             assert rect.x() + rect.width() <= logo_rect.width() + 1
+            if node.node.type == "Text":
+                assert rect.x() == pytest.approx(0, abs=1)
     finally:
         reconciler.unmount()
