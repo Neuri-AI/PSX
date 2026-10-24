@@ -1,5 +1,6 @@
 """Grid markup must mount below HTML-like box roots with plain text items."""
 import os
+import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from psx.markup.compile import psx
@@ -44,5 +45,53 @@ def test_grid_item_html_flow_child_measures_real_text():
         assert flow.node.type == "div"
         assert flow.children[0].node.type == "span"
         assert flow.children[0].children[0].handle.widget is not None
+    finally:
+        reconciler.unmount()
+
+
+def test_grid_item_nested_block_padding_keeps_text_inside_logo():
+    from psx.css.context import scoped_css_resources
+    source = (
+        '<div class="layout"><Grid gap="0px">'
+        '<GridItem span={{"base": 3, "md": 3, "lg": 2}}>'
+        '<div class="sidebar"><div class="logo" '
+        'style="background: red; text-align: left;">Mi panel</div></div>'
+        '</GridItem><GridItem><div>hola</div></GridItem></Grid></div>'
+    )
+    with scoped_css_resources(
+        ["styles.css"], resolver=lambda _: (
+            ".layout {min-height: 100vh}"
+            ".sidebar {height: 100vh; background-color: blue; padding: 20px 12px}"
+        ),
+    ):
+        tree = psx(source)
+    renderer = PySide6Renderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(800, True), AvailableSize(600, True)),
+        engine=PythonLayoutEngine(), argv=["grid-padded-nested-block"],
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(tree)
+        def descendants(instance):
+            yield instance
+            for child in instance.children:
+                yield from descendants(child)
+        nodes = list(descendants(mounted))
+        sidebar = next(x for x in nodes if x.node.css_source is not None
+                       and "sidebar" in x.node.css_source.classes)
+        logo = next(x for x in nodes if x.node.css_source is not None
+                    and "logo" in x.node.css_source.classes)
+        assert logo.handle.widget.parentWidget() is sidebar.handle.widget
+        logo_rect = logo.handle.widget.geometry()
+        assert logo_rect.x() == pytest.approx(12, abs=1)
+        assert logo_rect.y() == pytest.approx(20, abs=1)
+        assert logo_rect.width() <= sidebar.handle.widget.width() - 24 + 1
+        for node in descendants(logo):
+            if node is logo or node.handle is None:
+                continue
+            rect = node.handle.widget.geometry()
+            assert rect.x() >= -1
+            assert rect.x() + rect.width() <= logo_rect.width() + 1
     finally:
         reconciler.unmount()
