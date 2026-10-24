@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from .properties import CssValidationError, foundation_registry
+from .properties import CssValidationError, foundation_registry, expand_box_shorthand
 from psx.sfle.lengths import Length
 
 _IDENT = r"[a-zA-Z_][a-zA-Z0-9_-]*"
@@ -115,10 +115,10 @@ def parse_stylesheet(source: str) -> Stylesheet:
                         ("flex-basis", Length.percent(0)),
                     ))
                     continue
-                declaration = registry.validate(name, value)
+                expanded = expand_box_shorthand(registry, name, value)
             except CssValidationError as exc:
                 raise CssSyntaxError(str(exc)) from exc
-            declarations.append((declaration.name, declaration.value))
+            declarations.extend((item.name, item.value) for item in expanded)
         rules.append(Rule(selectors, tuple(declarations), len(rules)))
         if len(rules) > 2048:
             raise CssSyntaxError("Stylesheet exceeds the supported rule count.")
