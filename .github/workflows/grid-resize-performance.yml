@@ -23,6 +23,10 @@ jobs:
         with:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install native Qt system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
       - name: Install PSX, PySide6 and native build tooling
         run: |
           python -m pip install -e '.[pyside6]' 'maturin>=1.8,<2' pytest
