@@ -107,9 +107,9 @@ class CssPropertyRegistry:
             raise CssValidationError(CssDiagnostic(name, "invalid-value", f"Invalid CSS value for {name!r}: {value!r}.")) from exc
         if length.kind == LengthKind.PERCENT and not prop.allows_percent:
             raise CssValidationError(CssDiagnostic(name, "unsupported-unit", f"Percentages are not supported for {name!r}."))
-        if length.kind not in (LengthKind.PX, LengthKind.PERCENT) and length.kind not in prop.keywords:
+        if length.kind not in (LengthKind.PX, LengthKind.PERCENT, LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX) and length.kind not in prop.keywords:
             raise CssValidationError(CssDiagnostic(name, "unsupported-keyword", f"Unsupported CSS keyword for {name!r}: {length.kind.value}."))
-        if length.kind in (LengthKind.PX, LengthKind.PERCENT) and length.value is not None and length.value < 0 and not prop.allows_negative:
+        if length.kind in (LengthKind.PX, LengthKind.PERCENT, LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX) and length.value is not None and length.value < 0 and not prop.allows_negative:
             raise CssValidationError(CssDiagnostic(name, "negative-value", f"Negative values are not supported for {name!r}."))
         return CssDeclaration(name, length)
 
