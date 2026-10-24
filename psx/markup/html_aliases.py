@@ -66,7 +66,9 @@ def _html_input(*children: object, **props: object) -> VNode:
 def _html_button(*children: object, **props: object) -> VNode:
     """Tag HTML submit semantics on its callback, not on native Button props."""
     from psx.core.vnode import Button
-    kind = props.pop("type", "submit")
+    if "type" not in props:
+        return Button(*children, **props)
+    kind = props.pop("type")
     if kind not in ("submit", "button", "reset"):
         raise ValueError("button type must be submit, button, or reset.")
     if kind == "reset":
