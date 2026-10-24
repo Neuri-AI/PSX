@@ -37,3 +37,10 @@ def test_html_input_checkbox_emits_checked_state():
     assert events[0].target.name == "scales"
     assert events[0].target.value is False
     assert events[0].target.checked is False
+
+
+def test_label_for_metadata_is_retained_without_native_property_leakage():
+    node = psx('<label for="scales">Escamas</label>')
+    assert node.type == "label"
+    assert node.props["for"] == "scales"
+    assert node.children[0].type == "Text"
