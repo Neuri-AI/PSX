@@ -347,6 +347,23 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
         flush()
         used_width = constrained_dimension(node, "width", available, content_available)
         used_height = constrained_dimension(node, "height", available, cursor)
+        # A native replaced widget in a height-constrained block should
+        # receive the available content-box height rather than its unconstrained
+        # sizeHint. Do not change explicit child heights or other flow siblings.
+        # Qt can then resize an expanding PlotWidget while Cinnamon remains
+        # the sole source of its native geometry.
+        if used_height < cursor and dimension(node, "max_height", available) is not None:
+            for child in children[node.node_id]:
+                if child.component != "Native" or dict(child.style).get("layout_height") is not None:
+                    continue
+                rect = geometry.get(child.node_id)
+                if rect is None:
+                    continue
+                remaining = max(0.0, content_y + used_height - rect.y)
+                if rect.height > remaining:
+                    geometry[child.node_id] = quantized_rect(
+                        rect.x, rect.y, rect.width, remaining,
+                    )
         geometry[node.node_id] = quantized_rect(content_x, content_y, used_width, used_height)
         return top + used_height + bottom
 
