@@ -17,8 +17,11 @@ def normalize_padding(value: object) -> tuple[int, int, int, int]:
 
 
 def scroll_props(props: Mapping[str, object]) -> dict[str, object]:
-    validate_scroll_props(props)
-    return {**SCROLL_DEFAULTS, **props}
+    from psx.core.props import FLEX_ITEM_PROPS
+    native_props = {key: value for key, value in props.items()
+                    if key not in FLEX_ITEM_PROPS}
+    validate_scroll_props(native_props)
+    return {**SCROLL_DEFAULTS, **native_props}
 
 
 def updated_scroll_props(
