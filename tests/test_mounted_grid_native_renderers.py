@@ -3034,17 +3034,18 @@ def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends():
     renderer, close = make_renderer(backend)
     reconciler = Reconciler(renderer)
     markup = (
-        '<Grid gap="0px">'
+        '<div><Grid gap="0px">'
         '<GridItem span="3"><div><p>Sidebar</p></div></GridItem>'
         '<Scroll direction="vertical" height="100vh"><GridItem>'
         '<div><p>Contenido</p><p>Más contenido</p></div>'
         '</GridItem></Scroll>'
-        '</Grid>'
+        '</Grid></div>'
     )
     try:
         root = reconciler.render(psx(markup))
-        assert [node.node.type for node in root.children] == ["GridItem", "GridItem"]
-        scrolling = root.children[1].children[0]
+        grid = root.children[0]
+        assert [node.node.type for node in grid.children] == ["GridItem", "GridItem"]
+        scrolling = grid.children[1].children[0]
         assert scrolling.node.type == "Scroll"
         assert scrolling.node.props["layout_height"] == "100vh"
         assert rectangle(scrolling.handle.widget, backend)[3] == pytest.approx(200, abs=1)
