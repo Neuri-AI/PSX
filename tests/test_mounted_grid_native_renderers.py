@@ -339,7 +339,7 @@ def test_composite_grid_item_fails_closed_without_false_native_receipt(request):
     tree = Reconciler(renderer)
     try:
         from psx import Scroll
-        with pytest.raises(GridPackingError, match="Composite GridItem"):
+        with pytest.raises(GridPackingError, match="GridItem Scroll requires one HTML-like block content root"):
             tree.render(Grid(GridItem(Scroll(Flex(Text("a"), Text("b"))))))
         assert getattr(renderer, "grid_result", None) is None
         assert_feature(request, Feature(
