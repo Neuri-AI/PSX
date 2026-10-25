@@ -618,7 +618,7 @@ def test_hot_reload_preserves_native_widget_class_in_lexical_scope(tmp_path):
         "        self.marker = 'native chart'\n"
         "class AppRoot:\n"
         "    def render(self):\n"
-        "        return psx('''<div><Native widget={LineChart} key=\"chart\" /></div>''')\n",
+        "        return psx('''<div><Native widget={LineChart} renderer=\"pyside6\" key=\"chart\" /></div>''')\n",
         encoding="utf-8",
     )
     AppRoot = type("AppRoot", (), {
