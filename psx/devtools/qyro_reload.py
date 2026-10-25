@@ -257,8 +257,24 @@ def _render_class_source(source: str, class_name: str, modules: frozenset[str]) 
     """Keep reload candidates free of application bootstrap side effects."""
     tree = ast.parse(source)
     selected: list[ast.stmt] = []
+    # The markup compiler resolves Native.widget using the candidate render
+    # function's lexical module. A locally defined QWidget subclass must
+    # therefore be present in the candidate module as well.
+    import re
+    native_widget_names: set[str] = set()
+    for statement in ast.walk(tree):
+        if isinstance(statement, ast.Constant) and isinstance(statement.value, str):
+            native_widget_names.update(re.findall(
+                r"<Native\\b[^>]*\\bwidget\\s*=\\s*\\{\\s*([A-Za-z_]\\w*)\\s*\\}",
+                statement.value,
+                re.DOTALL,
+            ))
     for statement in tree.body:
-        if isinstance(statement, ast.ClassDef) and statement.name == class_name:
+        if isinstance(statement, ast.ClassDef) and (
+            statement.name == class_name or statement.name in native_widget_names
+        ):
+            # Preserve only QWidget class declarations explicitly referenced
+            # by Native markup, not unrelated module-level application code.
             selected.append(statement)
         elif isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
             isinstance(decorator, ast.Name) and decorator.id == "component"
