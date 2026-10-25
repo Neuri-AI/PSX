@@ -81,3 +81,52 @@ def test_reloaded_pyqtgraph_native_widget_mounts_inside_css_grid(tmp_path):
         assert renderer.grid_result is not None
     finally:
         reconciler.unmount()
+
+
+def test_activity_paragraphs_are_not_clipped_inside_css_flex_rows():
+    from psx import psx
+    from psx.core.reconcile import Reconciler
+    from psx.renderers.qt.pyside import PySide6Renderer
+    from psx.sfle.engine import PythonLayoutEngine
+    from psx.sfle.model import AvailableSize, LayoutConstraints
+
+    renderer = PySide6Renderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(520, True), AvailableSize(480, True)),
+        engine=PythonLayoutEngine(), argv=["qt-activity-paragraphs"],
+    )
+    markup = (
+        '<div><Grid><GridItem><div class="activity-card">'
+        '<h5>Actividad Reciente</h5>'
+        '<div style="display:flex; flex-direction:row; justify-content:space-between;'
+        ' align-items:center; gap:10px; padding:16px 20px">'
+        '<p style="font-size:14px">Ana López creó un reporte</p>'
+        '<p style="font-size:14px; min-width:120px">23 de Octubre 10:00 AM</p>'
+        '</div>'
+        '<div style="display:flex; flex-direction:row; justify-content:space-between;'
+        ' align-items:center; gap:10px; padding:16px 20px">'
+        '<p style="font-size:14px">Carlos Pérez actualizó un pedido</p>'
+        '<p style="font-size:14px; min-width:120px">23 de Octubre 11:00 AM</p>'
+        '</div></div></GridItem></Grid></div>'
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(psx(markup))
+        def visit(instance):
+            yield instance
+            for child in instance.children:
+                yield from visit(child)
+        labels = [
+            instance.handle.widget for instance in visit(root)
+            if instance.node.type == "Text"
+        ]
+        assert len(labels) >= 4
+        for label in labels:
+            assert label.height() >= label.heightForWidth(label.width()) - 1
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(430, True), AvailableSize(480, True)))
+        renderer.commit_layout(root)
+        for label in labels:
+            assert label.height() >= label.heightForWidth(label.width()) - 1
+    finally:
+        reconciler.unmount()
