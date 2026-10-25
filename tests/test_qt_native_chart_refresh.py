@@ -38,8 +38,12 @@ def test_reloaded_pyqtgraph_native_widget_mounts_inside_css_grid(tmp_path):
         "QtWidgets.QSizePolicy.Policy.Expanding)\n"
         "class AppRoot:\n"
         "    def render(self):\n"
-        "        return psx('''<div><Grid><GridItem><div><Native "
-        "widget={LineChart} key=\"line-chart\" /></div></GridItem>"
+        "        return psx('''<div><Grid gap=\"0px\">"
+        "<GridItem span=\"3\"><div>Sidebar</div></GridItem>"
+        "<Scroll direction=\"vertical\" height=\"100vh\"><GridItem>"
+        "<div class=\"content\"><Grid gap=\"16px\"><GridItem>"
+        "<div class=\"card\"><Native widget={LineChart} key=\"line-chart\" />"
+        "</div></GridItem></Grid></div></GridItem></Scroll>"
         "</Grid></div>''')\n",
         encoding="utf-8",
     )
