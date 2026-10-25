@@ -175,14 +175,14 @@ class MountedMixedGrid:
 
         children = {path_identity(item.path): item
                     for item in composition.grid.effective_children}
-        for identifier, (flow, width, height) in composition.nested_scroll.items():
+        for identifier, (flow, width, height, extent) in composition.nested_scroll.items():
             viewport_node = children[identifier].effective_children[0]
             host = self.handles[id(viewport_node.source)].widget
             if not getattr(host, "_psx_sfle_scroll", False):
                 raise GridPackingError("Nested Scroll requires a native Cinnamon viewport.")
             binding = binding_from_host(
                 host._psx_props, Rect(0, 0, width, height),
-                Rect(0, 0, width, flow.content_height),
+                Rect(0, 0, width, extent),
             )
             offset = prior_scroll_offset(previous, host)
             if self.backend is GridCommitBackend.QT:

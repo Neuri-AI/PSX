@@ -188,7 +188,7 @@ class ComposedGrid:
     nested: dict[str, "ComposedGrid"]
     nested_flex: dict[str, ComposedFlex]
     nested_flow: dict[str, ComposedFlow]
-    nested_scroll: dict[str, tuple[ComposedFlow, float, float]]
+    nested_scroll: dict[str, tuple[ComposedFlow, float, float, float]]
     content_height: float
 
 
@@ -288,7 +288,22 @@ def prepare_composed_grid(
                             "GridItem Scroll height requires a definite positive size."
                         )
                     height = float(parsed.value)
-                nested_scroll[identifier] = (flow, width, height)
+                # A fixed-height CSS content root may still have descendants
+                # overflowing its border box. Scroll extent is the union of
+                # actual Cinnamon descendant rectangles, not just root height.
+                # Preserve the root's CSS box geometry independently.
+                from .model import Rect
+                boxes = dict(flow.result.boxes)
+                root_id = flow.prepared.snapshot.nodes[0].node_id
+                origin_y = boxes[root_id].border.y
+                extent = max(
+                    (box.margin.y + box.margin.height - origin_y
+                     for box in boxes.values()),
+                    default=flow.content_height,
+                )
+                nested_scroll[identifier] = (flow, width, height, max(
+                    height, flow.content_height, extent,
+                ))
                 return IntrinsicSizes(0, width, 0, height, width, height)
             if child.kind is NodeKind.HOST and child.type == "Grid":
                 subgrid = prepare_composed_grid(
@@ -394,7 +409,7 @@ def compose_geometry_batch(
                 heights[grid_id] = placement.height
                 walk(nested, child_height)
             elif identifier in grid.nested_scroll:
-                flow, scroll_width, scroll_height = grid.nested_scroll[identifier]
+                flow, scroll_width, scroll_height, scroll_extent = grid.nested_scroll[identifier]
                 scroll_id = identifier + "/scroll"
                 placements.append(GridNativePlacement(
                     scroll_id, 0, 0, placement.width, scroll_height,
@@ -404,9 +419,12 @@ def compose_geometry_batch(
                 heights[scroll_id] = placement.height
                 content_root = child.effective_children[0]
                 flow_id = scroll_id + "/content"
+                # Keep overflow descendants inside a real native parent rect;
+                # otherwise Qt clips them at the CSS content root's fixed
+                # height before the Scroll viewport can reveal them.
                 placements.append(GridNativePlacement(
-                    flow_id, 0, 0, scroll_width, flow.content_height,
-                    scroll_width, flow.content_height, False, False,
+                    flow_id, 0, 0, scroll_width, scroll_extent,
+                    scroll_width, scroll_extent, False, False,
                 ))
                 widgets[flow_id] = handles[id(content_root.source)]
                 heights[flow_id] = scroll_height

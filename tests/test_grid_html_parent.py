@@ -318,13 +318,16 @@ def test_grid_accepts_scroll_wrapped_item_and_resizes_viewport():
         '<div class="container"><Grid gap="16px">'
         '<GridItem span="6"><div class="card">Usuarios</div></GridItem>'
         '<GridItem span="6"><div class="card">Ventas</div></GridItem>'
+        '</Grid><Grid gap="16px">'
+        '<GridItem span="6"><div class="card">Pedidos</div></GridItem>'
+        '<GridItem span="6"><div class="card">Pendientes</div></GridItem>'
         '</Grid></div></div>'
         '</GridItem></Scroll></Grid></div>'
     )
     css = (
         '.layout { min-height: 100vh }'
         '.container { padding: 16px }'
-        '.content { min-height: 130vh }'
+        '.content { height: 100vh } .card { height: 400px }'
     )
     with scoped_css_resources(["css/styles.css"], resolver=lambda _: css):
         tree = psx(markup)
@@ -353,10 +356,15 @@ def test_grid_accepts_scroll_wrapped_item_and_resizes_viewport():
         assert host.width() > 0
         assert host._psx_content.height() >= host.height()
         assert host.verticalScrollBar().maximum() > 0
+        assert host._psx_content.height() > host.height() + 100
+        host.verticalScrollBar().setValue(125)
+        assert host.verticalScrollBar().value() == 125
         renderer.set_sfle_constraints(LayoutConstraints(
             AvailableSize(1100, True), AvailableSize(750, True)))
         renderer.commit_layout(mounted)
         assert host.height() == pytest.approx(750, abs=1)
-        assert host._psx_content.height() >= host.height()
+        assert host._psx_content.height() > host.height()
+        assert host.verticalScrollBar().maximum() > 0
+        assert host.verticalScrollBar().value() > 0
     finally:
         reconciler.unmount()
