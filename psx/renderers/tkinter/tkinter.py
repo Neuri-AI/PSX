@@ -1037,7 +1037,20 @@ class TkinterRenderer:
             from tkinter import font as tkfont
             styles = native_text_typography(computed, line_height=target.node_type == "Button")
             widget = target.widget
-            if not styles and not (target.node_type == "Button" and background_hex(computed) is not None):
+            button_paint = (
+                target.node_type == "Button"
+                and computed is not None
+                and (
+                    background_hex(computed) is not None
+                    or any(key in computed.specified for key in (
+                        "padding", "padding-left", "padding-right",
+                        "padding-top", "padding-bottom", "text-align",
+                        "cursor", "border-width", "border-color",
+                        "border-radius",
+                    ))
+                )
+            )
+            if not styles and not button_paint:
                 if hasattr(widget, "_psx_css_native_font"):
                     widget._psx_css_native_font.configure(
                         **widget._psx_css_native_original_font_config
@@ -1164,14 +1177,23 @@ class TkinterRenderer:
                 elif "text-align" in styles:
                     raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
                 style.configure(style_name, **config)
-                if target.node_type == "Button" and "background" in config:
-                    # Theme state maps can override the configured background.
-                    # Keep hover/pressed native; make the ordinary state match
-                    # the authored color.
-                    style.map(style_name, background=[
-                        ("disabled", config["background"]),
-                        ("!active", config["background"]),
-                    ])
+                if target.node_type == "Button":
+                    # Theme maps can override the configured ordinary-state
+                    # color and obscure authored active/selected class rules.
+                    if "background" in config:
+                        style.map(style_name, background=[
+                            ("disabled", config["background"]),
+                            ("!active", config["background"]),
+                        ])
+                    else:
+                        style.map(style_name, background=[])
+                    if "foreground" in config:
+                        style.map(style_name, foreground=[
+                            ("disabled", config["foreground"]),
+                            ("!active", config["foreground"]),
+                        ])
+                    else:
+                        style.map(style_name, foreground=[])
                 widget.configure(style=style_name)
             if self._sfle_constraints is not None:
                 keys = ("font-family", "font-size", "font-weight", "line-height")
