@@ -3028,7 +3028,7 @@ def test_grid_composition_failure_is_not_cached(monkeypatch):
 
 
 @pytest.mark.parametrize('wrapped_root', [False, True])
-def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends(wrapped_root):
+def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends(wrapped_root, request):
     """The scroll viewport owns clipping; Grid owns the item's track width."""
     from psx import psx
     backend = os.environ["PSX_GRID_BACKEND"]
@@ -3058,6 +3058,14 @@ def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends(wrapped_r
         assert scrolling.handle.widget is native
         assert rectangle(native, backend)[3] == pytest.approx(280, abs=1)
         assert renderer.grid_result is not None
+        binding = "pyside6" if backend == "qt" else "tkinter" if backend == "tk" else "kivy"
+        assert_feature(
+            request,
+            Feature("Grid", binding, "interaction", "scroll_wrapped_item",
+                    ("nested" if wrapped_root else "root") + "_viewport_resize",
+                    applicability="partial_native"),
+            True,
+        )
     finally:
         reconciler.unmount()
         close()
