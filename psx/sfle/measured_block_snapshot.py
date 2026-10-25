@@ -18,7 +18,8 @@ from .model import AvailableSize, BoxRect, LayoutConstraints, LayoutInput, Layou
 from .lengths import Length, LengthKind, parse_length
 
 
-def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) -> LayoutResult:
+def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
+                                    measure_width=None) -> LayoutResult:
     """Layout a bounded Block/Inline tree, retaining exact VNode identities."""
     if not snapshot.nodes or snapshot.nodes[0].component not in FORMATTING_TAGS:
         raise SFLECapabilityError(
@@ -206,7 +207,34 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
             tuple(measured for measured in snapshot.measurements
                   if measured.node_id in selected),
         )
-        solved = dict(selected_engine.compute(local).boxes)
+        if measure_width is not None:
+            from .width_dependent_intrinsic_measurement import (
+                compute_width_dependent, seed_unconstrained_width_measurements,
+            )
+            # Nested CSS Flex rows receive their final assigned widths only
+            # after Cinnamon's provisional pass. Seeded viewport-width text
+            # metrics cannot be reused for wrapped paragraph labels.
+            width_ids = frozenset(
+                item.node_id for item in local.nodes
+                if item.node_id in {metric.node_id for metric in local.measurements}
+                and not any(child.parent_id == item.node_id for child in local.nodes)
+                and "layout_height" not in dict(item.style)
+                and item.component in ("Text", "p", "span")
+            )
+            if width_ids:
+                local = seed_unconstrained_width_measurements(local, width_ids)
+                result = compute_width_dependent(
+                    selected_engine, local,
+                    {identifier: (lambda width, identifier=identifier:
+                                  measure_width(identifier, width))
+                     for identifier in width_ids},
+                    current_generation=lambda: snapshot.generation,
+                )
+            else:
+                result = selected_engine.compute(local)
+        else:
+            result = selected_engine.compute(local)
+        solved = dict(result.boxes)
         root_border = solved[node.node_id].border
         dx, dy = x - root_border.x, y - root_border.y
         for identifier, boxes in solved.items():
