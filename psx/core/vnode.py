@@ -132,6 +132,8 @@ class VNode:
     # component adapters must never receive CSS-only class/style attributes.
     css_source: object | None = field(default=None, compare=False, repr=False)
     css_computed: object | None = field(default=None, compare=False, repr=False)
+    # Scoped stylesheet snapshot for components rendered after their parent.
+    css_stylesheet: object | None = field(default=None, compare=False, repr=False)
     # Compiler-only metadata for HTML-like control composition, not native props.
     markup_meta: object | None = field(default=None, compare=False, repr=False)
 
