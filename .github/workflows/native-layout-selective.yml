@@ -280,7 +280,7 @@ jobs:
       - name: Install pinned Pydux dependency required by existing PySide6 integration tests
         run: |
           python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@8de71cee892c5e65a5b5fb223829f4525680a543"
-      - run: python -m pytest -q tests/test_pyside6_renderer.py tests/test_qt_css_control_background.py tests/test_qt_semantic_border_scope.py tests/test_qt_html_form_associations.py tests/test_grid_html_parent.py tests/test_qt_link_refresh_navigation.py tests/test_qt_missing_image_intrinsic.py tests/sfle/test_qt_inline_form_baselines.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_native_layout.py tests/test_pyside6_external_native_ports.py tests/sfle/test_grid_native_measurement.py tests/sfle/test_grid_native_commit.py --junitxml=scroll-qt-operations.xml
+      - run: python -m pytest -q tests/test_pyside6_renderer.py tests/test_qt_css_control_background.py tests/test_qt_semantic_border_scope.py tests/test_qt_scroll_wheel_continuity.py tests/test_qt_html_form_associations.py tests/test_grid_html_parent.py tests/test_qt_link_refresh_navigation.py tests/test_qt_missing_image_intrinsic.py tests/sfle/test_qt_inline_form_baselines.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_native_layout.py tests/test_pyside6_external_native_ports.py tests/sfle/test_grid_native_measurement.py tests/sfle/test_grid_native_commit.py --junitxml=scroll-qt-operations.xml
       - run: python -m tests.certification.scroll_operation_receipts --backend qt --junit scroll-qt-operations.xml --out scroll-qt-operations.json
       - uses: actions/upload-artifact@v4
         with:
