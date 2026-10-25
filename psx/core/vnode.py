@@ -700,6 +700,27 @@ def Grid(*children: object, columns: int = 12, gap: object = 0,
                    column_gap=column_gap, **props)
     validated = dict(normalize_grid_props(options))
     resolved = normalize_children(children)
+    lifted = []
+    for child in resolved:
+        if child.kind is NodeKind.HOST and child.type == "Scroll":
+            # A Grid-owned scroll viewport may enclose its one GridItem
+            # declaration. Lift only the layout slot, keeping Scroll as the
+            # actual native viewport enclosing the item's content root.
+            slots = normalize_children(child.children)
+            if (len(slots) != 1 or slots[0].kind is not NodeKind.HOST
+                    or slots[0].type != "GridItem"
+                    or len(normalize_children(slots[0].children)) != 1):
+                raise InvalidChildError(
+                    "A direct Grid Scroll must contain exactly one GridItem."
+                )
+            slot = slots[0]
+            scrolling = replace(
+                child, children=normalize_children(slot.children),
+            )
+            lifted.append(replace(slot, children=(scrolling,)))
+        else:
+            lifted.append(child)
+    resolved = tuple(lifted)
     for child in resolved:
         if child.kind is NodeKind.HOST and child.type != "GridItem":
             raise InvalidChildError("Grid requires direct GridItem children.")
