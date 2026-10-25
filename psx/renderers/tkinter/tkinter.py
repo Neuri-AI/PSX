@@ -1194,6 +1194,27 @@ class TkinterRenderer:
             ttk.Style(widget).configure(style_name, background=color)
             widget.configure(style=style_name)
 
+        # Several native ttk themes (notably macOS Aqua) ignore custom
+        # TFrame background styles. Paint the CSS fill in a child canvas
+        # lowered behind the existing native children, without changing
+        # geometry ownership or introducing a global theme override.
+        surface = getattr(widget, "_psx_css_fill_canvas", None)
+        if color is None:
+            if surface is not None:
+                surface.destroy()
+                del widget._psx_css_fill_canvas
+        else:
+            if surface is None:
+                surface = tk.Canvas(
+                    widget, borderwidth=0, highlightthickness=0,
+                    takefocus=0, background=color,
+                )
+                widget._psx_css_fill_canvas = surface
+            else:
+                surface.configure(background=color)
+            surface.place(x=0, y=0, relwidth=1, relheight=1)
+            widget.tk.call("lower", surface._w)
+
         # ttk.Frame has a rectangular background. Four small, instance-owned
         # canvases mask its corners against the surrounding native surface and
         # paint a filled quarter-circle. This is a paint overlay, not a new
