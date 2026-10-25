@@ -69,7 +69,11 @@ def _valid_identifier(value: str) -> bool:
     return re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", value) is not None
 
 
-def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = None) -> VNode:
+def compute_markup_styles(
+    root: VNode, stylesheet: str | Stylesheet | None = None, *,
+    inherited: ComputedStyle | None = None,
+    parent: StyleTarget | None = None,
+) -> VNode:
     """Decorate immutable VNodes with computed styles and preserve all public props.
 
     CSS matching covers markup elements and builtin VNodes. Custom lexical
@@ -114,7 +118,7 @@ def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = Non
         children = tuple(visit(child, computed, target) for child in node.children)
         return replace(node, css_computed=computed, children=children)
 
-    return visit(root, None)
+    return replace(visit(root, inherited, parent), css_stylesheet=sheet)
 
 def compute_expressive_markup_styles(root: VNode | None, links: tuple[str, ...]) -> VNode | None:
     """Resolve static markup links after expression lowering, without widgets."""
