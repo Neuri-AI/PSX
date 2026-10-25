@@ -53,7 +53,7 @@ class TkinterRendererTests(unittest.TestCase):
 
 
     def test_html_box_background_uses_native_theme_independent_fill(self):
-        from psx.ui import psx
+        from psx.markup.compile import psx
         self._enable_native_sfle()
         instance = self.reconciler.render(
             psx('<div style="background-color: #f5f6f8;">Card</div>')
