@@ -175,7 +175,12 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
             current_generation=lambda: generation,
         )
     else:
-        solved = compute_measured_block_snapshot(snapshot, flex_engine=engine)
+        solved = compute_measured_block_snapshot(
+            snapshot, flex_engine=engine,
+            measure_width=lambda identifier, assigned_width: measure_leaf(
+                identifier, identities[identifier], assigned_width,
+            ),
+        )
     root_id = normalized.nodes[0].node_id
     return ComposedFlow(prepared, solved, dict(solved.boxes)[root_id].border.height,
                         nested_grids)
