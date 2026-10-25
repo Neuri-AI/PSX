@@ -41,13 +41,15 @@ class TkinterRendererTests(unittest.TestCase):
         instance = self.reconciler.render(Button("Resumen"))
         widget = instance.handle.widget
         rule = resolve_style(
-            parse_stylesheet("button { background: #3b6ef5; cursor: pointer; }"),
+            parse_stylesheet("button { background: #3b6ef5; cursor: pointer; padding: 0px 10px; }"),
             StyleTarget("button"),
         )
         self.renderer.apply_css(instance.handle, rule)
         name = str(widget.cget("style"))
         self.assertEqual(ttk.Style(widget).lookup(name, "background"), "#3b6ef5")
         self.assertEqual(str(widget.cget("cursor")), "hand2")
+        padding = ttk.Style(widget).lookup(name, "padding")
+        self.assertEqual(tuple(int(x) for x in padding), (10, 0, 10, 0))
 
     def test_flex_has_explicit_flex_route_without_pack_layout_fallback(self) -> None:
         from psx import Flex
