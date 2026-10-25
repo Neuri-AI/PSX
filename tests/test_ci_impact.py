@@ -93,6 +93,16 @@ class RoutingTests(unittest.TestCase):
             self.assertIn(f"PSX_GRID_BACKEND={backend}", workflow)
         self.assertIn("tests/test_native_coordinated_refresh.py", workflow)
 
+    def test_component_css_inheritance_runs_on_native_backends(self):
+        expected = {"core", "headless", "qt", "kivy", "tkinter"}
+        self.assertEqual(self.selected("psx/css/inheritance.py"), expected)
+        self.assertEqual(self.selected("tests/test_component_css_inheritance.py"), expected)
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("tests/test_component_css_inheritance.py", workflow)
+
     def test_markup_styles_bind_without_bypassing_native_regression_suites(self):
         self.assertEqual(self.selected("tests/test_markup_css_binding.py"),
                          {"core", "headless", "qt", "kivy", "tkinter"})
