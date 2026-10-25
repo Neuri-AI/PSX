@@ -16,7 +16,9 @@ def _area():
 
     app = QApplication.instance() or QApplication(["scroll-wheel-test"])
     area = _scroll_area_class("PySide6")()
-    area.setWidget(QWidget())
+    content = QWidget()
+    area.setWidget(content)
+    area._psx_content = content
     area._psx_sfle_scroll = True
     area.configure(scroll_props({"direction": "vertical", "height": 240}))
     area.resize(320, 240)
