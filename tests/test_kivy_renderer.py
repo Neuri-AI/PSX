@@ -8,6 +8,41 @@ import unittest
 
 
 class KivyRendererSubprocessTests(unittest.TestCase):
+
+    def test_css_button_background_overrides_kivy_theme(self) -> None:
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1"})
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        script = textwrap.dedent("""
+            from psx import Button
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.css.parser import parse_stylesheet
+            from psx.css.cascade import StyleTarget, resolve_style
+            renderer = KivyRenderer()
+            reconciler = Reconciler(renderer)
+            instance = reconciler.render(Button("Resumen"))
+            widget = instance.handle.widget
+            original = (widget.background_normal, widget.background_down)
+            first = resolve_style(
+                parse_stylesheet("button {background: #3b6ef5}"), StyleTarget("button"))
+            renderer.apply_css(instance.handle, first)
+            assert hasattr(widget, "_psx_css_button_background")
+            assert widget.background_normal == "" and widget.background_down == ""
+            assert tuple(round(x, 4) for x in widget._psx_css_button_background[2].rgba) == (
+                round(59/255, 4), round(110/255, 4), round(245/255, 4), 1)
+            renderer.apply_css(instance.handle, resolve_style(
+                parse_stylesheet("button {color: #ffffff}"), StyleTarget("button")))
+            assert not hasattr(widget, "_psx_css_button_background")
+            assert (widget.background_normal, widget.background_down) == original
+            reconciler.unmount()
+        """)
+        result = subprocess.run([sys.executable, "-c", script],
+                                env=environment, capture_output=True, text=True)
+        if "Unable to get a Window" in result.stderr or "Unable to get a Window" in result.stdout:
+            self.skipTest("No usable Kivy window provider.")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_counter_preserves_button_identity_and_uses_clock_scheduler(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
