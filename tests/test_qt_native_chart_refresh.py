@@ -42,7 +42,8 @@ def test_reloaded_pyqtgraph_native_widget_mounts_inside_css_grid(tmp_path):
         "<GridItem span=\"3\"><div>Sidebar</div></GridItem>"
         "<Scroll direction=\"vertical\" height=\"100vh\"><GridItem>"
         "<div class=\"content\"><Grid gap=\"16px\"><GridItem>"
-        "<div class=\"card\"><Native widget={LineChart} key=\"line-chart\" />"
+        "<div class=\"card\" style=\"padding: 16px; border: 1px solid #e0e0e0;\">"
+        "<Native widget={LineChart} key=\"line-chart\" />"
         "</div></GridItem></Grid></div></GridItem></Scroll>"
         "</Grid></div>''')\n",
         encoding="utf-8",
@@ -54,9 +55,26 @@ def test_reloaded_pyqtgraph_native_widget_mounts_inside_css_grid(tmp_path):
         root = reconciler.render(candidate.render(AppRoot()))
         assert root is not None
         assert renderer.grid_result is not None
+        def find_native(instance):
+            if instance.node.kind.value == "native":
+                return instance
+            for child in instance.children:
+                found = find_native(child)
+                if found is not None:
+                    return found
+            return None
+        native = find_native(root)
+        assert native is not None
+        parent = native.handle.widget.parentWidget()
+        child_box = native.handle.widget.geometry()
+        assert child_box.x() >= 16
+        assert child_box.x() + child_box.width() <= parent.width() - 16
         renderer.set_sfle_constraints(LayoutConstraints(
             AvailableSize(840, True), AvailableSize(620, True)))
         renderer.commit_layout(root)
+        child_box = native.handle.widget.geometry()
+        assert child_box.x() >= 16
+        assert child_box.x() + child_box.width() <= parent.width() - 16
         assert renderer.grid_result is not None
     finally:
         reconciler.unmount()
