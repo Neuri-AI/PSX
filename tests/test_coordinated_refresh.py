@@ -629,8 +629,10 @@ def test_hot_reload_preserves_native_widget_class_in_lexical_scope(tmp_path):
     updated = _load_updated_class(source, AppRoot, frozenset())
     rendered = updated.render(AppRoot())
     native = rendered.children[0]
-    assert native.type == "Native"
-    assert native.props["widget"]().__class__.__name__ == "LineChart"
+    from psx.core.vnode import NodeKind
+    assert native.kind is NodeKind.NATIVE
+    assert native.type.renderer == "pyside6"
+    assert native.type.factory().__class__.__name__ == "LineChart"
 
 
 def test_hot_reload_ignores_unreferenced_classes_and_startup_code():
