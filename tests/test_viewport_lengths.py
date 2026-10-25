@@ -102,3 +102,35 @@ def test_nested_flow_viewport_lengths_recalculate_on_window_resize():
         (Length.px(80), Length.px(600)),
         (Length.px(120), Length.px(900)),
     ]
+
+
+def test_scroll_viewport_height_uses_cinnamon_instead_of_native_fixed_pixels():
+    from psx import Scroll
+    scroll = Scroll(Flex(Text("Scrollable")), height="100vh", width="50vw")
+    assert scroll.props["height"] is None
+    assert scroll.props["width"] is None
+    assert scroll.props["layout_height"] == "100vh"
+    assert scroll.props["layout_width"] == "50vw"
+    sizes = []
+    for w, h in ((800, 600), (1200, 900)):
+        normalized = normalize_flex_tree(Flex(scroll))
+        prepared = prepare_native_layout_snapshot(
+            normalized,
+            LayoutConstraints(AvailableSize(w, True), AvailableSize(h, True)),
+            generation=1,
+        )
+        styles = [dict(node.style) for node in prepared.canonical_snapshot().nodes]
+        own = next(style for style in styles if "layout_height" in style)
+        sizes.append((own["layout_width"], own["layout_height"]))
+    assert sizes == [
+        (Length.px(400), Length.px(600)),
+        (Length.px(600), Length.px(900)),
+    ]
+
+
+@pytest.mark.parametrize("invalid", ["calc(50vh)", "-10vh", "0vh", "garbage"])
+def test_scroll_css_sizes_reject_invalid_lengths(invalid):
+    from psx import Scroll
+    from psx.core.errors import RendererCapabilityError
+    with pytest.raises(RendererCapabilityError):
+        Scroll(Flex(Text("x")), height=invalid)
