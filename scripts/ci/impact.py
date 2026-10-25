@@ -196,6 +196,10 @@ def _classify_path(path: str) -> set[str]:
         return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
     if path == "tests/test_css_markup_census.py":
         return {"core", "headless", "qt", "kivy", "tkinter"}
+    if path == "tests/test_component_css_inheritance.py":
+        return {"core", "headless", "qt", "kivy", "tkinter"}
+    if path == "psx/css/inheritance.py":
+        return {"core", "headless", "qt", "kivy", "tkinter"}
     if path == "tests/test_markup_css_binding.py":
         return {"core", "headless", "qt", "kivy", "tkinter"}
     if path == "tests/test_lowercase_markup_aliases.py":
