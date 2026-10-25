@@ -203,6 +203,11 @@ def inventory() -> tuple[Feature, ...]:
                         rows.append(Feature("Grid", native_backend, "interaction",
                                             "nested_container", "fails_closed",
                                             applicability="partial_native"))
+                        if native_backend in ("pyside6", "tkinter", "kivy"):
+                            for variant in ("nested", "root"):
+                                rows.append(Feature("Grid", native_backend, "interaction",
+                                                    "scroll_wrapped_item", f"{variant}_viewport_resize",
+                                                    applicability="partial_native"))
             for prop in sorted(props):
                 for scenario in PROPERTY_SCENARIOS:
                     rows.append(Feature(component, CONTRACT, "property", prop,
