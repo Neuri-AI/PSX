@@ -606,3 +606,45 @@ def test_mounted_fast_refresh_adds_new_component_without_restart(tmp_path, monke
         assert not context.app.reconciler.root.disposed
     finally:
         context.app.unmount()
+
+
+def test_hot_reload_preserves_native_widget_class_in_lexical_scope(tmp_path):
+    from psx.devtools.qyro_reload import _load_updated_class, _render_class_source
+    source = tmp_path / "main.py"
+    source.write_text(
+        "from psx import psx\n"
+        "class LineChart:\n"
+        "    def __init__(self):\n"
+        "        self.marker = 'native chart'\n"
+        "class AppRoot:\n"
+        "    def render(self):\n"
+        "        return psx('''<div><Native widget={LineChart} key=\"chart\" /></div>''')\n",
+        encoding="utf-8",
+    )
+    class AppRoot:
+        def render(self):
+            raise AssertionError("original render should not execute")
+    updated = _load_updated_class(source, AppRoot, frozenset())
+    rendered = updated.render(AppRoot())
+    native = rendered.children[0]
+    assert native.type == "Native"
+    assert native.props["widget"]().__class__.__name__ == "LineChart"
+
+
+def test_hot_reload_ignores_unreferenced_classes_and_startup_code():
+    from psx.devtools.qyro_reload import _render_class_source
+    source = (
+        "class LineChart:\n"
+        "    pass\n"
+        "class Unrelated:\n"
+        "    raise RuntimeError('unrelated side effect')\n"
+        "if __name__ == '__main__':\n"
+        "    raise RuntimeError('startup side effect')\n"
+        "class AppRoot:\n"
+        "    def render(self):\n"
+        "        return psx('''<Native widget={LineChart} />''')\n"
+    )
+    candidate = _render_class_source(source, "AppRoot", frozenset())
+    assert "class LineChart" in candidate
+    assert "class Unrelated" not in candidate
+    assert "startup side effect" not in candidate
