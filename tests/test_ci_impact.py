@@ -110,6 +110,12 @@ class RoutingTests(unittest.TestCase):
         workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
         self.assertIn("tests/sfle/test_qt_inline_form_baselines.py", workflow)
 
+    def test_qt_wheel_continuity_routes_to_native_qt(self):
+        from pathlib import Path
+        self.assertEqual(self.selected("tests/test_qt_scroll_wheel_continuity.py"), {"qt"})
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/test_qt_scroll_wheel_continuity.py", workflow)
+
     def test_qt_semantic_border_isolation_routes_to_qt(self):
         from pathlib import Path
         self.assertEqual(self.selected("tests/test_qt_semantic_border_scope.py"), {"qt"})
