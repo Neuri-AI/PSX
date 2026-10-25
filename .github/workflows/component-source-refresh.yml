@@ -24,6 +24,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: python -m pip install -e . pytest pandas
       - name: Newly declared lexical components
-        run: python -m pytest -q tests/test_coordinated_refresh.py -k 'hot_refresh_loads_new_top_level_decorated_component_without_restart or refresh_candidate_omits_unrelated_bootstrap_but_keeps_components or mounted_fast_refresh_adds_new_component_without_restart'
+        run: python -m pytest -q tests/test_coordinated_refresh.py -k 'hot_refresh_loads_new_top_level_decorated_component_without_restart or refresh_candidate_omits_unrelated_bootstrap_but_keeps_components or mounted_fast_refresh_adds_new_component_without_restart or hot_reload_preserves_native_widget_class_in_lexical_scope or hot_reload_ignores_unreferenced_classes_and_startup_code'
       - name: Baseline lexical runtime
         run: python -m pytest -q tests/test_component_lexical_runtime.py
