@@ -9,6 +9,8 @@ on:
       - 'tests/test_qt_native_chart_refresh.py'
       - 'psx/sfle/measured_block_snapshot.py'
       - 'tests/sfle/test_measured_block_snapshot.py'
+      - 'tests/sfle/test_nested_block_flex_layout.py'
+      - 'psx/sfle/grid_native_composition.py'
       - '.github/workflows/component-source-refresh.yml'
 permissions:
   contents: read
@@ -48,4 +50,4 @@ jobs:
           sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
           python -m pip install -e '.[pyside6]' pytest numpy pyqtgraph
       - name: Verify native box constraints and live chart resizing
-        run: python -m pytest -q tests/sfle/test_measured_block_snapshot.py tests/test_qt_native_chart_refresh.py
+        run: python -m pytest -q tests/sfle/test_measured_block_snapshot.py tests/sfle/test_nested_block_flex_layout.py tests/test_qt_native_chart_refresh.py
