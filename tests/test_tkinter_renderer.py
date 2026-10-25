@@ -38,7 +38,7 @@ class TkinterRendererTests(unittest.TestCase):
         from psx.css.parser import parse_stylesheet
         from psx.css.cascade import StyleTarget, resolve_style
         self._enable_native_sfle()
-        instance = self.reconciler.render(Button("Resumen"))
+        instance = self.reconciler.render(Flex(Button("Resumen"), direction="row")).children[0]
         widget = instance.handle.widget
         rule = resolve_style(
             parse_stylesheet("button { background: #3b6ef5; cursor: pointer; padding: 0px 10px; }"),
