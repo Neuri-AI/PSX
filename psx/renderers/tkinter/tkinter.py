@@ -1037,7 +1037,7 @@ class TkinterRenderer:
             from tkinter import font as tkfont
             styles = native_text_typography(computed, line_height=target.node_type == "Button")
             widget = target.widget
-            if not styles:
+            if not styles and not (target.node_type == "Button" and background_hex(computed) is not None):
                 if hasattr(widget, "_psx_css_native_font"):
                     widget._psx_css_native_font.configure(
                         **widget._psx_css_native_original_font_config
