@@ -522,7 +522,8 @@ class Reconciler:
         if not isinstance(result, VNode):
             # type: ignore[union-attr]
             raise TypeError(f"Component {component.name} must return a VNode.")
-        return _inherit_component_styles(instance, result)
+        from psx.css.inheritance import inherit_component_styles
+        return inherit_component_styles(instance, result)
 
     def _flush_dirty(self, dirty: tuple[MountedInstance, ...]) -> None:
         """Called by the renderer's UI loop after coalescing state updates."""
