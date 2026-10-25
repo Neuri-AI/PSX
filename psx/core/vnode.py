@@ -620,8 +620,8 @@ def Scroll(
     direction: str = "vertical",
     content_direction: str = "vertical",
     scrollbar: str = "auto",
-    width: int | float | None = None,
-    height: int | float | None = None,
+    width: int | float | str | None = None,
+    height: int | float | str | None = None,
     spacing: int = 0,
     padding: int | tuple[int, int] | tuple[int, int, int, int] = 0,
     enabled: bool = True,
@@ -630,6 +630,36 @@ def Scroll(
     **props: object,
 ) -> VNode:
     """Portable clipped viewport with managed multi-child content."""
+    from psx.sfle.lengths import LengthKind, parse_length
+
+    # String CSS lengths describe a Cinnamon content-box constraint, not a
+    # native toolkit pixel size. Keep the existing numeric Scroll API intact.
+    for axis, value in (("width", width), ("height", height)):
+        if not isinstance(value, str):
+            continue
+        try:
+            length = parse_length(value)
+        except (TypeError, ValueError) as exc:
+            raise RendererCapabilityError(
+                f"Scroll.{axis} requires a supported CSS length."
+            ) from exc
+        if (length.kind not in (
+            LengthKind.PX, LengthKind.PERCENT, LengthKind.VW, LengthKind.VH,
+            LengthKind.VMIN, LengthKind.VMAX,
+        ) or length.value is None or length.value <= 0):
+            raise RendererCapabilityError(
+                f"Scroll.{axis} requires a positive CSS length."
+            )
+        target = f"layout_{axis}"
+        if target in props:
+            raise RendererCapabilityError(
+                f"Scroll.{axis} conflicts with {target}."
+            )
+        props[target] = value
+        if axis == "width":
+            width = None
+        else:
+            height = None
     config = dict(
         direction=direction, content_direction=content_direction,
         scrollbar=scrollbar, width=width, height=height,
