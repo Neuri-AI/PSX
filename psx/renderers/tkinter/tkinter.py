@@ -1106,6 +1106,18 @@ class TkinterRenderer:
                 if "color" in styles:
                     config["foreground"] = styles["color"]
                 if target.node_type == "Button":
+                    # ttk buttons need instance-scoped theme styles; geometry
+                    # alone cannot project the authored CSS background/edges.
+                    color = background_hex(computed)
+                    if color is not None:
+                        config["background"] = color
+                    if computed is not None and "cursor" in computed.specified:
+                        widget.configure(cursor=(
+                            "hand2" if computed.properties["cursor"] == "pointer"
+                            else "arrow"
+                        ))
+                    else:
+                        widget.configure(cursor="")
                     leading = styles.get("line-height")
                     if leading is not None and (
                         "\n" in str(widget.cget("text"))
@@ -1138,6 +1150,14 @@ class TkinterRenderer:
                 elif "text-align" in styles:
                     raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
                 style.configure(style_name, **config)
+                if target.node_type == "Button" and "background" in config:
+                    # Theme state maps can override the configured background.
+                    # Keep hover/pressed native; make the ordinary state match
+                    # the authored color.
+                    style.map(style_name, background=[
+                        ("disabled", config["background"]),
+                        ("!active", config["background"]),
+                    ])
                 widget.configure(style=style_name)
             if self._sfle_constraints is not None:
                 keys = ("font-family", "font-size", "font-weight", "line-height")
