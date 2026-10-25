@@ -32,6 +32,23 @@ class TkinterRendererTests(unittest.TestCase):
         self.addCleanup(self.reconciler.unmount)
 
 
+
+    def test_button_css_background_without_typography(self):
+        from tkinter import ttk
+        from psx.css.parser import parse_stylesheet
+        from psx.css.cascade import StyleTarget, resolve_style
+        self._enable_native_sfle()
+        instance = self.reconciler.render(Button("Resumen"))
+        widget = instance.handle.widget
+        rule = resolve_style(
+            parse_stylesheet("button { background: #3b6ef5; cursor: pointer; }"),
+            StyleTarget("button"),
+        )
+        self.renderer.apply_css(instance.handle, rule)
+        name = str(widget.cget("style"))
+        self.assertEqual(ttk.Style(widget).lookup(name, "background"), "#3b6ef5")
+        self.assertEqual(str(widget.cget("cursor")), "hand2")
+
     def test_flex_has_explicit_flex_route_without_pack_layout_fallback(self) -> None:
         from psx import Flex
         from psx.core.errors import RendererCapabilityError
