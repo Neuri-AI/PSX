@@ -28,6 +28,43 @@ Portable multi-child viewport with native scrolling in Qt, Kivy and Tkinter.
 layout direction of *direct children*. For complex structures, put a
 `Column`, `Row` or another container inside Scroll.
 
+### Cinnamon viewport dimensions and responsive Grid
+
+Inside a Cinnamon-managed layout, `Scroll` accepts positive CSS-like
+lengths such as `height="100vh"`, `width="100%"` and `height="480px"`.
+These lengths become layout metadata and are re-resolved on window resize.
+Legacy numeric `height=320` remains valid in Python; in PSX Markup use
+quoted literals such as `height="320"`, or a Python variable
+(`height={scroll_height}`) rather than `height={320}`.
+
+A `Grid` may contain a `Scroll` around **one** `GridItem`. The declared
+item determines the column span, and the Scroll remains a native viewport:
+
+```python
+from velto.ui import psx
+
+view = psx("""
+    <div>
+        <Grid gap="0px">
+            <GridItem span="3"><div>Navigation</div></GridItem>
+            <Scroll direction="vertical" height="100vh">
+                <GridItem>
+                    <div>
+                        <p>Main content</p>
+                    </div>
+                </GridItem>
+            </Scroll>
+        </Grid>
+    </div>
+""")
+```
+
+The viewport may use a single HTML-like block or Flex as its content
+root. The Scroll-to-GridItem relationship is normalized before Cinnamon
+measures track widths; native viewport geometry and scroll offsets remain
+owned by the selected renderer. Unrelated Grid children remain strict
+`GridItem` participants.
+
 ### Python builder
 
 ```python
