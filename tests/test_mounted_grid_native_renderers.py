@@ -3024,3 +3024,38 @@ def test_grid_composition_failure_is_not_cached(monkeypatch):
         bridge.compose("cards", 500)
     assert bridge.compose("cards", 500).content_height == 15
     assert count == [2]
+
+
+
+def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends():
+    """The scroll viewport owns clipping; Grid owns the item's track width."""
+    from psx import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    markup = (
+        '<Grid gap="0px">'
+        '<GridItem span="3"><div><p>Sidebar</p></div></GridItem>'
+        '<Scroll direction="vertical" height="100vh"><GridItem>'
+        '<div><p>Contenido</p><p>Más contenido</p></div>'
+        '</GridItem></Scroll>'
+        '</Grid>'
+    )
+    try:
+        root = reconciler.render(psx(markup))
+        assert [node.node.type for node in root.children] == ["GridItem", "GridItem"]
+        scrolling = root.children[1].children[0]
+        assert scrolling.node.type == "Scroll"
+        assert scrolling.node.props["layout_height"] == "100vh"
+        assert rectangle(scrolling.handle.widget, backend)[3] == pytest.approx(200, abs=1)
+        native = scrolling.handle.widget
+        assert getattr(native, "_psx_sfle_scroll", False)
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(900, True), AvailableSize(280, True)))
+        renderer.commit_layout(root)
+        assert scrolling.handle.widget is native
+        assert rectangle(native, backend)[3] == pytest.approx(280, abs=1)
+        assert renderer.grid_result is not None
+    finally:
+        reconciler.unmount()
+        close()
