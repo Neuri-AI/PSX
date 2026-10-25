@@ -352,6 +352,7 @@ def test_grid_accepts_scroll_wrapped_item_and_resizes_viewport():
         assert host.height() == pytest.approx(600, abs=1)
         assert host.width() > 0
         assert host._psx_content.height() >= host.height()
+        assert host.verticalScrollBar().maximum() > 0
         renderer.set_sfle_constraints(LayoutConstraints(
             AvailableSize(1100, True), AvailableSize(750, True)))
         renderer.commit_layout(mounted)
