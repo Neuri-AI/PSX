@@ -188,6 +188,7 @@ class ComposedGrid:
     nested: dict[str, "ComposedGrid"]
     nested_flex: dict[str, ComposedFlex]
     nested_flow: dict[str, ComposedFlow]
+    nested_scroll: dict[str, tuple[ComposedFlow, float, float]]
     content_height: float
 
 
@@ -225,6 +226,7 @@ def prepare_composed_grid(
     nested: dict[str, ComposedGrid] = {}
     nested_flex: dict[str, ComposedFlex] = {}
     nested_flow: dict[str, ComposedFlow] = {}
+    nested_scroll: dict[str, tuple[ComposedFlow, float, float]] = {}
 
     class Source:
         def port(self):
@@ -240,6 +242,54 @@ def prepare_composed_grid(
 
         def measure_width(self, identifier, width):
             child = child_by_id[identifier]
+            if child.kind is NodeKind.HOST and child.type == "Scroll":
+                if engine is None:
+                    raise GridPackingError("Scroll-in-Grid requires Cinnamon layout.")
+                roots = child.effective_children
+                if len(roots) != 1 or roots[0].type not in FORMATTING_TAGS:
+                    raise GridPackingError(
+                        "GridItem Scroll requires one HTML-like block content root."
+                    )
+                from .lengths import LengthKind, parse_length, resolve_viewport_length
+                source = child.source.props
+                requested = source.get("layout_height", source.get("height"))
+                flow = prepare_composed_flow(
+                    roots[0], width=width, generation=generation,
+                    measure_leaf=measure_leaf, engine=engine,
+                    viewport_constraints=viewport_constraints,
+                    measure_grid=lambda subgrid, grid_width:
+                        prepare_composed_grid(
+                            subgrid, content_width=grid_width,
+                            generation=generation, current_generation=current_generation,
+                            measure_leaf=measure_leaf, is_ui_thread=is_ui_thread,
+                            breakpoints=breakpoints, engine=engine,
+                            viewport_constraints=viewport_constraints,
+                        ),
+                )
+                height = flow.content_height
+                if requested is not None:
+                    parsed = parse_length(requested)
+                    if parsed.kind in (
+                        LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX,
+                    ):
+                        if viewport_constraints is None or (
+                            viewport_constraints.width.value is None
+                            or viewport_constraints.height.value is None
+                        ):
+                            raise GridPackingError(
+                                "Viewport-sized Scroll needs definite window dimensions."
+                            )
+                        parsed = resolve_viewport_length(
+                            parsed, viewport_constraints.width.value,
+                            viewport_constraints.height.value,
+                        )
+                    if parsed.kind is not LengthKind.PX or parsed.value <= 0:
+                        raise GridPackingError(
+                            "GridItem Scroll height requires a definite positive size."
+                        )
+                    height = float(parsed.value)
+                nested_scroll[identifier] = (flow, width, height)
+                return IntrinsicSizes(0, width, 0, height, width, height)
             if child.kind is NodeKind.HOST and child.type == "Grid":
                 subgrid = prepare_composed_grid(
                     child, content_width=width, generation=generation,
@@ -309,7 +359,7 @@ def prepare_composed_grid(
     )
     height = max((placement.y + placement.height for placement in prepared.placements),
                  default=0.0)
-    return ComposedGrid(grid, prepared, nested, nested_flex, nested_flow, height)
+    return ComposedGrid(grid, prepared, nested, nested_flex, nested_flow, nested_scroll, height)
 
 
 def compose_geometry_batch(
@@ -343,6 +393,41 @@ def compose_geometry_batch(
                 widgets[grid_id] = handles[id(child.source)]
                 heights[grid_id] = placement.height
                 walk(nested, child_height)
+            elif identifier in grid.nested_scroll:
+                flow, scroll_width, scroll_height = grid.nested_scroll[identifier]
+                scroll_id = identifier + "/scroll"
+                placements.append(GridNativePlacement(
+                    scroll_id, 0, 0, placement.width, scroll_height,
+                    placement.width, scroll_height, False, False,
+                ))
+                widgets[scroll_id] = handles[id(child.source)]
+                heights[scroll_id] = placement.height
+                content_root = child.effective_children[0]
+                flow_id = scroll_id + "/content"
+                placements.append(GridNativePlacement(
+                    flow_id, 0, 0, scroll_width, flow.content_height,
+                    scroll_width, flow.content_height, False, False,
+                ))
+                widgets[flow_id] = handles[id(content_root.source)]
+                heights[flow_id] = scroll_height
+                boxes = dict(flow.result.boxes)
+                nodes_by_id = {node.node_id: node for node in flow.prepared.snapshot.nodes}
+                for source_id, source in flow.prepared.identities[1:]:
+                    current = nodes_by_id[source_id]
+                    rect = boxes[source_id].border
+                    parent = boxes[current.parent_id].border
+                    local_x, local_y = rect.x - parent.x, rect.y - parent.y
+                    segment_id = flow_id + "/" + source_id
+                    placements.append(GridNativePlacement(
+                        segment_id, max(0.0, local_x), max(0.0, local_y),
+                        rect.width, rect.height, rect.width, rect.height,
+                        False, False,
+                    ))
+                    widgets[segment_id] = handles[id(source)]
+                    heights[segment_id] = parent.height
+                    nested_grid = flow.nested_grids.get(source_id)
+                    if nested_grid is not None:
+                        walk(nested_grid, rect.height)
             elif identifier in grid.nested_flow:
                 flow = grid.nested_flow[identifier]
                 flow_id = identifier + "/flow"
