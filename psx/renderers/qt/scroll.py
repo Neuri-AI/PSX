@@ -91,6 +91,12 @@ def _scroll_area_class(binding: str):
                     next_value, residual = consume_scroll(
                         float(bar.value()), maximum, pending,
                     )
+                    # Float cancellation near a scrollbar bound can produce
+                    # microscopic residuals (~1e-16) even when all requested
+                    # movement was consumed. They must not clear accumulated
+                    # fractional trackpad travel or chain to an ancestor.
+                    if abs(residual) < 1e-9:
+                        residual = 0.0
                     position = round(next_value)
                     bar.setValue(position)
                     # Keep fractional trackpad travel between events. Rounding
