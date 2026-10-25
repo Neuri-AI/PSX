@@ -42,7 +42,7 @@ def test_reloaded_pyqtgraph_native_widget_mounts_inside_css_grid(tmp_path):
         "<GridItem span=\"3\"><div>Sidebar</div></GridItem>"
         "<Scroll direction=\"vertical\" height=\"100vh\"><GridItem>"
         "<div class=\"content\"><Grid gap=\"16px\"><GridItem>"
-        "<div class=\"card\" style=\"padding: 16px; border: 1px solid #e0e0e0;\">"
+        "<div class=\"card\" style=\"padding: 16px; border: 1px solid #e0e0e0; max-height: 250px;\">"
         "<Native widget={LineChart} key=\"line-chart\" />"
         "</div></GridItem></Grid></div></GridItem></Scroll>"
         "</Grid></div>''')\n",
@@ -68,7 +68,10 @@ def test_reloaded_pyqtgraph_native_widget_mounts_inside_css_grid(tmp_path):
         parent = native.handle.widget.parentWidget()
         child_box = native.handle.widget.geometry()
         assert child_box.x() >= 16
-        assert child_box.x() + child_box.width() <= parent.width() - 16
+        assert child_box.x() + child_box.width() <= parent.width() - 17 + 1
+        assert parent.height() <= 284 + 1
+        assert child_box.y() >= 17 - 1
+        assert child_box.y() + child_box.height() <= parent.height() - 17 + 1
         renderer.set_sfle_constraints(LayoutConstraints(
             AvailableSize(840, True), AvailableSize(620, True)))
         renderer.commit_layout(root)
