@@ -58,12 +58,13 @@ def native_leaf_needs_measurement(node: VNode, *, backend: str) -> bool:
             f"native SFLE {backend} SFLE geometry not certified for {node.type!r}."
         )
     if node.type == "Scroll":
+        from psx.markup.html_aliases import FORMATTING_TAGS
         if len(node.children) != 1 or (
             node.children[0].kind is not NodeKind.HOST
-            or node.children[0].type != "Flex"
+            or node.children[0].type not in ({"Flex"} | FORMATTING_TAGS)
         ):
             raise RendererCapabilityError(
-                "native SFLE Scroll requires exactly one explicit Flex content root."
+                "native SFLE Scroll requires exactly one Flex or HTML-like block root."
             )
         return False
     if node.type == "Box" and len(node.children) != 1:

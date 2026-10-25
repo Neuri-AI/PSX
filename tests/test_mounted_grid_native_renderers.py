@@ -264,8 +264,8 @@ def test_grid_root_geometry_is_restored_when_native_batch_fails(request, monkeyp
         close()
 
 
-def test_grid_requires_explicit_scroll_flex_content(request):
-    """Scroll must expose explicit Flex content; a direct Grid cannot bypass it."""
+def test_scroll_rejects_grid_as_its_content_root(request):
+    """Scroll requires one supported content box; Grid alone is not a block root."""
     from psx import Scroll
     from psx.core.errors import RendererCapabilityError
 
@@ -275,7 +275,7 @@ def test_grid_requires_explicit_scroll_flex_content(request):
     renderer, close = make_renderer(backend)
     tree = Reconciler(renderer)
     try:
-        with pytest.raises(RendererCapabilityError, match="explicit Flex content root"):
+        with pytest.raises(RendererCapabilityError, match="one Flex or HTML-like block root"):
             tree.render(Scroll(view(), height=200))
         assert getattr(renderer, "grid_result", None) is None
         assert_feature(request, Feature("Grid", binding, "interaction",
@@ -3024,3 +3024,48 @@ def test_grid_composition_failure_is_not_cached(monkeypatch):
         bridge.compose("cards", 500)
     assert bridge.compose("cards", 500).content_height == 15
     assert count == [2]
+
+
+
+@pytest.mark.parametrize('wrapped_root', [False, True])
+def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends(wrapped_root, request):
+    """The scroll viewport owns clipping; Grid owns the item's track width."""
+    from psx import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    markup = (
+        ('<div><Grid gap="0px">' if wrapped_root else '<Grid gap="0px">')
+        + '<GridItem span="3"><div><p>Sidebar</p></div></GridItem>'
+        + '<Scroll direction="vertical" height="100vh"><GridItem>'
+        + '<div><p>Contenido</p><p>Más contenido</p></div>'
+        + '</GridItem></Scroll>'
+        + ('</Grid></div>' if wrapped_root else '</Grid>')
+    )
+    try:
+        root = reconciler.render(psx(markup))
+        grid = root.children[0] if wrapped_root else root
+        assert [node.node.type for node in grid.children] == ["GridItem", "GridItem"]
+        scrolling = grid.children[1].children[0]
+        assert scrolling.node.type == "Scroll"
+        assert scrolling.node.props["layout_height"] == "100vh"
+        assert rectangle(scrolling.handle.widget, backend)[3] == pytest.approx(200, abs=1)
+        native = scrolling.handle.widget
+        assert getattr(native, "_psx_sfle_scroll", False)
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(900, True), AvailableSize(280, True)))
+        renderer.commit_layout(root)
+        assert scrolling.handle.widget is native
+        assert rectangle(native, backend)[3] == pytest.approx(280, abs=1)
+        assert renderer.grid_result is not None
+        binding = "pyside6" if backend == "qt" else "tkinter" if backend == "tk" else "kivy"
+        assert_feature(
+            request,
+            Feature("Grid", binding, "interaction", "scroll_wrapped_item",
+                    ("nested" if wrapped_root else "root") + "_viewport_resize",
+                    applicability="partial_native"),
+            True,
+        )
+    finally:
+        reconciler.unmount()
+        close()

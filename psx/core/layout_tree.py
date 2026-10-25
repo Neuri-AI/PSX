@@ -176,13 +176,14 @@ def normalize_flex_tree(
         result = NormalizedLayoutNode(node, path, children)
         if node.kind is NodeKind.HOST and node.type == "Scroll":
             participants = result.effective_children
+            from psx.markup.html_aliases import FORMATTING_TAGS
             if len(participants) != 1 or (
                 participants[0].kind is not NodeKind.HOST
-                or participants[0].type != "Flex"
+                or participants[0].type not in ({"Flex"} | FORMATTING_TAGS)
             ):
                 raise RendererCapabilityError(
-                    "Scroll SFLE content must have exactly one explicit Flex root; "
-                    "use <Scroll><Flex>...</Flex></Scroll>."
+                    "Scroll SFLE content must have exactly one Flex or "
+                    "HTML-like block root."
                 )
         return result
 
