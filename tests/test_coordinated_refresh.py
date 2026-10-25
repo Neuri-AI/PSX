@@ -621,9 +621,11 @@ def test_hot_reload_preserves_native_widget_class_in_lexical_scope(tmp_path):
         "        return psx('''<div><Native widget={LineChart} key=\"chart\" /></div>''')\n",
         encoding="utf-8",
     )
-    class AppRoot:
-        def render(self):
-            raise AssertionError("original render should not execute")
+    AppRoot = type("AppRoot", (), {
+        "render": lambda self: (_ for _ in ()).throw(
+            AssertionError("original render should not execute")
+        ),
+    })
     updated = _load_updated_class(source, AppRoot, frozenset())
     rendered = updated.render(AppRoot())
     native = rendered.children[0]
