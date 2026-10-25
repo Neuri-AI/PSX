@@ -40,11 +40,13 @@ def require_scroll_content_root(node: NormalizedLayoutNode) -> NormalizedLayoutN
     if node.kind is not NodeKind.HOST or node.type != "Scroll":
         raise RendererCapabilityError("Scroll viewport binding requires a Scroll node.")
     roots = node.effective_children
+    from psx.markup.html_aliases import FORMATTING_TAGS
     if len(roots) != 1 or (
-        roots[0].kind is not NodeKind.HOST or roots[0].type != "Flex"
+        roots[0].kind is not NodeKind.HOST
+        or roots[0].type not in ({"Flex"} | FORMATTING_TAGS)
     ):
         raise RendererCapabilityError(
-            "Scroll SFLE content must have exactly one explicit Flex root."
+            "Scroll SFLE content must have exactly one Flex or HTML-like block root."
         )
     return roots[0]
 
