@@ -305,3 +305,57 @@ def test_dashboard_cards_fit_padded_content_without_clipping():
             assert rect.x() + rect.width() <= grid.handle.widget.width() + 1
     finally:
         reconciler.unmount()
+
+
+def test_grid_accepts_scroll_wrapped_item_and_resizes_viewport():
+    from psx.css.context import scoped_css_resources
+
+    markup = (
+        '<div class="layout"><Grid gap="0px">'
+        '<GridItem span="3"><div class="sidebar">Mi panel</div></GridItem>'
+        '<Scroll direction="vertical" height="100vh"><GridItem>'
+        '<div class="content"><div class="header"><p>Resumen</p></div>'
+        '<div class="container"><Grid gap="16px">'
+        '<GridItem span="6"><div class="card">Usuarios</div></GridItem>'
+        '<GridItem span="6"><div class="card">Ventas</div></GridItem>'
+        '</Grid></div></div>'
+        '</GridItem></Scroll></Grid></div>'
+    )
+    css = (
+        '.layout { min-height: 100vh }'
+        '.container { padding: 16px }'
+        '.content { min-height: 130vh }'
+    )
+    with scoped_css_resources(["css/styles.css"], resolver=lambda _: css):
+        tree = psx(markup)
+    grid = tree.children[0]
+    assert grid.type == "Grid"
+    assert [child.type for child in grid.children] == ["GridItem", "GridItem"]
+    scrolling_slot = grid.children[1]
+    assert scrolling_slot.children[0].type == "Scroll"
+    assert scrolling_slot.children[0].children[0].type == "div"
+
+    renderer = PySide6Renderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(960, True), AvailableSize(600, True)),
+        engine=PythonLayoutEngine(), argv=["grid-scroll-viewport"],
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(tree)
+        def descendants(instance):
+            yield instance
+            for child in instance.children:
+                yield from descendants(child)
+        host = next(instance.handle.widget for instance in descendants(mounted)
+                    if instance.node.type == "Scroll")
+        assert host.height() == pytest.approx(600, abs=1)
+        assert host.width() > 0
+        assert host._psx_content.height() >= host.height()
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(1100, True), AvailableSize(750, True)))
+        renderer.commit_layout(mounted)
+        assert host.height() == pytest.approx(750, abs=1)
+        assert host._psx_content.height() >= host.height()
+    finally:
+        reconciler.unmount()
