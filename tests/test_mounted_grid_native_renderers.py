@@ -3036,11 +3036,11 @@ def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends(wrapped_r
     reconciler = Reconciler(renderer)
     markup = (
         ('<div><Grid gap="0px">' if wrapped_root else '<Grid gap="0px">')
-        '<GridItem span="3"><div><p>Sidebar</p></div></GridItem>'
-        '<Scroll direction="vertical" height="100vh"><GridItem>'
-        '<div><p>Contenido</p><p>Más contenido</p></div>'
-        '</GridItem></Scroll>'
-        ('</Grid></div>' if wrapped_root else '</Grid>')
+        + '<GridItem span="3"><div><p>Sidebar</p></div></GridItem>'
+        + '<Scroll direction="vertical" height="100vh"><GridItem>'
+        + '<div><p>Contenido</p><p>Más contenido</p></div>'
+        + '</GridItem></Scroll>'
+        + ('</Grid></div>' if wrapped_root else '</Grid>')
     )
     try:
         root = reconciler.render(psx(markup))
