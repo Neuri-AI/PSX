@@ -52,6 +52,32 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertEqual(tuple(int(x) for x in padding), (10, 0, 10, 0))
 
 
+
+    def test_button_padding_and_active_colors_without_font_declarations(self):
+        from tkinter import ttk
+        from psx.css.parser import parse_stylesheet
+        from psx.css.cascade import StyleTarget, resolve_style
+        self._enable_native_sfle()
+        instance = self.reconciler.render(Flex(Button("Usuarios"), direction="row")).children[0]
+        widget = instance.handle.widget
+        computed = resolve_style(parse_stylesheet(
+            "button {padding: 0px 10px; text-align: left; "
+            "cursor: pointer; color: #6b7385;}"
+        ), StyleTarget("button"))
+        self.renderer.apply_css(instance.handle, computed)
+        theme = ttk.Style(widget)
+        name = str(widget.cget("style"))
+        self.assertEqual(tuple(int(v) for v in theme.lookup(name, "padding")), (10, 0, 10, 0))
+        self.assertEqual(theme.lookup(name, "anchor"), "w")
+        self.assertEqual(theme.lookup(name, "foreground"), "#6b7385")
+        self.assertEqual(str(widget.cget("cursor")), "hand2")
+        selected = resolve_style(parse_stylesheet(
+            "button {padding: 0px 10px; background: #3b6ef5; color: #fff;}"
+        ), StyleTarget("button"))
+        self.renderer.apply_css(instance.handle, selected)
+        self.assertEqual(theme.lookup(name, "background"), "#3b6ef5")
+        self.assertEqual(theme.lookup(name, "foreground"), "#ffffff")
+
     def test_html_box_background_uses_native_theme_independent_fill(self):
         from psx.markup.compile import psx
         self._enable_native_sfle()
