@@ -264,8 +264,8 @@ def test_grid_root_geometry_is_restored_when_native_batch_fails(request, monkeyp
         close()
 
 
-def test_grid_requires_explicit_scroll_flex_content(request):
-    """Scroll must expose explicit Flex content; a direct Grid cannot bypass it."""
+def test_scroll_rejects_grid_as_its_content_root(request):
+    """Scroll requires one supported content box; Grid alone is not a block root."""
     from psx import Scroll
     from psx.core.errors import RendererCapabilityError
 
@@ -275,7 +275,7 @@ def test_grid_requires_explicit_scroll_flex_content(request):
     renderer, close = make_renderer(backend)
     tree = Reconciler(renderer)
     try:
-        with pytest.raises(RendererCapabilityError, match="explicit Flex content root"):
+        with pytest.raises(RendererCapabilityError, match="one Flex or HTML-like block root"):
             tree.render(Scroll(view(), height=200))
         assert getattr(renderer, "grid_result", None) is None
         assert_feature(request, Feature("Grid", binding, "interaction",
