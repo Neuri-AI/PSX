@@ -84,8 +84,8 @@ def test_nested_activity_flex_remeasures_wrapped_description_at_assigned_width()
         LayoutNode("time", "row", "Text", (("layout_min_width", "120px"),)),
     )
     measurements = (
-        MeasuredBox("description", _intrinsic(380, 14), constraints, 1),
-        MeasuredBox("time", _intrinsic(200, 20), constraints, 1),
+        MeasuredBox("description", IntrinsicSizes(0, 380, 14, 14, 380, 14), constraints, 1),
+        MeasuredBox("time", IntrinsicSizes(120, 200, 20, 20, 200, 20), constraints, 1),
     )
     measured_widths = {}
     def measure(identifier, width):
