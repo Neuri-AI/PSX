@@ -25,9 +25,10 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             widget = instance.handle.widget
             original = (widget.background_normal, widget.background_down)
             first = resolve_style(
-                parse_stylesheet("button {background: #3b6ef5}"), StyleTarget("button"))
+                parse_stylesheet("button {background: #3b6ef5; padding: 0px 10px}"), StyleTarget("button"))
             renderer.apply_css(instance.handle, first)
             assert hasattr(widget, "_psx_css_button_background")
+            assert list(widget.padding) == [10, 0, 10, 0]
             assert widget.background_normal == "" and widget.background_down == ""
             assert tuple(round(x, 4) for x in widget._psx_css_button_background[2].rgba) == (
                 round(59/255, 4), round(110/255, 4), round(245/255, 4), 1)
