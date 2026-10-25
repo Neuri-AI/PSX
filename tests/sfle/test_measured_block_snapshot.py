@@ -132,3 +132,53 @@ def test_native_input_and_button_keep_intrinsic_width_under_block_parent():
     assert boxes["button"].border.y == 22
     assert boxes["root"].border.width == 240
     assert boxes["root"].border.height == 44
+
+
+def test_auto_height_native_fits_padded_max_height_content_box():
+    from psx.sfle.lengths import Length
+    initial = snapshot()
+    nodes = (
+        LayoutNode("card", None, "div", (
+            ("layout_max_height", Length.px(250)),
+            ("layout_padding_top", Length.px(16)),
+            ("layout_padding_bottom", Length.px(16)),
+            ("layout_padding_left", Length.px(16)),
+            ("layout_padding_right", Length.px(16)),
+            ("layout_border_top", Length.px(1)),
+            ("layout_border_bottom", Length.px(1)),
+            ("layout_border_left", Length.px(1)),
+            ("layout_border_right", Length.px(1)),
+        )),
+        LayoutNode("chart", "card", "Native", ()),
+    )
+    measures = (
+        MeasuredBox("chart", IntrinsicSizes(0, 700, 250, 480, 640, 480),
+                    initial.constraints, 1),
+    )
+    boxes = dict(compute_measured_block_snapshot(LayoutInput(
+        1, initial.generation, initial.direction, initial.constraints,
+        nodes, measures,
+    )).boxes)
+    assert boxes["card"].border.height == 284
+    assert boxes["chart"].border.y == 17
+    assert boxes["chart"].border.height == 250
+    assert boxes["chart"].border.x == 17
+
+
+def test_explicit_native_height_remains_authoritative_even_with_parent_max():
+    from psx.sfle.lengths import Length
+    initial = snapshot()
+    nodes = (
+        LayoutNode("card", None, "div", (("layout_max_height", Length.px(250)),)),
+        LayoutNode("chart", "card", "Native", (("layout_height", Length.px(300)),)),
+    )
+    measures = (
+        MeasuredBox("chart", IntrinsicSizes(0, 700, 250, 480, 640, 480),
+                    initial.constraints, 1),
+    )
+    boxes = dict(compute_measured_block_snapshot(LayoutInput(
+        1, initial.generation, initial.direction, initial.constraints,
+        nodes, measures,
+    )).boxes)
+    assert boxes["chart"].border.height == 300
+    assert boxes["card"].content.height == 250
