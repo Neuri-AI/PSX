@@ -881,6 +881,44 @@ class KivyRenderer:
                 label._psx_css_original_foreground = tuple(label.color)
             label.color = styles.get("color", label._psx_css_original_foreground)
             return
+        if target.node_type == "Button":
+            # Kivy's theme texture otherwise obscures authored CSS backgrounds.
+            from psx.css.native_paint import native_border_radius
+            from kivy.graphics import RoundedRectangle
+            widget = target.widget
+            rgba = background_rgba(computed)
+            painted = getattr(widget, "_psx_css_button_background", None)
+            if rgba is None:
+                if painted is not None:
+                    group, redraw, _, _, original_normal, original_down, original_color = painted
+                    widget.unbind(pos=redraw, size=redraw)
+                    widget.canvas.before.remove(group)
+                    widget.background_normal = original_normal
+                    widget.background_down = original_down
+                    widget.background_color = original_color
+                    del widget._psx_css_button_background
+            elif painted is None:
+                group = InstructionGroup()
+                color = Color(*rgba)
+                radius = native_border_radius(computed)
+                shape = RoundedRectangle(pos=widget.pos, size=widget.size, radius=[radius] * 4)
+                group.add(color)
+                group.add(shape)
+                def redraw(instance, _):
+                    shape.pos = instance.pos
+                    shape.size = instance.size
+                original = (widget.background_normal, widget.background_down,
+                            tuple(widget.background_color))
+                widget.background_normal = ""
+                widget.background_down = ""
+                widget.background_color = (0, 0, 0, 0)
+                widget.canvas.before.add(group)
+                widget.bind(pos=redraw, size=redraw)
+                widget._psx_css_button_background = (group, redraw, color, shape, *original)
+            else:
+                _, _, color, shape, _, _, _ = painted
+                color.rgba = rgba
+                shape.radius = [native_border_radius(computed)] * 4
         if target.node_type in ("Button", "Input", "TextArea", "Select", "Link"):
             from psx.css.native_paint import native_text_typography
             styles = native_text_typography(computed, alpha=True,
