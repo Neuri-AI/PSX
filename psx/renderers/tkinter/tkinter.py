@@ -1140,6 +1140,20 @@ class TkinterRenderer:
                         l, t, r, b = parts
                     else:
                         raise ValueError("Unsupported native Tk button padding format.")
+                    if computed is not None and (
+                        "padding" in computed.specified or any(
+                            f"padding-{side}" in computed.specified
+                            for side in ("top", "right", "bottom", "left")
+                        )
+                    ):
+                        from psx.sfle.lengths import LengthKind
+                        dimensions = []
+                        for side in ("left", "top", "right", "bottom"):
+                            length = computed.properties[f"padding-{side}"]
+                            if length.kind is not LengthKind.PX:
+                                raise ValueError("Tk native Button padding requires pixel lengths.")
+                            dimensions.append(round(length.value))
+                        l, t, r, b = dimensions
                     config["padding"] = (
                         l, t + extra // 2, r, b + extra - extra // 2
                     )
