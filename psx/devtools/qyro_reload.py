@@ -265,7 +265,7 @@ def _render_class_source(source: str, class_name: str, modules: frozenset[str]) 
     for statement in ast.walk(tree):
         if isinstance(statement, ast.Constant) and isinstance(statement.value, str):
             native_widget_names.update(re.findall(
-                r"<Native\\b[^>]*\\bwidget\\s*=\\s*\\{\\s*([A-Za-z_]\\w*)\\s*\\}",
+                r"<Native\b[^>]*\bwidget\s*=\s*\{\s*([A-Za-z_]\w*)\s*\}",
                 statement.value,
                 re.DOTALL,
             ))
