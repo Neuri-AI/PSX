@@ -419,9 +419,12 @@ def compose_geometry_batch(
                 heights[scroll_id] = placement.height
                 content_root = child.effective_children[0]
                 flow_id = scroll_id + "/content"
+                # Keep overflow descendants inside a real native parent rect;
+                # otherwise Qt clips them at the CSS content root's fixed
+                # height before the Scroll viewport can reveal them.
                 placements.append(GridNativePlacement(
-                    flow_id, 0, 0, scroll_width, flow.content_height,
-                    scroll_width, flow.content_height, False, False,
+                    flow_id, 0, 0, scroll_width, scroll_extent,
+                    scroll_width, scroll_extent, False, False,
                 ))
                 widgets[flow_id] = handles[id(content_root.source)]
                 heights[flow_id] = scroll_height
