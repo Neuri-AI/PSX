@@ -940,6 +940,24 @@ class KivyRenderer:
                 if not hasattr(widget, "bold"):
                     raise ValueError(f"Kivy {target.node_type} does not expose native font-weight.")
                 widget.bold = styles["font-weight"] >= 600
+            if target.node_type == "Button" and computed is not None and (
+                "padding" in computed.specified or any(
+                    f"padding-{side}" in computed.specified
+                    for side in ("top", "right", "bottom", "left")
+                )
+            ):
+                from psx.sfle.lengths import LengthKind
+                if not hasattr(widget, "_psx_css_original_padding"):
+                    widget._psx_css_original_padding = tuple(widget.padding)
+                values = []
+                for side in ("left", "top", "right", "bottom"):
+                    length = computed.properties[f"padding-{side}"]
+                    if length.kind is not LengthKind.PX:
+                        raise ValueError("Kivy native Button padding requires pixel lengths.")
+                    values.append(float(length.value))
+                widget.padding = values
+            elif target.node_type == "Button" and hasattr(widget, "_psx_css_original_padding"):
+                widget.padding = widget._psx_css_original_padding
             if "text-align" in styles:
                 if not hasattr(widget, "halign"):
                     raise ValueError(f"Kivy {target.node_type} does not support text-align.")
