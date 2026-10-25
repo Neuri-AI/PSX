@@ -52,16 +52,12 @@ def _scroll_area_class(binding: str):
                 )
                 self._indicators[axis] = indicator
             self.viewport().installEventFilter(self)
-            # QScroller supplies native kinetic touch input when exposed by
-            # the active Qt binding; SFLE still owns all child geometry.
-            scroller = getattr(widgets, "QScroller", None)
-            if scroller is not None:
-                gesture = getattr(
-                    getattr(scroller, "ScrollerGestureType", scroller),
-                    "TouchGesture", None,
-                )
-                if gesture is not None:
-                    scroller.grabGesture(self.viewport(), gesture)
+            # Desktop trackpads already deliver phased QWheelEvent streams.
+            # Grabbing a QScroller touch gesture on the same viewport gives
+            # two different handlers ownership of one gesture and may leave
+            # the scroller in a kinetic state after wheel input has stopped.
+            # The Scroll viewport owns wheel deltas directly instead.
+            self._psx_subpixel_remainder = {"x": 0.0, "y": 0.0}
 
         def eventFilter(self, source, event):
             if source is self.viewport() and event.type() == event_type.Resize:
@@ -87,10 +83,24 @@ def _scroll_area_class(binding: str):
                         continue
                     bar = (self.horizontalScrollBar() if axis == "x"
                            else self.verticalScrollBar())
+                    maximum = float(bar.maximum())
+                    if maximum <= 0:
+                        self._psx_subpixel_remainder[axis] = 0.0
+                        continue
+                    pending = delta + self._psx_subpixel_remainder[axis]
                     next_value, residual = consume_scroll(
-                        float(bar.value()), float(bar.maximum()), delta,
+                        float(bar.value()), maximum, pending,
                     )
-                    bar.setValue(round(next_value))
+                    position = round(next_value)
+                    bar.setValue(position)
+                    # Keep fractional trackpad travel between events. Rounding
+                    # each delta independently makes slow or resumed scrolling
+                    # appear frozen on high-resolution macOS trackpads.
+                    self._psx_subpixel_remainder[axis] = (
+                        next_value - float(position) if not residual else 0.0
+                    )
+                    # Only the current gesture's travel may chain to an
+                    # ancestor; fractional carry belongs to this viewport.
                     if axis == "x":
                         remaining_x = residual
                     else:
@@ -171,6 +181,8 @@ def _scroll_area_class(binding: str):
 
         def configure(self, props):
             self._psx_props = props
+            if not props["enabled"]:
+                self._psx_subpixel_remainder = {"x": 0.0, "y": 0.0}
             self.setEnabled(props["enabled"])
             if self._psx_sfle_scroll:
                 self.setMinimumWidth(0)
