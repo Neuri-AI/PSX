@@ -91,7 +91,7 @@ def _classify_path(path: str) -> set[str]:
         return {"qt"}
     if path == "tests/test_qt_html_form_associations.py":
         return {"qt"}
-    if path in ("tests/test_qt_css_control_background.py", "tests/test_qt_semantic_border_scope.py"):
+    if path in ("tests/test_qt_css_control_background.py", "tests/test_qt_semantic_border_scope.py", "tests/test_qt_scroll_wheel_continuity.py"):
         return {"qt"}
     if path == "psx/css/native_paint.py" or path == "tests/css/test_native_paint.py":
         return {"core", "qt", "kivy", "tkinter"}
