@@ -110,6 +110,16 @@ class RoutingTests(unittest.TestCase):
         workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
         self.assertIn("tests/sfle/test_qt_inline_form_baselines.py", workflow)
 
+    def test_native_plot_and_block_constraints_route_correctly(self):
+        self.assertEqual(self.selected("tests/test_qt_native_chart_refresh.py"), {"qt"})
+        expected = {"core", "sfle", "rust", "chromium", "headless", "qt", "kivy", "tkinter"}
+        self.assertEqual(self.selected("psx/sfle/measured_block_snapshot.py"), expected)
+        self.assertEqual(self.selected("tests/sfle/test_measured_block_snapshot.py"), expected)
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/component-source-refresh.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/test_qt_native_chart_refresh.py", workflow)
+        self.assertIn("tests/sfle/test_measured_block_snapshot.py", workflow)
+
     def test_qt_wheel_continuity_routes_to_native_qt(self):
         from pathlib import Path
         self.assertEqual(self.selected("tests/test_qt_scroll_wheel_continuity.py"), {"qt"})
