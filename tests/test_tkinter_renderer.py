@@ -51,6 +51,17 @@ class TkinterRendererTests(unittest.TestCase):
         padding = ttk.Style(widget).lookup(name, "padding")
         self.assertEqual(tuple(int(x) for x in padding), (10, 0, 10, 0))
 
+
+    def test_html_box_background_uses_native_theme_independent_fill(self):
+        from psx.ui import psx
+        self._enable_native_sfle()
+        instance = self.reconciler.render(
+            psx('<div style="background-color: #f5f6f8;">Card</div>')
+        )
+        widget = instance.handle.widget
+        self.assertTrue(hasattr(widget, "_psx_css_fill_canvas"))
+        self.assertEqual(str(widget._psx_css_fill_canvas.cget("background")), "#f5f6f8")
+
     def test_flex_has_explicit_flex_route_without_pack_layout_fallback(self) -> None:
         from psx import Flex
         from psx.core.errors import RendererCapabilityError
