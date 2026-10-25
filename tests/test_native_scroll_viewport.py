@@ -59,7 +59,14 @@ def test_scroll_disabled_does_not_claim_active_scroll_axis():
 
 @pytest.mark.parametrize("children", [(), (Text("not flex"),), (Flex(), Flex())])
 def test_scroll_missing_or_invalid_content_fails_closed(children):
-    with pytest.raises(RendererCapabilityError, match="exactly one explicit Flex"):
+    with pytest.raises(RendererCapabilityError, match="exactly one Flex or HTML-like block root"):
         normalize_flex_tree(Flex(
             Scroll(*children), width="100px", height="100px",
         ))
+
+
+def test_scroll_accepts_explicit_html_like_block_content():
+    from psx.core.vnode import create_element
+    content = create_element("div")
+    tree = normalize_flex_tree(Flex(Scroll(content, height="100vh")))
+    assert require_scroll_content_root(tree.children[0]).type == "div"
