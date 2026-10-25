@@ -165,18 +165,66 @@ class MountedMixedGrid:
             else:
                 widget.pos, widget.size = state
 
-    def commit(self, plans):
-        receipts = []
-        for composition, batch, widgets, heights, root_height in plans:
-            receipt = commit_grid_native_geometry(
-                batch, backend=self.backend, widgets=widgets,
-                generation=self.generation,
-                current_generation=lambda: self.renderer._sfle_generation,
-                is_ui_thread=self._on_thread,
-                parent_height=(root_height
-                               if self.backend is GridCommitBackend.KIVY else None),
-                parent_heights=(heights
-                                if self.backend is GridCommitBackend.KIVY else None),
+    def _bind_nested_scrolls(self, composition, previous):
+        from .native_scroll_hosts import (
+            apply_kivy_scroll, apply_qt_scroll, apply_tk_scroll,
+            binding_from_host,
+        )
+        from .native_scroll_transaction import prior_scroll_offset
+        from .model import Rect
+
+        children = {path_identity(item.path): item
+                    for item in composition.grid.effective_children}
+        for identifier, (flow, width, height) in composition.nested_scroll.items():
+            viewport_node = children[identifier].effective_children[0]
+            host = self.handles[id(viewport_node.source)].widget
+            if not getattr(host, "_psx_sfle_scroll", False):
+                raise GridPackingError("Nested Scroll requires a native Cinnamon viewport.")
+            binding = binding_from_host(
+                host._psx_props, Rect(0, 0, width, height),
+                Rect(0, 0, width, flow.content_height),
             )
-            receipts.append((composition.prepared, receipt))
+            offset = prior_scroll_offset(previous, host)
+            if self.backend is GridCommitBackend.QT:
+                apply_qt_scroll(host, binding, offset)
+            elif self.backend is GridCommitBackend.TK:
+                apply_tk_scroll(host, binding, offset)
+            else:
+                apply_kivy_scroll(host, binding, offset)
+            for subgrid in flow.nested_grids.values():
+                self._bind_nested_scrolls(subgrid, previous)
+        for subgrid in composition.nested.values():
+            self._bind_nested_scrolls(subgrid, previous)
+        for subflow in composition.nested_flow.values():
+            for subgrid in subflow.nested_grids.values():
+                self._bind_nested_scrolls(subgrid, previous)
+        for subflex in composition.nested_flex.values():
+            for subgrid in subflex.nested_grids.values():
+                self._bind_nested_scrolls(subgrid, previous)
+
+    def commit(self, plans):
+        from .native_scroll_transaction import (
+            capture_scroll_hosts, restore_scroll_hosts,
+        )
+        before = self.snapshot()
+        scroll_before = capture_scroll_hosts(self.backend.value, self.handles)
+        receipts = []
+        try:
+            for composition, batch, widgets, heights, root_height in plans:
+                receipt = commit_grid_native_geometry(
+                    batch, backend=self.backend, widgets=widgets,
+                    generation=self.generation,
+                    current_generation=lambda: self.renderer._sfle_generation,
+                    is_ui_thread=self._on_thread,
+                    parent_height=(root_height
+                                   if self.backend is GridCommitBackend.KIVY else None),
+                    parent_heights=(heights
+                                    if self.backend is GridCommitBackend.KIVY else None),
+                )
+                self._bind_nested_scrolls(composition, scroll_before)
+                receipts.append((composition.prepared, receipt))
+        except BaseException:
+            restore_scroll_hosts(scroll_before)
+            self.restore(before)
+            raise
         return receipts
