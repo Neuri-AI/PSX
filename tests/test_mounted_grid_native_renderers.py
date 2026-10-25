@@ -3027,23 +3027,24 @@ def test_grid_composition_failure_is_not_cached(monkeypatch):
 
 
 
-def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends():
+@pytest.mark.parametrize('wrapped_root', [False, True])
+def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends(wrapped_root):
     """The scroll viewport owns clipping; Grid owns the item's track width."""
     from psx import psx
     backend = os.environ["PSX_GRID_BACKEND"]
     renderer, close = make_renderer(backend)
     reconciler = Reconciler(renderer)
     markup = (
-        '<div><Grid gap="0px">'
+        ('<div><Grid gap="0px">' if wrapped_root else '<Grid gap="0px">')
         '<GridItem span="3"><div><p>Sidebar</p></div></GridItem>'
         '<Scroll direction="vertical" height="100vh"><GridItem>'
         '<div><p>Contenido</p><p>Más contenido</p></div>'
         '</GridItem></Scroll>'
-        '</Grid></div>'
+        ('</Grid></div>' if wrapped_root else '</Grid>')
     )
     try:
         root = reconciler.render(psx(markup))
-        grid = root.children[0]
+        grid = root.children[0] if wrapped_root else root
         assert [node.node.type for node in grid.children] == ["GridItem", "GridItem"]
         scrolling = grid.children[1].children[0]
         assert scrolling.node.type == "Scroll"
