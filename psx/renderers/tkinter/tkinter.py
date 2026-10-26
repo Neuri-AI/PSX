@@ -517,10 +517,19 @@ class TkinterRenderer:
             if len(instance.children) != 1:
                 return False
             instance = instance.children[0]
-        if instance is None or instance.node.type != "Flex":
+        if instance is None:
+            return False
+        if instance.node.type in FORMATTING_TAGS:
+            # Semantic roots use viewport constraints even when their own
+            # content box is intrinsically or explicitly sized. Descendants
+            # may still depend on vw/vh and need a fresh Cinnamon commit.
+            return True
+        if instance.node.type != "Flex":
             return False
         value = instance.node.props.get(axis, "auto")
-        return parse_length(value).kind in {LengthKind.AUTO, LengthKind.PERCENT}
+        return parse_length(value).kind in {LengthKind.AUTO, LengthKind.PERCENT,
+                                            LengthKind.VW, LengthKind.VH,
+                                            LengthKind.VMIN, LengthKind.VMAX}
 
     def _sfle_flush_viewport_resize(self, epoch: int) -> None:
         self._sfle_resize_after_id = None

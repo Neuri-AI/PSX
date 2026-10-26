@@ -335,6 +335,25 @@ class TkSFLEGeometryTests(unittest.TestCase):
         )
         self.assertEqual(rect(root.handle.widget), (0, 0, 160, 80))
 
+    def test_html_root_reflows_viewport_lengths_on_native_configure(self):
+        from types import SimpleNamespace
+
+        root = self.reconciler.render(psx(
+            '<div><button key="action" style="width: 50vw; height: 24px">'
+            'Resize</button></div>'
+        ))
+        button = root.children[0].handle.widget
+        self.assertEqual(rect(button)[2], 80)
+        self.renderer._sfle_on_configure(SimpleNamespace(
+            widget=self.host, width=240, height=120,
+        ))
+        self.assertEqual(self.renderer._sfle_resize_pending, (240, 120))
+        self.host.update()
+        self.assertIsNone(self.renderer._sfle_resize_error)
+        self.assertIs(root.children[0].handle.widget, button)
+        self.assertEqual(rect(button)[2], 120)
+        self.assertEqual(self.renderer._sfle_constraints.width.value, 240)
+
     def test_tk_multiline_text_height_follows_sfle_content_width(self):
         words = ("One two three four five six seven eight nine ten "
                  "eleven twelve thirteen fourteen fifteen sixteen.")
