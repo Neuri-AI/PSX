@@ -77,7 +77,11 @@ def apply_tk_scroll(outer: object, binding: ScrollViewportBinding,
     # default theme color must not leak through an explicitly painted CSS
     # content root when the viewport is taller than its content.
     background = None
-    for child in outer._psx_content.winfo_children():
+    native_content = getattr(outer, "_psx_content", None)
+    children = (native_content.winfo_children()
+                if callable(getattr(native_content, "winfo_children", None))
+                else ())
+    for child in children:
         background = getattr(child, "_psx_css_background", None)
         if background is not None:
             break
