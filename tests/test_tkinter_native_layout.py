@@ -394,14 +394,24 @@ class TkSFLEGeometryTests(unittest.TestCase):
         ))
         button = root.children[0].handle.widget
         self.assertEqual(rect(button)[2], 80)
+        # Ignore stale configure notifications and transient Aqua 1x1
+        # mapping sizes even when they arrive after a valid layout commit.
+        self.renderer._sfle_on_configure(SimpleNamespace(
+            widget=self.host, width=1, height=1,
+        ))
+        self.assertIsNone(self.renderer._sfle_resize_pending)
         self.renderer._sfle_on_configure(SimpleNamespace(
             widget=self.host, width=240, height=120,
         ))
-        self.assertEqual(self.renderer._sfle_resize_pending, (240, 120))
+        self.assertIsNone(self.renderer._sfle_resize_pending)
+        self.host.geometry("240x120+0+0")
         self.host.update()
         self.assertIsNone(self.renderer._sfle_resize_error)
         self.assertIs(root.children[0].handle.widget, button)
-        self.assertEqual(rect(button)[2], 120, msg=f"place={button.place_info()}, host={self.host.winfo_geometry()}, pending={self.renderer._sfle_resize_pending}, constraints={self.renderer._sfle_constraints}, error={self.renderer._sfle_resize_error}")
+        self.assertEqual(rect(button)[2], 120)
+        self.assertEqual(self.renderer._sfle_constraints.width.value, 240)
+        self.host.geometry("400x240+0+0")
+        self.host.update()
         self.assertEqual(self.renderer._sfle_constraints.width.value, 240)
 
     def test_tk_multiline_text_height_follows_sfle_content_width(self):

@@ -486,7 +486,13 @@ class TkinterRenderer:
                 or self._sfle_mounted_root is None):
             return
         width, height = event.width, event.height
-        if width <= 0 or height <= 0:
+        # Aqua can dispatch obsolete 1x1 Configure events during window
+        # mapping, after the real viewport has already been established.
+        # Never replace Cinnamon's definite window constraints with that
+        # transient geometry or an event no longer matching the Tk host.
+        if width <= 1 or height <= 1:
+            return
+        if (width, height) != (self.root.winfo_width(), self.root.winfo_height()):
             return
         if self._sfle_resize_baseline == (width, height):
             return
