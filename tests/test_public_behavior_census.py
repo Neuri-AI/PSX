@@ -329,8 +329,8 @@ def test_grid_native_certificate_requires_executed_backend_receipts(tmp_path):
     assert {row.backend for row in grid_rows} == {
         "headless", "pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"
     }
-    # Includes six certified Scroll-wrapped Grid viewport interactions.
-    assert len(grid_rows) == 157
+    # Each of the six native bindings has nested and root viewport receipts.
+    assert len(grid_rows) == 163
     assert any(row.component == "GridItem" and row.backend == "headless"
                and row.feature_name == "flex_padding" and row.scenario_id == "no_horizontal_clip"
                for row in grid_rows)
