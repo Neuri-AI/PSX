@@ -15,6 +15,93 @@ from psx.sfle.model import AvailableSize, LayoutConstraints
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
+def test_aqua_grid_gaps_use_ancestor_css_background():
+    root = tk.Tk()
+    renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
+        AvailableSize(540, True), AvailableSize(280, True)),
+        engine=PythonLayoutEngine())
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(psx("""
+            <div style="background: #0000ff">
+              <div><Grid gap="16px">
+                <GridItem span="6"><div style="background: #ffffff">A</div></GridItem>
+                <GridItem span="6"><div style="background: #ffffff">B</div></GridItem>
+              </Grid></div>
+            </div>
+        """))
+        root.update()
+        grid = mounted.children[0].children[0]
+        for instance in (grid, *grid.children):
+            widget = instance.handle.widget
+            assert getattr(widget, "_psx_css_layout_surface", False)
+            assert str(widget._psx_css_fill_canvas.cget("background")) == "#0000ff"
+        assert str(grid.children[0].children[0].handle.widget._psx_css_background) == "#ffffff"
+    finally:
+        reconciler.unmount()
+        renderer.close()
+        root.destroy()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
+def test_aqua_card_corners_have_single_fill_and_explicit_border_color():
+    root = tk.Tk()
+    renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
+        AvailableSize(350, True), AvailableSize(170, True)),
+        engine=PythonLayoutEngine())
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(psx("""
+            <div style="background: #0000ff">
+              <div style="background: #ffffff; border: 1px solid #e0e0e0;
+                          border-radius: 8px">Card</div>
+            </div>
+        """))
+        root.update()
+        card = mounted.children[0].handle.widget
+        corners = card._psx_css_background_corners
+        assert len(corners) == 4
+        assert not hasattr(card, "_psx_css_border_corners")
+        for corner in corners:
+            assert corner.cget("background") == "#0000ff"
+            items = corner.find_all()
+            assert len(items) == 2
+            assert corner.itemcget(items[0], "fill") == "#e0e0e0"
+            assert corner.itemcget(items[1], "fill") == "#ffffff"
+    finally:
+        reconciler.unmount()
+        renderer.close()
+        root.destroy()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
+def test_aqua_unstyled_details_do_not_acquire_header_bottom_border():
+    root = tk.Tk()
+    renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
+        AvailableSize(380, True), AvailableSize(220, True)),
+        engine=PythonLayoutEngine())
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(psx("""
+            <div style="background: #0000ff">
+              <div key="header" style="border-bottom: 1px solid #cccccc">Header</div>
+              <div key="details"><h3>Detalles</h3></div>
+              <div key="activity"><p style="border-bottom: 1px solid #cccccc">Row</p></div>
+            </div>
+        """))
+        root.update()
+        header, details, activity = mounted.children
+        assert set(header.handle.widget._psx_css_side_borders) == {"bottom"}
+        assert not getattr(details.handle.widget, "_psx_css_side_borders", None)
+        assert not getattr(details.children[0].handle.widget, "_psx_css_side_borders", None)
+        assert set(activity.children[0].handle.widget._psx_css_side_borders) == {"bottom"}
+    finally:
+        reconciler.unmount()
+        renderer.close()
+        root.destroy()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
 def test_aqua_unstyled_nested_blocks_expose_nearest_css_surface():
     root = tk.Tk()
     renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(

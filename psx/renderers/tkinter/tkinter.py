@@ -613,6 +613,7 @@ class TkinterRenderer:
                 if ("Stale semantic invalidation" not in str(error)
                         or attempt == 2):
                     raise
+        self._sync_aqua_layout_surfaces()
         self._sfle_measurement_invalidations.acknowledge(
             self._sfle_measurement_invalidations.epoch)
 
@@ -635,6 +636,48 @@ class TkinterRenderer:
             )
         self._sfle_mounted_root = root
         self._sfle_schedule_image_poll()
+
+    def _sync_aqua_layout_surfaces(self) -> None:
+        """Paint native Grid gaps against their nearest authored CSS fill.
+
+        Grid/GridItem geometry stays exclusively under Cinnamon. The painted
+        canvas is decoration only, and never participates in measurements.
+        """
+        if sys.platform != "darwin":
+            return
+
+        def walk(widget):
+            if getattr(widget, "_psx_css_layout_surface", False):
+                ancestor = widget.master
+                fill = None
+                while ancestor is not None:
+                    fill = getattr(ancestor, "_psx_css_background", None)
+                    if fill is not None:
+                        break
+                    ancestor = getattr(ancestor, "master", None)
+                canvas = getattr(widget, "_psx_css_fill_canvas", None)
+                if fill is None:
+                    if canvas is not None:
+                        canvas.destroy()
+                        del widget._psx_css_fill_canvas
+                else:
+                    if canvas is None:
+                        canvas = tk.Canvas(widget, borderwidth=0,
+                                           highlightthickness=0, takefocus=0,
+                                           background=fill)
+                        widget._psx_css_fill_canvas = canvas
+                    else:
+                        canvas.configure(background=fill)
+                    canvas.place(x=0, y=0, relwidth=1, relheight=1)
+                    tk.Misc.tkraise(canvas)
+                    for sibling in widget.winfo_children():
+                        if sibling is not canvas:
+                            tk.Misc.tkraise(sibling)
+            for child in widget.winfo_children():
+                if child is not getattr(widget, "_psx_css_fill_canvas", None):
+                    walk(child)
+
+        walk(self.root)
 
     def invalidate_layout(self) -> None:
         self._sfle_invalidation_lifetime += 1
@@ -786,7 +829,11 @@ class TkinterRenderer:
             if node.type == "Grid" and parent is not None and _as_handle(parent).node_type not in ("GridItem", "Flex", "div", "main", "section", "article", "header", "footer"):
                 raise RendererCapabilityError("Grid must be inside a supported Cinnamon layout container.")
             master = _as_handle(parent).widget if parent is not None else self.root
-            return TkHandle(node.type, ttk.Frame(master), dict(node.props))
+            frame = ttk.Frame(master)
+            # Grid tracks are native opaque TFrames on Aqua. When nested under
+            # a CSS-colored block, the uncovered gaps must show that surface.
+            frame._psx_css_layout_surface = True
+            return TkHandle(node.type, frame, dict(node.props))
         if node.kind is NodeKind.HOST and node.type == "Flex":
             raise RendererCapabilityError(
                 "Flex requires the Native SFLE SFLE geometry adapter for Tkinter; "
@@ -863,7 +910,10 @@ class TkinterRenderer:
                     edge.configure(background=color)
                     edge.place(**place)
                     edge.lift()
-                if not r:
+                if not r or target.node_type in FORMATTING_TAGS:
+                    # Formatting hosts paint the rounded stroke together
+                    # with their fill. A second opaque Canvas would replace
+                    # the real parent color around the clipped corner.
                     if corners is not None:
                         for corner in corners:
                             corner.destroy()
@@ -1545,6 +1595,7 @@ class TkinterRenderer:
                         if child is not fill_canvas:
                             tk.Misc.tkraise(child)
             repaint_formatting_surfaces(widget)
+            self._sync_aqua_layout_surfaces()
 
         # ttk.Frame has a rectangular background. Four small, instance-owned
         # canvases mask its corners against the surrounding native surface and
@@ -1588,16 +1639,29 @@ class TkinterRenderer:
             (dict(x=0, rely=1, y=-r), (0, -r, 2*r, r), 180),
             (dict(relx=1, rely=1, x=-r, y=-r), (-r, -r, r, r), 270),
         )
+        from psx.css.native_paint import native_border_paint
+        stroke = native_border_paint(computed)
         for corner, (place, bounds, start) in zip(corners, placements):
             corner.configure(background=surface)
             corner.delete("all")
-            corner.create_arc(*bounds, start=start, extent=90, style="pieslice",
-                              fill=color, outline=color, width=0)
+            if stroke is None:
+                corner.create_arc(*bounds, start=start, extent=90,
+                                  style="pieslice", fill=color,
+                                  outline=color, width=0)
+            else:
+                thickness, ink = stroke
+                n = int(thickness)
+                corner.create_arc(*bounds, start=start, extent=90,
+                                  style="pieslice", fill=ink,
+                                  outline=ink, width=0)
+                inner = (bounds[0] + n, bounds[1] + n,
+                         bounds[2] - n, bounds[3] - n)
+                if inner[2] > inner[0] and inner[3] > inner[1]:
+                    corner.create_arc(*inner, start=start, extent=90,
+                                      style="pieslice", fill=color,
+                                      outline=color, width=0)
             corner.place(**place)
             tk.Misc.tkraise(corner)
-        # Border arcs are above the rounded fill if both declarations exist.
-        for border_corner in getattr(widget, "_psx_css_border_corners", ()):
-            tk.Misc.tkraise(border_corner)
 
     # -- update -----------------------------------------------------------
 
