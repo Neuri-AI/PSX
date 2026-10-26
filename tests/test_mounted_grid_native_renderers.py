@@ -1336,7 +1336,9 @@ def test_native_semantic_rounded_border_and_background_updates():
         if backend == "qt":
             assert "border-radius: 8px" in widget.styleSheet()
         elif backend == "tk":
-            assert len(widget._psx_css_border_corners) == 4
+            assert len(widget._psx_css_background_corners) == 4
+            assert not hasattr(widget, "_psx_css_border_corners")
+            assert len(widget._psx_css_border_edges) == 4
         else:
             assert widget._psx_css_semantic_radius == pytest.approx(8)
             assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(8)
@@ -1345,7 +1347,8 @@ def test_native_semantic_rounded_border_and_background_updates():
         if backend == "qt":
             assert "border-radius: 12px" in widget.styleSheet()
         elif backend == "tk":
-            assert all(int(c.cget("width")) == 12 for c in widget._psx_css_border_corners)
+            assert all(int(c.cget("width")) == 12 for c in widget._psx_css_background_corners)
+            assert not hasattr(widget, "_psx_css_border_corners")
         else:
             assert widget._psx_css_semantic_radius == pytest.approx(12)
             assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(12)

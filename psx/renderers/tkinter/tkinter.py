@@ -910,7 +910,8 @@ class TkinterRenderer:
                     edge.configure(background=color)
                     edge.place(**place)
                     edge.lift()
-                if not r or target.node_type in FORMATTING_TAGS:
+                if not r or (target.node_type in FORMATTING_TAGS
+                             and background_hex(computed) is not None):
                     # Formatting hosts paint the rounded stroke together
                     # with their fill. A second opaque Canvas would replace
                     # the real parent color around the clipped corner.
