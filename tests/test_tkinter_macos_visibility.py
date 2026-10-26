@@ -38,7 +38,7 @@ def test_aqua_rounded_card_tracks_parent_css_refresh_without_remount():
     try:
         first = reconciler.render(view("#f5f6f8", "#ffffff", "#e0e0e0"))
         root.update()
-        card = first.children[0].children[0].children[0].handle.widget
+        card = first.children[0].children[0].children[0].children[0].handle.widget
         corners = card._psx_css_background_corners
         for corner in corners:
             assert str(corner.cget("background")) == "#f5f6f8"
@@ -48,13 +48,13 @@ def test_aqua_rounded_card_tracks_parent_css_refresh_without_remount():
         for page_color in ("#3b6ef5", "#e9d5ff", "#273849"):
             after = reconciler.render(view(page_color, "#ffffff", "#e0e0e0"))
             root.update()
-            assert after.children[0].children[0].children[0].handle.widget is card
+            assert after.children[0].children[0].children[0].children[0].handle.widget is card
             assert card._psx_css_background_corners == corners
             assert all(str(corner.cget("background")) == page_color for corner in corners)
 
         after = reconciler.render(view("#e9d5ff", "#f7f1df", "#587a9b"))
         root.update()
-        assert after.children[0].children[0].children[0].handle.widget is card
+        assert after.children[0].children[0].children[0].children[0].handle.widget is card
         for corner in corners:
             assert str(corner.cget("background")) == "#e9d5ff"
             assert [corner.itemcget(item, "fill") for item in corner.find_all()] == [
