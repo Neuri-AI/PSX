@@ -902,7 +902,7 @@ class TkinterRenderer:
         # equivalent per-widget side stroke: paint just the authored sides
         # without adding borders to the other three edges.
         if target.node_type in FORMATTING_TAGS:
-            from psx.css.properties import CssColor
+            from psx.css.visual_values import CssColor
             from psx.sfle.lengths import Length, LengthKind
             side_edges = getattr(target.widget, "_psx_css_side_borders", None)
             active_sides = set()
@@ -921,8 +921,6 @@ class TkinterRenderer:
                         raise ValueError("Tk side borders require integer pixel widths.")
                     if not isinstance(shade, CssColor):
                         raise TypeError("Tk CSS side border needs a validated color.")
-                    from psx.css.native_paint import foreground_hex
-                    from psx.css.model import ComputedStyle
                     hex_color = shade.value
                     if len(hex_color) not in (4, 7):
                         raise ValueError("Tk side border painting requires opaque RGB colors.")
