@@ -870,10 +870,19 @@ class TkinterRenderer:
                         widget._psx_css_border_corners = corners
                     # Tk Canvas has no transparent background. Sample the
                     # native control's theme surface, never global widget styles.
-                    try:
-                        surface = str(widget.cget("background"))
-                    except tk.TclError:
-                        surface = str(ttk.Style(widget).lookup(widget.winfo_class(), "background") or "")
+                    surface = getattr(widget, "_psx_css_background", None)
+                    if surface is None:
+                        ancestor = widget.master
+                        while ancestor is not None:
+                            surface = getattr(ancestor, "_psx_css_background", None)
+                            if surface is not None:
+                                break
+                            ancestor = ancestor.master
+                    if surface is None:
+                        try:
+                            surface = str(widget.cget("background"))
+                        except tk.TclError:
+                            surface = str(ttk.Style(widget).lookup(widget.winfo_class(), "background") or "")
                     if not surface:
                         surface = str(ttk.Style(widget).lookup("TFrame", "background") or "#ffffff")
                     positions = (
@@ -936,9 +945,12 @@ class TkinterRenderer:
             label_style = f"PsxCssText{id(target.widget)}.TLabel"
             ttk_style = ttk.Style(target.widget)
             if inherited_fill is None:
+                if hasattr(target.widget, "_psx_css_background_style"):
+                    del target.widget._psx_css_background_style
                 target.widget.configure(style="TLabel")
             else:
                 ttk_style.configure(label_style, background=inherited_fill)
+                target.widget._psx_css_background_style = label_style
                 target.widget.configure(style=label_style)
             layer = getattr(target.widget, "_psx_css_text_layer", None)
             leading = styles.get("line-height")
@@ -1209,14 +1221,16 @@ class TkinterRenderer:
                     if "background" in config:
                         style.map(style_name, background=[
                             ("disabled", config["background"]),
-                            ("!active", config["background"]),
+                            ("active", config["background"]),
+                            ("!disabled", config["background"]),
                         ])
                     else:
                         style.map(style_name, background=[])
                     if "foreground" in config:
                         style.map(style_name, foreground=[
                             ("disabled", config["foreground"]),
-                            ("!active", config["foreground"]),
+                            ("active", config["foreground"]),
+                            ("!disabled", config["foreground"]),
                         ])
                     else:
                         style.map(style_name, foreground=[])
@@ -1233,6 +1247,7 @@ class TkinterRenderer:
             return
         color = background_hex(computed)
         widget = target.widget
+        previous_background = getattr(widget, "_psx_css_background", None)
         widget._psx_css_background = color
         from psx.css.native_paint import native_border_radius
         radius = native_border_radius(computed)
@@ -1242,6 +1257,29 @@ class TkinterRenderer:
             style_name = f"PsxCss{id(widget)}.TFrame"
             ttk.Style(widget).configure(style_name, background=color)
             widget.configure(style=style_name)
+
+        # A parent-only CSS refresh does not reapply unchanged child styles.
+        # Text labels must nevertheless repaint against their new CSS surface.
+        if previous_background != color:
+            def refresh_descendant_labels(parent):
+                for child in parent.winfo_children():
+                    if isinstance(child, ttk.Label) and hasattr(child, "_psx_css_background_style"):
+                        background = color
+                        ancestor = child.master
+                        while ancestor is not None:
+                            candidate = getattr(ancestor, "_psx_css_background", None)
+                            if candidate is not None:
+                                background = candidate
+                                break
+                            ancestor = ancestor.master
+                        if background is None:
+                            child.configure(style="TLabel")
+                        else:
+                            name = child._psx_css_background_style
+                            ttk.Style(child).configure(name, background=background)
+                            child.configure(style=name)
+                    refresh_descendant_labels(child)
+            refresh_descendant_labels(widget)
 
         # Several native ttk themes (notably macOS Aqua) ignore custom
         # TFrame background styles. Paint the CSS fill in a child canvas
@@ -1279,10 +1317,18 @@ class TkinterRenderer:
             raise ValueError("Tk rounded CSS backgrounds require integer px radius.")
         r = int(radius)
         parent = widget.master
-        try:
-            surface = str(parent.cget("background"))
-        except tk.TclError:
-            surface = str(ttk.Style(parent).lookup(parent.winfo_class(), "background") or "")
+        surface = None
+        ancestor = parent
+        while ancestor is not None:
+            surface = getattr(ancestor, "_psx_css_background", None)
+            if surface is not None:
+                break
+            ancestor = ancestor.master
+        if surface is None:
+            try:
+                surface = str(parent.cget("background"))
+            except tk.TclError:
+                surface = str(ttk.Style(parent).lookup(parent.winfo_class(), "background") or "")
         if not surface:
             surface = str(ttk.Style(widget).lookup("TFrame", "background") or "#ffffff")
         if corners is None or int(corners[0].cget("width")) != r:
