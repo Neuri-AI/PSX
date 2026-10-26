@@ -81,6 +81,19 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.reconciler.render(psx('<div key="same" />'))
         self.assertEqual(widget.cget("style"), "TFrame")
 
+    def test_css_fill_is_stacked_over_native_theme_below_content(self):
+        root = self.reconciler.render(psx(
+            '<div style="background: #f5f6f8">'
+            '<p>Visible text</p></div>'
+        ))
+        widget = root.handle.widget
+        surface = widget._psx_css_fill_canvas
+        children = list(widget.winfo_children())
+        self.assertIn(surface, children)
+        self.assertEqual(children[0], surface)
+        self.assertEqual(str(surface.cget("background")), "#f5f6f8")
+        self.assertTrue(any(isinstance(child, ttk.Frame) for child in children[1:]))
+
     def test_css_text_uses_nearest_explicit_ancestor_background(self):
         root = self.reconciler.render(psx(
             '<div style="background: #f5f6f8">'
