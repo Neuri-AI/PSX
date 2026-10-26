@@ -73,6 +73,16 @@ def apply_tk_scroll(outer: object, binding: ScrollViewportBinding,
                          height=round(content_height))
     region = (0, 0, round(content_width), round(content_height))
     canvas.configure(scrollregion=region)
+    # The native Canvas fills the viewport outside its child window. Its
+    # default theme color must not leak through an explicitly painted CSS
+    # content root when the viewport is taller than its content.
+    background = None
+    for child in outer._psx_content.winfo_children():
+        background = getattr(child, "_psx_css_background", None)
+        if background is not None:
+            break
+    if background is not None:
+        canvas.configure(background=background)
     outer._psx_scroll_region = region
     # Tk fractions address the entire content extent, not the overflow extent.
     canvas.xview_moveto(geometry.offset.x / content_width if content_width else 0.0)
