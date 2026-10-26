@@ -853,6 +853,53 @@ class TkinterRenderer:
             widget.bind("<<Modified>>", self._sfle_on_textarea_modified, add="+")
         return TkHandle(node.type, widget, dict(node.props))
 
+    @staticmethod
+    def _css_corner_parent_surface(widget: tk.Misc) -> str:
+        """Read the currently painted ancestor, not a cached corner color."""
+        ancestor = widget.master
+        while ancestor is not None:
+            authored = getattr(ancestor, "_psx_css_background", None)
+            if authored is not None:
+                return authored
+            ancestor = getattr(ancestor, "master", None)
+
+        # No CSS background was authored. Use the actual native surface,
+        # rather than introducing a palette color into the CSS adapter.
+        parent = widget.master
+        if parent is not None:
+            try:
+                native = str(parent.cget("background"))
+                if native:
+                    return native
+            except tk.TclError:
+                pass
+        themed = str(ttk.Style(widget).lookup("TFrame", "background") or "")
+        if themed:
+            return themed
+        return str(widget.winfo_toplevel().cget("background"))
+
+    def _refresh_css_corner_surfaces(self, widget: tk.Misc) -> None:
+        """Update opaque Tk corner masks after an ancestor CSS-only change.
+
+        Reconciliation may not call apply_css on an unchanged card when only
+        its parent's computed background changes. Canvas masks are opaque:
+        their background must track the effective parent paint on every such
+        change, without remounting any native widget.
+        """
+        fill_corners = getattr(widget, "_psx_css_background_corners", ())
+        stroke_corners = getattr(widget, "_psx_css_border_corners", ())
+        if not fill_corners and not stroke_corners:
+            return
+        surrounding = self._css_corner_parent_surface(widget)
+        for corner in fill_corners:
+            if str(corner.cget("background")) != surrounding:
+                corner.configure(background=surrounding)
+        own = getattr(widget, "_psx_css_background", None)
+        for corner in stroke_corners:
+            paint = own if own is not None else surrounding
+            if str(corner.cget("background")) != paint:
+                corner.configure(background=paint)
+
     def apply_css(self, handle: object, computed: object) -> None:
         """Apply CSS backgrounds through an instance-scoped ttk Frame style."""
         from psx.css.native_paint import background_hex
@@ -921,23 +968,10 @@ class TkinterRenderer:
                             for _ in range(4)
                         )
                         widget._psx_css_border_corners = corners
-                    # Tk Canvas has no transparent background. Sample the
-                    # native control's theme surface, never global widget styles.
-                    surface = getattr(widget, "_psx_css_background", None)
-                    if surface is None:
-                        ancestor = widget.master
-                        while ancestor is not None:
-                            surface = getattr(ancestor, "_psx_css_background", None)
-                            if surface is not None:
-                                break
-                            ancestor = ancestor.master
-                    if surface is None:
-                        try:
-                            surface = str(widget.cget("background"))
-                        except tk.TclError:
-                            surface = str(ttk.Style(widget).lookup(widget.winfo_class(), "background") or "")
-                    if not surface:
-                        surface = str(ttk.Style(widget).lookup("TFrame", "background") or "#ffffff")
+                    # Corner masks sample the actual CSS ancestor surface.
+                    # CSS-only changes to the parent refresh them in place.
+                    surface = (getattr(widget, "_psx_css_background", None)
+                               or self._css_corner_parent_surface(widget))
                     positions = (
                         (dict(x=0, y=0), (0, 0, 2*r, 2*r), 90),
                         (dict(relx=1, x=-r, y=0), (-r, 0, r, 2*r), 0),
@@ -1494,6 +1528,14 @@ class TkinterRenderer:
                             child.configure(style=name)
                     refresh_descendant_labels(child)
             refresh_descendant_labels(widget)
+            # Child CSS is unchanged, but opaque rounded masks would still
+            # expose the previous parent's color without this repaint.
+            def refresh_descendant_corners(parent):
+                for child in parent.winfo_children():
+                    self._refresh_css_corner_surfaces(child)
+                    if child is not getattr(parent, "_psx_css_fill_canvas", None):
+                        refresh_descendant_corners(child)
+            refresh_descendant_corners(widget)
 
         # Several native ttk themes (notably macOS Aqua) ignore custom
         # TFrame background styles. Paint the CSS fill in a child canvas
@@ -1559,6 +1601,7 @@ class TkinterRenderer:
                             for sibling in child.winfo_children():
                                 if sibling is not painted:
                                     tk.Misc.tkraise(sibling)
+                    self._refresh_css_corner_surfaces(child)
                     # Only recurse into native content widgets. Paint
                     # canvases are owned decorations, never CSS boxes.
                     if child is not getattr(host, "_psx_css_fill_canvas", None):
@@ -1603,21 +1646,7 @@ class TkinterRenderer:
         if radius != int(radius) or radius < 1:
             raise ValueError("Tk rounded CSS backgrounds require integer px radius.")
         r = int(radius)
-        parent = widget.master
-        surface = None
-        ancestor = parent
-        while ancestor is not None:
-            surface = getattr(ancestor, "_psx_css_background", None)
-            if surface is not None:
-                break
-            ancestor = ancestor.master
-        if surface is None:
-            try:
-                surface = str(parent.cget("background"))
-            except tk.TclError:
-                surface = str(ttk.Style(parent).lookup(parent.winfo_class(), "background") or "")
-        if not surface:
-            surface = str(ttk.Style(widget).lookup("TFrame", "background") or "#ffffff")
+        surface = self._css_corner_parent_surface(widget)
         if corners is None or int(corners[0].cget("width")) != r:
             if corners is not None:
                 for corner in corners:
@@ -1654,6 +1683,7 @@ class TkinterRenderer:
                                       outline=color, width=0)
             corner.place(**place)
             tk.Misc.tkraise(corner)
+        self._refresh_css_corner_surfaces(widget)
 
     # -- update -----------------------------------------------------------
 

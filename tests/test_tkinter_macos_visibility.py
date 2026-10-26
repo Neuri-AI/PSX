@@ -15,6 +15,57 @@ from psx.sfle.model import AvailableSize, LayoutConstraints
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
+def test_aqua_rounded_card_tracks_parent_css_refresh_without_remount():
+    root = tk.Tk()
+    renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
+        AvailableSize(520, True), AvailableSize(230, True)),
+        engine=PythonLayoutEngine())
+    reconciler = Reconciler(renderer)
+
+    def view(page_color, card_color, edge_color):
+        return psx(f"""
+            <div style="background: {page_color}">
+              <div><Grid gap="16px">
+                <GridItem span="12">
+                  <div key="card" style="background: {card_color};
+                       border: 2px solid {edge_color};
+                       border-radius: 8px">Card</div>
+                </GridItem>
+              </Grid></div>
+            </div>
+        """)
+
+    try:
+        first = reconciler.render(view("#f5f6f8", "#ffffff", "#e0e0e0"))
+        root.update()
+        card = first.children[0].children[0].children[0].handle.widget
+        corners = card._psx_css_background_corners
+        for corner in corners:
+            assert str(corner.cget("background")) == "#f5f6f8"
+            assert [corner.itemcget(item, "fill") for item in corner.find_all()] == [
+                "#e0e0e0", "#ffffff"]
+
+        for page_color in ("#3b6ef5", "#e9d5ff", "#273849"):
+            after = reconciler.render(view(page_color, "#ffffff", "#e0e0e0"))
+            root.update()
+            assert after.children[0].children[0].children[0].handle.widget is card
+            assert card._psx_css_background_corners == corners
+            assert all(str(corner.cget("background")) == page_color for corner in corners)
+
+        after = reconciler.render(view("#e9d5ff", "#f7f1df", "#587a9b"))
+        root.update()
+        assert after.children[0].children[0].children[0].handle.widget is card
+        for corner in corners:
+            assert str(corner.cget("background")) == "#e9d5ff"
+            assert [corner.itemcget(item, "fill") for item in corner.find_all()] == [
+                "#587a9b", "#f7f1df"]
+    finally:
+        reconciler.unmount()
+        renderer.close()
+        root.destroy()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
 def test_aqua_empty_grid_does_not_draw_native_border_under_details():
     root = tk.Tk()
     renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
