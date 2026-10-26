@@ -119,6 +119,18 @@ class TkSFLEGeometryTests(unittest.TestCase):
             "#ddeeff",
         )
 
+    def test_css_bottom_border_only_paints_declared_edge(self):
+        root = self.reconciler.render(psx(
+            '<div style="background: #ffffff">'
+            '<p key="item" style="border-bottom: 1px solid #e0e0e0">Row</p>'
+            '</div>'
+        ))
+        paragraph = root.children[0].handle.widget
+        edges = paragraph._psx_css_side_borders
+        self.assertEqual(set(edges), {"bottom"})
+        self.assertEqual(str(edges["bottom"].cget("background")), "#e0e0e0")
+        self.assertEqual(int(edges["bottom"].place_info()["height"]), 1)
+
     def test_css_width_commits_to_tk_native_geometry(self):
         root = self.reconciler.render(psx(
             '<div>'

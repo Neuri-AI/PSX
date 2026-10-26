@@ -898,6 +898,55 @@ class TkinterRenderer:
                                           style="arc", outline=color, width=n)
                         corner.place(**place)
                         tk.Misc.tkraise(corner)
+        # Qt projects individual border sides through QSS. ttk has no
+        # equivalent per-widget side stroke: paint just the authored sides
+        # without adding borders to the other three edges.
+        if target.node_type in FORMATTING_TAGS:
+            from psx.css.properties import CssColor
+            from psx.sfle.lengths import Length, LengthKind
+            side_edges = getattr(target.widget, "_psx_css_side_borders", None)
+            active_sides = set()
+            if computed is not None:
+                for side in ("top", "right", "bottom", "left"):
+                    width_key, color_key = f"border-{side}-width", f"border-{side}-color"
+                    if width_key not in computed.specified and color_key not in computed.specified:
+                        continue
+                    width = computed.properties[width_key] if width_key in computed.specified else computed.properties["border-width"]
+                    shade = computed.properties[color_key] if color_key in computed.specified else computed.properties["border-color"]
+                    if not isinstance(width, Length) or width.kind is not LengthKind.PX or width.value < 0:
+                        raise ValueError("Tk CSS side borders require nonnegative pixel widths.")
+                    if width.value == 0:
+                        continue
+                    if int(width.value) != width.value:
+                        raise ValueError("Tk side borders require integer pixel widths.")
+                    if not isinstance(shade, CssColor):
+                        raise TypeError("Tk CSS side border needs a validated color.")
+                    from psx.css.native_paint import foreground_hex
+                    from psx.css.model import ComputedStyle
+                    hex_color = shade.value
+                    if len(hex_color) not in (4, 7):
+                        raise ValueError("Tk side border painting requires opaque RGB colors.")
+                    if side_edges is None:
+                        side_edges = {}
+                        target.widget._psx_css_side_borders = side_edges
+                    if side not in side_edges:
+                        side_edges[side] = tk.Frame(target.widget, bd=0, highlightthickness=0, takefocus=0)
+                    edge = side_edges[side]
+                    edge.configure(background=hex_color)
+                    n = int(width.value)
+                    places = {
+                        "top": dict(x=0, y=0, relwidth=1, height=n),
+                        "right": dict(relx=1, x=-n, y=0, width=n, relheight=1),
+                        "bottom": dict(x=0, rely=1, y=-n, relwidth=1, height=n),
+                        "left": dict(x=0, y=0, width=n, relheight=1),
+                    }
+                    edge.place(**places[side])
+                    edge.lift()
+                    active_sides.add(side)
+            if side_edges:
+                for side in tuple(side_edges):
+                    if side not in active_sides:
+                        side_edges.pop(side).destroy()
         if target.node_type == "Badge":
             from psx.css.native_paint import foreground_hex
             widget = target.widget
