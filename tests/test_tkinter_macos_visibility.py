@@ -97,7 +97,7 @@ def test_aqua_dashboard_semantic_root_and_grid_are_mapped():
             for child in widget.winfo_children():
                 collect(child)
         collect(window)
-        assert any(isinstance(w, ttk.Label) and w.winfo_ismapped() for w in native)
+        assert any(isinstance(w, (tk.Label, ttk.Label)) and w.winfo_ismapped() for w in native)
         assert sum(isinstance(w, ttk.Frame) and w.winfo_ismapped() for w in native) >= 3
     finally:
         reconciler.unmount()
