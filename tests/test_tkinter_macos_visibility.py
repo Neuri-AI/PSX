@@ -15,6 +15,46 @@ from psx.sfle.model import AvailableSize, LayoutConstraints
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
+def test_aqua_original_scroll_griditem_nesting_is_visible():
+    window = tk.Tk()
+    window.geometry("800x500+50+50")
+    window.update()
+    renderer = TkinterRenderer(
+        root=window,
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(800, True), AvailableSize(500, True)),
+        engine=PythonLayoutEngine(),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(psx("""
+            <div>
+                <Grid gap="0px">
+                    <GridItem span="3">
+                        <div style="height: 100vh; background: #1f2430">
+                            <h5 style="color: #ffffff">Mi panel</h5>
+                        </div>
+                    </GridItem>
+                    <Scroll direction="vertical" height="100vh">
+                        <GridItem>
+                            <div style="background: #f5f6f8; height: 100vh">
+                                <h3>Resumen</h3>
+                            </div>
+                        </GridItem>
+                    </Scroll>
+                </Grid>
+            </div>
+        """))
+        window.update()
+        assert renderer.sfle_result is not None
+        assert mounted.handle.widget.winfo_ismapped()
+    finally:
+        reconciler.unmount()
+        renderer.close()
+        window.destroy()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
 def test_aqua_dashboard_semantic_root_and_grid_are_mapped():
     window = tk.Tk()
     window.geometry("800x500+50+50")
