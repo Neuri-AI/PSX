@@ -45,8 +45,14 @@ def apply_tk_button(widget: object, props: Mapping[str, object]) -> None:
     family = nametofont("TkDefaultFont", root=widget).actual("family")
     style_name = f"PSX.{max(1, round(p['font_size']))}.TButton"
     ttk.Style(widget).configure(style_name, font=(family, -max(1, round(p["font_size"]))))
-    widget.configure(text=str(p["label"]), style=style_name)
-    widget.state(("!disabled",) if p["enabled"] else ("disabled",))
+    from tkinter import Button as ClassicButton
+    if isinstance(widget, ClassicButton):
+        widget.configure(text=str(p["label"]),
+                         font=(family, -max(1, round(p["font_size"]))),
+                         state="normal" if p["enabled"] else "disabled")
+    else:
+        widget.configure(text=str(p["label"]), style=style_name)
+        widget.state(("!disabled",) if p["enabled"] else ("disabled",))
 
 
 def apply_kivy_button(widget: object, props: Mapping[str, object]) -> None:

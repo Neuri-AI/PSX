@@ -803,7 +803,15 @@ class TkinterRenderer:
         spec = _PRIMITIVES.get(node.type)
         if spec is None:
             raise RendererCapabilityError(f"Tkinter does not support host primitive {node.type!r}.")
-        widget = spec.factory(master)
+        computed = getattr(node, "css_computed", None)
+        if (node.type == "Button" and sys.platform == "darwin"
+                and computed is not None
+                and any(name in computed.specified for name in
+                        ("background-color", "color", "border-radius", "border-width"))):
+            # Aqua's ttk Button theme ignores instance CSS colors.
+            widget = tk.Button(master, relief="flat", borderwidth=0, highlightthickness=0)
+        else:
+            widget = spec.factory(master)
         spec.apply(widget, node.props)
         if self._sfle_constraints is not None and node.type == "TextArea":
             # Preserve the native editor's selection/cursor; only observe
@@ -1149,6 +1157,86 @@ class TkinterRenderer:
                     ))
                 )
             )
+            if isinstance(widget, tk.Button):
+                if not hasattr(widget, "_psx_css_default_background"):
+                    widget._psx_css_default_background = str(widget.cget("background"))
+                    widget._psx_css_default_foreground = str(widget.cget("foreground"))
+                    widget._psx_css_default_font = str(widget.cget("font"))
+                ancestor = widget.master
+                ancestor_bg = None
+                while ancestor is not None:
+                    ancestor_bg = getattr(ancestor, "_psx_css_background", None)
+                    if ancestor_bg is not None:
+                        break
+                    ancestor = ancestor.master
+                background = (background_hex(computed) or ancestor_bg
+                              or widget._psx_css_default_background)
+                foreground = styles.get("color", widget._psx_css_default_foreground)
+                if not hasattr(widget, "_psx_css_classic_font"):
+                    widget._psx_css_classic_font = tkfont.Font(
+                        root=widget, font=widget._psx_css_default_font)
+                    widget._psx_css_classic_font_defaults = widget._psx_css_classic_font.actual()
+                font = widget._psx_css_classic_font
+                font.configure(**widget._psx_css_classic_font_defaults)
+                if "font-family" in styles:
+                    font.configure(family=styles["font-family"])
+                if "font-size" in styles:
+                    font.configure(size=-round(styles["font-size"]))
+                if "font-weight" in styles:
+                    font.configure(weight="bold" if styles["font-weight"] >= 600 else "normal")
+                props = computed.properties if computed is not None else {}
+                from psx.sfle.lengths import LengthKind
+                padding = []
+                for side in ("left", "top", "right", "bottom"):
+                    value = props.get(f"padding-{side}")
+                    if value is not None and value.kind is not LengthKind.PX:
+                        raise ValueError("Tk CSS button padding requires pixel units.")
+                    padding.append(round(value.value) if value is not None else 0)
+                left, top, right, bottom = padding
+                widget.configure(
+                    font=font, background=background, activebackground=background,
+                    foreground=foreground, activeforeground=foreground,
+                    relief="flat", borderwidth=0, highlightthickness=0,
+                    padx=max(left, right), pady=max(top, bottom),
+                    anchor={"left": "w", "center": "center", "right": "e"}[
+                        styles.get("text-align", "center")],
+                    cursor=("hand2" if props.get("cursor") == "pointer" else "arrow"),
+                )
+                radius = native_border_radius(computed)
+                corners = getattr(widget, "_psx_css_button_corners", None)
+                if radius == 0:
+                    if corners is not None:
+                        for corner in corners:
+                            corner.destroy()
+                        del widget._psx_css_button_corners
+                else:
+                    if radius != int(radius) or radius < 1:
+                        raise ValueError("Tk CSS button radius requires positive integer px.")
+                    r = int(radius)
+                    if corners is None or int(corners[0].cget("width")) != r:
+                        if corners is not None:
+                            for corner in corners:
+                                corner.destroy()
+                        corners = tuple(tk.Canvas(widget, width=r, height=r,
+                                                 borderwidth=0, highlightthickness=0,
+                                                 takefocus=0) for _ in range(4))
+                        widget._psx_css_button_corners = corners
+                    outer = ancestor_bg or str(ttk.Style(widget).lookup("TFrame", "background") or "#ffffff")
+                    positions = (
+                        (dict(x=0, y=0), (0, 0, 2*r, 2*r), 90),
+                        (dict(relx=1, x=-r, y=0), (-r, 0, r, 2*r), 0),
+                        (dict(x=0, rely=1, y=-r), (0, -r, 2*r, r), 180),
+                        (dict(relx=1, rely=1, x=-r, y=-r), (-r, -r, r, r), 270),
+                    )
+                    for corner, (place, arc, start) in zip(corners, positions):
+                        corner.configure(background=outer)
+                        corner.delete("all")
+                        corner.create_arc(*arc, start=start, extent=90,
+                                          style="pieslice", fill=background,
+                                          outline=background, width=0)
+                        corner.place(**place)
+                        tk.Misc.tkraise(corner)
+                return
             if not styles and not button_paint:
                 if hasattr(widget, "_psx_css_native_font"):
                     widget._psx_css_native_font.configure(

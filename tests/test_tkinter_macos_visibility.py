@@ -15,6 +15,33 @@ from psx.sfle.model import AvailableSize, LayoutConstraints
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
+def test_aqua_button_css_color_and_radius_are_instance_painted():
+    root = tk.Tk()
+    renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
+        AvailableSize(320, True), AvailableSize(140, True)),
+        engine=PythonLayoutEngine())
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(psx("""
+            <div style="background: #1f2430">
+                <button style="background: #3b6ef5; color: #ffffff;
+                    border-radius: 8px; border: none; cursor: pointer">Resumen</button>
+            </div>
+        """))
+        button = mounted.children[0].handle.widget
+        assert isinstance(button, tk.Button)
+        assert str(button.cget("background")) == "#3b6ef5"
+        assert str(button.cget("foreground")) == "#ffffff"
+        assert len(button._psx_css_button_corners) == 4
+        root.update()
+        assert button.winfo_ismapped()
+    finally:
+        reconciler.unmount()
+        renderer.close()
+        root.destroy()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
 def test_aqua_original_scroll_griditem_nesting_is_visible():
     window = tk.Tk()
     window.geometry("800x500+50+50")
