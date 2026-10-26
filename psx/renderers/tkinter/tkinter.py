@@ -1480,6 +1480,72 @@ class TkinterRenderer:
                 if child is not surface:
                     tk.Misc.tkraise(child)
 
+        if sys.platform == "darwin":
+            # CSS backgrounds do not inherit, but ttk.Frame is opaque under
+            # Aqua. A formatting host with no authored background must
+            # *visually* expose its nearest painted ancestor instead of
+            # covering it with the system dark theme. Reproject descendants
+            # when a parent changes without relying on CSS reconciliation to
+            # revisit unchanged child nodes.
+            def repaint_formatting_surfaces(host):
+                for child in host.winfo_children():
+                    if hasattr(child, "_psx_css_background"):
+                        explicit = child._psx_css_background
+                        inherited = None
+                        ancestor = child.master
+                        while ancestor is not None:
+                            inherited = getattr(ancestor, "_psx_css_background", None)
+                            if inherited is not None:
+                                break
+                            ancestor = ancestor.master
+                        fill = explicit if explicit is not None else inherited
+                        painted = getattr(child, "_psx_css_fill_canvas", None)
+                        if fill is None:
+                            if painted is not None:
+                                painted.destroy()
+                                del child._psx_css_fill_canvas
+                        else:
+                            if painted is None:
+                                painted = tk.Canvas(
+                                    child, borderwidth=0, highlightthickness=0,
+                                    takefocus=0, background=fill)
+                                child._psx_css_fill_canvas = painted
+                            else:
+                                painted.configure(background=fill)
+                            painted.place(x=0, y=0, relwidth=1, relheight=1)
+                            tk.Misc.tkraise(painted)
+                            for sibling in child.winfo_children():
+                                if sibling is not painted:
+                                    tk.Misc.tkraise(sibling)
+                    # Only recurse into native content widgets. Paint
+                    # canvases are owned decorations, never CSS boxes.
+                    if child is not getattr(host, "_psx_css_fill_canvas", None):
+                        repaint_formatting_surfaces(child)
+
+            if color is None:
+                inherited = None
+                ancestor = widget.master
+                while ancestor is not None:
+                    inherited = getattr(ancestor, "_psx_css_background", None)
+                    if inherited is not None:
+                        break
+                    ancestor = ancestor.master
+                if inherited is not None:
+                    fill_canvas = getattr(widget, "_psx_css_fill_canvas", None)
+                    if fill_canvas is None:
+                        fill_canvas = tk.Canvas(
+                            widget, borderwidth=0, highlightthickness=0,
+                            takefocus=0, background=inherited)
+                        widget._psx_css_fill_canvas = fill_canvas
+                    else:
+                        fill_canvas.configure(background=inherited)
+                    fill_canvas.place(x=0, y=0, relwidth=1, relheight=1)
+                    tk.Misc.tkraise(fill_canvas)
+                    for child in widget.winfo_children():
+                        if child is not fill_canvas:
+                            tk.Misc.tkraise(child)
+            repaint_formatting_surfaces(widget)
+
         # ttk.Frame has a rectangular background. Four small, instance-owned
         # canvases mask its corners against the surrounding native surface and
         # paint a filled quarter-circle. This is a paint overlay, not a new

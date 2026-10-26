@@ -15,6 +15,35 @@ from psx.sfle.model import AvailableSize, LayoutConstraints
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
+def test_aqua_unstyled_nested_blocks_expose_nearest_css_surface():
+    root = tk.Tk()
+    renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
+        AvailableSize(480, True), AvailableSize(300, True)),
+        engine=PythonLayoutEngine())
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(psx("""
+            <div style="background: #ff0000">
+                <div class="container"><div class="details">
+                    <h3>Detalles</h3>
+                </div></div>
+                <div style="background: #ffffff"><p>Tarjeta</p></div>
+            </div>
+        """))
+        root.update()
+        host = mounted.children[0].handle.widget
+        nested = mounted.children[0].children[0].handle.widget
+        assert host._psx_css_background is None
+        assert nested._psx_css_background is None
+        assert str(host._psx_css_fill_canvas.cget("background")) == "#ff0000"
+        assert str(nested._psx_css_fill_canvas.cget("background")) == "#ff0000"
+    finally:
+        reconciler.unmount()
+        renderer.close()
+        root.destroy()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
 def test_aqua_scroll_viewport_uses_nested_content_css_background():
     root = tk.Tk()
     renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
