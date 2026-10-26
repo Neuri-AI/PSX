@@ -1198,40 +1198,59 @@ class TkinterRenderer:
                         styles.get("text-align", "center")],
                     cursor=("hand2" if props.get("cursor") == "pointer" else "arrow"),
                 )
+                # Aqua paints its native button surface even if Tk's bg
+                # options are set. Own the pixel surface with a single Canvas
+                # above the button, preserving the button's handle and invoke().
                 radius = native_border_radius(computed)
-                corners = getattr(widget, "_psx_css_button_corners", None)
-                if radius == 0:
-                    if corners is not None:
-                        for corner in corners:
-                            corner.destroy()
-                        del widget._psx_css_button_corners
-                else:
-                    if radius != int(radius) or radius < 1:
-                        raise ValueError("Tk CSS button radius requires positive integer px.")
-                    r = int(radius)
-                    if corners is None or int(corners[0].cget("width")) != r:
-                        if corners is not None:
-                            for corner in corners:
-                                corner.destroy()
-                        corners = tuple(tk.Canvas(widget, width=r, height=r,
-                                                 borderwidth=0, highlightthickness=0,
-                                                 takefocus=0) for _ in range(4))
-                        widget._psx_css_button_corners = corners
-                    outer = ancestor_bg or str(ttk.Style(widget).lookup("TFrame", "background") or "#ffffff")
-                    positions = (
-                        (dict(x=0, y=0), (0, 0, 2*r, 2*r), 90),
-                        (dict(relx=1, x=-r, y=0), (-r, 0, r, 2*r), 0),
-                        (dict(x=0, rely=1, y=-r), (0, -r, 2*r, r), 180),
-                        (dict(relx=1, rely=1, x=-r, y=-r), (-r, -r, r, r), 270),
-                    )
-                    for corner, (place, arc, start) in zip(corners, positions):
-                        corner.configure(background=outer)
-                        corner.delete("all")
-                        corner.create_arc(*arc, start=start, extent=90,
-                                          style="pieslice", fill=background,
-                                          outline=background, width=0)
-                        corner.place(**place)
-                        tk.Misc.tkraise(corner)
+                if radius != int(radius) or radius < 0:
+                    raise ValueError("Tk CSS button radius requires nonnegative integer px.")
+                paint = getattr(widget, "_psx_css_button_paint", None)
+                if paint is None:
+                    paint = tk.Canvas(widget, borderwidth=0,
+                                      highlightthickness=0, takefocus=0)
+                    widget._psx_css_button_paint = paint
+                    paint.bind("<Button-1>", lambda _event: widget.focus_set(), add="+")
+                    paint.bind("<ButtonRelease-1>", lambda _event: (
+                        widget.invoke() if str(widget.cget("state")) != "disabled"
+                        else None), add="+")
+                paint.configure(background=ancestor_bg or background,
+                                cursor=str(widget.cget("cursor")))
+                paint.place(x=0, y=0, relwidth=1, relheight=1)
+                tk.Misc.tkraise(paint)
+                widget._psx_css_button_paint_values = (
+                    background, foreground, int(radius), str(widget.cget("text")),
+                    str(styles.get("text-align", "center")), font,
+                )
+                def repaint(event=None):
+                    if not paint.winfo_exists():
+                        return
+                    width = max(1, paint.winfo_width())
+                    height = max(1, paint.winfo_height())
+                    fill, ink, corner, label, align, face = widget._psx_css_button_paint_values
+                    corner = min(corner, width // 2, height // 2)
+                    paint.delete("all")
+                    if corner:
+                        paint.create_rectangle(corner, 0, width-corner, height,
+                                               fill=fill, outline="")
+                        paint.create_rectangle(0, corner, width, height-corner,
+                                               fill=fill, outline="")
+                        for x in (0, width-2*corner):
+                            for y in (0, height-2*corner):
+                                paint.create_oval(x, y, x+2*corner, y+2*corner,
+                                                  fill=fill, outline="")
+                    else:
+                        paint.create_rectangle(0, 0, width, height,
+                                               fill=fill, outline="")
+                    anchors = {"left": ("w", max(0, left)),
+                               "center": ("center", width//2),
+                               "right": ("e", max(0, width-right))}
+                    anchor, text_x = anchors[align]
+                    paint.create_text(text_x, height//2, text=label,
+                                      font=face, fill=ink, anchor=anchor)
+                if not hasattr(paint, "_psx_css_resize_bound"):
+                    paint.bind("<Configure>", repaint, add="+")
+                    paint._psx_css_resize_bound = True
+                repaint()
                 return
             if not styles and not button_paint:
                 if hasattr(widget, "_psx_css_native_font"):

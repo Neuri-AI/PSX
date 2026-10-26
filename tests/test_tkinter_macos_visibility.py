@@ -65,7 +65,7 @@ def test_aqua_button_css_color_and_radius_are_instance_painted():
         assert isinstance(button, tk.Button)
         assert str(button.cget("background")) == "#3b6ef5"
         assert str(button.cget("foreground")) == "#ffffff"
-        assert len(button._psx_css_button_corners) == 4
+        assert isinstance(button._psx_css_button_paint, tk.Canvas)\n        assert button._psx_css_button_paint.winfo_manager() == "place"
         root.update()
         assert button.winfo_ismapped()
     finally:
