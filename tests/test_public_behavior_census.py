@@ -14,6 +14,18 @@ from tests.certification.public_behavior_census import (
 SHA = "a" * 40
 
 
+def test_scroll_wrapped_grid_resize_inventory_covers_each_qt_binding():
+    rows = inventory()
+    for binding in ("pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"):
+        for variant in ("nested", "root"):
+            matched = [row for row in rows if row.component == "Grid"
+                       and row.backend == binding and row.feature_kind == "interaction"
+                       and row.feature_name == "scroll_wrapped_item"
+                       and row.scenario_id == variant + "_viewport_resize"]
+            assert len(matched) == 1
+            assert matched[0].applicability == "partial_native"
+
+
 def test_source_derived_inventory_separates_shared_and_native():
     from psx.core.registry import builtin_component_registry
     from psx.core.props import FLEX_ITEM_PROPS

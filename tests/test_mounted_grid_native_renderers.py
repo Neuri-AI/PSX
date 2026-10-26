@@ -3058,7 +3058,8 @@ def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends(wrapped_r
         assert scrolling.handle.widget is native
         assert rectangle(native, backend)[3] == pytest.approx(280, abs=1)
         assert renderer.grid_result is not None
-        binding = "pyside6" if backend == "qt" else "tkinter" if backend == "tk" else "kivy"
+        binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+            "tkinter" if backend == "tk" else "kivy")
         assert_feature(
             request,
             Feature("Grid", binding, "interaction", "scroll_wrapped_item",
