@@ -923,6 +923,23 @@ class TkinterRenderer:
                 target.widget.configure(justify=align, anchor={"left": "w", "center": "center", "right": "e"}[align])
             if "color" in styles:
                 target.widget.configure(foreground=styles["color"])
+            # ttk.Label paints its own theme surface, unlike Qt's QLabel.
+            # Match the nearest explicitly CSS-painted ancestor rather than
+            # exposing the theme's default grey rectangle behind text.
+            ancestor = target.widget.master
+            inherited_fill = None
+            while ancestor is not None:
+                inherited_fill = getattr(ancestor, "_psx_css_background", None)
+                if inherited_fill is not None:
+                    break
+                ancestor = ancestor.master
+            label_style = f"PsxCssText{id(target.widget)}.TLabel"
+            ttk_style = ttk.Style(target.widget)
+            if inherited_fill is None:
+                target.widget.configure(style="TLabel")
+            else:
+                ttk_style.configure(label_style, background=inherited_fill)
+                target.widget.configure(style=label_style)
             layer = getattr(target.widget, "_psx_css_text_layer", None)
             leading = styles.get("line-height")
             target.widget._psx_css_line_height = leading
@@ -1216,6 +1233,7 @@ class TkinterRenderer:
             return
         color = background_hex(computed)
         widget = target.widget
+        widget._psx_css_background = color
         from psx.css.native_paint import native_border_radius
         radius = native_border_radius(computed)
         if color is None:

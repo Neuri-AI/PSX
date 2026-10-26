@@ -81,6 +81,34 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.reconciler.render(psx('<div key="same" />'))
         self.assertEqual(widget.cget("style"), "TFrame")
 
+    def test_css_text_uses_nearest_explicit_ancestor_background(self):
+        root = self.reconciler.render(psx(
+            '<div style="background: #f5f6f8">'
+            '<div style="background: #ffffff">'
+            '<p key="copy" style="color: #333333">Text</p>'
+            '</div></div>'
+        ))
+        label = root.children[0].children[0].handle.widget
+        self.assertEqual(
+            ttk.Style(label).lookup(label.cget("style"), "background"),
+            "#ffffff",
+        )
+        self.assertEqual(
+            ttk.Style(label).lookup(label.cget("style"), "foreground"),
+            ttk.Style(label).lookup("TLabel", "foreground"),
+        )
+        updated = self.reconciler.render(psx(
+            '<div style="background: #f5f6f8">'
+            '<div style="background: #ddeeff">'
+            '<p key="copy" style="color: #333333">Text</p>'
+            '</div></div>'
+        ))
+        self.assertIs(updated.children[0].children[0].handle.widget, label)
+        self.assertEqual(
+            ttk.Style(label).lookup(label.cget("style"), "background"),
+            "#ddeeff",
+        )
+
     def test_css_width_commits_to_tk_native_geometry(self):
         root = self.reconciler.render(psx(
             '<div>'
