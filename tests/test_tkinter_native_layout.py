@@ -401,7 +401,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.host.update()
         self.assertIsNone(self.renderer._sfle_resize_error)
         self.assertIs(root.children[0].handle.widget, button)
-        self.assertEqual(rect(button)[2], 120)
+        self.assertEqual(rect(button)[2], 120, msg=f"place={button.place_info()}, host={self.host.winfo_geometry()}, pending={self.renderer._sfle_resize_pending}, constraints={self.renderer._sfle_constraints}, error={self.renderer._sfle_resize_error}")
         self.assertEqual(self.renderer._sfle_constraints.width.value, 240)
 
     def test_tk_multiline_text_height_follows_sfle_content_width(self):
