@@ -1356,10 +1356,10 @@ class TkinterRenderer:
             # Aqua draws themed TFrame surfaces *over* a lowered child
             # canvas. Keep the CSS fill above the theme, but below every
             # real content child and any border/corner painting overlays.
-            surface.lift()
+            tk.Misc.tkraise(surface)
             for child in widget.winfo_children():
                 if child is not surface:
-                    child.lift()
+                    tk.Misc.tkraise(child)
 
         # ttk.Frame has a rectangular background. Four small, instance-owned
         # canvases mask its corners against the surrounding native surface and
