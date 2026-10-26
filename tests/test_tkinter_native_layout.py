@@ -412,7 +412,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(self.renderer._sfle_constraints.width.value, 240)
         self.host.geometry("400x240+0+0")
         self.host.update()
-        self.assertEqual(self.renderer._sfle_constraints.width.value, 240)
+        self.assertEqual(self.renderer._sfle_constraints.width.value, 400)
+        self.assertEqual(rect(button)[2], 200)
 
     def test_tk_multiline_text_height_follows_sfle_content_width(self):
         words = ("One two three four five six seven eight nine ten "
