@@ -471,6 +471,20 @@ jobs:
             native-layout-kivy-c5.json
             native-layout-kivy-c4.json
 
+  tkinter-aqua:
+    name: Tkinter macOS Aqua mounted visibility
+    needs: changes
+    if: needs.changes.outputs.tkinter == 'true'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e . pytest
+      - name: Verify actual Aqua native map and CSS dashboard
+        run: python -m pytest -q tests/test_tkinter_macos_visibility.py tests/test_tkinter_native_layout.py -x
+
   tkinter:
     name: Native layout Tkinter native components
     needs: changes
