@@ -638,10 +638,11 @@ class TkinterRenderer:
         self._sfle_schedule_image_poll()
 
     def _sync_aqua_layout_surfaces(self) -> None:
-        """Paint native Grid gaps against their nearest authored CSS fill.
+        """Project CSS backgrounds onto structural Aqua Grid track hosts.
 
-        Grid/GridItem geometry stays exclusively under Cinnamon. The painted
-        canvas is decoration only, and never participates in measurements.
+        Classic Frames have no theme-painted border, so an empty Grid and
+        spaces between GridItems expose the ancestor's background exactly.
+        Cinnamon alone controls their native rectangles.
         """
         if sys.platform != "darwin":
             return
@@ -655,24 +656,10 @@ class TkinterRenderer:
                     if fill is not None:
                         break
                     ancestor = getattr(ancestor, "master", None)
-                canvas = getattr(widget, "_psx_css_fill_canvas", None)
-                if fill is None:
-                    if canvas is not None:
-                        canvas.destroy()
-                        del widget._psx_css_fill_canvas
-                else:
-                    if canvas is None:
-                        canvas = tk.Canvas(widget, borderwidth=0,
-                                           highlightthickness=0, takefocus=0,
-                                           background=fill)
-                        widget._psx_css_fill_canvas = canvas
-                    else:
-                        canvas.configure(background=fill)
-                    canvas.place(x=0, y=0, relwidth=1, relheight=1)
-                    tk.Misc.tkraise(canvas)
-                    for sibling in widget.winfo_children():
-                        if sibling is not canvas:
-                            tk.Misc.tkraise(sibling)
+                resolved = (fill if fill is not None
+                            else widget._psx_css_layout_default_background)
+                if str(widget.cget("background")) != resolved:
+                    widget.configure(background=resolved)
             for child in widget.winfo_children():
                 if child is not getattr(widget, "_psx_css_fill_canvas", None):
                     walk(child)
@@ -829,10 +816,14 @@ class TkinterRenderer:
             if node.type == "Grid" and parent is not None and _as_handle(parent).node_type not in ("GridItem", "Flex", "div", "main", "section", "article", "header", "footer"):
                 raise RendererCapabilityError("Grid must be inside a supported Cinnamon layout container.")
             master = _as_handle(parent).widget if parent is not None else self.root
-            frame = ttk.Frame(master)
-            # Grid tracks are native opaque TFrames on Aqua. When nested under
-            # a CSS-colored block, the uncovered gaps must show that surface.
+            # Unlike Aqua TFrame, classic Frame has an instance-owned
+            # background and no theme-drawn border. These hosts are purely
+            # structural; Cinnamon continues to own all native geometry.
+            frame = (tk.Frame(master, borderwidth=0, highlightthickness=0)
+                     if sys.platform == "darwin" else ttk.Frame(master))
             frame._psx_css_layout_surface = True
+            if sys.platform == "darwin":
+                frame._psx_css_layout_default_background = str(frame.cget("background"))
             return TkHandle(node.type, frame, dict(node.props))
         if node.kind is NodeKind.HOST and node.type == "Flex":
             raise RendererCapabilityError(

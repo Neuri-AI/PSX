@@ -15,6 +15,32 @@ from psx.sfle.model import AvailableSize, LayoutConstraints
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
+def test_aqua_empty_grid_does_not_draw_native_border_under_details():
+    root = tk.Tk()
+    renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
+        AvailableSize(420, True), AvailableSize(180, True)),
+        engine=PythonLayoutEngine())
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(psx("""
+            <div style="background: #0000ff">
+                <div><h3>Detalles</h3><Grid gap="16px"></Grid></div>
+            </div>
+        """))
+        root.update()
+        empty_grid = mounted.children[0].children[1].handle.widget
+        assert isinstance(empty_grid, tk.Frame)
+        assert str(empty_grid.cget("background")) == "#0000ff"
+        assert int(empty_grid.cget("borderwidth")) == 0
+        assert int(empty_grid.cget("highlightthickness")) == 0
+        assert not getattr(empty_grid, "_psx_css_side_borders", None)
+    finally:
+        reconciler.unmount()
+        renderer.close()
+        root.destroy()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
 def test_aqua_grid_gaps_use_ancestor_css_background():
     root = tk.Tk()
     renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
@@ -35,7 +61,10 @@ def test_aqua_grid_gaps_use_ancestor_css_background():
         for instance in (grid, *grid.children):
             widget = instance.handle.widget
             assert getattr(widget, "_psx_css_layout_surface", False)
-            assert str(widget._psx_css_fill_canvas.cget("background")) == "#0000ff"
+            assert isinstance(widget, tk.Frame)
+            assert str(widget.cget("background")) == "#0000ff"
+            assert int(widget.cget("borderwidth")) == 0
+            assert int(widget.cget("highlightthickness")) == 0
         assert str(grid.children[0].children[0].handle.widget._psx_css_background) == "#ffffff"
     finally:
         reconciler.unmount()
