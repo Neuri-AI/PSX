@@ -88,7 +88,17 @@ class TkSFLEGeometryTests(unittest.TestCase):
             '<p key="copy" style="color: #333333">Text</p>'
             '</div></div>'
         ))
-        label = root.children[0].children[0].handle.widget
+        paragraph = root.children[0].children[0]
+        def text_widget(instance):
+            if isinstance(getattr(getattr(instance, "handle", None), "widget", None), ttk.Label):
+                return instance.handle.widget
+            for child in instance.children:
+                found = text_widget(child)
+                if found is not None:
+                    return found
+            return None
+        label = text_widget(paragraph)
+        self.assertIsNotNone(label)
         self.assertEqual(
             ttk.Style(label).lookup(label.cget("style"), "background"),
             "#ffffff",
@@ -103,7 +113,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
             '<p key="copy" style="color: #333333">Text</p>'
             '</div></div>'
         ))
-        self.assertIs(updated.children[0].children[0].handle.widget, label)
+        self.assertIs(text_widget(updated.children[0].children[0]), label)
         self.assertEqual(
             ttk.Style(label).lookup(label.cget("style"), "background"),
             "#ddeeff",

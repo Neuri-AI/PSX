@@ -101,6 +101,8 @@ def _classify_path(path: str) -> set[str]:
     if path in ("psx/sfle/native_layout_snapshot.py", "tests/test_native_layout_snapshot.py"):
         # Immutable CSS-backed Cinnamon geometry affects every native consumer.
         return {"core", "sfle", "rust", "chromium", "headless", "qt", "kivy", "tkinter"}
+    if path == "psx/css/inheritance.py":
+        return {"core", "headless", "qt", "kivy", "tkinter"}
     if path.startswith("psx/css/") or path.startswith("tests/css/"):
         return {"core"}
     if path == "pyproject.toml" or path in ("setup.cfg", "setup.py"):
