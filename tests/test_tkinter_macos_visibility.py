@@ -30,7 +30,7 @@ def test_aqua_dashboard_semantic_root_and_grid_are_mapped():
         mounted = reconciler.render(psx("""
             <div style="min-height: 100vh">
                 <Grid gap="0px">
-                    <GridItem span={{"base": 3, "md": 3, "lg": 2}}>
+                    <GridItem span="3">
                         <div style="height: 100vh; background: #1f2430">
                             <h5 style="color: #ffffff">Mi panel</h5>
                         </div>
