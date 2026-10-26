@@ -18,7 +18,7 @@ from psx.sfle.model import AvailableSize, LayoutConstraints
 def test_aqua_original_scroll_griditem_nesting_is_visible():
     window = tk.Tk()
     window.geometry("800x500+50+50")
-    window.update()
+    # Match Qyro startup: render before the first Tk map/update cycle.
     renderer = TkinterRenderer(
         root=window,
         sfle_constraints=LayoutConstraints(
@@ -58,7 +58,7 @@ def test_aqua_original_scroll_griditem_nesting_is_visible():
 def test_aqua_dashboard_semantic_root_and_grid_are_mapped():
     window = tk.Tk()
     window.geometry("800x500+50+50")
-    window.update()
+    # Match Qyro startup: render before the first Tk map/update cycle.
     renderer = TkinterRenderer(
         root=window,
         sfle_constraints=LayoutConstraints(
