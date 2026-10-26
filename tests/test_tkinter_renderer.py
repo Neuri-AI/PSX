@@ -203,14 +203,14 @@ class TkinterRendererTests(unittest.TestCase):
         from tkinter.font import Font
         label = self.reconciler.render(Text("old", font_size=24, bold=True, italic=True,
                                              color="#336699", align="right", enabled=False)).handle.widget
-        self.assertIsInstance(label, ttk.Label)
+        self.assertIsInstance(label, tk.Label if sys.platform == 'darwin' else ttk.Label)
         font = Font(root=label, font=label.cget("font"))
         self.assertEqual(configured_font_size(label), 24)
         self.assertEqual(font.actual("weight"), "bold")
         self.assertEqual(font.actual("slant"), "italic")
         self.assertEqual(str(label.cget("foreground")), "#336699")
         self.assertEqual(str(label.cget("anchor")), "e")
-        self.assertTrue(label.instate(("disabled",)))
+        self.assertEqual(label.cget("state"), "disabled") if sys.platform == "darwin" else self.assertTrue(label.instate(("disabled",)))
         self.reconciler.render(Text("new", font_size=12, color="#112233", align="center"))
         self.assertIs(self.reconciler.root.handle.widget, label)
         self.assertEqual(label.cget("text"), "new")
@@ -220,9 +220,9 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertEqual(font.actual("slant"), "roman")
         self.assertEqual(str(label.cget("foreground")), "#112233")
         self.assertEqual(str(label.cget("anchor")), "center")
-        self.assertTrue(label.instate(("!disabled",)))
+        self.assertEqual(label.cget("state"), "normal") if sys.platform == "darwin" else self.assertTrue(label.instate(("!disabled",)))
         self.reconciler.render(Text("theme"))
-        self.assertEqual(str(label.cget("foreground")), "")
+        self.assertEqual(str(label.cget("foreground")), str(label._psx_text_original_foreground) if sys.platform == "darwin" else "")
         self.reconciler.unmount()
         self.assertFalse(label.winfo_exists())
 

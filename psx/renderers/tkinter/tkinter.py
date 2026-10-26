@@ -26,6 +26,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from queue import Empty, SimpleQueue
 from threading import get_ident
+import sys
 import tkinter as tk
 from tkinter import ttk
 from psx.core.errors import RendererCapabilityError
@@ -228,7 +229,7 @@ def _apply_checkbox(widget: tk.Misc, props: Mapping[str, object]) -> None:
 
 
 register_primitive(
-    "Text", factory=ttk.Label,
+    "Text", factory=lambda master: (tk.Label(master, borderwidth=0, highlightthickness=0, padx=0, pady=0) if sys.platform == "darwin" else ttk.Label(master)),
     validate=validate_text_props, apply=apply_tk_text, updated_props=updated_text_props,
 )
 register_primitive(
@@ -997,7 +998,14 @@ class TkinterRenderer:
                 ancestor = ancestor.master
             label_style = f"PsxCssText{id(target.widget)}.TLabel"
             ttk_style = ttk.Style(target.widget)
-            if inherited_fill is None:
+            if isinstance(target.widget, tk.Label):
+                if not hasattr(target.widget, "_psx_css_original_background"):
+                    target.widget._psx_css_original_background = target.widget.cget("background")
+                target.widget.configure(
+                    background=inherited_fill if inherited_fill is not None
+                    else target.widget._psx_css_original_background
+                )
+            elif inherited_fill is None:
                 if hasattr(target.widget, "_psx_css_background_style"):
                     del target.widget._psx_css_background_style
                 target.widget.configure(style="TLabel")
@@ -1316,7 +1324,8 @@ class TkinterRenderer:
         if previous_background != color:
             def refresh_descendant_labels(parent):
                 for child in parent.winfo_children():
-                    if isinstance(child, ttk.Label) and hasattr(child, "_psx_css_background_style"):
+                    if ((isinstance(child, ttk.Label) and hasattr(child, "_psx_css_background_style"))
+                            or isinstance(child, tk.Label)):
                         background = color
                         ancestor = child.master
                         while ancestor is not None:
@@ -1325,7 +1334,14 @@ class TkinterRenderer:
                                 background = candidate
                                 break
                             ancestor = ancestor.master
-                        if background is None:
+                        if isinstance(child, tk.Label):
+                            if not hasattr(child, "_psx_css_original_background"):
+                                child._psx_css_original_background = child.cget("background")
+                            child.configure(background=(
+                                background if background is not None
+                                else child._psx_css_original_background
+                            ))
+                        elif background is None:
                             child.configure(style="TLabel")
                         else:
                             name = child._psx_css_background_style

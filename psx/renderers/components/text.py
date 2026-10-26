@@ -58,10 +58,21 @@ def apply_tk_text(widget: object, props: Mapping[str, object]) -> None:
         weight="bold" if p["bold"] else "normal",
         slant="italic" if p["italic"] else "roman",
     )
-    widget.configure(text=str(p["value"]), font=font,
-                     foreground="" if p["color"] is None else p["color"], justify=p["align"],
-                     anchor={"left": "w", "center": "center", "right": "e"}[p["align"]])
-    widget.state(("!disabled",) if p["enabled"] else ("disabled",))
+    from tkinter import Label
+    if isinstance(widget, Label):
+        if not hasattr(widget, "_psx_text_original_foreground"):
+            widget._psx_text_original_foreground = widget.cget("foreground")
+        widget.configure(text=str(p["value"]), font=font,
+                         foreground=(p["color"] if p["color"] is not None
+                                     else widget._psx_text_original_foreground),
+                         justify=p["align"],
+                         anchor={"left": "w", "center": "center", "right": "e"}[p["align"]],
+                         state="normal" if p["enabled"] else "disabled")
+    else:
+        widget.configure(text=str(p["value"]), font=font,
+                         foreground="" if p["color"] is None else p["color"], justify=p["align"],
+                         anchor={"left": "w", "center": "center", "right": "e"}[p["align"]])
+        widget.state(("!disabled",) if p["enabled"] else ("disabled",))
 
 
 def apply_kivy_text(widget: object, props: Mapping[str, object]) -> None:

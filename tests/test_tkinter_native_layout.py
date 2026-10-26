@@ -103,7 +103,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         ))
         paragraph = root.children[0].children[0]
         def text_widget(instance):
-            if isinstance(getattr(getattr(instance, "handle", None), "widget", None), ttk.Label):
+            if isinstance(getattr(getattr(instance, "handle", None), "widget", None), (tk.Label, ttk.Label)):
                 return instance.handle.widget
             for child in instance.children:
                 found = text_widget(child)
@@ -113,13 +113,15 @@ class TkSFLEGeometryTests(unittest.TestCase):
         label = text_widget(paragraph)
         self.assertIsNotNone(label)
         self.assertEqual(
+            str(label.cget("background")) if isinstance(label, tk.Label) else
             ttk.Style(label).lookup(label.cget("style"), "background"),
             "#ffffff",
         )
-        self.assertEqual(
-            ttk.Style(label).lookup(label.cget("style"), "foreground"),
-            ttk.Style(label).lookup("TLabel", "foreground"),
-        )
+        if isinstance(label, ttk.Label):
+            self.assertEqual(
+                ttk.Style(label).lookup(label.cget("style"), "foreground"),
+                ttk.Style(label).lookup("TLabel", "foreground"),
+            )
         updated = self.reconciler.render(psx(
             '<div style="background: #f5f6f8">'
             '<div style="background: #ddeeff">'
@@ -128,6 +130,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         ))
         self.assertIs(text_widget(updated.children[0].children[0]), label)
         self.assertEqual(
+            str(label.cget("background")) if isinstance(label, tk.Label) else
             ttk.Style(label).lookup(label.cget("style"), "background"),
             "#ddeeff",
         )
@@ -277,7 +280,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         frame = root.handle.widget
         left, right = (child.handle.widget for child in root.children)
         self.assertIsInstance(frame, ttk.Frame)
-        self.assertIsInstance(left, ttk.Label)
+        self.assertIsInstance(left, tk.Label if sys.platform == 'darwin' else ttk.Label)
         self.assertIsInstance(right, ttk.Button)
         self.assertEqual(frame.winfo_manager(), "place")
         self.assertEqual(rect(frame), (0, 0, 160, 80))
