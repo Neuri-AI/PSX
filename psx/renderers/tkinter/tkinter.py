@@ -803,11 +803,7 @@ class TkinterRenderer:
         spec = _PRIMITIVES.get(node.type)
         if spec is None:
             raise RendererCapabilityError(f"Tkinter does not support host primitive {node.type!r}.")
-        computed = getattr(node, "css_computed", None)
-        if (node.type == "Button" and sys.platform == "darwin"
-                and computed is not None
-                and any(name in computed.specified for name in
-                        ("background-color", "color", "border-radius", "border-width"))):
+        if node.type == "Button" and sys.platform == "darwin":
             # Aqua's ttk Button theme ignores instance CSS colors.
             widget = tk.Button(master, relief="flat", borderwidth=0, highlightthickness=0)
         else:

@@ -162,7 +162,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
             '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
         ))
         alpha, beta = (child.handle.widget for child in first.children)
-        self.assertIsInstance(alpha, ttk.Button)
+        self.assertIsInstance(alpha, tk.Button if sys.platform == "darwin" else ttk.Button)
         self.assertIs(alpha.master, first.handle.widget)
         self.assertEqual(alpha.winfo_manager(), "place")
         self.assertEqual(beta.winfo_manager(), "place")
@@ -281,7 +281,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         left, right = (child.handle.widget for child in root.children)
         self.assertIsInstance(frame, ttk.Frame)
         self.assertIsInstance(left, tk.Label if sys.platform == 'darwin' else ttk.Label)
-        self.assertIsInstance(right, ttk.Button)
+        self.assertIsInstance(right, tk.Button if sys.platform == "darwin" else ttk.Button)
         self.assertEqual(frame.winfo_manager(), "place")
         self.assertEqual(rect(frame), (0, 0, 160, 80))
         self.assertEqual(rect(left), (0, 0, 40, 20))
