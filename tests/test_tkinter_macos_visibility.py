@@ -25,9 +25,9 @@ def test_aqua_scroll_viewport_uses_nested_content_css_background():
         mounted = reconciler.render(psx("""
             <div><Grid>
               <GridItem><Scroll direction="vertical" height="100vh">
-                <GridItem><div style="height: 100vh; background: #ff0000">
+                <div><div style="height: 100vh; background: #ff0000">
                   <p>Contenido</p>
-                </div></GridItem>
+                </div></div>
               </Scroll></GridItem>
             </Grid></div>
         """))
