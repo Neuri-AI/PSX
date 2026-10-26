@@ -15,6 +15,39 @@ from psx.sfle.model import AvailableSize, LayoutConstraints
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
+def test_aqua_scroll_viewport_uses_nested_content_css_background():
+    root = tk.Tk()
+    renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
+        AvailableSize(480, True), AvailableSize(300, True)),
+        engine=PythonLayoutEngine())
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(psx("""
+            <div><Grid>
+              <GridItem><Scroll direction="vertical" height="100vh">
+                <GridItem><div style="height: 100vh; background: #ff0000">
+                  <p>Contenido</p>
+                </div></GridItem>
+              </Scroll></GridItem>
+            </Grid></div>
+        """))
+        root.update()
+        canvases = []
+        def walk(widget):
+            if hasattr(widget, "_psx_scroll_region"):
+                canvases.append(widget._psx_canvas)
+            for child in widget.winfo_children():
+                walk(child)
+        walk(root)
+        assert canvases
+        assert str(canvases[0].cget("background")) == "#ff0000"
+    finally:
+        reconciler.unmount()
+        renderer.close()
+        root.destroy()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
 def test_aqua_button_css_color_and_radius_are_instance_painted():
     root = tk.Tk()
     renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
