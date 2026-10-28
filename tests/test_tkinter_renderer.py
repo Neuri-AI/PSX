@@ -329,6 +329,7 @@ class TkinterRendererTests(unittest.TestCase):
                             "TkDefaultFont", root=self.root).actual("family")
         with TemporaryDirectory() as directory:
             Path(directory, "styles.css").write_text(
+                ".activity-card { background-color: #ffffff; } "
                 ".prueba {font-family: '" + selected +
                 "', sans-serif; font-size: 29px; font-weight: 700;}"
             )
@@ -352,6 +353,16 @@ class TkinterRendererTests(unittest.TestCase):
             self.assertEqual(native_font.actual("family").casefold(),
                              selected.casefold())
             self.assertEqual(str(label.cget("font")), str(native_font))
+            from tkinter import ttk
+            label_style = str(label.cget("style"))
+            self.assertTrue(label_style.startswith("PsxCssText"))
+            self.assertEqual(
+                str(ttk.Style(label).lookup(label_style, "font")),
+                str(native_font),
+            )
+            self.assertEqual(
+                ttk.Style(label).lookup(label_style, "background"), "#ffffff"
+            )
 
     def test_html_box_background_uses_native_theme_independent_fill(self):
         from psx.markup.compile import psx
