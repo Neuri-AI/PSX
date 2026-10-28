@@ -551,6 +551,40 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertEqual(len(canvas.find_withtag("psx-css-surface-side")), 1)
         self.assertFalse(hasattr(widget, "_psx_css_background_corners"))
 
+    def test_single_canvas_corner_png_antialiases_against_authored_parent(self):
+        import tkinter as tk
+        from psx.renderers.tkinter.rounded_surface import draw_rounded_surface
+
+        canvas = tk.Canvas(self.root, width=80, height=48)
+        self.addCleanup(canvas.destroy)
+        draw_rounded_surface(
+            canvas, width=80, height=48, radius=15,
+            parent_color="#253349", fill_color="#ffffff",
+            sides={"top": (2, "#123456"), "right": (2, "#123456"),
+                   "bottom": (2, "#123456"), "left": (2, "#123456")},
+        )
+        self.assertEqual(len(canvas._psx_css_corner_images), 4)
+        image = canvas._psx_css_corner_images[0]
+        self.assertEqual(image.width(), 15)
+        self.assertEqual(image.height(), 15)
+        self.assertEqual(tuple(image.get(0, 0)), (37, 51, 73))
+        self.assertEqual(tuple(image.get(14, 14)), (255, 255, 255))
+        self.assertEqual(tuple(image.get(14, 0)), (18, 52, 86))
+        colors = {
+            tuple(image.get(x, y)) for y in range(15) for x in range(15)
+        }
+        self.assertGreater(len(colors), 3)  # subpixel antialiasing actually happened
+
+        draw_rounded_surface(
+            canvas, width=80, height=48, radius=8,
+            parent_color="#917253", fill_color=None,
+            sides={"bottom": (2, "#abcdef")},
+        )
+        self.assertEqual(len(canvas.find_withtag("psx-css-surface-side")), 1)
+        self.assertEqual(len(canvas._psx_css_corner_images), 4)
+        self.assertEqual(tuple(canvas._psx_css_corner_images[0].get(0, 0)),
+                         (145, 114, 83))
+
     def test_html_box_background_uses_native_theme_independent_fill(self):
         from psx.markup.compile import psx
         self._enable_native_sfle()
