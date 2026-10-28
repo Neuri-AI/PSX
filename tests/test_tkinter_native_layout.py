@@ -382,6 +382,17 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(child), (0, 0, 30, 20))
         self.assertGreater(self.renderer.sfle_result.generation, initial)
 
+    def test_mounted_flex_root_is_not_resized_ahead_of_children(self):
+        root = self.reconciler.render(Flex(
+            item("A", "a", 30), width="100%", height="100%",
+        ))
+        frame = root.handle.widget
+        original = rect(frame)
+        self.renderer.set_sfle_constraints(constraints(240, 120))
+        self.assertEqual(rect(frame), original)
+        self.renderer.commit_layout(root)
+        self.assertEqual(rect(frame), (0, 0, 240, 120))
+
     def test_explicit_root_dimensions_ignore_unrelated_host_resize(self):
         from types import SimpleNamespace
 
