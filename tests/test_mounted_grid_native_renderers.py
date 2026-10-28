@@ -1401,6 +1401,11 @@ def test_rounded_bottom_only_border_updates_without_painting_other_sides():
 
     backend = os.environ["PSX_GRID_BACKEND"]
     renderer, close = make_renderer(backend)
+    if backend == "tk":
+        # A withdrawn Tk toplevel has no paint surface, even after an
+        # idle-layout flush. These are native paint tests, not hidden
+        # widget-creation tests: mount a real Xvfb window before readback.
+        renderer.root.deiconify()
     reconciler = Reconciler(renderer)
 
     def view(color, radius=8):
@@ -1415,7 +1420,7 @@ def test_rounded_bottom_only_border_updates_without_painting_other_sides():
         mounted = reconciler.render(view("#123456"))
         widget = mounted.children[0].handle.widget
         if backend == "tk":
-            widget.update_idletasks()
+            renderer.root.update()
         if backend == "qt":
             assert "border-bottom: 2px solid #123456;" in widget.styleSheet()
             assert "border-radius: 8px;" in widget.styleSheet()
@@ -1480,6 +1485,11 @@ def test_rounded_side_border_without_opaque_fill_preserves_backend_bounds():
 
     backend = os.environ["PSX_GRID_BACKEND"]
     renderer, close = make_renderer(backend)
+    if backend == "tk":
+        # A withdrawn Tk toplevel has no paint surface, even after an
+        # idle-layout flush. These are native paint tests, not hidden
+        # widget-creation tests: mount a real Xvfb window before readback.
+        renderer.root.deiconify()
     reconciler = Reconciler(renderer)
     view = psx(
         '<div style="border-bottom: 2px solid #abcdef; border-radius: 8px">'
@@ -1488,7 +1498,7 @@ def test_rounded_side_border_without_opaque_fill_preserves_backend_bounds():
     try:
         root = reconciler.render(view)
         if backend == "tk":
-            root.handle.widget.update_idletasks()
+            renderer.root.update()
             surface = root.handle.widget._psx_css_unified_surface
             assert root.handle.widget._psx_css_unified_values[1] is None
             assert root.handle.widget._psx_css_unified_values[2]["bottom"] == (
@@ -1514,6 +1524,11 @@ def test_native_semantic_rounded_border_and_background_updates():
     from psx.markup.compile import psx
     backend = os.environ["PSX_GRID_BACKEND"]
     renderer, close = make_renderer(backend)
+    if backend == "tk":
+        # A withdrawn Tk toplevel has no paint surface, even after an
+        # idle-layout flush. These are native paint tests, not hidden
+        # widget-creation tests: mount a real Xvfb window before readback.
+        renderer.root.deiconify()
     reconciler = Reconciler(renderer)
     def view(radius):
         return psx(
@@ -1524,7 +1539,7 @@ def test_native_semantic_rounded_border_and_background_updates():
         first = reconciler.render(view(8))
         widget = first.handle.widget
         if backend == "tk":
-            widget.update_idletasks()
+            renderer.root.update()
         if backend == "qt":
             assert "border-radius: 8px" in widget.styleSheet()
         elif backend == "tk":
@@ -1559,6 +1574,11 @@ def test_native_semantic_named_red_rounded_background_without_border():
     from psx.markup.compile import psx
     backend = os.environ["PSX_GRID_BACKEND"]
     renderer, close = make_renderer(backend)
+    if backend == "tk":
+        # A withdrawn Tk toplevel has no paint surface, even after an
+        # idle-layout flush. These are native paint tests, not hidden
+        # widget-creation tests: mount a real Xvfb window before readback.
+        renderer.root.deiconify()
     reconciler = Reconciler(renderer)
 
     def view(color, radius):
@@ -1570,7 +1590,7 @@ def test_native_semantic_named_red_rounded_background_without_border():
         first = reconciler.render(view("red", 18))
         widget = first.handle.widget
         if backend == "tk":
-            widget.update_idletasks()
+            renderer.root.update()
         if backend == "qt":
             assert "background-color: #ff0000" in widget.styleSheet()
             assert "border-radius: 18px" in widget.styleSheet()
