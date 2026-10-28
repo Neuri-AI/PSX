@@ -3305,18 +3305,19 @@ def test_grid_flow_leaf_remeasures_after_content_change():
     tree = Reconciler(renderer)
     try:
         first = tree.render(psx(
-            '<Grid gap="0px"><GridItem span="12">'
+            '<div><Grid gap="0px"><GridItem span="12">'
             '<div><p key="copy">Short</p></div>'
-            '</GridItem></Grid>'
+            '</GridItem></Grid></div>'
         ))
-        widget = first.children[0].children[0].children[0].handle.widget
+        grid = first.children[0]
+        widget = grid.children[0].children[0].children[0].handle.widget
         first_width = rectangle(widget, backend)[2]
         second = tree.render(psx(
-            '<Grid gap="0px"><GridItem span="12">'
+            '<div><Grid gap="0px"><GridItem span="12">'
             '<div><p key="copy">A substantially longer paragraph of native text</p></div>'
-            '</GridItem></Grid>'
+            '</GridItem></Grid></div>'
         ))
-        assert second.children[0].children[0].children[0].handle.widget is widget
+        assert second.children[0].children[0].children[0].children[0].handle.widget is widget
         assert rectangle(widget, backend)[2] >= first_width
         assert renderer.grid_result is not None
         assert renderer.grid_result[1].max_readback_error <= 1
