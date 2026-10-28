@@ -619,6 +619,35 @@ class TkinterRendererTests(unittest.TestCase):
         del images
         self.assertTrue(set(image_names).isdisjoint(self.root.tk.call("image", "names")))
 
+    def test_rounded_resize_updates_geometry_without_reconfiguring_unchanged_paint(self):
+        import tkinter as tk
+        from unittest.mock import patch
+        from psx.renderers.tkinter.rounded_surface import draw_rounded_surface
+
+        canvas = tk.Canvas(self.root)
+        self.addCleanup(canvas.destroy)
+        options = dict(radius=8, parent_color="#253349", fill_color="#ffffff",
+                       sides={"top": (2, "#123456"), "bottom": (2, "#123456")})
+        draw_rounded_surface(canvas, width=160, height=64, **options)
+        image_ids = canvas.find_withtag("psx-css-surface-corner")
+        with (patch.object(canvas, "itemconfigure", wraps=canvas.itemconfigure) as colors,
+              patch.object(canvas, "configure", wraps=canvas.configure) as background,
+              patch.object(canvas, "tag_lower", wraps=canvas.tag_lower) as lower,
+              patch.object(canvas, "tag_raise", wraps=canvas.tag_raise) as raise_):
+            draw_rounded_surface(canvas, width=240, height=64, **options)
+            colors.assert_not_called()
+            background.assert_not_called()
+            lower.assert_not_called()
+            raise_.assert_not_called()
+        self.assertEqual(canvas.find_withtag("psx-css-surface-corner"), image_ids)
+        self.assertEqual(canvas.coords(canvas.find_withtag("psx-css-tr")[0]), [232, 0])
+        with patch.object(canvas, "itemconfigure", wraps=canvas.itemconfigure) as recolor:
+            draw_rounded_surface(canvas, width=240, height=64, **{
+                **options, "fill_color": "#ffeecc",
+            })
+            self.assertTrue(recolor.called)
+        self.assertEqual(len(canvas.find_withtag("psx-css-surface-corner")), 4)
+
     def test_rounded_resize_invalidates_each_corner_dependency_and_removes_stale_items(self):
         import tkinter as tk
         from psx.renderers.tkinter.rounded_surface import draw_rounded_surface
