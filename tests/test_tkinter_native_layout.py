@@ -393,6 +393,22 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.renderer.commit_layout(root)
         self.assertEqual(rect(frame), (0, 0, 240, 120))
 
+    def test_root_configure_binding_is_not_inherited_by_resized_children(self):
+        """Aqua child Configure storms must never construct root resize Events."""
+        mounted = self.reconciler.render(Flex(
+            item("A", "a", 30), width="100%", height="100%",
+        ))
+        tag = self.renderer._sfle_resize_bind_tag
+        self.assertIsNotNone(tag)
+        self.assertEqual(self.host.bindtags().count(tag), 1)
+        child = mounted.children[0].handle.widget
+        self.assertNotIn(tag, child.bindtags())
+        self.assertTrue(self.host.tk.call("bind", tag, "<Configure>"))
+        self.renderer.invalidate_layout()
+        self.assertNotIn(tag, self.host.bindtags())
+        self.assertFalse(self.host.tk.call("bind", tag, "<Configure>"))
+
+
     def test_explicit_root_dimensions_ignore_unrelated_host_resize(self):
         from types import SimpleNamespace
 
