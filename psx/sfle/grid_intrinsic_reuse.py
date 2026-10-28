@@ -7,6 +7,7 @@ by the owning toolkit on every commit.
 from __future__ import annotations
 
 from collections import OrderedDict
+from weakref import ref
 
 from psx.core.vnode import NodeKind
 from .model import IntrinsicSizes
@@ -40,11 +41,17 @@ class GridIntrinsicTransaction:
         if (node.kind is not NodeKind.HOST or node.type != "Text"
                 or node.effective_children):
             return None
+        try:
+            widget_ref = ref(widget)
+            hash(widget_ref)
+        except TypeError:
+            # Un-weakrefable or unhashable wrappers must not reuse object IDs.
+            return None
         source = node.source
         # CSS computed state lives outside VNode.props; include its value and
         # stylesheet scope so text/font/style changes cannot reuse stale hints.
         return (
-            backend, id(widget), float(width), source.type,
+            backend, widget_ref, float(width), source.type,
             repr(source.props), repr(source.css_computed),
             repr(source.css_stylesheet), repr(source.children),
         )
