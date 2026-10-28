@@ -195,16 +195,18 @@ class TkMeasurementSource:
         # so a previous narrow viewport cannot poison the new inline basis.
         wrap_key = "wraplength" in (widget.keys() if hasattr(widget, "keys") else ())
         old_wrap = widget.cget("wraplength") if wrap_key else None
+        changed_wrap = wrap_key and str(old_wrap) not in ("0", "0.0")
         try:
-            if wrap_key:
+            if changed_wrap:
                 widget.configure(wraplength=0)
-                widget.update_idletasks()
+            # Read all requested hints after one drain, not after every
+            # temporary restore; later probes perform their own flush.
+            widget.update_idletasks()
             width = float(widget.winfo_reqwidth())
             height = float(widget.winfo_reqheight())
         finally:
-            if wrap_key:
+            if changed_wrap:
                 widget.configure(wraplength=old_wrap)
-                widget.update_idletasks()
         if width < 0 or height < 0:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Invalid Tk requested widget size.")
         metrics = IntrinsicSizes(
