@@ -250,5 +250,6 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 root_widget.pos, root_widget.size = previous_root
             raise
         renderer.grid_result = (prepared, receipt)
+        reuse_transaction.accept(invalidation_epoch)
     finally:
         renderer._sfle_in_commit = False
