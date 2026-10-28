@@ -76,10 +76,18 @@ def _tk_css_scalable_font(widget: tk.Misc, family: str) -> bool:
     """
     from tkinter import font as tkfont
 
-    small = tkfont.Font(root=widget, family=family, size=-12)
-    large = tkfont.Font(root=widget, family=family, size=-30, weight="bold")
-    return (large.metrics("linespace") > small.metrics("linespace")
-            and large.actual("weight") == "bold")
+    root = widget.winfo_toplevel()
+    cached = getattr(root, "_psx_css_scalable_font_support", None)
+    if cached is None:
+        cached = {}
+        root._psx_css_scalable_font_support = cached
+    key = family.casefold()
+    if key not in cached:
+        small = tkfont.Font(root=widget, family=family, size=-12)
+        large = tkfont.Font(root=widget, family=family, size=-30, weight="bold")
+        cached[key] = (large.metrics("linespace") > small.metrics("linespace")
+                       and large.actual("weight") == "bold")
+    return cached[key]
 
 
 def _tk_css_system_font(widget: tk.Misc, generic: str) -> str | None:
@@ -1360,6 +1368,10 @@ class TkinterRenderer:
                     },
                     "native_font": {
                         key: native_font.actual(key)
+                        for key in ("family", "size", "weight")
+                    },
+                    "configured_font": {
+                        key: native_font.cget(key)
                         for key in ("family", "size", "weight")
                     },
                     "font_option": str(target.widget.cget("font")),
