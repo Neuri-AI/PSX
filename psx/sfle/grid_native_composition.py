@@ -133,6 +133,16 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
     visit(flow)
     measurements = []
     nested_grids = {}
+    # Reuse actual native leaf measurements only during this flow composition.
+    # Subsequent commits and invalidations create a new cache.
+    measured_leaves: dict[tuple[str, float], IntrinsicSizes] = {}
+
+    def measure_flow_leaf(identifier, origin, leaf_width):
+        key = (identifier, leaf_width)
+        if key not in measured_leaves:
+            measured_leaves[key] = measure_leaf(identifier, origin, leaf_width)
+        return measured_leaves[key]
+
     for node in normalized.nodes[1:]:
         if node.component in FORMATTING_TAGS or node.component == "Flex":
             continue
@@ -148,7 +158,7 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
         else:
             if origin.effective_children:
                 raise GridPackingError("Nested GridItem flow supports native leaves and Grid hosts.")
-            intrinsic = measure_leaf(node.node_id, origin, width)
+            intrinsic = measure_flow_leaf(node.node_id, origin, width)
         if not isinstance(intrinsic, IntrinsicSizes):
             raise GridPackingError("GridItem flow leaf requires native IntrinsicSizes.")
         measurements.append(MeasuredBox(node.node_id, intrinsic,
@@ -162,7 +172,7 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
         callbacks = {
             node.node_id: (
                 lambda assigned_width, origin=identities[node.node_id]:
-                    measure_leaf(path_identity(origin.path), origin, assigned_width)
+                    measure_flow_leaf(path_identity(origin.path), origin, assigned_width)
             )
             for node in normalized.nodes[1:]
             if node.node_id in {item.node_id for item in measurements}
@@ -177,7 +187,7 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
     else:
         solved = compute_measured_block_snapshot(
             snapshot, flex_engine=engine,
-            measure_width=lambda identifier, assigned_width: measure_leaf(
+            measure_width=lambda identifier, assigned_width: measure_flow_leaf(
                 identifier, identities[identifier], assigned_width,
             ),
         )
