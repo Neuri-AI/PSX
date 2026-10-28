@@ -1419,18 +1419,15 @@ def test_rounded_bottom_only_border_updates_without_painting_other_sides():
             assert "border-radius: 8px;" in widget.styleSheet()
             assert "border-top:" not in widget.styleSheet()
         elif backend == "tk":
-            assert set(widget._psx_css_side_borders) == {"bottom"}
-            assert len(widget._psx_css_background_corners) == 4
-            bottom_corners = widget._psx_css_background_corners[2:]
-            top_corners = widget._psx_css_background_corners[:2]
-            assert all(len(c.find_withtag("psx-css-side-arc")) == 1
-                       for c in bottom_corners)
-            assert all(not c.find_withtag("psx-css-side-arc")
-                       for c in top_corners)
-            assert all(c.itemcget(c.find_withtag("psx-css-side-arc")[0],
-                                  "outline") == "#123456"
-                       for c in bottom_corners)
-            assert int(widget._psx_css_side_borders["bottom"].place_info()["x"]) == 8
+            surface = widget._psx_css_unified_surface
+            assert surface.winfo_exists()
+            assert widget._psx_css_unified_values[0] == 8
+            assert set(widget._psx_css_unified_values[2]) == {"bottom"}
+            assert widget._psx_css_unified_values[2]["bottom"] == (2.0, "#123456")
+            assert not hasattr(widget, "_psx_css_side_borders")
+            assert not hasattr(widget, "_psx_css_background_corners")
+            assert len(surface.find_withtag("psx-css-surface-corner")) == 4
+            assert len(surface.find_withtag("psx-css-surface-side")) == 1
         else:
             group, redraw, sides, lines = widget._psx_css_side_strokes
             assert len(lines) == 1 and lines[0][0] == "bottom"
@@ -1448,11 +1445,9 @@ def test_rounded_bottom_only_border_updates_without_painting_other_sides():
         if backend == "qt":
             assert "border-radius: 12px;" in widget.styleSheet()
         elif backend == "tk":
-            assert len(widget._psx_css_background_corners) == 4
-            assert all(int(c.cget("width")) == 12
-                       for c in widget._psx_css_background_corners)
-            assert all(len(c.find_withtag("psx-css-side-arc")) == 1
-                       for c in widget._psx_css_background_corners[2:])
+            assert widget._psx_css_unified_surface is surface
+            assert widget._psx_css_unified_values[0] == 12
+            assert len(surface.find_withtag("psx-css-surface-corner")) == 4
         else:
             group2, _, styles2, lines2 = widget._psx_css_side_strokes
             assert group2 is group
@@ -1466,7 +1461,8 @@ def test_rounded_bottom_only_border_updates_without_painting_other_sides():
             assert "border-bottom:" not in widget.styleSheet()
         elif backend == "tk":
             assert not getattr(widget, "_psx_css_side_borders", None)
-            assert not hasattr(widget, "_psx_css_background_corners")
+            assert not hasattr(widget, "_psx_css_unified_surface")
+            assert not surface.winfo_exists()
         else:
             assert not hasattr(widget, "_psx_css_side_strokes")
             assert group not in widget.canvas.after.children
@@ -1523,9 +1519,13 @@ def test_native_semantic_rounded_border_and_background_updates():
         if backend == "qt":
             assert "border-radius: 8px" in widget.styleSheet()
         elif backend == "tk":
-            assert len(widget._psx_css_background_corners) == 4
+            surface = widget._psx_css_unified_surface
+            assert len(surface.find_withtag("psx-css-surface-corner")) == 4
             assert not hasattr(widget, "_psx_css_border_corners")
-            assert len(widget._psx_css_border_edges) == 4
+            assert not hasattr(widget, "_psx_css_border_edges")
+            assert set(widget._psx_css_unified_values[2]) == {
+                "top", "right", "bottom", "left"
+            }
         else:
             assert widget._psx_css_semantic_radius == pytest.approx(8)
             assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(8)
@@ -1534,7 +1534,9 @@ def test_native_semantic_rounded_border_and_background_updates():
         if backend == "qt":
             assert "border-radius: 12px" in widget.styleSheet()
         elif backend == "tk":
-            assert all(int(c.cget("width")) == 12 for c in widget._psx_css_background_corners)
+            assert widget._psx_css_unified_surface is surface
+            assert widget._psx_css_unified_values[0] == 12
+            assert len(surface.find_withtag("psx-css-surface-corner")) == 4
             assert not hasattr(widget, "_psx_css_border_corners")
         else:
             assert widget._psx_css_semantic_radius == pytest.approx(12)
@@ -1565,11 +1567,11 @@ def test_native_semantic_named_red_rounded_background_without_border():
             assert widget.window() is not widget
             assert 0 < widget.height() < widget.window().height()
         elif backend == "tk":
-            corners = widget._psx_css_background_corners
-            assert len(corners) == 4
-            assert all(int(c.cget("width")) == 18 for c in corners)
-            assert all(len(c.find_all()) == 1 for c in corners)
-            assert all(str(c.itemcget(c.find_all()[0], "fill")) == "#ff0000" for c in corners)
+            surface = widget._psx_css_unified_surface
+            assert widget._psx_css_unified_values[:2] == (18, "#ff0000")
+            assert len(surface.find_withtag("psx-css-surface-corner")) == 4
+            assert len(surface._psx_css_corner_images) == 4
+            assert not hasattr(widget, "_psx_css_background_corners")
         else:
             assert tuple(widget._psx_css_paint[2].rgba) == pytest.approx((1, 0, 0, 1))
             assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(18)
@@ -1578,7 +1580,8 @@ def test_native_semantic_named_red_rounded_background_without_border():
         if backend == "qt":
             assert "border-radius: 8px" in widget.styleSheet()
         elif backend == "tk":
-            assert all(int(c.cget("width")) == 8 for c in widget._psx_css_background_corners)
+            assert widget._psx_css_unified_surface is surface
+            assert widget._psx_css_unified_values[:2] == (8, "#0000ff")
         else:
             assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(8)
         cleared = reconciler.render(view(None, 0))
@@ -1586,7 +1589,8 @@ def test_native_semantic_named_red_rounded_background_without_border():
         if backend == "qt":
             assert "border-radius" not in widget.styleSheet()
         elif backend == "tk":
-            assert not hasattr(widget, "_psx_css_background_corners")
+            assert not hasattr(widget, "_psx_css_unified_surface")
+            assert not surface.winfo_exists()
         else:
             assert not hasattr(widget, "_psx_css_paint")
     finally:
