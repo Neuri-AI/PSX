@@ -439,6 +439,7 @@ class TkinterRenderer:
         self._sfle_resize_pending = None
         self._sfle_resize_after_id = None
         self._sfle_resize_bind_id = None
+        self._sfle_resize_bind_tag = None
         self._sfle_resize_epoch = 0
         self._sfle_resize_error: Exception | None = None
         self._sfle_textarea_epoch = 0
@@ -757,8 +758,15 @@ class TkinterRenderer:
             self._sfle_resize_baseline = (
                 self.root.winfo_width(), self.root.winfo_height(),
             )
-            self._sfle_resize_bind_id = self.root.bind(
-                "<Configure>", self._sfle_on_configure, add="+",
+            # Toplevel widget binding tags are inherited by descendants.
+            # A normal root.bind('<Configure>') dispatches a full Python
+            # Event object for every child placement, even though our handler
+            # discards those events. Use a root-only tag instead.
+            tag = f"PSXResizeRoot_{id(self)}"
+            self.root.bindtags((tag, *self.root.bindtags()))
+            self._sfle_resize_bind_tag = tag
+            self._sfle_resize_bind_id = self.root.bind_class(
+                tag, "<Configure>", self._sfle_on_configure, add="+",
             )
         if self._sfle_theme_bind_id is None:
             self._sfle_theme_bind_id = self.root.bind(
@@ -833,11 +841,19 @@ class TkinterRenderer:
                 except tk.TclError:
                     pass
                 self._sfle_resize_after_id = None
-            if self._sfle_resize_bind_id is not None:
+            if self._sfle_resize_bind_tag is not None:
+                tag = self._sfle_resize_bind_tag
                 try:
-                    self.root.unbind("<Configure>", self._sfle_resize_bind_id)
+                    self.root.unbind_class(tag, "<Configure>")
+                    self.root.bindtags(tuple(
+                        existing for existing in self.root.bindtags()
+                        if existing != tag
+                    ))
+                    if self._sfle_resize_bind_id is not None:
+                        self.root.deletecommand(self._sfle_resize_bind_id)
                 except tk.TclError:
                     pass
+                self._sfle_resize_bind_tag = None
                 self._sfle_resize_bind_id = None
             self.sfle_result = None
             self._sfle_physical_commit_error = None
