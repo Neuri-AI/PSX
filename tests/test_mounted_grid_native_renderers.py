@@ -1414,6 +1414,8 @@ def test_rounded_bottom_only_border_updates_without_painting_other_sides():
     try:
         mounted = reconciler.render(view("#123456"))
         widget = mounted.children[0].handle.widget
+        if backend == "tk":
+            widget.update_idletasks()
         if backend == "qt":
             assert "border-bottom: 2px solid #123456;" in widget.styleSheet()
             assert "border-radius: 8px;" in widget.styleSheet()
@@ -1486,6 +1488,7 @@ def test_rounded_side_border_without_opaque_fill_preserves_backend_bounds():
     try:
         root = reconciler.render(view)
         if backend == "tk":
+            root.handle.widget.update_idletasks()
             surface = root.handle.widget._psx_css_unified_surface
             assert root.handle.widget._psx_css_unified_values[1] is None
             assert root.handle.widget._psx_css_unified_values[2]["bottom"] == (
@@ -1520,6 +1523,8 @@ def test_native_semantic_rounded_border_and_background_updates():
     try:
         first = reconciler.render(view(8))
         widget = first.handle.widget
+        if backend == "tk":
+            widget.update_idletasks()
         if backend == "qt":
             assert "border-radius: 8px" in widget.styleSheet()
         elif backend == "tk":
@@ -1564,6 +1569,8 @@ def test_native_semantic_named_red_rounded_background_without_border():
     try:
         first = reconciler.render(view("red", 18))
         widget = first.handle.widget
+        if backend == "tk":
+            widget.update_idletasks()
         if backend == "qt":
             assert "background-color: #ff0000" in widget.styleSheet()
             assert "border-radius: 18px" in widget.styleSheet()
