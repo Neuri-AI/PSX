@@ -1945,3 +1945,55 @@ def test_tk_grid_transaction_avoids_repeated_idle_drains_for_unchanged_wrap():
     unsynced = Widget(80)
     TkMeasurementSource({"leaf": unsynced}).measure_width("leaf", 80)
     assert unsynced.flushes == 1
+
+
+def test_tk_grid_fit_short_circuits_width_probe_only_for_unwrapped_text():
+    """A fitted natural label needs no wrap mutation or Tcl idle drain."""
+    from psx.sfle.tk_measurement import TkMeasurementSource
+
+    class Label:
+        def __init__(self, natural):
+            self.wrap = 0
+            self.natural = natural
+            self.writes = []
+            self.flushes = 0
+
+        def keys(self):
+            return ("wraplength",)
+
+        def cget(self, option):
+            return self.wrap
+
+        def configure(self, **kwargs):
+            self.wrap = kwargs["wraplength"]
+            self.writes.append(self.wrap)
+
+        def update_idletasks(self):
+            self.flushes += 1
+
+        def winfo_reqwidth(self):
+            return self.natural
+
+        def winfo_reqheight(self):
+            return 20 if self.wrap == 0 or self.wrap >= self.natural else 40
+
+    fitted = Label(64)
+    result = TkMeasurementSource(
+        {"text": fitted}, idle_synced=True,
+    ).measure_width("text", 100)
+    assert (result.preferred_width, result.preferred_height) == (64, 20)
+    assert fitted.writes == []
+    assert fitted.flushes == 0
+
+    wrapped = Label(140)
+    result = TkMeasurementSource(
+        {"text": wrapped}, idle_synced=True,
+    ).measure_width("text", 100)
+    assert (result.preferred_width, result.preferred_height) == (100, 40)
+    assert wrapped.writes == [100, 0]
+    assert wrapped.flushes == 1
+
+    unsynced = Label(64)
+    TkMeasurementSource({"text": unsynced}).measure_width("text", 100)
+    assert unsynced.writes == [100, 0]
+    assert unsynced.flushes == 1
