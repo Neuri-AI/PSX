@@ -179,6 +179,71 @@ class TkinterRendererTests(unittest.TestCase):
         surface.event_generate("<ButtonRelease-1>", x=10, y=10)
         self.assertEqual(clicked, ["clicked"])
 
+    def test_css_button_paint_preserves_component_pixel_font_size(self):
+        from tkinter import ttk
+        from psx.css.cascade import StyleTarget, resolve_style
+        from psx.css.parser import parse_stylesheet
+
+        self._enable_native_sfle()
+        instance = self.reconciler.render(
+            Flex(Button("Reportes", font_size=23), direction="row")
+        ).children[0]
+        widget = instance.handle.widget
+        native_style = str(widget.cget("style"))
+        self.assertTrue(ttk.Style(widget).lookup(native_style, "font"))
+
+        def style(css):
+            return resolve_style(parse_stylesheet("button {" + css + "}"),
+                                 StyleTarget("button"))
+
+        self.renderer.apply_css(instance.handle, style(
+            "background: #3b6ef5; color: #ffffff; padding: 0px 10px;"
+        ))
+        font = widget._psx_css_native_font
+        self.assertEqual(font.cget("size"), -23)
+        self.assertEqual(
+            widget._psx_css_button_surface.itemcget(
+                widget._psx_css_button_surface.find_withtag(
+                    "psx-css-button-text"
+                )[0], "font",
+            ), str(font),
+        )
+
+        self.renderer.apply_css(instance.handle, style(
+            "background: #26ad83; color: #ffffff; font-size: 19px;"
+        ))
+        self.assertEqual(font.cget("size"), -19)
+        self.renderer.apply_css(instance.handle, style(
+            "background: #26ad83; color: #ffffff;"
+        ))
+        self.assertEqual(font.cget("size"), -23)
+
+        self.renderer.apply_css(instance.handle, None)
+        self.assertEqual(str(widget.cget("style")), native_style)
+        self.assertFalse(hasattr(widget, "_psx_css_button_surface"))
+
+    def test_css_input_color_preserves_component_pixel_font_size(self):
+        from psx import Input
+        from psx.css.cascade import StyleTarget, resolve_style
+        from psx.css.parser import parse_stylesheet
+
+        self._enable_native_sfle()
+        instance = self.reconciler.render(
+            Flex(Input(value="Sample", font_size=22), direction="row")
+        ).children[0]
+        widget = instance.handle.widget
+        native_font = str(widget.cget("font"))
+        color_only = resolve_style(
+            parse_stylesheet("input {color: #112233;}"),
+            StyleTarget("input"),
+        )
+        self.renderer.apply_css(instance.handle, color_only)
+        self.assertEqual(widget._psx_css_native_font.cget("size"), -22)
+        self.assertEqual(str(widget.cget("font")), str(widget._psx_css_native_font))
+
+        self.renderer.apply_css(instance.handle, None)
+        self.assertEqual(str(widget.cget("font")), native_font)
+
     def test_html_box_background_uses_native_theme_independent_fill(self):
         from psx.markup.compile import psx
         self._enable_native_sfle()
