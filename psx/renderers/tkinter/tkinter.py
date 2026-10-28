@@ -1200,6 +1200,23 @@ class TkinterRenderer:
         )
         canvas._psx_css_paint_revision = revision
 
+    def _schedule_css_unified_surface_redraw(self, widget: tk.Misc) -> None:
+        """Coalesce child Configure storms before Tk's next idle paint."""
+        canvas = getattr(widget, "_psx_css_unified_surface", None)
+        if canvas is None or not canvas.winfo_exists():
+            return
+        if getattr(canvas, "_psx_css_redraw_after_id", None) is not None:
+            return
+
+        def flush():
+            canvas._psx_css_redraw_after_id = None
+            if canvas.winfo_exists():
+                self._redraw_css_unified_surface(widget)
+
+        # Register on the renderer root, not the child Canvas: destroying a
+        # canvas must not invalidate a still-pending Tcl callback command.
+        canvas._psx_css_redraw_after_id = self.root.after_idle(flush)
+
     def _paint_css_unified_surface(
         self, widget: tk.Misc, computed: object, fill: str | None,
     ) -> None:
@@ -1248,7 +1265,7 @@ class TkinterRenderer:
         if canvas is None:
             canvas = tk.Canvas(widget, borderwidth=0, highlightthickness=0, takefocus=0)
             widget._psx_css_unified_surface = canvas
-            canvas.bind("<Configure>", lambda _event: self._redraw_css_unified_surface(widget))
+            canvas.bind("<Configure>", lambda _event: self._schedule_css_unified_surface_redraw(widget))
         widget._psx_css_unified_values = (int(radius), fill, sides)
         canvas.place(x=0, y=0, relwidth=1, relheight=1)
         # A ttk theme may paint over a lowered child canvas (Aqua). Keep
