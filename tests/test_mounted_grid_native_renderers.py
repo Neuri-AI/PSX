@@ -899,7 +899,14 @@ def test_native_css_typography_updates_text_without_replacing_widget():
             assert "#123456" in widget.styleSheet()
         elif backend == "tk":
             assert widget._psx_text_font.cget("size") == -18
-            assert widget._psx_text_font.cget("family") == "Roboto"
+            # The authored family is only usable when actually installed.
+            # Otherwise Tk must paint with the active root's font fallback,
+            # not silently pretend that a missing face was loaded.
+            from tkinter import font as tkfont
+            installed = {name.casefold() for name in tkfont.families(root=widget)}
+            expected = ("Roboto" if "roboto" in installed else
+                        tkfont.nametofont("TkDefaultFont", root=widget).actual("family"))
+            assert widget._psx_text_font.cget("family").casefold() == expected.casefold()
             assert widget._psx_text_font.actual("weight") == "bold"
             assert str(widget.cget("foreground")) == "#123456"
             assert str(widget.cget("justify")) == "center"
