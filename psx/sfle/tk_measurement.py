@@ -243,7 +243,10 @@ class TkMeasurementSource:
                 # hints. If unwrapped text fits its assigned width, applying
                 # wraplength only adds a global Tcl idle drain without changing
                 # the intrinsic height. Do not speculate for pre-wrapped text.
-                if (self._idle_synced and str(previous) in ("0", "0.0")
+                # Tcl/Tk's empty wraplength is the same unwrapped state as
+                # zero. Do not force a global idle drain just to reassign a
+                # wrap constraint when the native requested width already fits.
+                if (self._idle_synced and str(previous) in ("", "0", "0.0")
                         and float(widget.winfo_reqwidth()) <= width):
                     natural_width = min(float(width), float(widget.winfo_reqwidth()))
                     natural_height = float(widget.winfo_reqheight())
