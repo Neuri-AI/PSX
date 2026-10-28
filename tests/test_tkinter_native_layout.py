@@ -1965,7 +1965,7 @@ def test_tk_grid_transaction_avoids_repeated_idle_drains_for_unchanged_wrap():
         (80, 80, 0, []),
         ("80", 80, 0, []),
         (None, 80, 0, []),
-        ("", 80, 1, [80, ""]),
+        ("", 80, 0, []),
     ):
         widget = Widget(previous)
         source = TkMeasurementSource({"leaf": widget}, idle_synced=True)
@@ -1978,6 +1978,29 @@ def test_tk_grid_transaction_avoids_repeated_idle_drains_for_unchanged_wrap():
     unsynced = Widget(80)
     TkMeasurementSource({"leaf": unsynced}).measure_width("leaf", 80)
     assert unsynced.flushes == 1
+
+
+def test_tk_native_empty_wraplength_is_unwrapped_and_fits_without_probe():
+    """An empty Tcl wrap option is unwrapped, not a reason to relayout."""
+    import tkinter as tk
+    from tkinter import ttk
+    from psx.sfle.tk_measurement import TkMeasurementSource
+
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        label = ttk.Label(root, text="Short label")
+        label.configure(wraplength="")
+        root.update_idletasks()
+        before = (label.winfo_reqwidth(), label.winfo_reqheight())
+        measured = TkMeasurementSource(
+            {"label": label}, idle_synced=True,
+        ).measure_width("label", before[0] + 80)
+        assert measured.preferred_width == before[0]
+        assert measured.preferred_height == before[1]
+        assert str(label.cget("wraplength")) == ""
+    finally:
+        root.destroy()
 
 
 def test_tk_grid_fit_short_circuits_width_probe_only_for_unwrapped_text():
