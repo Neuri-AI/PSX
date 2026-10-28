@@ -53,7 +53,7 @@ jobs:
       - name: Validate real native window resize event timing
         run: |
           xvfb-run -a python -u benchmarks/grid_resize_interactive.py --engine both --adapter both --cards 6 --cycles 3 --warmup 1 > benchmark-results/grid-resize-events.json
-          sed -i '/^[^[]/d' benchmark-results/grid-resize-events.json
+          sed -i '1,/^\[$/{ /^\[$/!d; }' benchmark-results/grid-resize-events.json
           python - <<'PY'
           import json
           from pathlib import Path
