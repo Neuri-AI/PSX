@@ -244,6 +244,74 @@ class TkinterRendererTests(unittest.TestCase):
         self.renderer.apply_css(instance.handle, None)
         self.assertEqual(str(widget.cget("font")), native_font)
 
+    def test_css_text_font_stack_renders_with_installed_fallback(self):
+        """X11 must select the next installed face, not a missing first name."""
+        import re
+        from tkinter import font as tkfont
+        from psx import psx
+
+        self._enable_native_sfle()
+        available = next(
+            name for name in tkfont.families(root=self.root)
+            if re.fullmatch(r"[a-zA-Z0-9 _.-]+", name)
+        )
+        missing = "PSXFontThatDoesNotExistInTheSystem"
+        view = lambda size, stack: psx(
+            '<div><span key="label" style="font-family: ' + stack
+            + '; font-size: ' + str(size)
+            + 'px; color: #112233">Typography</span></div>'
+        )
+        first = self.reconciler.render(
+            view(18, "'" + missing + "', '" + available + "', sans-serif")
+        )
+        label = first.children[0].children[0].handle.widget
+        native_font = label._psx_text_font
+        self.assertEqual(native_font.cget("family").casefold(),
+                         available.casefold())
+        self.assertEqual(native_font.cget("size"), -18)
+        self.assertEqual(str(label.cget("font")), str(native_font))
+        baseline = native_font.measure("Typography")
+
+        next_render = self.reconciler.render(
+            view(24, "'" + missing + "', '" + available + "', sans-serif")
+        )
+        self.assertIs(next_render.children[0].children[0].handle.widget, label)
+        self.assertEqual(native_font.cget("size"), -24)
+        self.assertGreater(native_font.measure("Typography"), baseline)
+
+        self.reconciler.render(psx(
+            '<div><span key="label">Typography</span></div>'
+        ))
+        self.assertEqual(native_font.cget("size"), -16)
+        self.assertFalse(native_font.cget("family") == missing)
+
+    def test_css_tk_button_paint_uses_the_fallback_font(self):
+        import re
+        from tkinter import font as tkfont
+        from psx import psx
+
+        self._enable_native_sfle()
+        available = next(
+            name for name in tkfont.families(root=self.root)
+            if re.fullmatch(r"[a-zA-Z0-9 _.-]+", name)
+        )
+        view = psx(
+            '<div><button key="action" style="width: 190px; height: 42px;'
+            'background: #3b6ef5; color: #ffffff; font-size: 21px;'
+            'font-family: PSXMissingFace, \''
+            + available + "\'; border-radius: 8px"
+            '">Reportes</button></div>'
+        )
+        mounted = self.reconciler.render(view)
+        button = mounted.children[0].handle.widget
+        font = button._psx_css_native_font
+        self.assertEqual(font.cget("family").casefold(), available.casefold())
+        self.assertEqual(font.cget("size"), -21)
+        if sys.platform != "darwin":
+            canvas = button._psx_css_button_surface
+            text_id = canvas.find_withtag("psx-css-button-text")[0]
+            self.assertEqual(canvas.itemcget(text_id, "font"), str(font))
+
     def test_html_box_background_uses_native_theme_independent_fill(self):
         from psx.markup.compile import psx
         self._enable_native_sfle()
