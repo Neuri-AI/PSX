@@ -1029,7 +1029,7 @@ class TkinterRenderer:
             *getattr(widget, "_psx_css_border_edges", ()),
             *getattr(widget, "_psx_css_border_corners", ()),
         ):
-            decoration.lift()
+            tk.Misc.tkraise(decoration)
         self._redraw_css_ttk_button(widget)
 
     def apply_css(self, handle: object, computed: object) -> None:
