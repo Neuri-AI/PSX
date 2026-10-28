@@ -1816,3 +1816,48 @@ def test_html_flow_public_native_geometry_receipt_tkinter(request):
         reconciler.unmount()
         renderer.close()
         host.destroy()
+
+
+def test_tk_width_measurement_preserves_empty_wraplength_and_skips_unchanged_write():
+    """Tcl's empty wraplength is valid and must survive temporary measurements."""
+    from psx.sfle.tk_measurement import TkMeasurementSource
+
+    class Widget:
+        def __init__(self, wraplength):
+            self.wraplength = wraplength
+            self.writes = []
+            self.flushes = 0
+
+        def keys(self):
+            return ("wraplength",)
+
+        def cget(self, name):
+            assert name == "wraplength"
+            return self.wraplength
+
+        def configure(self, **options):
+            self.writes.append(options["wraplength"])
+            self.wraplength = options["wraplength"]
+
+        def update_idletasks(self):
+            self.flushes += 1
+
+        def winfo_reqwidth(self):
+            return 140
+
+        def winfo_reqheight(self):
+            return 21
+
+    for initial, expected_writes, expected_flushes in (
+        ("", [80, ""], 2),
+        (80, [], 1),
+        ("80", [], 1),
+    ):
+        widget = Widget(initial)
+        source = TkMeasurementSource({"leaf": widget})
+        result = source.measure_width("leaf", 80.0)
+        assert result.preferred_width == 80
+        assert result.preferred_height == 21
+        assert widget.wraplength == initial
+        assert widget.writes == expected_writes
+        assert widget.flushes == expected_flushes
