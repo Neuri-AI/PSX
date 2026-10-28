@@ -22,6 +22,7 @@ class TkMeasurementSource:
         image_ids: frozenset[str] = frozenset(),
         spacer_ids: frozenset[str] = frozenset(),
         divider_nodes: Mapping[str, object] | None = None,
+        idle_synced: bool = False,
     ) -> None:
         self._widgets = dict(widgets)
         if not textarea_ids <= self._widgets.keys():
@@ -37,6 +38,8 @@ class TkMeasurementSource:
         if not self._divider_nodes.keys() <= self._widgets.keys():
             raise ValueError("Divider IDs must refer to native widgets.")
         self._owner_thread = threading.get_ident()
+        # Only the Grid bridge may opt in after an owner-thread idle drain.
+        self._idle_synced = idle_synced
 
     @staticmethod
     def _structural_metrics(kind: str, props: Mapping[str, object]) -> IntrinsicSizes:
@@ -239,9 +242,11 @@ class TkMeasurementSource:
                 if previous != requested and str(previous) != str(requested):
                     widget.configure(wraplength=requested)
                     changed_wrap = True
-            # Flush pending Tk geometry only once for an unchanged constraint.
-            # Restoring an actually changed wrap requires a second flush.
-            widget.update_idletasks()
+            # A Grid transaction already drained the initial native queue.
+            # Only changing wraplength makes that baseline obsolete; otherwise
+            # reading the requested hints is safe without another global drain.
+            if changed_wrap or not self._idle_synced:
+                widget.update_idletasks()
             measured_width = min(float(width), float(widget.winfo_reqwidth()))
             height = float(widget.winfo_reqheight())
             return IntrinsicSizes(measured_width, measured_width, height, height,
