@@ -16,7 +16,6 @@ import time
 
 from grid_resize_profile import cards, viewport
 from psx.core.reconcile import Reconciler
-from psx.renderers.qt.pyside import PySide6Renderer
 from psx.renderers.tkinter.tkinter import TkinterRenderer
 from psx.sfle.backend import load_layout_engine
 from psx.sfle.engine import PythonLayoutEngine
@@ -32,6 +31,7 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
     if engine.backend_name != engine_name:
         raise RuntimeError(f"Expected Cinnamon {engine_name}, got {engine.backend_name}")
     if adapter == "qt":
+        from psx.renderers.qt.pyside import PySide6Renderer
         renderer = PySide6Renderer(
             argv=["psx-grid-interactive-resize"], sfle_constraints=viewport(widths[0]),
             engine=engine,
