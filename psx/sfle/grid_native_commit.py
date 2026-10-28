@@ -123,11 +123,25 @@ def commit_grid_native_geometry(
             widget.size = (rect.width, rect.height)
 
     # Capture all original native states before the first mutation.
-    originals = {node_id: read(widgets[node_id]) for node_id in ids}
+    if backend is GridCommitBackend.TK:
+        # Capture the original rectangle and unplaced status in one Tcl
+        # round trip. Both belong to the same pre-mutation snapshot.
+        originals = {}
+        unplaced = set()
+        for node_id in ids:
+            info = widgets[node_id].place_info()
+            if info:
+                originals[node_id] = Rect(*(
+                    float(info[k]) for k in ("x", "y", "width", "height")
+                ))
+            else:
+                originals[node_id] = Rect(0, 0, 0, 0)
+                unplaced.add(node_id)
+    else:
+        originals = {node_id: read(widgets[node_id]) for node_id in ids}
+        unplaced = set()
     absent_headless = ({node_id for node_id in ids if widgets[node_id].geometry is None}
                        if backend is GridCommitBackend.HEADLESS else set())
-    unplaced = ({node_id for node_id in ids if not widgets[node_id].place_info()}
-                if backend is GridCommitBackend.TK else set())
     if current_generation() != generation or not is_ui_thread():
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before native mutation.")
     try:
