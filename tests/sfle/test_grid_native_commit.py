@@ -119,6 +119,34 @@ def test_tk_real_widget_geometry_roundtrip():
         root.destroy()
 
 
+def test_tk_native_commit_reads_each_rectangle_once_after_writes():
+    """Four-axis verification must not trigger four Tcl reads per widget."""
+    class Widget:
+        def __init__(self):
+            self.rect = {}
+            self.read_count = 0
+
+        def place_info(self):
+            self.read_count += 1
+            return dict(self.rect)
+
+        def place(self, **rect):
+            self.rect = {name: str(value) for name, value in rect.items()}
+
+        def place_forget(self):
+            self.rect = {}
+
+    widgets = {"a": Widget(), "b": Widget()}
+    receipt = commit_grid_native_geometry(
+        (placement("a", 1, 2), placement("b", 50, 2)),
+        backend=GridCommitBackend.TK, widgets=widgets,
+        generation=1, current_generation=lambda: 1, is_ui_thread=lambda: True,
+    )
+    assert receipt.max_readback_error == 0
+    # Initial snapshot, unplaced detection, one four-axis readback.
+    assert [widgets[key].read_count for key in ("a", "b")] == [3, 3]
+
+
 def test_kivy_real_widget_geometry_projection_and_readback():
     pytest.importorskip("kivy")
     from kivy.uix.widget import Widget
