@@ -318,7 +318,7 @@ class TkinterRendererTests(unittest.TestCase):
         from tempfile import TemporaryDirectory
         from tkinter import font as tkfont
         from psx import psx
-        from psx.css.context import css_context
+        from psx.css.context import scoped_css_resources
 
         self._enable_native_sfle()
         installed = tkfont.families(root=self.root)
@@ -332,7 +332,7 @@ class TkinterRendererTests(unittest.TestCase):
                 ".prueba {font-family: '" + selected +
                 "', sans-serif; font-size: 29px; font-weight: 700;}"
             )
-            with css_context(stylesheets=("styles.css",), root=directory):
+            with scoped_css_resources(stylesheets=("styles.css",), root=directory):
                 view = psx(
                     '<div class="container"><div class="activity-card">'
                     '<h5 class="prueba">Actividad Reciente</h5>'
