@@ -239,6 +239,18 @@ class TkMeasurementSource:
             if "wraplength" in keys:
                 previous = widget.cget("wraplength")
                 requested = max(0, round(width))
+                # A Grid transaction has already resolved natural Tk size
+                # hints. If unwrapped text fits its assigned width, applying
+                # wraplength only adds a global Tcl idle drain without changing
+                # the intrinsic height. Do not speculate for pre-wrapped text.
+                if (self._idle_synced and str(previous) in ("0", "0.0")
+                        and float(widget.winfo_reqwidth()) <= width):
+                    natural_width = min(float(width), float(widget.winfo_reqwidth()))
+                    natural_height = float(widget.winfo_reqheight())
+                    return IntrinsicSizes(
+                        natural_width, natural_width, natural_height,
+                        natural_height, natural_width, natural_height,
+                    )
                 if previous != requested and str(previous) != str(requested):
                     widget.configure(wraplength=requested)
                     changed_wrap = True
