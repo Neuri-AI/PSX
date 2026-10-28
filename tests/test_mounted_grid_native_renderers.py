@@ -1476,6 +1476,37 @@ def test_rounded_bottom_only_border_updates_without_painting_other_sides():
         close()
 
 
+def test_rounded_side_border_without_opaque_fill_preserves_backend_bounds():
+    """Do not silently replace a transparent Tk corner with a theme color."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    view = psx(
+        '<div style="border-bottom: 2px solid #abcdef; border-radius: 8px">'
+        '<span>Row</span></div>'
+    )
+    try:
+        if backend == "tk":
+            with pytest.raises(ValueError, match="authored opaque background"):
+                reconciler.render(view)
+        else:
+            root = reconciler.render(view)
+            if backend == "qt":
+                assert "border-bottom: 2px solid #abcdef;" in root.handle.widget.styleSheet()
+                assert "border-radius: 8px;" in root.handle.widget.styleSheet()
+            else:
+                group, _, sides, lines = root.handle.widget._psx_css_side_strokes
+                assert group in root.handle.widget.canvas.after.children
+                assert sides[0][0] == "bottom"
+                assert root.handle.widget._psx_css_side_radius == 8
+                assert len(lines[0][2].points) == 36
+    finally:
+        reconciler.unmount()
+        close()
+
+
 def test_native_semantic_rounded_border_and_background_updates():
     from psx.markup.compile import psx
     backend = os.environ["PSX_GRID_BACKEND"]
