@@ -6,6 +6,10 @@ from psx.sfle.grid_intrinsic_reuse import GridIntrinsicReuse
 from psx.sfle.model import IntrinsicSizes
 
 
+class Widget:
+    pass
+
+
 def leaf(text="hello", css="font:12px"):
     source = SimpleNamespace(
         type="Text", props={"text": text}, children=(),
@@ -21,7 +25,7 @@ def metric(height):
 
 def test_cross_commit_reuses_only_matching_width_widget_and_semantics():
     cache = GridIntrinsicReuse()
-    widget = object()
+    widget = Widget()
     calls = []
     def read():
         calls.append(1)
@@ -40,7 +44,7 @@ def test_cross_commit_reuses_only_matching_width_widget_and_semantics():
     assert txn.measure("tk", widget, leaf("changed"), 100, read) == metric(3)
     assert txn.measure("tk", widget, leaf(css="font:20px"), 100, read) == metric(4)
     assert txn.measure("qt", widget, leaf(), 100, read) == metric(5)
-    assert txn.measure("tk", object(), leaf(), 100, read) == metric(6)
+    assert txn.measure("tk", Widget(), leaf(), 100, read) == metric(6)
     txn.accept(2)
 
     txn = cache.begin(3)
@@ -50,7 +54,7 @@ def test_cross_commit_reuses_only_matching_width_widget_and_semantics():
 
 def test_failed_transaction_never_publishes_and_cache_is_bounded():
     cache = GridIntrinsicReuse(limit=2)
-    widget = object()
+    widget = Widget()
     pending = cache.begin(1)
     assert pending.measure("tk", widget, leaf(), 100, lambda: metric(15)) == metric(15)
     # Simulate commit rollback by discarding the pending transaction.
