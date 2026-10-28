@@ -734,7 +734,7 @@ jobs:
 
   summary:
     name: Native layout required CI conclusion
-    needs: [changes, selector-tests, core, sfle, rust, chromium, qt, qt-parity, kivy, tkinter, headless, native, legacy, public-behavior-final]
+    needs: [changes, selector-tests, core, sfle, rust, chromium, qt, qt-parity, kivy, tkinter, tkinter-aqua, headless, native, legacy, public-behavior-final]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -769,6 +769,13 @@ jobs:
               parity = needs.get("qt-parity", {}).get("result")
               if parity != "success":
                   failures.append(f"qt-parity={parity}")
+          # The Tk Linux test is not a substitute for mounted macOS Aqua.
+          # A cancelled/queued/not-executed Aqua check must not allow the
+          # mandatory conclusion to turn green.
+          if "tkinter" in selected:
+              aqua = needs.get("tkinter-aqua", {}).get("result")
+              if aqua != "success":
+                  failures.append(f"tkinter-aqua={aqua}")
           if {"core", "qt", "kivy", "tkinter", "headless"}.issubset(selected):
               final = needs.get("public-behavior-final", {}).get("result")
               if final != "success":
