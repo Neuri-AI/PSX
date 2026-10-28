@@ -251,9 +251,11 @@ class TkinterRendererTests(unittest.TestCase):
         from psx import psx
 
         self._enable_native_sfle()
+        from psx.renderers.tkinter import tkinter as tk_adapter
         available = next(
             name for name in tkfont.families(root=self.root)
             if re.fullmatch(r"[a-zA-Z0-9 _.-]+", name)
+            and tk_adapter._tk_css_scalable_font(self.root, name)
         )
         missing = "PSXFontThatDoesNotExistInTheSystem"
         view = lambda size, stack: psx(
@@ -291,9 +293,11 @@ class TkinterRendererTests(unittest.TestCase):
         from psx import psx
 
         self._enable_native_sfle()
+        from psx.renderers.tkinter import tkinter as tk_adapter
         available = next(
             name for name in tkfont.families(root=self.root)
             if re.fullmatch(r"[a-zA-Z0-9 _.-]+", name)
+            and tk_adapter._tk_css_scalable_font(self.root, name)
         )
         view = psx(
             '<div><button key="action" style="width: 190px; height: 42px;'
