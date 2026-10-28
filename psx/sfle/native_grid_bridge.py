@@ -233,12 +233,21 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         try:
             # This host never delegates sibling geometry to toolkit layout.
             if backend is GridCommitBackend.QT and not top_level_qt:
-                root_widget.setGeometry(0, 0, round(width), round(height))
+                desired = (0, 0, round(width), round(height))
+                if previous_root != desired:
+                    root_widget.setGeometry(*desired)
             elif backend is GridCommitBackend.TK:
-                root_widget.place(x=0, y=0, width=round(width), height=round(height))
+                desired = (0, 0, round(width), round(height))
+                if not previous_root or any(
+                    int(previous_root[axis]) != value
+                    for axis, value in zip(("x", "y", "width", "height"), desired)
+                ):
+                    root_widget.place(x=0, y=0, width=desired[2], height=desired[3])
             elif backend is GridCommitBackend.KIVY:
-                root_widget.pos = (0, 0)
-                root_widget.size = (width, height)
+                if previous_root[0] != (0, 0):
+                    root_widget.pos = (0, 0)
+                if previous_root[1] != (width, height):
+                    root_widget.size = (width, height)
             receipt = commit_grid_native_geometry(
                 tuple(batch), backend=backend, widgets=commit_widgets, generation=generation,
                 current_generation=lambda: (renderer._sfle_generation
