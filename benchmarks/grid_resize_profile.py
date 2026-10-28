@@ -1,7 +1,7 @@
 """Profile mounted native Grid resize with both Cinnamon engines.
 
 Run after installing the repo and a Qt binding:
-    QT_QPA_PLATFORM=offscreen python benchmarks/grid_resize_profile.py --engine both
+    QT_QPA_PLATFORM=offscreen xvfb-run -a python benchmarks/grid_resize_profile.py --engine both --adapter both
 
 The timings include native widget measurements and geometry commits, not just
 the pure Grid mathematics. Rust must be installed for --engine rust/both.
@@ -94,6 +94,7 @@ def measure(engine_name, widths, card_count, warmup, cycles, top, adapter="qt"):
             widths=widths, mean_wall_ms=statistics.mean(times),
             p95_wall_ms=sorted(times)[(len(times) * 95 + 99) // 100 - 1],
             mean_cpu_ms=statistics.mean(cpu_times),
+            p99_wall_ms=sorted(times)[(len(times) * 99 + 99) // 100 - 1],
             profile=stream.getvalue(),
         )
     finally:
