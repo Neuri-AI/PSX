@@ -54,6 +54,11 @@ class MountedMixedGrid:
         if key in self._composition_cache:
             return self._composition_cache[key]
         grid = self.grids[node_id]
+        # One native requested-size settlement per composed Grid, not one
+        # global Tcl idle drain for every terminal Text widget. Width probes
+        # still drain individually if they actually change wraplength.
+        if self.backend is GridCommitBackend.TK:
+            self.renderer.root.update_idletasks()
 
         def measure_leaf(identifier, node, allocated_width):
             handle = self.handles[id(node.source)]
@@ -63,8 +68,9 @@ class MountedMixedGrid:
                     {identifier: handle.widget}, qtcore=self.renderer._qtcore)
             elif self.backend is GridCommitBackend.TK:
                 from .tk_measurement import TkMeasurementSource
-                source = TkMeasurementSource({identifier: handle.widget})
-                self.renderer.root.update_idletasks()
+                source = TkMeasurementSource(
+                    {identifier: handle.widget}, idle_synced=True,
+                )
             elif self.backend is GridCommitBackend.KIVY:
                 from .kivy_measurement import KivyMeasurementSource
                 refresh = getattr(handle.widget, "texture_update", None)
