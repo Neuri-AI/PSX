@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
+import sys
 import time
 
 from grid_resize_profile import cards, viewport
@@ -144,7 +145,7 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths):
                     "paint_notifications": len(paints) - paint_count,
                     "commits": len(matching),
                 })
-        print("samples complete", engine_name, adapter, flush=True)
+        print("samples complete", engine_name, adapter, file=sys.stderr, flush=True)
         latencies = [sample["native_event_to_commit_end_ms"] for sample in samples]
         return {
             "engine": engine_name,
