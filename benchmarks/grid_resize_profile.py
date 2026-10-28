@@ -1,4 +1,4 @@
-"""Profile mounted Qt Grid resize with both Cinnamon engines.
+"""Profile mounted native Grid resize with both Cinnamon engines.
 
 Run after installing the repo and a Qt binding:
     QT_QPA_PLATFORM=offscreen python benchmarks/grid_resize_profile.py --engine both
@@ -19,6 +19,7 @@ import pstats
 from psx import Grid, GridItem, Text, Flex
 from psx.core.reconcile import Reconciler
 from psx.renderers.qt.pyside import PySide6Renderer
+from psx.renderers.tkinter.tkinter import TkinterRenderer
 from psx.sfle.backend import load_layout_engine
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.model import AvailableSize, LayoutConstraints
@@ -47,7 +48,7 @@ def cards(count):
     )
 
 
-def measure(engine_name, widths, card_count, warmup, cycles, top):
+def measure(engine_name, widths, card_count, warmup, cycles, top, adapter="qt"):
     if engine_name == "python":
         engine = PythonLayoutEngine()
     else:
@@ -57,10 +58,17 @@ def measure(engine_name, widths, card_count, warmup, cycles, top):
             f"Requested Cinnamon {engine_name}, got {engine.backend_name}; "
             "install the Rust extension instead of benchmarking a fallback."
         )
-    renderer = PySide6Renderer(
-        argv=["psx-grid-resize-profile"], sfle_constraints=viewport(widths[0]),
-        engine=engine,
-    )
+    if adapter == "qt":
+        renderer = PySide6Renderer(
+            argv=["psx-grid-resize-profile"], sfle_constraints=viewport(widths[0]),
+            engine=engine,
+        )
+    elif adapter == "tk":
+        renderer = TkinterRenderer(
+            sfle_constraints=viewport(widths[0]), engine=engine,
+        )
+    else:
+        raise ValueError("Unknown native renderer for resize profiling.")
     tree = Reconciler(renderer)
     profiler = cProfile.Profile()
     try:
@@ -82,7 +90,7 @@ def measure(engine_name, widths, card_count, warmup, cycles, top):
         stream = io.StringIO()
         pstats.Stats(profiler, stream=stream).sort_stats("cumtime").print_stats(top)
         return dict(
-            engine=engine_name, cards=card_count, cycles=cycles, warmup=warmup,
+            engine=engine_name, adapter=adapter, cards=card_count, cycles=cycles, warmup=warmup,
             widths=widths, mean_wall_ms=statistics.mean(times),
             p95_wall_ms=sorted(times)[(len(times) * 95 + 99) // 100 - 1],
             mean_cpu_ms=statistics.mean(cpu_times),
@@ -91,12 +99,16 @@ def measure(engine_name, widths, card_count, warmup, cycles, top):
     finally:
         profiler.disable()
         tree.unmount()
-        renderer.application.processEvents()
+        if adapter == "qt":
+            renderer.application.processEvents()
+        else:
+            renderer.root.destroy()
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--engine", choices=("python", "rust", "both"), default="both")
+    parser.add_argument("--adapter", choices=("qt", "tk", "both"), default="both")
     parser.add_argument("--cards", type=int, default=24)
     parser.add_argument("--cycles", type=int, default=100)
     parser.add_argument("--warmup", type=int, default=10)
@@ -106,9 +118,10 @@ def main():
         parser.error("cards and cycles must be positive, warmup nonnegative")
     widths = [680, 760, 800, 900, 1000, 1200, 980, 750]
     engines = ("python", "rust") if args.engine == "both" else (args.engine,)
+    adapters = ("qt", "tk") if args.adapter == "both" else (args.adapter,)
     print(json.dumps(
-        [measure(engine, widths, args.cards, args.warmup, args.cycles, args.top)
-         for engine in engines], indent=2
+        [measure(engine, widths, args.cards, args.warmup, args.cycles, args.top, adapter)
+         for engine in engines for adapter in adapters], indent=2
     ))
 
 
