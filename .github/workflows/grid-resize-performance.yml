@@ -26,7 +26,7 @@ jobs:
       - name: Install native Qt system libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 xvfb xauth
       - name: Install PSX, PySide6 and native build tooling
         run: |
           python -m pip install -e '.[pyside6]' 'maturin>=1.8,<2' pytest
@@ -36,12 +36,15 @@ jobs:
       - name: Execute repeated native Grid resize profiles
         run: |
           mkdir -p benchmark-results
-          python benchmarks/grid_resize_profile.py --engine both --cards 24 --cycles 100 --warmup 10 > benchmark-results/grid-resize.json
+          xvfb-run -a python benchmarks/grid_resize_profile.py --engine both --adapter both --cards 24 --cycles 100 --warmup 10 > benchmark-results/grid-resize.json
           python - <<'PY'
           import json
           from pathlib import Path
           data=json.loads(Path("benchmark-results/grid-resize.json").read_text())
           assert {item["engine"] for item in data} == {"python", "rust"}
+          assert {(item["engine"], item["adapter"]) for item in data} == {
+              ("python", "qt"), ("python", "tk"), ("rust", "qt"), ("rust", "tk")
+          }
           for item in data:
               assert item["cycles"] == 100
               print(f'{item["engine"]}: CPU {item["mean_cpu_ms"]:.3f} ms/resize, wall {item["mean_wall_ms"]:.3f} ms/resize, p95 {item["p95_wall_ms"]:.3f} ms')
