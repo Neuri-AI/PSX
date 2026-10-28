@@ -444,6 +444,22 @@ class RoutingTests(unittest.TestCase):
         )
         self.assertEqual(self.selected("psx/renderers/tkinter/scroll.py"), {"tkinter"})
 
+    def test_macos_aqua_is_mandatory_when_tkinter_selected(self):
+        from pathlib import Path
+
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(
+                        encoding="utf-8")
+        summary = workflow.split("\n  summary:\n", 1)[1]
+        self.assertIn("tkinter-aqua", summary.split("\n    if: always()", 1)[0])
+        self.assertIn('if "tkinter" in selected:', summary)
+        self.assertIn('needs.get("tkinter-aqua", {}).get("result")', summary)
+        self.assertIn('if aqua != "success":', summary)
+        self.assertIn('failures.append(f"tkinter-aqua={aqua}")', summary)
+        self.assertEqual(self.selected(
+            ".github/workflows/native-layout-selective.yml"
+        ), set(SUITES))
+
     def test_tk_unified_css_surface_and_pixel_regressions_route_to_tkinter(self):
         self.assertEqual(
             self.selected("psx/renderers/tkinter/rounded_surface.py"),
