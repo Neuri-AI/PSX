@@ -98,7 +98,12 @@ def normalize_item_box_style(
             type(value) in (str, int, float, bool, type(None), Length)
             for _name, value in fields
         ):
-            return _normalize_literal_fields(fields, owner)
+            cached = _normalize_literal_fields(fields, owner)
+            # Preserve the public normalization contract of a fresh outer
+            # value per invocation, while reusing immutable parsed fields.
+            return CanonicalItemBoxStyle(
+                cached.dimensions, cached.margin, cached.padding, cached.border,
+            )
     return _normalize_uncached(props, owner)
 
 
