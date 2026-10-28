@@ -622,11 +622,11 @@ class TkinterRenderer:
         self._sfle_resize_pending = target
         if self._sfle_resize_after_id is None:
             epoch = self._sfle_resize_epoch
-            # Commit on the next idle cycle, coalescing every Configure
-            # event already queued by the window manager. The previous
-            # 12-ms timer visibly left stale child geometry on screen.
-            self._sfle_resize_after_id = self.root.after_idle(
-                lambda: self._sfle_flush_viewport_resize(epoch),
+            # Run the coalesced commit before Tk's idle redraw. An idle
+            # callback can run after Tk paints old child rectangles against
+            # the new window bounds, causing the visible snap-back effect.
+            self._sfle_resize_after_id = self.root.after(
+                0, lambda: self._sfle_flush_viewport_resize(epoch),
             )
 
     def _sfle_root_axis_tracks_viewport(self, axis: str) -> bool:
