@@ -90,6 +90,44 @@ def native_side_border_styles(computed: ComputedStyle | None) -> tuple[str, ...]
     return tuple(result)
 
 
+def native_side_border_paint(
+    computed: ComputedStyle | None,
+) -> tuple[tuple[str, float, tuple[float, float, float, float]], ...]:
+    """Return explicitly authored side strokes for an RGBA-capable native painter.
+
+    Unlike the uniform border, a side-only declaration must not synthesize
+    strokes on the other edges. Resolve fallback width/color from CSS's
+    computed values, but include only explicitly specified sides.
+    """
+    from psx.sfle.lengths import Length, LengthKind
+
+    if computed is None:
+        return ()
+    result = []
+    for side in ("top", "right", "bottom", "left"):
+        width_key = f"border-{side}-width"
+        color_key = f"border-{side}-color"
+        if width_key not in computed.specified and color_key not in computed.specified:
+            continue
+        width = computed.properties[width_key] if width_key in computed.specified else computed.properties["border-width"]
+        color = computed.properties[color_key] if color_key in computed.specified else computed.properties["border-color"]
+        if not isinstance(width, Length) or width.kind is not LengthKind.PX or width.value < 0:
+            raise ValueError("Native CSS side borders require nonnegative pixel widths.")
+        if not isinstance(color, CssColor):
+            raise TypeError("Native CSS side border needs a validated color.")
+        if width.value == 0:
+            continue
+        raw = color.value.removeprefix("#")
+        if len(raw) in (3, 4):
+            channels = [int(part * 2, 16) for part in raw]
+        else:
+            channels = [int(raw[i:i + 2], 16) for i in range(0, len(raw), 2)]
+        if len(channels) == 3:
+            channels.append(255)
+        result.append((side, float(width.value), tuple(c / 255 for c in channels)))
+    return tuple(result)
+
+
 def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
     """Compose bounded authored paint into a local Qt stylesheet."""
     from psx.sfle.lengths import Length, LengthKind
