@@ -987,15 +987,12 @@ class KivyRenderer:
         rgba = background_rgba(computed)
         from psx.css.native_paint import (
             border_rgba, native_border_radius, native_side_border_paint,
+            rounded_side_stroke_points,
         )
         radius = native_border_radius(computed)
         from psx.sfle.lengths import Length, LengthKind
         from kivy.graphics import Line
         side_styles = native_side_border_paint(computed)
-        if side_styles and radius:
-            # A straight segment must not claim to reproduce QSS's rounded
-            # per-side border joins. This remains a separate paint contract.
-            raise ValueError("Kivy rounded per-side borders are not yet supported.")
         old_side = getattr(widget, "_psx_css_side_strokes", None)
         if old_side is not None and old_side[2] != side_styles:
             group, redraw, _styles, _lines = old_side
@@ -1003,6 +1000,7 @@ class KivyRenderer:
             widget.canvas.after.remove(group)
             del widget._psx_css_side_strokes
             old_side = None
+        widget._psx_css_side_radius = radius
         if side_styles and old_side is None:
             group = InstructionGroup()
             lines = []
@@ -1016,20 +1014,19 @@ class KivyRenderer:
                 x, y = instance.pos
                 w, h = instance.size
                 for side, thickness, line in lines:
-                    half = thickness / 2.0
-                    if side == "top":
-                        line.points = (x, y + h - half, x + w, y + h - half)
-                    elif side == "right":
-                        line.points = (x + w - half, y, x + w - half, y + h)
-                    elif side == "bottom":
-                        line.points = (x, y + half, x + w, y + half)
-                    else:
-                        line.points = (x + half, y, x + half, y + h)
+                    points = rounded_side_stroke_points(
+                        side, w, h, widget._psx_css_side_radius, thickness,
+                    )
+                    line.points = tuple(
+                        coordinate + (x if index % 2 == 0 else y)
+                        for index, coordinate in enumerate(points)
+                    )
 
             widget.canvas.after.add(group)
             widget.bind(pos=redraw_side, size=redraw_side)
             widget._psx_css_side_strokes = (group, redraw_side, side_styles, lines)
-            redraw_side(widget, None)
+        if side_styles:
+            widget._psx_css_side_strokes[1](widget, None)
 
         border = border_rgba(computed)
         thickness = computed.properties["border-width"] if computed is not None else None
