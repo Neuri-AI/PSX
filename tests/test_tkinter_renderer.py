@@ -396,6 +396,78 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertIn("requested_height", log)
         self.assertIn("tk_scaling", log)
 
+    def test_css_generic_font_is_scalable_and_renders_requested_weight(self):
+        """An X11 bitmap-only generic must not freeze CSS pixel sizes."""
+        from tkinter import font as tkfont
+        from psx import psx
+
+        self._enable_native_sfle()
+        mounted = self.reconciler.render(psx(
+            '<div style="background: #ffffff; font-family: sans-serif">'
+            '<h5 style="font-size: 30px; font-weight: 700">Actividad Reciente</h5>'
+            '<p style="font-size: 14px">Normal</p>'
+            '</div>'
+        ))
+        large = mounted.children[0].children[0].handle.widget
+        small = mounted.children[1].children[0].handle.widget
+        large_font = large._psx_text_font
+        small_font = small._psx_text_font
+        self.assertEqual(large_font.cget("size"), -30)
+        self.assertEqual(small_font.cget("size"), -14)
+        self.assertEqual(large_font.actual("weight"), "bold")
+        self.assertGreater(large_font.metrics("linespace"),
+                           small_font.metrics("linespace"))
+        self.assertGreater(large.winfo_reqheight(), small.winfo_reqheight())
+        # Exactly the same named font must be used by the ttk theme.
+        from tkinter import ttk
+        self.assertEqual(str(ttk.Style(large).lookup(
+            str(large.cget("style")), "font")), str(large_font))
+
+    @unittest.skipUnless(sys.platform.startswith("linux"),
+                         "The fontconfig generic lookup belongs to Linux.")
+    def test_linux_generic_rejects_fixed_alias_and_uses_fontconfig_face(self):
+        """Do not accept an alias whose actual glyph metrics cannot scale."""
+        from tkinter import font as tkfont
+        from unittest import mock
+        from subprocess import CompletedProcess
+        from psx.renderers.tkinter import tkinter as tk_adapter
+
+        available = next(
+            family for family in tkfont.families(root=self.root)
+            if tk_adapter._tk_css_scalable_font(self.root, family)
+        )
+        with mock.patch("subprocess.run", return_value=CompletedProcess(
+            ["fc-match"], 0, stdout="fixed, " + available + "\\n"
+        )) as match:
+            with mock.patch.object(
+                tk_adapter, "_tk_css_scalable_font",
+                side_effect=lambda _widget, family: family != "fixed",
+            ):
+                self.assertEqual(
+                    tk_adapter._tk_css_system_font(self.root, "sans-serif"),
+                    available,
+                )
+        match.assert_called_once()
+        self.assertEqual(match.call_args.args[0][0], "fc-match")
+
+    def test_font_family_fallback_is_reused_per_tk_root(self):
+        from psx.renderers.tkinter import tkinter as tk_adapter
+        from unittest import mock
+
+        if hasattr(self.root, "_psx_css_font_fallbacks"):
+            self.root._psx_css_font_fallbacks.clear()
+        with mock.patch.object(tk_adapter, "_tk_css_system_font",
+                               return_value="PSXMatchedFace") as lookup:
+            one = tk_adapter._resolve_css_tk_font_family(
+                self.root, "sans-serif"
+            )
+            two = tk_adapter._resolve_css_tk_font_family(
+                self.root, "sans-serif"
+            )
+        self.assertEqual((one, two), ("PSXMatchedFace", "PSXMatchedFace"))
+        lookup.assert_called_once_with(self.root, "sans-serif")
+        self.root._psx_css_font_fallbacks.clear()
+
     def test_html_box_background_uses_native_theme_independent_fill(self):
         from psx.markup.compile import psx
         self._enable_native_sfle()
