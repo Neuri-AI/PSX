@@ -583,7 +583,7 @@ class TkinterRenderer:
             # atomic commit. Placing it here exposes the new parent width
             # while the child rectangles still belong to the previous frame.
             mounted = self._sfle_mounted_root
-            if mounted is None or not is_mounted_native_grid_root(mounted):
+            if mounted is None:
                 self._sfle_root_widget.place_configure(
                     width=round(constraints.width.value),
                     height=round(constraints.height.value),
