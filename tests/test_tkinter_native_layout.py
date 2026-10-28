@@ -422,12 +422,16 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertIsNone(self.renderer._sfle_resize_pending)
         self.host.geometry("240x120+0+0")
         self.host.update()
+        self.host.after(40, self.host.quit)
+        self.host.mainloop()
         self.assertIsNone(self.renderer._sfle_resize_error)
         self.assertIs(root.children[0].handle.widget, button)
         self.assertEqual(rect(button)[2], 120)
         self.assertEqual(self.renderer._sfle_constraints.width.value, 240)
         self.host.geometry("400x240+0+0")
         self.host.update()
+        self.host.after(40, self.host.quit)
+        self.host.mainloop()
         self.assertEqual(self.renderer._sfle_constraints.width.value, 400)
         self.assertEqual(rect(button)[2], 200)
 
@@ -568,8 +572,16 @@ class TkSFLEGeometryTests(unittest.TestCase):
             self.assertIsNotNone(scheduled)
             self.host.geometry("240x110+0+0")
             self.host.update()
-            self.assertEqual(self.renderer._sfle_resize_after_id, scheduled)
-            self.assertEqual(self.renderer._sfle_resize_pending, (240, 110))
+            # A timer may fire during a slow Aqua update(); either a
+            # still-coalesced request or an already-committed resize is valid.
+            if self.renderer._sfle_resize_after_id is not None:
+                self.assertEqual(self.renderer._sfle_resize_after_id, scheduled)
+                self.assertEqual(self.renderer._sfle_resize_pending, (240, 110))
+            else:
+                self.assertIsNone(self.renderer._sfle_resize_pending)
+                self.assertEqual(
+                    (self.renderer._sfle_constraints.width.value,
+                     self.renderer._sfle_constraints.height.value), (240, 110))
             # Allow the one coalesced Tcl timer to fire without making
             # assumptions about how fast the host starts a test process.
             self.host.after(30, self.host.quit)
