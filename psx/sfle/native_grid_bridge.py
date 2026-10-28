@@ -104,7 +104,10 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                     native_source = KivyMeasurementSource({identifier: widget})
                 else:
                     raise AssertionError("Unexpected native Grid backend.")
-                return native_source.measure_width(identifier, allocated_width)
+                return reuse_transaction.measure(
+                    backend.value, widget, node, allocated_width,
+                    lambda: native_source.measure_width(identifier, allocated_width),
+                )
 
             composed = prepare_composed_grid(
                 grid, content_width=float(width), generation=generation,
