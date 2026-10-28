@@ -110,6 +110,33 @@ def _corner_disagreement(qt: Image.Image, tk_image: Image.Image, radius: int,
     return mismatch / sampled
 
 
+@pytest.mark.parametrize("initial_radius", (0, 8, 20))
+def test_resized_tk_surface_has_the_same_pixels_as_a_fresh_paint(initial_radius):
+    root = tk.Tk()
+    root.geometry("210x140+100+100")
+    root.configure(background="#253349")
+    canvas = tk.Canvas(root, borderwidth=0, highlightthickness=0)
+    canvas.place(x=20, y=20, width=SIZE[0], height=SIZE[1])
+    sides = {side: (2, "#123456") for side in ("top", "right", "bottom", "left")}
+    try:
+        draw_rounded_surface(canvas, width=300, height=100, radius=initial_radius,
+                             parent_color="#917253", fill_color="#ffeecc",
+                             sides={"bottom": (1, "#fedcba")})
+        for width, height in ((10, 15), (200, 100), SIZE):
+            draw_rounded_surface(canvas, width=width, height=height, radius=12,
+                                 parent_color="#253349", fill_color="#ffffff",
+                                 sides=sides)
+        root.update()
+        bbox = (canvas.winfo_rootx(), canvas.winfo_rooty(),
+                canvas.winfo_rootx() + SIZE[0], canvas.winfo_rooty() + SIZE[1])
+        resized = ImageGrab.grab(bbox=bbox).convert("RGB")
+        canvas.destroy()
+        fresh = _tk_card(root, "#253349", "#ffffff", "#123456", 12, 2)
+        assert ImageChops.difference(resized, fresh).getbbox() is None
+    finally:
+        root.destroy()
+
+
 @pytest.mark.parametrize("palette", PALETTES, ids=lambda palette: palette[0])
 @pytest.mark.parametrize("radius", RADII, ids=lambda radius: f"radius-{radius}")
 @pytest.mark.parametrize("width", WIDTHS, ids=lambda width: f"stroke-{width}")

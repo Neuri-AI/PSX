@@ -74,6 +74,22 @@ jobs:
                     f'{row["mean_event_to_commit_ms"]:.3f} ms, '
                     f'p95 {row["p95_event_to_commit_ms"]:.3f} ms')
           PY
+      - name: Measure styled cards including native repaint CPU
+        run: |
+          xvfb-run -a python -u benchmarks/grid_resize_interactive.py --engine both --adapter tk --cards 6 --cycles 20 --warmup 3 --styled > benchmark-results/styled-grid-resize-events.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("benchmark-results/styled-grid-resize-events.json").read_text())
+          assert {row["engine"] for row in data} == {"python", "rust"}
+          for row in data:
+              assert row["styled"] is True
+              assert row["cycles"] == 20
+              assert row["mean_request_to_loop_settled_cpu_ms"] > 0
+              assert row["presentation_feedback_supported"] is False
+              print(row["engine"], row["mean_request_to_loop_settled_ms"],
+                    row["mean_request_to_loop_settled_cpu_ms"])
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:

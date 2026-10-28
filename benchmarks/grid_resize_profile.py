@@ -16,7 +16,7 @@ import statistics
 import time
 import pstats
 
-from psx import Grid, GridItem, Text, Flex
+from psx import Grid, GridItem, Text, Flex, psx
 from psx.core.reconcile import Reconciler
 from psx.renderers.qt.pyside import PySide6Renderer
 from psx.renderers.tkinter.tkinter import TkinterRenderer
@@ -31,7 +31,16 @@ def viewport(width):
     )
 
 
-def cards(count):
+def cards(count, *, styled=False):
+    if styled:
+        items = "".join(
+            f'<GridItem span="3" key="card-{index}">'
+            '<div style="background: #ffffff; border: 1px solid #dedede; '
+            'border-radius: 8px; padding: 12px">'
+            f'<div>Card {index}</div><div>Value {index * 17}</div></div></GridItem>'
+            for index in range(count)
+        )
+        return psx(f'<div><Grid gap="16px">{items}</Grid></div>')
     return Grid(
         *(
             GridItem(
@@ -106,7 +115,7 @@ def measure(engine_name, widths, card_count, warmup, cycles, top, adapter="qt", 
         if adapter == "qt":
             renderer.application.processEvents()
         else:
-            renderer.root.destroy()
+            renderer.close()
 
 
 def main():

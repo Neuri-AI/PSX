@@ -28,7 +28,7 @@ def percentile(values, percentage):
     return ordered[max(0, (len(ordered) * percentage + 99) // 100 - 1)]
 
 
-def exercise(engine_name, adapter, card_count, cycles, warmup, widths):
+def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled=False):
     engine = PythonLayoutEngine() if engine_name == "python" else load_layout_engine()
     if engine.backend_name != engine_name:
         raise RuntimeError(f"Expected Cinnamon {engine_name}, got {engine.backend_name}")
@@ -46,7 +46,7 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths):
     paints = []
     native_observer = None
     try:
-        mounted = tree.render(cards(card_count))
+        mounted = tree.render(cards(card_count, styled=styled))
         original_commit = renderer.commit_layout
 
         def timed_commit(root):
@@ -114,6 +114,7 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths):
             target = widths[(index + 1) % len(widths)]
             event_count, commit_count, paint_count = len(events), len(commits), len(paints)
             requested_at = time.perf_counter_ns()
+            cpu_started = time.process_time_ns()
             resize(target)
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
@@ -127,6 +128,7 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths):
                     f"Native {adapter} resize {target} did not produce a completed Cinnamon commit"
                 )
             finished_at = time.perf_counter_ns()
+            cpu_ms = (time.process_time_ns() - cpu_started) / 1e6
             observed = [t for w, t in events[event_count:] if w == target]
             matching = [entry for entry in commits[commit_count:] if entry[0] == target]
             if not observed or not matching:
@@ -141,6 +143,7 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths):
                     "commit_wall_ms": (commit_ended - commit_started) / 1e6,
                     "commit_to_loop_settled_ms": (finished_at - commit_ended) / 1e6,
                     "request_to_loop_settled_ms": (finished_at - requested_at) / 1e6,
+                    "request_to_loop_settled_cpu_ms": cpu_ms,
                     "paint_notifications": len(paints) - paint_count,
                     "commits": len(matching),
                 })
@@ -152,12 +155,19 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths):
             "cards": card_count,
             "cycles": cycles,
             "warmup": warmup,
+            "styled": styled,
             "presentation_feedback_supported": False,
             "frame_rate_fps": None,
             "latency_definition": "native Resize/Configure event to completed Cinnamon commit",
             "mean_event_to_commit_ms": statistics.mean(latencies),
             "p95_event_to_commit_ms": percentile(latencies, 95),
             "p99_event_to_commit_ms": percentile(latencies, 99),
+            "mean_request_to_loop_settled_ms": statistics.mean(
+                sample["request_to_loop_settled_ms"] for sample in samples),
+            "p95_request_to_loop_settled_ms": percentile(
+                [sample["request_to_loop_settled_ms"] for sample in samples], 95),
+            "mean_request_to_loop_settled_cpu_ms": statistics.mean(
+                sample["request_to_loop_settled_cpu_ms"] for sample in samples),
             "samples": samples,
         }
     finally:
@@ -170,7 +180,7 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths):
         if adapter == "qt":
             renderer.application.processEvents()
         else:
-            renderer.root.destroy()
+            renderer.close()
 
 
 def main():
@@ -180,6 +190,8 @@ def main():
     parser.add_argument("--cards", type=int, default=24)
     parser.add_argument("--cycles", type=int, default=20)
     parser.add_argument("--warmup", type=int, default=2)
+    parser.add_argument("--styled", action="store_true",
+                        help="Include CSS rounded cards and native repaint work")
     args = parser.parse_args()
     if args.cards < 1 or args.cycles < 1 or args.warmup < 0:
         parser.error("Cards and cycles must be positive and warmup nonnegative")
@@ -187,7 +199,8 @@ def main():
     adapters = ("qt", "tk") if args.adapter == "both" else (args.adapter,)
     widths = (680, 760, 800, 900, 1000, 1200, 980, 750)
     print(json.dumps([
-        exercise(engine, adapter, args.cards, args.cycles, args.warmup, widths)
+        exercise(engine, adapter, args.cards, args.cycles, args.warmup, widths,
+                 styled=args.styled)
         for engine in engines for adapter in adapters
     ], indent=2))
 

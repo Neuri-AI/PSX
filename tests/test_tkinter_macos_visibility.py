@@ -15,6 +15,37 @@ from psx.sfle.model import AvailableSize, LayoutConstraints
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
+def test_aqua_live_resize_reuses_css_corner_images_and_canvas_items():
+    root = tk.Tk()
+    renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(
+        AvailableSize(520, True), AvailableSize(230, True)),
+        engine=PythonLayoutEngine())
+    reconciler = Reconciler(renderer)
+    try:
+        mounted = reconciler.render(psx(
+            '<div style="background: #253349">'
+            '<div style="background: #ffffff; border: 1px solid #dedede; '
+            'border-radius: 8px; height: 80px">Card</div></div>'
+        ))
+        root.update()
+        surface = mounted.children[0].handle.widget._psx_css_unified_surface
+        images, items = surface._psx_css_corner_images, surface.find_all()
+        for width in (600, 720, 580, 520):
+            root.geometry(f"{width}x230")
+            root.update()
+            assert renderer._sfle_constraints.width.value == width
+            assert renderer._sfle_resize_error is None
+            assert surface._psx_css_corner_images == images
+            assert surface.find_all() == items
+            assert surface.coords(surface.find_withtag("psx-css-tr")[0]) == [
+                surface.winfo_width() - 8, 0]
+    finally:
+        reconciler.unmount()
+        renderer.close()
+        root.destroy()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Requires live macOS Aqua WindowServer")
 def test_aqua_rounded_card_tracks_parent_css_refresh_without_remount():
     root = tk.Tk()
     renderer = TkinterRenderer(root=root, sfle_constraints=LayoutConstraints(

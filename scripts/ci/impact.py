@@ -61,6 +61,8 @@ def _classify_path(path: str) -> set[str]:
         return {"router", "core", "headless", "qt", "kivy", "tkinter"}
     if path == "benchmarks/resource_baseline.py":
         return {"core"}
+    if path in ("benchmarks/grid_resize_profile.py", "benchmarks/grid_resize_interactive.py"):
+        return {"qt", "tkinter"}
     if path in ("scripts/ci/impact.py", "tests/test_ci_impact.py") or path.startswith("scripts/ci/"):
         return {"router"}
     if path.startswith(".github/workflows/"):
@@ -80,6 +82,8 @@ def _classify_path(path: str) -> set[str]:
             result.add("native")
         elif name == "sfle-core.yml":
             result.update({"sfle", "rust"})
+        elif name == "grid-resize-performance.yml":
+            result.update({"qt", "tkinter"})
         elif name == "ci.yml":
             result.add("core")
         return result

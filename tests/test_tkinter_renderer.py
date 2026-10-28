@@ -585,6 +585,72 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertEqual(tuple(canvas._psx_css_corner_images[0].get(0, 0)),
                          (145, 114, 83))
 
+    def test_rounded_resize_reuses_native_images_and_items_until_paint_changes(self):
+        import tkinter as tk
+        from unittest.mock import patch
+        from psx.renderers.tkinter import rounded_surface as paint
+
+        canvas = tk.Canvas(self.root)
+        self.addCleanup(canvas.destroy)
+        options = dict(radius=8, parent_color="#253349", fill_color="#ffffff",
+                       sides={"bottom": (2, "#123456")})
+        paint.draw_rounded_surface(canvas, width=160, height=64, **options)
+        images = canvas._psx_css_corner_images
+        items = canvas.find_all()
+        native_images = set(self.root.tk.call("image", "names"))
+        with patch.object(paint, "_corner_pixels", wraps=paint._corner_pixels) as raster:
+            for width in (161, 220, 180, 320, 160):
+                paint.draw_rounded_surface(canvas, width=width, height=80, **options)
+                self.assertEqual(canvas.find_all(), items)
+                self.assertEqual(canvas._psx_css_corner_images, images)
+                self.assertEqual(set(self.root.tk.call("image", "names")), native_images)
+                right = canvas.find_withtag("psx-css-tr")[0]
+                self.assertEqual(canvas.coords(right), [width - 8, 0])
+            raster.assert_not_called()
+
+        # Native resources are per canvas; no cross-interpreter/global Tk cache.
+        other = tk.Canvas(self.root)
+        self.addCleanup(other.destroy)
+        paint.draw_rounded_surface(other, width=160, height=64, **options)
+        self.assertTrue(set(other._psx_css_corner_images).isdisjoint(images))
+        image_names = tuple(map(str, images))
+        canvas.destroy()
+        del canvas._psx_css_corner_images
+        del images
+        self.assertTrue(set(image_names).isdisjoint(self.root.tk.call("image", "names")))
+
+    def test_rounded_resize_invalidates_each_corner_dependency_and_removes_stale_items(self):
+        import tkinter as tk
+        from psx.renderers.tkinter.rounded_surface import draw_rounded_surface
+
+        canvas = tk.Canvas(self.root)
+        self.addCleanup(canvas.destroy)
+        options = dict(radius=8, parent_color="#253349", fill_color="#ffffff",
+                       sides={"bottom": (2, "#123456")})
+        draw_rounded_surface(canvas, width=160, height=64, **options)
+        changes = (
+            dict(parent_color="#917253"), dict(fill_color="#ffeecc"),
+            dict(sides={"top": (3, "#fedcba")}), dict(radius=12),
+        )
+        for change in changes:
+            images = canvas._psx_css_corner_images
+            options.update(change)
+            draw_rounded_surface(canvas, width=160, height=64, **options)
+            self.assertNotEqual(canvas._psx_css_corner_images, images)
+        self.assertFalse(canvas.find_withtag("psx-css-bottom"))
+        self.assertEqual(len(canvas.find_withtag("psx-css-top")), 1)
+        draw_rounded_surface(canvas, width=10, height=64, **options)
+        self.assertEqual(canvas._psx_css_corner_images[0].width(), 5)
+        draw_rounded_surface(canvas, width=160, height=64, **options)
+        self.assertEqual(canvas._psx_css_corner_images[0].width(), 12)
+        options["radius"] = 0
+        draw_rounded_surface(canvas, width=160, height=64, **options)
+        self.assertEqual(canvas._psx_css_corner_images, ())
+        self.assertFalse(canvas.find_withtag("psx-css-surface-corner"))
+        self.assertEqual(len(canvas.find_withtag("psx-css-surface-fill")), 1)
+        draw_rounded_surface(canvas, width=0, height=64, **options)
+        self.assertEqual(canvas.find_all(), ())
+
     def test_html_box_background_uses_native_theme_independent_fill(self):
         from psx.markup.compile import psx
         self._enable_native_sfle()

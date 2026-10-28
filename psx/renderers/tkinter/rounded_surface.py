@@ -94,25 +94,40 @@ def draw_rounded_surface(
 ) -> None:
     """Repaint one owned Canvas from the canonical border-box geometry.
 
-    Its backing images are kept only until the next repaint. No native widget
-    handles, event handlers, or layout rectangles are replaced.
+    Keep one set of corner images per canvas/paint style. Resizing moves
+    existing items; corner rasterization depends on the effective radius and
+    colors/strokes, not the full surface dimensions. No global Tk resources.
     """
-    canvas.delete("all")
-    canvas._psx_css_corner_images = ()
+    items = getattr(canvas, "_psx_css_surface_items", {})
     if width < 1 or height < 1:
+        canvas.delete("all")
+        canvas._psx_css_surface_items = {}
+        canvas._psx_css_corner_images = ()
+        canvas._psx_css_corner_revision = None
         return
     r = min(max(0, radius), width // 2, height // 2)
     canvas.configure(background=parent_color, highlightthickness=0, borderwidth=0)
     fill = fill_color or parent_color
+    active = set()
+
+    def rectangle(name, bounds, ink, tags):
+        active.add(name)
+        if name in items:
+            canvas.coords(items[name], *bounds)
+            canvas.itemconfigure(items[name], fill=ink)
+        else:
+            items[name] = canvas.create_rectangle(
+                *bounds, fill=ink, outline="", tags=tags)
+
     # The two non-corner rectangles and all strokes share one Canvas.
     if r == 0:
-        canvas.create_rectangle(0, 0, width, height, fill=fill, outline="",
-                                tags=("psx-css-surface-fill",))
+        rectangle("fill-center", (0, 0, width, height), fill,
+                  ("psx-css-surface-fill",))
     else:
-        canvas.create_rectangle(r, 0, width - r, height, fill=fill, outline="",
-                                tags=("psx-css-surface-fill",))
-        canvas.create_rectangle(0, r, width, height - r, fill=fill, outline="",
-                                tags=("psx-css-surface-fill",))
+        rectangle("fill-center", (r, 0, width - r, height), fill,
+                  ("psx-css-surface-fill",))
+        rectangle("fill-middle", (0, r, width, height - r), fill,
+                  ("psx-css-surface-fill",))
 
     # The straight edge stops exactly where the corner image begins.
     for side, (thickness, ink) in sides.items():
@@ -125,25 +140,44 @@ def draw_rounded_surface(
             "bottom": (r, height - t, width - r, height),
             "left": (0, r, t, height - r),
         }
-        canvas.create_rectangle(*edges[side], fill=ink, outline="",
-                                tags=("psx-css-surface-side", f"psx-css-{side}"))
+        rectangle(f"side-{side}", edges[side], ink,
+                  ("psx-css-surface-side", f"psx-css-{side}"))
 
     if r == 0:
-        return
-    rgb_parent, rgb_fill = _rgb(canvas, parent_color), _rgb(canvas, fill)
-    rgb_sides = {
-        side: (thickness, _rgb(canvas, ink))
-        for side, (thickness, ink) in sides.items()
-    }
-    positions = {"tl": (0, 0), "tr": (width - r, 0),
-                 "bl": (0, height - r), "br": (width - r, height - r)}
-    images = []
-    for corner, (x, y) in positions.items():
-        data = _png_rgb(
-            r, r, _corner_pixels(r, corner, rgb_parent, rgb_fill, rgb_sides)
-        )
-        image = tk.PhotoImage(master=canvas, data=data, format="png")
-        canvas.create_image(x, y, anchor="nw", image=image,
-                            tags=("psx-css-surface-corner", f"psx-css-{corner}"))
-        images.append(image)
-    canvas._psx_css_corner_images = tuple(images)
+        canvas._psx_css_corner_images = ()
+        canvas._psx_css_corner_revision = None
+    else:
+        revision = (r, parent_color, fill, tuple(sorted(sides.items())))
+        images = getattr(canvas, "_psx_css_corner_images", ())
+        if revision != getattr(canvas, "_psx_css_corner_revision", None):
+            rgb_parent, rgb_fill = _rgb(canvas, parent_color), _rgb(canvas, fill)
+            rgb_sides = {
+                side: (thickness, _rgb(canvas, ink))
+                for side, (thickness, ink) in sides.items()
+            }
+            images = tuple(tk.PhotoImage(
+                master=canvas, data=_png_rgb(r, r, _corner_pixels(
+                    r, corner, rgb_parent, rgb_fill, rgb_sides)), format="png",
+            ) for corner in ("tl", "tr", "bl", "br"))
+        positions = {"tl": (0, 0), "tr": (width - r, 0),
+                     "bl": (0, height - r), "br": (width - r, height - r)}
+        for (corner, (x, y)), image in zip(positions.items(), images):
+            name = f"corner-{corner}"
+            active.add(name)
+            if name in items:
+                canvas.coords(items[name], x, y)
+                canvas.itemconfigure(items[name], image=image)
+            else:
+                items[name] = canvas.create_image(
+                    x, y, anchor="nw", image=image,
+                    tags=("psx-css-surface-corner", f"psx-css-{corner}"))
+        canvas._psx_css_corner_images = images
+        canvas._psx_css_corner_revision = revision
+
+    for name in set(items) - active:
+        canvas.delete(items.pop(name))
+    # A new fill or stroke can be created above an existing corner during
+    # style changes. Keep the same painter ordering as a fresh surface.
+    canvas.tag_lower("psx-css-surface-fill")
+    canvas.tag_raise("psx-css-surface-corner")
+    canvas._psx_css_surface_items = items

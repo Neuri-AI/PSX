@@ -444,6 +444,16 @@ class RoutingTests(unittest.TestCase):
         )
         self.assertEqual(self.selected("psx/renderers/tkinter/scroll.py"), {"tkinter"})
 
+    def test_styled_resize_benchmarks_select_only_native_consumers(self):
+        for path in ("benchmarks/grid_resize_profile.py",
+                     "benchmarks/grid_resize_interactive.py"):
+            self.assertEqual(self.selected(path), {"qt", "tkinter"})
+        self.assertEqual(self.selected(".github/workflows/grid-resize-performance.yml"),
+                         {"router", "qt", "tkinter"})
+        self.assertEqual(self.selected("psx/renderers/tkinter/rounded_surface.py",
+                                       "benchmarks/grid_resize_interactive.py"),
+                         {"qt", "tkinter"})
+
     def test_macos_aqua_is_mandatory_when_tkinter_selected(self):
         from pathlib import Path
 
