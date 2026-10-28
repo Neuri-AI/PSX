@@ -560,6 +560,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         root = self.reconciler.render(Flex(
             item("A", "a", 30), width="100%", height="100%",
         ))
+        child = root.children[0].handle.widget
         try:
             self.host.geometry("210x100+0+0")
             self.host.update()
@@ -578,8 +579,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
             self.assertEqual(
                 (self.renderer._sfle_constraints.width.value,
                  self.renderer._sfle_constraints.height.value), (240, 110))
-            self.assertIs(root.children[0].handle.widget,
-                          root.children[0].handle.widget)
+            self.assertIs(root.children[0].handle.widget, child)
         finally:
             self.reconciler.unmount()
             self.host.geometry("400x240+0+0")
