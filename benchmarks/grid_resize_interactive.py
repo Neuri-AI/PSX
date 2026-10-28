@@ -46,7 +46,6 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths):
     paints = []
     native_observer = None
     try:
-        pass  # the first native mount is excluded from timing
         mounted = tree.render(cards(card_count))
         original_commit = renderer.commit_layout
 
