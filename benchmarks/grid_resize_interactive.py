@@ -45,6 +45,7 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths):
     paints = []
     native_observer = None
     try:
+        print("mounted", engine_name, adapter, flush=True)
         mounted = tree.render(cards(card_count))
         original_commit = renderer.commit_layout
 
@@ -143,6 +144,7 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths):
                     "paint_notifications": len(paints) - paint_count,
                     "commits": len(matching),
                 })
+        print("samples complete", engine_name, adapter, flush=True)
         latencies = [sample["native_event_to_commit_end_ms"] for sample in samples]
         return {
             "engine": engine_name,
