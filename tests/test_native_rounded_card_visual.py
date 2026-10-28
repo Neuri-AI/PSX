@@ -15,7 +15,7 @@ import tkinter as tk
 import pytest
 pytest.importorskip("PIL")
 pytest.importorskip("PySide6.QtWidgets")
-from PIL import Image, ImageChops, ImageDraw, ImageGrab
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageGrab
 from PySide6.QtCore import QRect
 from PySide6.QtWidgets import QApplication, QWidget
 
@@ -152,10 +152,25 @@ def test_qt_reference_tk_real_raster_rounded_card(
         assert _category(rendered.getpixel((SIZE[0] - 1, SIZE[1] - 1)), colors) == 0
 
     disagreement = _corner_disagreement(qt_image, tk_image, radius, colors)
-    # Different QSS/Canvas antialiasing kernels and corner pixel coverage
-    # legitimately differ. A grossly missing radius or border does not.
+    corner_error = 0
+    for xbase in (0, SIZE[0] - radius):
+        for ybase in (0, SIZE[1] - radius):
+            for y in range(ybase, ybase + radius):
+                for x in range(xbase, xbase + radius):
+                    corner_error += sum(
+                        abs(a - b)
+                        for a, b in zip(qt_image.getpixel((x, y)),
+                                        tk_image.getpixel((x, y)))
+                    )
+    corner_mae = corner_error / (4 * radius * radius * 3)
+    # A per-channel error bound catches visible gaps while permitting small
+    # QSS/Tk AA differences. Class disagreement is intentionally a separate
+    # shape measure; neither metric claims pixel-perfect rendering.
     assert disagreement <= 0.35, (
-        f"Qt and Tk rounded-corner classification differs by {disagreement:.1%}"
+        f"Qt/Tk corner classification differs by {disagreement:.1%}"
+    )
+    assert corner_mae <= 8.0, (
+        f"Qt/Tk corner mean absolute RGB error is {corner_mae:.2f}"
     )
 
     with (out / f"{key}.json").open("w", encoding="utf-8") as file:
@@ -163,6 +178,7 @@ def test_qt_reference_tk_real_raster_rounded_card(
             "palette": _name, "radius_px": radius, "border_width_px": width,
             "qt_reference": "QWidget/QSS", "tk_capture": "Xvfb ImageGrab",
             "corner_classification_disagreement": round(disagreement, 5),
+            "corner_mean_absolute_rgb_error": round(corner_mae, 3),
             "pixel_difference_bbox": difference.getbbox(),
             "comparison_status": "bounded geometric parity; not pixel perfect",
         }, file, indent=2)
@@ -187,7 +203,11 @@ def test_native_rounded_card_visual_contact_sheet():
             source = out / f"{key}-{role}.png"
             if source.is_file():
                 with Image.open(source) as image:
-                    montage.paste(image.convert("RGB"), (10 + column * SIZE[0], y + 18))
+                    visible = image.convert("RGB")
+                    if role == "difference":
+                        # Human reviewers should see faint antialias deltas.
+                        visible = ImageEnhance.Brightness(visible).enhance(6)
+                    montage.paste(visible, (10 + column * SIZE[0], y + 18))
     montage.save(out / "contact-sheet.png")
     missing = [key for key in expected if not (out / f"{key}-qt.png").exists()]
     assert not missing, f"Some native visual comparisons produced no captures: {missing}"
