@@ -1162,8 +1162,13 @@ class TkinterRenderer:
             painted.bind("<ButtonRelease-1>", on_release)
             painted.bind("<Leave>", lambda _event: setattr(
                 widget, "_psx_css_button_pressed", False))
-            painted.bind("<Configure>", lambda _event:
-                         self._redraw_css_ttk_button(widget))
+            # Internal Canvas Configure handlers never consume Event fields.
+            # A zero-argument Tcl binding avoids constructing a full Python
+            # Tk Event for every intermediate child resize.
+            painted.tk.call(
+                "bind", str(painted), "<Configure>",
+                painted.register(lambda: self._redraw_css_ttk_button(widget)),
+            )
         widget._psx_css_button_authored_background = background
         widget._psx_css_button_paint_values = (
             fill, str(foreground), int(radius), str(widget.cget("text")),
@@ -1265,7 +1270,10 @@ class TkinterRenderer:
         if canvas is None:
             canvas = tk.Canvas(widget, borderwidth=0, highlightthickness=0, takefocus=0)
             widget._psx_css_unified_surface = canvas
-            canvas.bind("<Configure>", lambda _event: self._schedule_css_unified_surface_redraw(widget))
+            canvas.tk.call(
+                "bind", str(canvas), "<Configure>",
+                canvas.register(lambda: self._schedule_css_unified_surface_redraw(widget)),
+            )
         widget._psx_css_unified_values = (int(radius), fill, sides)
         canvas.place(x=0, y=0, relwidth=1, relheight=1)
         # A ttk theme may paint over a lowered child canvas (Aqua). Keep
