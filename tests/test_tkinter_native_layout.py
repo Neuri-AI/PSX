@@ -569,7 +569,10 @@ class TkSFLEGeometryTests(unittest.TestCase):
             self.host.geometry("210x100+0+0")
             self.host.update()
             scheduled = self.renderer._sfle_resize_after_id
-            self.assertIsNotNone(scheduled)
+            # A zero-delay callback can complete during update(), rather
+            # than remaining queued until a later timer tick.
+            if scheduled is None:
+                self.assertEqual(self.renderer._sfle_constraints.width.value, 210)
             self.host.geometry("240x110+0+0")
             self.host.update()
             # A timer may fire during a slow Aqua update(); either a
