@@ -619,6 +619,25 @@ class TkinterRendererTests(unittest.TestCase):
         del images
         self.assertTrue(set(image_names).isdisjoint(self.root.tk.call("image", "names")))
 
+    def test_css_canvas_configure_storm_coalesces_into_one_idle_redraw(self):
+        import tkinter as tk
+        from unittest.mock import patch
+
+        host = tk.Frame(self.root)
+        self.addCleanup(host.destroy)
+        canvas = tk.Canvas(host)
+        host._psx_css_unified_surface = canvas
+        with patch.object(
+            self.renderer, "_redraw_css_unified_surface",
+        ) as redraw:
+            for _ in range(40):
+                self.renderer._schedule_css_unified_surface_redraw(host)
+            self.assertIsNotNone(canvas._psx_css_redraw_after_id)
+            self.root.update_idletasks()
+            redraw.assert_called_once_with(host)
+            self.assertIsNone(canvas._psx_css_redraw_after_id)
+
+
     def test_rounded_resize_updates_geometry_without_reconfiguring_unchanged_paint(self):
         import tkinter as tk
         from unittest.mock import patch
