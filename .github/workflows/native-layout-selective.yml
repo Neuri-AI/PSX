@@ -633,6 +633,31 @@ jobs:
           python -c "import _sfle_native as native; assert native.schema_version()==1"
       - name: Verify Rust/Python parity of installed wheel
         run: python -m pytest -q tests/interop/test_sfle_native_wheel.py
+      - name: Measure native Aqua styled Tk resize with Cinnamon Rust
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          python benchmarks/grid_resize_interactive.py --adapter tk --engine rust --cards 6 --cycles 20 --warmup 3 --styled > macos-styled-tk-resize.json
+          python - <<'PY'
+          import json
+          import tkinter
+          from pathlib import Path
+          row = json.loads(Path("macos-styled-tk-resize.json").read_text())[0]
+          assert row["engine"] == "rust" and row["adapter"] == "tk"
+          print("Native Aqua Tcl/Tk:", tkinter.TkVersion)
+          print("Event-to-commit mean:", row["mean_event_to_commit_ms"], "ms")
+          print("Event-to-commit p95:", row["p95_event_to_commit_ms"], "ms")
+          print("Request-to-settled mean:", row["mean_request_to_loop_settled_ms"], "ms")
+          print("CPU per resize:", row["mean_request_to_loop_settled_cpu_ms"], "ms")
+          print("60Hz mean budget met:", row["mean_request_to_loop_settled_ms"] <= 16.0)
+          print("Compositor frame timestamps:", row["presentation_feedback_supported"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: native-aqua-tk-resize-${{ matrix.os }}
+          path: macos-styled-tk-resize.json
+          if-no-files-found: ignore
       - name: Uninstall wheel and prove load-time Python fallback
         run: |
           python -m pip uninstall -y psx-sfle-native
