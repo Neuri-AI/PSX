@@ -1231,6 +1231,8 @@ class TkinterRenderer:
             from psx.sfle.lengths import Length, LengthKind
             side_edges = getattr(target.widget, "_psx_css_side_borders", None)
             active_sides = set()
+            active_paint = {}
+            side_radius = native_border_radius(computed)
             if computed is not None:
                 for side in ("top", "right", "bottom", "left"):
                     width_key, color_key = f"border-{side}-width", f"border-{side}-color"
@@ -1257,15 +1259,27 @@ class TkinterRenderer:
                     edge = side_edges[side]
                     edge.configure(background=hex_color)
                     n = int(width.value)
+                    if side_radius:
+                        if side_radius != int(side_radius) or side_radius < n / 2:
+                            raise ValueError(
+                                "Tk rounded side borders require integer radius >= half stroke width."
+                            )
+                        if background_hex(computed) is None:
+                            raise ValueError(
+                                "Tk rounded side borders require an authored opaque background."
+                            )
+                    r = int(side_radius)
                     places = {
-                        "top": dict(x=0, y=0, relwidth=1, height=n),
-                        "right": dict(relx=1, x=-n, y=0, width=n, relheight=1),
-                        "bottom": dict(x=0, rely=1, y=-n, relwidth=1, height=n),
-                        "left": dict(x=0, y=0, width=n, relheight=1),
+                        "top": dict(x=r, y=0, relwidth=1, width=-2*r, height=n),
+                        "right": dict(relx=1, x=-n, y=r, width=n, relheight=1, height=-2*r),
+                        "bottom": dict(x=r, rely=1, y=-n, relwidth=1, width=-2*r, height=n),
+                        "left": dict(x=0, y=r, width=n, relheight=1, height=-2*r),
                     }
                     edge.place(**places[side])
                     edge.lift()
                     active_sides.add(side)
+                    active_paint[side] = (n, hex_color)
+            target.widget._psx_css_side_corner_styles = active_paint
             if side_edges:
                 for side in tuple(side_edges):
                     if side not in active_sides:
@@ -2011,6 +2025,28 @@ class TkinterRenderer:
                                       outline=color, width=0)
             corner.place(**place)
             tk.Misc.tkraise(corner)
+        # Add each authored side's half-corner arc above the matching
+        # rounded surface mask. Unstyled sides never gain a phantom stroke.
+        side_corner_styles = getattr(widget, "_psx_css_side_corner_styles", {})
+        if side_corner_styles:
+            corner_sides = (
+                (("top", 90), ("left", 135)),
+                (("top", 45), ("right", 0)),
+                (("bottom", 225), ("left", 180)),
+                (("bottom", 270), ("right", 315)),
+            )
+            for canvas, (_, bounds, _), arcs in zip(corners, placements, corner_sides):
+                for side, start in arcs:
+                    if side not in side_corner_styles:
+                        continue
+                    n, ink = side_corner_styles[side]
+                    half = n / 2
+                    inset = (bounds[0] + half, bounds[1] + half,
+                             bounds[2] - half, bounds[3] - half)
+                    canvas.create_arc(
+                        *inset, start=start, extent=45, style="arc",
+                        outline=ink, width=n, tags=("psx-css-side-arc",),
+                    )
         self._refresh_css_corner_surfaces(widget)
 
     # -- update -----------------------------------------------------------
