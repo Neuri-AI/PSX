@@ -152,6 +152,25 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                         refresh()
             else:
                 raise AssertionError("native bridge is only for toolkit backends")
+            # The same accepted intrinsic cache also serves the simple Grid
+            # path. The source's existing toolkit port retains UI ownership.
+            from types import SimpleNamespace
+            native_source = source
+            leaf_origins = {
+                path_identity(child.path): child.effective_children[0]
+                for child in grid.effective_children
+            }
+            def measure_cached_leaf(identifier, allocated_width):
+                return reuse_transaction.measure(
+                    backend.value, widgets[identifier],
+                    leaf_origins[identifier], allocated_width,
+                    lambda: native_source.measure_width(identifier, allocated_width),
+                )
+            source = SimpleNamespace(
+                port=native_source.port,
+                measure_width=measure_cached_leaf,
+                is_ui_thread=native_source.is_ui_thread,
+            )
             prepared = measure_grid_native(
                 grid, content_width=float(width), source=source, mounted_ids=ids,
                 revisions={identifier: generation for identifier in ids},
