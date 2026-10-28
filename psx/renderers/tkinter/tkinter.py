@@ -1279,6 +1279,41 @@ class TkinterRenderer:
                 target.widget._psx_css_background_style = label_style
                 target.widget.configure(style=label_style,
                                         font=target.widget._psx_text_font)
+            # Explicitly opt-in diagnostic for host-specific font failures.
+            # Report the computed CSS and the actual Tcl/Tk font separately:
+            # a theme, stylesheet source or layout may otherwise look like
+            # the same font-size issue in a screenshot.
+            import os
+            if os.environ.get("PSX_TK_CSS_TRACE") == "1":
+                native_font = target.widget._psx_text_font
+                specified = frozenset() if computed is None else computed.specified
+                trace = {
+                    "text": target.props.get("value"),
+                    "specified_typography": {
+                        key: str(computed.properties[key])
+                        for key in ("font-family", "font-size", "font-weight", "line-height")
+                        if key in specified
+                    },
+                    "projected_typography": {
+                        key: styles[key]
+                        for key in ("font-family", "font-size", "font-weight", "line-height")
+                        if key in styles
+                    },
+                    "native_font": {
+                        key: native_font.actual(key)
+                        for key in ("family", "size", "weight")
+                    },
+                    "font_option": str(target.widget.cget("font")),
+                    "style": str(target.widget.cget("style"))
+                        if isinstance(target.widget, ttk.Label) else None,
+                    "style_font": ttk_style.lookup(
+                        str(target.widget.cget("style")), "font"
+                    ) if isinstance(target.widget, ttk.Label) else None,
+                    "line_pixels": native_font.metrics("linespace"),
+                    "requested_height": target.widget.winfo_reqheight(),
+                    "tk_scaling": target.widget.tk.call("tk", "scaling"),
+                }
+                print("[PSX-TK-CSS] " + repr(trace), file=sys.stderr, flush=True)
             layer = getattr(target.widget, "_psx_css_text_layer", None)
             leading = styles.get("line-height")
             target.widget._psx_css_line_height = leading
