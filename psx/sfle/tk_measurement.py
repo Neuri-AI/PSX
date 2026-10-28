@@ -199,9 +199,11 @@ class TkMeasurementSource:
         try:
             if changed_wrap:
                 widget.configure(wraplength=0)
-            # Read all requested hints after one drain, not after every
-            # temporary restore; later probes perform their own flush.
-            widget.update_idletasks()
+            # A changed native wrap constraint must settle before reading
+            # geometry. Ordinary leaves keep the existing port contract and
+            # require no Tk idle-drain method.
+            if changed_wrap:
+                widget.update_idletasks()
             width = float(widget.winfo_reqwidth())
             height = float(widget.winfo_reqheight())
         finally:
