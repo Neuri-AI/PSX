@@ -620,6 +620,16 @@ class TkinterRenderer:
         if (constraints.width.value, constraints.height.value) == target:
             return
         self._sfle_resize_pending = target
+        # Cocoa's live-resize tracking loop may defer Tcl after(0) callbacks
+        # until the mouse is released. Consume the native Configure event
+        # directly on Aqua so the mounted tree follows each delivered size.
+        # Do not recurse while a layout transaction is already running.
+        if sys.platform == "darwin" and not self._sfle_in_commit:
+            if self._sfle_resize_after_id is not None:
+                self.root.after_cancel(self._sfle_resize_after_id)
+                self._sfle_resize_after_id = None
+            self._sfle_flush_viewport_resize(self._sfle_resize_epoch)
+            return
         if self._sfle_resize_after_id is None:
             epoch = self._sfle_resize_epoch
             # Run the coalesced commit before Tk's idle redraw. An idle
