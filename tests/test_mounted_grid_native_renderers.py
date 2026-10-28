@@ -1327,6 +1327,74 @@ def test_native_rounded_border_pascal_and_html_controls(tag, alias):
         close()
 
 
+def test_native_css_bottom_border_matches_qt_tk_and_kivy_without_other_sides():
+    """A dashboard row divider is an owned one-sided stroke, never a frame."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color=None, thickness=2):
+        style = (f"border-bottom: {thickness}px solid {color}" if color else "")
+        return psx(
+            f'<div><div key="row" style="{style}"><span>Recent</span></div></div>'
+        )
+
+    try:
+        first = reconciler.render(view("#123456"))
+        widget = first.children[0].handle.widget
+        if backend == "qt":
+            css = widget.styleSheet()
+            assert "border-bottom: 2px solid #123456;" in css
+            assert "border-top:" not in css
+        elif backend == "tk":
+            assert set(widget._psx_css_side_borders) == {"bottom"}
+            assert str(widget._psx_css_side_borders["bottom"].cget("background")) == "#123456"
+            assert not hasattr(widget, "_psx_css_border_edges")
+        else:
+            group, redraw, sides, lines = widget._psx_css_side_strokes
+            assert group in widget.canvas.after.children
+            assert len(lines) == 1 and lines[0][0] == "bottom"
+            assert sides[0][1] == 2
+            assert sides[0][2] == pytest.approx((18 / 255, 52 / 255, 86 / 255, 1))
+            widget.pos = (11, 17)
+            widget.size = (170, 40)
+            assert list(lines[0][2].points) == pytest.approx([11, 18, 181, 18])
+
+        updated = reconciler.render(view("#654321", 3))
+        assert updated.children[0].handle.widget is widget
+        if backend == "qt":
+            assert "border-bottom: 3px solid #654321;" in widget.styleSheet()
+        elif backend == "tk":
+            assert set(widget._psx_css_side_borders) == {"bottom"}
+            edge = widget._psx_css_side_borders["bottom"]
+            assert str(edge.cget("background")) == "#654321"
+            assert int(edge.place_info()["height"]) == 3
+        else:
+            group, redraw, sides, lines = widget._psx_css_side_strokes
+            assert len(lines) == 1
+            assert sides[0][1] == 3
+            assert sides[0][2] == pytest.approx((101 / 255, 67 / 255, 33 / 255, 1))
+            assert list(lines[0][2].points)[1] == pytest.approx(widget.y + 1.5)
+
+        previous = getattr(widget, "_psx_css_side_strokes", None)
+        reset = reconciler.render(view())
+        assert reset.children[0].handle.widget is widget
+        if backend == "qt":
+            assert "border-bottom:" not in widget.styleSheet()
+        elif backend == "tk":
+            assert not getattr(widget, "_psx_css_side_borders", None)
+        else:
+            assert not hasattr(widget, "_psx_css_side_strokes")
+            assert previous[0] not in widget.canvas.after.children
+        reconciler.unmount()
+        assert reconciler.root is None
+    finally:
+        reconciler.unmount()
+        close()
+
+
 def test_native_semantic_rounded_border_and_background_updates():
     from psx.markup.compile import psx
     backend = os.environ["PSX_GRID_BACKEND"]
