@@ -14,7 +14,7 @@ import json
 import statistics
 import time
 
-from benchmarks.grid_resize_profile import cards, viewport
+from grid_resize_profile import cards, viewport
 from psx.core.reconcile import Reconciler
 from psx.renderers.qt.pyside import PySide6Renderer
 from psx.renderers.tkinter.tkinter import TkinterRenderer
