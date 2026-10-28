@@ -556,6 +556,35 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(widget), (0, 0, 36, 20))
         self.assertLessEqual(self.renderer._sfle_physical_commit_error, 1.0)
 
+    def test_resize_storm_keeps_latest_dimensions_and_only_one_scheduled_commit(self):
+        root = self.reconciler.render(Flex(
+            item("A", "a", 30), width="100%", height="100%",
+        ))
+        try:
+            self.host.geometry("210x100+0+0")
+            self.host.update()
+            scheduled = self.renderer._sfle_resize_after_id
+            self.assertIsNotNone(scheduled)
+            self.host.geometry("240x110+0+0")
+            self.host.update()
+            self.assertEqual(self.renderer._sfle_resize_after_id, scheduled)
+            self.assertEqual(self.renderer._sfle_resize_pending, (240, 110))
+            # Allow the one coalesced Tcl timer to fire without making
+            # assumptions about how fast the host starts a test process.
+            self.host.after(30, self.host.quit)
+            self.host.mainloop()
+            self.assertIsNone(self.renderer._sfle_resize_after_id)
+            self.assertIsNone(self.renderer._sfle_resize_error)
+            self.assertEqual(
+                (self.renderer._sfle_constraints.width.value,
+                 self.renderer._sfle_constraints.height.value), (240, 110))
+            self.assertIs(root.children[0].handle.widget,
+                          root.children[0].handle.widget)
+        finally:
+            self.reconciler.unmount()
+            self.host.geometry("400x240+0+0")
+            self.host.update()
+
     def test_real_tk_host_configure_automatically_reflows_sfle(self):
         class CountingEngine:
             def __init__(self):
@@ -582,6 +611,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
             self.host.geometry("210x100+0+0")
             self.host.geometry("260x120+0+0")
             self.host.update()
+            self.host.after(30, self.host.quit)
+            self.host.mainloop()
             self.assertIsNone(self.renderer._sfle_resize_error)
             self.assertEqual(
                 (self.renderer._sfle_constraints.width.value,
