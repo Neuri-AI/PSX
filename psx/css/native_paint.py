@@ -149,10 +149,10 @@ def rounded_side_stroke_points(
     effective_radius = min(radius, width / 2.0, height / 2.0)
     if effective_radius <= half:
         limits = {
-            "top": (half, height - half, width - half, height - half),
-            "right": (width - half, height - half, width - half, half),
-            "bottom": (width - half, half, half, half),
-            "left": (half, half, half, height - half),
+            "top": (0, height - half, width, height - half),
+            "right": (width - half, 0, width - half, height),
+            "bottom": (0, half, width, half),
+            "left": (half, 0, half, height),
         }
         return limits[side]
 
