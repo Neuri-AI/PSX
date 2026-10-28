@@ -1022,7 +1022,7 @@ class TkinterRenderer:
         )
         painted.configure(background=parent_fill, cursor=str(widget.cget("cursor")))
         painted.place(x=0, y=0, relwidth=1, relheight=1)
-        painted.lift()
+        tk.Misc.tkraise(painted)
         # The generic native border overlays are created earlier in apply_css.
         # Keep them visible over the newly painted control surface.
         for decoration in (
