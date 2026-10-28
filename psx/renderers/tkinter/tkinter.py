@@ -641,6 +641,11 @@ class TkinterRenderer:
             # content box is intrinsically or explicitly sized. Descendants
             # may still depend on vw/vh and need a fresh Cinnamon commit.
             return True
+        if instance.node.type == "Grid":
+            # A mounted Grid root also follows the native viewport. Without
+            # this branch Tk ignored interactive window resizing while the
+            # explicit set_sfle_constraints() benchmark still passed.
+            return True
         if instance.node.type != "Flex":
             return False
         value = instance.node.props.get(axis, "auto")
