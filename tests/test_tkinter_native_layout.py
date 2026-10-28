@@ -1873,3 +1873,27 @@ def test_tk_width_measurement_preserves_empty_wraplength_and_skips_unchanged_wri
         assert widget.wraplength == initial
         assert widget.writes == expected_writes
         assert widget.flushes == expected_flushes
+
+
+def test_tk_wrapping_measurements_restore_widget_state_without_extra_idle_drain():
+    """Width probes must preserve mounted label wrapping and native hints."""
+    from psx.sfle.tk_measurement import TkMeasurementSource
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        label = tk.Label(root, text="Several words that wrap across multiple lines")
+        label.configure(wraplength=0)
+        source = TkMeasurementSource({"copy": label})
+        original = label.cget("wraplength")
+        narrow = source.measure_width("copy", 45)
+        assert label.cget("wraplength") == original
+        wide = source.measure_width("copy", 300)
+        assert label.cget("wraplength") == original
+        assert narrow.preferred_height >= wide.preferred_height
+        # A final idle pass must resolve the restored native option as well.
+        root.update_idletasks()
+        assert label.cget("wraplength") == original
+    finally:
+        root.destroy()
