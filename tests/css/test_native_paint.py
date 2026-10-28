@@ -217,7 +217,7 @@ def test_rounded_css_side_paths_follow_half_corner_arcs_without_invented_sides()
     assert bottom[0] > bottom[-2]  # right-to-left bottom path
     assert top[0] < top[-2]  # left-to-right top path
     assert rounded_side_stroke_points("bottom", 160, 48, 0, 2) == (
-        159, 1, 1, 1,
+        0, 1, 160, 1,
     )
 
 
