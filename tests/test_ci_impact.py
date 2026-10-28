@@ -433,6 +433,17 @@ class RoutingTests(unittest.TestCase):
     def test_tk_only(self):
         self.assertEqual(self.selected("psx/renderers/tkinter/scroll.py"), {"tkinter"})
 
+    def test_tk_css_typography_and_native_regressions_route_to_tkinter(self):
+        self.assertEqual(
+            self.selected("psx/renderers/tkinter/tkinter.py"), {"tkinter"}
+        )
+        self.assertEqual(
+            self.selected("tests/test_tkinter_renderer.py"), {"tkinter"}
+        )
+        self.assertEqual(
+            self.selected("tests/test_tkinter_native_layout.py"), {"tkinter"}
+        )
+
     def test_headless_only(self):
         self.assertEqual(self.selected("psx/renderers/headless.py"), {"headless"})
 
