@@ -1897,3 +1897,51 @@ def test_tk_wrapping_measurements_restore_widget_state_without_extra_idle_drain(
         assert label.cget("wraplength") == original
     finally:
         root.destroy()
+
+
+def test_tk_grid_transaction_avoids_repeated_idle_drains_for_unchanged_wrap():
+    """The Grid bridge drains once; only a changed wrap requires a new drain."""
+    from psx.sfle.tk_measurement import TkMeasurementSource
+
+    class Widget:
+        def __init__(self, initial=None):
+            self.wraplength = initial
+            self.flushes = 0
+            self.writes = []
+
+        def keys(self):
+            return ("wraplength",) if self.wraplength is not None else ()
+
+        def cget(self, name):
+            return self.wraplength
+
+        def configure(self, **options):
+            self.writes.append(options["wraplength"])
+            self.wraplength = options["wraplength"]
+
+        def update_idletasks(self):
+            self.flushes += 1
+
+        def winfo_reqwidth(self):
+            return 72
+
+        def winfo_reqheight(self):
+            return 19
+
+    for previous, width, expected_flushes, writes in (
+        (80, 80, 0, []),
+        ("80", 80, 0, []),
+        (None, 80, 0, []),
+        ("", 80, 1, [80, ""]),
+    ):
+        widget = Widget(previous)
+        source = TkMeasurementSource({"leaf": widget}, idle_synced=True)
+        result = source.measure_width("leaf", width)
+        assert result.preferred_height == 19
+        assert widget.flushes == expected_flushes
+        assert widget.writes == writes
+        assert widget.wraplength == previous
+
+    unsynced = Widget(80)
+    TkMeasurementSource({"leaf": unsynced}).measure_width("leaf", 80)
+    assert unsynced.flushes == 1
