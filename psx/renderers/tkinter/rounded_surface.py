@@ -99,25 +99,41 @@ def draw_rounded_surface(
     colors/strokes, not the full surface dimensions. No global Tk resources.
     """
     items = getattr(canvas, "_psx_css_surface_items", {})
+    bounds_cache = getattr(canvas, "_psx_css_surface_bounds", {})
+    paints = getattr(canvas, "_psx_css_surface_paints", {})
     if width < 1 or height < 1:
         canvas.delete("all")
         canvas._psx_css_surface_items = {}
+        canvas._psx_css_surface_bounds = {}
+        canvas._psx_css_surface_paints = {}
+        canvas._psx_css_surface_parent = None
         canvas._psx_css_corner_images = ()
         canvas._psx_css_corner_revision = None
         return
     r = min(max(0, radius), width // 2, height // 2)
-    canvas.configure(background=parent_color, highlightthickness=0, borderwidth=0)
+    # Canvas is an instance-owned CSS layer. Size-only changes do not alter
+    # its background, stroke colors, image bindings, or stacking order.
+    if getattr(canvas, "_psx_css_surface_parent", None) != parent_color:
+        canvas.configure(background=parent_color, highlightthickness=0, borderwidth=0)
+        canvas._psx_css_surface_parent = parent_color
     fill = fill_color or parent_color
     active = set()
+    structure_changed = False
 
     def rectangle(name, bounds, ink, tags):
+        nonlocal structure_changed
         active.add(name)
         if name in items:
-            canvas.coords(items[name], *bounds)
-            canvas.itemconfigure(items[name], fill=ink)
+            if bounds_cache.get(name) != bounds:
+                canvas.coords(items[name], *bounds)
+            if paints.get(name) != ink:
+                canvas.itemconfigure(items[name], fill=ink)
         else:
             items[name] = canvas.create_rectangle(
                 *bounds, fill=ink, outline="", tags=tags)
+            structure_changed = True
+        bounds_cache[name] = bounds
+        paints[name] = ink
 
     # The two non-corner rectangles and all strokes share one Canvas.
     if r == 0:
@@ -165,19 +181,29 @@ def draw_rounded_surface(
             name = f"corner-{corner}"
             active.add(name)
             if name in items:
-                canvas.coords(items[name], x, y)
-                canvas.itemconfigure(items[name], image=image)
+                if bounds_cache.get(name) != (x, y):
+                    canvas.coords(items[name], x, y)
+                if revision != getattr(canvas, "_psx_css_corner_revision", None):
+                    canvas.itemconfigure(items[name], image=image)
             else:
                 items[name] = canvas.create_image(
                     x, y, anchor="nw", image=image,
                     tags=("psx-css-surface-corner", f"psx-css-{corner}"))
+                structure_changed = True
+            bounds_cache[name] = (x, y)
         canvas._psx_css_corner_images = images
         canvas._psx_css_corner_revision = revision
-
     for name in set(items) - active:
         canvas.delete(items.pop(name))
+        bounds_cache.pop(name, None)
+        paints.pop(name, None)
+        structure_changed = True
     # A new fill or stroke can be created above an existing corner during
     # style changes. Keep the same painter ordering as a fresh surface.
-    canvas.tag_lower("psx-css-surface-fill")
-    canvas.tag_raise("psx-css-surface-corner")
+    # Existing item order is stable during geometry-only resize.
+    if structure_changed:
+        canvas.tag_lower("psx-css-surface-fill")
+        canvas.tag_raise("psx-css-surface-corner")
     canvas._psx_css_surface_items = items
+    canvas._psx_css_surface_bounds = bounds_cache
+    canvas._psx_css_surface_paints = paints
