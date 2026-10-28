@@ -472,6 +472,85 @@ class TkinterRendererTests(unittest.TestCase):
         lookup.assert_called_once_with(self.root, "sans-serif")
         self.root._psx_css_font_fallbacks.clear()
 
+    def test_unified_rounded_card_has_one_antialiased_surface_and_tracks_parent(self):
+        from psx import psx
+
+        self._enable_native_sfle()
+        self.renderer.root.deiconify()
+        self.addCleanup(self.renderer.root.withdraw)
+
+        def view(parent, fill="#ffffff", border="#123456", radius=12):
+            backdrop = f"background-color: {parent};"
+            card = (
+                f"background-color: {fill};" if fill is not None else ""
+            ) + f"border: 2px solid {border}; border-radius: {radius}px;"
+            return psx(
+                f'<div style="{backdrop} width: 320px; height: 180px">'
+                f'<div key="card" style="{card} width: 160px; height: 64px">'
+                '<span>Activity</span></div></div>'
+            )
+
+        mounted = self.reconciler.render(view("#253349"))
+        card = mounted.children[0].handle.widget
+        surface = card._psx_css_unified_surface
+        self.root.update()
+        self.assertGreater(surface.winfo_width(), 20)
+        self.assertGreater(surface.winfo_height(), 20)
+        self.assertEqual(len(surface._psx_css_corner_images), 4)
+        self.assertFalse(hasattr(card, "_psx_css_background_corners"))
+        self.assertFalse(hasattr(card, "_psx_css_border_edges"))
+        self.assertFalse(hasattr(card, "_psx_css_side_borders"))
+        corner = surface._psx_css_corner_images[0]
+        self.assertEqual(tuple(corner.get(0, 0)), (37, 51, 73))
+        self.assertEqual(tuple(corner.get(11, 11)), (255, 255, 255))
+        self.assertEqual(tuple(corner.get(11, 0)), (18, 52, 86))
+
+        updated = self.reconciler.render(view("#917253"))
+        self.assertIs(updated.children[0].handle.widget, card)
+        self.assertIs(card._psx_css_unified_surface, surface)
+        self.root.update()
+        self.assertEqual(
+            tuple(surface._psx_css_corner_images[0].get(0, 0)),
+            (145, 114, 83),
+        )
+
+        resized = self.reconciler.render(view("#917253", radius=18))
+        self.assertIs(resized.children[0].handle.widget, card)
+        self.assertIs(card._psx_css_unified_surface, surface)
+        self.root.update()
+        self.assertEqual(surface._psx_css_corner_images[0].width(), 18)
+        self.assertEqual(len(surface.find_withtag("psx-css-surface-corner")), 4)
+
+        plain = self.reconciler.render(psx(
+            '<div style="background-color: #917253">'
+            '<div key="card" style="background-color: #ffffff">'
+            '<span>Activity</span></div></div>'
+        ))
+        self.assertIs(plain.children[0].handle.widget, card)
+        self.assertFalse(hasattr(card, "_psx_css_unified_surface"))
+        self.assertFalse(surface.winfo_exists())
+
+    def test_unified_rounded_side_without_card_fill_uses_actual_parent_surface(self):
+        from psx import psx
+
+        self._enable_native_sfle()
+        self.renderer.root.deiconify()
+        self.addCleanup(self.renderer.root.withdraw)
+        mounted = self.reconciler.render(psx(
+            '<div style="background-color: #273448; width: 300px">'
+            '<div style="border-bottom: 2px solid #f0a050;'
+            ' border-radius: 10px; width: 140px; height: 55px">'
+            '<span>Row</span></div></div>'
+        ))
+        widget = mounted.children[0].handle.widget
+        canvas = widget._psx_css_unified_surface
+        self.root.update()
+        self.assertIsNone(widget._psx_css_unified_values[1])
+        self.assertEqual(tuple(canvas._psx_css_corner_images[0].get(0, 0)),
+                         (39, 52, 72))
+        self.assertEqual(len(canvas.find_withtag("psx-css-surface-side")), 1)
+        self.assertFalse(hasattr(widget, "_psx_css_background_corners"))
+
     def test_html_box_background_uses_native_theme_independent_fill(self):
         from psx.markup.compile import psx
         self._enable_native_sfle()
