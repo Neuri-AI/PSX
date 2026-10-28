@@ -888,6 +888,16 @@ class TkinterRenderer:
         """
         fill_corners = getattr(widget, "_psx_css_background_corners", ())
         stroke_corners = getattr(widget, "_psx_css_border_corners", ())
+        button_canvas = getattr(widget, "_psx_css_button_surface", None)
+        if (button_canvas is not None
+                and getattr(widget, "_psx_css_button_authored_background", None) is None):
+            surrounding = self._css_corner_parent_surface(widget)
+            old = widget._psx_css_button_paint_values
+            if old[0] != surrounding:
+                widget._psx_css_button_paint_values = (surrounding, *old[1:])
+                self._redraw_css_ttk_button(widget)
+            if str(button_canvas.cget("background")) != surrounding:
+                button_canvas.configure(background=surrounding)
         if not fill_corners and not stroke_corners:
             return
         surrounding = self._css_corner_parent_surface(widget)
@@ -899,6 +909,128 @@ class TkinterRenderer:
             paint = own if own is not None else surrounding
             if str(corner.cget("background")) != paint:
                 corner.configure(background=paint)
+
+    @staticmethod
+    def _redraw_css_ttk_button(widget: ttk.Button) -> None:
+        """Repaint the CSS-owned button surface, never a theme palette."""
+        canvas = getattr(widget, "_psx_css_button_surface", None)
+        if canvas is None or not canvas.winfo_exists():
+            return
+        fill, ink, radius, label, align, font, left, right = widget._psx_css_button_paint_values
+        width, height = max(1, canvas.winfo_width()), max(1, canvas.winfo_height())
+        radius = min(radius, width // 2, height // 2)
+        canvas.delete("all")
+        if radius:
+            canvas.create_rectangle(radius, 0, width - radius, height,
+                                    fill=fill, outline="", tags=("psx-css-button-fill",))
+            canvas.create_rectangle(0, radius, width, height - radius,
+                                    fill=fill, outline="", tags=("psx-css-button-fill",))
+            for x in (0, width - 2 * radius):
+                for y in (0, height - 2 * radius):
+                    canvas.create_oval(x, y, x + 2 * radius, y + 2 * radius,
+                                      fill=fill, outline="", tags=("psx-css-button-fill",))
+        else:
+            canvas.create_rectangle(0, 0, width, height, fill=fill, outline="",
+                                    tags=("psx-css-button-fill",))
+        anchors = {
+            "left": ("w", max(0, left)),
+            "center": ("center", width // 2),
+            "right": ("e", max(0, width - right)),
+        }
+        anchor, x = anchors[align]
+        canvas.create_text(x, height // 2, text=label, font=font, fill=ink,
+                           anchor=anchor, tags=("psx-css-button-text",))
+
+    def _paint_css_ttk_button(self, widget: ttk.Button, computed: object,
+                             styles: dict[str, object], font: object) -> None:
+        """Own CSS Button paint when ttk themes disregard authored colors.
+
+        The actual ttk.Button keeps focus, keyboard invocation, event slots,
+        layout/measurement identity and native accessibility.  A placed Canvas
+        is paint only and never participates in Cinnamon geometry.
+        """
+        from psx.css.native_paint import background_hex, native_border_radius
+        from psx.sfle.lengths import LengthKind
+
+        painted = getattr(widget, "_psx_css_button_surface", None)
+        paint_keys = (
+            "background-color", "border-width", "border-color",
+            "border-top-width", "border-bottom-width", "border-left-width",
+            "border-right-width", "border-radius",
+        )
+        needs_paint = computed is not None and any(
+            name in computed.specified for name in paint_keys
+        )
+        if not needs_paint:
+            if painted is not None:
+                painted.destroy()
+                del widget._psx_css_button_surface
+                del widget._psx_css_button_paint_values
+                del widget._psx_css_button_authored_background
+            return
+
+        radius = native_border_radius(computed)
+        if radius != int(radius):
+            raise ValueError("Tk CSS Button surface needs integer px border-radius.")
+        background = background_hex(computed)
+        foreground = styles.get("color")
+        if foreground is None:
+            name = str(widget.cget("style"))
+            foreground = (ttk.Style(widget).lookup(name, "foreground")
+                          or ttk.Style(widget).lookup("TButton", "foreground"))
+        if not foreground:
+            raise ValueError("Tk CSS Button requires a resolvable native foreground.")
+        padding = []
+        for side in ("left", "right"):
+            value = computed.properties[f"padding-{side}"]
+            if value.kind is not LengthKind.PX:
+                raise ValueError("Tk CSS Button padding requires pixel units.")
+            padding.append(round(value.value))
+        parent_fill = self._css_corner_parent_surface(widget)
+        fill = background if background is not None else parent_fill
+
+        if painted is None:
+            painted = tk.Canvas(widget, borderwidth=0, highlightthickness=0,
+                                takefocus=0)
+            widget._psx_css_button_surface = painted
+            widget._psx_css_button_pressed = False
+
+            def on_press(event):
+                if widget.instate(("disabled",)):
+                    return
+                widget._psx_css_button_pressed = True
+                widget.focus_set()
+
+            def on_release(event):
+                pressed = widget._psx_css_button_pressed
+                widget._psx_css_button_pressed = False
+                if (pressed and not widget.instate(("disabled",))
+                        and 0 <= event.x < painted.winfo_width()
+                        and 0 <= event.y < painted.winfo_height()):
+                    widget.invoke()
+
+            painted.bind("<ButtonPress-1>", on_press)
+            painted.bind("<ButtonRelease-1>", on_release)
+            painted.bind("<Leave>", lambda _event: setattr(
+                widget, "_psx_css_button_pressed", False))
+            painted.bind("<Configure>", lambda _event:
+                         self._redraw_css_ttk_button(widget))
+        widget._psx_css_button_authored_background = background
+        widget._psx_css_button_paint_values = (
+            fill, str(foreground), int(radius), str(widget.cget("text")),
+            styles.get("text-align", "center"), font, *padding,
+        )
+        painted.configure(background=parent_fill, cursor=str(widget.cget("cursor")))
+        painted.place(x=0, y=0, relwidth=1, relheight=1)
+        painted.lift()
+        # The generic native border overlays are created earlier in apply_css.
+        # Keep them visible over the newly painted control surface.
+        for decoration in (
+            *getattr(widget, "_psx_css_border_edges", ()),
+            *getattr(widget, "_psx_css_border_corners", ()),
+        ):
+            decoration.lift()
+        self._redraw_css_ttk_button(widget)
 
     def apply_css(self, handle: object, computed: object) -> None:
         """Apply CSS backgrounds through an instance-scoped ttk Frame style."""
@@ -1329,6 +1461,8 @@ class TkinterRenderer:
                 repaint()
                 return
             if not styles and not button_paint:
+                if target.node_type == "Button" and isinstance(widget, ttk.Button):
+                    self._paint_css_ttk_button(widget, None, {}, None)
                 if hasattr(widget, "_psx_css_native_font"):
                     widget._psx_css_native_font.configure(
                         **widget._psx_css_native_original_font_config
@@ -1475,6 +1609,8 @@ class TkinterRenderer:
                     else:
                         style.map(style_name, foreground=[])
                 widget.configure(style=style_name)
+                if target.node_type == "Button" and isinstance(widget, ttk.Button):
+                    self._paint_css_ttk_button(widget, computed, styles, font)
             if self._sfle_constraints is not None:
                 keys = ("font-family", "font-size", "font-weight", "line-height")
                 if any(key in styles for key in keys) or hasattr(widget, "_psx_css_font_revision"):
