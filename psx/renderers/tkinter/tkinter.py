@@ -616,8 +616,12 @@ class TkinterRenderer:
         self._sfle_resize_pending = target
         if self._sfle_resize_after_id is None:
             epoch = self._sfle_resize_epoch
-            self._sfle_resize_after_id = self.root.after_idle(
-                lambda: self._sfle_flush_viewport_resize(epoch),
+            # Bound layout commits during continuous WM Configure storms.
+            # The pending dimensions always retain the newest viewport,
+            # including the final drag size. Unlike after_idle, this cannot
+            # starve painting with a commit on every idle turn.
+            self._sfle_resize_after_id = self.root.after(
+                12, lambda: self._sfle_flush_viewport_resize(epoch),
             )
 
     def _sfle_root_axis_tracks_viewport(self, axis: str) -> bool:
