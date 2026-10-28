@@ -321,13 +321,29 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         pixel_space = DevicePixelSpace.from_widget("tk", renderer.root)
         rectangles = dict(result.boxes)
         border_root = rectangles[root_id].border
-        host_box = _geometry(widgets[root_id])
+        # Keep the mounted parent at its previous size while Cinnamon
+        # measures descendants. Stage its new rectangle immediately before
+        # the child batch, rather than exposing an early frame during
+        # set_sfle_constraints().
+        root_widget = widgets[root_id]
+        root_before_resize = dict(root_widget.place_info())
+        root_target = (
+            round(border_root.x), round(border_root.y),
+            round(border_root.width), round(border_root.height),
+        )
+        root_current = None
+        if root_before_resize:
+            try:
+                root_current = tuple(int(root_before_resize[k])
+                    for k in ("x", "y", "width", "height"))
+            except (KeyError, ValueError, TypeError):
+                pass
         # Semantic Block roots can be content-height while the Tk window
         # remains viewport-sized. Keep the strict check for Flex roots.
         semantic_root = dict(prepared.identities)[root_id].type in FORMATTING_TAGS
-        if not semantic_root and (abs(host_box["width"] - border_root.width) > 1.0 or abs(
-            host_box["height"] - border_root.height
-        ) > 1.0):
+        if not semantic_root and (
+            root_target[2] < 0 or root_target[3] < 0
+        ):
             raise SFLEError(
                 DiagnosticCode.LAYOUT_CONSTRAINT,
                 "Tk root border box differs from the native viewport; "
@@ -346,7 +362,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             node_id: dict(widget.place_info())
             for node_id, widget in widgets.items() if node_id != root_id
         }
-        root_before = dict(widgets[root_id].place_info()) if semantic_root else None
+        root_before = root_before_resize
         previous_wraps = {
             node_id: widget.cget("wraplength")
             for node_id, widget in leaf_widgets.items()
@@ -360,11 +376,10 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         try:
             # The Tk window owns the viewport. A semantic CSS root is a
             # separate frame with the border-box size computed by Cinnamon.
-            if semantic_root:
-                widgets[root_id].place(
-                    x=round(border_root.x), y=round(border_root.y),
-                    width=round(border_root.width),
-                    height=round(border_root.height),
+            if root_current != root_target:
+                root_widget.place(
+                    x=root_target[0], y=root_target[1],
+                    width=root_target[2], height=root_target[3],
                 )
             # F2 checks signed 1/64px precision before mutating a single child.
             committer(result)
@@ -438,8 +453,10 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
         except BaseException:
-            if root_before is not None:
+            if root_before:
                 widgets[root_id].place_configure(**root_before)
+            else:
+                widgets[root_id].place_forget()
             restore_scroll_hosts(scroll_before)
             mixed_grid.restore(mixed_before)
             for node_id, old_wrap in previous_wraps.items():
