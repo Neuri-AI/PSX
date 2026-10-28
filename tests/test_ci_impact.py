@@ -433,10 +433,21 @@ class RoutingTests(unittest.TestCase):
     def test_tk_only(self):
         self.assertEqual(self.selected("psx/renderers/tkinter/scroll.py"), {"tkinter"})
 
+    def test_native_corner_comparison_selects_qt_reference_and_tk(self):
+        self.assertEqual(
+            self.selected("psx/renderers/tkinter/rounded_surface.py"),
+            {"qt", "tkinter"},
+        )
+        self.assertEqual(
+            self.selected("tests/test_native_rounded_card_visual.py"),
+            {"qt", "tkinter"},
+        )
+        self.assertEqual(self.selected("psx/renderers/tkinter/scroll.py"), {"tkinter"})
+
     def test_tk_unified_css_surface_and_pixel_regressions_route_to_tkinter(self):
         self.assertEqual(
             self.selected("psx/renderers/tkinter/rounded_surface.py"),
-            {"tkinter"},
+            {"qt", "tkinter"},
         )
         self.assertEqual(
             self.selected("psx/renderers/tkinter/tkinter.py"),
