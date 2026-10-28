@@ -128,6 +128,57 @@ def native_side_border_paint(
     return tuple(result)
 
 
+def rounded_side_stroke_points(
+    side: str, width: float, height: float, radius: float, thickness: float,
+) -> tuple[float, ...]:
+    """Polyline for one rounded CSS border side, in bottom-left coordinates.
+
+    Each adjacent side owns half of its shared quarter-circle. Stroke lines
+    are centered inside the border box and clipped to its actual dimensions;
+    this calculates paint vertices only, not Cinnamon layout geometry.
+    """
+    from math import cos, radians, sin
+
+    if side not in ("top", "right", "bottom", "left"):
+        raise ValueError("Unknown CSS border side.")
+    if width < 0 or height < 0 or radius < 0 or thickness <= 0:
+        raise ValueError("Rounded CSS stroke dimensions must be nonnegative.")
+    half = thickness / 2.0
+    if width <= thickness or height <= thickness:
+        return ()
+    effective_radius = min(radius, width / 2.0, height / 2.0)
+    if effective_radius <= half:
+        limits = {
+            "top": (half, height - half, width - half, height - half),
+            "right": (width - half, height - half, width - half, half),
+            "bottom": (width - half, half, half, half),
+            "left": (half, half, half, height - half),
+        }
+        return limits[side]
+
+    center_radius = effective_radius - half
+    corners = {
+        "tl": (effective_radius, height - effective_radius),
+        "tr": (width - effective_radius, height - effective_radius),
+        "br": (width - effective_radius, effective_radius),
+        "bl": (effective_radius, effective_radius),
+    }
+    arcs = {
+        "top": (("tl", 135, 90), ("tr", 90, 45)),
+        "right": (("tr", 45, 0), ("br", 0, -45)),
+        "bottom": (("br", -45, -90), ("bl", -90, -135)),
+        "left": (("bl", -135, -180), ("tl", 180, 135)),
+    }
+    points = []
+    for corner, start, stop in arcs[side]:
+        cx, cy = corners[corner]
+        for step in range(9):
+            angle = radians(start + (stop - start) * step / 8)
+            points.extend((cx + center_radius * cos(angle),
+                           cy + center_radius * sin(angle)))
+    return tuple(points)
+
+
 def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
     """Compose bounded authored paint into a local Qt stylesheet."""
     from psx.sfle.lengths import Length, LengthKind
