@@ -13,11 +13,18 @@ from pathlib import Path
 import tkinter as tk
 
 import pytest
-from PIL import Image, ImageChops, ImageDraw, ImageGrab
+pytest.importorskip("PIL")
+pytest.importorskip("PySide6.QtWidgets")
+from PIL import Image, ImageChops, ImageGrab
 from PySide6.QtCore import QRect
 from PySide6.QtWidgets import QApplication, QWidget
 
 from psx.renderers.tkinter.rounded_surface import draw_rounded_surface
+
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("PSX_CORNER_VISUAL_OUTPUT"),
+    reason="Native Qt/Tk raster capture must run under the dedicated Xvfb CI step.",
+)
 
 
 PALETTES = (
