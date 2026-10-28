@@ -93,6 +93,11 @@ def _classify_path(path: str) -> set[str]:
         return {"qt"}
     if path in ("tests/test_qt_css_control_background.py", "tests/test_qt_semantic_border_scope.py", "tests/test_qt_scroll_wheel_continuity.py", "tests/test_qt_native_chart_refresh.py"):
         return {"qt"}
+    if path in ("psx/renderers/tkinter/rounded_surface.py",
+                "tests/test_native_rounded_card_visual.py"):
+        # The visual raster comparison runs in the Qt job but exercises the
+        # Tk implementation too; never route these changes to Tk alone.
+        return {"qt", "tkinter"}
     if path == "psx/css/native_paint.py" or path == "tests/css/test_native_paint.py":
         return {"core", "qt", "kivy", "tkinter"}
     if path in ("psx/css/properties.py", "psx/css/parser.py", "psx/css/cascade.py", "psx/css/markup.py", "tests/css/test_parser_and_cascade.py"):
