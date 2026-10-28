@@ -3220,6 +3220,55 @@ def test_grid_composition_reused_for_same_width_within_transaction(monkeypatch):
         bridge.compose("cards", 500)
 
 
+def test_tk_mixed_grid_syncs_native_idle_once_per_composition(monkeypatch):
+    """A composed Grid cannot drain the entire Tcl idle queue per leaf."""
+    from threading import get_ident
+    from types import SimpleNamespace
+    from psx.sfle import mixed_grid_native, tk_measurement
+    from psx.sfle.mixed_grid_native import MountedMixedGrid
+    from psx.sfle.grid_native_commit import GridCommitBackend
+    from psx.sfle.model import IntrinsicSizes
+
+    drains, measured, synced = [], [], []
+    source = object()
+    leaf = SimpleNamespace(source=source)
+    widget = object()
+
+    class NativeSource:
+        def __init__(self, widgets, *, idle_synced=False):
+            assert widgets == {"text": widget}
+            synced.append(idle_synced)
+
+        def measure_width(self, identifier, width):
+            measured.append((identifier, width))
+            return IntrinsicSizes(10, 10, 10, 10, 10, 10)
+
+    def compose(_grid, **kwargs):
+        for index in range(6):
+            kwargs["measure_leaf"]("text", leaf, 50 + index)
+        return SimpleNamespace(content_height=20)
+
+    monkeypatch.setattr(tk_measurement, "TkMeasurementSource", NativeSource)
+    monkeypatch.setattr(mixed_grid_native, "prepare_composed_grid", compose)
+    bridge = object.__new__(MountedMixedGrid)
+    bridge.renderer = SimpleNamespace(
+        _sfle_owner_thread=get_ident(), _sfle_generation=1,
+        _sfle_engine=object(), _sfle_constraints=viewport(800),
+        root=SimpleNamespace(update_idletasks=lambda: drains.append(1)),
+    )
+    bridge.generation = 1
+    bridge.grids = {"cards": object()}
+    bridge.handles = {id(source): SimpleNamespace(widget=widget)}
+    bridge.backend = GridCommitBackend.TK
+    bridge.breakpoints = {}
+    bridge._composition_cache = {}
+    assert bridge.compose("cards", 500).content_height == 20
+    assert bridge.compose("cards", 500).content_height == 20
+    assert len(drains) == 1
+    assert len(measured) == 6
+    assert synced == [True] * 6
+
+
 def test_grid_composition_failure_is_not_cached(monkeypatch):
     from threading import get_ident
     from types import SimpleNamespace
