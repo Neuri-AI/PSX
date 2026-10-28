@@ -167,7 +167,8 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
     snapshot = replace(normalized, measurements=tuple(measurements))
     if normalized.nodes[0].component == "Flex":
         from .width_dependent_intrinsic_measurement import (
-            compute_width_dependent, seed_unconstrained_width_measurements,
+            auto_height_measurement_ids, compute_width_dependent,
+            seed_unconstrained_width_measurements,
         )
         callbacks = {
             node.node_id: (
@@ -176,6 +177,8 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
             )
             for node in normalized.nodes[1:]
             if node.node_id in {item.node_id for item in measurements}
+            and (node.node_id in auto_height_measurement_ids(snapshot)
+                 or identities[node.node_id].type == "Grid")
         }
         snapshot = seed_unconstrained_width_measurements(
             snapshot, frozenset(callbacks),
