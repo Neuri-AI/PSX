@@ -345,7 +345,7 @@ class TkinterRendererTests(unittest.TestCase):
             self.assertIn("font-size", heading.css_computed.specified)
             self.assertIn("font-size", text.css_computed.specified)
             mounted = self.reconciler.render(view)
-            label = mounted.children[0].children[0].handle.widget
+            label = mounted.children[0].children[0].children[0].handle.widget
             native_font = label._psx_text_font
             self.assertEqual(native_font.cget("size"), -29)
             self.assertEqual(native_font.actual("weight"), "bold")
