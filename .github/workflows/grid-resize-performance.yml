@@ -6,6 +6,7 @@ on:
       - "psx/sfle/**"
       - "psx/renderers/**"
       - "benchmarks/grid_resize_profile.py"
+      - "benchmarks/grid_resize_interactive.py"
       - ".github/workflows/grid-resize-performance.yml"
   workflow_dispatch:
 permissions:
@@ -48,6 +49,29 @@ jobs:
           for item in data:
               assert item["cycles"] == 100
               print(f'{item["engine"]}: CPU {item["mean_cpu_ms"]:.3f} ms/resize, wall {item["mean_wall_ms"]:.3f} ms/resize, p95 {item["p95_wall_ms"]:.3f} ms')
+          PY
+      - name: Validate real native window resize event timing
+        run: |
+          xvfb-run -a python benchmarks/grid_resize_interactive.py --engine both --adapter both --cards 6 --cycles 3 --warmup 1 > benchmark-results/grid-resize-events.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("benchmark-results/grid-resize-events.json").read_text())
+          assert {(row["engine"], row["adapter"]) for row in data} == {
+              ("python", "qt"), ("python", "tk"),
+              ("rust", "qt"), ("rust", "tk"),
+          }
+          for row in data:
+              assert row["cycles"] == 3
+              assert row["presentation_feedback_supported"] is False
+              assert row["frame_rate_fps"] is None
+              assert len(row["samples"]) == 3
+              assert all(sample["commits"] >= 1 for sample in row["samples"])
+              assert all(sample["native_event_to_commit_end_ms"] >= 0
+                         for sample in row["samples"])
+              print(f'{row["engine"]}/{row["adapter"]}: native event to commit '
+                    f'{row["mean_event_to_commit_ms"]:.3f} ms, '
+                    f'p95 {row["p95_event_to_commit_ms"]:.3f} ms')
           PY
       - uses: actions/upload-artifact@v4
         if: always()
