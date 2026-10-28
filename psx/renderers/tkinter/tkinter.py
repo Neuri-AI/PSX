@@ -1273,8 +1273,8 @@ class TkinterRenderer:
                     "background": inherited_fill,
                     "font": target.widget._psx_text_font,
                 }
-                if "color" in styles:
-                    label_config["foreground"] = styles["color"]
+                # Foreground stays on the native Label option; leaving
+                # the style foreground untouched also preserves theme state.
                 ttk_style.configure(label_style, **label_config)
                 target.widget._psx_css_background_style = label_style
                 target.widget.configure(style=label_style,
