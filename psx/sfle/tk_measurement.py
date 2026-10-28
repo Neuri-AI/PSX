@@ -226,20 +226,24 @@ class TkMeasurementSource:
         if node_id in self._textarea_ids:
             return self._textarea_metrics(widget, width)
         previous = None
-        wraps = False
+        changed_wrap = False
         try:
             keys = widget.keys() if hasattr(widget, "keys") else ()
-            wraps = "wraplength" in keys
-            if wraps:
+            if "wraplength" in keys:
                 previous = widget.cget("wraplength")
-                widget.configure(wraplength=max(0, round(width)))
+                requested = max(0, round(width))
+                if int(previous) != requested:
+                    widget.configure(wraplength=requested)
+                    changed_wrap = True
+            # Flush pending Tk geometry only once for an unchanged constraint.
+            # Restoring an actually changed wrap requires a second flush.
             widget.update_idletasks()
             measured_width = min(float(width), float(widget.winfo_reqwidth()))
             height = float(widget.winfo_reqheight())
             return IntrinsicSizes(measured_width, measured_width, height, height,
                                   measured_width, height)
         finally:
-            if wraps:
+            if changed_wrap:
                 widget.configure(wraplength=previous)
                 widget.update_idletasks()
 
