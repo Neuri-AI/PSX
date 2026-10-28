@@ -1494,7 +1494,15 @@ class TkinterRenderer:
                     str(widget.cget("style")) if target.node_type not in ("Input", "Select") else None
                 )
             if not hasattr(widget, "_psx_css_native_base_font"):
-                original = ttk.Style(widget).lookup(widget.winfo_class(), "font")
+                # Start with the actual component style, not the generic ttk
+                # class: PSX Button styles specify pixel-sized fonts there.
+                if target.node_type in ("Input", "Select"):
+                    original = widget.cget("font")
+                else:
+                    theme = ttk.Style(widget)
+                    style_name = str(widget.cget("style")) or widget.winfo_class()
+                    original = (theme.lookup(style_name, "font")
+                                or theme.lookup(widget.winfo_class(), "font"))
                 widget._psx_css_native_base_font = original or "TkDefaultFont"
             if not hasattr(widget, "_psx_css_native_font"):
                 widget._psx_css_native_font = tkfont.Font(
@@ -1502,11 +1510,23 @@ class TkinterRenderer:
             font = widget._psx_css_native_font
             if not hasattr(widget, "_psx_css_native_original_font_config"):
                 widget._psx_css_native_original_font_config = font.actual()
+            native_font = widget._psx_css_native_original_font_config
+            # A Tk named Font uses positive *points* by default. Preserve
+            # the portable Button/Input component size in negative device
+            # pixels when CSS only specifies paint, padding or alignment.
+            base_size = native_font["size"]
+            if target.node_type in ("Button", "Input"):
+                from psx.core.contracts import BUTTON_DEFAULTS, INPUT_DEFAULTS
+                defaults = BUTTON_DEFAULTS if target.node_type == "Button" else INPUT_DEFAULTS
+                base_size = -max(1, round(target.props.get(
+                    "font_size", defaults["font_size"]
+                )))
+            font.configure(**native_font)
             font.configure(
-                family=styles.get("font-family", tkfont.nametofont("TkDefaultFont", root=widget).actual("family")),
-                size=-round(styles["font-size"]) if "font-size" in styles else
-                     tkfont.nametofont("TkDefaultFont", root=widget).actual("size"),
-                weight="bold" if styles.get("font-weight", 400) >= 600 else "normal",
+                family=styles.get("font-family", native_font["family"]),
+                size=-round(styles["font-size"]) if "font-size" in styles else base_size,
+                weight=("bold" if styles["font-weight"] >= 600 else "normal")
+                if "font-weight" in styles else native_font["weight"],
             )
             if target.node_type in ("Input", "Select"):
                 widget.configure(font=font)
