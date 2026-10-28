@@ -447,6 +447,24 @@ class RoutingTests(unittest.TestCase):
     def test_headless_only(self):
         self.assertEqual(self.selected("psx/renderers/headless.py"), {"headless"})
 
+    def test_rounded_native_border_changes_select_all_affected_adapters(self):
+        self.assertEqual(
+            self.selected("psx/css/native_paint.py"),
+            {"core", "qt", "kivy", "tkinter"},
+        )
+        self.assertEqual(
+            self.selected("tests/css/test_native_paint.py"),
+            {"core", "qt", "kivy", "tkinter"},
+        )
+        self.assertEqual(self.selected("psx/renderers/kivy/kivy.py"), {"kivy"})
+        self.assertEqual(
+            self.selected("psx/renderers/tkinter/tkinter.py"), {"tkinter"}
+        )
+        self.assertEqual(
+            self.selected("tests/test_mounted_grid_native_renderers.py"),
+            {"core", "qt", "kivy", "tkinter"},
+        )
+
     def test_mounted_grid_lifecycle_runs_all_native_toolkits(self):
         self.assertEqual(self.selected("tests/test_mounted_grid_native_renderers.py"),
                          {"core", "qt", "kivy", "tkinter"})
