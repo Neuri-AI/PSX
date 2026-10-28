@@ -364,6 +364,38 @@ class TkinterRendererTests(unittest.TestCase):
                 ttk.Style(label).lookup(label_style, "background"), "#ffffff"
             )
 
+    def test_css_heading_native_pixels_exceed_default_text_and_trace_is_opt_in(self):
+        import contextlib
+        import io
+        import os
+        from unittest import mock
+        from psx import psx
+
+        self._enable_native_sfle()
+        fixture = (
+            '<div style="background-color: #ffffff">'
+            '<h5 class="prueba" style="font-size: 33px; font-weight: 700">'
+            'Actividad Reciente</h5><p>Normal</p></div>'
+        )
+        observed = io.StringIO()
+        with mock.patch.dict(os.environ, {"PSX_TK_CSS_TRACE": "1"}):
+            with contextlib.redirect_stderr(observed):
+                mounted = self.reconciler.render(psx(fixture))
+        self.root.update_idletasks()
+        heading = mounted.children[0].children[0].handle.widget
+        ordinary = mounted.children[1].children[0].handle.widget
+        self.assertEqual(heading._psx_text_font.cget("size"), -33)
+        self.assertEqual(heading._psx_text_font.actual("weight"), "bold")
+        self.assertGreater(heading.winfo_reqheight(), ordinary.winfo_reqheight())
+        self.assertGreater(heading._psx_text_font.metrics("linespace"),
+                           ordinary._psx_text_font.metrics("linespace"))
+        log = observed.getvalue()
+        self.assertIn("[PSX-TK-CSS]", log)
+        self.assertIn("Actividad Reciente", log)
+        self.assertIn("font-size", log)
+        self.assertIn("requested_height", log)
+        self.assertIn("tk_scaling", log)
+
     def test_html_box_background_uses_native_theme_independent_fill(self):
         from psx.markup.compile import psx
         self._enable_native_sfle()
