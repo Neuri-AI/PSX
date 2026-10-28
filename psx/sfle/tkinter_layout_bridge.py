@@ -420,9 +420,9 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation after native geometry.")
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Tk geometry commit.")
-            # place_info() reports the committed placement immediately.
-            # Do not force a synchronous global Tcl idle/paint drain after
-            # every layout transaction; let Tk present the next idle frame.
+            # Canvas-backed controls on native Tk/Aqua need their pending
+            # geometry and canvas idle jobs settled before interaction.
+            renderer.root.update_idletasks()
             for node_id, vnode in prepared.identities:
                 if vnode.kind is NodeKind.HOST and vnode.type == "Divider" and vnode.children:
                     from psx.renderers.tkinter.divider import TkDividerAdapter
