@@ -244,8 +244,11 @@ class TkMeasurementSource:
                                   measured_width, height)
         finally:
             if changed_wrap:
+                # Restoring the option does not need another synchronous Tk
+                # idle drain: the just-read dimensions belong to the probe,
+                # and a later measurement flushes before consulting hints.
+                # This removes one global idle drain per wrapped Grid leaf.
                 widget.configure(wraplength=previous)
-                widget.update_idletasks()
 
     def port(self) -> NativeMeasurementPort:
         return NativeMeasurementPort(self.is_ui_thread, self.measure)
