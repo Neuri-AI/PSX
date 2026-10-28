@@ -1004,6 +1004,9 @@ class TkinterRenderer:
                 self._redraw_css_ttk_button(widget)
             if str(button_canvas.cget("background")) != surrounding:
                 button_canvas.configure(background=surrounding)
+        # The unified surface must also follow ancestor-only CSS changes.
+        if getattr(widget, "_psx_css_unified_surface", None) is not None:
+            self._redraw_css_unified_surface(widget)
         if not fill_corners and not stroke_corners:
             return
         surrounding = self._css_corner_parent_surface(widget)
@@ -1138,15 +1141,103 @@ class TkinterRenderer:
             tk.Misc.tkraise(decoration)
         self._redraw_css_ttk_button(widget)
 
+    def _redraw_css_unified_surface(self, widget: tk.Misc) -> None:
+        """Refresh one Canvas for CSS fill, border and antialiased corners."""
+        canvas = getattr(widget, "_psx_css_unified_surface", None)
+        if canvas is None or not canvas.winfo_exists():
+            return
+        radius, fill, sides = widget._psx_css_unified_values
+        parent = self._css_corner_parent_surface(widget)
+        width, height = canvas.winfo_width(), canvas.winfo_height()
+        revision = (width, height, radius, parent, fill, tuple(sorted(sides.items())))
+        if revision == getattr(canvas, "_psx_css_paint_revision", None):
+            return
+        from psx.renderers.tkinter.rounded_surface import draw_rounded_surface
+
+        draw_rounded_surface(
+            canvas, width=width, height=height, radius=radius,
+            parent_color=parent, fill_color=fill, sides=sides,
+        )
+        canvas._psx_css_paint_revision = revision
+
+    def _paint_css_unified_surface(
+        self, widget: tk.Misc, computed: object, fill: str | None,
+    ) -> None:
+        """Paint rounded semantic CSS in one instance-owned layer.
+
+        Opaque compositing against a solid real ancestor is deliberate:
+        Canvas has no native per-pixel backdrop transparency over sibling
+        images or animations. Do not silently claim such alpha support.
+        """
+        from psx.css.native_paint import (
+            native_border_paint, native_border_radius, native_side_border_paint,
+        )
+
+        canvas = getattr(widget, "_psx_css_unified_surface", None)
+        if computed is None:
+            if canvas is not None:
+                canvas.destroy()
+                del widget._psx_css_unified_surface
+                del widget._psx_css_unified_values
+            return
+        radius = native_border_radius(computed)
+        full_stroke = native_border_paint(computed)
+        individual = native_side_border_paint(computed)
+        if not radius or not (fill is not None or full_stroke or individual):
+            if canvas is not None:
+                canvas.destroy()
+                del widget._psx_css_unified_surface
+                del widget._psx_css_unified_values
+            return
+        if radius != int(radius) or radius < 1:
+            raise ValueError("Tk unified rounded CSS surfaces require integer pixel radius.")
+        sides = {}
+        if full_stroke is not None:
+            thickness, ink = full_stroke
+            if thickness != int(thickness) or thickness < 1:
+                raise ValueError("Tk unified CSS border requires positive integer pixel width.")
+            sides.update({name: (thickness, ink)
+                          for name in ("top", "right", "bottom", "left")})
+        for name, thickness, rgba in individual:
+            if thickness != int(thickness) or thickness < 1:
+                raise ValueError("Tk unified CSS side requires positive integer pixel width.")
+            if rgba[3] != 1:
+                raise ValueError("Tk unified CSS side requires opaque color.")
+            ink = "#%02x%02x%02x" % tuple(round(v * 255) for v in rgba[:3])
+            sides[name] = (thickness, ink)
+        if canvas is None:
+            canvas = tk.Canvas(widget, borderwidth=0, highlightthickness=0, takefocus=0)
+            widget._psx_css_unified_surface = canvas
+            canvas.bind("<Configure>", lambda _event: self._redraw_css_unified_surface(widget))
+        widget._psx_css_unified_values = (int(radius), fill, sides)
+        canvas.place(x=0, y=0, relwidth=1, relheight=1)
+        # A ttk theme may paint over a lowered child canvas (Aqua). Keep
+        # the CSS layer above the theme, but beneath all native content.
+        tk.Misc.tkraise(canvas)
+        for child in widget.winfo_children():
+            if child is not canvas:
+                tk.Misc.tkraise(child)
+        self._redraw_css_unified_surface(widget)
+
     def apply_css(self, handle: object, computed: object) -> None:
         """Apply CSS backgrounds through an instance-scoped ttk Frame style."""
         from psx.css.native_paint import background_hex
         target = _as_handle(handle)
+        from psx.css.native_paint import native_border_radius, native_border_paint, native_side_border_paint
+        unified = (
+            target.node_type in FORMATTING_TAGS
+            and native_border_radius(computed) > 0
+            and (
+                background_hex(computed) is not None
+                or native_border_paint(computed) is not None
+                or bool(native_side_border_paint(computed))
+            )
+        )
         # Tk/ttk themes do not expose reliable bordercolor painting. Keep an
         # instance-local four-edge overlay instead of changing global ttk styles.
         if target.node_type in ("Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Text", "Badge") or target.node_type in FORMATTING_TAGS:
             from psx.css.native_paint import native_border_paint, native_border_radius
-            stroke = native_border_paint(computed)
+            stroke = None if unified else native_border_paint(computed)
             radius = native_border_radius(computed)
             widget = target.widget
             edges = getattr(widget, "_psx_css_border_edges", None)
@@ -1233,7 +1324,7 @@ class TkinterRenderer:
             active_sides = set()
             active_paint = {}
             side_radius = native_border_radius(computed)
-            if computed is not None:
+            if computed is not None and not unified:
                 for side in ("top", "right", "bottom", "left"):
                     width_key, color_key = f"border-{side}-width", f"border-{side}-color"
                     if width_key not in computed.specified and color_key not in computed.specified:
@@ -1878,6 +1969,25 @@ class TkinterRenderer:
                     if child is not getattr(parent, "_psx_css_fill_canvas", None):
                         refresh_descendant_corners(child)
             refresh_descendant_corners(widget)
+
+        if unified:
+            # The previous multi-widget corner and edge paint is replaced
+            # with a single owned surface; avoid simultaneous decorations.
+            old_fill = getattr(widget, "_psx_css_fill_canvas", None)
+            if old_fill is not None:
+                old_fill.destroy()
+                del widget._psx_css_fill_canvas
+            old_corners = getattr(widget, "_psx_css_background_corners", None)
+            if old_corners is not None:
+                for old_corner in old_corners:
+                    old_corner.destroy()
+                del widget._psx_css_background_corners
+            self._paint_css_unified_surface(widget, computed, color)
+            return
+
+        # Drop the unified paint when the authored style is reset or
+        # no longer contains a painted rounded border/surface.
+        self._paint_css_unified_surface(widget, None, None)
 
         # Several native ttk themes (notably macOS Aqua) ignore custom
         # TFrame background styles. Paint the CSS fill in a child canvas
