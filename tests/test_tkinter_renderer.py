@@ -437,7 +437,7 @@ class TkinterRendererTests(unittest.TestCase):
             if tk_adapter._tk_css_scalable_font(self.root, family)
         )
         with mock.patch("subprocess.run", return_value=CompletedProcess(
-            ["fc-match"], 0, stdout="fixed, " + available + "\\n"
+            ["fc-match"], 0, stdout="fixed, " + available + "\n"
         )) as match:
             with mock.patch.object(
                 tk_adapter, "_tk_css_scalable_font",
