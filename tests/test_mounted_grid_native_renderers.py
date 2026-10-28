@@ -1473,7 +1473,7 @@ def test_rounded_bottom_only_border_updates_without_painting_other_sides():
 
 
 def test_rounded_side_border_without_opaque_fill_preserves_backend_bounds():
-    """Do not silently replace a transparent Tk corner with a theme color."""
+    """Render an unfilled rounded side over the actual native parent surface."""
     from psx.markup.compile import psx
 
     backend = os.environ["PSX_GRID_BACKEND"]
@@ -1484,20 +1484,24 @@ def test_rounded_side_border_without_opaque_fill_preserves_backend_bounds():
         '<span>Row</span></div>'
     )
     try:
+        root = reconciler.render(view)
         if backend == "tk":
-            with pytest.raises(ValueError, match="authored opaque background"):
-                reconciler.render(view)
+            surface = root.handle.widget._psx_css_unified_surface
+            assert root.handle.widget._psx_css_unified_values[1] is None
+            assert root.handle.widget._psx_css_unified_values[2]["bottom"] == (
+                2.0, "#abcdef"
+            )
+            assert len(surface.find_withtag("psx-css-surface-corner")) == 4
+            assert len(surface.find_withtag("psx-css-surface-side")) == 1
+        elif backend == "qt":
+            assert "border-bottom: 2px solid #abcdef;" in root.handle.widget.styleSheet()
+            assert "border-radius: 8px;" in root.handle.widget.styleSheet()
         else:
-            root = reconciler.render(view)
-            if backend == "qt":
-                assert "border-bottom: 2px solid #abcdef;" in root.handle.widget.styleSheet()
-                assert "border-radius: 8px;" in root.handle.widget.styleSheet()
-            else:
-                group, _, sides, lines = root.handle.widget._psx_css_side_strokes
-                assert group in root.handle.widget.canvas.after.children
-                assert sides[0][0] == "bottom"
-                assert root.handle.widget._psx_css_side_radius == 8
-                assert len(lines[0][2].points) == 36
+            group, _, sides, lines = root.handle.widget._psx_css_side_strokes
+            assert group in root.handle.widget.canvas.after.children
+            assert sides[0][0] == "bottom"
+            assert root.handle.widget._psx_css_side_radius == 8
+            assert len(lines[0][2].points) == 36
     finally:
         reconciler.unmount()
         close()
