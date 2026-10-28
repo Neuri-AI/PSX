@@ -136,11 +136,11 @@ class TkinterRendererTests(unittest.TestCase):
         def view(parent_color, disabled):
             return psx(
                 '<div style="background: ' + parent_color + '">'
-                '<button key="action" enabled={' + ("False" if disabled else "True") + '}'
+                '<button key="action" enabled={allowed}'
                 ' style="width: 180px; height: 38px; border: none;'
                 'border-radius: 8px; padding: 0px 10px; color: #6b7385">'
                 'Usuarios</button></div>',
-                scope={},
+                scope={"allowed": not disabled},
             )
 
         # Use the native Button event slot; Canvas must never bypass it.
