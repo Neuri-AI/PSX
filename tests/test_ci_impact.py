@@ -458,7 +458,7 @@ class RoutingTests(unittest.TestCase):
         self.assertIn('failures.append(f"tkinter-aqua={aqua}")', summary)
         self.assertEqual(self.selected(
             ".github/workflows/native-layout-selective.yml"
-        ), set(SUITES))
+        ), {"router", "core", "sfle", "rust", "qt", "kivy", "tkinter", "headless"})
 
     def test_tk_unified_css_surface_and_pixel_regressions_route_to_tkinter(self):
         self.assertEqual(
