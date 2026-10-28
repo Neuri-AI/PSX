@@ -48,8 +48,12 @@ def _corner_pixels(
     sides: Mapping[str, tuple[float, tuple[int, int, int]]],
 ) -> bytes:
     """Supersample each boundary pixel from the SAME circular border geometry."""
-    centers = {"tl": (radius, radius), "tr": (0, radius),
-               "bl": (radius, 0), "br": (0, 0)}
+    # QSS rasterizes its rounded border on a subtly inset subpixel path.
+    # Quarter-pixel coverage aligns Tk's bitmap corners with Qt's QSS at
+    # small radii without altering the CSS radius or Cinnamon's layout box.
+    center = radius + 0.25
+    centers = {"tl": (center, center), "tr": (-0.25, center),
+               "bl": (center, -0.25), "br": (-0.25, -0.25)}
     if corner not in centers:
         raise ValueError("Unrecognized CSS corner.")
     cx, cy = centers[corner]
@@ -63,14 +67,14 @@ def _corner_pixels(
                     dx, dy = x + sx - cx, y + sy - cy
                     distance = math.hypot(dx, dy)
                     shade = parent
-                    if distance <= radius:
+                    if distance <= center:
                         shade = fill
                         # The two adjacent sides split their corner at 45deg.
                         side = ("top" if corner in ("tl", "tr") else "bottom"
                                 ) if abs(dy) >= abs(dx) else (
                                     "left" if corner in ("tl", "bl") else "right")
                         ink = sides.get(side)
-                        if ink is not None and distance > radius - ink[0]:
+                        if ink is not None and distance > center - ink[0]:
                             shade = ink[1]
                     for index, channel in enumerate(shade):
                         totals[index] += channel
