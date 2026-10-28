@@ -15,7 +15,7 @@ import tkinter as tk
 import pytest
 pytest.importorskip("PIL")
 pytest.importorskip("PySide6.QtWidgets")
-from PIL import Image, ImageChops, ImageGrab
+from PIL import Image, ImageChops, ImageDraw, ImageGrab
 from PySide6.QtCore import QRect
 from PySide6.QtWidgets import QApplication, QWidget
 
@@ -132,6 +132,11 @@ def test_qt_reference_tk_real_raster_rounded_card(
         root.destroy()
 
     assert qt_image.size == tk_image.size == SIZE
+    key = f"{_name}-r{radius}-b{width}"
+    qt_image.save(out / f"{key}-qt.png")
+    tk_image.save(out / f"{key}-tk.png")
+    difference = ImageChops.difference(qt_image, tk_image)
+    difference.save(out / f"{key}-difference.png")
     colors = tuple(map(_rgb, (background, fill, border)))
     # Both native painters must retain intended interior and straight edges.
     center = (SIZE[0] // 2, SIZE[1] // 2)
@@ -153,11 +158,6 @@ def test_qt_reference_tk_real_raster_rounded_card(
         f"Qt and Tk rounded-corner classification differs by {disagreement:.1%}"
     )
 
-    key = f"{_name}-r{radius}-b{width}"
-    qt_image.save(out / f"{key}-qt.png")
-    tk_image.save(out / f"{key}-tk.png")
-    difference = ImageChops.difference(qt_image, tk_image)
-    difference.save(out / f"{key}-difference.png")
     with (out / f"{key}.json").open("w", encoding="utf-8") as file:
         json.dump({
             "palette": _name, "radius_px": radius, "border_width_px": width,
@@ -166,3 +166,28 @@ def test_qt_reference_tk_real_raster_rounded_card(
             "pixel_difference_bbox": difference.getbbox(),
             "comparison_status": "bounded geometric parity; not pixel perfect",
         }, file, indent=2)
+
+
+def test_native_rounded_card_visual_contact_sheet():
+    """Create a labeled comparison montage for maintainers reviewing CI."""
+    out = Path(os.environ["PSX_CORNER_VISUAL_OUTPUT"])
+    expected = [
+        f"{name}-r{radius}-b{stroke}"
+        for name, *_colors in PALETTES
+        for radius in RADII
+        for stroke in WIDTHS
+    ]
+    montage = Image.new("RGB", (SIZE[0] * 3 + 20, len(expected) * 105 + 32), "white")
+    draw = ImageDraw.Draw(montage)
+    draw.text((10, 8), "QSS reference             Tk / Xvfb                 |Qt - Tk|", fill="black")
+    for index, key in enumerate(expected):
+        y = 35 + index * 105
+        draw.text((10, y), key, fill="black")
+        for column, role in enumerate(("qt", "tk", "difference")):
+            source = out / f"{key}-{role}.png"
+            if source.is_file():
+                with Image.open(source) as image:
+                    montage.paste(image.convert("RGB"), (10 + column * SIZE[0], y + 18))
+    montage.save(out / "contact-sheet.png")
+    missing = [key for key in expected if not (out / f"{key}-qt.png").exists()]
+    assert not missing, f"Some native visual comparisons produced no captures: {missing}"
