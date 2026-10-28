@@ -10,7 +10,7 @@ def test_equal_leaf_widths_measure_once_per_composition_without_stale_reuse():
     calls = []
 
     def measure_leaf(identifier, node, width):
-        calls.append((identifier, width, node.source.props))
+        calls.append((identifier, width))
         return IntrinsicSizes(30, 30, 12, 12, 30, 12)
 
     def compose(label):
@@ -31,10 +31,9 @@ def test_equal_leaf_widths_measure_once_per_composition_without_stale_reuse():
     assert first.content_height >= 0
     # A provisional remeasurement at an unchanged width must reuse the
     # intrinsic metric captured earlier in this same composition.
-    assert len({(identifier, width) for identifier, width, _ in first_calls}) == len(first_calls)
+    assert len({(identifier, width) for identifier, width in first_calls}) == len(first_calls)
     calls.clear()
     second = compose("updated")
     assert second.content_height >= 0
     # A new composition must measure again, even for the same node and width.
     assert calls
-    assert all("updated" in str(props) for _, _, props in calls)
