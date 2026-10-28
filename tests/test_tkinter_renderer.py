@@ -619,6 +619,20 @@ class TkinterRendererTests(unittest.TestCase):
         del images
         self.assertTrue(set(image_names).isdisjoint(self.root.tk.call("image", "names")))
 
+    def test_internal_css_canvas_configure_binding_needs_no_event_substitution(self):
+        from psx import psx
+
+        self._enable_native_sfle()
+        mounted = self.reconciler.render(psx(
+            '<div style="background: #123456; border-radius: 8px; '
+            'width: 200px; height: 80px">Card</div>'
+        ))
+        canvas = mounted.handle.widget._psx_css_unified_surface
+        script = str(canvas.tk.call("bind", str(canvas), "<Configure>"))
+        self.assertTrue(script)
+        self.assertNotIn("%", script)
+
+
     def test_css_canvas_configure_storm_coalesces_into_one_idle_redraw(self):
         import tkinter as tk
         from unittest.mock import patch
