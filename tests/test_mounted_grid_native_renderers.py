@@ -1395,6 +1395,87 @@ def test_native_css_bottom_border_matches_qt_tk_and_kivy_without_other_sides():
         close()
 
 
+def test_rounded_bottom_only_border_updates_without_painting_other_sides():
+    """Qt, Tk and Kivy preserve a card's rounded CSS bottom divider."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color, radius=8):
+        border = f"border-bottom: 2px solid {color}; " if color else ""
+        return psx(
+            '<div><div key="card" style="background-color: #fafafa; '
+            f'{border}border-radius: {radius}px"><span>Recent</span>'
+            '</div></div>'
+        )
+
+    try:
+        mounted = reconciler.render(view("#123456"))
+        widget = mounted.children[0].handle.widget
+        if backend == "qt":
+            assert "border-bottom: 2px solid #123456;" in widget.styleSheet()
+            assert "border-radius: 8px;" in widget.styleSheet()
+            assert "border-top:" not in widget.styleSheet()
+        elif backend == "tk":
+            assert set(widget._psx_css_side_borders) == {"bottom"}
+            assert len(widget._psx_css_background_corners) == 4
+            bottom_corners = widget._psx_css_background_corners[2:]
+            top_corners = widget._psx_css_background_corners[:2]
+            assert all(len(c.find_withtag("psx-css-side-arc")) == 1
+                       for c in bottom_corners)
+            assert all(not c.find_withtag("psx-css-side-arc")
+                       for c in top_corners)
+            assert all(c.itemcget(c.find_withtag("psx-css-side-arc")[0],
+                                  "outline") == "#123456"
+                       for c in bottom_corners)
+            assert int(widget._psx_css_side_borders["bottom"].place_info()["x"]) == 8
+        else:
+            group, redraw, sides, lines = widget._psx_css_side_strokes
+            assert len(lines) == 1 and lines[0][0] == "bottom"
+            assert sides[0][2] == pytest.approx((18/255, 52/255, 86/255, 1))
+            widget.pos = (12, 14)
+            widget.size = (180, 50)
+            points = list(lines[0][2].points)
+            assert len(points) == 36
+            assert min(points[1::2]) >= 14.9
+            assert max(points[1::2]) < 14 + 8
+            assert group in widget.canvas.after.children
+
+        updated = reconciler.render(view("#123456", 12))
+        assert updated.children[0].handle.widget is widget
+        if backend == "qt":
+            assert "border-radius: 12px;" in widget.styleSheet()
+        elif backend == "tk":
+            assert len(widget._psx_css_background_corners) == 4
+            assert all(int(c.cget("width")) == 12
+                       for c in widget._psx_css_background_corners)
+            assert all(len(c.find_withtag("psx-css-side-arc")) == 1
+                       for c in widget._psx_css_background_corners[2:])
+        else:
+            group2, _, styles2, lines2 = widget._psx_css_side_strokes
+            assert group2 is group
+            assert styles2 == sides
+            assert widget._psx_css_side_radius == 12
+            assert list(lines2[0][2].points) != points
+
+        reset = reconciler.render(view(None, 0))
+        assert reset.children[0].handle.widget is widget
+        if backend == "qt":
+            assert "border-bottom:" not in widget.styleSheet()
+        elif backend == "tk":
+            assert not getattr(widget, "_psx_css_side_borders", None)
+            assert not hasattr(widget, "_psx_css_background_corners")
+        else:
+            assert not hasattr(widget, "_psx_css_side_strokes")
+            assert group not in widget.canvas.after.children
+
+    finally:
+        reconciler.unmount()
+        close()
+
+
 def test_native_semantic_rounded_border_and_background_updates():
     from psx.markup.compile import psx
     backend = os.environ["PSX_GRID_BACKEND"]
