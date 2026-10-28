@@ -68,6 +68,45 @@ from psx.core.contracts import (
     validate_radio_props,
 )
 
+def _resolve_css_tk_font_family(widget: tk.Misc, family_stack: str) -> str:
+    """Choose the first installed CSS face using Tk's active font inventory.
+
+    CSS accepts fallback lists; forwarding only the first name to a native
+    Font made an unavailable face silently replace every later fallback on
+    Linux. Keep the inventory on the owning Tk root rather than on a global
+    theme or an application font configuration.
+    """
+    from tkinter import font as tkfont
+
+    if not isinstance(family_stack, str) or not family_stack.strip():
+        raise ValueError("CSS font-family requires a nonempty family stack.")
+    root = widget.winfo_toplevel()
+    inventory = getattr(root, "_psx_css_font_inventory", None)
+    if inventory is None:
+        inventory = {
+            family.casefold(): family for family in tkfont.families(root=widget)
+        }
+        root._psx_css_font_inventory = inventory
+    generics = frozenset({
+        "sans-serif", "serif", "monospace", "cursive", "fantasy", "system-ui",
+    })
+    for part in family_stack.split(","):
+        family = part.strip().strip("\\\"'")
+        if not family:
+            continue
+        installed = inventory.get(family.casefold())
+        if installed is not None:
+            return installed
+        if family.casefold() in generics:
+            # Tcl/Tk resolves CSS generic families using its font backend,
+            # including fontconfig on X11 and system fonts on Aqua/Windows.
+            # Neither the app nor PSX specifies a platform-dependent face.
+            generic = "sans-serif" if family.casefold() == "system-ui" else family
+            probe = tkfont.Font(root=widget, family=generic)
+            return str(probe.actual("family"))
+    return str(tkfont.nametofont("TkDefaultFont", root=widget).actual("family"))
+
+
 _LAYOUT_PROPS = frozenset({"spacing", "padding"})
 _LAYOUT_UPDATABLE = frozenset({"spacing", "padding"})
 
@@ -1182,6 +1221,10 @@ class TkinterRenderer:
             from psx.renderers.components.text import apply_tk_text
             apply_tk_text(target.widget, target.props)
             styles = native_text_typography(computed, line_height=True)
+            if "font-family" in styles:
+                styles["font-family"] = _resolve_css_tk_font_family(
+                    target.widget, computed.properties["font-family"]
+                )
             if self._sfle_constraints is not None:
                 revision = (target.props.get("value"), tuple((name, styles.get(name)) for name in ("font-family", "font-size", "font-weight", "line-height")))
                 if getattr(target.widget, "_psx_css_font_revision", None) != revision:
@@ -1266,6 +1309,10 @@ class TkinterRenderer:
             from tkinter import font as tkfont
             styles = native_text_typography(computed)
             widget = target.widget
+            if "font-family" in styles:
+                styles["font-family"] = _resolve_css_tk_font_family(
+                    widget, computed.properties["font-family"]
+                )
             if not hasattr(widget, "_psx_css_area_base_font"):
                 widget._psx_css_area_base_font = widget.cget("font")
                 widget._psx_css_area_font = tkfont.Font(
@@ -1303,6 +1350,10 @@ class TkinterRenderer:
             from tkinter import font as tkfont
             styles = native_text_typography(computed)
             widget = target.widget
+            if "font-family" in styles:
+                styles["font-family"] = _resolve_css_tk_font_family(
+                    widget, computed.properties["font-family"]
+                )
             if not styles:
                 if hasattr(widget, "_psx_css_link_font"):
                     widget.configure(
@@ -1348,6 +1399,10 @@ class TkinterRenderer:
             from tkinter import font as tkfont
             styles = native_text_typography(computed, line_height=target.node_type == "Button")
             widget = target.widget
+            if "font-family" in styles:
+                styles["font-family"] = _resolve_css_tk_font_family(
+                    widget, computed.properties["font-family"]
+                )
             button_paint = (
                 target.node_type == "Button"
                 and computed is not None
