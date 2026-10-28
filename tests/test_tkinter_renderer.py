@@ -312,6 +312,47 @@ class TkinterRendererTests(unittest.TestCase):
             text_id = canvas.find_withtag("psx-css-button-text")[0]
             self.assertEqual(canvas.itemcget(text_id, "font"), str(font))
 
+    def test_heading_class_css_controls_actual_tk_text_font(self):
+        """A class on h5 must reach the native Text child, not only its box."""
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from tkinter import font as tkfont
+        from psx import psx
+        from psx.css.context import css_context
+
+        self._enable_native_sfle()
+        installed = tkfont.families(root=self.root)
+        selected = next(name for name in installed
+                        if "cantarell" in name.casefold()) if any(
+                            "cantarell" in name.casefold() for name in installed
+                        ) else tkfont.nametofont(
+                            "TkDefaultFont", root=self.root).actual("family")
+        with TemporaryDirectory() as directory:
+            Path(directory, "styles.css").write_text(
+                ".prueba {font-family: '" + selected +
+                "', sans-serif; font-size: 29px; font-weight: 700;}"
+            )
+            with css_context(stylesheets=("styles.css",), root=directory):
+                view = psx(
+                    '<div class="container"><div class="activity-card">'
+                    '<h5 class="prueba">Actividad Reciente</h5>'
+                    '</div></div>'
+                )
+            # Confirm the style was computed on both formatting host and
+            # the real Text node before testing toolkit projection.
+            heading = view.children[0].children[0]
+            text = heading.children[0]
+            self.assertIn("font-size", heading.css_computed.specified)
+            self.assertIn("font-size", text.css_computed.specified)
+            mounted = self.reconciler.render(view)
+            label = mounted.children[0].children[0].handle.widget
+            native_font = label._psx_text_font
+            self.assertEqual(native_font.cget("size"), -29)
+            self.assertEqual(native_font.actual("weight"), "bold")
+            self.assertEqual(native_font.actual("family").casefold(),
+                             selected.casefold())
+            self.assertEqual(str(label.cget("font")), str(native_font))
+
     def test_html_box_background_uses_native_theme_independent_fill(self):
         from psx.markup.compile import psx
         self._enable_native_sfle()
