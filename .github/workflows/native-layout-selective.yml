@@ -652,11 +652,15 @@ jobs:
           print("60Hz mean budget met:", row["mean_request_to_loop_settled_ms"] <= 16.0)
           print("Compositor frame timestamps:", row["presentation_feedback_supported"])
           PY
+          python -m cProfile -s cumtime benchmarks/grid_resize_interactive.py --adapter tk --engine rust --cards 6 --cycles 10 --warmup 2 --styled > macos-styled-tk-profile.txt
+          sed -n '/function calls in/,+60p' macos-styled-tk-profile.txt
       - uses: actions/upload-artifact@v4
         if: runner.os == 'macOS'
         with:
           name: native-aqua-tk-resize-${{ matrix.os }}
-          path: macos-styled-tk-resize.json
+          path: |
+            macos-styled-tk-resize.json
+            macos-styled-tk-profile.txt
           if-no-files-found: ignore
       - name: Uninstall wheel and prove load-time Python fallback
         run: |
