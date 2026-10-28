@@ -68,13 +68,59 @@ from psx.core.contracts import (
     validate_radio_props,
 )
 
-def _resolve_css_tk_font_family(widget: tk.Misc, family_stack: str) -> str:
-    """Choose the first installed CSS face using Tk's active font inventory.
+def _tk_css_scalable_font(widget: tk.Misc, family: str) -> bool:
+    """Check actual X11/Tk glyph metrics, not the configured font options.
 
-    CSS accepts fallback lists; forwarding only the first name to a native
-    Font made an unavailable face silently replace every later fallback on
-    Linux. Keep the inventory on the owning Tk root rather than on a global
-    theme or an application font configuration.
+    With bitmap-only aliases such as X11 'fixed', Tcl accepts a 30px bold
+    request while continuing to draw the same 10pt normal bitmap.
+    """
+    from tkinter import font as tkfont
+
+    small = tkfont.Font(root=widget, family=family, size=-12)
+    large = tkfont.Font(root=widget, family=family, size=-30, weight="bold")
+    return (large.metrics("linespace") > small.metrics("linespace")
+            and large.actual("weight") == "bold")
+
+
+def _tk_css_system_font(widget: tk.Misc, generic: str) -> str | None:
+    """Resolve CSS generics from the platform's font inventory, not X11 aliases."""
+    from tkinter import font as tkfont
+
+    if sys.platform.startswith("linux"):
+        # Fontconfig is the desktop authority for generic family matching on
+        # Linux. Tcl/Tk's X11 alias lookup can resolve sans-serif to 'fixed'.
+        # Probe both installation and actual Tk rasterization before accepting.
+        import subprocess
+
+        try:
+            match = subprocess.run(
+                ("fc-match", "-f", "%{family}\\n", generic),
+                capture_output=True, check=True, text=True, timeout=2,
+            )
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            pass
+        else:
+            families = match.stdout.splitlines()
+            if families:
+                for family in families[0].split(","):
+                    candidate = family.strip()
+                    if candidate and _tk_css_scalable_font(widget, candidate):
+                        return candidate
+
+    # On other platforms, and without fontconfig, use actual native font
+    # metrics. A nominally resolved family is not proof of scalable glyphs.
+    candidate = str(tkfont.Font(root=widget, family=generic,
+                                size=-30, weight="bold").actual("family"))
+    if _tk_css_scalable_font(widget, candidate):
+        return candidate
+    return None
+
+
+def _resolve_css_tk_font_family(widget: tk.Misc, family_stack: str) -> str:
+    """Resolve CSS fallbacks to an actually scalable native font family.
+
+    Keep resolved candidates scoped to the Tk root. Do not substitute a
+    hardcoded platform font or silently accept a bitmap-only X11 alias.
     """
     from tkinter import font as tkfont
 
@@ -87,6 +133,10 @@ def _resolve_css_tk_font_family(widget: tk.Misc, family_stack: str) -> str:
             family.casefold(): family for family in tkfont.families(root=widget)
         }
         root._psx_css_font_inventory = inventory
+    resolved = getattr(root, "_psx_css_font_fallbacks", None)
+    if resolved is None:
+        resolved = {}
+        root._psx_css_font_fallbacks = resolved
     generics = frozenset({
         "sans-serif", "serif", "monospace", "cursive", "fantasy", "system-ui",
     })
@@ -94,17 +144,26 @@ def _resolve_css_tk_font_family(widget: tk.Misc, family_stack: str) -> str:
         family = part.strip().strip("\\\"'")
         if not family:
             continue
-        installed = inventory.get(family.casefold())
-        if installed is not None:
+        key = family.casefold()
+        if key in generics:
+            generic = "sans-serif" if key == "system-ui" else key
+            if generic not in resolved:
+                resolved[generic] = _tk_css_system_font(widget, generic)
+            candidate = resolved[generic]
+            if candidate is not None:
+                return candidate
+            continue
+        installed = inventory.get(key)
+        if installed is not None and _tk_css_scalable_font(widget, installed):
             return installed
-        if family.casefold() in generics:
-            # Tcl/Tk resolves CSS generic families using its font backend,
-            # including fontconfig on X11 and system fonts on Aqua/Windows.
-            # Neither the app nor PSX specifies a platform-dependent face.
-            generic = "sans-serif" if family.casefold() == "system-ui" else family
-            probe = tkfont.Font(root=widget, family=generic)
-            return str(probe.actual("family"))
-    return str(tkfont.nametofont("TkDefaultFont", root=widget).actual("family"))
+
+    default = str(tkfont.nametofont("TkDefaultFont", root=widget).actual("family"))
+    if _tk_css_scalable_font(widget, default):
+        return default
+    raise ValueError(
+        "Tk CSS font-family cannot find a scalable native face for "
+        f"{family_stack!r}; check Tk/Xft and system fontconfig availability."
+    )
 
 
 _LAYOUT_PROPS = frozenset({"spacing", "padding"})
