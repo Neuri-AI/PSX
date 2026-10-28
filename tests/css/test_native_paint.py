@@ -177,3 +177,28 @@ def test_qt_paints_only_bottom_border_without_synthesizing_other_edges():
     assert "border-bottom: 1px solid #e0e0e0;" in rendered
     assert "border-top:" not in rendered
     assert "border: 1px solid" not in rendered
+
+def test_native_side_stroke_preserves_authored_edges_and_rgba():
+    from psx.css.native_paint import native_side_border_paint
+    assert native_side_border_paint(None) == ()
+    assert native_side_border_paint(_style("")) == ()
+    only_bottom = _style("div { border-bottom: 2px solid #123456; }")
+    assert native_side_border_paint(only_bottom) == (
+        ("bottom", 2.0, (18 / 255, 52 / 255, 86 / 255, 1.0)),
+    )
+    colored = _style("div { border-left: 3px solid #f008; }")
+    assert native_side_border_paint(colored) == (
+        ("left", 3.0, (1.0, 0.0, 0.0, 136 / 255)),
+    )
+    assert native_side_border_paint(_style("div { border-bottom: none; }")) == ()
+
+
+def test_native_side_stroke_updates_fallback_width_and_color_without_ghost_edges():
+    from psx.css.native_paint import native_side_border_paint
+    computed = _style(
+        "div { border-width: 4px; border-color: #abcdef;"
+        " border-bottom-color: #135790; border-top: none; }"
+    )
+    assert native_side_border_paint(computed) == (
+        ("bottom", 4.0, (19 / 255, 87 / 255, 144 / 255, 1.0)),
+    )
