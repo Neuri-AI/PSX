@@ -143,8 +143,8 @@ def test_tk_native_commit_reads_each_rectangle_once_after_writes():
         generation=1, current_generation=lambda: 1, is_ui_thread=lambda: True,
     )
     assert receipt.max_readback_error == 0
-    # Initial snapshot, unplaced detection, one four-axis readback.
-    assert [widgets[key].read_count for key in ("a", "b")] == [3, 3]
+    # One initial snapshot (including unplaced status), one four-axis readback.
+    assert [widgets[key].read_count for key in ("a", "b")] == [2, 2]
 
 
 def test_kivy_real_widget_geometry_projection_and_readback():
