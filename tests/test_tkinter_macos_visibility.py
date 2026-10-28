@@ -39,26 +39,28 @@ def test_aqua_rounded_card_tracks_parent_css_refresh_without_remount():
         first = reconciler.render(view("#f5f6f8", "#ffffff", "#e0e0e0"))
         root.update()
         card = first.children[0].children[0].children[0].children[0].handle.widget
-        corners = card._psx_css_background_corners
-        for corner in corners:
-            assert str(corner.cget("background")) == "#f5f6f8"
-            assert [corner.itemcget(item, "fill") for item in corner.find_all()] == [
-                "#e0e0e0", "#ffffff"]
+        surface = card._psx_css_unified_surface
+        assert surface.winfo_ismapped()
+        assert surface._psx_css_corner_images[0].get(0, 0) == (245, 246, 248)
+        assert surface._psx_css_corner_images[0].get(7, 0) == (224, 224, 224)
+        assert surface._psx_css_corner_images[0].get(7, 7) == (255, 255, 255)
+        assert not hasattr(card, "_psx_css_background_corners")
 
         for page_color in ("#3b6ef5", "#e9d5ff", "#273849"):
             after = reconciler.render(view(page_color, "#ffffff", "#e0e0e0"))
             root.update()
             assert after.children[0].children[0].children[0].children[0].handle.widget is card
-            assert card._psx_css_background_corners == corners
-            assert all(str(corner.cget("background")) == page_color for corner in corners)
+            assert card._psx_css_unified_surface is surface
+            assert surface._psx_css_corner_images[0].get(0, 0) == tuple(
+                round(x / 257) for x in root.winfo_rgb(page_color)
+            )
 
         after = reconciler.render(view("#e9d5ff", "#f7f1df", "#587a9b"))
         root.update()
         assert after.children[0].children[0].children[0].children[0].handle.widget is card
-        for corner in corners:
-            assert str(corner.cget("background")) == "#e9d5ff"
-            assert [corner.itemcget(item, "fill") for item in corner.find_all()] == [
-                "#587a9b", "#f7f1df"]
+        assert surface._psx_css_corner_images[0].get(0, 0) == (233, 213, 255)
+        assert surface._psx_css_corner_images[0].get(7, 0) == (88, 122, 155)
+        assert surface._psx_css_corner_images[0].get(7, 7) == (247, 241, 223)
     finally:
         reconciler.unmount()
         renderer.close()
@@ -139,15 +141,16 @@ def test_aqua_card_corners_have_single_fill_and_explicit_border_color():
         """))
         root.update()
         card = mounted.children[0].handle.widget
-        corners = card._psx_css_background_corners
-        assert len(corners) == 4
+        surface = card._psx_css_unified_surface
+        assert surface.winfo_manager() == "place"
+        assert len(surface._psx_css_corner_images) == 4
+        assert len(surface.find_withtag("psx-css-surface-corner")) == 4
+        assert not hasattr(card, "_psx_css_background_corners")
         assert not hasattr(card, "_psx_css_border_corners")
-        for corner in corners:
-            assert corner.cget("background") == "#0000ff"
-            items = corner.find_all()
-            assert len(items) == 2
-            assert corner.itemcget(items[0], "fill") == "#e0e0e0"
-            assert corner.itemcget(items[1], "fill") == "#ffffff"
+        image = surface._psx_css_corner_images[0]
+        assert image.get(0, 0) == (0, 0, 255)
+        assert image.get(7, 0) == (224, 224, 224)
+        assert image.get(7, 7) == (255, 255, 255)
     finally:
         reconciler.unmount()
         renderer.close()
