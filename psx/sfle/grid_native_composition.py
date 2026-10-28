@@ -170,14 +170,16 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
             auto_height_measurement_ids, compute_width_dependent,
             seed_unconstrained_width_measurements,
         )
+        width_sensitive = auto_height_measurement_ids(snapshot)
+        measured_ids = {item.node_id for item in measurements}
         callbacks = {
             node.node_id: (
                 lambda assigned_width, origin=identities[node.node_id]:
                     measure_flow_leaf(path_identity(origin.path), origin, assigned_width)
             )
             for node in normalized.nodes[1:]
-            if node.node_id in {item.node_id for item in measurements}
-            and (node.node_id in auto_height_measurement_ids(snapshot)
+            if node.node_id in measured_ids
+            and (node.node_id in width_sensitive
                  or identities[node.node_id].type == "Grid")
         }
         snapshot = seed_unconstrained_width_measurements(
