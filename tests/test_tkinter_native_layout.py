@@ -1861,7 +1861,7 @@ def test_tk_width_measurement_preserves_empty_wraplength_and_skips_unchanged_wri
             return 21
 
     for initial, expected_writes, expected_flushes in (
-        ("", [80, ""], 2),
+        ("", [80, ""], 1),
         (80, [], 1),
         ("80", [], 1),
     ):
