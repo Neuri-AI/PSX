@@ -1265,9 +1265,20 @@ class TkinterRenderer:
                     del target.widget._psx_css_background_style
                 target.widget.configure(style="TLabel")
             else:
-                ttk_style.configure(label_style, background=inherited_fill)
+                # Several ttk themes prioritize their TLabel style font when
+                # painting a custom CSS background. Project the exact named
+                # Tk font into this *instance-owned* style as well as the
+                # widget option, so a theme cannot restore its default face.
+                label_config = {
+                    "background": inherited_fill,
+                    "font": target.widget._psx_text_font,
+                }
+                if "color" in styles:
+                    label_config["foreground"] = styles["color"]
+                ttk_style.configure(label_style, **label_config)
                 target.widget._psx_css_background_style = label_style
-                target.widget.configure(style=label_style)
+                target.widget.configure(style=label_style,
+                                        font=target.widget._psx_text_font)
             layer = getattr(target.widget, "_psx_css_text_layer", None)
             leading = styles.get("line-height")
             target.widget._psx_css_line_height = leading
