@@ -571,6 +571,25 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(widget), (0, 0, 36, 20))
         self.assertLessEqual(self.renderer._sfle_physical_commit_error, 1.0)
 
+    def test_aqua_live_configure_commits_without_waiting_for_after_callback(self):
+        from unittest.mock import patch
+
+        root = self.reconciler.render(Flex(
+            item("A", "a", 30), width="100%", height="100%",
+        ))
+        frame = root.handle.widget
+        with patch("psx.renderers.tkinter.tkinter.sys.platform", "darwin"):
+            self.host.geometry("260x120+0+0")
+            self.host.update()
+            self.assertEqual(
+                (self.renderer._sfle_constraints.width.value,
+                 self.renderer._sfle_constraints.height.value), (260, 120),
+            )
+            self.assertEqual(rect(frame), (0, 0, 260, 120))
+            self.assertIsNone(self.renderer._sfle_resize_pending)
+            self.assertIsNone(self.renderer._sfle_resize_after_id)
+            self.assertIsNone(self.renderer._sfle_resize_error)
+
     def test_resize_storm_keeps_latest_dimensions_and_only_one_scheduled_commit(self):
         root = self.reconciler.render(Flex(
             item("A", "a", 30), width="100%", height="100%",
