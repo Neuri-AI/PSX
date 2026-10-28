@@ -38,7 +38,7 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths):
         )
     else:
         renderer = TkinterRenderer(sfle_constraints=viewport(widths[0]), engine=engine)
-    print("diagnostic-start", engine_name, adapter, flush=True)
+    # Native event benchmarking does not log to stdout.
     tree = Reconciler(renderer)
     events = []
     commits = []
