@@ -578,10 +578,16 @@ class TkinterRenderer:
         self._sfle_constraints = constraints
         self._sfle_generation += 1
         if self._sfle_root_widget is not None and self._sfle_root_widget.winfo_exists():
-            self._sfle_root_widget.place_configure(
-                width=round(constraints.width.value),
-                height=round(constraints.height.value),
-            )
+            from psx.sfle.native_grid_bridge import is_mounted_native_grid_root
+            # A Grid root is projected together with its children by the
+            # atomic commit. Placing it here exposes the new parent width
+            # while the child rectangles still belong to the previous frame.
+            mounted = self._sfle_mounted_root
+            if mounted is None or not is_mounted_native_grid_root(mounted):
+                self._sfle_root_widget.place_configure(
+                    width=round(constraints.width.value),
+                    height=round(constraints.height.value),
+                )
 
     def _sfle_on_theme_changed(self, event) -> None:
         if (not self._closed and event.widget is self.root
@@ -616,12 +622,11 @@ class TkinterRenderer:
         self._sfle_resize_pending = target
         if self._sfle_resize_after_id is None:
             epoch = self._sfle_resize_epoch
-            # Bound layout commits during continuous WM Configure storms.
-            # The pending dimensions always retain the newest viewport,
-            # including the final drag size. Unlike after_idle, this cannot
-            # starve painting with a commit on every idle turn.
-            self._sfle_resize_after_id = self.root.after(
-                12, lambda: self._sfle_flush_viewport_resize(epoch),
+            # Commit on the next idle cycle, coalescing every Configure
+            # event already queued by the window manager. The previous
+            # 12-ms timer visibly left stale child geometry on screen.
+            self._sfle_resize_after_id = self.root.after_idle(
+                lambda: self._sfle_flush_viewport_resize(epoch),
             )
 
     def _sfle_root_axis_tracks_viewport(self, axis: str) -> bool:
