@@ -3324,3 +3324,23 @@ def test_grid_flow_leaf_remeasures_after_content_change():
     finally:
         tree.unmount()
         close()
+
+
+def test_tk_grid_resize_does_not_publish_parent_before_child_geometry():
+    """The staged Grid root keeps its prior rectangle until native commit."""
+    if os.environ.get("PSX_GRID_BACKEND") != "tk":
+        pytest.skip("Tk-specific staged root")
+    renderer, close = make_renderer("tk")
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(view())
+        frame = root.handle.widget
+        prior = rectangle(frame, "tk")
+        renderer.set_sfle_constraints(viewport(960))
+        assert rectangle(frame, "tk") == prior
+        renderer.commit_layout(root)
+        assert rectangle(frame, "tk")[2] == 960
+        assert renderer.grid_result[1].max_readback_error <= 1
+    finally:
+        reconciler.unmount()
+        close()
