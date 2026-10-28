@@ -89,7 +89,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                         {identifier: widget}, qtcore=renderer._qtcore)
                 elif backend is GridCommitBackend.TK:
                     from .tk_measurement import TkMeasurementSource
-                    native_source = TkMeasurementSource({identifier: widget})
+                    native_source = TkMeasurementSource({identifier: widget}, idle_synced=True)
                 elif backend is GridCommitBackend.KIVY:
                     from .kivy_measurement import KivyMeasurementSource
                     refresh = getattr(widget, "texture_update", None)
@@ -132,7 +132,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 source = QtMeasurementSource(widgets, qtcore=renderer._qtcore)
             elif backend is GridCommitBackend.TK:
                 from .tk_measurement import TkMeasurementSource
-                source = TkMeasurementSource(widgets)
+                source = TkMeasurementSource(widgets, idle_synced=True)
                 renderer.root.update_idletasks()
             elif backend is GridCommitBackend.KIVY:
                 from .kivy_measurement import KivyMeasurementSource
