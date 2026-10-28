@@ -48,7 +48,7 @@ def cards(count):
     )
 
 
-def measure(engine_name, widths, card_count, warmup, cycles, top, adapter="qt"):
+def measure(engine_name, widths, card_count, warmup, cycles, top, adapter="qt", profile=False):
     if engine_name == "python":
         engine = PythonLayoutEngine()
     else:
@@ -78,7 +78,8 @@ def measure(engine_name, widths, card_count, warmup, cycles, top, adapter="qt"):
             renderer.commit_layout(root)
         times = []
         cpu_times = []
-        profiler.enable()
+        if profile:
+            profiler.enable()
         for idx in range(cycles):
             renderer.set_sfle_constraints(viewport(widths[(idx + 1) % len(widths)]))
             wall = time.perf_counter_ns()
@@ -86,9 +87,11 @@ def measure(engine_name, widths, card_count, warmup, cycles, top, adapter="qt"):
             renderer.commit_layout(root)
             cpu_times.append((time.process_time_ns() - cpu) / 1e6)
             times.append((time.perf_counter_ns() - wall) / 1e6)
-        profiler.disable()
+        if profile:
+            profiler.disable()
         stream = io.StringIO()
-        pstats.Stats(profiler, stream=stream).sort_stats("cumtime").print_stats(top)
+        if profile:
+            pstats.Stats(profiler, stream=stream).sort_stats("cumtime").print_stats(top)
         return dict(
             engine=engine_name, adapter=adapter, cards=card_count, cycles=cycles, warmup=warmup,
             widths=widths, mean_wall_ms=statistics.mean(times),
@@ -114,6 +117,8 @@ def main():
     parser.add_argument("--cycles", type=int, default=100)
     parser.add_argument("--warmup", type=int, default=10)
     parser.add_argument("--top", type=int, default=30)
+    parser.add_argument("--profile", action="store_true",
+                        help="Enable cProfile (adds timing overhead).")
     args = parser.parse_args()
     if args.cards < 1 or args.cycles < 1 or args.warmup < 0:
         parser.error("cards and cycles must be positive, warmup nonnegative")
@@ -121,7 +126,8 @@ def main():
     engines = ("python", "rust") if args.engine == "both" else (args.engine,)
     adapters = ("qt", "tk") if args.adapter == "both" else (args.adapter,)
     print(json.dumps(
-        [measure(engine, widths, args.cards, args.warmup, args.cycles, args.top, adapter)
+        [measure(engine, widths, args.cards, args.warmup, args.cycles, args.top, adapter,
+                 profile=args.profile)
          for engine in engines for adapter in adapters], indent=2
     ))
 
