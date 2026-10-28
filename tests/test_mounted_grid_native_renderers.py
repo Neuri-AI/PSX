@@ -3295,3 +3295,31 @@ def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends(wrapped_r
     finally:
         reconciler.unmount()
         close()
+
+
+def test_grid_flow_leaf_remeasures_after_content_change():
+    """Per-composition measurements must never outlive a content update."""
+    from psx import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    tree = Reconciler(renderer)
+    try:
+        first = tree.render(psx(
+            '<Grid gap="0px"><GridItem span="12">'
+            '<div><p key="copy">Short</p></div>'
+            '</GridItem></Grid>'
+        ))
+        widget = first.children[0].children[0].children[0].handle.widget
+        first_width = rectangle(widget, backend)[2]
+        second = tree.render(psx(
+            '<Grid gap="0px"><GridItem span="12">'
+            '<div><p key="copy">A substantially longer paragraph of native text</p></div>'
+            '</GridItem></Grid>'
+        ))
+        assert second.children[0].children[0].children[0].handle.widget is widget
+        assert rectangle(widget, backend)[2] >= first_width
+        assert renderer.grid_result is not None
+        assert renderer.grid_result[1].max_readback_error <= 1
+    finally:
+        tree.unmount()
+        close()
