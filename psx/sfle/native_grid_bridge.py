@@ -28,6 +28,20 @@ def is_mounted_native_grid_root(root: object) -> bool:
     return node.node.kind is NodeKind.HOST and node.node.type == "Grid"
 
 
+
+def root_geometry_changed(backend: GridCommitBackend, previous, desired) -> bool:
+    """Compare native root geometry without treating Tk auto sizes as pixels."""
+    if backend is GridCommitBackend.TK:
+        if not previous:
+            return True
+        try:
+            actual = tuple(int(previous[axis]) for axis in ("x", "y", "width", "height"))
+        except (KeyError, TypeError, ValueError):
+            return True
+        return actual != desired
+    return previous != desired
+
+
 def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBackend) -> None:
     """Commit a reconciled native Grid without a toolkit layout manager."""
     if get_ident() != renderer._sfle_owner_thread:
@@ -234,14 +248,11 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             # This host never delegates sibling geometry to toolkit layout.
             if backend is GridCommitBackend.QT and not top_level_qt:
                 desired = (0, 0, round(width), round(height))
-                if previous_root != desired:
+                if root_geometry_changed(backend, previous_root, desired):
                     root_widget.setGeometry(*desired)
             elif backend is GridCommitBackend.TK:
                 desired = (0, 0, round(width), round(height))
-                if not previous_root or any(
-                    int(previous_root[axis]) != value
-                    for axis, value in zip(("x", "y", "width", "height"), desired)
-                ):
+                if root_geometry_changed(backend, previous_root, desired):
                     root_widget.place(x=0, y=0, width=desired[2], height=desired[3])
             elif backend is GridCommitBackend.KIVY:
                 if previous_root[0] != (0, 0):
