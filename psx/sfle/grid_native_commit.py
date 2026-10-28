@@ -151,8 +151,12 @@ def commit_grid_native_geometry(
             write(widgets[node_id], desired)
         if current_generation() != generation or not is_ui_thread():
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before readback.")
+        # Read each native rectangle once. Repeating read() inside the axis
+        # loop performs four full Tcl place_info() round trips per widget,
+        # although all four axes describe the same committed rectangle.
+        observed = {node_id: read(widgets[node_id]) for node_id in ids}
         error = max((
-            abs(getattr(read(widgets[node_id]), axis) - getattr(target[node_id], axis))
+            abs(getattr(observed[node_id], axis) - getattr(target[node_id], axis))
             for node_id in ids for axis in ("x", "y", "width", "height")
         ), default=0.0)
         if error > readback_tolerance:
