@@ -40,6 +40,12 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         generation = renderer._sfle_generation + 1
         renderer._sfle_generation = generation
         invalidation_epoch = renderer._sfle_measurement_invalidations.epoch
+        from .grid_intrinsic_reuse import GridIntrinsicReuse
+        reuse = getattr(renderer, '_psx_grid_intrinsic_reuse', None)
+        if reuse is None:
+            reuse = GridIntrinsicReuse()
+            renderer._psx_grid_intrinsic_reuse = reuse
+        reuse_transaction = reuse.begin(invalidation_epoch)
         components, handles = {}, {}
 
         def gather(instance):
