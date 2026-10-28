@@ -181,7 +181,10 @@ def prepare_composed_flex(
         engine, snapshot,
         {identifier: (lambda width, identifier=identifier:
                       measure(identifier, width))
-         for identifier in descendants if identifier in width_sensitive},
+         for identifier, node in descendants.items()
+         if identifier in width_sensitive or (
+             node.kind is NodeKind.HOST and node.type == "Grid"
+         )},
         current_generation=lambda: current_generation,
     )
     boxes = dict(computed.boxes)
