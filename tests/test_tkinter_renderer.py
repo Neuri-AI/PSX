@@ -78,6 +78,107 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertEqual(theme.lookup(name, "background"), "#3b6ef5")
         self.assertEqual(theme.lookup(name, "foreground"), "#ffffff")
 
+    @unittest.skipIf(sys.platform == "darwin", "Aqua buttons use the classic Tk paint bridge.")
+    def test_styled_ttk_button_uses_authored_canvas_paint_and_resets(self):
+        from psx import psx
+
+        self._enable_native_sfle()
+        self.renderer.root.deiconify()
+        self.addCleanup(self.renderer.root.withdraw)
+        markup = lambda bg, radius: psx(
+            '<div style="background: #1f2430">'
+            '<button key="action" style="width: 180px; height: 38px;'
+            'border: none; border-radius: ' + str(radius) + 'px;'
+            'background: ' + bg + '; color: #ffffff">'
+            'Reportes</button></div>'
+        )
+        first = self.reconciler.render(markup("#3b6ef5", 8))
+        button = first.children[0].handle.widget
+        surface = button._psx_css_button_surface
+        self.renderer.root.update()
+        self.assertTrue(surface.winfo_exists())
+        self.assertEqual(str(surface.cget("background")), "#1f2430")
+        painted = surface.find_withtag("psx-css-button-fill")
+        self.assertTrue(painted)
+        self.assertTrue(all(
+            surface.itemcget(item, "fill") == "#3b6ef5" for item in painted
+        ))
+        self.assertEqual(
+            surface.itemcget(surface.find_withtag("psx-css-button-text")[0], "fill"),
+            "#ffffff",
+        )
+
+        updated = self.reconciler.render(markup("#26ad83", 12))
+        self.assertIs(updated.children[0].handle.widget, button)
+        self.assertIs(button._psx_css_button_surface, surface)
+        painted = surface.find_withtag("psx-css-button-fill")
+        self.assertTrue(painted)
+        self.assertTrue(all(
+            surface.itemcget(item, "fill") == "#26ad83" for item in painted
+        ))
+
+        reset = self.reconciler.render(
+            psx('<div style="background: #1f2430"><button key="action">Reportes</button></div>')
+        )
+        self.assertIs(reset.children[0].handle.widget, button)
+        self.assertFalse(hasattr(button, "_psx_css_button_surface"))
+        self.assertFalse(surface.winfo_exists())
+
+    @unittest.skipIf(sys.platform == "darwin", "Aqua buttons use the classic Tk paint bridge.")
+    def test_transparent_styled_ttk_button_tracks_parent_and_dispatches_once(self):
+        from psx import psx
+
+        self._enable_native_sfle()
+        self.renderer.root.deiconify()
+        self.addCleanup(self.renderer.root.withdraw)
+        clicked = []
+
+        def view(parent_color, disabled):
+            return psx(
+                '<div style="background: ' + parent_color + '">'
+                '<button key="action" enabled={' + ("False" if disabled else "True") + '}'
+                ' style="width: 180px; height: 38px; border: none;'
+                'border-radius: 8px; padding: 0px 10px; color: #6b7385">'
+                'Usuarios</button></div>',
+                scope={},
+            )
+
+        # Use the native Button event slot; Canvas must never bypass it.
+        initial = self.reconciler.render(view("#1f2430", False))
+        button_instance = initial.children[0]
+        button = button_instance.handle.widget
+        surface = button._psx_css_button_surface
+        self.renderer.root.update()
+        self.assertTrue(all(
+            surface.itemcget(i, "fill") == "#1f2430"
+            for i in surface.find_withtag("psx-css-button-fill")
+        ))
+        self.assertEqual(surface.cget("background"), "#1f2430")
+
+        changed = self.reconciler.render(view("#273448", False))
+        self.assertIs(changed.children[0].handle.widget, button)
+        self.assertIs(button._psx_css_button_surface, surface)
+        self.assertTrue(all(
+            surface.itemcget(i, "fill") == "#273448"
+            for i in surface.find_withtag("psx-css-button-fill")
+        ))
+
+        # After a native callback is bound, the owned surface activates the
+        # current callback exactly once; disabling the control prevents it.
+        from psx.core.events import EventSlot
+        slot = EventSlot(lambda: clicked.append("clicked"))
+        subscription = self.renderer.bind_event(button_instance.handle, "on_click", slot)
+        self.addCleanup(lambda: self.renderer.unbind_event(subscription))
+        self.renderer.root.update()
+        surface.event_generate("<ButtonPress-1>", x=10, y=10)
+        surface.event_generate("<ButtonRelease-1>", x=10, y=10)
+        self.assertEqual(clicked, ["clicked"])
+        self.reconciler.render(view("#273448", True))
+        self.renderer.root.update()
+        surface.event_generate("<ButtonPress-1>", x=10, y=10)
+        surface.event_generate("<ButtonRelease-1>", x=10, y=10)
+        self.assertEqual(clicked, ["clicked"])
+
     def test_html_box_background_uses_native_theme_independent_fill(self):
         from psx.markup.compile import psx
         self._enable_native_sfle()
