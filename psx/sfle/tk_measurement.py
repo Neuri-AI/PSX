@@ -232,7 +232,7 @@ class TkMeasurementSource:
             if "wraplength" in keys:
                 previous = widget.cget("wraplength")
                 requested = max(0, round(width))
-                if int(previous) != requested:
+                if previous != requested and str(previous) != str(requested):
                     widget.configure(wraplength=requested)
                     changed_wrap = True
             # Flush pending Tk geometry only once for an unchanged constraint.
