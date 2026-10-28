@@ -139,6 +139,10 @@ def prepare_composed_flex(
             "certified viewport integration."
         )
     nested_grids = {}
+    # This cache belongs to one composition only. It is never shared with a
+    # later resize, style update, native-resource change, or layout generation.
+    # Nested Grid computations remain uncached because they carry placements.
+    measured_leaves: dict[tuple[str, float], IntrinsicSizes] = {}
 
     def measure(identifier, width):
         node = descendants[identifier]
@@ -147,9 +151,13 @@ def prepare_composed_flex(
             nested_grids[identifier] = composition
             height = composition.content_height
             return IntrinsicSizes(0, width, 0, height, width, height)
+        key = (identifier, width)
+        if key in measured_leaves:
+            return measured_leaves[key]
         intrinsic = measure_leaf(identifier, node, width)
         if not isinstance(intrinsic, IntrinsicSizes):
             raise GridPackingError("Flex-in-Grid leaf requires actual native IntrinsicSizes.")
+        measured_leaves[key] = intrinsic
         return intrinsic
 
     metrics = tuple(
