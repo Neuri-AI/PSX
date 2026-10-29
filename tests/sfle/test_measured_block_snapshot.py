@@ -56,6 +56,14 @@ def test_native_block_flow_uses_measured_leaf_heights():
     assert rectangles["text"].border.height == 30
 
 
+def test_zero_edge_native_boxes_reuse_already_quantized_geometry():
+    result = compute_measured_block_snapshot(snapshot())
+    for box in dict(result.boxes).values():
+        assert box.content is box.padding
+        assert box.padding is box.border
+        assert box.border is box.margin
+
+
 def test_unmeasured_native_leaf_is_not_replaced_with_fake_zero():
     with pytest.raises(SFLECapabilityError, match="missing intrinsic"):
         compute_measured_block_snapshot(snapshot(measured=False))
