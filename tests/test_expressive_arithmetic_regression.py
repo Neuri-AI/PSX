@@ -36,6 +36,28 @@ class ArithmeticRegressionTests(unittest.TestCase):
         node.props["on_change"]("secret")
         self.assertEqual(changes, ["secret"])
 
+    def test_html_input_click_callback(self):
+        clicks = []
+        node = view_from('<input type="text" value={name} on_click={() => set_count(count + 1)} />')(
+            2, clicks.append, ""
+        )
+        self.assertEqual(clicks, [])
+        self.assertTrue(callable(node.props["on_click"]))
+        node.props["on_click"]()
+        self.assertEqual(clicks, [3])
+
+    def test_html_input_change_and_click_together(self):
+        values = []
+        clicks = []
+        node = view_from(
+            '<input type="password" value={name} on_click={() => set_count(count + 1)} '
+            'on_change={(event) => set_name(event.target.value)} />'
+        )(2, clicks.append, "", values.append)
+        node.props["on_change"]("password")
+        node.props["on_click"]()
+        self.assertEqual(values, ["password"])
+        self.assertEqual(clicks, [3])
+
     def test_arithmetic_expressions_parse_as_binary(self):
         parsed = parse_expressive_expression("count + 1")
         self.assertIsInstance(parsed, Binary)
