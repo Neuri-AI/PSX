@@ -1495,7 +1495,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 print("TEXT_RECTS", tuple(text.pos),tuple(text.size), "item", geometry(item),flush=True)
                 absolute_y = 0.0
                 current = text
-                while current is not None:
+                while current is not None and current is not Window:
                     absolute_y += current.y
                     current = current.parent
                 assert absolute_y > 400, (absolute_y, geometry(item), geometry(grid))
