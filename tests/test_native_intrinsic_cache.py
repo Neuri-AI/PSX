@@ -181,3 +181,69 @@ def test_failed_round_preserves_last_committed_cache_and_clear_drops_refs():
     cache.clear()
     gc.collect()
     assert retained() is None
+
+
+def test_viewport_independent_intrinsic_is_rebound_to_current_constraints():
+    """Width-independent widgets keep exact intrinsic but fresh SFLE wire."""
+    cache = NativeIntrinsicCache()
+    widget = object()
+    narrow = LayoutConstraints(AvailableSize(120, True), AvailableSize(60, True))
+    wide = LayoutConstraints(AvailableSize(420, True), AvailableSize(90, True))
+    calls = []
+    intrinsic = IntrinsicSizes(8, 24, 9, 17, 24, 17)
+
+    def read(constraints, generation, props=None, dirty=frozenset()):
+        tx = cache.begin(dirty_widgets=dirty)
+        node_id = f"mounted-{generation}"
+        box = tx.read(
+            widget=widget, props=props or {"text": "stable"},
+            constraints=constraints, node_id=node_id,
+            generation=generation, viewport_independent=True,
+            measure=lambda: (
+                calls.append(generation),
+                MeasuredBox(node_id, intrinsic, constraints, generation),
+            )[1],
+        )
+        tx.publish()
+        return box
+
+    first = read(narrow, 1)
+    second = read(wide, 2)
+    assert calls == [1]
+    assert second.intrinsic == first.intrinsic
+    assert second.constraints == wide
+    assert second.revision == 2 and second.node_id == "mounted-2"
+    read(wide, 3, props={"text": "changed"})
+    read(narrow, 4, props={"text": "changed"}, dirty=frozenset({id(widget)}))
+    assert calls == [1, 3, 4]
+
+
+def test_native_viewport_reuse_is_opt_in_and_never_poisoned_by_prior_mode():
+    cache = NativeIntrinsicCache()
+    widget = object()
+    narrow = LayoutConstraints(AvailableSize(80, True), AvailableSize(60, True))
+    wide = LayoutConstraints(AvailableSize(300, True), AvailableSize(60, True))
+    calls = []
+    def read(viewport, safe, generation):
+        tx = cache.begin()
+        result = tx.read(
+            widget=widget, props={"text": "stable"}, constraints=viewport,
+            node_id="label", generation=generation,
+            viewport_independent=safe,
+            measure=lambda: (
+                calls.append((safe, viewport.width.value)),
+                MeasuredBox("label", IntrinsicSizes(4, 4, 4, 4, 4, 4),
+                            viewport, generation),
+            )[1],
+        )
+        tx.publish()
+        return result
+
+    read(narrow, False, 1)
+    read(wide, False, 2)
+    read(narrow, True, 3)
+    read(wide, True, 4)
+    read(wide, False, 5)
+    assert calls == [
+        (False, 80), (False, 300), (True, 80), (False, 300),
+    ]
