@@ -4,7 +4,7 @@ on:
     branches: [fixes/psx-issues]
     paths:
       - "psx/sfle/**"
-      - "tests/test_flow_linear_complexity.py tests/test_native_structural_snapshot_reuse.py"
+      - "tests/test_flow_linear_complexity.py tests/test_native_structural_snapshot_reuse.py tests/test_native_geometry_write_suppression.py"
       - ".github/workflows/grid-resize-performance.yml"
   pull_request:
     branches: [develop]
