@@ -350,20 +350,25 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             MarginTreeNode(node.node_id, node.parent_id, 0, 0)
             for node in snapshot.nodes
         )
+        # One owner-thread QWidget.geometry() read per native node is enough
+        # for both atomic rollback and unchanged-placement suppression.
+        # The previous implementation issued four reads per node to build
+        # this tuple, then a fifth inside the native geometry committer.
+        before = {}
+        for node_id, handle in bindings.items():
+            if node_id == snapshot.nodes[0].node_id:
+                continue
+            rect = handle.widget.geometry()
+            before[node_id] = (
+                rect.x(), rect.y(), rect.width(), rect.height(),
+            )
         committer = NativeGeometryCommitter(
             GeometryBackend.QT, nodes,
             {node_id: handle.widget for node_id, handle in bindings.items()},
             external_ports=external,
             skip_unchanged=True,
+            prior_qt_rectangles=before,
         )
-        before = {
-            node_id: (
-                widget.widget.geometry().x(), widget.widget.geometry().y(),
-                widget.widget.geometry().width(), widget.widget.geometry().height(),
-            )
-            for node_id, widget in bindings.items()
-            if node_id != snapshot.nodes[0].node_id
-        }
         root_id = snapshot.nodes[0].node_id
         root_widget = bindings[root_id].widget
         semantic_shell = getattr(root_widget, "_psx_sfle_viewport_shell", None)
