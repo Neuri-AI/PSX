@@ -1370,6 +1370,20 @@ class KivyRenderer:
         if self._root is None:
             raise RuntimeError(
                 "KivyRenderer.run() requires a mounted PSX root.")
+        # A root with Cinnamon-owned geometry has size_hint=None. Kivy will
+        # not automatically expand it to the SDL2 window when runTouchApp
+        # attaches it, so reconcile the viewport once the root is mounted.
+        # The existing size observer schedules the corresponding layout.
+        def sync_attached_viewport(_dt):
+            from kivy.core.window import Window
+            root = self._sfle_watched_widget
+            if root is not None and root.parent is Window:
+                width, height = Window.size
+                if width > 0 and height > 0:
+                    if tuple(root.size) != (width, height):
+                        root.size = (width, height)
+
+        Clock.schedule_once(sync_attached_viewport, 0)
         runTouchApp(self._root)
         return 0
 
