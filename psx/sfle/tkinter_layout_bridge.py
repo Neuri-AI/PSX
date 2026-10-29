@@ -157,11 +157,28 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             and not (source.type == "Divider" and source.children)
             and node_id not in external
         }
-        # Let Tcl calculate requested sizes without giving it layout authority.
-        renderer.root.update_idletasks()
-        # This is the same native baseline consumed by the mixed Grid below.
-        # Do not drain the global Tcl queue a second time just for Grid.
-        # Any width probe that mutates wraplength still settles itself.
+        # A successful prior commit already drained Tk's requested-size
+        # queue. Pure viewport resizing does not mutate widget text, fonts,
+        # CSS, or resource identity; only Cinnamon's allocated rectangles
+        # change. Reuse that settled baseline instead of globally draining
+        # every Canvas and idle callback before each layout solve.
+        #
+        # Fail closed on first mount, unsafe property values, external native
+        # widgets, replacement trees, or semantic measurement invalidations.
+        stable_native_baseline = (
+            signature_safe
+            and prior_signature is not None
+            and renderer.sfle_result is not None
+            and not external
+            and not renderer._sfle_measurement_invalidations.needs_commit()
+            and prior_signature[0][1] == layout_signature[1]
+            and prior_signature[1] == paint_signature
+        )
+        if not stable_native_baseline:
+            renderer.root.update_idletasks()
+        # The previous successful commit's final idle drain is equivalent
+        # to this transaction's initial drain for stable native dependencies.
+        # Width probes that change wraplength still drain explicitly.
         mixed_grid._tk_idle_synced = True
         textarea_ids = frozenset(
             node_id for node_id, vnode in prepared.identities
