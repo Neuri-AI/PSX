@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from threading import get_ident
 
-from psx.core.layout_tree import normalize_flex_tree
+from psx.sfle.native_structural_snapshot_reuse import NativeStructuralSnapshotReuse, mounted_structural_token
 from psx.core.grid_contract import GRID_BREAKPOINTS
 from psx.core.vnode import NodeKind
 
@@ -66,6 +66,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             flow_reuse = FlowBlueprintReuse()
             renderer._psx_grid_flow_blueprints = flow_reuse
         components, handles = {}, {}
+        mounted_stamp = []
 
         def gather(instance):
             if instance.disposed:
@@ -78,11 +79,18 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 if instance.handle is None or id(instance.node) in handles:
                     raise SFLEError(DiagnosticCode.INVALID_TREE, "Missing or reused Grid handle.")
                 handles[id(instance.node)] = instance.handle
+            mounted_stamp.append(mounted_structural_token(instance))
             for child in instance.children:
                 gather(child)
 
         gather(root)
-        normalized = normalize_flex_tree(root.node, component_roots=components)
+        structural = getattr(renderer, "_sfle_structural_snapshot_reuse", None)
+        if structural is None:
+            structural = NativeStructuralSnapshotReuse()
+            renderer._sfle_structural_snapshot_reuse = structural
+        normalized = structural.normalize(
+            root.node, components, mounted_stamp, invalidation_epoch,
+        )
         roots = normalized._participating_roots()
         if len(roots) != 1 or roots[0].type != "Grid":
             raise GridPackingError("Expected one mounted Grid root.")
