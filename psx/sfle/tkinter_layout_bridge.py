@@ -159,6 +159,10 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         }
         # Let Tcl calculate requested sizes without giving it layout authority.
         renderer.root.update_idletasks()
+        # This is the same native baseline consumed by the mixed Grid below.
+        # Do not drain the global Tcl queue a second time just for Grid.
+        # Any width probe that mutates wraplength still settles itself.
+        mixed_grid._tk_idle_synced = True
         textarea_ids = frozenset(
             node_id for node_id, vnode in prepared.identities
             if vnode.kind is NodeKind.HOST and vnode.type == "TextArea"
