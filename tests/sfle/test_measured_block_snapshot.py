@@ -2,6 +2,7 @@
 import pytest
 
 from psx.sfle.errors import SFLECapabilityError
+from psx.sfle.fixed_point import LayoutUnit, nearest_layout_px
 from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
 from psx.sfle.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
@@ -23,6 +24,23 @@ def snapshot(*, measured=True, nested=False):
         MeasuredBox("text", IntrinsicSizes(100, 100, 30, 30, 100, 30), constraints, 1),
     ) if measured else ()
     return LayoutInput(1, 7, WritingDirection.LTR, constraints, nodes, data)
+
+
+@pytest.mark.parametrize("value", [
+    0, 0.1, -0.1, 0.5 / 64, -0.5 / 64,
+    1.5 / 64, -1.5 / 64, 2.5 / 64, -2.5 / 64,
+    19.3, -19.3, 1000.234, -1000.234,
+    (2**31 - 1) / 64, -(2**31) / 64,
+    2**31, -(2**31),
+])
+def test_fast_block_rounding_is_bit_identical_to_blink_layout_unit(value):
+    assert nearest_layout_px(value) == LayoutUnit.from_nearest(value).to_px()
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf")])
+def test_fast_block_rounding_rejects_nonfinite_values(value):
+    with pytest.raises(ValueError, match="NaN and infinity"):
+        nearest_layout_px(value)
 
 
 def test_native_block_flow_uses_measured_leaf_heights():
