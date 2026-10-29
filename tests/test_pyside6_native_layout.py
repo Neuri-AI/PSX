@@ -38,6 +38,27 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.r.unmount()
         self.renderer.application.processEvents()
 
+    def test_resizing_mixed_grid_reuses_text_hints_without_changing_native_geometry(self):
+        """Mixed Grid reuse is committed only after Qt geometry readback."""
+        self.renderer.set_sfle_constraints(constraints(420, 240))
+        root = self.r.render(psx(
+            '<div><Grid gap="8px">'
+            '<GridItem span="6" key="a"><div>'
+            '<div>Card A</div><div>Value 17</div>'
+            '</div></GridItem>'
+            '<GridItem span="6" key="b"><div>'
+            '<div>Card B</div><div>Value 34</div>'
+            '</div></GridItem>'
+            '</Grid></div>'
+        ))
+        reuse = self.renderer._psx_grid_intrinsic_reuse
+        initial_count = len(reuse)
+        self.assertGreater(initial_count, 0)
+        self.renderer.set_sfle_constraints(constraints(350, 240))
+        self.renderer.commit_layout(root)
+        self.assertEqual(len(reuse), initial_count)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_css_background_paints_and_updates_in_place(self):
         first = self.r.render(psx('<div key="same" style="background-color: #112233" />'))
         widget = first.handle.widget
