@@ -221,7 +221,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         measurements.extend(mixed_grid.seed_measurements())
         # Consume normalized item box lengths while keeping native intrinsic
         # readings, component-owned dimensions and container styles unchanged.
-        snapshot = replace(prepared.css_geometry_snapshot(), measurements=tuple(measurements))
+        snapshot = replace(reuse.project_css(prepared), measurements=tuple(measurements))
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
             node_id: (lambda width, node_id=node_id: native_round.read_width(
