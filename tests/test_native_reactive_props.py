@@ -143,3 +143,27 @@ def test_borrowed_widget_remount_reapplies_initial_props():
     _apply_reactive_props(widget, {"data": 42})
     assert len(widget.calls) == 2
     assert widget.calls[0][1] == widget.calls[1][1] == frozenset({"data"})
+
+
+def test_native_constructor_value_hash_matches_equality_without_class_collisions():
+    from psx.core.native import _ConstructorFactory
+
+    class Custom:
+        pass
+
+    a = _ConstructorFactory(Custom, (1, ["a", "b"]), {"theme": "dark", "color": 1})
+    b = _ConstructorFactory(Custom, (1, ("a", "b")), {"color": True, "theme": "dark"})
+    c = _ConstructorFactory(Custom, (1, ["a", "c"]), {"theme": "light", "color": 1})
+    assert a == b and hash(a) == hash(b)
+    assert a != c and hash(a) != hash(c)
+    assert {a: 7}[b] == 7
+
+
+def test_native_constructors_do_not_degrade_to_one_hash_bucket():
+    from psx.core.native import _ConstructorFactory
+
+    class Custom:
+        pass
+
+    values = [_ConstructorFactory(Custom, (), {"index": i}) for i in range(240)]
+    assert len({hash(item) for item in values}) > 230
