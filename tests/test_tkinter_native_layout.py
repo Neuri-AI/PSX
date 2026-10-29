@@ -70,6 +70,27 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.addCleanup(self.renderer.close)
         self.addCleanup(self.reconciler.unmount)
 
+    def test_nested_grid_uses_one_rollback_snapshot_per_tk_transaction(self):
+        from unittest.mock import patch
+        from psx.sfle.mixed_grid_native import MountedMixedGrid
+
+        root = self.reconciler.render(psx(
+            '<div><Grid gap="8px"><GridItem span="6">'
+            '<div>Native card</div></GridItem></Grid></div>'
+        ))
+        original = MountedMixedGrid.snapshot
+        calls = []
+
+        def tracked(grid):
+            calls.append(grid)
+            return original(grid)
+
+        with patch.object(MountedMixedGrid, "snapshot", tracked):
+            self.renderer.set_sfle_constraints(constraints(240, 80))
+            self.renderer.commit_layout(root)
+        self.assertEqual(len(calls), 1)
+
+
     def test_stable_tk_viewport_resize_reuses_settled_native_measurement_baseline(self):
         from unittest.mock import patch
 
