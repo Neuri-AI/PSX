@@ -138,6 +138,9 @@ jobs:
               assert rows and all("error" not in row for row in rows)
               assert all(row["native_widgets"] > 0 and row["mounted_nodes"] > 0
                          for row in rows)
+          assert all(row["structural_snapshot_builds"] >= 1
+                         and row["structural_snapshot_hits"] >= 1
+                         for row in rows), "Viewport-only native resize unexpectedly rebuilt structural PSX tree"
               assert any(row["logical_items"] == 60 for row in rows)
               assert {(r["adapter"]) for r in rows} == {"qt", "tk"}
           PY
