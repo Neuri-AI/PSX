@@ -764,6 +764,12 @@ class QtRenderer:
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
         self._sfle_native_intrinsic_cache.clear()
+        # A full unmount/remount must drop cached VNode blueprints and old
+        # native intrinsic identities; a later tree always starts fresh.
+        for cache_name in ("_psx_grid_intrinsic_reuse", "_psx_grid_flow_blueprints"):
+            cache = getattr(self, cache_name, None)
+            if cache is not None:
+                cache.clear()
         self._sfle_prior_solver_input = None
         self._sfle_prior_solver_result = None
         self._sfle_prior_solver_engine = None
