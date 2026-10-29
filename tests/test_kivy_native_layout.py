@@ -1467,8 +1467,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             root = tree.render(psx("""
                 <div style="height:100vh; background:red">
                     <Grid gap="0px">
-                        <GridItem span="2"><div style="height:100vh; background: blue">Side</div></GridItem>
-                        <GridItem><div style="height:100vh; background: white">Main</div></GridItem>
+                        <GridItem span="2"><p>Sidebar</p></GridItem>
+                        <GridItem><p>Content</p></GridItem>
                     </Grid>
                 </div>
             """))
@@ -1484,6 +1484,10 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert abs(right.handle.widget.width - 1000) <= 1
             assert abs(right.handle.widget.x - 200) <= 1
             assert abs(right.handle.widget.x + right.handle.widget.width - 1200) <= 1
+            for item in (left, right):
+                text = item.children[0].handle.widget
+                print("TEXT_RECTS", tuple(text.pos),tuple(text.size), "item", geometry(item),flush=True)
+                assert text.to_window(0, 0)[1] > 400, (text.to_window(0,0),geometry(item))
             tree.unmount()
         ''')
         environment = dict(os.environ)
