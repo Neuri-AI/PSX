@@ -414,6 +414,35 @@ class QtSFLEGeometryTests(unittest.TestCase):
         button.click()
         self.assertEqual(events, [0, 2])
 
+    def test_qt_css_text_intrinsic_hint_cache_preserves_wrapping_and_invalidation(self):
+        root = self.r.render(Flex(
+            Text("A long intrinsic label with several words for native Qt sizing"),
+            width="100%", height="100%",
+        ))
+        widget = root.children[0].handle.widget
+        widget._psx_sync_line_height(26)
+        document = widget._psx_css_document
+        self.assertIsNotNone(document)
+        initial_hint = widget.sizeHint()
+        cached = widget._psx_css_intrinsic_hint
+        self.assertIsNotNone(cached)
+
+        # A later paint/height-for-width calculation may leave QTextDocument
+        # constrained. Intrinsic sizeHint must retain its unwrapped value.
+        document.setTextWidth(36)
+        widget.heightForWidth(36)
+        self.assertEqual(widget.sizeHint(), initial_hint)
+        self.assertIs(widget._psx_css_intrinsic_hint, cached)
+        self.assertEqual(widget.sizeHint(), initial_hint)
+
+        # Native document edits and explicit style changes both invalidate.
+        document.setPlainText("A changed label text with different width")
+        widget.sizeHint()
+        self.assertIsNot(widget._psx_css_intrinsic_hint, cached)
+        widget._psx_sync_line_height(30)
+        self.assertIsNone(widget._psx_css_intrinsic_hint)
+        self.assertIsNotNone(widget.sizeHint())
+
     def test_viewport_resize_recommits_without_remount(self):
         root = self.r.render(Flex(
             item("A", "a", 30), width="100%", height="100%", gap=4,
