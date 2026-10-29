@@ -1429,7 +1429,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                        for node in walk(root)]
             print("SIDE_GEOMETRY", [(name, tuple(w.pos), tuple(w.size))
                   for name, w in widgets if w is not None], flush=True)
-            buttons = [w for name, w in widgets if name == "button"]
+            buttons = [w for name, w in widgets if name in ("button", "Button")]
             assert len(buttons) == 2, widgets
             # Native coordinate origin is bottom-left. Header and buttons
             # belong near the TOP of a 600px viewport, not its bottom edge.
