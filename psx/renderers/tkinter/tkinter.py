@@ -733,7 +733,7 @@ class TkinterRenderer:
         # bounded number of times using the latest semantic epoch; never
         # publish a transaction rejected for stale measurements.
         from psx.sfle.errors import SFLEError
-        prior_signatures = self._sfle_committed_signatures
+        prior_signatures = getattr(self, "_sfle_committed_signatures", None)
         semantic_dirty = self._sfle_measurement_invalidations.needs_commit()
         for attempt in range(3):
             try:
@@ -752,7 +752,7 @@ class TkinterRenderer:
         # dependencies and paint properties are unchanged. Keep the full
         # walk for first mount, semantic invalidations, unsafe properties,
         # replacements and style changes.
-        current_signatures = self._sfle_committed_signatures
+        current_signatures = getattr(self, "_sfle_committed_signatures", None)
         same_paint_tree = (
             prior_signatures is not None
             and current_signatures is not None
