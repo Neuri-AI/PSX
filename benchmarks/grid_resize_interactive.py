@@ -44,6 +44,8 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
     commits = []
     paints = []
     native_observer = None
+    tk_observer_tag = None
+    tk_observer_commands = ()
     try:
         mounted = tree.render(cards(card_count, styled=styled))
         original_commit = renderer.commit_layout
@@ -91,11 +93,22 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
 
         else:
             native = renderer.root
-            native.bind("<Configure>",
-                        lambda event: events.append((event.width, time.perf_counter_ns()))
-                        if event.widget is native else None, add="+")
-            native.bind("<Expose>", lambda event: paints.append(time.perf_counter_ns())
-                        if event.widget is native else None, add="+")
+            # Tk toplevel bindtags are inherited by all descendants. A
+            # normal root.bind("<Configure>") observer would manufacture a
+            # Python Event for *every* child Canvas/Frame geometry change,
+            # artificially slowing the workload being benchmarked.
+            tk_observer_tag = f"PSXBenchRoot_{id(native)}"
+            native.bindtags((tk_observer_tag, *native.bindtags()))
+            tk_observer_commands = (
+                native.bind_class(
+                    tk_observer_tag, "<Configure>",
+                    lambda event: events.append((event.width, time.perf_counter_ns())),
+                ),
+                native.bind_class(
+                    tk_observer_tag, "<Expose>",
+                    lambda _event: paints.append(time.perf_counter_ns()),
+                ),
+            )
             native.deiconify()
 
             def resize(width):
@@ -174,6 +187,15 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
                 native.removeEventFilter(native_observer)
             except RuntimeError:
                 pass
+        if adapter == "tk" and tk_observer_tag is not None:
+            native.unbind_class(tk_observer_tag, "<Configure>")
+            native.unbind_class(tk_observer_tag, "<Expose>")
+            native.bindtags(tuple(
+                tag for tag in native.bindtags() if tag != tk_observer_tag
+            ))
+            for command in tk_observer_commands:
+                if command:
+                    native.deletecommand(command)
         tree.unmount()
         if adapter == "qt":
             renderer.application.processEvents()
