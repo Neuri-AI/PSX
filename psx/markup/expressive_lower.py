@@ -73,6 +73,13 @@ def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast
             args=[lower(arg, filename=filename) for arg in node.arguments],
             keywords=[],
         )
+    if isinstance(node, syntax.Binary):
+        operators: dict[str, type[ast.operator]] = {
+            "+": ast.Add, "-": ast.Sub, "*": ast.Mult, "/": ast.Div,
+        }
+        return ast.BinOp(left=lower(node.left, filename=filename),
+                         op=operators[node.operator](),
+                         right=lower(node.right, filename=filename))
     if isinstance(node, syntax.Compare):
         operators: dict[str, type[ast.cmpop]] = {
             "==": ast.Eq, "!=": ast.NotEq,
