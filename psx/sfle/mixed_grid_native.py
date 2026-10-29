@@ -213,11 +213,15 @@ class MountedMixedGrid:
             for subgrid in subflex.nested_grids.values():
                 self._bind_nested_scrolls(subgrid, previous)
 
-    def commit(self, plans):
+    def commit(self, plans, *, prior_snapshot=None):
         from .native_scroll_transaction import (
             capture_scroll_hosts, restore_scroll_hosts,
         )
-        before = self.snapshot()
+        # The outer SFLE transaction already captured these exact native
+        # descendants for rollback. No geometry is mutated between that
+        # capture and the nested Grid batch, so do not repeat every native
+        # geometry read on the UI thread.
+        before = self.snapshot() if prior_snapshot is None else prior_snapshot
         scroll_before = capture_scroll_hosts(self.backend.value, self.handles)
         receipts = []
         try:
