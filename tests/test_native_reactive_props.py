@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from psx.core.native import _apply_reactive_props, native_adapter, Native
+from psx.core.native import _apply_reactive_props, _clear_native_snapshot, native_adapter, Native
 
 
 class Widget:
@@ -134,3 +134,12 @@ def test_native_reactive_qt_reconciles_without_remount(monkeypatch):
         assert third.handle.widget.text() == "next:3"
     finally:
         reconciler.unmount()
+
+
+def test_borrowed_widget_remount_reapplies_initial_props():
+    widget = Widget()
+    _apply_reactive_props(widget, {"data": 42})
+    _clear_native_snapshot(widget)
+    _apply_reactive_props(widget, {"data": 42})
+    assert len(widget.calls) == 2
+    assert widget.calls[0][1] == widget.calls[1][1] == frozenset({"data"})
