@@ -139,3 +139,36 @@ def test_tk_prior_placements_are_detached_and_backend_scoped():
             GeometryBackend.QT, nodes, {"root": object(), "child": QtWidget()},
             prior_tk_placements=before,
         )
+
+
+def test_qt_unchanged_uses_rollback_rectangles_without_redundant_qt_reads():
+    widget = QtWidget()
+    widget.state = (10, 15, 40, 30)
+    reads = []
+    original = widget.geometry
+
+    def read():
+        reads.append(1)
+        return original()
+
+    widget.geometry = read
+    nodes = (
+        MarginTreeNode("root", None, 0, 0),
+        MarginTreeNode("child", "root", 0, 0),
+    )
+    baseline = {"child": (10, 15, 40, 30)}
+    committer = NativeGeometryCommitter(
+        GeometryBackend.QT, nodes, {"root": object(), "child": widget},
+        skip_unchanged=True, prior_qt_rectangles=baseline,
+    )
+    baseline["child"] = (50, 20, 60, 30)
+    committer(snapshot(40))
+    assert widget.writes == 0 and reads == []
+    committer(snapshot(60))
+    assert widget.writes == 1 and reads == []
+    assert widget.state == (10, 15, 60, 30)
+    with pytest.raises(TypeError, match="Qt backend"):
+        NativeGeometryCommitter(
+            GeometryBackend.TK, nodes, {"root": object(), "child": TkWidget()},
+            prior_qt_rectangles=baseline,
+        )
