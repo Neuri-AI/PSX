@@ -358,14 +358,14 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             MarginTreeNode(node.node_id, node.parent_id, 0, 0)
             for node in snapshot.nodes
         )
-        committer = NativeGeometryCommitter(
-            GeometryBackend.TK, nodes, widgets, external_ports=external,
-            skip_unchanged=True,
-        )
         before = {
             node_id: dict(widget.place_info())
             for node_id, widget in widgets.items() if node_id != root_id
         }
+        committer = NativeGeometryCommitter(
+            GeometryBackend.TK, nodes, widgets, external_ports=external,
+            skip_unchanged=True, prior_tk_placements=before,
+        )
         root_before = root_before_resize
         previous_wraps = {
             node_id: widget.cget("wraplength")
