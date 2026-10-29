@@ -12,6 +12,7 @@ on:
       - "tests/test_native_structural_snapshot_reuse.py"
       - "tests/test_native_geometry_write_suppression.py"
       - "tests/test_kivy_native_layout.py"
+      - "tests/sfle/test_nested_block_flex_layout.py"
       - ".github/workflows/native-layout-selective.yml"
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
