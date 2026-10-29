@@ -12,6 +12,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from psx.sfle.lengths import Length, LengthKind
+from psx.sfle.model import LayoutConstraints
+
 from psx.core.layout_tree import normalize_flex_tree
 from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
 
@@ -33,6 +36,8 @@ class NativeStructuralSnapshotReuse:
     def __init__(self):
         self.hits = 0
         self.builds = 0
+        self.projections = 0
+        self.projection_hits = 0
         self.clear()
 
     def clear(self):
@@ -41,6 +46,64 @@ class NativeStructuralSnapshotReuse:
         self._epoch = None
         self._normalized = None
         self._prepared = None
+        self._css_projection = None
+        self._css_viewport_independent = False
+
+    @staticmethod
+    def _can_reuse_css_projection(prepared):
+        """Only skip CSS reprojection if no participating style uses vw/vh."""
+        viewport = {LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX}
+        suffixes = ("vw", "vh", "vmin", "vmax")
+
+        def dependent(value):
+            if isinstance(value, Length):
+                return value.kind in viewport
+            if isinstance(value, str):
+                # Conservative on purpose: false positives cost performance,
+                # whereas missing a viewport unit would change CSS pixels.
+                return any(unit in value.lower() for unit in suffixes)
+            if isinstance(value, (tuple, list)):
+                return any(dependent(child) for child in value)
+            return False
+
+        for wire in prepared.snapshot.nodes:
+            if any(dependent(value) for _, value in wire.style):
+                return False
+        for _, source in prepared.identities:
+            computed = source.css_computed
+            if computed is not None:
+                properties = getattr(computed, "properties", None)
+                specified = getattr(computed, "specified", ())
+                if properties is not None and any(
+                    dependent(properties[key])
+                    for key in specified if key in properties
+                ):
+                    return False
+        return True
+
+    def project_css(self, prepared):
+        """Rebind unchanged CSS *styles*, never cached geometry/measurements."""
+        cached = self._css_projection
+        if cached is not None and self._css_viewport_independent:
+            # A CSS Flex root with auto block-size deliberately makes its
+            # containing height indefinite. Reproduce that root transform
+            # while rebinding today's viewport width and generation.
+            initial = self._prepared.snapshot.constraints
+            current = prepared.snapshot.constraints
+            old = cached.constraints
+            height = old.height if old.height != initial.height else current.height
+            constraints = LayoutConstraints(current.width, height)
+            self.projection_hits += 1
+            return replace(
+                cached, generation=prepared.snapshot.generation,
+                constraints=constraints,
+                measurements=prepared.snapshot.measurements,
+            )
+        projected = prepared.css_geometry_snapshot()
+        self.projections += 1
+        if self._css_viewport_independent:
+            self._css_projection = projected
+        return projected
 
     def prepare(self, root, components, stamp, constraints, generation, epoch):
         token = tuple(stamp)
@@ -68,4 +131,6 @@ class NativeStructuralSnapshotReuse:
         self._epoch = epoch
         self._normalized = normalized
         self._prepared = prepared
+        self._css_projection = None
+        self._css_viewport_independent = self._can_reuse_css_projection(prepared)
         return normalized, prepared
