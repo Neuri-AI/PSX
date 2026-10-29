@@ -373,11 +373,15 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         mixed_before = mixed_grid.snapshot()
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
+        # Reuse one immutable solver result index throughout native commit.
+        # Previously each scroll child rebuilt dict(result.boxes), producing
+        # O(N * S) geometry work for S scroll descendants.
+        committed_boxes = dict(result.boxes)
         try:
             if semantic_shell is not None:
                 # The window owns the viewport; the semantic host receives
                 # exactly its intrinsic Cinnamon border box.
-                box = dict(result.boxes)[root_id].border
+                box = committed_boxes[root_id].border
                 root_widget.setGeometry(round(box.x), round(box.y),
                                         round(box.width), round(box.height))
                 root_widget.show()
@@ -391,8 +395,8 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                             apply_qt_scroll, binding_from_host,
                         )
                         from psx.sfle.scroll_offsets import ScrollOffset
-                        parent_rect = dict(result.boxes)[node.parent_id].border
-                        child_rect = dict(result.boxes)[node.node_id].border
+                        parent_rect = committed_boxes[node.parent_id].border
+                        child_rect = committed_boxes[node.node_id].border
                         binding = binding_from_host(parent._psx_props, parent_rect, child_rect)
                         from psx.sfle.native_scroll_transaction import prior_scroll_offset
                         current = prior_scroll_offset(scroll_before, parent)
@@ -416,7 +420,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation after native geometry.")
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Qt commit.")
-            rects = dict(result.boxes)
+            rects = committed_boxes
             maximum = 0.0
             physical_maximum = 0.0
             observed = ports.read_rectangles()
