@@ -1452,6 +1452,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         script = textwrap.dedent(r'''
             from kivy.config import Config
             Config.set("graphics", "window_state", "hidden")
+            from kivy.core.window import Window
+            from kivy.clock import Clock
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
@@ -1484,6 +1486,10 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert abs(right.handle.widget.width - 1000) <= 1
             assert abs(right.handle.widget.x - 200) <= 1
             assert abs(right.handle.widget.x + right.handle.widget.width - 1200) <= 1
+            Window.size = (1200, 600)
+            Window.add_widget(root.handle.widget)
+            Clock.tick()
+            Clock.tick()
             for item in (left, right):
                 text = item.children[0].handle.widget
                 print("TEXT_RECTS", tuple(text.pos),tuple(text.size), "item", geometry(item),flush=True)
@@ -1493,6 +1499,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                     absolute_y += current.y
                     current = current.parent
                 assert absolute_y > 400, (absolute_y, geometry(item), geometry(grid))
+                assert text.to_window(0, 0)[1] > 400
+            Window.remove_widget(root.handle.widget)
             tree.unmount()
         ''')
         environment = dict(os.environ)
