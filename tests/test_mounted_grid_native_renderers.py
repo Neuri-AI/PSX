@@ -3264,9 +3264,12 @@ def test_tk_mixed_grid_syncs_native_idle_once_per_composition(monkeypatch):
     bridge._composition_cache = {}
     assert bridge.compose("cards", 500).content_height == 20
     assert bridge.compose("cards", 500).content_height == 20
+    assert bridge.compose("cards", 540).content_height == 20
+    # Distinct widths cause new compositions, but only one baseline
+    # settlement per bridge/generation; width-dependent leaves still probe.
     assert len(drains) == 1
-    assert len(measured) == 6
-    assert synced == [True] * 6
+    assert len(measured) == 12
+    assert synced == [True] * 12
 
 
 def test_grid_composition_failure_is_not_cached(monkeypatch):
