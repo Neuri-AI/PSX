@@ -178,6 +178,14 @@ class _ConstructorFactory:
                 and _native_equal(self.args, other.args)
                 and _native_equal(self.kwargs, other.kwargs))
 
+    def __hash__(self) -> int:
+        # NativeWidget is an immutable reconciliation descriptor and must be
+        # hashable. Hash constructor values structurally, not just the class:
+        # N different Native(Custom, kwargs=...) instances should not collide
+        # in the reconciler's keyed lookups. For unusual unhashable objects,
+        # _native_hash deliberately uses a conservative bucket instead.
+        return hash((id(self.target), _native_hash(self.args), _native_hash(self.kwargs)))
+
 
 _native_adapters: dict[type, Callable[[object, Mapping[str, object], frozenset[str]], None]] = {}
 _reactive_snapshots: WeakKeyDictionary = WeakKeyDictionary()
@@ -195,6 +203,28 @@ def native_adapter(widget_type: type):
         return callback
 
     return register
+
+
+def _native_hash(value: object) -> int:
+    """Stable, bounded-depth structural hash for Native constructor values.
+
+    Use one hash shape for tuples and lists, as _native_equal accepts either.
+    Mapping keys are order-insensitive. Unknown unhashable custom objects
+    get a conservative bucket, preserving value-based equality semantics.
+    No native widget invocation, thread hop or elementwise array comparison.
+    """
+    if isinstance(value, Mapping):
+        return hash(frozenset(
+            (key, _native_hash(child)) for key, child in value.items()
+        ))
+    if isinstance(value, (tuple, list)):
+        return hash(tuple(_native_hash(child) for child in value))
+    if type(value).__module__.startswith("numpy"):
+        return id(value)
+    try:
+        return hash(value)
+    except TypeError:
+        return 0
 
 
 def _native_equal(left: object, right: object) -> bool:
