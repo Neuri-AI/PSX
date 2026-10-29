@@ -16,6 +16,15 @@ from typing import Mapping
 import tkinter as tk
 
 
+# Tcl 8.6 executes the complete coordinate batch without an intermediate
+# Python/Tcl round trip or event-loop dispatch per Canvas item. Widget paths
+# and coordinates are passed as Tcl values, never interpolated into scripts.
+_BATCH_CANVAS_COORDS = (
+    "widget updates",
+    "foreach entry $updates { $widget coords {*}$entry }",
+)
+
+
 def _png_rgb(width: int, height: int, pixels: bytes) -> str:
     """Encode small antialiased corner patches with the Python standard library."""
     if len(pixels) != width * height * 3:
@@ -119,20 +128,22 @@ def draw_rounded_surface(
     fill = fill_color or parent_color
     active = set()
     structure_changed = False
+    pending_coords = []
 
     def rectangle(name, bounds, ink, tags):
         nonlocal structure_changed
         active.add(name)
         if name in items:
             if bounds_cache.get(name) != bounds:
-                canvas.coords(items[name], *bounds)
+                pending_coords.append((name, items[name], bounds))
             if paints.get(name) != ink:
                 canvas.itemconfigure(items[name], fill=ink)
         else:
             items[name] = canvas.create_rectangle(
                 *bounds, fill=ink, outline="", tags=tags)
             structure_changed = True
-        bounds_cache[name] = bounds
+        if name not in items or not any(entry[0] == name for entry in pending_coords):
+            bounds_cache[name] = bounds
         paints[name] = ink
 
     # The two non-corner rectangles and all strokes share one Canvas.
@@ -182,7 +193,7 @@ def draw_rounded_surface(
             active.add(name)
             if name in items:
                 if bounds_cache.get(name) != (x, y):
-                    canvas.coords(items[name], x, y)
+                    pending_coords.append((name, items[name], (x, y)))
                 if revision != getattr(canvas, "_psx_css_corner_revision", None):
                     canvas.itemconfigure(items[name], image=image)
             else:
@@ -190,7 +201,8 @@ def draw_rounded_surface(
                     x, y, anchor="nw", image=image,
                     tags=("psx-css-surface-corner", f"psx-css-{corner}"))
                 structure_changed = True
-            bounds_cache[name] = (x, y)
+            if not any(entry[0] == name for entry in pending_coords):
+                bounds_cache[name] = (x, y)
         canvas._psx_css_corner_images = images
         canvas._psx_css_corner_revision = revision
     for name in set(items) - active:
@@ -198,6 +210,19 @@ def draw_rounded_surface(
         bounds_cache.pop(name, None)
         paints.pop(name, None)
         structure_changed = True
+    # The Canvas command and numeric updates are Tcl values, not an
+    # interpolated script. One native call applies all geometry changes;
+    # Python-visible bounds are published only after successful Tcl writes.
+    if len(pending_coords) > 1:
+        canvas.tk.call(
+            "apply", _BATCH_CANVAS_COORDS, canvas._w,
+            tuple((item_id, *bounds) for _name, item_id, bounds in pending_coords),
+        )
+    elif pending_coords:
+        _name, item_id, bounds = pending_coords[0]
+        canvas.coords(item_id, *bounds)
+    for name, _item_id, bounds in pending_coords:
+        bounds_cache[name] = bounds
     # A new fill or stroke can be created above an existing corner during
     # style changes. Keep the same painter ordering as a fresh surface.
     # Existing item order is stable during geometry-only resize.
