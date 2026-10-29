@@ -197,6 +197,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                 node_id=node_id, generation=generation,
                 measure=lambda node_id=node_id: source.measure(MeasurementRequest(
                     node_id, renderer._sfle_constraints, generation, generation)),
+                viewport_independent=not bindings[node_id].widget.hasHeightForWidth(),
             ))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Qt measurement generation.")
