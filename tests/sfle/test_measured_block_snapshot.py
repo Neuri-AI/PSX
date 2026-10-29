@@ -3,6 +3,7 @@ import pytest
 
 from psx.sfle.errors import SFLECapabilityError
 from psx.sfle.fixed_point import LayoutUnit, nearest_layout_px
+from psx.sfle.lengths import Length
 from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
 from psx.sfle.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
