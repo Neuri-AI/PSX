@@ -1328,6 +1328,67 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_run_attaches_cinnamon_root_at_full_window_size(self):
+        script = textwrap.dedent(r"""
+            from unittest.mock import patch
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.core.window import Window
+            from kivy.clock import Clock
+            from psx import Flex, Button
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(160, True), AvailableSize(80, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(Flex(
+                Button("Resize", layout_width="70px", layout_height="25px"),
+                width="100%", height="100%", direction="column",
+            ))
+            host = root.handle.widget
+            assert renderer._sfle_watched_widget is host
+            original_size = tuple(host.size)
+            assert original_size == (160, 80), original_size
+            Window.size = (780, 540)
+            def fake_run_touch_app(widget):
+                Window.add_widget(widget)
+                try:
+                    Clock.tick()
+                    Clock.tick()
+                    assert tuple(widget.size) == tuple(Window.size), (
+                        tuple(widget.size), tuple(Window.size))
+                    assert (renderer._sfle_constraints.width.value,
+                            renderer._sfle_constraints.height.value) == tuple(Window.size)
+                    assert renderer._sfle_resize_error is None
+                    Window.dispatch("on_resize", 900, 600)
+                    Clock.tick()
+                    assert tuple(widget.size) == (900, 600)
+                    assert renderer._sfle_constraints.width.value == 900
+                    assert renderer._sfle_constraints.height.value == 600
+                    assert renderer._sfle_resize_error is None
+                finally:
+                    Window.remove_widget(widget)
+
+            with patch("psx.renderers.kivy.kivy.runTouchApp", fake_run_touch_app):
+                assert renderer.run() == 0
+            tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        environment["PYTHONPATH"] = "src" + os.pathsep + environment.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_real_kivy_native_bottom_left_geometry_and_reconciliation(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
