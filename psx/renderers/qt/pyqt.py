@@ -911,8 +911,12 @@ class QtRenderer:
                         super().__init__()
                         self._psx_css_line_height = None
                         self._psx_css_document = None
+                        self._psx_css_intrinsic_hint = None
 
                     def _psx_sync_line_height(self, height):
+                        # A style/text/font revision invalidates the intrinsic
+                        # QTextDocument size, never an allocated viewport width.
+                        self._psx_css_intrinsic_hint = None
                         self._psx_css_line_height = height
                         if height is None:
                             self._psx_css_document = None
@@ -938,11 +942,28 @@ class QtRenderer:
                         self.update()
 
                     def sizeHint(self):
-                        if self._psx_css_document is None:
+                        document = self._psx_css_document
+                        if document is None:
                             return super().sizeHint()
-                        self._psx_css_document.setTextWidth(-1)
-                        size = self._psx_css_document.size()
-                        return core.QSize(max(1, round(size.width())), max(1, round(size.height())))
+                        # Qt requests intrinsic sizeHint() repeatedly while
+                        # applying native geometry. The unbounded-document
+                        # intrinsic size is independent of the allocated width;
+                        # only heightForWidth() needs a fresh width-based solve.
+                        signature = (
+                            document, document.revision(),
+                            document.defaultFont().key(), document.documentMargin(),
+                        )
+                        cached = self._psx_css_intrinsic_hint
+                        if cached is not None and cached[0] == signature:
+                            return core.QSize(cached[1])
+                        document.setTextWidth(-1)
+                        size = document.size()
+                        hint = core.QSize(
+                            max(1, round(size.width())),
+                            max(1, round(size.height())),
+                        )
+                        self._psx_css_intrinsic_hint = (signature, hint)
+                        return core.QSize(hint)
 
                     def heightForWidth(self, width):
                         if self._psx_css_document is None:
