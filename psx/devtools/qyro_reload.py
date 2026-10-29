@@ -162,12 +162,6 @@ class QyroComponentReloader:
         (or Tk root, or Kivy event loop).
         """
         try:
-            refresh = getattr(type(self.host).render, "_psx_pydux_update", None)
-            if refresh is not None:
-                live_store, candidate_slices = refresh
-                from pydux.toolkit.hot_reload import reconfigure_store
-                reconfigure_store(live_store, candidate_slices)
-                delattr(type(self.host).render, "_psx_pydux_update")
             instance = _find_component(mounted.app.reconciler.root, root_component)
             if instance is None:
                 self.report("FAILED: PSX root boundary not found")
@@ -255,14 +249,6 @@ def _load_updated_class(source: Path, previous: type[object], modules: frozenset
             if not isinstance(target, type):
                 raise RuntimeError("Updated Qyro component class was not found.")
             _stop_candidate_inspectors(module, previous.render.__globals__)
-            # Candidate module is temporary. Reuse the live store and patch only
-            # its reducers/schema on the UI thread, preserving subscriptions.
-            old_store = getattr(previous.render, "__globals__", {}).get("store")
-            candidate_store = vars(module).get("store")
-            definitions = getattr(candidate_store, "_pydux_slice_definitions", None)
-            if old_store is not None and definitions is not None:
-                setattr(target.render, "_psx_pydux_update", (old_store, definitions))
-                target.render.__globals__["store"] = old_store
             return target
         finally:
             sys.modules.pop(module_name, None)
