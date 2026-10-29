@@ -44,7 +44,7 @@ from kivy.uix.spinner import Spinner
 from psx.core.errors import RendererCapabilityError
 from psx.markup.html_aliases import FORMATTING_TAGS
 from psx.core.events import EventSlot
-from psx.core.native import NativeOwnership, NativeWidget
+from psx.core.native import NativeOwnership, NativeWidget, _clear_native_snapshot
 from psx.core.vnode import (NodeKind, VNode)
 from psx.renderers.adapters import (
     AdapterSubscription,
@@ -1252,6 +1252,8 @@ class KivyRenderer:
         # is permanently destroyed at this boundary; borrowed native widgets
         # are returned to their owner and MUST keep their KV rules.
         target = _handle(handle)
+        if target.native is not None:
+            _clear_native_snapshot(target.widget)
         self.apply_css(handle, None)
         try:
             self._adapter_for(handle_adapter_key(handle)).destroy(self, handle)
