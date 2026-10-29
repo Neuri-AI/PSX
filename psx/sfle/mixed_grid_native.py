@@ -37,6 +37,17 @@ class MountedMixedGrid:
         # TkMeasurementSource still settles individual width probes when it
         # actually changes wraplength.
         self._tk_idle_synced = False
+        # The outer Flex/Block bridge creates a new MixedGrid per transaction.
+        # Carry accepted native Text measurements across those transactions:
+        # the existing Grid cache already validates widget identity, PSX/CSS
+        # content, wrapping width and the semantic invalidation epoch.
+        from .grid_intrinsic_reuse import GridIntrinsicReuse
+        reuse = getattr(renderer, "_psx_grid_intrinsic_reuse", None)
+        if reuse is None:
+            reuse = GridIntrinsicReuse()
+            renderer._psx_grid_intrinsic_reuse = reuse
+        self._intrinsic_epoch = renderer._sfle_measurement_invalidations.epoch
+        self._intrinsic_reuse = reuse.begin(self._intrinsic_epoch)
 
         def visit(node):
             if node.kind is NodeKind.HOST and node.type == "Grid":
@@ -84,7 +95,10 @@ class MountedMixedGrid:
                 source = KivyMeasurementSource({identifier: handle.widget})
             else:
                 raise GridPackingError("Mixed native Grid requires a toolkit backend.")
-            result = source.measure_width(identifier, allocated_width)
+            result = self._intrinsic_reuse.measure(
+                self.backend.value, handle.widget, node, allocated_width,
+                lambda: source.measure_width(identifier, allocated_width),
+            )
             if not isinstance(result, IntrinsicSizes):
                 raise GridPackingError("Mixed Grid needs measured terminal native leaves.")
             return result
@@ -101,6 +115,12 @@ class MountedMixedGrid:
         # Never publish a partial result after a measurement exception.
         self._composition_cache[key] = composition
         return composition
+
+    def accept_intrinsic(self):
+        # Call only AFTER the outer renderer's native commit, readback and
+        # semantic epoch checks all succeeded. Partial measurements are never
+        # published on a rejected/rolled-back transaction.
+        self._intrinsic_reuse.accept(self.renderer._sfle_measurement_invalidations.epoch)
 
     def intrinsic(self, node_id, width):
         measured = self.compose(node_id, width)
