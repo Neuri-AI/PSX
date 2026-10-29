@@ -19,6 +19,8 @@ import subprocess
 import sys
 import time
 
+os.environ.setdefault("KIVY_NO_ARGS", "1")
+
 WIDTHS = (480, 560, 640, 700, 820, 900, 760, 600, 510)
 HEIGHT = 680
 KINDS = ("Text", "Button", "Input", "Checkbox", "TextArea", "Slider",
@@ -65,8 +67,7 @@ def scene(image):
     return Flex(
         Scroll(Flex(Grid(*groups, gap="12px", key="grid"), direction="column",
                     width="100%", height="9000px", key="content"),
-               direction="vertical", width="100%", height="100%",
-               layout_width="100%", layout_height="100%", key="scroll"),
+               direction="vertical", width="100%", height="100%", key="scroll"),
         direction="column", width="100%", height="100%",
         align_items="stretch", key="root")
 
