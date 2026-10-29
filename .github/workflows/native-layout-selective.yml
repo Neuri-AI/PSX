@@ -5,7 +5,12 @@ on:
     branches: [fixes/psx-issues]
     paths:
       - "psx/sfle/**"
+      - "psx/renderers/kivy/kivy.py"
+      - "psx/renderers/qt/pyqt.py"
+      - "psx/renderers/tkinter/tkinter.py"
       - "tests/test_flow_linear_complexity.py"
+      - "tests/test_native_structural_snapshot_reuse.py"
+      - "tests/test_native_geometry_write_suppression.py"
       - ".github/workflows/native-layout-selective.yml"
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
