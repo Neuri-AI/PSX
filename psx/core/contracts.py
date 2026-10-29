@@ -118,7 +118,7 @@ INPUT_CONTRACT = ComponentContract(
     "Input",
     INPUT_PROPS,
     INPUT_DEFAULTS,
-    frozenset({"on_change", "on_submit"}),
+    frozenset({"on_change", "on_submit", "on_click"}),
     "none",
     validate_input_props,
 )
