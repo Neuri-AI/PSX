@@ -1,6 +1,12 @@
 name: Native layout selective validation
 
 on:
+  push:
+    branches: [fixes/psx-issues]
+    paths:
+      - "psx/sfle/**"
+      - "tests/test_flow_linear_complexity.py"
+      - ".github/workflows/native-layout-selective.yml"
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
     branches: [develop]
@@ -126,7 +132,7 @@ jobs:
       - name: Select impacted suites; fail open on missing diff
         id: select
         env:
-          NATIVE_LAYOUT_FULL: "${{ github.event_name == 'workflow_dispatch' }}"
+          NATIVE_LAYOUT_FULL: "${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}"
         shell: bash
         run: |
           args=()
