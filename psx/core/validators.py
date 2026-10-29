@@ -262,7 +262,7 @@ def validate_input_props(props: Mapping[str, object]) -> None:
         if not isinstance(val, bool):
             raise RendererCapabilityError(f"Input.{name} must be a bool.")
 
-    for name in ("on_change", "on_submit"):
+    for name in ("on_change", "on_submit", "on_click"):
         cb = props.get(name, INPUT_DEFAULTS[name])
         if cb is not None and not callable(cb):
             raise RendererCapabilityError(
@@ -292,7 +292,7 @@ def validate_input_builder(props: Mapping[str, object]) -> None:
         if not isinstance(props[name], bool):
             raise TypeError(
                 f"Input '{name}' must be a bool, got {type(props[name]).__name__}")
-    for name in ("on_change", "on_submit"):
+    for name in ("on_change", "on_submit", "on_click"):
         if props[name] is not None and not callable(props[name]):
             raise TypeError(f"Input '{name}' must be callable or None")
 
