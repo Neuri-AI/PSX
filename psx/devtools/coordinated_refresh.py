@@ -30,7 +30,7 @@ def _mounted_root(instance, definition):
     return None
 
 
-def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> bool:
+def refresh_context_source(context, source: Path, paths: tuple[str, ...], *, prepare_state=None) -> bool:
     """Reevaluate compatible source edits while keeping root and hooks intact.
 
     Called ONLY from the renderer UI scheduler. Failures restore the previous
@@ -75,6 +75,7 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
             ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
     previous = compiled[0]
+    rollback_state = None
     try:
         # Import only project-owned source modules; do not reload native or
         # third-party extensions already running in the interpreter.
@@ -82,6 +83,8 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
             _reload_module(name)
         if source in changed or modules_changed:
             candidate = _load_updated_class(source, type(context), frozenset(module_paths))
+            if prepare_state is not None:
+                rollback_state = prepare_state(candidate)
             compiled[0] = candidate.render
         reconciler = app.reconciler
         previously_enabled = getattr(reconciler, '_coordinated_remount', False)
@@ -108,10 +111,14 @@ def refresh_context_source(context, source: Path, paths: tuple[str, ...]) -> boo
             remount(instance)
             return True
         compiled[0] = previous
+        if rollback_state is not None:
+            rollback_state()
         return False
     except Exception:
         # Cleanup can raise after the replacement is mounted. Never restore
         # an obsolete render callable onto an already replaced boundary.
         if not instance.disposed and not getattr(app.reconciler, '_coordinated_remount_applied', False):
             compiled[0] = previous
+            if rollback_state is not None:
+                rollback_state()
         raise
