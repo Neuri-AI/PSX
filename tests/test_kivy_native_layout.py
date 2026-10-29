@@ -1448,6 +1448,53 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_two_grid_items_fill_row_with_unrestricted_auto_span(self):
+        script = textwrap.dedent(r'''
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(1200, True), AvailableSize(600, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(psx("""
+                <div style="height:100vh; background:red">
+                    <Grid gap="0px">
+                        <GridItem span="2"><div style="height:100vh; background: blue">Side</div></GridItem>
+                        <GridItem><div style="height:100vh; background: white">Main</div></GridItem>
+                    </Grid>
+                </div>
+            """))
+            grid = root.children[0]
+            left, right = grid.children
+            def geometry(node):
+                w = node.handle.widget
+                return tuple(w.pos), tuple(w.size)
+            print("GRID_RECTS", geometry(root), geometry(grid),
+                  geometry(left), geometry(right), flush=True)
+            assert grid.handle.widget.width == 1200
+            assert abs(left.handle.widget.width - 200) <= 1
+            assert abs(right.handle.widget.width - 1000) <= 1
+            assert abs(right.handle.widget.x - 200) <= 1
+            assert abs(right.handle.widget.x + right.handle.widget.width - 1200) <= 1
+            tree.unmount()
+        ''')
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
+        environment["KIVY_NO_ARGS"] = "1"
+        result = subprocess.run([sys.executable, "-c", script],
+                                env=environment, capture_output=True,
+                                text=True, timeout=90)
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_real_kivy_native_bottom_left_geometry_and_reconciliation(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
