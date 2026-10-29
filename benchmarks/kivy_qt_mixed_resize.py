@@ -258,6 +258,7 @@ def run_cell(adapter, engine_name, warmup, cycles, output, widths):
 
 
 def compare(rows, tolerance):
+    """Compare rectangle multisets; native object IDs differ across processes."""
     reference = next(row for row in rows if row["backend"] == "qt" and row["engine"] == "python")
     deviations = []
     for row in rows:
@@ -267,15 +268,18 @@ def compare(rows, tolerance):
                 deviations.append({"cell": row["backend"] + "/" + row["engine"],
                                    "width": width, "error": "missing checkpoint"})
                 continue
-            for node, rect in expected.items():
-                actual = observed.get(node)
-                if actual is None:
+            left = sorted(tuple(v) for v in expected.values())
+            right = sorted(tuple(v) for v in observed.values())
+            if len(left) != len(right):
+                deviations.append({"cell": row["backend"] + "/" + row["engine"],
+                                   "width": width, "expected_count": len(left),
+                                   "observed_count": len(right)})
+                continue
+            for i, (a, b) in enumerate(zip(left, right)):
+                if max(abs(x-y) for x,y in zip(a, b)) > tolerance:
                     deviations.append({"cell": row["backend"] + "/" + row["engine"],
-                                       "width": width, "node": node, "error": "missing"})
-                elif max(abs(a-b) for a,b in zip(rect, actual)) > tolerance:
-                    deviations.append({"cell": row["backend"] + "/" + row["engine"],
-                                       "width": width, "node": node,
-                                       "expected": rect, "actual": actual})
+                                       "width": width, "rectangle_index": i,
+                                       "expected": a, "actual": b})
     return {"tolerance": tolerance, "differences": deviations[:100],
             "difference_count": len(deviations), "passed": not deviations}
 
