@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import re
+from functools import lru_cache
 from dataclasses import dataclass
 from enum import Enum
 
@@ -68,24 +69,9 @@ class Length:
         return cls(LengthKind.PERCENT, fraction)
 
 
-def parse_length(value: Length | int | float | str) -> Length:
-    """Parse the supported F1 length vocabulary without resolving percentages.
-
-    Property-specific restrictions (for instance no negative padding) belong
-    to the shared layout-style validator, not this general-purpose parser.
-    CSS calc() and arbitrary expressions remain unsupported.
-    """
-
-    if isinstance(value, Length):
-        return value
-    if isinstance(value, bool):
-        raise TypeError("CSS length must not be a bool.")
-    if isinstance(value, (int, float)):
-        return Length.px(value)
-    if not isinstance(value, str):
-        raise TypeError("CSS length must be a Length, number or string.")
-
-    normalized = value.strip().lower()
+@lru_cache(maxsize=2048)
+def _parse_normalized_length(normalized: str) -> Length | None:
+    """Cache only pure, immutable lexical parsing (never viewport resolution)."""
     for kind in LengthKind:
         if normalized == kind.value:
             return Length(kind)
@@ -101,7 +87,28 @@ def parse_length(value: Length | int | float | str) -> Length:
     px = _PX_RE.fullmatch(normalized)
     if px:
         return Length.px(float(px.group(1)))
+    return None
 
+
+def parse_length(value: Length | int | float | str) -> Length:
+    """Parse a typed CSS length without resolving its containing dimensions.
+
+    Repeated static CSS literals reuse immutable lexical results. Dynamic
+    percentages and viewport units are resolved by the layout caller using
+    the current constraints, so a resize never reuses stale geometry.
+    """
+    if isinstance(value, Length):
+        return value
+    if isinstance(value, bool):
+        raise TypeError("CSS length must not be a bool.")
+    if isinstance(value, (int, float)):
+        return Length.px(value)
+    if not isinstance(value, str):
+        raise TypeError("CSS length must be a Length, number or string.")
+
+    result = _parse_normalized_length(value.strip().lower())
+    if result is not None:
+        return result
     raise ValueError(f"Unsupported CSS length expression: {value!r}.")
 
 
