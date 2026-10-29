@@ -41,6 +41,17 @@ def build_workload(count, scenario, *, styled=False):
             ), key=f"row-{i}")
             for i in range(count)
         ), gap="16px")
+    if scenario == "flex-siblings":
+        # N independent CSS Flex formatting contexts inside one block Flow.
+        # This reproduces the former O(N^2) full-snapshot/measurement scans
+        # on native Qt and Tk renderers without synthetic or Headless nodes.
+        children = "".join(
+            f'<div key="row-{i}" style="display:flex; flex-direction:column">'
+            f'<button key="action-{i}">Apply {i}</button>'
+            f'</div>'
+            for i in range(count)
+        )
+        return psx(f"<div>{children}</div>")
     if scenario in ("flow", "dense-flow"):
         children = "".join(
             f'<p key="label-{i}">Row {i}: responsive content</p>'
@@ -262,7 +273,7 @@ def main():
     parser.add_argument("--cards", type=int, default=24)
     parser.add_argument("--cycles", type=int, default=20)
     parser.add_argument("--warmup", type=int, default=2)
-    parser.add_argument("--scenario", choices=("cards", "controls", "flow", "dense-flow"), default="cards",
+    parser.add_argument("--scenario", choices=("cards", "controls", "flow", "dense-flow", "flex-siblings"), default="cards",
                         help="Independent native UI workloads (count is logical items)")
     parser.add_argument("--styled", action="store_true",
                         help="Include CSS rounded cards and native repaint work")
