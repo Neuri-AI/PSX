@@ -57,6 +57,7 @@ def test_resize_reuses_immutable_structure_but_rebinds_generation_and_width():
         root, {}, stamp, constraints(480), 1, 0,
     )
     initial_snapshot = first.snapshot
+    assert reuse.project_css(first) == fresh(root, 480, 1)
     assert reuse.builds == 1 and reuse.hits == 0
     for revision, width in enumerate((560, 700, 640, 480), 2):
         normalized, prepared = reuse.prepare(
@@ -66,8 +67,9 @@ def test_resize_reuses_immutable_structure_but_rebinds_generation_and_width():
         assert prepared.snapshot.nodes is initial_snapshot.nodes
         assert prepared.snapshot.constraints == constraints(width)
         assert prepared.snapshot.generation == revision
-        assert prepared.css_geometry_snapshot() == fresh(root, width, revision)
+        assert reuse.project_css(prepared) == fresh(root, width, revision)
     assert reuse.builds == 1 and reuse.hits == 4
+    assert reuse.projections == 1 and reuse.projection_hits == 4
 
 
 def test_reactive_css_and_reconciled_subtree_invalidate_blueprint():
@@ -112,4 +114,38 @@ def test_viewport_css_resolved_fresh_on_every_resize():
     widths = (480, 720, 600)
     for i, width in enumerate(widths, 1):
         _, prepared = cache.prepare(root, {}, stamp, constraints(width), i, 0)
-        assert prepared.css_geometry_snapshot() == fresh(root, width, i)
+        assert cache.project_css(prepared) == fresh(root, width, i)
+    assert cache.projections == 3 and cache.projection_hits == 0
+
+
+def test_css_auto_height_and_viewport_height_are_not_conflated():
+    root = psx(
+        '<div style="display:flex; flex-direction:column; padding:10px">'
+        '<span>Responsive child</span>'
+        '</div>'
+    )
+    cache = NativeStructuralSnapshotReuse()
+    stamp = stamp_tree(root)
+    for generation, (width, height) in enumerate(
+        ((360, 600), (480, 850), (320, 450)), 1
+    ):
+        dims = constraints(width, height)
+        _, prepared = cache.prepare(root, {}, stamp, dims, generation, 0)
+        projected = cache.project_css(prepared)
+        expected = prepare_native_layout_snapshot(
+            normalize_flex_tree(root), dims, generation=generation,
+        ).css_geometry_snapshot()
+        assert projected == expected
+    assert cache.projections == 1 and cache.projection_hits == 2
+
+
+def test_css_snapshot_cache_drops_on_semantic_epoch_change():
+    root = psx('<div><span>Hello</span></div>')
+    cache = NativeStructuralSnapshotReuse()
+    stamp = stamp_tree(root)
+    for epoch in (0, 0, 1, 1):
+        _, prepared = cache.prepare(root, {}, stamp, constraints(450), epoch + 1, epoch)
+        assert cache.project_css(prepared) == fresh(root, 450, epoch + 1)
+    assert cache.builds == 2
+    assert cache.projections == 2
+    assert cache.projection_hits == 2
