@@ -1390,7 +1390,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
     def test_grid_sidebar_content_appears_at_top_of_viewport(self):
-        script = textwrap.dedent(r"""
+        script = textwrap.dedent(r'''
             from kivy.config import Config
             Config.set("graphics", "window_state", "hidden")
             from psx import psx
@@ -1437,7 +1437,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 top = button.to_window(button.width / 2, button.height, relative=True)[1]
                 assert top > 380, (top, widgets)
             tree.unmount()
-        """)
+        ''')
         environment = dict(os.environ)
         environment["KIVY_NO_FILELOG"] = "1"
         environment["KIVY_NO_ARGS"] = "1"
