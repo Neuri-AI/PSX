@@ -145,44 +145,73 @@ class FlowBlueprintReuse:
         return prepared, normalized
 
 
-def nested_flow_grid_width(snapshot, node_id, width):
-    """Resolve the containing content width for a Grid nested in CSS block flow."""
-    from .lengths import LengthKind, parse_length
-    by_id = {node.node_id: node for node in snapshot.nodes}
-    chain = []
-    parent_id = by_id[node_id].parent_id
-    while parent_id is not None:
-        ancestor = by_id[parent_id]
-        chain.append(ancestor)
-        parent_id = ancestor.parent_id
-    available = width
-    for ancestor in reversed(chain):
-        style = dict(ancestor.style)
-        containing = available
-        explicit = style.get("layout_width")
-        if explicit is not None:
-            specified = parse_length(explicit)
-            if specified.kind is LengthKind.PX:
-                available = float(specified.value)
-            elif specified.kind is LengthKind.PERCENT:
-                available *= float(specified.value)
-            elif specified.kind not in (LengthKind.AUTO, LengthKind.NONE):
-                raise GridPackingError("Nested Grid containing width is not resolvable.")
-            continue
-        for group in ("margin", "border", "padding"):
-            for side in ("left", "right"):
-                value = style.get(f"layout_{group}_{side}")
-                if value is None:
-                    continue
-                parsed = parse_length(value)
-                if parsed.kind is LengthKind.PX:
-                    available -= float(parsed.value)
-                elif parsed.kind is LengthKind.PERCENT:
-                    available -= containing * float(parsed.value)
+class _FlowContainingWidths:
+    """Lazy O(N) aggregate width resolver for nested Grids in one Flow.
+
+    The old implementation rebuilt a node index and walked every ancestor
+    for every Grid: O(G*N + sum(depth)). Memoize each ancestor's content
+    width once, while retaining exact CSS percentage reference semantics.
+    Invalid styles are still checked only on ancestors of a requested Grid.
+    """
+
+    def __init__(self, snapshot, width):
+        self.nodes = {node.node_id: node for node in snapshot.nodes}
+        self.width = width
+        self.after = {}
+
+    def resolve(self, node_id):
+        parent_id = self.nodes[node_id].parent_id
+        if parent_id is None:
+            return self.width
+        ancestors = []
+        current = parent_id
+        while current is not None and current not in self.after:
+            ancestors.append(current)
+            current = self.nodes[current].parent_id
+        available = self.after[current] if current is not None else self.width
+        from .lengths import LengthKind, parse_length
+        for ancestor_id in reversed(ancestors):
+            style = dict(self.nodes[ancestor_id].style)
+            containing = available
+            explicit = style.get("layout_width")
+            if explicit is not None:
+                specified = parse_length(explicit)
+                if specified.kind is LengthKind.PX:
+                    available = float(specified.value)
+                elif specified.kind is LengthKind.PERCENT:
+                    available *= float(specified.value)
+                elif specified.kind not in (LengthKind.AUTO, LengthKind.NONE):
+                    raise GridPackingError(
+                        "Nested Grid containing width is not resolvable."
+                    )
                 else:
-                    raise GridPackingError("Nested Grid container edges require concrete lengths.")
-        available = max(0.0, available)
-    return available
+                    explicit = None
+            if explicit is None:
+                for group in ("margin", "border", "padding"):
+                    for side in ("left", "right"):
+                        value = style.get(f"layout_{group}_{side}")
+                        if value is None:
+                            continue
+                        parsed = parse_length(value)
+                        if parsed.kind is LengthKind.PX:
+                            available -= float(parsed.value)
+                        elif parsed.kind is LengthKind.PERCENT:
+                            available -= containing * float(parsed.value)
+                        else:
+                            raise GridPackingError(
+                                "Nested Grid container edges require concrete lengths."
+                            )
+                available = max(0.0, available)
+            self.after[ancestor_id] = available
+        return available
+
+
+def nested_flow_grid_width(snapshot, node_id, width, *, resolver=None):
+    """Resolve nested Grid containing width without repeating ancestor walks."""
+    if resolver is None:
+        resolver = _FlowContainingWidths(snapshot, width)
+    return resolver.resolve(node_id)
+
 
 def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
                           viewport_constraints=None, measure_grid=None,
@@ -244,6 +273,7 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
     visit(flow)
     measurements = []
     nested_grids = {}
+    containing_widths = _FlowContainingWidths(normalized, width)
     # Reuse actual native leaf measurements only during this flow composition.
     # Subsequent commits and invalidations create a new cache.
     measured_leaves: dict[tuple[str, float], IntrinsicSizes] = {}
@@ -261,7 +291,9 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
         if origin.type == "Grid":
             if measure_grid is None:
                 raise GridPackingError("Nested Grid flow requires a Cinnamon Grid measurement callback.")
-            available = nested_flow_grid_width(normalized, node.node_id, width)
+            available = nested_flow_grid_width(
+                normalized, node.node_id, width, resolver=containing_widths,
+            )
             nested = measure_grid(origin, available)
             nested_grids[node.node_id] = nested
             height = nested.content_height
