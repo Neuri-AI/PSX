@@ -254,7 +254,7 @@ def _load_updated_class(source: Path, previous: type[object], modules: frozenset
                 target = getattr(target, part)
             if not isinstance(target, type):
                 raise RuntimeError("Updated Qyro component class was not found.")
-            _stop_candidate_inspectors(module)
+            _stop_candidate_inspectors(module, previous.render.__globals__)
             # Candidate module is temporary. Reuse the live store and patch only
             # its reducers/schema on the UI thread, preserving subscriptions.
             old_store = getattr(previous.render, "__globals__", {}).get("store")
@@ -329,8 +329,11 @@ def _render_class_source(source: str, class_name: str, modules: frozenset[str], 
     return ast.unparse(tree) + "\n"
 
 
-def _stop_candidate_inspectors(module: object) -> None:
+def _stop_candidate_inspectors(module: object, original_globals: dict | None = None) -> None:
+    original_objects = {id(value) for value in (original_globals or {}).values()}
     for value in vars(module).values():
+        if id(value) in original_objects:
+            continue
         inspector = getattr(value, "inspector", None)
         stop = getattr(inspector, "stop", None)
         if callable(stop):
