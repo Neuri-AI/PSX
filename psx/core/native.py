@@ -216,6 +216,11 @@ def _native_equal(left: object, right: object) -> bool:
         return False
 
 
+def _clear_native_snapshot(widget: object) -> None:
+    """Forget reactive state at unmount (including borrowed widget remounts)."""
+    _reactive_snapshots.pop(widget, None)
+
+
 def _apply_reactive_props(widget: object, props: object) -> None:
     if not isinstance(props, Mapping):
         raise TypeError("Native props must be a mapping.")
