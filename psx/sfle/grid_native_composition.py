@@ -7,6 +7,7 @@ native layout manager estimate. Native ports supply only terminal leaf metrics.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from collections import OrderedDict
 from collections.abc import Callable, Mapping
 from psx.core.grid_contract import GRID_BREAKPOINTS
 from typing import Protocol
@@ -39,6 +40,82 @@ class ComposedFlow:
     nested_grids: dict[str, "ComposedGrid"]
 
 
+
+
+
+class FlowBlueprintReuse:
+    """Bounded, renderer-owned reuse of immutable GridItem Flow structure.
+
+    A viewport resize changes the input width/generation, not the mounted
+    VNodes or their CSS projection. Cache only the *structural* snapshot;
+    leaf measurements, width-dependent layout solves and native geometry
+    are always fresh. No background work and no native handle retention.
+    """
+
+    def __init__(self, limit: int = 512):
+        self.limit = limit
+        self._entries = OrderedDict()
+
+    def prepare(self, flow, constraints, generation, viewport_constraints, epoch):
+        # Include the actual normalized descendants, not just a parent
+        # VNode. Nested component/hooks reconciliation may replace children
+        # while retaining the outer element identity.
+        fingerprint = []
+        def visit(node):
+            origin = node.source
+            fingerprint.append((
+                path_identity(node.path), id(origin), repr(origin.props),
+                repr(origin.css_computed), repr(origin.css_stylesheet),
+            ))
+            for child in node.effective_children:
+                visit(child)
+        visit(flow)
+        signature = tuple(fingerprint)
+        # Re-resolve viewport-dependent CSS every time: it is not safe to
+        # cache a snapshot containing already-resolved vw/vh/vmin/vmax.
+        viewport_units = ("vw", "vh", "vmin", "vmax")
+        cacheable = not any(
+            any(unit in part.lower() for unit in viewport_units)
+            for item in signature for part in item[2:]
+        )
+        key = (id(flow.source), path_identity(flow.path))
+        cached = self._entries.get(key) if cacheable else None
+        if cached is not None:
+            retained_source, saved_signature, saved_epoch, saved_prepared, saved_css = cached
+            if retained_source is flow.source and saved_signature == signature and saved_epoch == epoch:
+                self._entries.move_to_end(key)
+                prepared = replace(
+                    saved_prepared,
+                    snapshot=replace(
+                        saved_prepared.snapshot, generation=generation,
+                        constraints=constraints,
+                    ),
+                    viewport_constraints=viewport_constraints,
+                    flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                )
+                # The CSS root can change its width while retaining a
+                # content-height-auto constraint. Preserve that height
+                # definiteness, but rebind the current containing width.
+                current_constraints = replace(
+                    saved_css.constraints, width=constraints.width,
+                )
+                return prepared, replace(
+                    saved_css, generation=generation,
+                    constraints=current_constraints,
+                )
+        prepared = prepare_native_layout_snapshot(
+            flow, constraints, generation=generation,
+            viewport_constraints=viewport_constraints,
+        )
+        normalized = prepared.css_geometry_snapshot()
+        if cacheable:
+            self._entries[key] = (
+                flow.source, signature, epoch, prepared, normalized,
+            )
+            self._entries.move_to_end(key)
+            while len(self._entries) > self.limit:
+                self._entries.popitem(last=False)
+        return prepared, normalized
 
 
 def nested_flow_grid_width(snapshot, node_id, width):
@@ -81,15 +158,22 @@ def nested_flow_grid_width(snapshot, node_id, width):
     return available
 
 def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
-                          viewport_constraints=None, measure_grid=None):
+                          viewport_constraints=None, measure_grid=None,
+                          flow_reuse=None, invalidation_epoch=0):
     """Measure an HTML block subtree using Cinnamon's flow layout kernel."""
     constraints = LayoutConstraints(AvailableSize(width, True),
                                     AvailableSize(None, False))
-    prepared = prepare_native_layout_snapshot(
-        flow, constraints, generation=generation,
-        viewport_constraints=viewport_constraints,
-    )
-    normalized = prepared.css_geometry_snapshot()
+    if flow_reuse is None:
+        prepared = prepare_native_layout_snapshot(
+            flow, constraints, generation=generation,
+            viewport_constraints=viewport_constraints,
+        )
+        normalized = prepared.css_geometry_snapshot()
+    else:
+        prepared, normalized = flow_reuse.prepare(
+            flow, constraints, generation, viewport_constraints,
+            invalidation_epoch,
+        )
     if normalized.nodes[0].component == "Flex":
         # Grid allocates a border-box width. An auto-sized CSS Flex host
         # must give Cinnamon its *content* width, excluding its own edges.
@@ -223,6 +307,8 @@ def prepare_composed_grid(
     breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
     engine: object | None = None,
     viewport_constraints: LayoutConstraints | None = None,
+    flow_reuse: FlowBlueprintReuse | None = None,
+    invalidation_epoch: int = 0,
 ) -> ComposedGrid:
     """Measure nested Grid children bottom-up using parent-allocated widths.
 
@@ -277,6 +363,7 @@ def prepare_composed_grid(
                     roots[0], width=width, generation=generation,
                     measure_leaf=measure_leaf, engine=engine,
                     viewport_constraints=viewport_constraints,
+                    flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                     measure_grid=lambda subgrid, grid_width:
                         prepare_composed_grid(
                             subgrid, content_width=grid_width,
@@ -284,6 +371,7 @@ def prepare_composed_grid(
                             measure_leaf=measure_leaf, is_ui_thread=is_ui_thread,
                             breakpoints=breakpoints, engine=engine,
                             viewport_constraints=viewport_constraints,
+                            flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                         ),
                 )
                 height = flow.content_height
@@ -332,6 +420,7 @@ def prepare_composed_grid(
                     measure_leaf=measure_leaf, is_ui_thread=is_ui_thread,
                     breakpoints=breakpoints, engine=engine,
                     viewport_constraints=viewport_constraints,
+                    flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                 )
                 nested[identifier] = subgrid
                 height = subgrid.content_height
@@ -352,6 +441,7 @@ def prepare_composed_grid(
                             measure_leaf=measure_leaf, is_ui_thread=is_ui_thread,
                             breakpoints=breakpoints, engine=engine,
                             viewport_constraints=viewport_constraints,
+                            flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                         ),
                     is_ui_thread=is_ui_thread, engine=engine,
                 )
@@ -363,6 +453,7 @@ def prepare_composed_grid(
                     child, width=width, generation=generation,
                     measure_leaf=measure_leaf, engine=engine,
                     viewport_constraints=viewport_constraints,
+                    flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                     measure_grid=lambda subgrid, grid_width:
                         prepare_composed_grid(
                             subgrid, content_width=grid_width,
@@ -373,6 +464,7 @@ def prepare_composed_grid(
                             breakpoints=breakpoints,
                             engine=engine,
                             viewport_constraints=viewport_constraints,
+                            flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                         ),
                 )
                 nested_flow[identifier] = flow
