@@ -311,7 +311,9 @@ def main():
                 with (args.output / f"{backend}-{engine}.log").open("w") as log:
                     completed = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT)
                 if completed.returncode:
-                    raise SystemExit(f"{backend}/{engine} failed; inspect {backend}-{engine}.log")
+                    lines = (args.output / f"{backend}-{engine}.log").read_text(encoding="utf-8", errors="replace").splitlines()
+                    print("\n".join(lines[-60:]), file=sys.stderr)
+                    raise SystemExit(f"{backend}/{engine} failed; traceback above; full log: {args.output / f\'{backend}-{engine}.log\'}")
                 outcomes.append(json.loads(destination.read_text()))
         parity = compare(outcomes, args.tolerance)
         report = {"environment": {"python": sys.version, "os": platform.platform()},
