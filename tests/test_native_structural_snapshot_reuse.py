@@ -57,6 +57,7 @@ def test_resize_reuses_immutable_structure_but_rebinds_generation_and_width():
         root, {}, stamp, constraints(480), 1, 0,
     )
     initial_snapshot = first.snapshot
+    assert reuse.builds == 1 and reuse.hits == 0
     for revision, width in enumerate((560, 700, 640, 480), 2):
         normalized, prepared = reuse.prepare(
             root, {}, stamp, constraints(width), revision, 0,
@@ -66,6 +67,7 @@ def test_resize_reuses_immutable_structure_but_rebinds_generation_and_width():
         assert prepared.snapshot.constraints == constraints(width)
         assert prepared.snapshot.generation == revision
         assert prepared.css_geometry_snapshot() == fresh(root, width, revision)
+    assert reuse.builds == 1 and reuse.hits == 4
 
 
 def test_reactive_css_and_reconciled_subtree_invalidate_blueprint():
