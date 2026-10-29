@@ -300,9 +300,13 @@ def compute_grid(
 
     rows = pack_grid_rows(slots)
     limits = {} if constraints is None else constraints
-    if not isinstance(limits, dict) or any(
-        key not in {item.id for item in slots} for key in limits
-    ):
+    # Build the membership index once. Previously the comprehension inside
+    # 'any' reconstructed the entire slot ID set for every constrained item:
+    # O(N*C), and O(N**2) when every item has a min/max constraint.
+    if not isinstance(limits, dict):
+        raise GridPackingError("Grid constraints must reference declared item IDs.")
+    declared_ids = {item.id for item in slots}
+    if not limits.keys() <= declared_ids:
         raise GridPackingError("Grid constraints must reference declared item IDs.")
     resolved: dict[str, tuple[int, int | None, int, int | None]] = {}
     for item in slots:
