@@ -89,7 +89,7 @@ def compute_markup_styles(
     def visit(node: VNode, inherited: ComputedStyle | None, parent: StyleTarget | None = None) -> VNode:
         if node.kind is NodeKind.FRAGMENT:
             return replace(node, children=tuple(visit(child, inherited, parent) for child in node.children))
-        if node.kind is not NodeKind.HOST:
+        if node.kind not in (NodeKind.HOST, NodeKind.NATIVE):
             return node
         source = node.css_source
         if source is not None and not isinstance(source, MarkupStyleSource):
@@ -107,7 +107,8 @@ def compute_markup_styles(
                 "Grid", "GridItem", "Box", "Scroll", "Slider", "Spacer",
                 "Divider", "Image", "ProgressBar", "RadioGroup", "Switch",
             }
-            tag = node.type.lower() if node.type in native_types else "__legacy_psx_host__"
+            tag = ("native" if node.kind is NodeKind.NATIVE else
+                   node.type.lower() if node.type in native_types else "__legacy_psx_host__")
             target = StyleTarget(tag, parent=parent)
             inline = ()
         if source is not None and source.tag == "__psx_text_content__":
