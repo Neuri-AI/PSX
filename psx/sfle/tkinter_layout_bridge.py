@@ -215,6 +215,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 node_id=node_id, generation=generation,
                 measure=lambda node_id=node_id: source.measure(MeasurementRequest(
                     node_id, renderer._sfle_constraints, generation, generation)),
+                viewport_independent=True,
             ))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale Tk measurement.")
