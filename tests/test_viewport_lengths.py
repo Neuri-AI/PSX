@@ -2,7 +2,9 @@
 import pytest
 
 from psx.css.parser import parse_stylesheet
-from psx.sfle.lengths import Length, LengthKind, parse_length, resolve_viewport_length
+from psx.sfle.lengths import (
+    Length, LengthKind, _parse_normalized_length, parse_length, resolve_viewport_length,
+)
 from psx.sfle.model import AvailableSize, LayoutConstraints
 from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
 from psx.core.layout_tree import normalize_flex_tree
@@ -17,6 +19,21 @@ from psx.core.vnode import Flex, Text
 ])
 def test_viewport_lengths_keep_typed_fraction(source, kind, fraction):
     assert parse_length(source) == Length(kind, fraction)
+
+
+def test_length_cache_reuses_immutable_literals_but_not_resolved_geometry():
+    _parse_normalized_length.cache_clear()
+    first = parse_length(" 50VW ")
+    second = parse_length("50vw")
+    assert first is second
+    assert _parse_normalized_length.cache_info().hits >= 1
+    assert resolve_viewport_length(first, 800, 600) == Length.px(400)
+    assert resolve_viewport_length(second, 1200, 600) == Length.px(600)
+    numeric = Length.px(42)
+    assert parse_length(numeric) is numeric
+    with pytest.raises(ValueError, match="UNSUPPORTED"):
+        parse_length("UNSUPPORTED")
+    assert _parse_normalized_length.cache_info().maxsize == 2048
 
 
 def test_viewport_dimensions_resolve_against_window_not_parent():
@@ -66,6 +83,29 @@ def test_viewport_units_recompute_after_window_resize():
 def test_invalid_viewport_values_fail_closed(source):
     with pytest.raises(ValueError):
         parse_length(source)
+
+
+def test_viewport_projection_reuses_nodes_without_units_and_keeps_sources_immutable():
+    root = Flex(Text("static", layout_width="24px"),
+                Text("dynamic", layout_width="50vw"))
+    normalized = normalize_flex_tree(root)
+    constraints = LayoutConstraints(AvailableSize(800, True), AvailableSize(600, True))
+    prepared = prepare_native_layout_snapshot(normalized, constraints, generation=1)
+    original = prepared.snapshot
+    projected = prepared._resolve_viewport_units(original)
+    assert projected is not original
+    assert projected.nodes[0] is original.nodes[0]
+    static_id = next(i for i, node in enumerate(original.nodes)
+                     if dict(node.style).get("layout_width") == "24px")
+    assert projected.nodes[static_id] is original.nodes[static_id]
+    assert any(dict(node.style).get("layout_width") == Length.px(400)
+               for node in projected.nodes)
+    assert any(dict(node.style).get("layout_width") == "50vw"
+               for node in original.nodes)
+    plain = prepare_native_layout_snapshot(
+        normalize_flex_tree(Flex(Text("static"))), constraints, generation=1,
+    )
+    assert plain._resolve_viewport_units(plain.snapshot) is plain.snapshot
 
 
 def test_nested_flow_uses_window_viewport_instead_of_local_grid_constraints():

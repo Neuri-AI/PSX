@@ -146,6 +146,10 @@ def _has_expressive_interpolation(source: str) -> bool:
     """
     # Composite inline attribute literals require the expressive M4B path.
     # The restricted M4A runtime never enters this transform.
+    # Native needs the CSS-aware VNode path even without an arrow expression.
+    import re
+    if re.search(r"<Native(?=[\s/>])", source):
+        return True
     if "={{" in source or "={[" in source or "={(" in source:
         return True
     # Quoted attribute interpolation is lexical expressive syntax as well,

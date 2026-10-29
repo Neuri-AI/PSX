@@ -61,6 +61,8 @@ def _classify_path(path: str) -> set[str]:
         return {"router", "core", "headless", "qt", "kivy", "tkinter"}
     if path == "benchmarks/resource_baseline.py":
         return {"core"}
+    if path in ("benchmarks/grid_resize_profile.py", "benchmarks/grid_resize_interactive.py"):
+        return {"qt", "tkinter"}
     if path in ("scripts/ci/impact.py", "tests/test_ci_impact.py") or path.startswith("scripts/ci/"):
         return {"router"}
     if path.startswith(".github/workflows/"):
@@ -80,6 +82,8 @@ def _classify_path(path: str) -> set[str]:
             result.add("native")
         elif name == "sfle-core.yml":
             result.update({"sfle", "rust"})
+        elif name == "grid-resize-performance.yml":
+            result.update({"qt", "tkinter"})
         elif name == "ci.yml":
             result.add("core")
         return result
@@ -91,8 +95,13 @@ def _classify_path(path: str) -> set[str]:
         return {"qt"}
     if path == "tests/test_qt_html_form_associations.py":
         return {"qt"}
-    if path in ("tests/test_qt_css_control_background.py", "tests/test_qt_semantic_border_scope.py"):
+    if path in ("tests/test_qt_css_control_background.py", "tests/test_qt_semantic_border_scope.py", "tests/test_qt_scroll_wheel_continuity.py", "tests/test_qt_native_chart_refresh.py"):
         return {"qt"}
+    if path in ("psx/renderers/tkinter/rounded_surface.py",
+                "tests/test_native_rounded_card_visual.py"):
+        # The visual raster comparison runs in the Qt job but exercises the
+        # Tk implementation too; never route these changes to Tk alone.
+        return {"qt", "tkinter"}
     if path == "psx/css/native_paint.py" or path == "tests/css/test_native_paint.py":
         return {"core", "qt", "kivy", "tkinter"}
     if path in ("psx/css/properties.py", "psx/css/parser.py", "psx/css/cascade.py", "psx/css/markup.py", "tests/css/test_parser_and_cascade.py"):
@@ -101,6 +110,8 @@ def _classify_path(path: str) -> set[str]:
     if path in ("psx/sfle/native_layout_snapshot.py", "tests/test_native_layout_snapshot.py"):
         # Immutable CSS-backed Cinnamon geometry affects every native consumer.
         return {"core", "sfle", "rust", "chromium", "headless", "qt", "kivy", "tkinter"}
+    if path == "psx/css/inheritance.py":
+        return {"core", "headless", "qt", "kivy", "tkinter"}
     if path.startswith("psx/css/") or path.startswith("tests/css/"):
         return {"core"}
     if path == "pyproject.toml" or path in ("setup.cfg", "setup.py"):
@@ -119,6 +130,7 @@ def _classify_path(path: str) -> set[str]:
                  "psx/sfle/grid_native_composition.py",
                  "psx/sfle/mixed_grid_native.py",
                  "psx/sfle/grid_flex_composition.py",
+                 "tests/sfle/test_grid_flex_measurement_reuse.py",
                  "tests/sfle/test_grid_native_commit.py",
                  "tests/sfle/test_nested_grid_content_width.py",
                  "psx/sfle/grid_native_measurement.py", "tests/sfle/test_grid_native_measurement.py",
@@ -195,6 +207,10 @@ def _classify_path(path: str) -> set[str]:
         # backend consumer even before native Grid geometry ships.
         return {"core", "headless", "qt", "kivy", "tkinter", "legacy"}
     if path == "tests/test_css_markup_census.py":
+        return {"core", "headless", "qt", "kivy", "tkinter"}
+    if path == "tests/test_component_css_inheritance.py":
+        return {"core", "headless", "qt", "kivy", "tkinter"}
+    if path == "psx/css/inheritance.py":
         return {"core", "headless", "qt", "kivy", "tkinter"}
     if path == "tests/test_markup_css_binding.py":
         return {"core", "headless", "qt", "kivy", "tkinter"}

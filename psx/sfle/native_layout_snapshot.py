@@ -57,9 +57,14 @@ class PreparedNativeLayoutSnapshot:
         w = window.width.value
         h = window.height.value
         converted = []
+        changed = False
         for node in snapshot.nodes:
-            style = dict(node.style)
-            for name, value in style.items():
+            # Most Grid/Flex layouts contain no viewport units. Avoid
+            # allocating a style dict, sorted tuple and LayoutNode for every
+            # such node on every width-dependent measurement.
+            style = None
+            for name, original in node.style:
+                value = original
                 if isinstance(value, str) and value.strip().lower().endswith(("vw", "vh", "vmin", "vmax")):
                     value = parse_length(value)
                 if isinstance(value, Length) and value.kind in viewport_kinds:
@@ -68,9 +73,15 @@ class PreparedNativeLayoutSnapshot:
                             DiagnosticCode.LAYOUT_CONSTRAINT,
                             "Viewport units require known window content dimensions.",
                         )
+                    if style is None:
+                        style = dict(node.style)
                     style[name] = resolve_viewport_length(value, w, h)
-            converted.append(replace(node, style=tuple(sorted(style.items()))))
-        return replace(snapshot, nodes=tuple(converted))
+            if style is None:
+                converted.append(node)
+            else:
+                converted.append(replace(node, style=tuple(sorted(style.items()))))
+                changed = True
+        return replace(snapshot, nodes=tuple(converted)) if changed else snapshot
 
     def css_geometry_snapshot(self) -> LayoutInput:
         """Project computed CSS geometry into typed Cinnamon input, opt-in.

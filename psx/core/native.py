@@ -134,6 +134,14 @@ def Native(
     if overlap:
         raise TypeError(f"Native props were passed twice: {', '.join(sorted(overlap))}")
     values.update(attributes)
+    # Sizing belongs to Cinnamon, never to the native toolkit property setter.
+    # Both explicit Native(width=...) and CSS sizing share the same layout input.
+    for axis in ("width", "height"):
+        if axis in values:
+            layout_axis = f"layout_{axis}"
+            if layout_axis in values:
+                raise TypeError(f"Native received both {axis} and {layout_axis}.")
+            values[layout_axis] = values.pop(axis)
     for signal, callback in (signals or {}).items():
         if not isinstance(signal, str) or not signal:
             raise TypeError("Native signal names must be non-empty strings.")

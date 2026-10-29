@@ -42,11 +42,21 @@ class NativeGeometryCommitter:
         *,
         external_ports: Mapping[str, SFLEExternalPort] | None = None,
         skip_unchanged: bool = False,
+        prior_tk_placements: Mapping[str, Mapping[str, object]] | None = None,
     ) -> None:
         if not isinstance(backend, GeometryBackend):
             raise TypeError("Expected GeometryBackend.")
         self._backend = backend
         self._skip_unchanged = skip_unchanged
+        if prior_tk_placements is not None and backend is not GeometryBackend.TK:
+            raise TypeError("Pre-captured Tk placements require the Tk backend.")
+        # The caller captured this snapshot on the same UI thread before
+        # geometry mutation, for rollback. Reuse it for unchanged checks
+        # rather than repeating a Tcl place_info() round trip per child.
+        self._prior_tk_placements = (
+            {key: dict(info) for key, info in prior_tk_placements.items()}
+            if prior_tk_placements is not None else None
+        )
         self._parents = {node.node_id: node.parent_id for node in nodes}
         if len(self._parents) != len(nodes):
             raise SFLEError(DiagnosticCode.INVALID_TREE, "Duplicate geometry node.")
@@ -122,7 +132,12 @@ class NativeGeometryCommitter:
                     # call before any position attributes exist.
                     already_placed = (
                         self._backend != GeometryBackend.TK
-                        or bool(widget.place_info())
+                        or bool(
+                            self._prior_tk_placements[node_id]
+                            if self._prior_tk_placements is not None
+                               and node_id in self._prior_tk_placements
+                            else widget.place_info()
+                        )
                     )
                     if already_placed:
                         actual = port.read(widget)
@@ -135,7 +150,12 @@ class NativeGeometryCommitter:
                             round(x), round(y), round(width), round(height)):
                         continue
                 elif self._backend == GeometryBackend.TK:
-                    info = widget.place_info()
+                    info = (
+                        self._prior_tk_placements[node_id]
+                        if self._prior_tk_placements is not None
+                           and node_id in self._prior_tk_placements
+                        else widget.place_info()
+                    )
                     expected = dict(x=round(x), y=round(y),
                                     width=round(width), height=round(height))
                     if info and all(key in info and round(float(info[key])) == value

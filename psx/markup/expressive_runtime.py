@@ -154,14 +154,14 @@ def element(
     props = dict(props)
     key = props.pop("key", None)
     css_source = None
-    if name in PORTABLE_HTML_ALIASES:
+    if name in PORTABLE_HTML_ALIASES or name == "Native":
         if "class" in props and "class_name" in props:
             raise MarkupSyntaxError("Use either class or class_name", filename=filename, line=line, column=column)
         class_value = props.pop("class", None)
         if class_value is None:
             class_value = props.pop("class_name", None)
         css_source = parse_markup_style(
-            name, class_value=class_value,
+            "native" if name == "Native" else name, class_value=class_value,
             id_value=props.pop("id", None),
             inline_value=props.pop("style", None),
         )

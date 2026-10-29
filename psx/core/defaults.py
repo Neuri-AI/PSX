@@ -24,6 +24,7 @@ INPUT_DEFAULTS = MappingProxyType({
     "password": False,
     "on_change": None,
     "on_submit": None,
+    "on_click": None,
 })
 CHECKBOX_DEFAULTS = MappingProxyType(
     {"checked": False, "enabled": True, "on_change": None})

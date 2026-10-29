@@ -258,6 +258,7 @@ register_primitive(
     events={
         "on_change": ("textChanged", emit_input_value),
         "on_submit": ("returnPressed", lambda w, s: (lambda: s.invoke())),
+        "on_click": ("__psx_mouse_press__", emit_call),
     },
 )
 register_primitive(
@@ -648,9 +649,11 @@ class QtRenderer:
             return
         self._sfle_resize_scheduled = True
         epoch = self._sfle_resize_epoch
-        # Frame-sized trailing-edge debounce: Qt may deliver consecutive
-        # top-level window Resize events over multiple nested event turns.
-        self._qtcore.QTimer.singleShot(16, lambda: self._sfle_flush_viewport_resize(epoch))
+        # Coalesce bursts within the current event turn without imposing a
+        # full-frame delay. A zero-timeout callback executes after Qt finishes
+        # dispatching the current native resize; pending holds the latest size.
+        # Keep the callback out of the Resize event's native call stack.
+        self._qtcore.QTimer.singleShot(0, lambda: self._sfle_flush_viewport_resize(epoch))
 
     def _sfle_flush_viewport_resize(self, epoch: int) -> None:
         self._sfle_resize_scheduled = False
@@ -762,6 +765,12 @@ class QtRenderer:
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
         self._sfle_native_intrinsic_cache.clear()
+        # A full unmount/remount must drop cached VNode blueprints and old
+        # native intrinsic identities; a later tree always starts fresh.
+        for cache_name in ("_psx_grid_intrinsic_reuse", "_psx_grid_flow_blueprints"):
+            cache = getattr(self, cache_name, None)
+            if cache is not None:
+                cache.clear()
         self._sfle_prior_solver_input = None
         self._sfle_prior_solver_result = None
         self._sfle_prior_solver_engine = None
@@ -909,8 +918,12 @@ class QtRenderer:
                         super().__init__()
                         self._psx_css_line_height = None
                         self._psx_css_document = None
+                        self._psx_css_intrinsic_hint = None
 
                     def _psx_sync_line_height(self, height):
+                        # A style/text/font revision invalidates the intrinsic
+                        # QTextDocument size, never an allocated viewport width.
+                        self._psx_css_intrinsic_hint = None
                         self._psx_css_line_height = height
                         if height is None:
                             self._psx_css_document = None
@@ -936,11 +949,30 @@ class QtRenderer:
                         self.update()
 
                     def sizeHint(self):
-                        if self._psx_css_document is None:
+                        document = self._psx_css_document
+                        if document is None:
                             return super().sizeHint()
-                        self._psx_css_document.setTextWidth(-1)
-                        size = self._psx_css_document.size()
-                        return core.QSize(max(1, round(size.width())), max(1, round(size.height())))
+                        # Qt requests intrinsic sizeHint() repeatedly while
+                        # applying native geometry. The unbounded-document
+                        # intrinsic size is independent of the allocated width;
+                        # only heightForWidth() needs a fresh width-based solve.
+                        # CSS projection reconstructs the document for
+                        # text/font/line-height changes. QTextDocument's
+                        # revision changes on text edits. Avoid the expensive
+                        # QFont.key() construction on every native sizeHint.
+                        revision = document.revision()
+                        cached = self._psx_css_intrinsic_hint
+                        if (cached is not None and cached[0] is document
+                                and cached[1] == revision):
+                            return core.QSize(cached[2])
+                        document.setTextWidth(-1)
+                        size = document.size()
+                        hint = core.QSize(
+                            max(1, round(size.width())),
+                            max(1, round(size.height())),
+                        )
+                        self._psx_css_intrinsic_hint = (document, revision, hint)
+                        return core.QSize(hint)
 
                     def heightForWidth(self, width):
                         if self._psx_css_document is None:
@@ -1320,6 +1352,17 @@ class QtRenderer:
         if definition is None:
             raise RendererCapabilityError(
                 f"{event} is not supported by {target.node_type!r} in PyQt.")
+        if target.node_type == "Input" and event == "on_click":
+            qt_core = self._qtcore
+            event_type = qt_core.QEvent.Type.MouseButtonPress if hasattr(qt_core.QEvent, "Type") else qt_core.QEvent.MouseButtonPress
+            class ClickFilter(qt_core.QObject):
+                def eventFilter(self, watched, native_event):
+                    if native_event.type() == event_type and watched.isEnabled():
+                        slot.invoke()
+                    return False
+            filter_object = ClickFilter(target.widget)
+            target.widget.installEventFilter(filter_object)
+            return NativeEventSubscription(lambda: target.widget.removeEventFilter(filter_object))
         signal_name, make_callback = definition
         signal = getattr(target.widget, signal_name)
         # only the requested event's closure is built

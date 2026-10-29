@@ -26,6 +26,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from queue import Empty, SimpleQueue
 from threading import get_ident
+import sys
 import tkinter as tk
 from tkinter import ttk
 from psx.core.errors import RendererCapabilityError
@@ -66,6 +67,112 @@ from psx.core.contracts import (
     validate_progressbar_props,
     validate_radio_props,
 )
+
+def _tk_css_scalable_font(widget: tk.Misc, family: str) -> bool:
+    """Check actual X11/Tk glyph metrics, not the configured font options.
+
+    With bitmap-only aliases such as X11 'fixed', Tcl accepts a 30px bold
+    request while continuing to draw the same 10pt normal bitmap.
+    """
+    from tkinter import font as tkfont
+
+    root = widget.winfo_toplevel()
+    cached = getattr(root, "_psx_css_scalable_font_support", None)
+    if cached is None:
+        cached = {}
+        root._psx_css_scalable_font_support = cached
+    key = family.casefold()
+    if key not in cached:
+        small = tkfont.Font(root=widget, family=family, size=-12)
+        large = tkfont.Font(root=widget, family=family, size=-30, weight="bold")
+        cached[key] = (large.metrics("linespace") > small.metrics("linespace")
+                       and large.actual("weight") == "bold")
+    return cached[key]
+
+
+def _tk_css_system_font(widget: tk.Misc, generic: str) -> str | None:
+    """Resolve CSS generics from the platform's font inventory, not X11 aliases."""
+    from tkinter import font as tkfont
+
+    if sys.platform.startswith("linux"):
+        # Fontconfig is the desktop authority for generic family matching on
+        # Linux. Tcl/Tk's X11 alias lookup can resolve sans-serif to 'fixed'.
+        # Probe both installation and actual Tk rasterization before accepting.
+        import subprocess
+
+        try:
+            match = subprocess.run(
+                ("fc-match", "-f", "%{family}\\n", generic),
+                capture_output=True, check=True, text=True, timeout=2,
+            )
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            pass
+        else:
+            families = match.stdout.splitlines()
+            if families:
+                for family in families[0].split(","):
+                    candidate = family.strip()
+                    if candidate and _tk_css_scalable_font(widget, candidate):
+                        return candidate
+
+    # On other platforms, and without fontconfig, use actual native font
+    # metrics. A nominally resolved family is not proof of scalable glyphs.
+    candidate = str(tkfont.Font(root=widget, family=generic,
+                                size=-30, weight="bold").actual("family"))
+    if _tk_css_scalable_font(widget, candidate):
+        return candidate
+    return None
+
+
+def _resolve_css_tk_font_family(widget: tk.Misc, family_stack: str) -> str:
+    """Resolve CSS fallbacks to an actually scalable native font family.
+
+    Keep resolved candidates scoped to the Tk root. Do not substitute a
+    hardcoded platform font or silently accept a bitmap-only X11 alias.
+    """
+    from tkinter import font as tkfont
+
+    if not isinstance(family_stack, str) or not family_stack.strip():
+        raise ValueError("CSS font-family requires a nonempty family stack.")
+    root = widget.winfo_toplevel()
+    inventory = getattr(root, "_psx_css_font_inventory", None)
+    if inventory is None:
+        inventory = {
+            family.casefold(): family for family in tkfont.families(root=widget)
+        }
+        root._psx_css_font_inventory = inventory
+    resolved = getattr(root, "_psx_css_font_fallbacks", None)
+    if resolved is None:
+        resolved = {}
+        root._psx_css_font_fallbacks = resolved
+    generics = frozenset({
+        "sans-serif", "serif", "monospace", "cursive", "fantasy", "system-ui",
+    })
+    for part in family_stack.split(","):
+        family = part.strip().strip("\\\"'")
+        if not family:
+            continue
+        key = family.casefold()
+        if key in generics:
+            generic = "sans-serif" if key == "system-ui" else key
+            if generic not in resolved:
+                resolved[generic] = _tk_css_system_font(widget, generic)
+            candidate = resolved[generic]
+            if candidate is not None:
+                return candidate
+            continue
+        installed = inventory.get(key)
+        if installed is not None and _tk_css_scalable_font(widget, installed):
+            return installed
+
+    default = str(tkfont.nametofont("TkDefaultFont", root=widget).actual("family"))
+    if _tk_css_scalable_font(widget, default):
+        return default
+    raise ValueError(
+        "Tk CSS font-family cannot find a scalable native face for "
+        f"{family_stack!r}; check Tk/Xft and system fontconfig availability."
+    )
+
 
 _LAYOUT_PROPS = frozenset({"spacing", "padding"})
 _LAYOUT_UPDATABLE = frozenset({"spacing", "padding"})
@@ -228,7 +335,7 @@ def _apply_checkbox(widget: tk.Misc, props: Mapping[str, object]) -> None:
 
 
 register_primitive(
-    "Text", factory=ttk.Label,
+    "Text", factory=lambda master: (tk.Label(master, borderwidth=0, highlightthickness=0, padx=0, pady=0) if sys.platform == "darwin" else ttk.Label(master)),
     validate=validate_text_props, apply=apply_tk_text, updated_props=updated_text_props,
 )
 register_primitive(
@@ -251,6 +358,7 @@ register_primitive(
     events={
         "on_change": ("<<Modified>>", emit_tk_input),  # realmente se usa trace, ver nota
         "on_submit": ("<Return>", emit_tk_submit),
+        "on_click": ("<Button-1>", lambda w, s: (lambda event: s.invoke() if not w.instate(("disabled",)) else None)),
     },
 )
 register_primitive(
@@ -332,6 +440,7 @@ class TkinterRenderer:
         self._sfle_resize_pending = None
         self._sfle_resize_after_id = None
         self._sfle_resize_bind_id = None
+        self._sfle_resize_bind_tag = None
         self._sfle_resize_epoch = 0
         self._sfle_resize_error: Exception | None = None
         self._sfle_textarea_epoch = 0
@@ -471,10 +580,16 @@ class TkinterRenderer:
         self._sfle_constraints = constraints
         self._sfle_generation += 1
         if self._sfle_root_widget is not None and self._sfle_root_widget.winfo_exists():
-            self._sfle_root_widget.place_configure(
-                width=round(constraints.width.value),
-                height=round(constraints.height.value),
-            )
+            from psx.sfle.native_grid_bridge import is_mounted_native_grid_root
+            # A Grid root is projected together with its children by the
+            # atomic commit. Placing it here exposes the new parent width
+            # while the child rectangles still belong to the previous frame.
+            mounted = self._sfle_mounted_root
+            if mounted is None:
+                self._sfle_root_widget.place_configure(
+                    width=round(constraints.width.value),
+                    height=round(constraints.height.value),
+                )
 
     def _sfle_on_theme_changed(self, event) -> None:
         if (not self._closed and event.widget is self.root
@@ -486,7 +601,13 @@ class TkinterRenderer:
                 or self._sfle_mounted_root is None):
             return
         width, height = event.width, event.height
-        if width <= 0 or height <= 0:
+        # Aqua can dispatch obsolete 1x1 Configure events during window
+        # mapping, after the real viewport has already been established.
+        # Never replace Cinnamon's definite window constraints with that
+        # transient geometry or an event no longer matching the Tk host.
+        if width <= 1 or height <= 1:
+            return
+        if (width, height) != (self.root.winfo_width(), self.root.winfo_height()):
             return
         if self._sfle_resize_baseline == (width, height):
             return
@@ -501,10 +622,23 @@ class TkinterRenderer:
         if (constraints.width.value, constraints.height.value) == target:
             return
         self._sfle_resize_pending = target
+        # Cocoa's live-resize tracking loop may defer Tcl after(0) callbacks
+        # until the mouse is released. Consume the native Configure event
+        # directly on Aqua so the mounted tree follows each delivered size.
+        # Do not recurse while a layout transaction is already running.
+        if sys.platform == "darwin" and not self._sfle_in_commit:
+            if self._sfle_resize_after_id is not None:
+                self.root.after_cancel(self._sfle_resize_after_id)
+                self._sfle_resize_after_id = None
+            self._sfle_flush_viewport_resize(self._sfle_resize_epoch)
+            return
         if self._sfle_resize_after_id is None:
             epoch = self._sfle_resize_epoch
-            self._sfle_resize_after_id = self.root.after_idle(
-                lambda: self._sfle_flush_viewport_resize(epoch),
+            # Run the coalesced commit before Tk's idle redraw. An idle
+            # callback can run after Tk paints old child rectangles against
+            # the new window bounds, causing the visible snap-back effect.
+            self._sfle_resize_after_id = self.root.after(
+                0, lambda: self._sfle_flush_viewport_resize(epoch),
             )
 
     def _sfle_root_axis_tracks_viewport(self, axis: str) -> bool:
@@ -517,10 +651,24 @@ class TkinterRenderer:
             if len(instance.children) != 1:
                 return False
             instance = instance.children[0]
-        if instance is None or instance.node.type != "Flex":
+        if instance is None:
+            return False
+        if instance.node.type in FORMATTING_TAGS:
+            # Semantic roots use viewport constraints even when their own
+            # content box is intrinsically or explicitly sized. Descendants
+            # may still depend on vw/vh and need a fresh Cinnamon commit.
+            return True
+        if instance.node.type == "Grid":
+            # A mounted Grid root also follows the native viewport. Without
+            # this branch Tk ignored interactive window resizing while the
+            # explicit set_sfle_constraints() benchmark still passed.
+            return True
+        if instance.node.type != "Flex":
             return False
         value = instance.node.props.get(axis, "auto")
-        return parse_length(value).kind in {LengthKind.AUTO, LengthKind.PERCENT}
+        return parse_length(value).kind in {LengthKind.AUTO, LengthKind.PERCENT,
+                                            LengthKind.VW, LengthKind.VH,
+                                            LengthKind.VMIN, LengthKind.VMAX}
 
     def _sfle_flush_viewport_resize(self, epoch: int) -> None:
         self._sfle_resize_after_id = None
@@ -586,9 +734,12 @@ class TkinterRenderer:
         # bounded number of times using the latest semantic epoch; never
         # publish a transaction rejected for stale measurements.
         from psx.sfle.errors import SFLEError
+        prior_signatures = getattr(self, "_sfle_committed_signatures", None)
+        semantic_dirty = self._sfle_measurement_invalidations.needs_commit()
+        grid_root = is_mounted_native_grid_root(root)
         for attempt in range(3):
             try:
-                if is_mounted_native_grid_root(root):
+                if grid_root:
                     commit_native_grid(self, root, backend=GridCommitBackend.TK)
                 else:
                     commit_tk_sfle(self, root)
@@ -597,6 +748,22 @@ class TkinterRenderer:
                 if ("Stale semantic invalidation" not in str(error)
                         or attempt == 2):
                     raise
+        # An Aqua background reconciliation walks every descendant and
+        # crosses the Tcl bridge for each one. Pure viewport changes cannot
+        # change CSS backgrounds when the mounted identities, declarative
+        # dependencies and paint properties are unchanged. Keep the full
+        # walk for first mount, semantic invalidations, unsafe properties,
+        # replacements and style changes.
+        current_signatures = getattr(self, "_sfle_committed_signatures", None)
+        same_paint_tree = (
+            not grid_root
+            and prior_signatures is not None
+            and current_signatures is not None
+            and prior_signatures[0][1] == current_signatures[0][1]
+            and prior_signatures[1] == current_signatures[1]
+        )
+        if semantic_dirty or not same_paint_tree:
+            self._sync_aqua_layout_surfaces()
         self._sfle_measurement_invalidations.acknowledge(
             self._sfle_measurement_invalidations.epoch)
 
@@ -610,8 +777,15 @@ class TkinterRenderer:
             self._sfle_resize_baseline = (
                 self.root.winfo_width(), self.root.winfo_height(),
             )
-            self._sfle_resize_bind_id = self.root.bind(
-                "<Configure>", self._sfle_on_configure, add="+",
+            # Toplevel widget binding tags are inherited by descendants.
+            # A normal root.bind('<Configure>') dispatches a full Python
+            # Event object for every child placement, even though our handler
+            # discards those events. Use a root-only tag instead.
+            tag = f"PSXResizeRoot_{id(self)}"
+            self.root.bindtags((tag, *self.root.bindtags()))
+            self._sfle_resize_bind_tag = tag
+            self._sfle_resize_bind_id = self.root.bind_class(
+                tag, "<Configure>", self._sfle_on_configure, add="+",
             )
         if self._sfle_theme_bind_id is None:
             self._sfle_theme_bind_id = self.root.bind(
@@ -620,11 +794,46 @@ class TkinterRenderer:
         self._sfle_mounted_root = root
         self._sfle_schedule_image_poll()
 
+    def _sync_aqua_layout_surfaces(self) -> None:
+        """Project CSS backgrounds onto structural Aqua Grid track hosts.
+
+        Classic Frames have no theme-painted border, so an empty Grid and
+        spaces between GridItems expose the ancestor's background exactly.
+        Cinnamon alone controls their native rectangles.
+        """
+        if sys.platform != "darwin":
+            return
+
+        def walk(widget):
+            if getattr(widget, "_psx_css_layout_surface", False):
+                ancestor = widget.master
+                fill = None
+                while ancestor is not None:
+                    fill = getattr(ancestor, "_psx_css_background", None)
+                    if fill is not None:
+                        break
+                    ancestor = getattr(ancestor, "master", None)
+                resolved = (fill if fill is not None
+                            else widget._psx_css_layout_default_background)
+                if str(widget.cget("background")) != resolved:
+                    widget.configure(background=resolved)
+            for child in widget.winfo_children():
+                if child is not getattr(widget, "_psx_css_fill_canvas", None):
+                    walk(child)
+
+        walk(self.root)
+
     def invalidate_layout(self) -> None:
         self._sfle_invalidation_lifetime += 1
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
         self._sfle_native_intrinsic_cache.clear()
+        # A full unmount/remount must drop cached VNode blueprints and old
+        # native intrinsic identities; a later tree always starts fresh.
+        for cache_name in ("_psx_grid_intrinsic_reuse", "_psx_grid_flow_blueprints"):
+            cache = getattr(self, cache_name, None)
+            if cache is not None:
+                cache.clear()
         self._sfle_prior_solver_input = None
         self._sfle_prior_solver_result = None
         self._sfle_prior_solver_engine = None
@@ -657,11 +866,19 @@ class TkinterRenderer:
                 except tk.TclError:
                     pass
                 self._sfle_resize_after_id = None
-            if self._sfle_resize_bind_id is not None:
+            if self._sfle_resize_bind_tag is not None:
+                tag = self._sfle_resize_bind_tag
                 try:
-                    self.root.unbind("<Configure>", self._sfle_resize_bind_id)
+                    self.root.unbind_class(tag, "<Configure>")
+                    self.root.bindtags(tuple(
+                        existing for existing in self.root.bindtags()
+                        if existing != tag
+                    ))
+                    if self._sfle_resize_bind_id is not None:
+                        self.root.deletecommand(self._sfle_resize_bind_id)
                 except tk.TclError:
                     pass
+                self._sfle_resize_bind_tag = None
                 self._sfle_resize_bind_id = None
             self.sfle_result = None
             self._sfle_physical_commit_error = None
@@ -770,7 +987,15 @@ class TkinterRenderer:
             if node.type == "Grid" and parent is not None and _as_handle(parent).node_type not in ("GridItem", "Flex", "div", "main", "section", "article", "header", "footer"):
                 raise RendererCapabilityError("Grid must be inside a supported Cinnamon layout container.")
             master = _as_handle(parent).widget if parent is not None else self.root
-            return TkHandle(node.type, ttk.Frame(master), dict(node.props))
+            # Unlike Aqua TFrame, classic Frame has an instance-owned
+            # background and no theme-drawn border. These hosts are purely
+            # structural; Cinnamon continues to own all native geometry.
+            frame = (tk.Frame(master, borderwidth=0, highlightthickness=0)
+                     if sys.platform == "darwin" else ttk.Frame(master))
+            frame._psx_css_layout_surface = True
+            if sys.platform == "darwin":
+                frame._psx_css_layout_default_background = str(frame.cget("background"))
+            return TkHandle(node.type, frame, dict(node.props))
         if node.kind is NodeKind.HOST and node.type == "Flex":
             raise RendererCapabilityError(
                 "Flex requires the Native SFLE SFLE geometry adapter for Tkinter; "
@@ -787,7 +1012,11 @@ class TkinterRenderer:
         spec = _PRIMITIVES.get(node.type)
         if spec is None:
             raise RendererCapabilityError(f"Tkinter does not support host primitive {node.type!r}.")
-        widget = spec.factory(master)
+        if node.type == "Button" and sys.platform == "darwin":
+            # Aqua's ttk Button theme ignores instance CSS colors.
+            widget = tk.Button(master, relief="flat", borderwidth=0, highlightthickness=0)
+        else:
+            widget = spec.factory(master)
         spec.apply(widget, node.props)
         if self._sfle_constraints is not None and node.type == "TextArea":
             # Preserve the native editor's selection/cursor; only observe
@@ -795,15 +1024,310 @@ class TkinterRenderer:
             widget.bind("<<Modified>>", self._sfle_on_textarea_modified, add="+")
         return TkHandle(node.type, widget, dict(node.props))
 
+    @staticmethod
+    def _css_corner_parent_surface(widget: tk.Misc) -> str:
+        """Read the currently painted ancestor, not a cached corner color."""
+        ancestor = widget.master
+        while ancestor is not None:
+            authored = getattr(ancestor, "_psx_css_background", None)
+            if authored is not None:
+                return authored
+            ancestor = getattr(ancestor, "master", None)
+
+        # No CSS background was authored. Use the actual native surface,
+        # rather than introducing a palette color into the CSS adapter.
+        parent = widget.master
+        if parent is not None:
+            try:
+                native = str(parent.cget("background"))
+                if native:
+                    return native
+            except tk.TclError:
+                pass
+        themed = str(ttk.Style(widget).lookup("TFrame", "background") or "")
+        if themed:
+            return themed
+        return str(widget.winfo_toplevel().cget("background"))
+
+    def _refresh_css_corner_surfaces(self, widget: tk.Misc) -> None:
+        """Update opaque Tk corner masks after an ancestor CSS-only change.
+
+        Reconciliation may not call apply_css on an unchanged card when only
+        its parent's computed background changes. Canvas masks are opaque:
+        their background must track the effective parent paint on every such
+        change, without remounting any native widget.
+        """
+        fill_corners = getattr(widget, "_psx_css_background_corners", ())
+        stroke_corners = getattr(widget, "_psx_css_border_corners", ())
+        button_canvas = getattr(widget, "_psx_css_button_surface", None)
+        if (button_canvas is not None
+                and getattr(widget, "_psx_css_button_authored_background", None) is None):
+            surrounding = self._css_corner_parent_surface(widget)
+            old = widget._psx_css_button_paint_values
+            if old[0] != surrounding:
+                widget._psx_css_button_paint_values = (surrounding, *old[1:])
+                self._redraw_css_ttk_button(widget)
+            if str(button_canvas.cget("background")) != surrounding:
+                button_canvas.configure(background=surrounding)
+        # The unified surface must also follow ancestor-only CSS changes.
+        if getattr(widget, "_psx_css_unified_surface", None) is not None:
+            self._redraw_css_unified_surface(widget)
+        if not fill_corners and not stroke_corners:
+            return
+        surrounding = self._css_corner_parent_surface(widget)
+        for corner in fill_corners:
+            if str(corner.cget("background")) != surrounding:
+                corner.configure(background=surrounding)
+        own = getattr(widget, "_psx_css_background", None)
+        for corner in stroke_corners:
+            paint = own if own is not None else surrounding
+            if str(corner.cget("background")) != paint:
+                corner.configure(background=paint)
+
+    @staticmethod
+    def _redraw_css_ttk_button(widget: ttk.Button) -> None:
+        """Repaint the CSS-owned button surface, never a theme palette."""
+        canvas = getattr(widget, "_psx_css_button_surface", None)
+        if canvas is None or not canvas.winfo_exists():
+            return
+        fill, ink, radius, label, align, font, left, right = widget._psx_css_button_paint_values
+        width, height = max(1, canvas.winfo_width()), max(1, canvas.winfo_height())
+        radius = min(radius, width // 2, height // 2)
+        canvas.delete("all")
+        if radius:
+            canvas.create_rectangle(radius, 0, width - radius, height,
+                                    fill=fill, outline="", tags=("psx-css-button-fill",))
+            canvas.create_rectangle(0, radius, width, height - radius,
+                                    fill=fill, outline="", tags=("psx-css-button-fill",))
+            for x in (0, width - 2 * radius):
+                for y in (0, height - 2 * radius):
+                    canvas.create_oval(x, y, x + 2 * radius, y + 2 * radius,
+                                      fill=fill, outline="", tags=("psx-css-button-fill",))
+        else:
+            canvas.create_rectangle(0, 0, width, height, fill=fill, outline="",
+                                    tags=("psx-css-button-fill",))
+        anchors = {
+            "left": ("w", max(0, left)),
+            "center": ("center", width // 2),
+            "right": ("e", max(0, width - right)),
+        }
+        anchor, x = anchors[align]
+        canvas.create_text(x, height // 2, text=label, font=font, fill=ink,
+                           anchor=anchor, tags=("psx-css-button-text",))
+
+    def _paint_css_ttk_button(self, widget: ttk.Button, computed: object,
+                             styles: dict[str, object], font: object) -> None:
+        """Own CSS Button paint when ttk themes disregard authored colors.
+
+        The actual ttk.Button keeps focus, keyboard invocation, event slots,
+        layout/measurement identity and native accessibility.  A placed Canvas
+        is paint only and never participates in Cinnamon geometry.
+        """
+        from psx.css.native_paint import background_hex, native_border_radius
+        from psx.sfle.lengths import LengthKind
+
+        painted = getattr(widget, "_psx_css_button_surface", None)
+        paint_keys = (
+            "background-color", "border-width", "border-color",
+            "border-top-width", "border-bottom-width", "border-left-width",
+            "border-right-width", "border-radius",
+        )
+        needs_paint = computed is not None and any(
+            name in computed.specified for name in paint_keys
+        )
+        if not needs_paint:
+            if painted is not None:
+                painted.destroy()
+                del widget._psx_css_button_surface
+                del widget._psx_css_button_paint_values
+                del widget._psx_css_button_authored_background
+            return
+
+        radius = native_border_radius(computed)
+        if radius != int(radius):
+            raise ValueError("Tk CSS Button surface needs integer px border-radius.")
+        background = background_hex(computed)
+        foreground = styles.get("color")
+        if foreground is None:
+            name = str(widget.cget("style"))
+            foreground = (ttk.Style(widget).lookup(name, "foreground")
+                          or ttk.Style(widget).lookup("TButton", "foreground"))
+        if not foreground:
+            raise ValueError("Tk CSS Button requires a resolvable native foreground.")
+        padding = []
+        for side in ("left", "right"):
+            value = computed.properties[f"padding-{side}"]
+            if value.kind is not LengthKind.PX:
+                raise ValueError("Tk CSS Button padding requires pixel units.")
+            padding.append(round(value.value))
+        parent_fill = self._css_corner_parent_surface(widget)
+        fill = background if background is not None else parent_fill
+
+        if painted is None:
+            painted = tk.Canvas(widget, borderwidth=0, highlightthickness=0,
+                                takefocus=0)
+            widget._psx_css_button_surface = painted
+            widget._psx_css_button_pressed = False
+
+            def on_press(event):
+                if widget.instate(("disabled",)):
+                    return
+                widget._psx_css_button_pressed = True
+                widget.focus_set()
+
+            def on_release(event):
+                pressed = widget._psx_css_button_pressed
+                widget._psx_css_button_pressed = False
+                if (pressed and not widget.instate(("disabled",))
+                        and 0 <= event.x < painted.winfo_width()
+                        and 0 <= event.y < painted.winfo_height()):
+                    widget.invoke()
+
+            painted.bind("<ButtonPress-1>", on_press)
+            painted.bind("<ButtonRelease-1>", on_release)
+            painted.bind("<Leave>", lambda _event: setattr(
+                widget, "_psx_css_button_pressed", False))
+            # Internal Canvas Configure handlers never consume Event fields.
+            # A zero-argument Tcl binding avoids constructing a full Python
+            # Tk Event for every intermediate child resize.
+            painted.tk.call(
+                "bind", str(painted), "<Configure>",
+                painted.register(lambda: self._redraw_css_ttk_button(widget)),
+            )
+        widget._psx_css_button_authored_background = background
+        widget._psx_css_button_paint_values = (
+            fill, str(foreground), int(radius), str(widget.cget("text")),
+            styles.get("text-align", "center"), font, *padding,
+        )
+        painted.configure(background=parent_fill, cursor=str(widget.cget("cursor")))
+        painted.place(x=0, y=0, relwidth=1, relheight=1)
+        tk.Misc.tkraise(painted)
+        # The generic native border overlays are created earlier in apply_css.
+        # Keep them visible over the newly painted control surface.
+        for decoration in (
+            *getattr(widget, "_psx_css_border_edges", ()),
+            *getattr(widget, "_psx_css_border_corners", ()),
+        ):
+            tk.Misc.tkraise(decoration)
+        self._redraw_css_ttk_button(widget)
+
+    def _redraw_css_unified_surface(self, widget: tk.Misc) -> None:
+        """Refresh one Canvas for CSS fill, border and antialiased corners."""
+        canvas = getattr(widget, "_psx_css_unified_surface", None)
+        if canvas is None or not canvas.winfo_exists():
+            return
+        radius, fill, sides = widget._psx_css_unified_values
+        parent = self._css_corner_parent_surface(widget)
+        width, height = canvas.winfo_width(), canvas.winfo_height()
+        revision = (width, height, radius, parent, fill, tuple(sorted(sides.items())))
+        if revision == getattr(canvas, "_psx_css_paint_revision", None):
+            return
+        from psx.renderers.tkinter.rounded_surface import draw_rounded_surface
+
+        draw_rounded_surface(
+            canvas, width=width, height=height, radius=radius,
+            parent_color=parent, fill_color=fill, sides=sides,
+        )
+        canvas._psx_css_paint_revision = revision
+
+    def _schedule_css_unified_surface_redraw(self, widget: tk.Misc) -> None:
+        """Coalesce child Configure storms before Tk's next idle paint."""
+        canvas = getattr(widget, "_psx_css_unified_surface", None)
+        if canvas is None or not canvas.winfo_exists():
+            return
+        if getattr(canvas, "_psx_css_redraw_after_id", None) is not None:
+            return
+
+        def flush():
+            canvas._psx_css_redraw_after_id = None
+            if canvas.winfo_exists():
+                self._redraw_css_unified_surface(widget)
+
+        # Register on the renderer root, not the child Canvas: destroying a
+        # canvas must not invalidate a still-pending Tcl callback command.
+        canvas._psx_css_redraw_after_id = self.root.after_idle(flush)
+
+    def _paint_css_unified_surface(
+        self, widget: tk.Misc, computed: object, fill: str | None,
+    ) -> None:
+        """Paint rounded semantic CSS in one instance-owned layer.
+
+        Opaque compositing against a solid real ancestor is deliberate:
+        Canvas has no native per-pixel backdrop transparency over sibling
+        images or animations. Do not silently claim such alpha support.
+        """
+        from psx.css.native_paint import (
+            native_border_paint, native_border_radius, native_side_border_paint,
+        )
+
+        canvas = getattr(widget, "_psx_css_unified_surface", None)
+        if computed is None:
+            if canvas is not None:
+                canvas.destroy()
+                del widget._psx_css_unified_surface
+                del widget._psx_css_unified_values
+            return
+        radius = native_border_radius(computed)
+        full_stroke = native_border_paint(computed)
+        individual = native_side_border_paint(computed)
+        if not radius or not (fill is not None or full_stroke or individual):
+            if canvas is not None:
+                canvas.destroy()
+                del widget._psx_css_unified_surface
+                del widget._psx_css_unified_values
+            return
+        if radius != int(radius) or radius < 1:
+            raise ValueError("Tk unified rounded CSS surfaces require integer pixel radius.")
+        sides = {}
+        if full_stroke is not None:
+            thickness, ink = full_stroke
+            if thickness != int(thickness) or thickness < 1:
+                raise ValueError("Tk unified CSS border requires positive integer pixel width.")
+            sides.update({name: (thickness, ink)
+                          for name in ("top", "right", "bottom", "left")})
+        for name, thickness, rgba in individual:
+            if thickness != int(thickness) or thickness < 1:
+                raise ValueError("Tk unified CSS side requires positive integer pixel width.")
+            if rgba[3] != 1:
+                raise ValueError("Tk unified CSS side requires opaque color.")
+            ink = "#%02x%02x%02x" % tuple(round(v * 255) for v in rgba[:3])
+            sides[name] = (thickness, ink)
+        if canvas is None:
+            canvas = tk.Canvas(widget, borderwidth=0, highlightthickness=0, takefocus=0)
+            widget._psx_css_unified_surface = canvas
+            canvas.tk.call(
+                "bind", str(canvas), "<Configure>",
+                canvas.register(lambda: self._schedule_css_unified_surface_redraw(widget)),
+            )
+        widget._psx_css_unified_values = (int(radius), fill, sides)
+        canvas.place(x=0, y=0, relwidth=1, relheight=1)
+        # A ttk theme may paint over a lowered child canvas (Aqua). Keep
+        # the CSS layer above the theme, but beneath all native content.
+        tk.Misc.tkraise(canvas)
+        for child in widget.winfo_children():
+            if child is not canvas:
+                tk.Misc.tkraise(child)
+        self._redraw_css_unified_surface(widget)
+
     def apply_css(self, handle: object, computed: object) -> None:
         """Apply CSS backgrounds through an instance-scoped ttk Frame style."""
         from psx.css.native_paint import background_hex
         target = _as_handle(handle)
+        from psx.css.native_paint import native_border_radius, native_border_paint, native_side_border_paint
+        unified = (
+            target.node_type in FORMATTING_TAGS
+            and native_border_radius(computed) > 0
+            and (
+                background_hex(computed) is not None
+                or native_border_paint(computed) is not None
+                or bool(native_side_border_paint(computed))
+            )
+        )
         # Tk/ttk themes do not expose reliable bordercolor painting. Keep an
         # instance-local four-edge overlay instead of changing global ttk styles.
         if target.node_type in ("Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Text", "Badge") or target.node_type in FORMATTING_TAGS:
             from psx.css.native_paint import native_border_paint, native_border_radius
-            stroke = native_border_paint(computed)
+            stroke = None if unified else native_border_paint(computed)
             radius = native_border_radius(computed)
             widget = target.widget
             edges = getattr(widget, "_psx_css_border_edges", None)
@@ -843,7 +1367,11 @@ class TkinterRenderer:
                     edge.configure(background=color)
                     edge.place(**place)
                     edge.lift()
-                if not r:
+                if not r or (target.node_type in FORMATTING_TAGS
+                             and background_hex(computed) is not None):
+                    # Formatting hosts paint the rounded stroke together
+                    # with their fill. A second opaque Canvas would replace
+                    # the real parent color around the clipped corner.
                     if corners is not None:
                         for corner in corners:
                             corner.destroy()
@@ -859,14 +1387,10 @@ class TkinterRenderer:
                             for _ in range(4)
                         )
                         widget._psx_css_border_corners = corners
-                    # Tk Canvas has no transparent background. Sample the
-                    # native control's theme surface, never global widget styles.
-                    try:
-                        surface = str(widget.cget("background"))
-                    except tk.TclError:
-                        surface = str(ttk.Style(widget).lookup(widget.winfo_class(), "background") or "")
-                    if not surface:
-                        surface = str(ttk.Style(widget).lookup("TFrame", "background") or "#ffffff")
+                    # Corner masks sample the actual CSS ancestor surface.
+                    # CSS-only changes to the parent refresh them in place.
+                    surface = (getattr(widget, "_psx_css_background", None)
+                               or self._css_corner_parent_surface(widget))
                     positions = (
                         (dict(x=0, y=0), (0, 0, 2*r, 2*r), 90),
                         (dict(relx=1, x=-r, y=0), (-r, 0, r, 2*r), 0),
@@ -880,6 +1404,67 @@ class TkinterRenderer:
                                           style="arc", outline=color, width=n)
                         corner.place(**place)
                         tk.Misc.tkraise(corner)
+        # Qt projects individual border sides through QSS. ttk has no
+        # equivalent per-widget side stroke: paint just the authored sides
+        # without adding borders to the other three edges.
+        if target.node_type in FORMATTING_TAGS:
+            from psx.css.visual_values import CssColor
+            from psx.sfle.lengths import Length, LengthKind
+            side_edges = getattr(target.widget, "_psx_css_side_borders", None)
+            active_sides = set()
+            active_paint = {}
+            side_radius = native_border_radius(computed)
+            if computed is not None and not unified:
+                for side in ("top", "right", "bottom", "left"):
+                    width_key, color_key = f"border-{side}-width", f"border-{side}-color"
+                    if width_key not in computed.specified and color_key not in computed.specified:
+                        continue
+                    width = computed.properties[width_key] if width_key in computed.specified else computed.properties["border-width"]
+                    shade = computed.properties[color_key] if color_key in computed.specified else computed.properties["border-color"]
+                    if not isinstance(width, Length) or width.kind is not LengthKind.PX or width.value < 0:
+                        raise ValueError("Tk CSS side borders require nonnegative pixel widths.")
+                    if width.value == 0:
+                        continue
+                    if int(width.value) != width.value:
+                        raise ValueError("Tk side borders require integer pixel widths.")
+                    if not isinstance(shade, CssColor):
+                        raise TypeError("Tk CSS side border needs a validated color.")
+                    hex_color = shade.value
+                    if len(hex_color) not in (4, 7):
+                        raise ValueError("Tk side border painting requires opaque RGB colors.")
+                    if side_edges is None:
+                        side_edges = {}
+                        target.widget._psx_css_side_borders = side_edges
+                    if side not in side_edges:
+                        side_edges[side] = tk.Frame(target.widget, bd=0, highlightthickness=0, takefocus=0)
+                    edge = side_edges[side]
+                    edge.configure(background=hex_color)
+                    n = int(width.value)
+                    if side_radius:
+                        if side_radius != int(side_radius) or side_radius < n / 2:
+                            raise ValueError(
+                                "Tk rounded side borders require integer radius >= half stroke width."
+                            )
+                        if background_hex(computed) is None:
+                            raise ValueError(
+                                "Tk rounded side borders require an authored opaque background."
+                            )
+                    r = int(side_radius)
+                    places = {
+                        "top": dict(x=r, y=0, relwidth=1, width=-2*r, height=n),
+                        "right": dict(relx=1, x=-n, y=r, width=n, relheight=1, height=-2*r),
+                        "bottom": dict(x=r, rely=1, y=-n, relwidth=1, width=-2*r, height=n),
+                        "left": dict(x=0, y=r, width=n, relheight=1, height=-2*r),
+                    }
+                    edge.place(**places[side])
+                    edge.lift()
+                    active_sides.add(side)
+                    active_paint[side] = (n, hex_color)
+            target.widget._psx_css_side_corner_styles = active_paint
+            if side_edges:
+                for side in tuple(side_edges):
+                    if side not in active_sides:
+                        side_edges.pop(side).destroy()
         if target.node_type == "Badge":
             from psx.css.native_paint import foreground_hex
             widget = target.widget
@@ -898,6 +1483,10 @@ class TkinterRenderer:
             from psx.renderers.components.text import apply_tk_text
             apply_tk_text(target.widget, target.props)
             styles = native_text_typography(computed, line_height=True)
+            if "font-family" in styles:
+                styles["font-family"] = _resolve_css_tk_font_family(
+                    target.widget, computed.properties["font-family"]
+                )
             if self._sfle_constraints is not None:
                 revision = (target.props.get("value"), tuple((name, styles.get(name)) for name in ("font-family", "font-size", "font-weight", "line-height")))
                 if getattr(target.widget, "_psx_css_font_revision", None) != revision:
@@ -914,6 +1503,83 @@ class TkinterRenderer:
                 target.widget.configure(justify=align, anchor={"left": "w", "center": "center", "right": "e"}[align])
             if "color" in styles:
                 target.widget.configure(foreground=styles["color"])
+            # ttk.Label paints its own theme surface, unlike Qt's QLabel.
+            # Match the nearest explicitly CSS-painted ancestor rather than
+            # exposing the theme's default grey rectangle behind text.
+            ancestor = target.widget.master
+            inherited_fill = None
+            while ancestor is not None:
+                inherited_fill = getattr(ancestor, "_psx_css_background", None)
+                if inherited_fill is not None:
+                    break
+                ancestor = ancestor.master
+            label_style = f"PsxCssText{id(target.widget)}.TLabel"
+            ttk_style = ttk.Style(target.widget)
+            if isinstance(target.widget, tk.Label):
+                if not hasattr(target.widget, "_psx_css_original_background"):
+                    target.widget._psx_css_original_background = target.widget.cget("background")
+                target.widget.configure(
+                    background=inherited_fill if inherited_fill is not None
+                    else target.widget._psx_css_original_background
+                )
+            elif inherited_fill is None:
+                if hasattr(target.widget, "_psx_css_background_style"):
+                    del target.widget._psx_css_background_style
+                target.widget.configure(style="TLabel")
+            else:
+                # Several ttk themes prioritize their TLabel style font when
+                # painting a custom CSS background. Project the exact named
+                # Tk font into this *instance-owned* style as well as the
+                # widget option, so a theme cannot restore its default face.
+                label_config = {
+                    "background": inherited_fill,
+                    "font": target.widget._psx_text_font,
+                }
+                # Foreground stays on the native Label option; leaving
+                # the style foreground untouched also preserves theme state.
+                ttk_style.configure(label_style, **label_config)
+                target.widget._psx_css_background_style = label_style
+                target.widget.configure(style=label_style,
+                                        font=target.widget._psx_text_font)
+            # Explicitly opt-in diagnostic for host-specific font failures.
+            # Report the computed CSS and the actual Tcl/Tk font separately:
+            # a theme, stylesheet source or layout may otherwise look like
+            # the same font-size issue in a screenshot.
+            import os
+            if os.environ.get("PSX_TK_CSS_TRACE") == "1":
+                native_font = target.widget._psx_text_font
+                specified = frozenset() if computed is None else computed.specified
+                trace = {
+                    "text": target.props.get("value"),
+                    "specified_typography": {
+                        key: str(computed.properties[key])
+                        for key in ("font-family", "font-size", "font-weight", "line-height")
+                        if key in specified
+                    },
+                    "projected_typography": {
+                        key: styles[key]
+                        for key in ("font-family", "font-size", "font-weight", "line-height")
+                        if key in styles
+                    },
+                    "native_font": {
+                        key: native_font.actual(key)
+                        for key in ("family", "size", "weight")
+                    },
+                    "configured_font": {
+                        key: native_font.cget(key)
+                        for key in ("family", "size", "weight")
+                    },
+                    "font_option": str(target.widget.cget("font")),
+                    "style": str(target.widget.cget("style"))
+                        if isinstance(target.widget, ttk.Label) else None,
+                    "style_font": ttk_style.lookup(
+                        str(target.widget.cget("style")), "font"
+                    ) if isinstance(target.widget, ttk.Label) else None,
+                    "line_pixels": native_font.metrics("linespace"),
+                    "requested_height": target.widget.winfo_reqheight(),
+                    "tk_scaling": target.widget.tk.call("tk", "scaling"),
+                }
+                print("[PSX-TK-CSS] " + repr(trace), file=sys.stderr, flush=True)
             layer = getattr(target.widget, "_psx_css_text_layer", None)
             leading = styles.get("line-height")
             target.widget._psx_css_line_height = leading
@@ -955,6 +1621,10 @@ class TkinterRenderer:
             from tkinter import font as tkfont
             styles = native_text_typography(computed)
             widget = target.widget
+            if "font-family" in styles:
+                styles["font-family"] = _resolve_css_tk_font_family(
+                    widget, computed.properties["font-family"]
+                )
             if not hasattr(widget, "_psx_css_area_base_font"):
                 widget._psx_css_area_base_font = widget.cget("font")
                 widget._psx_css_area_font = tkfont.Font(
@@ -992,6 +1662,10 @@ class TkinterRenderer:
             from tkinter import font as tkfont
             styles = native_text_typography(computed)
             widget = target.widget
+            if "font-family" in styles:
+                styles["font-family"] = _resolve_css_tk_font_family(
+                    widget, computed.properties["font-family"]
+                )
             if not styles:
                 if hasattr(widget, "_psx_css_link_font"):
                     widget.configure(
@@ -1037,7 +1711,125 @@ class TkinterRenderer:
             from tkinter import font as tkfont
             styles = native_text_typography(computed, line_height=target.node_type == "Button")
             widget = target.widget
-            if not styles:
+            if "font-family" in styles:
+                styles["font-family"] = _resolve_css_tk_font_family(
+                    widget, computed.properties["font-family"]
+                )
+            button_paint = (
+                target.node_type == "Button"
+                and computed is not None
+                and (
+                    background_hex(computed) is not None
+                    or any(key in computed.specified for key in (
+                        "padding", "padding-left", "padding-right",
+                        "padding-top", "padding-bottom", "text-align",
+                        "cursor", "border-width", "border-color",
+                        "border-radius",
+                    ))
+                )
+            )
+            if isinstance(widget, tk.Button):
+                if not hasattr(widget, "_psx_css_default_background"):
+                    widget._psx_css_default_background = str(widget.cget("background"))
+                    widget._psx_css_default_foreground = str(widget.cget("foreground"))
+                    widget._psx_css_default_font = str(widget.cget("font"))
+                ancestor = widget.master
+                ancestor_bg = None
+                while ancestor is not None:
+                    ancestor_bg = getattr(ancestor, "_psx_css_background", None)
+                    if ancestor_bg is not None:
+                        break
+                    ancestor = ancestor.master
+                background = (background_hex(computed) or ancestor_bg
+                              or widget._psx_css_default_background)
+                foreground = styles.get("color", widget._psx_css_default_foreground)
+                if not hasattr(widget, "_psx_css_classic_font"):
+                    widget._psx_css_classic_font = tkfont.Font(
+                        root=widget, font=widget._psx_css_default_font)
+                    widget._psx_css_classic_font_defaults = widget._psx_css_classic_font.actual()
+                font = widget._psx_css_classic_font
+                font.configure(**widget._psx_css_classic_font_defaults)
+                if "font-family" in styles:
+                    font.configure(family=styles["font-family"])
+                if "font-size" in styles:
+                    font.configure(size=-round(styles["font-size"]))
+                if "font-weight" in styles:
+                    font.configure(weight="bold" if styles["font-weight"] >= 600 else "normal")
+                props = computed.properties if computed is not None else {}
+                from psx.sfle.lengths import LengthKind
+                padding = []
+                for side in ("left", "top", "right", "bottom"):
+                    value = props.get(f"padding-{side}")
+                    if value is not None and value.kind is not LengthKind.PX:
+                        raise ValueError("Tk CSS button padding requires pixel units.")
+                    padding.append(round(value.value) if value is not None else 0)
+                left, top, right, bottom = padding
+                widget.configure(
+                    font=font, background=background, activebackground=background,
+                    foreground=foreground, activeforeground=foreground,
+                    relief="flat", borderwidth=0, highlightthickness=0,
+                    padx=max(left, right), pady=max(top, bottom),
+                    anchor={"left": "w", "center": "center", "right": "e"}[
+                        styles.get("text-align", "center")],
+                    cursor=("hand2" if props.get("cursor") == "pointer" else "arrow"),
+                )
+                # Aqua paints its native button surface even if Tk's bg
+                # options are set. Own the pixel surface with a single Canvas
+                # above the button, preserving the button's handle and invoke().
+                radius = native_border_radius(computed)
+                if radius != int(radius) or radius < 0:
+                    raise ValueError("Tk CSS button radius requires nonnegative integer px.")
+                paint = getattr(widget, "_psx_css_button_paint", None)
+                if paint is None:
+                    paint = tk.Canvas(widget, borderwidth=0,
+                                      highlightthickness=0, takefocus=0)
+                    widget._psx_css_button_paint = paint
+                    paint.bind("<Button-1>", lambda _event: widget.focus_set(), add="+")
+                    paint.bind("<ButtonRelease-1>", lambda _event: (
+                        widget.invoke() if str(widget.cget("state")) != "disabled"
+                        else None), add="+")
+                paint.configure(background=ancestor_bg or background,
+                                cursor=str(widget.cget("cursor")))
+                paint.place(x=0, y=0, relwidth=1, relheight=1)
+                tk.Misc.tkraise(paint)
+                widget._psx_css_button_paint_values = (
+                    background, foreground, int(radius), str(widget.cget("text")),
+                    str(styles.get("text-align", "center")), font,
+                )
+                def repaint(event=None):
+                    if not paint.winfo_exists():
+                        return
+                    width = max(1, paint.winfo_width())
+                    height = max(1, paint.winfo_height())
+                    fill, ink, corner, label, align, face = widget._psx_css_button_paint_values
+                    corner = min(corner, width // 2, height // 2)
+                    paint.delete("all")
+                    if corner:
+                        paint.create_rectangle(corner, 0, width-corner, height,
+                                               fill=fill, outline="")
+                        paint.create_rectangle(0, corner, width, height-corner,
+                                               fill=fill, outline="")
+                        for x in (0, width-2*corner):
+                            for y in (0, height-2*corner):
+                                paint.create_oval(x, y, x+2*corner, y+2*corner,
+                                                  fill=fill, outline="")
+                    else:
+                        paint.create_rectangle(0, 0, width, height,
+                                               fill=fill, outline="")
+                    anchors = {"left": ("w", max(0, left)),
+                               "center": ("center", width//2),
+                               "right": ("e", max(0, width-right))}
+                    anchor, text_x = anchors[align]
+                    paint.create_text(text_x, height//2, text=label,
+                                      font=face, fill=ink, anchor=anchor)
+                if not hasattr(paint, "_psx_css_resize_bound"):
+                    paint.bind("<Configure>", repaint, add="+")
+                    paint._psx_css_resize_bound = True
+                repaint()
+                return
+            if not styles and not button_paint:
+                if target.node_type == "Button" and isinstance(widget, ttk.Button):
+                    self._paint_css_ttk_button(widget, None, {}, None)
                 if hasattr(widget, "_psx_css_native_font"):
                     widget._psx_css_native_font.configure(
                         **widget._psx_css_native_original_font_config
@@ -1069,7 +1861,15 @@ class TkinterRenderer:
                     str(widget.cget("style")) if target.node_type not in ("Input", "Select") else None
                 )
             if not hasattr(widget, "_psx_css_native_base_font"):
-                original = ttk.Style(widget).lookup(widget.winfo_class(), "font")
+                # Start with the actual component style, not the generic ttk
+                # class: PSX Button styles specify pixel-sized fonts there.
+                if target.node_type in ("Input", "Select"):
+                    original = widget.cget("font")
+                else:
+                    theme = ttk.Style(widget)
+                    style_name = str(widget.cget("style")) or widget.winfo_class()
+                    original = (theme.lookup(style_name, "font")
+                                or theme.lookup(widget.winfo_class(), "font"))
                 widget._psx_css_native_base_font = original or "TkDefaultFont"
             if not hasattr(widget, "_psx_css_native_font"):
                 widget._psx_css_native_font = tkfont.Font(
@@ -1077,11 +1877,23 @@ class TkinterRenderer:
             font = widget._psx_css_native_font
             if not hasattr(widget, "_psx_css_native_original_font_config"):
                 widget._psx_css_native_original_font_config = font.actual()
+            native_font = widget._psx_css_native_original_font_config
+            # A Tk named Font uses positive *points* by default. Preserve
+            # the portable Button/Input component size in negative device
+            # pixels when CSS only specifies paint, padding or alignment.
+            base_size = native_font["size"]
+            if target.node_type in ("Button", "Input"):
+                from psx.core.contracts import BUTTON_DEFAULTS, INPUT_DEFAULTS
+                defaults = BUTTON_DEFAULTS if target.node_type == "Button" else INPUT_DEFAULTS
+                base_size = -max(1, round(target.props.get(
+                    "font_size", defaults["font_size"]
+                )))
+            font.configure(**native_font)
             font.configure(
-                family=styles.get("font-family", tkfont.nametofont("TkDefaultFont", root=widget).actual("family")),
-                size=-round(styles["font-size"]) if "font-size" in styles else
-                     tkfont.nametofont("TkDefaultFont", root=widget).actual("size"),
-                weight="bold" if styles.get("font-weight", 400) >= 600 else "normal",
+                family=styles.get("font-family", native_font["family"]),
+                size=-round(styles["font-size"]) if "font-size" in styles else base_size,
+                weight=("bold" if styles["font-weight"] >= 600 else "normal")
+                if "font-weight" in styles else native_font["weight"],
             )
             if target.node_type in ("Input", "Select"):
                 widget.configure(font=font)
@@ -1106,6 +1918,18 @@ class TkinterRenderer:
                 if "color" in styles:
                     config["foreground"] = styles["color"]
                 if target.node_type == "Button":
+                    # ttk buttons need instance-scoped theme styles; geometry
+                    # alone cannot project the authored CSS background/edges.
+                    color = background_hex(computed)
+                    if color is not None:
+                        config["background"] = color
+                    if computed is not None and "cursor" in computed.specified:
+                        widget.configure(cursor=(
+                            "hand2" if computed.properties["cursor"] == "pointer"
+                            else "arrow"
+                        ))
+                    else:
+                        widget.configure(cursor="")
                     leading = styles.get("line-height")
                     if leading is not None and (
                         "\n" in str(widget.cget("text"))
@@ -1128,6 +1952,20 @@ class TkinterRenderer:
                         l, t, r, b = parts
                     else:
                         raise ValueError("Unsupported native Tk button padding format.")
+                    if computed is not None and (
+                        "padding" in computed.specified or any(
+                            f"padding-{side}" in computed.specified
+                            for side in ("top", "right", "bottom", "left")
+                        )
+                    ):
+                        from psx.sfle.lengths import LengthKind
+                        dimensions = []
+                        for side in ("left", "top", "right", "bottom"):
+                            length = computed.properties[f"padding-{side}"]
+                            if length.kind is not LengthKind.PX:
+                                raise ValueError("Tk native Button padding requires pixel lengths.")
+                            dimensions.append(round(length.value))
+                        l, t, r, b = dimensions
                     config["padding"] = (
                         l, t + extra // 2, r, b + extra - extra // 2
                     )
@@ -1138,7 +1976,28 @@ class TkinterRenderer:
                 elif "text-align" in styles:
                     raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
                 style.configure(style_name, **config)
+                if target.node_type == "Button":
+                    # Theme maps can override the configured ordinary-state
+                    # color and obscure authored active/selected class rules.
+                    if "background" in config:
+                        style.map(style_name, background=[
+                            ("disabled", config["background"]),
+                            ("active", config["background"]),
+                            ("!disabled", config["background"]),
+                        ])
+                    else:
+                        style.map(style_name, background=[])
+                    if "foreground" in config:
+                        style.map(style_name, foreground=[
+                            ("disabled", config["foreground"]),
+                            ("active", config["foreground"]),
+                            ("!disabled", config["foreground"]),
+                        ])
+                    else:
+                        style.map(style_name, foreground=[])
                 widget.configure(style=style_name)
+                if target.node_type == "Button" and isinstance(widget, ttk.Button):
+                    self._paint_css_ttk_button(widget, computed, styles, font)
             if self._sfle_constraints is not None:
                 keys = ("font-family", "font-size", "font-weight", "line-height")
                 if any(key in styles for key in keys) or hasattr(widget, "_psx_css_font_revision"):
@@ -1151,6 +2010,8 @@ class TkinterRenderer:
             return
         color = background_hex(computed)
         widget = target.widget
+        previous_background = getattr(widget, "_psx_css_background", None)
+        widget._psx_css_background = color
         from psx.css.native_paint import native_border_radius
         radius = native_border_radius(computed)
         if color is None:
@@ -1159,6 +2020,159 @@ class TkinterRenderer:
             style_name = f"PsxCss{id(widget)}.TFrame"
             ttk.Style(widget).configure(style_name, background=color)
             widget.configure(style=style_name)
+
+        # A parent-only CSS refresh does not reapply unchanged child styles.
+        # Text labels must nevertheless repaint against their new CSS surface.
+        if previous_background != color:
+            def refresh_descendant_labels(parent):
+                for child in parent.winfo_children():
+                    if ((isinstance(child, ttk.Label) and hasattr(child, "_psx_css_background_style"))
+                            or isinstance(child, tk.Label)):
+                        background = color
+                        ancestor = child.master
+                        while ancestor is not None:
+                            candidate = getattr(ancestor, "_psx_css_background", None)
+                            if candidate is not None:
+                                background = candidate
+                                break
+                            ancestor = ancestor.master
+                        if isinstance(child, tk.Label):
+                            if not hasattr(child, "_psx_css_original_background"):
+                                child._psx_css_original_background = child.cget("background")
+                            child.configure(background=(
+                                background if background is not None
+                                else child._psx_css_original_background
+                            ))
+                        elif background is None:
+                            child.configure(style="TLabel")
+                        else:
+                            name = child._psx_css_background_style
+                            ttk.Style(child).configure(name, background=background)
+                            child.configure(style=name)
+                    refresh_descendant_labels(child)
+            refresh_descendant_labels(widget)
+            # Child CSS is unchanged, but opaque rounded masks would still
+            # expose the previous parent's color without this repaint.
+            def refresh_descendant_corners(parent):
+                for child in parent.winfo_children():
+                    self._refresh_css_corner_surfaces(child)
+                    if child is not getattr(parent, "_psx_css_fill_canvas", None):
+                        refresh_descendant_corners(child)
+            refresh_descendant_corners(widget)
+
+        if unified:
+            # The previous multi-widget corner and edge paint is replaced
+            # with a single owned surface; avoid simultaneous decorations.
+            old_fill = getattr(widget, "_psx_css_fill_canvas", None)
+            if old_fill is not None:
+                old_fill.destroy()
+                del widget._psx_css_fill_canvas
+            old_corners = getattr(widget, "_psx_css_background_corners", None)
+            if old_corners is not None:
+                for old_corner in old_corners:
+                    old_corner.destroy()
+                del widget._psx_css_background_corners
+            self._paint_css_unified_surface(widget, computed, color)
+            return
+
+        # Drop the unified paint when the authored style is reset or
+        # no longer contains a painted rounded border/surface.
+        self._paint_css_unified_surface(widget, None, None)
+
+        # Several native ttk themes (notably macOS Aqua) ignore custom
+        # TFrame background styles. Paint the CSS fill in a child canvas
+        # lowered behind the existing native children, without changing
+        # geometry ownership or introducing a global theme override.
+        surface = getattr(widget, "_psx_css_fill_canvas", None)
+        if color is None:
+            if surface is not None:
+                surface.destroy()
+                del widget._psx_css_fill_canvas
+        else:
+            if surface is None:
+                surface = tk.Canvas(
+                    widget, borderwidth=0, highlightthickness=0,
+                    takefocus=0, background=color,
+                )
+                widget._psx_css_fill_canvas = surface
+            else:
+                surface.configure(background=color)
+            surface.place(x=0, y=0, relwidth=1, relheight=1)
+            # Aqua draws themed TFrame surfaces *over* a lowered child
+            # canvas. Keep the CSS fill above the theme, but below every
+            # real content child and any border/corner painting overlays.
+            tk.Misc.tkraise(surface)
+            for child in widget.winfo_children():
+                if child is not surface:
+                    tk.Misc.tkraise(child)
+
+        if sys.platform == "darwin":
+            # CSS backgrounds do not inherit, but ttk.Frame is opaque under
+            # Aqua. A formatting host with no authored background must
+            # *visually* expose its nearest painted ancestor instead of
+            # covering it with the system dark theme. Reproject descendants
+            # when a parent changes without relying on CSS reconciliation to
+            # revisit unchanged child nodes.
+            def repaint_formatting_surfaces(host):
+                for child in host.winfo_children():
+                    if hasattr(child, "_psx_css_background"):
+                        explicit = child._psx_css_background
+                        inherited = None
+                        ancestor = child.master
+                        while ancestor is not None:
+                            inherited = getattr(ancestor, "_psx_css_background", None)
+                            if inherited is not None:
+                                break
+                            ancestor = ancestor.master
+                        fill = explicit if explicit is not None else inherited
+                        painted = getattr(child, "_psx_css_fill_canvas", None)
+                        if fill is None:
+                            if painted is not None:
+                                painted.destroy()
+                                del child._psx_css_fill_canvas
+                        else:
+                            if painted is None:
+                                painted = tk.Canvas(
+                                    child, borderwidth=0, highlightthickness=0,
+                                    takefocus=0, background=fill)
+                                child._psx_css_fill_canvas = painted
+                            else:
+                                painted.configure(background=fill)
+                            painted.place(x=0, y=0, relwidth=1, relheight=1)
+                            tk.Misc.tkraise(painted)
+                            for sibling in child.winfo_children():
+                                if sibling is not painted:
+                                    tk.Misc.tkraise(sibling)
+                    self._refresh_css_corner_surfaces(child)
+                    # Only recurse into native content widgets. Paint
+                    # canvases are owned decorations, never CSS boxes.
+                    if child is not getattr(host, "_psx_css_fill_canvas", None):
+                        repaint_formatting_surfaces(child)
+
+            if color is None:
+                inherited = None
+                ancestor = widget.master
+                while ancestor is not None:
+                    inherited = getattr(ancestor, "_psx_css_background", None)
+                    if inherited is not None:
+                        break
+                    ancestor = ancestor.master
+                if inherited is not None:
+                    fill_canvas = getattr(widget, "_psx_css_fill_canvas", None)
+                    if fill_canvas is None:
+                        fill_canvas = tk.Canvas(
+                            widget, borderwidth=0, highlightthickness=0,
+                            takefocus=0, background=inherited)
+                        widget._psx_css_fill_canvas = fill_canvas
+                    else:
+                        fill_canvas.configure(background=inherited)
+                    fill_canvas.place(x=0, y=0, relwidth=1, relheight=1)
+                    tk.Misc.tkraise(fill_canvas)
+                    for child in widget.winfo_children():
+                        if child is not fill_canvas:
+                            tk.Misc.tkraise(child)
+            repaint_formatting_surfaces(widget)
+            self._sync_aqua_layout_surfaces()
 
         # ttk.Frame has a rectangular background. Four small, instance-owned
         # canvases mask its corners against the surrounding native surface and
@@ -1174,13 +2188,7 @@ class TkinterRenderer:
         if radius != int(radius) or radius < 1:
             raise ValueError("Tk rounded CSS backgrounds require integer px radius.")
         r = int(radius)
-        parent = widget.master
-        try:
-            surface = str(parent.cget("background"))
-        except tk.TclError:
-            surface = str(ttk.Style(parent).lookup(parent.winfo_class(), "background") or "")
-        if not surface:
-            surface = str(ttk.Style(widget).lookup("TFrame", "background") or "#ffffff")
+        surface = self._css_corner_parent_surface(widget)
         if corners is None or int(corners[0].cget("width")) != r:
             if corners is not None:
                 for corner in corners:
@@ -1194,16 +2202,52 @@ class TkinterRenderer:
             (dict(x=0, rely=1, y=-r), (0, -r, 2*r, r), 180),
             (dict(relx=1, rely=1, x=-r, y=-r), (-r, -r, r, r), 270),
         )
+        from psx.css.native_paint import native_border_paint
+        stroke = native_border_paint(computed)
         for corner, (place, bounds, start) in zip(corners, placements):
             corner.configure(background=surface)
             corner.delete("all")
-            corner.create_arc(*bounds, start=start, extent=90, style="pieslice",
-                              fill=color, outline=color, width=0)
+            if stroke is None:
+                corner.create_arc(*bounds, start=start, extent=90,
+                                  style="pieslice", fill=color,
+                                  outline=color, width=0)
+            else:
+                thickness, ink = stroke
+                n = int(thickness)
+                corner.create_arc(*bounds, start=start, extent=90,
+                                  style="pieslice", fill=ink,
+                                  outline=ink, width=0)
+                inner = (bounds[0] + n, bounds[1] + n,
+                         bounds[2] - n, bounds[3] - n)
+                if inner[2] > inner[0] and inner[3] > inner[1]:
+                    corner.create_arc(*inner, start=start, extent=90,
+                                      style="pieslice", fill=color,
+                                      outline=color, width=0)
             corner.place(**place)
             tk.Misc.tkraise(corner)
-        # Border arcs are above the rounded fill if both declarations exist.
-        for border_corner in getattr(widget, "_psx_css_border_corners", ()):
-            tk.Misc.tkraise(border_corner)
+        # Add each authored side's half-corner arc above the matching
+        # rounded surface mask. Unstyled sides never gain a phantom stroke.
+        side_corner_styles = getattr(widget, "_psx_css_side_corner_styles", {})
+        if side_corner_styles:
+            corner_sides = (
+                (("top", 90), ("left", 135)),
+                (("top", 45), ("right", 0)),
+                (("bottom", 225), ("left", 180)),
+                (("bottom", 270), ("right", 315)),
+            )
+            for canvas, (_, bounds, _), arcs in zip(corners, placements, corner_sides):
+                for side, start in arcs:
+                    if side not in side_corner_styles:
+                        continue
+                    n, ink = side_corner_styles[side]
+                    half = n / 2
+                    inset = (bounds[0] + half, bounds[1] + half,
+                             bounds[2] - half, bounds[3] - half)
+                    canvas.create_arc(
+                        *inset, start=start, extent=45, style="arc",
+                        outline=ink, width=n, tags=("psx-css-side-arc",),
+                    )
+        self._refresh_css_corner_surfaces(widget)
 
     # -- update -----------------------------------------------------------
 

@@ -95,7 +95,7 @@ class TkDividerAdapter:
         canvas = parent.widget
         child_widget = child.widget
 
-        if not isinstance(child_widget, ttk.Label):
+        if not isinstance(child_widget, (ttk.Label, tk.Label)):
             raise RendererCapabilityError(
                 f"Tkinter Divider only supports Text as its child, "
                 f"got {type(child_widget).__name__}."
@@ -247,10 +247,13 @@ def _sync_label_style(canvas, child_widget):
     """
     try:
         bg = canvas.cget("background")
-        style = ttk.Style(canvas)
-        style_name = "PSX.Divider.Label.TLabel"
-        style.configure(style_name, background=bg)
-        child_widget.configure(style=style_name)
+        if isinstance(child_widget, tk.Label):
+            child_widget.configure(background=bg)
+        else:
+            style = ttk.Style(canvas)
+            style_name = "PSX.Divider.Label.TLabel"
+            style.configure(style_name, background=bg)
+            child_widget.configure(style=style_name)
     except tk.TclError:
         pass
 

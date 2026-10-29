@@ -132,6 +132,8 @@ class VNode:
     # component adapters must never receive CSS-only class/style attributes.
     css_source: object | None = field(default=None, compare=False, repr=False)
     css_computed: object | None = field(default=None, compare=False, repr=False)
+    # Scoped stylesheet snapshot for components rendered after their parent.
+    css_stylesheet: object | None = field(default=None, compare=False, repr=False)
     # Compiler-only metadata for HTML-like control composition, not native props.
     markup_meta: object | None = field(default=None, compare=False, repr=False)
 
@@ -312,6 +314,7 @@ def Input(
     password: bool = False,
     on_change: Callable[[str], None] | None = None,
     on_submit: Callable[[], None] | None = None,
+    on_click: Callable[[], None] | None = None,
     key: Key | None = None,
     ref: object | None = None,
     **props: object,
@@ -325,6 +328,7 @@ def Input(
         password=password,
         on_change=on_change,
         on_submit=on_submit,
+        on_click=on_click,
         **props,
     )
     INPUT_CONTRACT.validate_builder(options)

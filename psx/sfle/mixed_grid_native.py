@@ -32,6 +32,28 @@ class MountedMixedGrid:
         # Reuse an immutable composition for repeated width requests within
         # one layout transaction. A new MountedMixedGrid is built per commit.
         self._composition_cache = {}
+        # A mixed Grid bridge lives for exactly one Cinnamon generation.
+        # Settle the native request-size baseline once for that transaction;
+        # TkMeasurementSource still settles individual width probes when it
+        # actually changes wraplength.
+        self._tk_idle_synced = False
+        # The outer Flex/Block bridge creates a new MixedGrid per transaction.
+        # Carry accepted native Text measurements across those transactions:
+        # the existing Grid cache already validates widget identity, PSX/CSS
+        # content, wrapping width and the semantic invalidation epoch.
+        from .grid_intrinsic_reuse import GridIntrinsicReuse
+        reuse = getattr(renderer, "_psx_grid_intrinsic_reuse", None)
+        if reuse is None:
+            reuse = GridIntrinsicReuse()
+            renderer._psx_grid_intrinsic_reuse = reuse
+        self._intrinsic_epoch = renderer._sfle_measurement_invalidations.epoch
+        self._intrinsic_reuse = reuse.begin(self._intrinsic_epoch)
+        from .grid_native_composition import FlowBlueprintReuse
+        flow_reuse = getattr(renderer, "_psx_grid_flow_blueprints", None)
+        if flow_reuse is None:
+            flow_reuse = FlowBlueprintReuse()
+            renderer._psx_grid_flow_blueprints = flow_reuse
+        self._flow_reuse = flow_reuse
 
         def visit(node):
             if node.kind is NodeKind.HOST and node.type == "Grid":
@@ -54,6 +76,11 @@ class MountedMixedGrid:
         if key in self._composition_cache:
             return self._composition_cache[key]
         grid = self.grids[node_id]
+        # The native baseline is shared by all width probes in this one
+        # transaction, including re-entrant nested Grid compositions.
+        if self.backend is GridCommitBackend.TK and not getattr(self, "_tk_idle_synced", False):
+            self.renderer.root.update_idletasks()
+            self._tk_idle_synced = True
 
         def measure_leaf(identifier, node, allocated_width):
             handle = self.handles[id(node.source)]
@@ -63,8 +90,9 @@ class MountedMixedGrid:
                     {identifier: handle.widget}, qtcore=self.renderer._qtcore)
             elif self.backend is GridCommitBackend.TK:
                 from .tk_measurement import TkMeasurementSource
-                source = TkMeasurementSource({identifier: handle.widget})
-                self.renderer.root.update_idletasks()
+                source = TkMeasurementSource(
+                    {identifier: handle.widget}, idle_synced=True,
+                )
             elif self.backend is GridCommitBackend.KIVY:
                 from .kivy_measurement import KivyMeasurementSource
                 refresh = getattr(handle.widget, "texture_update", None)
@@ -73,7 +101,14 @@ class MountedMixedGrid:
                 source = KivyMeasurementSource({identifier: handle.widget})
             else:
                 raise GridPackingError("Mixed native Grid requires a toolkit backend.")
-            result = source.measure_width(identifier, allocated_width)
+            reuse_round = getattr(self, "_intrinsic_reuse", None)
+            result = (
+                reuse_round.measure(
+                    self.backend.value, handle.widget, node, allocated_width,
+                    lambda: source.measure_width(identifier, allocated_width),
+                ) if reuse_round is not None
+                else source.measure_width(identifier, allocated_width)
+            )
             if not isinstance(result, IntrinsicSizes):
                 raise GridPackingError("Mixed Grid needs measured terminal native leaves.")
             return result
@@ -86,10 +121,20 @@ class MountedMixedGrid:
             breakpoints=self.breakpoints,
             engine=self.renderer._sfle_engine,
             viewport_constraints=self.renderer._sfle_constraints,
+            flow_reuse=getattr(self, "_flow_reuse", None),
+            invalidation_epoch=getattr(self, "_intrinsic_epoch", 0),
         )
         # Never publish a partial result after a measurement exception.
         self._composition_cache[key] = composition
         return composition
+
+    def accept_intrinsic(self):
+        # Call only AFTER the outer renderer's native commit, readback and
+        # semantic epoch checks all succeeded. Partial measurements are never
+        # published on a rejected/rolled-back transaction.
+        reuse_round = getattr(self, "_intrinsic_reuse", None)
+        if reuse_round is not None:
+            reuse_round.accept(self.renderer._sfle_measurement_invalidations.epoch)
 
     def intrinsic(self, node_id, width):
         measured = self.compose(node_id, width)
@@ -202,17 +247,37 @@ class MountedMixedGrid:
             for subgrid in subflex.nested_grids.values():
                 self._bind_nested_scrolls(subgrid, previous)
 
-    def commit(self, plans):
+    def commit(self, plans, *, prior_snapshot=None):
         from .native_scroll_transaction import (
             capture_scroll_hosts, restore_scroll_hosts,
         )
-        before = self.snapshot()
+        # The outer SFLE transaction already captured these exact native
+        # descendants for rollback. No geometry is mutated between that
+        # capture and the nested Grid batch, so do not repeat every native
+        # geometry read on the UI thread.
+        before = self.snapshot() if prior_snapshot is None else prior_snapshot
         scroll_before = capture_scroll_hosts(self.backend.value, self.handles)
         receipts = []
+        # A single Grid batch has not yet mutated any of its descendants.
+        # Its rollback snapshot can also supply the original place_info()
+        # state. Multiple batches may overlap (nested Grids), so preserve
+        # their own native reads rather than risk using stale rectangles.
+        reusable_tk = (
+            {id(widget): state for widget, state in before}
+            if self.backend is GridCommitBackend.TK and len(plans) == 1
+            else None
+        )
         try:
             for composition, batch, widgets, heights, root_height in plans:
+                initial = (
+                    {node_id: reusable_tk[id(widget)]
+                     for node_id, widget in widgets.items()
+                     if id(widget) in reusable_tk}
+                    if reusable_tk is not None else None
+                )
                 receipt = commit_grid_native_geometry(
                     batch, backend=self.backend, widgets=widgets,
+                    prior_tk_placements=initial,
                     generation=self.generation,
                     current_generation=lambda: self.renderer._sfle_generation,
                     is_ui_thread=self._on_thread,

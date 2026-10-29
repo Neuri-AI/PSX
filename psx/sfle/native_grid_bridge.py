@@ -28,6 +28,20 @@ def is_mounted_native_grid_root(root: object) -> bool:
     return node.node.kind is NodeKind.HOST and node.node.type == "Grid"
 
 
+
+def root_geometry_changed(backend: GridCommitBackend, previous, desired) -> bool:
+    """Compare native root geometry without treating Tk auto sizes as pixels."""
+    if backend is GridCommitBackend.TK:
+        if not previous:
+            return True
+        try:
+            actual = tuple(int(previous[axis]) for axis in ("x", "y", "width", "height"))
+        except (KeyError, TypeError, ValueError):
+            return True
+        return actual != desired
+    return previous != desired
+
+
 def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBackend) -> None:
     """Commit a reconciled native Grid without a toolkit layout manager."""
     if get_ident() != renderer._sfle_owner_thread:
@@ -40,6 +54,17 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         generation = renderer._sfle_generation + 1
         renderer._sfle_generation = generation
         invalidation_epoch = renderer._sfle_measurement_invalidations.epoch
+        from .grid_intrinsic_reuse import GridIntrinsicReuse
+        reuse = getattr(renderer, '_psx_grid_intrinsic_reuse', None)
+        if reuse is None:
+            reuse = GridIntrinsicReuse()
+            renderer._psx_grid_intrinsic_reuse = reuse
+        reuse_transaction = reuse.begin(invalidation_epoch)
+        from .grid_native_composition import FlowBlueprintReuse
+        flow_reuse = getattr(renderer, "_psx_grid_flow_blueprints", None)
+        if flow_reuse is None:
+            flow_reuse = FlowBlueprintReuse()
+            renderer._psx_grid_flow_blueprints = flow_reuse
         components, handles = {}, {}
 
         def gather(instance):
@@ -89,7 +114,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                         {identifier: widget}, qtcore=renderer._qtcore)
                 elif backend is GridCommitBackend.TK:
                     from .tk_measurement import TkMeasurementSource
-                    native_source = TkMeasurementSource({identifier: widget})
+                    native_source = TkMeasurementSource({identifier: widget}, idle_synced=True)
                 elif backend is GridCommitBackend.KIVY:
                     from .kivy_measurement import KivyMeasurementSource
                     refresh = getattr(widget, "texture_update", None)
@@ -98,7 +123,10 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                     native_source = KivyMeasurementSource({identifier: widget})
                 else:
                     raise AssertionError("Unexpected native Grid backend.")
-                return native_source.measure_width(identifier, allocated_width)
+                return reuse_transaction.measure(
+                    backend.value, widget, node, allocated_width,
+                    lambda: native_source.measure_width(identifier, allocated_width),
+                )
 
             composed = prepare_composed_grid(
                 grid, content_width=float(width), generation=generation,
@@ -108,6 +136,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
                 engine=renderer._sfle_engine,
                 viewport_constraints=renderer._sfle_constraints,
+                flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
             )
             prepared = composed.prepared
             batch, commit_widgets, composed_heights = compose_geometry_batch(
@@ -132,7 +161,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 source = QtMeasurementSource(widgets, qtcore=renderer._qtcore)
             elif backend is GridCommitBackend.TK:
                 from .tk_measurement import TkMeasurementSource
-                source = TkMeasurementSource(widgets)
+                source = TkMeasurementSource(widgets, idle_synced=True)
                 renderer.root.update_idletasks()
             elif backend is GridCommitBackend.KIVY:
                 from .kivy_measurement import KivyMeasurementSource
@@ -143,6 +172,25 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                         refresh()
             else:
                 raise AssertionError("native bridge is only for toolkit backends")
+            # The same accepted intrinsic cache also serves the simple Grid
+            # path. The source's existing toolkit port retains UI ownership.
+            from types import SimpleNamespace
+            native_source = source
+            leaf_origins = {
+                path_identity(child.path): child.effective_children[0]
+                for child in grid.effective_children
+            }
+            def measure_cached_leaf(identifier, allocated_width):
+                return reuse_transaction.measure(
+                    backend.value, widgets[identifier],
+                    leaf_origins[identifier], allocated_width,
+                    lambda: native_source.measure_width(identifier, allocated_width),
+                )
+            source = SimpleNamespace(
+                port=native_source.port,
+                measure_width=measure_cached_leaf,
+                is_ui_thread=native_source.is_ui_thread,
+            )
             prepared = measure_grid_native(
                 grid, content_width=float(width), source=source, mounted_ids=ids,
                 revisions={identifier: generation for identifier in ids},
@@ -205,12 +253,18 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         try:
             # This host never delegates sibling geometry to toolkit layout.
             if backend is GridCommitBackend.QT and not top_level_qt:
-                root_widget.setGeometry(0, 0, round(width), round(height))
+                desired = (0, 0, round(width), round(height))
+                if root_geometry_changed(backend, previous_root, desired):
+                    root_widget.setGeometry(*desired)
             elif backend is GridCommitBackend.TK:
-                root_widget.place(x=0, y=0, width=round(width), height=round(height))
+                desired = (0, 0, round(width), round(height))
+                if root_geometry_changed(backend, previous_root, desired):
+                    root_widget.place(x=0, y=0, width=desired[2], height=desired[3])
             elif backend is GridCommitBackend.KIVY:
-                root_widget.pos = (0, 0)
-                root_widget.size = (width, height)
+                if previous_root[0] != (0, 0):
+                    root_widget.pos = (0, 0)
+                if previous_root[1] != (width, height):
+                    root_widget.size = (width, height)
             receipt = commit_grid_native_geometry(
                 tuple(batch), backend=backend, widgets=commit_widgets, generation=generation,
                 current_generation=lambda: (renderer._sfle_generation
@@ -241,5 +295,6 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 root_widget.pos, root_widget.size = previous_root
             raise
         renderer.grid_result = (prepared, receipt)
+        reuse_transaction.accept(invalidation_epoch)
     finally:
         renderer._sfle_in_commit = False

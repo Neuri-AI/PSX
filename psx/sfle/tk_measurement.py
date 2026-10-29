@@ -22,6 +22,7 @@ class TkMeasurementSource:
         image_ids: frozenset[str] = frozenset(),
         spacer_ids: frozenset[str] = frozenset(),
         divider_nodes: Mapping[str, object] | None = None,
+        idle_synced: bool = False,
     ) -> None:
         self._widgets = dict(widgets)
         if not textarea_ids <= self._widgets.keys():
@@ -37,6 +38,8 @@ class TkMeasurementSource:
         if not self._divider_nodes.keys() <= self._widgets.keys():
             raise ValueError("Divider IDs must refer to native widgets.")
         self._owner_thread = threading.get_ident()
+        # Only the Grid bridge may opt in after an owner-thread idle drain.
+        self._idle_synced = idle_synced
 
     @staticmethod
     def _structural_metrics(kind: str, props: Mapping[str, object]) -> IntrinsicSizes:
@@ -195,16 +198,20 @@ class TkMeasurementSource:
         # so a previous narrow viewport cannot poison the new inline basis.
         wrap_key = "wraplength" in (widget.keys() if hasattr(widget, "keys") else ())
         old_wrap = widget.cget("wraplength") if wrap_key else None
+        changed_wrap = wrap_key and str(old_wrap) not in ("0", "0.0")
         try:
-            if wrap_key:
+            if changed_wrap:
                 widget.configure(wraplength=0)
+            # A changed native wrap constraint must settle before reading
+            # geometry. Ordinary leaves keep the existing port contract and
+            # require no Tk idle-drain method.
+            if changed_wrap:
                 widget.update_idletasks()
             width = float(widget.winfo_reqwidth())
             height = float(widget.winfo_reqheight())
         finally:
-            if wrap_key:
+            if changed_wrap:
                 widget.configure(wraplength=old_wrap)
-                widget.update_idletasks()
         if width < 0 or height < 0:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Invalid Tk requested widget size.")
         metrics = IntrinsicSizes(
@@ -226,22 +233,46 @@ class TkMeasurementSource:
         if node_id in self._textarea_ids:
             return self._textarea_metrics(widget, width)
         previous = None
-        wraps = False
+        changed_wrap = False
         try:
             keys = widget.keys() if hasattr(widget, "keys") else ()
-            wraps = "wraplength" in keys
-            if wraps:
+            if "wraplength" in keys:
                 previous = widget.cget("wraplength")
-                widget.configure(wraplength=max(0, round(width)))
-            widget.update_idletasks()
+                requested = max(0, round(width))
+                # A Grid transaction has already resolved natural Tk size
+                # hints. If unwrapped text fits its assigned width, applying
+                # wraplength only adds a global Tcl idle drain without changing
+                # the intrinsic height. Do not speculate for pre-wrapped text.
+                # Tcl/Tk's empty wraplength is the same unwrapped state as
+                # zero. Do not force a global idle drain just to reassign a
+                # wrap constraint when the native requested width already fits.
+                if (self._idle_synced and str(previous) in ("", "0", "0.0")
+                        and float(widget.winfo_reqwidth()) <= width):
+                    natural_width = min(float(width), float(widget.winfo_reqwidth()))
+                    natural_height = float(widget.winfo_reqheight())
+                    return IntrinsicSizes(
+                        natural_width, natural_width, natural_height,
+                        natural_height, natural_width, natural_height,
+                    )
+                if previous != requested and str(previous) != str(requested):
+                    widget.configure(wraplength=requested)
+                    changed_wrap = True
+            # A Grid transaction already drained the initial native queue.
+            # Only changing wraplength makes that baseline obsolete; otherwise
+            # reading the requested hints is safe without another global drain.
+            if changed_wrap or not self._idle_synced:
+                widget.update_idletasks()
             measured_width = min(float(width), float(widget.winfo_reqwidth()))
             height = float(widget.winfo_reqheight())
             return IntrinsicSizes(measured_width, measured_width, height, height,
                                   measured_width, height)
         finally:
-            if wraps:
+            if changed_wrap:
+                # Restoring the option does not need another synchronous Tk
+                # idle drain: the just-read dimensions belong to the probe,
+                # and a later measurement flushes before consulting hints.
+                # This removes one global idle drain per wrapped Grid leaf.
                 widget.configure(wraplength=previous)
-                widget.update_idletasks()
 
     def port(self) -> NativeMeasurementPort:
         return NativeMeasurementPort(self.is_ui_thread, self.measure)

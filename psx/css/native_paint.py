@@ -90,6 +90,95 @@ def native_side_border_styles(computed: ComputedStyle | None) -> tuple[str, ...]
     return tuple(result)
 
 
+def native_side_border_paint(
+    computed: ComputedStyle | None,
+) -> tuple[tuple[str, float, tuple[float, float, float, float]], ...]:
+    """Return explicitly authored side strokes for an RGBA-capable native painter.
+
+    Unlike the uniform border, a side-only declaration must not synthesize
+    strokes on the other edges. Resolve fallback width/color from CSS's
+    computed values, but include only explicitly specified sides.
+    """
+    from psx.sfle.lengths import Length, LengthKind
+
+    if computed is None:
+        return ()
+    result = []
+    for side in ("top", "right", "bottom", "left"):
+        width_key = f"border-{side}-width"
+        color_key = f"border-{side}-color"
+        if width_key not in computed.specified and color_key not in computed.specified:
+            continue
+        width = computed.properties[width_key] if width_key in computed.specified else computed.properties["border-width"]
+        color = computed.properties[color_key] if color_key in computed.specified else computed.properties["border-color"]
+        if not isinstance(width, Length) or width.kind is not LengthKind.PX or width.value < 0:
+            raise ValueError("Native CSS side borders require nonnegative pixel widths.")
+        if not isinstance(color, CssColor):
+            raise TypeError("Native CSS side border needs a validated color.")
+        if width.value == 0:
+            continue
+        raw = color.value.removeprefix("#")
+        if len(raw) in (3, 4):
+            channels = [int(part * 2, 16) for part in raw]
+        else:
+            channels = [int(raw[i:i + 2], 16) for i in range(0, len(raw), 2)]
+        if len(channels) == 3:
+            channels.append(255)
+        result.append((side, float(width.value), tuple(c / 255 for c in channels)))
+    return tuple(result)
+
+
+def rounded_side_stroke_points(
+    side: str, width: float, height: float, radius: float, thickness: float,
+) -> tuple[float, ...]:
+    """Polyline for one rounded CSS border side, in bottom-left coordinates.
+
+    Each adjacent side owns half of its shared quarter-circle. Stroke lines
+    are centered inside the border box and clipped to its actual dimensions;
+    this calculates paint vertices only, not Cinnamon layout geometry.
+    """
+    from math import cos, radians, sin
+
+    if side not in ("top", "right", "bottom", "left"):
+        raise ValueError("Unknown CSS border side.")
+    if width < 0 or height < 0 or radius < 0 or thickness <= 0:
+        raise ValueError("Rounded CSS stroke dimensions must be nonnegative.")
+    half = thickness / 2.0
+    if width <= thickness or height <= thickness:
+        return ()
+    effective_radius = min(radius, width / 2.0, height / 2.0)
+    if effective_radius <= half:
+        limits = {
+            "top": (0, height - half, width, height - half),
+            "right": (width - half, 0, width - half, height),
+            "bottom": (0, half, width, half),
+            "left": (half, 0, half, height),
+        }
+        return limits[side]
+
+    center_radius = effective_radius - half
+    corners = {
+        "tl": (effective_radius, height - effective_radius),
+        "tr": (width - effective_radius, height - effective_radius),
+        "br": (width - effective_radius, effective_radius),
+        "bl": (effective_radius, effective_radius),
+    }
+    arcs = {
+        "top": (("tl", 135, 90), ("tr", 90, 45)),
+        "right": (("tr", 45, 0), ("br", 0, -45)),
+        "bottom": (("br", -45, -90), ("bl", -90, -135)),
+        "left": (("bl", -135, -180), ("tl", 180, 135)),
+    }
+    points = []
+    for corner, start, stop in arcs[side]:
+        cx, cy = corners[corner]
+        for step in range(9):
+            angle = radians(start + (stop - start) * step / 8)
+            points.extend((cx + center_radius * cos(angle),
+                           cy + center_radius * sin(angle)))
+    return tuple(points)
+
+
 def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
     """Compose bounded authored paint into a local Qt stylesheet."""
     from psx.sfle.lengths import Length, LengthKind

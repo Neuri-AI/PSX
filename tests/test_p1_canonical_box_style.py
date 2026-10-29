@@ -59,3 +59,30 @@ def test_namespaced_validation_does_not_accept_unknown_component_props() -> None
     # pretend unknown component fields are valid portable host properties.
     native, _ = partition_item_box_style({"unknown_native_field": 123})
     assert native == {"unknown_native_field": 123}
+
+
+def test_literal_box_cache_keeps_native_fields_private_and_revalidates_changes() -> None:
+    from psx.sfle.canonical_box_style import _normalize_literal_fields
+
+    _normalize_literal_fields.cache_clear()
+    first = normalize_item_box_style({
+        "layout_padding_left": "12px", "label": "First",
+    })
+    second = normalize_item_box_style({
+        "layout_padding_left": "12px", "label": "Second",
+    })
+    assert first is not second
+    assert first == second
+    assert _normalize_literal_fields.cache_info().hits >= 1
+    changed = normalize_item_box_style({
+        "layout_padding_left": "16px", "label": "Second",
+    })
+    assert changed.padding.left.value == 16
+    assert first.padding.left.value == 12
+    with pytest.raises(RendererCapabilityError):
+        normalize_item_box_style({"layout_padding_left": "-1px"})
+    # Custom mappings keep their original uncached validation semantics.
+    proxied = normalize_item_box_style(
+        MappingProxyType({"layout_padding_left": "12px"}),
+    )
+    assert proxied == first

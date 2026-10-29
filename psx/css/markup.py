@@ -69,7 +69,11 @@ def _valid_identifier(value: str) -> bool:
     return re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", value) is not None
 
 
-def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = None) -> VNode:
+def compute_markup_styles(
+    root: VNode, stylesheet: str | Stylesheet | None = None, *,
+    inherited: ComputedStyle | None = None,
+    parent: StyleTarget | None = None,
+) -> VNode:
     """Decorate immutable VNodes with computed styles and preserve all public props.
 
     CSS matching covers markup elements and builtin VNodes. Custom lexical
@@ -85,7 +89,7 @@ def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = Non
     def visit(node: VNode, inherited: ComputedStyle | None, parent: StyleTarget | None = None) -> VNode:
         if node.kind is NodeKind.FRAGMENT:
             return replace(node, children=tuple(visit(child, inherited, parent) for child in node.children))
-        if node.kind is not NodeKind.HOST:
+        if node.kind not in (NodeKind.HOST, NodeKind.NATIVE):
             return node
         source = node.css_source
         if source is not None and not isinstance(source, MarkupStyleSource):
@@ -103,7 +107,8 @@ def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = Non
                 "Grid", "GridItem", "Box", "Scroll", "Slider", "Spacer",
                 "Divider", "Image", "ProgressBar", "RadioGroup", "Switch",
             }
-            tag = node.type.lower() if node.type in native_types else "__legacy_psx_host__"
+            tag = ("native" if node.kind is NodeKind.NATIVE else
+                   node.type.lower() if node.type in native_types else "__legacy_psx_host__")
             target = StyleTarget(tag, parent=parent)
             inline = ()
         if source is not None and source.tag == "__psx_text_content__":
@@ -114,7 +119,7 @@ def compute_markup_styles(root: VNode, stylesheet: str | Stylesheet | None = Non
         children = tuple(visit(child, computed, target) for child in node.children)
         return replace(node, css_computed=computed, children=children)
 
-    return visit(root, None)
+    return replace(visit(root, inherited, parent), css_stylesheet=sheet)
 
 def compute_expressive_markup_styles(root: VNode | None, links: tuple[str, ...]) -> VNode | None:
     """Resolve static markup links after expression lowering, without widgets."""

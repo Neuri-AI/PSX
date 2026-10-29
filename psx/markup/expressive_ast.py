@@ -71,6 +71,14 @@ class Call:
 
 
 @dataclass(frozen=True, slots=True)
+class Binary:
+    left: "Expression"
+    operator: str
+    right: "Expression"
+    location: Location
+
+
+@dataclass(frozen=True, slots=True)
 class Compare:
     left: "Expression"
     operator: str
@@ -134,7 +142,7 @@ class Fragment:
     location: Location
 
 
-Expression = Literal | InterpolatedString | Collection | Dictionary | Name | Member | Index | Call | Compare | ConditionalAnd | ConditionalOr | LogicalNot | Ternary | Arrow | Map | Element | Fragment
+Expression = Literal | InterpolatedString | Collection | Dictionary | Name | Member | Index | Call | Binary | Compare | ConditionalAnd | ConditionalOr | LogicalNot | Ternary | Arrow | Map | Element | Fragment
 
 
 class ExpressiveParser:
@@ -249,14 +257,34 @@ class ExpressiveParser:
         return left
 
     def comparison(self) -> Expression:
-        left = self.unary()
+        left = self.additive()
         self.skip()
         if self.source.startswith(("===", "!=="), self.pos):
             self.error("Use == or !=, not JavaScript strict equality")
         for operator in ("==", "!=", ">=", "<=", ">", "<"):
             if self.take(operator):
-                return Compare(left, operator, self.unary(), left.location)
+                return Compare(left, operator, self.additive(), left.location)
         return left
+
+    def additive(self) -> Expression:
+        left = self.multiplicative()
+        while True:
+            if self.take("+"):
+                left = Binary(left, "+", self.multiplicative(), left.location)
+            elif self.take("-"):
+                left = Binary(left, "-", self.multiplicative(), left.location)
+            else:
+                return left
+
+    def multiplicative(self) -> Expression:
+        left = self.unary()
+        while True:
+            if self.take("*"):
+                left = Binary(left, "*", self.unary(), left.location)
+            elif self.take("/"):
+                left = Binary(left, "/", self.unary(), left.location)
+            else:
+                return left
 
     def unary(self) -> Expression:
         self.skip()

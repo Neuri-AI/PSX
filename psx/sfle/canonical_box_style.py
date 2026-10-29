@@ -7,6 +7,7 @@ or change Kivy/Qt/Tkinter behavior. Runtime integration requires an approved sty
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from collections.abc import Mapping
 
 from psx.core.layout_item import validate_flex_item_props
@@ -54,15 +55,9 @@ def _edge_group(props: Mapping[str, object], prefix: str) -> BoxEdges:
     return BoxEdges(*values)
 
 
-def normalize_item_box_style(
-    props: Mapping[str, object], *, owner: str = "Flex item",
+def _normalize_uncached(
+    props: Mapping[str, object], owner: str,
 ) -> CanonicalItemBoxStyle:
-    """Adapt supported layout-item fields without native width collisions.
-
-    Validation is delegated to the existing closed shared item validator, so
-    unknown native/component fields remain outside this function's authority.
-    No mutation of the input mapping or of the native component properties.
-    """
     validate_flex_item_props(props, owner=owner)
     dimensions = tuple(
         (name, parse_length(props.get(name, _DEFAULT_LENGTHS[name])))
@@ -74,6 +69,42 @@ def normalize_item_box_style(
         padding=_edge_group(props, "layout_padding_"),
         border=_edge_group(props, "layout_border_"),
     )
+
+
+@lru_cache(maxsize=1024)
+def _normalize_literal_fields(
+    fields: tuple[tuple[str, object], ...], owner: str,
+) -> CanonicalItemBoxStyle:
+    # The cached value is fully immutable. Keys contain only layout metadata,
+    # never Text.value, callbacks, widget references or native resources.
+    return _normalize_uncached(dict(fields), owner)
+
+
+def normalize_item_box_style(
+    props: Mapping[str, object], *, owner: str = "Flex item",
+) -> CanonicalItemBoxStyle:
+    """Validate and normalize immutable layout metadata, never native props.
+
+    Repeated Grid/Flex leaves often share the same layout fields. A bounded
+    cache avoids reparsing their 18 default lengths every resize. Unusual
+    mutable values and custom mappings retain the original validation path.
+    """
+    if type(props) is dict:
+        fields = tuple(sorted(
+            (name, value) for name, value in props.items()
+            if name in FLEX_ITEM_PROPS
+        ))
+        if all(
+            type(value) in (str, int, float, bool, type(None), Length)
+            for _name, value in fields
+        ):
+            cached = _normalize_literal_fields(fields, owner)
+            # Preserve the public normalization contract of a fresh outer
+            # value per invocation, while reusing immutable parsed fields.
+            return CanonicalItemBoxStyle(
+                cached.dimensions, cached.margin, cached.padding, cached.border,
+            )
+    return _normalize_uncached(props, owner)
 
 
 def partition_item_box_style(

@@ -339,7 +339,7 @@ def test_composite_grid_item_fails_closed_without_false_native_receipt(request):
     tree = Reconciler(renderer)
     try:
         from psx import Scroll
-        with pytest.raises(GridPackingError, match="Composite GridItem"):
+        with pytest.raises(GridPackingError, match="GridItem Scroll requires one HTML-like block content root"):
             tree.render(Grid(GridItem(Scroll(Flex(Text("a"), Text("b"))))))
         assert getattr(renderer, "grid_result", None) is None
         assert_feature(request, Feature(
@@ -899,7 +899,14 @@ def test_native_css_typography_updates_text_without_replacing_widget():
             assert "#123456" in widget.styleSheet()
         elif backend == "tk":
             assert widget._psx_text_font.cget("size") == -18
-            assert widget._psx_text_font.cget("family") == "Roboto"
+            # The authored family is only usable when actually installed.
+            # Otherwise Tk must paint with the active root's font fallback,
+            # not silently pretend that a missing face was loaded.
+            from tkinter import font as tkfont
+            installed = {name.casefold() for name in tkfont.families(root=widget)}
+            expected = ("Roboto" if "roboto" in installed else
+                        tkfont.nametofont("TkDefaultFont", root=widget).actual("family"))
+            assert widget._psx_text_font.cget("family").casefold() == expected.casefold()
             assert widget._psx_text_font.actual("weight") == "bold"
             assert str(widget.cget("foreground")) == "#123456"
             assert str(widget.cget("justify")) == "center"
@@ -1320,10 +1327,208 @@ def test_native_rounded_border_pascal_and_html_controls(tag, alias):
         close()
 
 
+def test_native_css_bottom_border_matches_qt_tk_and_kivy_without_other_sides():
+    """A dashboard row divider is an owned one-sided stroke, never a frame."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+
+    def view(color=None, thickness=2):
+        style = (f"border-bottom: {thickness}px solid {color}" if color else "")
+        return psx(
+            f'<div><div key="row" style="{style}"><span>Recent</span></div></div>'
+        )
+
+    try:
+        first = reconciler.render(view("#123456"))
+        widget = first.children[0].handle.widget
+        if backend == "qt":
+            css = widget.styleSheet()
+            assert "border-bottom: 2px solid #123456;" in css
+            assert "border-top:" not in css
+        elif backend == "tk":
+            assert set(widget._psx_css_side_borders) == {"bottom"}
+            assert str(widget._psx_css_side_borders["bottom"].cget("background")) == "#123456"
+            assert not hasattr(widget, "_psx_css_border_edges")
+        else:
+            group, redraw, sides, lines = widget._psx_css_side_strokes
+            assert group in widget.canvas.after.children
+            assert len(lines) == 1 and lines[0][0] == "bottom"
+            assert sides[0][1] == 2
+            assert sides[0][2] == pytest.approx((18 / 255, 52 / 255, 86 / 255, 1))
+            widget.pos = (11, 17)
+            widget.size = (170, 40)
+            assert list(lines[0][2].points) == pytest.approx([11, 18, 181, 18])
+
+        updated = reconciler.render(view("#654321", 3))
+        assert updated.children[0].handle.widget is widget
+        if backend == "qt":
+            assert "border-bottom: 3px solid #654321;" in widget.styleSheet()
+        elif backend == "tk":
+            assert set(widget._psx_css_side_borders) == {"bottom"}
+            edge = widget._psx_css_side_borders["bottom"]
+            assert str(edge.cget("background")) == "#654321"
+            assert int(edge.place_info()["height"]) == 3
+        else:
+            group, redraw, sides, lines = widget._psx_css_side_strokes
+            assert len(lines) == 1
+            assert sides[0][1] == 3
+            assert sides[0][2] == pytest.approx((101 / 255, 67 / 255, 33 / 255, 1))
+            assert list(lines[0][2].points)[1] == pytest.approx(widget.y + 1.5)
+
+        previous = getattr(widget, "_psx_css_side_strokes", None)
+        reset = reconciler.render(view())
+        assert reset.children[0].handle.widget is widget
+        if backend == "qt":
+            assert "border-bottom:" not in widget.styleSheet()
+        elif backend == "tk":
+            assert not getattr(widget, "_psx_css_side_borders", None)
+        else:
+            assert not hasattr(widget, "_psx_css_side_strokes")
+            assert previous[0] not in widget.canvas.after.children
+        reconciler.unmount()
+        assert reconciler.root is None
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_rounded_bottom_only_border_updates_without_painting_other_sides():
+    """Qt, Tk and Kivy preserve a card's rounded CSS bottom divider."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    if backend == "tk":
+        # A withdrawn Tk toplevel has no paint surface, even after an
+        # idle-layout flush. These are native paint tests, not hidden
+        # widget-creation tests: mount a real Xvfb window before readback.
+        renderer.root.deiconify()
+    reconciler = Reconciler(renderer)
+
+    def view(color, radius=8):
+        border = f"border-bottom: 2px solid {color}; " if color else ""
+        return psx(
+            '<div><div key="card" style="background-color: #fafafa; '
+            f'{border}border-radius: {radius}px"><span>Recent</span>'
+            '</div></div>'
+        )
+
+    try:
+        mounted = reconciler.render(view("#123456"))
+        widget = mounted.children[0].handle.widget
+        if backend == "tk":
+            renderer.root.update()
+        if backend == "qt":
+            assert "border-bottom: 2px solid #123456;" in widget.styleSheet()
+            assert "border-radius: 8px;" in widget.styleSheet()
+            assert "border-top:" not in widget.styleSheet()
+        elif backend == "tk":
+            surface = widget._psx_css_unified_surface
+            assert surface.winfo_exists()
+            assert widget._psx_css_unified_values[0] == 8
+            assert set(widget._psx_css_unified_values[2]) == {"bottom"}
+            assert widget._psx_css_unified_values[2]["bottom"] == (2.0, "#123456")
+            assert not hasattr(widget, "_psx_css_side_borders")
+            assert not hasattr(widget, "_psx_css_background_corners")
+            assert len(surface.find_withtag("psx-css-surface-corner")) == 4
+            assert len(surface.find_withtag("psx-css-surface-side")) == 1
+        else:
+            group, redraw, sides, lines = widget._psx_css_side_strokes
+            assert len(lines) == 1 and lines[0][0] == "bottom"
+            assert sides[0][2] == pytest.approx((18/255, 52/255, 86/255, 1))
+            widget.pos = (12, 14)
+            widget.size = (180, 50)
+            points = list(lines[0][2].points)
+            assert len(points) == 36
+            assert min(points[1::2]) >= 14.9
+            assert max(points[1::2]) < 14 + 8
+            assert group in widget.canvas.after.children
+
+        updated = reconciler.render(view("#123456", 12))
+        assert updated.children[0].handle.widget is widget
+        if backend == "qt":
+            assert "border-radius: 12px;" in widget.styleSheet()
+        elif backend == "tk":
+            assert widget._psx_css_unified_surface is surface
+            assert widget._psx_css_unified_values[0] == 12
+            assert len(surface.find_withtag("psx-css-surface-corner")) == 4
+        else:
+            group2, _, styles2, lines2 = widget._psx_css_side_strokes
+            assert group2 is group
+            assert styles2 == sides
+            assert widget._psx_css_side_radius == 12
+            assert list(lines2[0][2].points) != points
+
+        reset = reconciler.render(view(None, 0))
+        assert reset.children[0].handle.widget is widget
+        if backend == "qt":
+            assert "border-bottom:" not in widget.styleSheet()
+        elif backend == "tk":
+            assert not getattr(widget, "_psx_css_side_borders", None)
+            assert not hasattr(widget, "_psx_css_unified_surface")
+            assert not surface.winfo_exists()
+        else:
+            assert not hasattr(widget, "_psx_css_side_strokes")
+            assert group not in widget.canvas.after.children
+
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_rounded_side_border_without_opaque_fill_preserves_backend_bounds():
+    """Render an unfilled rounded side over the actual native parent surface."""
+    from psx.markup.compile import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    if backend == "tk":
+        # A withdrawn Tk toplevel has no paint surface, even after an
+        # idle-layout flush. These are native paint tests, not hidden
+        # widget-creation tests: mount a real Xvfb window before readback.
+        renderer.root.deiconify()
+    reconciler = Reconciler(renderer)
+    view = psx(
+        '<div style="border-bottom: 2px solid #abcdef; border-radius: 8px">'
+        '<span>Row</span></div>'
+    )
+    try:
+        root = reconciler.render(view)
+        if backend == "tk":
+            renderer.root.update()
+            surface = root.handle.widget._psx_css_unified_surface
+            assert root.handle.widget._psx_css_unified_values[1] is None
+            assert root.handle.widget._psx_css_unified_values[2]["bottom"] == (
+                2.0, "#abcdef"
+            )
+            assert len(surface.find_withtag("psx-css-surface-corner")) == 4
+            assert len(surface.find_withtag("psx-css-surface-side")) == 1
+        elif backend == "qt":
+            assert "border-bottom: 2px solid #abcdef;" in root.handle.widget.styleSheet()
+            assert "border-radius: 8px;" in root.handle.widget.styleSheet()
+        else:
+            group, _, sides, lines = root.handle.widget._psx_css_side_strokes
+            assert group in root.handle.widget.canvas.after.children
+            assert sides[0][0] == "bottom"
+            assert root.handle.widget._psx_css_side_radius == 8
+            assert len(lines[0][2].points) == 36
+    finally:
+        reconciler.unmount()
+        close()
+
+
 def test_native_semantic_rounded_border_and_background_updates():
     from psx.markup.compile import psx
     backend = os.environ["PSX_GRID_BACKEND"]
     renderer, close = make_renderer(backend)
+    if backend == "tk":
+        # A withdrawn Tk toplevel has no paint surface, even after an
+        # idle-layout flush. These are native paint tests, not hidden
+        # widget-creation tests: mount a real Xvfb window before readback.
+        renderer.root.deiconify()
     reconciler = Reconciler(renderer)
     def view(radius):
         return psx(
@@ -1333,10 +1538,18 @@ def test_native_semantic_rounded_border_and_background_updates():
     try:
         first = reconciler.render(view(8))
         widget = first.handle.widget
+        if backend == "tk":
+            renderer.root.update()
         if backend == "qt":
             assert "border-radius: 8px" in widget.styleSheet()
         elif backend == "tk":
-            assert len(widget._psx_css_border_corners) == 4
+            surface = widget._psx_css_unified_surface
+            assert len(surface.find_withtag("psx-css-surface-corner")) == 4
+            assert not hasattr(widget, "_psx_css_border_corners")
+            assert not hasattr(widget, "_psx_css_border_edges")
+            assert set(widget._psx_css_unified_values[2]) == {
+                "top", "right", "bottom", "left"
+            }
         else:
             assert widget._psx_css_semantic_radius == pytest.approx(8)
             assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(8)
@@ -1345,7 +1558,10 @@ def test_native_semantic_rounded_border_and_background_updates():
         if backend == "qt":
             assert "border-radius: 12px" in widget.styleSheet()
         elif backend == "tk":
-            assert all(int(c.cget("width")) == 12 for c in widget._psx_css_border_corners)
+            assert widget._psx_css_unified_surface is surface
+            assert widget._psx_css_unified_values[0] == 12
+            assert len(surface.find_withtag("psx-css-surface-corner")) == 4
+            assert not hasattr(widget, "_psx_css_border_corners")
         else:
             assert widget._psx_css_semantic_radius == pytest.approx(12)
             assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(12)
@@ -1358,6 +1574,11 @@ def test_native_semantic_named_red_rounded_background_without_border():
     from psx.markup.compile import psx
     backend = os.environ["PSX_GRID_BACKEND"]
     renderer, close = make_renderer(backend)
+    if backend == "tk":
+        # A withdrawn Tk toplevel has no paint surface, even after an
+        # idle-layout flush. These are native paint tests, not hidden
+        # widget-creation tests: mount a real Xvfb window before readback.
+        renderer.root.deiconify()
     reconciler = Reconciler(renderer)
 
     def view(color, radius):
@@ -1368,6 +1589,8 @@ def test_native_semantic_named_red_rounded_background_without_border():
     try:
         first = reconciler.render(view("red", 18))
         widget = first.handle.widget
+        if backend == "tk":
+            renderer.root.update()
         if backend == "qt":
             assert "background-color: #ff0000" in widget.styleSheet()
             assert "border-radius: 18px" in widget.styleSheet()
@@ -1375,11 +1598,11 @@ def test_native_semantic_named_red_rounded_background_without_border():
             assert widget.window() is not widget
             assert 0 < widget.height() < widget.window().height()
         elif backend == "tk":
-            corners = widget._psx_css_background_corners
-            assert len(corners) == 4
-            assert all(int(c.cget("width")) == 18 for c in corners)
-            assert all(len(c.find_all()) == 1 for c in corners)
-            assert all(str(c.itemcget(c.find_all()[0], "fill")) == "#ff0000" for c in corners)
+            surface = widget._psx_css_unified_surface
+            assert widget._psx_css_unified_values[:2] == (18, "#ff0000")
+            assert len(surface.find_withtag("psx-css-surface-corner")) == 4
+            assert len(surface._psx_css_corner_images) == 4
+            assert not hasattr(widget, "_psx_css_background_corners")
         else:
             assert tuple(widget._psx_css_paint[2].rgba) == pytest.approx((1, 0, 0, 1))
             assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(18)
@@ -1388,7 +1611,8 @@ def test_native_semantic_named_red_rounded_background_without_border():
         if backend == "qt":
             assert "border-radius: 8px" in widget.styleSheet()
         elif backend == "tk":
-            assert all(int(c.cget("width")) == 8 for c in widget._psx_css_background_corners)
+            assert widget._psx_css_unified_surface is surface
+            assert widget._psx_css_unified_values[:2] == (8, "#0000ff")
         else:
             assert tuple(widget._psx_css_paint_rect.radius[0])[0] == pytest.approx(8)
         cleared = reconciler.render(view(None, 0))
@@ -1396,7 +1620,8 @@ def test_native_semantic_named_red_rounded_background_without_border():
         if backend == "qt":
             assert "border-radius" not in widget.styleSheet()
         elif backend == "tk":
-            assert not hasattr(widget, "_psx_css_background_corners")
+            assert not hasattr(widget, "_psx_css_unified_surface")
+            assert not surface.winfo_exists()
         else:
             assert not hasattr(widget, "_psx_css_paint")
     finally:
@@ -2995,6 +3220,58 @@ def test_grid_composition_reused_for_same_width_within_transaction(monkeypatch):
         bridge.compose("cards", 500)
 
 
+def test_tk_mixed_grid_syncs_native_idle_once_per_composition(monkeypatch):
+    """A composed Grid cannot drain the entire Tcl idle queue per leaf."""
+    from threading import get_ident
+    from types import SimpleNamespace
+    from psx.sfle import mixed_grid_native, tk_measurement
+    from psx.sfle.mixed_grid_native import MountedMixedGrid
+    from psx.sfle.grid_native_commit import GridCommitBackend
+    from psx.sfle.model import IntrinsicSizes
+
+    drains, measured, synced = [], [], []
+    source = object()
+    leaf = SimpleNamespace(source=source)
+    widget = object()
+
+    class NativeSource:
+        def __init__(self, widgets, *, idle_synced=False):
+            assert widgets == {"text": widget}
+            synced.append(idle_synced)
+
+        def measure_width(self, identifier, width):
+            measured.append((identifier, width))
+            return IntrinsicSizes(10, 10, 10, 10, 10, 10)
+
+    def compose(_grid, **kwargs):
+        for index in range(6):
+            kwargs["measure_leaf"]("text", leaf, 50 + index)
+        return SimpleNamespace(content_height=20)
+
+    monkeypatch.setattr(tk_measurement, "TkMeasurementSource", NativeSource)
+    monkeypatch.setattr(mixed_grid_native, "prepare_composed_grid", compose)
+    bridge = object.__new__(MountedMixedGrid)
+    bridge.renderer = SimpleNamespace(
+        _sfle_owner_thread=get_ident(), _sfle_generation=1,
+        _sfle_engine=object(), _sfle_constraints=viewport(800),
+        root=SimpleNamespace(update_idletasks=lambda: drains.append(1)),
+    )
+    bridge.generation = 1
+    bridge.grids = {"cards": object()}
+    bridge.handles = {id(source): SimpleNamespace(widget=widget)}
+    bridge.backend = GridCommitBackend.TK
+    bridge.breakpoints = {}
+    bridge._composition_cache = {}
+    assert bridge.compose("cards", 500).content_height == 20
+    assert bridge.compose("cards", 500).content_height == 20
+    assert bridge.compose("cards", 540).content_height == 20
+    # Distinct widths cause new compositions, but only one baseline
+    # settlement per bridge/generation; width-dependent leaves still probe.
+    assert len(drains) == 1
+    assert len(measured) == 12
+    assert synced == [True] * 12
+
+
 def test_grid_composition_failure_is_not_cached(monkeypatch):
     from threading import get_ident
     from types import SimpleNamespace
@@ -3058,7 +3335,8 @@ def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends(wrapped_r
         assert scrolling.handle.widget is native
         assert rectangle(native, backend)[3] == pytest.approx(280, abs=1)
         assert renderer.grid_result is not None
-        binding = "pyside6" if backend == "qt" else "tkinter" if backend == "tk" else "kivy"
+        binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
+            "tkinter" if backend == "tk" else "kivy")
         assert_feature(
             request,
             Feature("Grid", binding, "interaction", "scroll_wrapped_item",
@@ -3066,6 +3344,55 @@ def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends(wrapped_r
                     applicability="partial_native"),
             True,
         )
+    finally:
+        reconciler.unmount()
+        close()
+
+
+def test_grid_flow_leaf_remeasures_after_content_change():
+    """Per-composition measurements must never outlive a content update."""
+    from psx import psx
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    tree = Reconciler(renderer)
+    try:
+        first = tree.render(psx(
+            '<div><Grid gap="0px"><GridItem span="12">'
+            '<div><p key="copy">Short</p></div>'
+            '</GridItem></Grid></div>'
+        ))
+        grid = first.children[0]
+        widget = grid.children[0].children[0].children[0].handle.widget
+        first_width = rectangle(widget, backend)[2]
+        second = tree.render(psx(
+            '<div><Grid gap="0px"><GridItem span="12">'
+            '<div><p key="copy">A substantially longer paragraph of native text</p></div>'
+            '</GridItem></Grid></div>'
+        ))
+        assert second.children[0].children[0].children[0].children[0].handle.widget is widget
+        assert rectangle(widget, backend)[2] >= first_width
+        assert renderer.grid_result is not None
+        assert renderer.grid_result[1].max_readback_error <= 1
+    finally:
+        tree.unmount()
+        close()
+
+
+def test_tk_grid_resize_does_not_publish_parent_before_child_geometry():
+    """The staged Grid root keeps its prior rectangle until native commit."""
+    if os.environ.get("PSX_GRID_BACKEND") != "tk":
+        pytest.skip("Tk-specific staged root")
+    renderer, close = make_renderer("tk")
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(view())
+        frame = root.handle.widget
+        prior = rectangle(frame, "tk")
+        renderer.set_sfle_constraints(viewport(960))
+        assert rectangle(frame, "tk") == prior
+        renderer.commit_layout(root)
+        assert rectangle(frame, "tk")[2] == 960
+        assert renderer.grid_result[1].max_readback_error <= 1
     finally:
         reconciler.unmount()
         close()

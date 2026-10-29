@@ -13,12 +13,23 @@ from collections import defaultdict
 from psx.markup.html_aliases import FORMATTING_TAGS
 from .errors import DiagnosticCode, SFLECapabilityError
 from .flow_layout import InlineAtom, layout_inline_atoms
-from .fixed_point import LayoutUnit
+from .fixed_point import nearest_layout_px
 from .model import AvailableSize, BoxRect, LayoutConstraints, LayoutInput, LayoutNode, LayoutResult, Rect
 from .lengths import Length, LengthKind, parse_length
 
 
-def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) -> LayoutResult:
+_FLOW_ALLOWED_STYLES = frozenset({
+    "display", "layout_width", "layout_height",
+    "layout_min_width", "layout_min_height",
+    "layout_max_width", "layout_max_height",
+    *(f"layout_{group}_{side}"
+      for group in ("margin", "padding", "border")
+      for side in ("top", "right", "bottom", "left")),
+})
+
+
+def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
+                                    measure_width=None) -> LayoutResult:
     """Layout a bounded Block/Inline tree, retaining exact VNode identities."""
     if not snapshot.nodes or snapshot.nodes[0].component not in FORMATTING_TAGS:
         raise SFLECapabilityError(
@@ -37,6 +48,11 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
             DiagnosticCode.INVALID_TREE, "Flow root must have no parent.",
         )
     tree = {node.node_id: node for node in snapshot.nodes}
+    # A snapshot is immutable throughout this transaction. Resolve the
+    # style tuples once, not on every edge/dimension/display query.
+    style_by_id = {node.node_id: dict(node.style) for node in snapshot.nodes}
+    edge_cache: dict[tuple[str, str, float], tuple[float, float, float, float]] = {}
+    display_cache: dict[str, str] = {}
     children = defaultdict(list)
     for node in snapshot.nodes[1:]:
         children[node.parent_id].append(node)
@@ -50,12 +66,14 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
 
     def quantized_rect(x: float, y: float, width: float, height: float) -> Rect:
         """Keep flow boxes on Cinnamon's shared 1/64 px geometry grid."""
-        return Rect(*(LayoutUnit.from_nearest(value).to_px()
-                      for value in (x, y, width, height)))
+        return Rect(
+            nearest_layout_px(x), nearest_layout_px(y),
+            nearest_layout_px(width), nearest_layout_px(height),
+        )
 
 
     def dimension(node, axis: str, available: float) -> float | None:
-        value = dict(node.style).get("layout_" + axis)
+        value = style_by_id[node.node_id].get("layout_" + axis)
         if value is None:
             return None
         length = parse_length(value)
@@ -87,10 +105,14 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
         return max(0.0, result)
 
     def edges(node, prefix: str) -> tuple[float, float, float, float]:
-        styles = dict(node.style)
+        reference = containing_width.get(node.node_id, width)
+        key = (node.node_id, prefix, reference)
+        if key in edge_cache:
+            return edge_cache[key]
+        style = style_by_id[node.node_id]
         sides = []
         for side in ("top", "right", "bottom", "left"):
-            value = styles.get(f"layout_{prefix}_{side}")
+            value = style.get(f"layout_{prefix}_{side}")
             if value is None:
                 sides.append(0.0)
                 continue
@@ -98,7 +120,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
             if length.kind is LengthKind.PX:
                 resolved = float(length.value)
             elif length.kind is LengthKind.PERCENT:
-                resolved = float(length.value) * containing_width.get(node.node_id, width)
+                resolved = float(length.value) * reference
             else:
                 raise SFLECapabilityError(
                     DiagnosticCode.UNSUPPORTED_FEATURE,
@@ -110,10 +132,17 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
                     f"Flow {prefix} edges cannot be negative.", node.node_id,
                 )
             sides.append(resolved)
-        return tuple(sides)
+        result = tuple(sides)
+        edge_cache[key] = result
+        return result
 
     def box_rect(node, content: Rect) -> BoxRect:
         def expand(rect: Rect, sides: tuple[float, float, float, float]) -> Rect:
+            # All source geometry is already on the 1/64px grid. Empty
+            # edges preserve the exact same immutable rectangle, avoiding
+            # three redundant quantization passes for every unstyled leaf.
+            if sides == (0.0, 0.0, 0.0, 0.0):
+                return rect
             top, right, bottom, left = sides
             return quantized_rect(
                 rect.x - left, rect.y - top,
@@ -126,14 +155,15 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
         return BoxRect(content, padded, bordered, margin)
 
     def valid_style(node) -> bool:
-        return set(dict(node.style)).issubset({"display", "layout_width", "layout_height", "layout_min_width", "layout_min_height", "layout_max_width", "layout_max_height", *(f"layout_{group}_{side}" for group in ("margin", "padding", "border") for side in ("top", "right", "bottom", "left"))})
+        return style_by_id[node.node_id].keys() <= _FLOW_ALLOWED_STYLES
 
     def display(node) -> str | None:
         if node.component not in FORMATTING_TAGS:
             return None
-        style = dict(node.style)
+        if node.node_id in display_cache:
+            return display_cache[node.node_id]
         from psx.sfle.display_context import resolve_display, InnerDisplay
-        selected = style.pop("display", None)
+        selected = style_by_id[node.node_id].get("display")
         mode = resolve_display(node.component, selected)
         if mode.inner is not InnerDisplay.FLOW or not valid_style(node):
             raise SFLECapabilityError(
@@ -141,6 +171,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
                 f"{node.component} requires a supported Block/Inline flow style.",
                 node.node_id,
             )
+        display_cache[node.node_id] = mode.outer.value
         return mode.outer.value
 
     def leaf(node):
@@ -206,7 +237,34 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
             tuple(measured for measured in snapshot.measurements
                   if measured.node_id in selected),
         )
-        solved = dict(selected_engine.compute(local).boxes)
+        if measure_width is not None:
+            from .width_dependent_intrinsic_measurement import (
+                compute_width_dependent, seed_unconstrained_width_measurements,
+            )
+            # Nested CSS Flex rows receive their final assigned widths only
+            # after Cinnamon's provisional pass. Seeded viewport-width text
+            # metrics cannot be reused for wrapped paragraph labels.
+            width_ids = frozenset(
+                item.node_id for item in local.nodes
+                if item.node_id in {metric.node_id for metric in local.measurements}
+                and not any(child.parent_id == item.node_id for child in local.nodes)
+                and "layout_height" not in style_by_id[item.node_id]
+                and item.component in ("Text", "p", "span")
+            )
+            if width_ids:
+                local = seed_unconstrained_width_measurements(local, width_ids)
+                result = compute_width_dependent(
+                    selected_engine, local,
+                    {identifier: (lambda width, identifier=identifier:
+                                  measure_width(identifier, width))
+                     for identifier in width_ids},
+                    current_generation=lambda: snapshot.generation,
+                )
+            else:
+                result = selected_engine.compute(local)
+        else:
+            result = selected_engine.compute(local)
+        solved = dict(result.boxes)
         root_border = solved[node.node_id].border
         dx, dy = x - root_border.x, y - root_border.y
         for identifier, boxes in solved.items():
@@ -339,7 +397,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
             if child.component == "Flex":
                 flush()
                 cursor += flex_node(child, content_x, content_y + cursor, used_width)
-            elif display(child) == "inline" or (display(child) is None and child.component not in ("Text", "Grid")):
+            elif display(child) == "inline" or (display(child) is None and child.component not in ("Text", "Grid", "Native")):
                 pending.append(child)
             else:
                 flush()
@@ -347,6 +405,23 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None) 
         flush()
         used_width = constrained_dimension(node, "width", available, content_available)
         used_height = constrained_dimension(node, "height", available, cursor)
+        # A native replaced widget in a height-constrained block should
+        # receive the available content-box height rather than its unconstrained
+        # sizeHint. Do not change explicit child heights or other flow siblings.
+        # Qt can then resize an expanding PlotWidget while Cinnamon remains
+        # the sole source of its native geometry.
+        if used_height < cursor and dimension(node, "max_height", available) is not None:
+            for child in children[node.node_id]:
+                if child.component != "Native" or style_by_id[child.node_id].get("layout_height") is not None:
+                    continue
+                rect = geometry.get(child.node_id)
+                if rect is None:
+                    continue
+                remaining = max(0.0, content_y + used_height - rect.y)
+                if rect.height > remaining:
+                    geometry[child.node_id] = quantized_rect(
+                        rect.x, rect.y, rect.width, remaining,
+                    )
         geometry[node.node_id] = quantized_rect(content_x, content_y, used_width, used_height)
         return top + used_height + bottom
 

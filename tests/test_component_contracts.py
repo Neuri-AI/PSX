@@ -10,7 +10,7 @@ from psx.core.vnode import Button, Input, Text
 def test_portable_contracts_are_backend_independent_and_declare_semantics() -> None:
     assert TEXT_CONTRACT.child_policy == "text-only"
     assert BUTTON_CONTRACT.events == {"on_click"}
-    assert INPUT_CONTRACT.events == {"on_change", "on_submit"}
+    assert INPUT_CONTRACT.events == {"on_change", "on_submit", "on_click"}
     assert TEXT_CONTRACT.with_defaults({"value": "x"})["font_size"] == 16
 
 

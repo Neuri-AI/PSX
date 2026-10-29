@@ -70,6 +70,72 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.addCleanup(self.renderer.close)
         self.addCleanup(self.reconciler.unmount)
 
+    def test_nested_grid_uses_one_rollback_snapshot_per_tk_transaction(self):
+        from unittest.mock import patch
+        from psx.sfle.mixed_grid_native import MountedMixedGrid
+
+        root = self.reconciler.render(psx(
+            '<div><Grid gap="8px"><GridItem span="6">'
+            '<div>Native card</div></GridItem></Grid></div>'
+        ))
+        original = MountedMixedGrid.snapshot
+        calls = []
+
+        def tracked(grid):
+            calls.append(grid)
+            return original(grid)
+
+        with patch.object(MountedMixedGrid, "snapshot", tracked):
+            self.renderer.set_sfle_constraints(constraints(240, 80))
+            self.renderer.commit_layout(root)
+        self.assertEqual(len(calls), 1)
+
+
+    def test_stable_tk_viewport_resize_reuses_settled_native_measurement_baseline(self):
+        from unittest.mock import patch
+
+        root = self.reconciler.render(Flex(
+            Text("Stable native text", key="text"), width="100%", height="100%",
+        ))
+        with patch.object(
+            self.renderer.root, "update_idletasks",
+            wraps=self.renderer.root.update_idletasks,
+        ) as idle:
+            self.renderer.set_sfle_constraints(constraints(220, 80))
+            self.renderer.commit_layout(root)
+            # Only the post-placement drain remains. The prior successful
+            # transaction already settled native requested-size hints.
+            self.assertEqual(idle.call_count, 1)
+            idle.reset_mock()
+            self.renderer._sfle_measurement_invalidations.request("font")
+            self.renderer.commit_layout(root)
+            self.assertGreaterEqual(idle.call_count, 2)
+            self.renderer._sfle_measurement_invalidations.acknowledge(
+                self.renderer._sfle_measurement_invalidations.epoch,
+            )
+
+
+    def test_aqua_surface_sync_skips_only_unchanged_geometry_resizes(self):
+        from unittest.mock import patch
+
+        root = self.reconciler.render(Flex(
+            Text("Constant", key="text"), width="100%", height="100%",
+        ))
+        self.assertIsNotNone(self.renderer._sfle_committed_signatures)
+        with patch.object(self.renderer, "_sync_aqua_layout_surfaces") as sync:
+            self.renderer.set_sfle_constraints(constraints(240, 80))
+            self.renderer.commit_layout(root)
+            sync.assert_not_called()
+            # Theme changes can change native background even without any
+            # declarative property edits: force the original full walk.
+            self.renderer._sfle_measurement_invalidations.request("theme")
+            self.renderer.commit_layout(root)
+            sync.assert_called_once()
+            self.renderer._sfle_measurement_invalidations.acknowledge(
+                self.renderer._sfle_measurement_invalidations.epoch,
+            )
+
+
     def test_css_background_is_scoped_to_a_single_ttk_frame(self):
         first = self.reconciler.render(psx('<div key="same" style="background-color: #112233" />'))
         widget = first.handle.widget
@@ -80,6 +146,72 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(ttk.Style(widget).lookup(style_name, "background"), "#aabbcc")
         self.reconciler.render(psx('<div key="same" />'))
         self.assertEqual(widget.cget("style"), "TFrame")
+
+    def test_css_fill_is_stacked_over_native_theme_below_content(self):
+        root = self.reconciler.render(psx(
+            '<div style="background: #f5f6f8">'
+            '<p>Visible text</p></div>'
+        ))
+        widget = root.handle.widget
+        surface = widget._psx_css_fill_canvas
+        children = list(widget.winfo_children())
+        self.assertIn(surface, children)
+        self.assertEqual(children[0], surface)
+        self.assertEqual(str(surface.cget("background")), "#f5f6f8")
+        self.assertTrue(any(isinstance(child, ttk.Frame) for child in children[1:]))
+
+    def test_css_text_uses_nearest_explicit_ancestor_background(self):
+        root = self.reconciler.render(psx(
+            '<div style="background: #f5f6f8">'
+            '<div style="background: #ffffff">'
+            '<p key="copy" style="color: #333333">Text</p>'
+            '</div></div>'
+        ))
+        paragraph = root.children[0].children[0]
+        def text_widget(instance):
+            if isinstance(getattr(getattr(instance, "handle", None), "widget", None), (tk.Label, ttk.Label)):
+                return instance.handle.widget
+            for child in instance.children:
+                found = text_widget(child)
+                if found is not None:
+                    return found
+            return None
+        label = text_widget(paragraph)
+        self.assertIsNotNone(label)
+        self.assertEqual(
+            str(label.cget("background")) if isinstance(label, tk.Label) else
+            ttk.Style(label).lookup(label.cget("style"), "background"),
+            "#ffffff",
+        )
+        if isinstance(label, ttk.Label):
+            self.assertEqual(
+                ttk.Style(label).lookup(label.cget("style"), "foreground"),
+                ttk.Style(label).lookup("TLabel", "foreground"),
+            )
+        updated = self.reconciler.render(psx(
+            '<div style="background: #f5f6f8">'
+            '<div style="background: #ddeeff">'
+            '<p key="copy" style="color: #333333">Text</p>'
+            '</div></div>'
+        ))
+        self.assertIs(text_widget(updated.children[0].children[0]), label)
+        self.assertEqual(
+            str(label.cget("background")) if isinstance(label, tk.Label) else
+            ttk.Style(label).lookup(label.cget("style"), "background"),
+            "#ddeeff",
+        )
+
+    def test_css_bottom_border_only_paints_declared_edge(self):
+        root = self.reconciler.render(psx(
+            '<div style="background: #ffffff">'
+            '<p key="item" style="border-bottom: 1px solid #e0e0e0">Row</p>'
+            '</div>'
+        ))
+        paragraph = root.children[0].handle.widget
+        edges = paragraph._psx_css_side_borders
+        self.assertEqual(set(edges), {"bottom"})
+        self.assertEqual(str(edges["bottom"].cget("background")), "#e0e0e0")
+        self.assertEqual(int(edges["bottom"].place_info()["height"]), 1)
 
     def test_css_width_commits_to_tk_native_geometry(self):
         root = self.reconciler.render(psx(
@@ -96,7 +228,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
             '<div><button key="a">Alpha</button><button key="b">Beta</button></div>'
         ))
         alpha, beta = (child.handle.widget for child in first.children)
-        self.assertIsInstance(alpha, ttk.Button)
+        self.assertIsInstance(alpha, tk.Button if sys.platform == "darwin" else ttk.Button)
         self.assertIs(alpha.master, first.handle.widget)
         self.assertEqual(alpha.winfo_manager(), "place")
         self.assertEqual(beta.winfo_manager(), "place")
@@ -214,8 +346,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
         frame = root.handle.widget
         left, right = (child.handle.widget for child in root.children)
         self.assertIsInstance(frame, ttk.Frame)
-        self.assertIsInstance(left, ttk.Label)
-        self.assertIsInstance(right, ttk.Button)
+        self.assertIsInstance(left, tk.Label if sys.platform == 'darwin' else ttk.Label)
+        self.assertIsInstance(right, tk.Button if sys.platform == "darwin" else ttk.Button)
         self.assertEqual(frame.winfo_manager(), "place")
         self.assertEqual(rect(frame), (0, 0, 160, 80))
         self.assertEqual(rect(left), (0, 0, 40, 20))
@@ -316,6 +448,33 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(child), (0, 0, 30, 20))
         self.assertGreater(self.renderer.sfle_result.generation, initial)
 
+    def test_mounted_flex_root_is_not_resized_ahead_of_children(self):
+        root = self.reconciler.render(Flex(
+            item("A", "a", 30), width="100%", height="100%",
+        ))
+        frame = root.handle.widget
+        original = rect(frame)
+        self.renderer.set_sfle_constraints(constraints(240, 120))
+        self.assertEqual(rect(frame), original)
+        self.renderer.commit_layout(root)
+        self.assertEqual(rect(frame), (0, 0, 240, 120))
+
+    def test_root_configure_binding_is_not_inherited_by_resized_children(self):
+        """Aqua child Configure storms must never construct root resize Events."""
+        mounted = self.reconciler.render(Flex(
+            item("A", "a", 30), width="100%", height="100%",
+        ))
+        tag = self.renderer._sfle_resize_bind_tag
+        self.assertIsNotNone(tag)
+        self.assertEqual(self.host.bindtags().count(tag), 1)
+        child = mounted.children[0].handle.widget
+        self.assertNotIn(tag, child.bindtags())
+        self.assertTrue(self.host.tk.call("bind", tag, "<Configure>"))
+        self.renderer.invalidate_layout()
+        self.assertNotIn(tag, self.host.bindtags())
+        self.assertFalse(self.host.tk.call("bind", tag, "<Configure>"))
+
+
     def test_explicit_root_dimensions_ignore_unrelated_host_resize(self):
         from types import SimpleNamespace
 
@@ -334,6 +493,40 @@ class TkSFLEGeometryTests(unittest.TestCase):
             (160, 80),
         )
         self.assertEqual(rect(root.handle.widget), (0, 0, 160, 80))
+
+    def test_html_root_reflows_viewport_lengths_on_native_configure(self):
+        from types import SimpleNamespace
+
+        root = self.reconciler.render(psx(
+            '<div><button key="action" style="width: 50vw; height: 24px">'
+            'Resize</button></div>'
+        ))
+        button = root.children[0].handle.widget
+        self.assertEqual(rect(button)[2], 80)
+        # Ignore stale configure notifications and transient Aqua 1x1
+        # mapping sizes even when they arrive after a valid layout commit.
+        self.renderer._sfle_on_configure(SimpleNamespace(
+            widget=self.host, width=1, height=1,
+        ))
+        self.assertIsNone(self.renderer._sfle_resize_pending)
+        self.renderer._sfle_on_configure(SimpleNamespace(
+            widget=self.host, width=240, height=120,
+        ))
+        self.assertIsNone(self.renderer._sfle_resize_pending)
+        self.host.geometry("240x120+0+0")
+        self.host.update()
+        self.host.after(40, self.host.quit)
+        self.host.mainloop()
+        self.assertIsNone(self.renderer._sfle_resize_error)
+        self.assertIs(root.children[0].handle.widget, button)
+        self.assertEqual(rect(button)[2], 120)
+        self.assertEqual(self.renderer._sfle_constraints.width.value, 240)
+        self.host.geometry("400x240+0+0")
+        self.host.update()
+        self.host.after(40, self.host.quit)
+        self.host.mainloop()
+        self.assertEqual(self.renderer._sfle_constraints.width.value, 400)
+        self.assertEqual(rect(button)[2], 200)
 
     def test_tk_multiline_text_height_follows_sfle_content_width(self):
         words = ("One two three four five six seven eight nine ten "
@@ -460,6 +653,65 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(widget), (0, 0, 36, 20))
         self.assertLessEqual(self.renderer._sfle_physical_commit_error, 1.0)
 
+    def test_aqua_live_configure_commits_without_waiting_for_after_callback(self):
+        from unittest.mock import patch
+
+        root = self.reconciler.render(Flex(
+            item("A", "a", 30), width="100%", height="100%",
+        ))
+        frame = root.handle.widget
+        with patch("psx.renderers.tkinter.tkinter.sys.platform", "darwin"):
+            self.host.geometry("260x120+0+0")
+            self.host.update()
+            self.assertEqual(
+                (self.renderer._sfle_constraints.width.value,
+                 self.renderer._sfle_constraints.height.value), (260, 120),
+            )
+            self.assertEqual(rect(frame), (0, 0, 260, 120))
+            self.assertIsNone(self.renderer._sfle_resize_pending)
+            self.assertIsNone(self.renderer._sfle_resize_after_id)
+            self.assertIsNone(self.renderer._sfle_resize_error)
+
+    def test_resize_storm_keeps_latest_dimensions_and_only_one_scheduled_commit(self):
+        root = self.reconciler.render(Flex(
+            item("A", "a", 30), width="100%", height="100%",
+        ))
+        child = root.children[0].handle.widget
+        try:
+            self.host.geometry("210x100+0+0")
+            self.host.update()
+            scheduled = self.renderer._sfle_resize_after_id
+            # A zero-delay callback can complete during update(), rather
+            # than remaining queued until a later timer tick.
+            if scheduled is None:
+                self.assertEqual(self.renderer._sfle_constraints.width.value, 210)
+            self.host.geometry("240x110+0+0")
+            self.host.update()
+            # A timer may fire during a slow Aqua update(); either a
+            # still-coalesced request or an already-committed resize is valid.
+            if self.renderer._sfle_resize_after_id is not None:
+                self.assertEqual(self.renderer._sfle_resize_after_id, scheduled)
+                self.assertEqual(self.renderer._sfle_resize_pending, (240, 110))
+            else:
+                self.assertIsNone(self.renderer._sfle_resize_pending)
+                self.assertEqual(
+                    (self.renderer._sfle_constraints.width.value,
+                     self.renderer._sfle_constraints.height.value), (240, 110))
+            # Allow the one coalesced Tcl timer to fire without making
+            # assumptions about how fast the host starts a test process.
+            self.host.after(30, self.host.quit)
+            self.host.mainloop()
+            self.assertIsNone(self.renderer._sfle_resize_after_id)
+            self.assertIsNone(self.renderer._sfle_resize_error)
+            self.assertEqual(
+                (self.renderer._sfle_constraints.width.value,
+                 self.renderer._sfle_constraints.height.value), (240, 110))
+            self.assertIs(root.children[0].handle.widget, child)
+        finally:
+            self.reconciler.unmount()
+            self.host.geometry("400x240+0+0")
+            self.host.update()
+
     def test_real_tk_host_configure_automatically_reflows_sfle(self):
         class CountingEngine:
             def __init__(self):
@@ -486,6 +738,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
             self.host.geometry("210x100+0+0")
             self.host.geometry("260x120+0+0")
             self.host.update()
+            self.host.after(30, self.host.quit)
+            self.host.mainloop()
             self.assertIsNone(self.renderer._sfle_resize_error)
             self.assertEqual(
                 (self.renderer._sfle_constraints.width.value,
@@ -1689,3 +1943,195 @@ def test_html_flow_public_native_geometry_receipt_tkinter(request):
         reconciler.unmount()
         renderer.close()
         host.destroy()
+
+
+def test_tk_width_measurement_preserves_empty_wraplength_and_skips_unchanged_write():
+    """Tcl's empty wraplength is valid and must survive temporary measurements."""
+    from psx.sfle.tk_measurement import TkMeasurementSource
+
+    class Widget:
+        def __init__(self, wraplength):
+            self.wraplength = wraplength
+            self.writes = []
+            self.flushes = 0
+
+        def keys(self):
+            return ("wraplength",)
+
+        def cget(self, name):
+            assert name == "wraplength"
+            return self.wraplength
+
+        def configure(self, **options):
+            self.writes.append(options["wraplength"])
+            self.wraplength = options["wraplength"]
+
+        def update_idletasks(self):
+            self.flushes += 1
+
+        def winfo_reqwidth(self):
+            return 140
+
+        def winfo_reqheight(self):
+            return 21
+
+    for initial, expected_writes, expected_flushes in (
+        ("", [80, ""], 1),
+        (80, [], 1),
+        ("80", [], 1),
+    ):
+        widget = Widget(initial)
+        source = TkMeasurementSource({"leaf": widget})
+        result = source.measure_width("leaf", 80.0)
+        assert result.preferred_width == 80
+        assert result.preferred_height == 21
+        assert widget.wraplength == initial
+        assert widget.writes == expected_writes
+        assert widget.flushes == expected_flushes
+
+
+def test_tk_wrapping_measurements_restore_widget_state_without_extra_idle_drain():
+    """Width probes must preserve mounted label wrapping and native hints."""
+    from psx.sfle.tk_measurement import TkMeasurementSource
+    import tkinter as tk
+
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        label = tk.Label(root, text="Several words that wrap across multiple lines")
+        label.configure(wraplength=0)
+        source = TkMeasurementSource({"copy": label})
+        original = label.cget("wraplength")
+        narrow = source.measure_width("copy", 45)
+        assert label.cget("wraplength") == original
+        wide = source.measure_width("copy", 300)
+        assert label.cget("wraplength") == original
+        assert narrow.preferred_height >= wide.preferred_height
+        # A final idle pass must resolve the restored native option as well.
+        root.update_idletasks()
+        assert label.cget("wraplength") == original
+    finally:
+        root.destroy()
+
+
+def test_tk_grid_transaction_avoids_repeated_idle_drains_for_unchanged_wrap():
+    """The Grid bridge drains once; only a changed wrap requires a new drain."""
+    from psx.sfle.tk_measurement import TkMeasurementSource
+
+    class Widget:
+        def __init__(self, initial=None):
+            self.wraplength = initial
+            self.flushes = 0
+            self.writes = []
+
+        def keys(self):
+            return ("wraplength",) if self.wraplength is not None else ()
+
+        def cget(self, name):
+            return self.wraplength
+
+        def configure(self, **options):
+            self.writes.append(options["wraplength"])
+            self.wraplength = options["wraplength"]
+
+        def update_idletasks(self):
+            self.flushes += 1
+
+        def winfo_reqwidth(self):
+            return 72
+
+        def winfo_reqheight(self):
+            return 19
+
+    for previous, width, expected_flushes, writes in (
+        (80, 80, 0, []),
+        ("80", 80, 0, []),
+        (None, 80, 0, []),
+        ("", 80, 0, []),
+    ):
+        widget = Widget(previous)
+        source = TkMeasurementSource({"leaf": widget}, idle_synced=True)
+        result = source.measure_width("leaf", width)
+        assert result.preferred_height == 19
+        assert widget.flushes == expected_flushes
+        assert widget.writes == writes
+        assert widget.wraplength == previous
+
+    unsynced = Widget(80)
+    TkMeasurementSource({"leaf": unsynced}).measure_width("leaf", 80)
+    assert unsynced.flushes == 1
+
+
+def test_tk_native_empty_wraplength_is_unwrapped_and_fits_without_probe():
+    """An empty Tcl wrap option is unwrapped, not a reason to relayout."""
+    import tkinter as tk
+    from tkinter import ttk
+    from psx.sfle.tk_measurement import TkMeasurementSource
+
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        label = ttk.Label(root, text="Short label")
+        label.configure(wraplength="")
+        root.update_idletasks()
+        before = (label.winfo_reqwidth(), label.winfo_reqheight())
+        measured = TkMeasurementSource(
+            {"label": label}, idle_synced=True,
+        ).measure_width("label", before[0] + 80)
+        assert measured.preferred_width == before[0]
+        assert measured.preferred_height == before[1]
+        assert str(label.cget("wraplength")) == ""
+    finally:
+        root.destroy()
+
+
+def test_tk_grid_fit_short_circuits_width_probe_only_for_unwrapped_text():
+    """A fitted natural label needs no wrap mutation or Tcl idle drain."""
+    from psx.sfle.tk_measurement import TkMeasurementSource
+
+    class Label:
+        def __init__(self, natural):
+            self.wrap = 0
+            self.natural = natural
+            self.writes = []
+            self.flushes = 0
+
+        def keys(self):
+            return ("wraplength",)
+
+        def cget(self, option):
+            return self.wrap
+
+        def configure(self, **kwargs):
+            self.wrap = kwargs["wraplength"]
+            self.writes.append(self.wrap)
+
+        def update_idletasks(self):
+            self.flushes += 1
+
+        def winfo_reqwidth(self):
+            return self.natural
+
+        def winfo_reqheight(self):
+            return 20 if self.wrap == 0 or self.wrap >= self.natural else 40
+
+    fitted = Label(64)
+    result = TkMeasurementSource(
+        {"text": fitted}, idle_synced=True,
+    ).measure_width("text", 100)
+    assert (result.preferred_width, result.preferred_height) == (64, 20)
+    assert fitted.writes == []
+    assert fitted.flushes == 0
+
+    wrapped = Label(140)
+    result = TkMeasurementSource(
+        {"text": wrapped}, idle_synced=True,
+    ).measure_width("text", 100)
+    assert (result.preferred_width, result.preferred_height) == (100, 40)
+    assert wrapped.writes == [100, 0]
+    assert wrapped.flushes == 1
+
+    unsynced = Label(64)
+    TkMeasurementSource({"text": unsynced}).measure_width("text", 100)
+    assert unsynced.writes == [100, 0]
+    assert unsynced.flushes == 1

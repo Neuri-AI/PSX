@@ -6,6 +6,8 @@ on:
       - "psx/sfle/**"
       - "psx/renderers/**"
       - "benchmarks/grid_resize_profile.py"
+      - "benchmarks/grid_resize_interactive.py"
+      - "benchmarks/native_resize_scaling.py"
       - ".github/workflows/grid-resize-performance.yml"
   workflow_dispatch:
 permissions:
@@ -26,29 +28,196 @@ jobs:
       - name: Install native Qt system libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 xvfb xauth
       - name: Install PSX, PySide6 and native build tooling
         run: |
           python -m pip install -e '.[pyside6]' 'maturin>=1.8,<2' pytest
           maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
           python -m pip install --no-deps --find-links wheelhouse 'psx-sfle-native==0.1.0'
           python -c "from psx.sfle.backend import load_layout_engine; assert load_layout_engine().backend_name == 'rust'"
+      - name: Verify intrinsic and immutable Flow reuse contracts
+        run: python -m pytest -q tests/test_grid_intrinsic_reuse.py tests/test_native_intrinsic_cache.py tests/test_grid_flow_blueprint_reuse.py tests/test_tk_corner_raster_reuse.py
       - name: Execute repeated native Grid resize profiles
         run: |
           mkdir -p benchmark-results
-          python benchmarks/grid_resize_profile.py --engine both --cards 24 --cycles 100 --warmup 10 > benchmark-results/grid-resize.json
+          xvfb-run -a python benchmarks/grid_resize_profile.py --engine both --adapter both --cards 24 --cycles 100 --warmup 10 > benchmark-results/grid-resize.json
           python - <<'PY'
           import json
           from pathlib import Path
           data=json.loads(Path("benchmark-results/grid-resize.json").read_text())
           assert {item["engine"] for item in data} == {"python", "rust"}
+          assert {(item["engine"], item["adapter"]) for item in data} == {
+              ("python", "qt"), ("python", "tk"), ("rust", "qt"), ("rust", "tk")
+          }
           for item in data:
               assert item["cycles"] == 100
               print(f'{item["engine"]}: CPU {item["mean_cpu_ms"]:.3f} ms/resize, wall {item["mean_wall_ms"]:.3f} ms/resize, p95 {item["p95_wall_ms"]:.3f} ms')
           PY
+      - name: Validate real native window resize event timing
+        run: |
+          xvfb-run -a python -u benchmarks/grid_resize_interactive.py --engine both --adapter both --cards 6 --cycles 3 --warmup 1 > benchmark-results/grid-resize-events.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("benchmark-results/grid-resize-events.json").read_text())
+          assert {(row["engine"], row["adapter"]) for row in data} == {
+              ("python", "qt"), ("python", "tk"),
+              ("rust", "qt"), ("rust", "tk"),
+          }
+          for row in data:
+              assert row["cycles"] == 3
+              assert row["presentation_feedback_supported"] is False
+              assert row["frame_rate_fps"] is None
+              assert len(row["samples"]) == 3
+              assert all(sample["commits"] >= 1 for sample in row["samples"])
+              assert all(sample["native_event_to_commit_end_ms"] >= 0
+                         for sample in row["samples"])
+              print(f'{row["engine"]}/{row["adapter"]}: native event to commit '
+                    f'{row["mean_event_to_commit_ms"]:.3f} ms, '
+                    f'p95 {row["p95_event_to_commit_ms"]:.3f} ms')
+          PY
+      - name: Measure styled cards including native repaint CPU
+        run: |
+          xvfb-run -a python -u benchmarks/grid_resize_interactive.py --engine both --adapter tk --cards 6 --cycles 20 --warmup 3 --styled > benchmark-results/styled-grid-resize-events.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("benchmark-results/styled-grid-resize-events.json").read_text())
+          assert {row["engine"] for row in data} == {"python", "rust"}
+          for row in data:
+              assert row["styled"] is True
+              assert row["cycles"] == 20
+              assert row["mean_request_to_loop_settled_cpu_ms"] > 0
+              assert row["presentation_feedback_supported"] is False
+              print(row["engine"], row["mean_request_to_loop_settled_ms"],
+                    row["mean_request_to_loop_settled_cpu_ms"])
+          PY
+      - name: Benchmark Qt styled cards with native resize and both Cinnamon engines
+        run: |
+          xvfb-run -a python -u benchmarks/grid_resize_interactive.py --engine both --adapter qt --cards 6 --cycles 40 --warmup 5 --styled > benchmark-results/qt-styled-grid-resize-events.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("benchmark-results/qt-styled-grid-resize-events.json").read_text())
+          assert {(row["engine"], row["adapter"]) for row in data} == {
+              ("python", "qt"), ("rust", "qt")
+          }
+          for row in data:
+              assert row["styled"] is True
+              assert row["cycles"] == 40
+              assert row["presentation_feedback_supported"] is False
+              assert len(row["samples"]) == 40
+              assert all(sample["commits"] >= 1 for sample in row["samples"])
+              print(
+                  f'Qt styled {row["engine"]}: event→commit mean '
+                  f'{row["mean_event_to_commit_ms"]:.3f} ms, '
+                  f'p95 {row["p95_event_to_commit_ms"]:.3f} ms, '
+                  f'p99 {row["p99_event_to_commit_ms"]:.3f} ms; '
+                  f'request→settled mean '
+                  f'{row["mean_request_to_loop_settled_ms"]:.3f} ms, '
+                  f'p95 {row["p95_request_to_loop_settled_ms"]:.3f} ms'
+              )
+          PY
+      - name: Measure N-element scaling on Qt and Tk (Rust and Python)
+        run: |
+          xvfb-run -a python -u benchmarks/native_resize_scaling.py --engine rust --adapter both --scenarios cards controls flow --counts 6 24 60 120 --cycles 8 --warmup 2 --output benchmark-results/resize-scaling-rust.json
+          xvfb-run -a python -u benchmarks/native_resize_scaling.py --engine python --adapter both --scenarios cards controls --counts 6 24 60 --cycles 5 --warmup 1 --output benchmark-results/resize-scaling-python.json
+          xvfb-run -a python -u benchmarks/native_resize_scaling.py --engine rust --adapter both --scenarios dense-flow --counts 24 60 120 --cycles 3 --warmup 1 --output benchmark-results/resize-dense-flow-rust.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for file in ("resize-scaling-rust.json", "resize-scaling-python.json"):
+              rows = json.loads((Path("benchmark-results") / file).read_text())["rows"]
+              assert rows and all("error" not in row for row in rows)
+              assert all(row["native_widgets"] > 0 and row["mounted_nodes"] > 0
+                         for row in rows)
+              assert any(row["logical_items"] == 60 for row in rows)
+              assert {(r["adapter"]) for r in rows} == {"qt", "tk"}
+          PY
+      - name: Profile N-element resize hot paths (diagnostic only)
+        run: |
+          xvfb-run -a python -m cProfile -s cumtime benchmarks/native_resize_scaling.py --engine rust --adapter qt --scenarios cards --counts 60 --cycles 3 --warmup 1 > benchmark-results/qt-60-cprofile.txt
+          xvfb-run -a python -m cProfile -s cumtime benchmarks/native_resize_scaling.py --engine rust --adapter tk --scenarios cards --counts 60 --cycles 3 --warmup 1 > benchmark-results/tk-60-cprofile.txt
+          echo '=== Qt 60 ==='
+          sed -n '/function calls in/,+75p' benchmark-results/qt-60-cprofile.txt
+          echo '=== Tk 60 ==='
+          sed -n '/function calls in/,+75p' benchmark-results/tk-60-cprofile.txt
+      - name: Diagnose Tk CSS resize hot paths (cProfile; diagnostic only)
+        run: |
+          xvfb-run -a python -m cProfile -s cumtime benchmarks/grid_resize_interactive.py --engine rust --adapter tk --cards 6 --cycles 15 --warmup 3 --styled > benchmark-results/styled-cprofile.txt
+          sed -n '/function calls in/,+75p' benchmark-results/styled-cprofile.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: cinnamon-grid-resize-profiles
+          path: benchmark-results/
+          if-no-files-found: warn
+
+  qt-native-platforms:
+    name: Qt Rust resize / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel, windows-2022]
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install PSX Qt and build Cinnamon Rust locally
+        shell: bash
+        run: |
+          python -m pip install -e '.[pyside6]' 'maturin>=1.8,<2'
+          maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
+          python -m pip install --no-deps --find-links wheelhouse 'psx-sfle-native==0.1.0'
+          python -c "from psx.sfle.backend import load_layout_engine; assert load_layout_engine().backend_name == 'rust'"
+      - name: Measure Qt native resize with Rust (plain and styled)
+        shell: bash
+        run: |
+          mkdir -p benchmark-results
+          python -u benchmarks/grid_resize_interactive.py --adapter qt --engine rust --cards 6 --cycles 40 --warmup 5 --styled > benchmark-results/qt-styled.json
+          python -u benchmarks/grid_resize_interactive.py --adapter qt --engine rust --cards 6 --cycles 40 --warmup 5 > benchmark-results/qt-plain.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for file in ('qt-styled.json', 'qt-plain.json'):
+              rows = json.loads((Path('benchmark-results') / file).read_text())
+              assert len(rows) == 1
+              row = rows[0]
+              assert row['engine'] == 'rust' and row['adapter'] == 'qt'
+              assert row['cycles'] == 40 and len(row['samples']) == 40
+              assert row['presentation_feedback_supported'] is False
+              print(
+                  f"{file}: event to commit mean={row['mean_event_to_commit_ms']:.3f} ms "
+                  f"p95={row['p95_event_to_commit_ms']:.3f} ms "
+                  f"p99={row['p99_event_to_commit_ms']:.3f} ms; "
+                  f"request to settled mean={row['mean_request_to_loop_settled_ms']:.3f} ms "
+                  f"p95={row['p95_request_to_loop_settled_ms']:.3f} ms"
+              )
+          PY
+      - name: Measure N-element scaling on macOS ARM and Windows (Qt and Tk)
+        if: matrix.os != 'macos-15-intel'
+        shell: bash
+        run: |
+          python -u benchmarks/native_resize_scaling.py --engine rust --adapter both --scenarios cards controls flow --counts 6 24 60 120 --cycles 8 --warmup 2 --output benchmark-results/resize-scaling-native.json
+      - name: Profile slow Intel Qt commit path (diagnostic)
+        if: matrix.os == 'macos-15-intel'
+        shell: bash
+        run: |
+          python -m cProfile -s cumtime benchmarks/grid_resize_interactive.py --adapter qt --engine rust --cards 6 --cycles 12 --warmup 3 --styled > benchmark-results/qt-intel-styled-cprofile.txt
+          python -m cProfile -s cumtime benchmarks/grid_resize_interactive.py --adapter qt --engine rust --cards 6 --cycles 12 --warmup 3 > benchmark-results/qt-intel-plain-cprofile.txt
+          echo '=== CSS cards ==='
+          sed -n '/function calls in/,+90p' benchmark-results/qt-intel-styled-cprofile.txt
+          echo '=== Plain Grid ==='
+          sed -n '/function calls in/,+90p' benchmark-results/qt-intel-plain-cprofile.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qt-resize-${{ matrix.os }}
           path: benchmark-results/
           if-no-files-found: warn

@@ -14,6 +14,18 @@ from tests.certification.public_behavior_census import (
 SHA = "a" * 40
 
 
+def test_scroll_wrapped_grid_resize_inventory_covers_each_qt_binding():
+    rows = inventory()
+    for binding in ("pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"):
+        for variant in ("nested", "root"):
+            matched = [row for row in rows if row.component == "Grid"
+                       and row.backend == binding and row.feature_kind == "interaction"
+                       and row.feature_name == "scroll_wrapped_item"
+                       and row.scenario_id == variant + "_viewport_resize"]
+            assert len(matched) == 1
+            assert matched[0].applicability == "partial_native"
+
+
 def test_source_derived_inventory_separates_shared_and_native():
     from psx.core.registry import builtin_component_registry
     from psx.core.props import FLEX_ITEM_PROPS
@@ -317,7 +329,8 @@ def test_grid_native_certificate_requires_executed_backend_receipts(tmp_path):
     assert {row.backend for row in grid_rows} == {
         "headless", "pyside6", "pyside2", "pyqt5", "pyqt6", "tkinter", "kivy"
     }
-    assert len(grid_rows) == 151
+    # Each of the six native bindings has nested and root viewport receipts.
+    assert len(grid_rows) == 163
     assert any(row.component == "GridItem" and row.backend == "headless"
                and row.feature_name == "flex_padding" and row.scenario_id == "no_horizontal_clip"
                for row in grid_rows)

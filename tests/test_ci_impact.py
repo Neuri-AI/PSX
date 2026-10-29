@@ -93,6 +93,16 @@ class RoutingTests(unittest.TestCase):
             self.assertIn(f"PSX_GRID_BACKEND={backend}", workflow)
         self.assertIn("tests/test_native_coordinated_refresh.py", workflow)
 
+    def test_component_css_inheritance_runs_on_native_backends(self):
+        expected = {"core", "headless", "qt", "kivy", "tkinter"}
+        self.assertEqual(self.selected("psx/css/inheritance.py"), expected)
+        self.assertEqual(self.selected("tests/test_component_css_inheritance.py"), expected)
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("tests/test_component_css_inheritance.py", workflow)
+
     def test_markup_styles_bind_without_bypassing_native_regression_suites(self):
         self.assertEqual(self.selected("tests/test_markup_css_binding.py"),
                          {"core", "headless", "qt", "kivy", "tkinter"})
@@ -109,6 +119,22 @@ class RoutingTests(unittest.TestCase):
         from pathlib import Path
         workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
         self.assertIn("tests/sfle/test_qt_inline_form_baselines.py", workflow)
+
+    def test_native_plot_and_block_constraints_route_correctly(self):
+        self.assertEqual(self.selected("tests/test_qt_native_chart_refresh.py"), {"qt"})
+        expected = {"core", "sfle", "rust", "chromium", "headless", "qt", "kivy", "tkinter"}
+        self.assertEqual(self.selected("psx/sfle/measured_block_snapshot.py"), expected)
+        self.assertEqual(self.selected("tests/sfle/test_measured_block_snapshot.py"), expected)
+        from pathlib import Path
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/component-source-refresh.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/test_qt_native_chart_refresh.py", workflow)
+        self.assertIn("tests/sfle/test_measured_block_snapshot.py", workflow)
+
+    def test_qt_wheel_continuity_routes_to_native_qt(self):
+        from pathlib import Path
+        self.assertEqual(self.selected("tests/test_qt_scroll_wheel_continuity.py"), {"qt"})
+        workflow = (Path(__file__).resolve().parents[1] / ".github/workflows/native-layout-selective.yml").read_text(encoding="utf-8")
+        self.assertIn("tests/test_qt_scroll_wheel_continuity.py", workflow)
 
     def test_qt_semantic_border_isolation_routes_to_qt(self):
         from pathlib import Path
@@ -407,8 +433,92 @@ class RoutingTests(unittest.TestCase):
     def test_tk_only(self):
         self.assertEqual(self.selected("psx/renderers/tkinter/scroll.py"), {"tkinter"})
 
+    def test_native_corner_comparison_selects_qt_reference_and_tk(self):
+        self.assertEqual(
+            self.selected("psx/renderers/tkinter/rounded_surface.py"),
+            {"qt", "tkinter"},
+        )
+        self.assertEqual(
+            self.selected("tests/test_native_rounded_card_visual.py"),
+            {"qt", "tkinter"},
+        )
+        self.assertEqual(self.selected("psx/renderers/tkinter/scroll.py"), {"tkinter"})
+
+    def test_styled_resize_benchmarks_select_only_native_consumers(self):
+        for path in ("benchmarks/grid_resize_profile.py",
+                     "benchmarks/grid_resize_interactive.py"):
+            self.assertEqual(self.selected(path), {"qt", "tkinter"})
+        self.assertEqual(self.selected(".github/workflows/grid-resize-performance.yml"),
+                         {"router", "qt", "tkinter"})
+        self.assertEqual(self.selected("psx/renderers/tkinter/rounded_surface.py",
+                                       "benchmarks/grid_resize_interactive.py"),
+                         {"qt", "tkinter"})
+
+    def test_macos_aqua_is_mandatory_when_tkinter_selected(self):
+        from pathlib import Path
+
+        workflow = (Path(__file__).resolve().parents[1] /
+                    ".github/workflows/native-layout-selective.yml").read_text(
+                        encoding="utf-8")
+        summary = workflow.split("\n  summary:\n", 1)[1]
+        self.assertIn("tkinter-aqua", summary.split("\n    if: always()", 1)[0])
+        self.assertIn('if "tkinter" in selected:', summary)
+        self.assertIn('needs.get("tkinter-aqua", {}).get("result")', summary)
+        self.assertIn('if aqua != "success":', summary)
+        self.assertIn('failures.append(f"tkinter-aqua={aqua}")', summary)
+        self.assertEqual(self.selected(
+            ".github/workflows/native-layout-selective.yml"
+        ), {"router", "core", "sfle", "rust", "qt", "kivy", "tkinter", "headless"})
+
+    def test_tk_unified_css_surface_and_pixel_regressions_route_to_tkinter(self):
+        self.assertEqual(
+            self.selected("psx/renderers/tkinter/rounded_surface.py"),
+            {"qt", "tkinter"},
+        )
+        self.assertEqual(
+            self.selected("psx/renderers/tkinter/tkinter.py"),
+            {"tkinter"},
+        )
+        self.assertEqual(
+            self.selected("tests/test_tkinter_renderer.py"),
+            {"tkinter"},
+        )
+        self.assertEqual(
+            self.selected("tests/test_mounted_grid_native_renderers.py"),
+            {"core", "qt", "kivy", "tkinter"},
+        )
+
+    def test_tk_css_typography_and_native_regressions_route_to_tkinter(self):
+        self.assertEqual(
+            self.selected("psx/renderers/tkinter/tkinter.py"), {"tkinter"}
+        )
+        self.assertEqual(
+            self.selected("tests/test_tkinter_renderer.py"), {"tkinter"}
+        )
+        self.assertEqual(
+            self.selected("tests/test_tkinter_native_layout.py"), {"tkinter"}
+        )
+
     def test_headless_only(self):
         self.assertEqual(self.selected("psx/renderers/headless.py"), {"headless"})
+
+    def test_rounded_native_border_changes_select_all_affected_adapters(self):
+        self.assertEqual(
+            self.selected("psx/css/native_paint.py"),
+            {"core", "qt", "kivy", "tkinter"},
+        )
+        self.assertEqual(
+            self.selected("tests/css/test_native_paint.py"),
+            {"core", "qt", "kivy", "tkinter"},
+        )
+        self.assertEqual(self.selected("psx/renderers/kivy/kivy.py"), {"kivy"})
+        self.assertEqual(
+            self.selected("psx/renderers/tkinter/tkinter.py"), {"tkinter"}
+        )
+        self.assertEqual(
+            self.selected("tests/test_mounted_grid_native_renderers.py"),
+            {"core", "qt", "kivy", "tkinter"},
+        )
 
     def test_mounted_grid_lifecycle_runs_all_native_toolkits(self):
         self.assertEqual(self.selected("tests/test_mounted_grid_native_renderers.py"),

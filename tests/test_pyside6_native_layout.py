@@ -38,6 +38,34 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.r.unmount()
         self.renderer.application.processEvents()
 
+    def test_resizing_mixed_grid_reuses_text_hints_without_changing_native_geometry(self):
+        """Mixed Grid reuse is committed only after Qt geometry readback."""
+        self.renderer.set_sfle_constraints(constraints(420, 240))
+        root = self.r.render(psx(
+            '<div><Grid gap="8px">'
+            '<GridItem span="6" key="a"><div>'
+            '<div>Card A</div><div>Value 17</div>'
+            '</div></GridItem>'
+            '<GridItem span="6" key="b"><div>'
+            '<div>Card B</div><div>Value 34</div>'
+            '</div></GridItem>'
+            '</Grid></div>'
+        ))
+        reuse = self.renderer._psx_grid_intrinsic_reuse
+        initial_count = len(reuse)
+        self.assertGreater(initial_count, 0)
+        self.renderer.set_sfle_constraints(constraints(350, 240))
+        self.renderer.commit_layout(root)
+        # Wrapped labels legitimately acquire new width-specific entries
+        # after a resize. Repeating the *same* width must reuse the newly
+        # accepted measurements and preserve certified native geometry.
+        resized_count = len(reuse)
+        self.assertGreaterEqual(resized_count, initial_count)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+        self.renderer.commit_layout(root)
+        self.assertEqual(len(reuse), resized_count)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_css_background_paints_and_updates_in_place(self):
         first = self.r.render(psx('<div key="same" style="background-color: #112233" />'))
         widget = first.handle.widget
@@ -413,6 +441,35 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(button.width(), 40)
         button.click()
         self.assertEqual(events, [0, 2])
+
+    def test_qt_css_text_intrinsic_hint_cache_preserves_wrapping_and_invalidation(self):
+        root = self.r.render(Flex(
+            Text("A long intrinsic label with several words for native Qt sizing"),
+            width="100%", height="100%",
+        ))
+        widget = root.children[0].handle.widget
+        widget._psx_sync_line_height(26)
+        document = widget._psx_css_document
+        self.assertIsNotNone(document)
+        initial_hint = widget.sizeHint()
+        cached = widget._psx_css_intrinsic_hint
+        self.assertIsNotNone(cached)
+
+        # A later paint/height-for-width calculation may leave QTextDocument
+        # constrained. Intrinsic sizeHint must retain its unwrapped value.
+        document.setTextWidth(36)
+        widget.heightForWidth(36)
+        self.assertEqual(widget.sizeHint(), initial_hint)
+        self.assertIs(widget._psx_css_intrinsic_hint, cached)
+        self.assertEqual(widget.sizeHint(), initial_hint)
+
+        # Native document edits and explicit style changes both invalidate.
+        document.setPlainText("A changed label text with different width")
+        widget.sizeHint()
+        self.assertIsNot(widget._psx_css_intrinsic_hint, cached)
+        widget._psx_sync_line_height(30)
+        self.assertIsNone(widget._psx_css_intrinsic_hint)
+        self.assertIsNotNone(widget.sizeHint())
 
     def test_viewport_resize_recommits_without_remount(self):
         root = self.r.render(Flex(

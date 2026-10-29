@@ -3,7 +3,7 @@
 `Input` displays a single-line text input field with the same public contract in
 every renderer. It mounts a `QLineEdit`, `ttk.Entry`, or Kivy `TextInput` (configured
 with `multiline=False`) and preserves that widget during compatible updates. It dispatches
-text changes and submit events using stable event slots.
+text changes, submit events, and pointer clicks using stable event slots.
 
 | Property | Type | Default |
 | --- | --- | --- |
@@ -15,6 +15,7 @@ text changes and submit events using stable event slots.
 | `password` | `bool` | `False` |
 | `on_change` | `Callable[[str], None]` or `None` | `None` |
 | `on_submit` | `Callable[[], None]` or `None` | `None` |
+| `on_click` | `Callable[[], None]` or `None` | `None` |
 | `key` | `str`, `int`, or `None` | `None` |
 | `ref` | PSX ref or `None` | `None` |
 
@@ -65,3 +66,13 @@ def render(self):
 ```
 The portable contract is unchanged: value, placeholder and on_change
 mean the same thing here as in any other renderer.
+For lowercase PSX Markup, the input event contract exposes the current value
+through `event.target.value`, even when `name` was omitted. In that case
+`event.target.name` is an empty string. The uppercase `Input` retains its
+legacy raw-string `on_change` callback.
+
+```jsx
+<input type="password" value={name}
+       on_change={(event) => set_name(event.target.value)}
+       on_click={() => print("clicked")} />
+```

@@ -15,7 +15,10 @@ from .grid_math import GridPackingError
 from .lengths import LengthKind, parse_length
 from .model import IntrinsicSizes, MeasuredBox, AvailableSize, LayoutConstraints
 from .native_layout_snapshot import path_identity, prepare_native_layout_snapshot
-from .width_dependent_intrinsic_measurement import compute_width_dependent
+from .width_dependent_intrinsic_measurement import (
+    auto_height_measurement_ids,
+    compute_width_dependent,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,6 +142,10 @@ def prepare_composed_flex(
             "certified viewport integration."
         )
     nested_grids = {}
+    # This cache belongs to one composition only. It is never shared with a
+    # later resize, style update, native-resource change, or layout generation.
+    # Nested Grid computations remain uncached because they carry placements.
+    measured_leaves: dict[tuple[str, float], IntrinsicSizes] = {}
 
     def measure(identifier, width):
         node = descendants[identifier]
@@ -147,9 +154,13 @@ def prepare_composed_flex(
             nested_grids[identifier] = composition
             height = composition.content_height
             return IntrinsicSizes(0, width, 0, height, width, height)
+        key = (identifier, width)
+        if key in measured_leaves:
+            return measured_leaves[key]
         intrinsic = measure_leaf(identifier, node, width)
         if not isinstance(intrinsic, IntrinsicSizes):
             raise GridPackingError("Flex-in-Grid leaf requires actual native IntrinsicSizes.")
+        measured_leaves[key] = intrinsic
         return intrinsic
 
     metrics = tuple(
@@ -161,11 +172,19 @@ def prepare_composed_flex(
     )
     from dataclasses import replace
     snapshot = replace(prepared.snapshot, measurements=metrics)
+    # Fixed-height leaves already have their intrinsic inline contributions.
+    # Their block size cannot change with line wrapping, so exclude them from
+    # provisional width-sensitive native remeasurement. Auto-height leaves
+    # still converge against Cinnamon's actual allocated content width.
+    width_sensitive = auto_height_measurement_ids(snapshot)
     computed = compute_width_dependent(
         engine, snapshot,
         {identifier: (lambda width, identifier=identifier:
                       measure(identifier, width))
-         for identifier in descendants},
+         for identifier, node in descendants.items()
+         if identifier in width_sensitive or (
+             node.kind is NodeKind.HOST and node.type == "Grid"
+         )},
         current_generation=lambda: current_generation,
     )
     boxes = dict(computed.boxes)

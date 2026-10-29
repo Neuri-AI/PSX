@@ -177,3 +177,57 @@ def test_qt_paints_only_bottom_border_without_synthesizing_other_edges():
     assert "border-bottom: 1px solid #e0e0e0;" in rendered
     assert "border-top:" not in rendered
     assert "border: 1px solid" not in rendered
+
+def test_native_side_stroke_preserves_authored_edges_and_rgba():
+    from psx.css.native_paint import native_side_border_paint
+    assert native_side_border_paint(None) == ()
+    assert native_side_border_paint(_style("")) == ()
+    only_bottom = _style("div { border-bottom: 2px solid #123456; }")
+    assert native_side_border_paint(only_bottom) == (
+        ("bottom", 2.0, (18 / 255, 52 / 255, 86 / 255, 1.0)),
+    )
+    colored = _style("div { border-left: 3px solid #f008; }")
+    assert native_side_border_paint(colored) == (
+        ("left", 3.0, (1.0, 0.0, 0.0, 136 / 255)),
+    )
+    assert native_side_border_paint(_style("div { border-bottom: none; }")) == ()
+
+
+def test_native_side_stroke_updates_fallback_width_and_color_without_ghost_edges():
+    from psx.css.native_paint import native_side_border_paint
+    computed = _style(
+        "div { border-width: 4px; border-color: #abcdef;"
+        " border-bottom-color: #135790; border-top: none; }"
+    )
+    assert native_side_border_paint(computed) == (
+        ("bottom", 4.0, (19 / 255, 87 / 255, 144 / 255, 1.0)),
+    )
+
+
+def test_rounded_css_side_paths_follow_half_corner_arcs_without_invented_sides():
+    from psx.css.native_paint import rounded_side_stroke_points
+    bottom = rounded_side_stroke_points("bottom", 160, 48, 12, 2)
+    top = rounded_side_stroke_points("top", 160, 48, 12, 2)
+    assert len(bottom) == len(top) == 36
+    # At the tangent, a 2px line follows the inset border box.
+    assert min(bottom[1::2]) >= 1 - 1e-8
+    assert max(bottom[1::2]) < 12
+    assert max(top[1::2]) <= 47
+    assert min(top[1::2]) > 36
+    assert bottom[0] > bottom[-2]  # right-to-left bottom path
+    assert top[0] < top[-2]  # left-to-right top path
+    assert rounded_side_stroke_points("bottom", 160, 48, 0, 2) == (
+        0, 1, 160, 1,
+    )
+
+
+def test_rounded_css_side_paths_handle_small_boxes_and_invalid_values():
+    from psx.css.native_paint import rounded_side_stroke_points
+    assert rounded_side_stroke_points("left", 2, 40, 12, 2) == ()
+    points = rounded_side_stroke_points("left", 40, 24, 100, 2)
+    assert all(0 <= v <= (40 if i % 2 == 0 else 24)
+               for i, v in enumerate(points))
+    with pytest.raises(ValueError, match="Unknown CSS border side"):
+        rounded_side_stroke_points("diagonal", 40, 24, 6, 2)
+    with pytest.raises(ValueError, match="nonnegative"):
+        rounded_side_stroke_points("top", 40, 24, 6, 0)

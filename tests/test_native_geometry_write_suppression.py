@@ -96,3 +96,46 @@ def test_geometry_commit_skips_unchanged_native_widget(backend, widget_type):
     assert widget.writes == first, "Unchanged geometry must not mutate native widget"
     committer(snapshot(60))
     assert widget.writes > first, "Changed geometry must still be applied"
+
+
+def test_tk_unchanged_check_uses_same_rollback_snapshot_without_native_reread():
+    widget = TkWidget()
+    widget.state = {"x": "10", "y": "15", "width": "40", "height": "30"}
+    reads = []
+
+    def tracked_place_info():
+        reads.append(True)
+        return dict(widget.state)
+
+    widget.place_info = tracked_place_info
+    nodes = (MarginTreeNode("root", None, 0, 0),
+             MarginTreeNode("child", "root", 0, 0))
+    committer = NativeGeometryCommitter(
+        GeometryBackend.TK, nodes, {"root": object(), "child": widget},
+        skip_unchanged=True, prior_tk_placements={"child": dict(widget.state)},
+    )
+    committer(snapshot(40))
+    assert widget.writes == 0
+    assert reads == []
+    committer(snapshot(60))
+    assert widget.writes == 1
+    assert reads == []
+
+
+def test_tk_prior_placements_are_detached_and_backend_scoped():
+    widget = TkWidget()
+    before = {"child": {"x": "10", "y": "15", "width": "40", "height": "30"}}
+    nodes = (MarginTreeNode("root", None, 0, 0),
+             MarginTreeNode("child", "root", 0, 0))
+    committer = NativeGeometryCommitter(
+        GeometryBackend.TK, nodes, {"root": object(), "child": widget},
+        skip_unchanged=True, prior_tk_placements=before,
+    )
+    before["child"]["width"] = "60"
+    committer(snapshot(40))
+    assert widget.writes == 0
+    with pytest.raises(TypeError, match="Tk backend"):
+        NativeGeometryCommitter(
+            GeometryBackend.QT, nodes, {"root": object(), "child": QtWidget()},
+            prior_tk_placements=before,
+        )

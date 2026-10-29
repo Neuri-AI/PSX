@@ -42,6 +42,7 @@ def commit_grid_native_geometry(
     parent_height: float | None = None,
     parent_heights: Mapping[str, float] | None = None,
     readback_tolerance: float = 1.0,
+    prior_tk_placements: Mapping[str, Mapping[str, object]] | None = None,
 ) -> GridNativeCommitReceipt:
     """Commit a complete mounted Grid batch, verifying every native readback.
 
@@ -66,6 +67,8 @@ def commit_grid_native_geometry(
 
     if parent_heights is not None and backend is not GridCommitBackend.KIVY:
         raise GridPackingError("Per-widget parent heights are only valid for Kivy.")
+    if prior_tk_placements is not None and backend is not GridCommitBackend.TK:
+        raise GridPackingError("Prior Tk placements require the Tk backend.")
     ids = tuple(p.node_id for p in placements)
     if any(not isinstance(p, GridNativePlacement) for p in placements):
         raise GridPackingError("Grid commit requires preflighted Cinnamon placements.")
@@ -123,11 +126,30 @@ def commit_grid_native_geometry(
             widget.size = (rect.width, rect.height)
 
     # Capture all original native states before the first mutation.
-    originals = {node_id: read(widgets[node_id]) for node_id in ids}
+    if backend is GridCommitBackend.TK:
+        # Capture the original rectangle and unplaced status in one Tcl
+        # round trip. Both belong to the same pre-mutation snapshot.
+        originals = {}
+        unplaced = set()
+        for node_id in ids:
+            info = (
+                prior_tk_placements[node_id]
+                if prior_tk_placements is not None
+                   and node_id in prior_tk_placements
+                else widgets[node_id].place_info()
+            )
+            if info:
+                originals[node_id] = Rect(*(
+                    float(info[k]) for k in ("x", "y", "width", "height")
+                ))
+            else:
+                originals[node_id] = Rect(0, 0, 0, 0)
+                unplaced.add(node_id)
+    else:
+        originals = {node_id: read(widgets[node_id]) for node_id in ids}
+        unplaced = set()
     absent_headless = ({node_id for node_id in ids if widgets[node_id].geometry is None}
                        if backend is GridCommitBackend.HEADLESS else set())
-    unplaced = ({node_id for node_id in ids if not widgets[node_id].place_info()}
-                if backend is GridCommitBackend.TK else set())
     if current_generation() != generation or not is_ui_thread():
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before native mutation.")
     try:
@@ -151,8 +173,12 @@ def commit_grid_native_geometry(
             write(widgets[node_id], desired)
         if current_generation() != generation or not is_ui_thread():
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before readback.")
+        # Read each native rectangle once. Repeating read() inside the axis
+        # loop performs four full Tcl place_info() round trips per widget,
+        # although all four axes describe the same committed rectangle.
+        observed = {node_id: read(widgets[node_id]) for node_id in ids}
         error = max((
-            abs(getattr(read(widgets[node_id]), axis) - getattr(target[node_id], axis))
+            abs(getattr(observed[node_id], axis) - getattr(target[node_id], axis))
             for node_id in ids for axis in ("x", "y", "width", "height")
         ), default=0.0)
         if error > readback_tolerance:

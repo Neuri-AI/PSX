@@ -40,6 +40,16 @@ def _scaled(value: float, mode: str) -> int:
     return _saturate(raw)
 
 
+def nearest_layout_px(value: float) -> float:
+    """Round directly to Blink's 1/64px grid without a temporary LayoutUnit.
+
+    Exactly the same signed half-away-from-zero rounding, finite checks and
+    i32 saturation as LayoutUnit.from_nearest(value).to_px(). Intended for
+    hot native Block/Inline rectangle construction.
+    """
+    return _scaled(value, "nearest") / SCALE
+
+
 @dataclass(frozen=True, slots=True)
 class LayoutUnit:
     raw: int

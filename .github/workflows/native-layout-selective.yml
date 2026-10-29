@@ -2,7 +2,7 @@ name: Native layout selective validation
 
 on:
   pull_request:
-    types: [ready_for_review]
+    types: [opened, reopened, synchronize, ready_for_review]
     branches: [develop]
     paths-ignore:
       - "docs/**"
@@ -184,7 +184,7 @@ jobs:
           name: headless-resource-baseline
           path: resource-baseline.json
           if-no-files-found: error
-      - run: python -m pytest -q tests/css/test_properties.py tests/css/test_parser_and_cascade.py tests/css/test_cache.py tests/css/test_visual_values.py tests/css/test_effects.py tests/css/test_property_catalog.py tests/css/test_catalog.py tests/css/test_tree.py tests/css/test_sources.py tests/css/test_context.py tests/css/test_geometry_handoff.py tests/css/test_box_flow_geometry.py tests/css/test_native_paint.py tests/test_markup_css_binding.py tests/test_css_markup_census.py tests/test_core.py tests/test_spacer.py tests/test_divider.py tests/test_markup_transform.py tests/test_markup_inline_text_coalescing.py tests/test_html_form_input_events.py tests/test_html_form_content.py tests/test_html_radio_grouping.py tests/test_html_select_options.py tests/test_expressive_markup_syntax.py tests/test_expressive_conditional_rendering.py tests/test_declarative_list_rendering.py tests/test_arrow_callback_rendering.py tests/test_expressive_composition_security.py tests/test_ref_m0_characterization.py tests/test_component_contracts.py tests/test_component_registry.py tests/test_lowercase_markup_aliases.py tests/test_markup_registry.py tests/test_markup.py tests/test_hooks_scheduler.py tests/test_component_lexical_runtime.py tests/test_renderer_adapters.py tests/test_source_naming_conventions.py tests/test_legacy_layout_inventory.py tests/test_scroll_offsets.py tests/test_scroll_events.py tests/test_scroll_transactions.py tests/test_scroll_operation_receipts.py tests/test_native_scroll_hosts.py tests/test_flex_layout_contract.py tests/test_grid_contract.py tests/test_flex_item_metadata.py tests/test_native_layout_snapshot.py tests/test_viewport_lengths.py tests/test_p1_canonical_box_style.py tests/test_native_component_capabilities.py tests/test_native_component_matrix.py tests/test_native_operation_contracts.py tests/test_native_external_ownership_contracts.py tests/test_native_measurement_invalidation.py tests/test_layout_change_effects.py tests/test_incremental_result_reuse.py tests/test_native_invalidation_receipts.py tests/test_native_intrinsic_cache.py tests/test_native_geometry_write_suppression.py tests/test_native_resource_invalidation.py tests/test_external_native_geometry_ports.py tests/test_width_dependent_intrinsic_measurement.py tests/test_native_pixel_scale.py tests/test_native_geometry_precision.py tests/test_native_component_integration.py tests/test_native_acceptance_receipts.py tests/test_component_family_policy.py tests/test_headless_native_layout.py
+      - run: python -m pytest -q tests/css/test_properties.py tests/css/test_parser_and_cascade.py tests/css/test_cache.py tests/css/test_visual_values.py tests/css/test_effects.py tests/css/test_property_catalog.py tests/css/test_catalog.py tests/css/test_tree.py tests/css/test_sources.py tests/css/test_context.py tests/css/test_geometry_handoff.py tests/css/test_box_flow_geometry.py tests/css/test_native_paint.py tests/test_markup_css_binding.py tests/test_component_css_inheritance.py tests/test_css_markup_census.py tests/test_core.py tests/test_spacer.py tests/test_divider.py tests/test_markup_transform.py tests/test_markup_inline_text_coalescing.py tests/test_html_form_input_events.py tests/test_html_form_content.py tests/test_html_radio_grouping.py tests/test_html_select_options.py tests/test_expressive_markup_syntax.py tests/test_expressive_conditional_rendering.py tests/test_declarative_list_rendering.py tests/test_arrow_callback_rendering.py tests/test_expressive_composition_security.py tests/test_ref_m0_characterization.py tests/test_component_contracts.py tests/test_component_registry.py tests/test_lowercase_markup_aliases.py tests/test_markup_registry.py tests/test_markup.py tests/test_hooks_scheduler.py tests/test_component_lexical_runtime.py tests/test_renderer_adapters.py tests/test_source_naming_conventions.py tests/test_legacy_layout_inventory.py tests/test_scroll_offsets.py tests/test_scroll_events.py tests/test_scroll_transactions.py tests/test_scroll_operation_receipts.py tests/test_native_scroll_hosts.py tests/test_flex_layout_contract.py tests/test_grid_contract.py tests/test_flex_item_metadata.py tests/test_native_layout_snapshot.py tests/test_viewport_lengths.py tests/test_p1_canonical_box_style.py tests/test_native_component_capabilities.py tests/test_native_component_matrix.py tests/test_native_operation_contracts.py tests/test_native_external_ownership_contracts.py tests/test_native_measurement_invalidation.py tests/test_layout_change_effects.py tests/test_incremental_result_reuse.py tests/test_native_invalidation_receipts.py tests/test_native_intrinsic_cache.py tests/test_native_geometry_write_suppression.py tests/test_native_resource_invalidation.py tests/test_external_native_geometry_ports.py tests/test_width_dependent_intrinsic_measurement.py tests/test_native_pixel_scale.py tests/test_native_geometry_precision.py tests/test_native_component_integration.py tests/test_native_acceptance_receipts.py tests/test_component_family_policy.py tests/test_headless_native_layout.py
       - name: Verify source-derived public behavior inventory and receipt integrity
         run: python -m pytest -q tests/test_public_behavior_census.py tests/test_public_contract_census.py tests/test_public_property_validation.py tests/test_grid_contract.py tests/test_lowercase_markup_aliases.py tests/test_css_markup_census.py --junitxml=public-behavior-core.xml
       - name: Export pending public behavior certification census
@@ -275,12 +275,24 @@ jobs:
           cache: pip
       - run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
-      - run: python -m pip install -e '.[pyside6]' pytest
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 xvfb xauth python3-tk
+      - run: python -m pip install -e '.[pyside6]' pytest Pillow
       - name: Install pinned Pydux dependency required by existing PySide6 integration tests
         run: |
           python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@8de71cee892c5e65a5b5fb223829f4525680a543"
-      - run: python -m pytest -q tests/test_pyside6_renderer.py tests/test_qt_css_control_background.py tests/test_qt_semantic_border_scope.py tests/test_qt_html_form_associations.py tests/test_grid_html_parent.py tests/test_qt_link_refresh_navigation.py tests/test_qt_missing_image_intrinsic.py tests/sfle/test_qt_inline_form_baselines.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_native_layout.py tests/test_pyside6_external_native_ports.py tests/sfle/test_grid_native_measurement.py tests/sfle/test_grid_native_commit.py --junitxml=scroll-qt-operations.xml
+      - run: python -m pytest -q tests/test_pyside6_renderer.py tests/test_qt_css_control_background.py tests/test_qt_semantic_border_scope.py tests/test_qt_scroll_wheel_continuity.py tests/test_qt_html_form_associations.py tests/test_grid_html_parent.py tests/test_qt_link_refresh_navigation.py tests/test_qt_missing_image_intrinsic.py tests/sfle/test_qt_inline_form_baselines.py tests/sfle/test_qt_native_lifecycle.py tests/test_pyside6_native_layout.py tests/test_pyside6_external_native_ports.py tests/sfle/test_grid_native_measurement.py tests/sfle/test_grid_native_commit.py --junitxml=scroll-qt-operations.xml
+      - name: Compare real QSS and Xvfb Tk rounded-card pixels
+        env:
+          PSX_CORNER_VISUAL_OUTPUT: native-rounded-visual
+        run: xvfb-run -a python -m pytest -q -rs tests/test_native_rounded_card_visual.py --junitxml=rounded-card-visual.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qt-tk-rounded-card-visual
+          path: |
+            native-rounded-visual/
+            rounded-card-visual.xml
+          if-no-files-found: error
       - run: python -m tests.certification.scroll_operation_receipts --backend qt --junit scroll-qt-operations.xml --out scroll-qt-operations.json
       - uses: actions/upload-artifact@v4
         with:
@@ -471,6 +483,20 @@ jobs:
             native-layout-kivy-c5.json
             native-layout-kivy-c4.json
 
+  tkinter-aqua:
+    name: Tkinter macOS Aqua mounted visibility
+    needs: changes
+    if: needs.changes.outputs.tkinter == 'true'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e . pytest Pillow
+      - name: Verify actual Aqua native map and CSS dashboard
+        run: python -m pytest -q tests/test_tkinter_macos_visibility.py tests/test_tkinter_native_layout.py -x
+
   tkinter:
     name: Native layout Tkinter native components
     needs: changes
@@ -607,6 +633,35 @@ jobs:
           python -c "import _sfle_native as native; assert native.schema_version()==1"
       - name: Verify Rust/Python parity of installed wheel
         run: python -m pytest -q tests/interop/test_sfle_native_wheel.py
+      - name: Measure native Aqua styled Tk resize with Cinnamon Rust
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          python benchmarks/grid_resize_interactive.py --adapter tk --engine rust --cards 6 --cycles 20 --warmup 3 --styled > macos-styled-tk-resize.json
+          python - <<'PY'
+          import json
+          import tkinter
+          from pathlib import Path
+          row = json.loads(Path("macos-styled-tk-resize.json").read_text())[0]
+          assert row["engine"] == "rust" and row["adapter"] == "tk"
+          print("Native Aqua Tcl/Tk:", tkinter.TkVersion)
+          print("Event-to-commit mean:", row["mean_event_to_commit_ms"], "ms")
+          print("Event-to-commit p95:", row["p95_event_to_commit_ms"], "ms")
+          print("Request-to-settled mean:", row["mean_request_to_loop_settled_ms"], "ms")
+          print("CPU per resize:", row["mean_request_to_loop_settled_cpu_ms"], "ms")
+          print("60Hz mean budget met:", row["mean_request_to_loop_settled_ms"] <= 16.0)
+          print("Compositor frame timestamps:", row["presentation_feedback_supported"])
+          PY
+          python -m cProfile -s cumtime benchmarks/grid_resize_interactive.py --adapter tk --engine rust --cards 6 --cycles 10 --warmup 2 --styled > macos-styled-tk-profile.txt
+          sed -n '/function calls in/,+60p' macos-styled-tk-profile.txt
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'macOS'
+        with:
+          name: native-aqua-tk-resize-${{ matrix.os }}
+          path: |
+            macos-styled-tk-resize.json
+            macos-styled-tk-profile.txt
+          if-no-files-found: ignore
       - name: Uninstall wheel and prove load-time Python fallback
         run: |
           python -m pip uninstall -y psx-sfle-native
@@ -708,7 +763,7 @@ jobs:
 
   summary:
     name: Native layout required CI conclusion
-    needs: [changes, selector-tests, core, sfle, rust, chromium, qt, qt-parity, kivy, tkinter, headless, native, legacy, public-behavior-final]
+    needs: [changes, selector-tests, core, sfle, rust, chromium, qt, qt-parity, kivy, tkinter, tkinter-aqua, headless, native, legacy, public-behavior-final]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -743,6 +798,13 @@ jobs:
               parity = needs.get("qt-parity", {}).get("result")
               if parity != "success":
                   failures.append(f"qt-parity={parity}")
+          # The Tk Linux test is not a substitute for mounted macOS Aqua.
+          # A cancelled/queued/not-executed Aqua check must not allow the
+          # mandatory conclusion to turn green.
+          if "tkinter" in selected:
+              aqua = needs.get("tkinter-aqua", {}).get("result")
+              if aqua != "success":
+                  failures.append(f"tkinter-aqua={aqua}")
           if {"core", "qt", "kivy", "tkinter", "headless"}.issubset(selected):
               final = needs.get("public-behavior-final", {}).get("result")
               if final != "success":

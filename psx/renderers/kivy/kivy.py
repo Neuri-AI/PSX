@@ -175,6 +175,14 @@ def emit_kivy_input(widget, slot):
     return _on_text
 
 
+def emit_kivy_input_click(widget, slot):
+    def clicked(instance, touch):
+        if not instance.disabled and instance.collide_point(*touch.pos):
+            slot.invoke()
+        return False
+    return clicked
+
+
 def emit_kivy_submit(widget, slot):
     return lambda instance: slot.invoke()
 
@@ -303,6 +311,7 @@ register_primitive(
     events={
         "on_change": ("text", emit_kivy_input),
         "on_submit": ("on_text_validate", emit_kivy_submit),
+        "on_click": ("on_touch_down", emit_kivy_input_click),
     },
 )
 register_primitive(
@@ -881,6 +890,44 @@ class KivyRenderer:
                 label._psx_css_original_foreground = tuple(label.color)
             label.color = styles.get("color", label._psx_css_original_foreground)
             return
+        if target.node_type == "Button":
+            # Kivy's theme texture otherwise obscures authored CSS backgrounds.
+            from psx.css.native_paint import native_border_radius
+            from kivy.graphics import RoundedRectangle
+            widget = target.widget
+            rgba = background_rgba(computed)
+            painted = getattr(widget, "_psx_css_button_background", None)
+            if rgba is None:
+                if painted is not None:
+                    group, redraw, _, _, original_normal, original_down, original_color = painted
+                    widget.unbind(pos=redraw, size=redraw)
+                    widget.canvas.before.remove(group)
+                    widget.background_normal = original_normal
+                    widget.background_down = original_down
+                    widget.background_color = original_color
+                    del widget._psx_css_button_background
+            elif painted is None:
+                group = InstructionGroup()
+                color = Color(*rgba)
+                radius = native_border_radius(computed)
+                shape = RoundedRectangle(pos=widget.pos, size=widget.size, radius=[radius] * 4)
+                group.add(color)
+                group.add(shape)
+                def redraw(instance, _):
+                    shape.pos = instance.pos
+                    shape.size = instance.size
+                original = (widget.background_normal, widget.background_down,
+                            tuple(widget.background_color))
+                widget.background_normal = ""
+                widget.background_down = ""
+                widget.background_color = (0, 0, 0, 0)
+                widget.canvas.before.add(group)
+                widget.bind(pos=redraw, size=redraw)
+                widget._psx_css_button_background = (group, redraw, color, shape, *original)
+            else:
+                _, _, color, shape, _, _, _ = painted
+                color.rgba = rgba
+                shape.radius = [native_border_radius(computed)] * 4
         if target.node_type in ("Button", "Input", "TextArea", "Select", "Link"):
             from psx.css.native_paint import native_text_typography
             styles = native_text_typography(computed, alpha=True,
@@ -902,6 +949,24 @@ class KivyRenderer:
                 if not hasattr(widget, "bold"):
                     raise ValueError(f"Kivy {target.node_type} does not expose native font-weight.")
                 widget.bold = styles["font-weight"] >= 600
+            if target.node_type == "Button" and computed is not None and (
+                "padding" in computed.specified or any(
+                    f"padding-{side}" in computed.specified
+                    for side in ("top", "right", "bottom", "left")
+                )
+            ):
+                from psx.sfle.lengths import LengthKind
+                if not hasattr(widget, "_psx_css_original_padding"):
+                    widget._psx_css_original_padding = tuple(widget.padding)
+                values = []
+                for side in ("left", "top", "right", "bottom"):
+                    length = computed.properties[f"padding-{side}"]
+                    if length.kind is not LengthKind.PX:
+                        raise ValueError("Kivy native Button padding requires pixel lengths.")
+                    values.append(float(length.value))
+                widget.padding = values
+            elif target.node_type == "Button" and hasattr(widget, "_psx_css_original_padding"):
+                widget.padding = widget._psx_css_original_padding
             if "text-align" in styles:
                 if not hasattr(widget, "halign"):
                     raise ValueError(f"Kivy {target.node_type} does not support text-align.")
@@ -929,10 +994,49 @@ class KivyRenderer:
             return
         widget = target.widget
         rgba = background_rgba(computed)
-        from psx.css.native_paint import border_rgba, native_border_radius
+        from psx.css.native_paint import (
+            border_rgba, native_border_radius, native_side_border_paint,
+            rounded_side_stroke_points,
+        )
         radius = native_border_radius(computed)
         from psx.sfle.lengths import Length, LengthKind
         from kivy.graphics import Line
+        side_styles = native_side_border_paint(computed)
+        old_side = getattr(widget, "_psx_css_side_strokes", None)
+        if old_side is not None and old_side[2] != side_styles:
+            group, redraw, _styles, _lines = old_side
+            widget.unbind(pos=redraw, size=redraw)
+            widget.canvas.after.remove(group)
+            del widget._psx_css_side_strokes
+            old_side = None
+        widget._psx_css_side_radius = radius
+        if side_styles and old_side is None:
+            group = InstructionGroup()
+            lines = []
+            for side, thickness, color in side_styles:
+                group.add(Color(*color))
+                line = Line(width=thickness)
+                group.add(line)
+                lines.append((side, thickness, line))
+
+            def redraw_side(instance, _value):
+                x, y = instance.pos
+                w, h = instance.size
+                for side, thickness, line in lines:
+                    points = rounded_side_stroke_points(
+                        side, w, h, widget._psx_css_side_radius, thickness,
+                    )
+                    line.points = tuple(
+                        coordinate + (x if index % 2 == 0 else y)
+                        for index, coordinate in enumerate(points)
+                    )
+
+            widget.canvas.after.add(group)
+            widget.bind(pos=redraw_side, size=redraw_side)
+            widget._psx_css_side_strokes = (group, redraw_side, side_styles, lines)
+        if side_styles:
+            widget._psx_css_side_strokes[1](widget, None)
+
         border = border_rgba(computed)
         thickness = computed.properties["border-width"] if computed is not None else None
         if border is not None:
