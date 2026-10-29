@@ -31,6 +31,8 @@ class NativeStructuralSnapshotReuse:
     """A single pure tree projection, retained until the next structural edit."""
 
     def __init__(self):
+        self.hits = 0
+        self.builds = 0
         self.clear()
 
     def clear(self):
@@ -46,6 +48,7 @@ class NativeStructuralSnapshotReuse:
                 and self._epoch == epoch and self._prepared is not None):
             # Rebinding only the wire metadata is safe. It is *not* safe to
             # reuse CSS geometry, native measurements, or solver rectangles.
+            self.hits += 1
             rebound = replace(
                 self._prepared,
                 snapshot=replace(
@@ -56,6 +59,7 @@ class NativeStructuralSnapshotReuse:
             )
             return self._normalized, rebound
         normalized = normalize_flex_tree(root, component_roots=components)
+        self.builds += 1
         prepared = prepare_native_layout_snapshot(
             normalized, constraints, generation=generation,
         )
