@@ -173,6 +173,16 @@ jobs:
                   f"p95={row['p95_request_to_loop_settled_ms']:.3f} ms"
               )
           PY
+      - name: Profile slow Intel Qt commit path (diagnostic)
+        if: matrix.os == 'macos-15-intel'
+        shell: bash
+        run: |
+          python -m cProfile -s cumtime benchmarks/grid_resize_interactive.py --adapter qt --engine rust --cards 6 --cycles 12 --warmup 3 --styled > benchmark-results/qt-intel-styled-cprofile.txt
+          python -m cProfile -s cumtime benchmarks/grid_resize_interactive.py --adapter qt --engine rust --cards 6 --cycles 12 --warmup 3 > benchmark-results/qt-intel-plain-cprofile.txt
+          echo '=== CSS cards ==='
+          sed -n '/function calls in/,+90p' benchmark-results/qt-intel-styled-cprofile.txt
+          echo '=== Plain Grid ==='
+          sed -n '/function calls in/,+90p' benchmark-results/qt-intel-plain-cprofile.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
