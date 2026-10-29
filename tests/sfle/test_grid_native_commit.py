@@ -335,3 +335,68 @@ def test_unchanged_qt_grid_geometry_does_not_write_again():
         assert child.writes == first + 1
     finally:
         parent.deleteLater()
+
+
+def test_kivy_grid_overflow_projects_negative_local_y_without_clamping():
+    """Cinnamon can place a valid overflowing child below its Kivy parent."""
+    class Widget:
+        def __init__(self):
+            self.pos = (2.0, 3.0)
+            self.size = (4.0, 5.0)
+
+    widget = Widget()
+    receipt = commit_grid_native_geometry(
+        (placement("overflow", 6, 85, 40, 30),),
+        backend=GridCommitBackend.KIVY,
+        widgets={"overflow": widget},
+        generation=1, current_generation=lambda: 1, is_ui_thread=lambda: True,
+        parent_height=100,
+    )
+    assert tuple(widget.pos) == (6, -15)
+    assert tuple(widget.size) == (40, 30)
+    assert receipt.max_readback_error == 0
+
+
+def test_kivy_nested_overflow_uses_immediate_parent_without_moving_ancestor():
+    """Do not use outer viewport height to flip a nested Grid child."""
+    class Widget:
+        def __init__(self):
+            self.pos = (0.0, 0.0)
+            self.size = (1.0, 1.0)
+
+    container = Widget()
+    child = Widget()
+    receipt = commit_grid_native_geometry(
+        (placement("container", 10, 5, 100, 40),
+         placement("container/child", 4, 35, 30, 20)),
+        backend=GridCommitBackend.KIVY,
+        widgets={"container": container, "container/child": child},
+        generation=1, current_generation=lambda: 1, is_ui_thread=lambda: True,
+        parent_height=200,
+        parent_heights={"container": 200, "container/child": 40},
+    )
+    assert tuple(container.pos) == (10, 155)
+    assert tuple(child.pos) == (4, -15)
+    assert receipt.max_readback_error == 0
+
+
+def test_kivy_grid_overflow_rejects_invalid_parent_height_without_writes():
+    """Malformed parent measurements must still fail closed before native updates."""
+    class Widget:
+        def __init__(self):
+            self.pos = (2.0, 3.0)
+            self.size = (4.0, 5.0)
+
+    widget = Widget()
+    for height in (-1.0, float("nan"), float("inf")):
+        with pytest.raises(GridPackingError, match="parent height"):
+            commit_grid_native_geometry(
+                (placement("overflow", 6, 85, 40, 30),),
+                backend=GridCommitBackend.KIVY,
+                widgets={"overflow": widget},
+                generation=1, current_generation=lambda: 1,
+                is_ui_thread=lambda: True, parent_height=100,
+                parent_heights={"overflow": height},
+            )
+        assert tuple(widget.pos) == (2, 3)
+        assert tuple(widget.size) == (4, 5)
