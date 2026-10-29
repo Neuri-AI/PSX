@@ -33,7 +33,7 @@ from psx.sfle.external_native_geometry_ports import external_port_for
 from psx.core.errors import RendererCapabilityError
 from psx.markup.html_aliases import FORMATTING_TAGS
 from psx.core.events import EventSlot
-from psx.core.native import NativeOwnership, NativeWidget
+from psx.core.native import NativeOwnership, NativeWidget, _clear_native_snapshot
 from psx.core.vnode import (
     NodeKind,
     VNode,
@@ -1321,6 +1321,8 @@ class QtRenderer:
 
     def _adapter_destroy(self, handle: object) -> None:
         target = _handle(handle)
+        if target.native is not None:
+            _clear_native_snapshot(target.widget)
         viewport = getattr(target.widget, "_psx_sfle_viewport_shell", None)
         if not _release(target):
             target.widget.deleteLater()
