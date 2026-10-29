@@ -56,7 +56,14 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertGreater(initial_count, 0)
         self.renderer.set_sfle_constraints(constraints(350, 240))
         self.renderer.commit_layout(root)
-        self.assertEqual(len(reuse), initial_count)
+        # Wrapped labels legitimately acquire new width-specific entries
+        # after a resize. Repeating the *same* width must reuse the newly
+        # accepted measurements and preserve certified native geometry.
+        resized_count = len(reuse)
+        self.assertGreaterEqual(resized_count, initial_count)
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+        self.renderer.commit_layout(root)
+        self.assertEqual(len(reuse), resized_count)
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
     def test_css_background_paints_and_updates_in_place(self):
