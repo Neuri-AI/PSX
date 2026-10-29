@@ -81,7 +81,7 @@ def mounted_stats(root):
     return nodes, len(handles)
 
 
-def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled=False, scenario="cards"):
+def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled=False, scenario="cards", rebuild_snapshots=False):
     engine = PythonLayoutEngine() if engine_name == "python" else load_layout_engine()
     if engine.backend_name != engine_name:
         raise RuntimeError(f"Expected Cinnamon {engine_name}, got {engine.backend_name}")
@@ -107,6 +107,14 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
         original_commit = renderer.commit_layout
 
         def timed_commit(root):
+            # Diagnostic-only control group: discard *only* immutable
+            # structural/CSS projection caches, not measured native state,
+            # solver results, or the native tree. This makes the A/B
+            # comparison use the same rendering algorithm and pixels.
+            if rebuild_snapshots:
+                reusable = getattr(renderer, "_sfle_structural_snapshot_reuse", None)
+                if reusable is not None:
+                    reusable.clear()
             started = time.perf_counter_ns()
             try:
                 return original_commit(root)
@@ -227,6 +235,7 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
             "logical_items": card_count,
             "mounted_nodes": mounted_nodes,
             "native_widgets": native_widgets,
+            "rebuild_snapshots": rebuild_snapshots,
             "structural_snapshot_builds": getattr(
                 getattr(renderer, "_sfle_structural_snapshot_reuse", None), "builds", 0,
             ),
@@ -287,6 +296,8 @@ def main():
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--scenario", choices=("cards", "controls", "flow", "dense-flow", "flex-siblings"), default="cards",
                         help="Independent native UI workloads (count is logical items)")
+    parser.add_argument("--rebuild-snapshots", action="store_true",
+                        help="Diagnostic control: rebuild native PSX and CSS structures each commit")
     parser.add_argument("--styled", action="store_true",
                         help="Include CSS rounded cards and native repaint work")
     args = parser.parse_args()
@@ -297,7 +308,8 @@ def main():
     widths = (680, 760, 800, 900, 1000, 1200, 980, 750)
     print(json.dumps([
         exercise(engine, adapter, args.cards, args.cycles, args.warmup, widths,
-                 styled=args.styled, scenario=args.scenario)
+                 styled=args.styled, scenario=args.scenario,
+                 rebuild_snapshots=args.rebuild_snapshots)
         for engine in engines for adapter in adapters
     ], indent=2))
 
