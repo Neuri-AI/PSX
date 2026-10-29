@@ -184,24 +184,25 @@ class _FlowContainingWidths:
                     raise GridPackingError(
                         "Nested Grid containing width is not resolvable."
                     )
-                else:
-                    explicit = None
-            if explicit is None:
-                for group in ("margin", "border", "padding"):
-                    for side in ("left", "right"):
-                        value = style.get(f"layout_{group}_{side}")
-                        if value is None:
-                            continue
-                        parsed = parse_length(value)
-                        if parsed.kind is LengthKind.PX:
-                            available -= float(parsed.value)
-                        elif parsed.kind is LengthKind.PERCENT:
-                            available -= containing * float(parsed.value)
-                        else:
-                            raise GridPackingError(
-                                "Nested Grid container edges require concrete lengths."
-                            )
-                available = max(0.0, available)
+                # Explicit 'auto'/'none' preserve the previous behavior:
+                # do not subtract edges on this branch.
+                self.after[ancestor_id] = available
+                continue
+            for group in ("margin", "border", "padding"):
+                for side in ("left", "right"):
+                    value = style.get(f"layout_{group}_{side}")
+                    if value is None:
+                        continue
+                    parsed = parse_length(value)
+                    if parsed.kind is LengthKind.PX:
+                        available -= float(parsed.value)
+                    elif parsed.kind is LengthKind.PERCENT:
+                        available -= containing * float(parsed.value)
+                    else:
+                        raise GridPackingError(
+                            "Nested Grid container edges require concrete lengths."
+                        )
+            available = max(0.0, available)
             self.after[ancestor_id] = available
         return available
 
