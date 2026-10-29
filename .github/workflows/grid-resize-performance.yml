@@ -129,6 +129,7 @@ jobs:
           xvfb-run -a python -u benchmarks/native_resize_scaling.py --engine rust --adapter both --scenarios cards controls flow --counts 6 24 60 120 --cycles 8 --warmup 2 --output benchmark-results/resize-scaling-rust.json
           xvfb-run -a python -u benchmarks/native_resize_scaling.py --engine python --adapter both --scenarios cards controls --counts 6 24 60 --cycles 5 --warmup 1 --output benchmark-results/resize-scaling-python.json
           xvfb-run -a python -u benchmarks/native_resize_scaling.py --engine rust --adapter both --scenarios dense-flow --counts 24 60 120 --cycles 3 --warmup 1 --output benchmark-results/resize-dense-flow-rust.json
+          xvfb-run -a python -u benchmarks/native_resize_scaling.py --engine rust --adapter both --scenarios flex-siblings --counts 24 60 120 --cycles 5 --warmup 2 --output benchmark-results/resize-flex-siblings-rust.json
           python - <<'PY'
           import json
           from pathlib import Path
