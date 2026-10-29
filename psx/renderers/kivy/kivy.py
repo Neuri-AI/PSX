@@ -175,6 +175,14 @@ def emit_kivy_input(widget, slot):
     return _on_text
 
 
+def emit_kivy_input_click(widget, slot):
+    def clicked(instance, touch):
+        if not instance.disabled and instance.collide_point(*touch.pos):
+            slot.invoke()
+        return False
+    return clicked
+
+
 def emit_kivy_submit(widget, slot):
     return lambda instance: slot.invoke()
 
@@ -303,6 +311,7 @@ register_primitive(
     events={
         "on_change": ("text", emit_kivy_input),
         "on_submit": ("on_text_validate", emit_kivy_submit),
+        "on_click": ("on_touch_down", emit_kivy_input_click),
     },
 )
 register_primitive(
