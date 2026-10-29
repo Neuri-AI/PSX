@@ -10,6 +10,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
+from weakref import WeakKeyDictionary
 import importlib
 from typing import TypeAlias
 
@@ -83,6 +84,8 @@ def Native(
     widget: object,
     *,
     props: Mapping[str, object] | None = None,
+    kwargs: Mapping[str, object] | None = None,
+    args: tuple[object, ...] | None = None,
     signals: Mapping[str, Callable[..., object] | None] | None = None,
     renderer: str | None = None,
     sfle_port: object | None = None,
@@ -109,10 +112,17 @@ def Native(
         raise ValueError(f"Unsupported Native renderer {selected!r}.")
     if sfle_port is None:
         sfle_port = _default_sfle_port(selected)
+    if kwargs is not None and not isinstance(kwargs, Mapping):
+        raise TypeError("Native kwargs must be a mapping.")
+    if args is not None and not isinstance(args, (tuple, list)):
+        raise TypeError("Native args must be a tuple or list.")
+    if (kwargs or args) and not (isinstance(widget, type) or callable(widget)):
+        raise TypeError("Native constructor args/kwargs require a widget class or factory.")
+    factory = _ConstructorFactory(widget, tuple(args or ()), dict(kwargs or {})) if (args or kwargs) else widget
     if isinstance(widget, type) or callable(widget):
         declaration = NativeWidget(
             renderer=selected,
-            factory=widget,  # type: ignore[arg-type]
+            factory=factory,  # type: ignore[arg-type]
             takes_parent=selected == "tkinter",
             update=_update_for(selected),
             bind_event=_bind_for(selected),
@@ -129,11 +139,11 @@ def Native(
             sfle_port=sfle_port,
             name=type(widget).__name__,
         )
-    values = dict(props or {})
-    overlap = set(values) & set(attributes)
-    if overlap:
-        raise TypeError(f"Native props were passed twice: {', '.join(sorted(overlap))}")
-    values.update(attributes)
+    values = dict(attributes)
+    if props is not None:
+        if not isinstance(props, Mapping):
+            raise TypeError("Native props must be a mapping.")
+        values["props"] = dict(props)
     # Sizing belongs to Cinnamon, never to the native toolkit property setter.
     # Both explicit Native(width=...) and CSS sizing share the same layout input.
     for axis in ("width", "height"):
@@ -149,6 +159,88 @@ def Native(
             raise TypeError(f"Native signal {signal!r} must be callable or None.")
         values[f"{_SIGNAL_PREFIX}{signal}"] = callback
     return native_widget(declaration, key=key, ref=ref, **values)
+
+
+class _ConstructorFactory:
+    """Callable with value-based equality so normal rerenders preserve native identity."""
+
+    def __init__(self, target: object, args: tuple[object, ...], kwargs: dict[str, object]):
+        self.target = target
+        self.args = args
+        self.kwargs = kwargs
+
+    def __call__(self, *parent: object) -> object:
+        return self.target(*parent, *self.args, **self.kwargs)  # type: ignore[operator]
+
+    def __eq__(self, other: object) -> bool:
+        return (isinstance(other, _ConstructorFactory) and self.target is other.target
+                and _native_equal(self.args, other.args)
+                and _native_equal(self.kwargs, other.kwargs))
+
+
+_native_adapters: dict[type, Callable[[object, Mapping[str, object], frozenset[str]], None]] = {}
+_reactive_snapshots: WeakKeyDictionary = WeakKeyDictionary()
+
+
+def native_adapter(widget_type: type):
+    """Register a reactive Native handler for an unmodified third-party widget."""
+    if not isinstance(widget_type, type):
+        raise TypeError("native_adapter requires a widget class.")
+
+    def register(callback):
+        if not callable(callback):
+            raise TypeError("Native adapter must be callable.")
+        _native_adapters[widget_type] = callback
+        return callback
+
+    return register
+
+
+def _native_equal(left: object, right: object) -> bool:
+    if left is right:
+        return True
+    if isinstance(left, Mapping) and isinstance(right, Mapping):
+        return (left.keys() == right.keys()
+                and all(_native_equal(left[key], right[key]) for key in left))
+    if isinstance(left, (tuple, list)) and isinstance(right, (tuple, list)):
+        return len(left) == len(right) and all(
+            _native_equal(a, b) for a, b in zip(left, right)
+        )
+    if type(left).__module__.startswith("numpy") or type(right).__module__.startswith("numpy"):
+        return False  # New arrays are dirty; avoid O(N) comparisons on the UI thread.
+    try:
+        result = left == right
+        return result if isinstance(result, bool) else False
+    except (TypeError, ValueError):
+        return False
+
+
+def _apply_reactive_props(widget: object, props: object) -> None:
+    if not isinstance(props, Mapping):
+        raise TypeError("Native props must be a mapping.")
+    previous = _reactive_snapshots.get(widget, {})
+    removed = previous.keys() - props.keys()
+    if removed:
+        raise ValueError(f"Native reactive props removed without reset policy: {sorted(removed)}")
+    changed = frozenset(
+        name for name, value in props.items()
+        if name not in previous or not _native_equal(previous[name], value)
+    )
+    if not changed:
+        return
+    handler = getattr(widget, "update_props", None)
+    if not callable(handler):
+        handler = next((_native_adapters[cls] for cls in type(widget).__mro__
+                        if cls in _native_adapters), None)
+        if handler is not None:
+            handler = lambda p, c, update=handler: update(widget, p, c)
+    if handler is None:
+        raise TypeError(
+            f"{type(widget).__name__} received reactive props but has no "
+            "update_props(props, changed) method or @native_adapter."
+        )
+    handler(props, changed)
+    _reactive_snapshots[widget] = dict(props)
 
 
 @lru_cache(maxsize=6)
@@ -268,7 +360,11 @@ def _removed(removed: frozenset[str]) -> None:
 
 def _qt_update(widget: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
     _removed(removed)
+    if "props" in changed:
+        _apply_reactive_props(widget, changed["props"])
     for name, value in changed.items():
+        if name == "props":
+            continue
         # Respect both native Qt setFooBar and Pythonic set_foo_bar.
         # Avoid calling arbitrary methods: only property setters are eligible.
         parts = name.split("_")
@@ -313,6 +409,9 @@ def _qt_bind(widget: object, event: str, slot: EventSlot) -> Callable[[], None]:
 
 def _tk_update(widget: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
     _removed(removed)
+    if "props" in changed:
+        _apply_reactive_props(widget, changed["props"])
+    changed = {k: v for k, v in changed.items() if k != "props"}
     if changed:
         try:
             widget.configure(**changed)  # type: ignore[attr-defined]
@@ -336,7 +435,11 @@ def _tk_bind(widget: object, event: str, slot: EventSlot) -> Callable[[], None]:
 
 def _kivy_update(widget: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
     _removed(removed)
+    if "props" in changed:
+        _apply_reactive_props(widget, changed["props"])
     for name, value in changed.items():
+        if name == "props":
+            continue
         if not hasattr(widget, name):
             raise AttributeError(f"{type(widget).__name__} has no Kivy property {name!r}.")
         setattr(widget, name, value)
