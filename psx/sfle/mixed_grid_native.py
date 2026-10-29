@@ -32,6 +32,11 @@ class MountedMixedGrid:
         # Reuse an immutable composition for repeated width requests within
         # one layout transaction. A new MountedMixedGrid is built per commit.
         self._composition_cache = {}
+        # A mixed Grid bridge lives for exactly one Cinnamon generation.
+        # Settle the native request-size baseline once for that transaction;
+        # TkMeasurementSource still settles individual width probes when it
+        # actually changes wraplength.
+        self._tk_idle_synced = False
 
         def visit(node):
             if node.kind is NodeKind.HOST and node.type == "Grid":
@@ -54,11 +59,11 @@ class MountedMixedGrid:
         if key in self._composition_cache:
             return self._composition_cache[key]
         grid = self.grids[node_id]
-        # One native requested-size settlement per composed Grid, not one
-        # global Tcl idle drain for every terminal Text widget. Width probes
-        # still drain individually if they actually change wraplength.
-        if self.backend is GridCommitBackend.TK:
+        # The native baseline is shared by all width probes in this one
+        # transaction, including re-entrant nested Grid compositions.
+        if self.backend is GridCommitBackend.TK and not self._tk_idle_synced:
             self.renderer.root.update_idletasks()
+            self._tk_idle_synced = True
 
         def measure_leaf(identifier, node, allocated_width):
             handle = self.handles[id(node.source)]
