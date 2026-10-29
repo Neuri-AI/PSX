@@ -6,6 +6,7 @@ on:
       - "psx/sfle/**"
       - "tests/test_flow_linear_complexity.py tests/test_native_structural_snapshot_reuse.py tests/test_native_geometry_write_suppression.py"
       - ".github/workflows/grid-resize-performance.yml"
+      - "tests/sfle/test_grid_native_commit.py"
   pull_request:
     branches: [develop]
     paths:
@@ -15,6 +16,7 @@ on:
       - "benchmarks/grid_resize_interactive.py"
       - "benchmarks/native_resize_scaling.py"
       - ".github/workflows/grid-resize-performance.yml"
+      - "tests/sfle/test_grid_native_commit.py"
   workflow_dispatch:
 permissions:
   contents: read
@@ -37,12 +39,18 @@ jobs:
           sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 xvfb xauth
       - name: Install PSX, PySide6 and native build tooling
         run: |
-          python -m pip install -e '.[pyside6]' 'maturin>=1.8,<2' pytest
+          python -m pip install -e '.[pyside6,kivy]' 'maturin>=1.8,<2' pytest
           maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
           python -m pip install --no-deps --find-links wheelhouse 'psx-sfle-native==0.1.0'
           python -c "from psx.sfle.backend import load_layout_engine; assert load_layout_engine().backend_name == 'rust'"
       - name: Verify intrinsic and immutable Flow reuse contracts
         run: python -m pytest -q tests/test_grid_intrinsic_reuse.py tests/test_native_intrinsic_cache.py tests/test_grid_flow_blueprint_reuse.py tests/test_tk_corner_raster_reuse.py tests/test_flow_linear_complexity.py
+      - name: Verify native Grid overflow projection on Qt and Kivy
+        env:
+          KIVY_NO_ARGS: "1"
+        run: |
+          xvfb-run -a python -m pytest -q tests/sfle/test_grid_native_commit.py -k "not kivy"
+          xvfb-run -a python -m pytest -q tests/sfle/test_grid_native_commit.py -k "kivy"
       - name: Execute repeated native Grid resize profiles
         run: |
           mkdir -p benchmark-results
