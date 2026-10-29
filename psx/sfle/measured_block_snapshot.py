@@ -13,7 +13,7 @@ from collections import defaultdict
 from psx.markup.html_aliases import FORMATTING_TAGS
 from .errors import DiagnosticCode, SFLECapabilityError
 from .flow_layout import InlineAtom, layout_inline_atoms
-from .fixed_point import LayoutUnit
+from .fixed_point import nearest_layout_px
 from .model import AvailableSize, BoxRect, LayoutConstraints, LayoutInput, LayoutNode, LayoutResult, Rect
 from .lengths import Length, LengthKind, parse_length
 
@@ -51,7 +51,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
 
     def quantized_rect(x: float, y: float, width: float, height: float) -> Rect:
         """Keep flow boxes on Cinnamon's shared 1/64 px geometry grid."""
-        return Rect(*(LayoutUnit.from_nearest(value).to_px()
+        return Rect(*(nearest_layout_px(value)
                       for value in (x, y, width, height)))
 
 
