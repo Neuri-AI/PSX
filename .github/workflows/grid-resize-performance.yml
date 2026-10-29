@@ -43,6 +43,11 @@ jobs:
           maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
           python -m pip install --no-deps --find-links wheelhouse 'psx-sfle-native==0.1.0'
           python -c "from psx.sfle.backend import load_layout_engine; assert load_layout_engine().backend_name == 'rust'"
+      - name: Verify native Grid paragraph positions with Rust Cinnamon
+        env:
+          KIVY_NO_ARGS: "1"
+          PSX_KIVY_LAYOUT_ENGINE: rust
+        run: xvfb-run -a python -m pytest -q tests/test_kivy_native_layout.py -k test_two_grid_items_fill_row_with_unrestricted_auto_span
       - name: Verify intrinsic and immutable Flow reuse contracts
         run: python -m pytest -q tests/test_grid_intrinsic_reuse.py tests/test_native_intrinsic_cache.py tests/test_grid_flow_blueprint_reuse.py tests/test_tk_corner_raster_reuse.py tests/test_flow_linear_complexity.py
       - name: Verify native Grid overflow projection on Qt and Kivy
