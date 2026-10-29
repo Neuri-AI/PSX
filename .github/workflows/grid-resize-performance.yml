@@ -89,6 +89,32 @@ jobs:
               print(row["engine"], row["mean_request_to_loop_settled_ms"],
                     row["mean_request_to_loop_settled_cpu_ms"])
           PY
+      - name: Benchmark Qt styled cards with native resize and both Cinnamon engines
+        run: |
+          xvfb-run -a python -u benchmarks/grid_resize_interactive.py --engine both --adapter qt --cards 6 --cycles 40 --warmup 5 --styled > benchmark-results/qt-styled-grid-resize-events.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("benchmark-results/qt-styled-grid-resize-events.json").read_text())
+          assert {(row["engine"], row["adapter"]) for row in data} == {
+              ("python", "qt"), ("rust", "qt")
+          }
+          for row in data:
+              assert row["styled"] is True
+              assert row["cycles"] == 40
+              assert row["presentation_feedback_supported"] is False
+              assert len(row["samples"]) == 40
+              assert all(sample["commits"] >= 1 for sample in row["samples"])
+              print(
+                  f'Qt styled {row["engine"]}: event→commit mean '
+                  f'{row["mean_event_to_commit_ms"]:.3f} ms, '
+                  f'p95 {row["p95_event_to_commit_ms"]:.3f} ms, '
+                  f'p99 {row["p99_event_to_commit_ms"]:.3f} ms; '
+                  f'request→settled mean '
+                  f'{row["mean_request_to_loop_settled_ms"]:.3f} ms, '
+                  f'p95 {row["p95_request_to_loop_settled_ms"]:.3f} ms'
+              )
+          PY
       - name: Diagnose Tk CSS resize hot paths (cProfile; diagnostic only)
         run: |
           xvfb-run -a python -m cProfile -s cumtime benchmarks/grid_resize_interactive.py --engine rust --adapter tk --cards 6 --cycles 15 --warmup 3 --styled > benchmark-results/styled-cprofile.txt
