@@ -105,13 +105,32 @@ class NativeStructuralSnapshotReuse:
             self._css_projection = projected
         return projected
 
-    def prepare(self, root, components, stamp, constraints, generation, epoch):
+
+    def normalize(self, root, components, stamp, epoch):
+        """Validate once per mounted structure, including direct Grid roots."""
         token = tuple(stamp)
         if (self._root is root and self._stamp == token
-                and self._epoch == epoch and self._prepared is not None):
-            # Rebinding only the wire metadata is safe. It is *not* safe to
-            # reuse CSS geometry, native measurements, or solver rectangles.
+                and self._epoch == epoch and self._normalized is not None):
             self.hits += 1
+            return self._normalized
+        normalized = normalize_flex_tree(root, component_roots=components)
+        self.builds += 1
+        self._root = root
+        self._stamp = token
+        self._epoch = epoch
+        self._normalized = normalized
+        # A new mounted tree invalidates both the canonical projection
+        # and its CSS projection, including any cached auto-height root.
+        self._prepared = None
+        self._css_projection = None
+        self._css_viewport_independent = False
+        return normalized
+
+    def prepare(self, root, components, stamp, constraints, generation, epoch):
+        normalized = self.normalize(root, components, stamp, epoch)
+        if self._prepared is not None:
+            # Canonical metadata can be rebound, but intrinsic/solver values
+            # are always rebuilt on the calling UI thread.
             rebound = replace(
                 self._prepared,
                 snapshot=replace(
@@ -120,16 +139,10 @@ class NativeStructuralSnapshotReuse:
                     constraints=constraints,
                 ),
             )
-            return self._normalized, rebound
-        normalized = normalize_flex_tree(root, component_roots=components)
-        self.builds += 1
+            return normalized, rebound
         prepared = prepare_native_layout_snapshot(
             normalized, constraints, generation=generation,
         )
-        self._root = root
-        self._stamp = token
-        self._epoch = epoch
-        self._normalized = normalized
         self._prepared = prepared
         self._css_projection = None
         self._css_viewport_independent = self._can_reuse_css_projection(prepared)
