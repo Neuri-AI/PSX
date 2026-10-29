@@ -117,6 +117,11 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
 
     def box_rect(node, content: Rect) -> BoxRect:
         def expand(rect: Rect, sides: tuple[float, float, float, float]) -> Rect:
+            # All source geometry is already on the 1/64px grid. Empty
+            # edges preserve the exact same immutable rectangle, avoiding
+            # three redundant quantization passes for every unstyled leaf.
+            if sides == (0.0, 0.0, 0.0, 0.0):
+                return rect
             top, right, bottom, left = sides
             return quantized_rect(
                 rect.x - left, rect.y - top,
