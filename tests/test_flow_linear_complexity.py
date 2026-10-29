@@ -143,3 +143,39 @@ def test_nonpreorder_flow_input_retains_layout_order_fallback():
         interleaved, flex_engine=PythonLayoutEngine(),
     ).boxes)
     assert expected == actual
+
+
+def test_many_constrained_grid_items_use_one_membership_index():
+    from psx.sfle.grid_math import (
+        GridSlot, GridItemConstraints, compute_grid, GridPackingError,
+    )
+    import pytest
+
+    class CountingSlot(GridSlot):
+        id_reads = 0
+
+        def __getattribute__(self, name):
+            if name == "id":
+                type(self).id_reads += 1
+            return super().__getattribute__(name)
+
+    n = 120
+    slots = tuple(
+        CountingSlot(f"item-{i}", span=12)
+        for i in range(n)
+    )
+    limits = {f"item-{i}": GridItemConstraints() for i in range(n)}
+    heights = {f"item-{i}": 3 for i in range(n)}
+    CountingSlot.id_reads = 0
+    rows = compute_grid(slots, 720, 0, 0, heights, limits)
+    assert len(rows) == n
+    assert all(len(row) == 1 for row in rows)
+    # Old code rebuilt {slot.id for slot in slots} for every constraint
+    # (120 * 120 reads). The linear implementation reads fewer than
+    # 20 identities per Grid item across the entire planning pipeline.
+    assert CountingSlot.id_reads < 20 * n
+    with pytest.raises(GridPackingError, match="constraints must reference"):
+        compute_grid(
+            slots, 720, 0, 0, heights,
+            {**limits, "missing": GridItemConstraints()},
+        )
