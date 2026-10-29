@@ -358,7 +358,7 @@ register_primitive(
     events={
         "on_change": ("<<Modified>>", emit_tk_input),  # realmente se usa trace, ver nota
         "on_submit": ("<Return>", emit_tk_submit),
-        "on_click": ("<Button-1>", emit_call),
+        "on_click": ("<Button-1>", lambda w, s: (lambda event: s.invoke() if not w.instate(("disabled",)) else None)),
     },
 )
 register_primitive(
