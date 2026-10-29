@@ -314,6 +314,7 @@ def Input(
     password: bool = False,
     on_change: Callable[[str], None] | None = None,
     on_submit: Callable[[], None] | None = None,
+    on_click: Callable[[], None] | None = None,
     key: Key | None = None,
     ref: object | None = None,
     **props: object,
@@ -327,6 +328,7 @@ def Input(
         password=password,
         on_change=on_change,
         on_submit=on_submit,
+        on_click=on_click,
         **props,
     )
     INPUT_CONTRACT.validate_builder(options)
