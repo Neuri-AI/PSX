@@ -262,7 +262,7 @@ def validate_input_props(props: Mapping[str, object]) -> None:
         if not isinstance(val, bool):
             raise RendererCapabilityError(f"Input.{name} must be a bool.")
 
-    for name in ("on_change", "on_submit"):
+    for name in ("on_change", "on_submit", "on_click"):
         cb = props.get(name, INPUT_DEFAULTS[name])
         if cb is not None and not callable(cb):
             raise RendererCapabilityError(
