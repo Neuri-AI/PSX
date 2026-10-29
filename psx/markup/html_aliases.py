@@ -90,7 +90,7 @@ def _html_input(*children: object, **props: object) -> VNode:
     elif props.get("password") is True:
         raise ValueError("input type='text' conflicts with password=True.")
     callback = props.get("on_change")
-    if callback is not None and name is not None:
+    if callback is not None:
         def emit(value: str) -> object:
             return callback(InputChangeEvent(InputEventTarget(name or "", value)))
         props["on_change"] = emit
