@@ -24,6 +24,7 @@ INPUT_PROPS = frozenset({
     "password",
     "on_change",
     "on_submit",
+    "on_click",
 })
 
 CHECKBOX_PROPS = frozenset({
