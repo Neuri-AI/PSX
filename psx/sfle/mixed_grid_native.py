@@ -224,10 +224,26 @@ class MountedMixedGrid:
         before = self.snapshot() if prior_snapshot is None else prior_snapshot
         scroll_before = capture_scroll_hosts(self.backend.value, self.handles)
         receipts = []
+        # A single Grid batch has not yet mutated any of its descendants.
+        # Its rollback snapshot can also supply the original place_info()
+        # state. Multiple batches may overlap (nested Grids), so preserve
+        # their own native reads rather than risk using stale rectangles.
+        reusable_tk = (
+            {id(widget): state for widget, state in before}
+            if self.backend is GridCommitBackend.TK and len(plans) == 1
+            else None
+        )
         try:
             for composition, batch, widgets, heights, root_height in plans:
+                initial = (
+                    {node_id: reusable_tk[id(widget)]
+                     for node_id, widget in widgets.items()
+                     if id(widget) in reusable_tk}
+                    if reusable_tk is not None else None
+                )
                 receipt = commit_grid_native_geometry(
                     batch, backend=self.backend, widgets=widgets,
+                    prior_tk_placements=initial,
                     generation=self.generation,
                     current_generation=lambda: self.renderer._sfle_generation,
                     is_ui_thread=self._on_thread,
