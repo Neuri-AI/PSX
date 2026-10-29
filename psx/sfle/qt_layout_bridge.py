@@ -12,7 +12,7 @@ from psx.markup.html_aliases import FORMATTING_TAGS
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
-from psx.core.layout_tree import normalize_flex_tree
+from psx.sfle.native_structural_snapshot_reuse import NativeStructuralSnapshotReuse, mounted_structural_token
 from psx.sfle.mixed_grid_native import MountedMixedGrid
 from psx.sfle.grid_native_commit import GridCommitBackend
 from psx.core.vnode import NodeKind
@@ -53,6 +53,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         invalidation_epoch = renderer._sfle_measurement_invalidations.epoch
         components: dict[int, object] = {}
         handles: dict[int, object] = {}
+        mounted_stamp = []
 
         def gather(instance: "MountedInstance") -> None:
             if instance.disposed:
@@ -67,16 +68,21 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                 if id(instance.node) in handles:
                     raise SFLEError(DiagnosticCode.INVALID_TREE, "Duplicate mounted VNode.")
                 handles[id(instance.node)] = instance.handle
+            mounted_stamp.append(mounted_structural_token(instance))
             for child in instance.children:
                 gather(child)
 
         gather(root)
-        normalized = normalize_flex_tree(root.node, component_roots=components)
+        reuse = getattr(renderer, "_sfle_structural_snapshot_reuse", None)
+        if reuse is None:
+            reuse = NativeStructuralSnapshotReuse()
+            renderer._sfle_structural_snapshot_reuse = reuse
+        normalized, prepared = reuse.prepare(
+            root.node, components, mounted_stamp, renderer._sfle_constraints,
+            generation, invalidation_epoch,
+        )
         mixed_grid = MountedMixedGrid(
             renderer, normalized, handles, GridCommitBackend.QT, generation,
-        )
-        prepared = prepare_native_layout_snapshot(
-            normalized, renderer._sfle_constraints, generation=generation,
         )
         bindings = {node_id: handles[id(node)] for node_id, node in prepared.identities}
         external = {
