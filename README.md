@@ -295,3 +295,7 @@ Contributions to `PSX` are welcome.
 PSX is released under the MIT License.
 
 See [LICENSE](LICENSE) for details.
+
+
+For the new explicit `props` mapping, use `update_props(props, changed)` on your
+widget or register `@native_adapter`. See [Native reactive props](docs/native-reactive-props.md).
