@@ -17,7 +17,10 @@ import sys
 from grid_resize_interactive import exercise
 
 
-WIDTHS = (680, 760, 800, 900, 1000, 1200, 980, 750)
+# Keep all native windows inside the smallest CI display bounds. Windows
+# Tk caps to the desktop work area even when geometry() requests more.
+# This width sequence still traverses Grid responsive breakpoints.
+WIDTHS = (480, 560, 640, 700, 760, 720, 600, 510)
 FRAME_BUDGET_MS = 1000 / 60
 
 
