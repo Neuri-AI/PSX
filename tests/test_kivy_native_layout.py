@@ -1389,6 +1389,64 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_grid_sidebar_content_appears_at_top_of_viewport(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(1188, True), AvailableSize(600, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(psx("""
+                <div style="height: 100vh; background: red;">
+                    <Grid gap="0px">
+                        <GridItem span={{"base": 3, "md": 3, "lg": 2}}>
+                            <div style="height: 100vh; display: flex; flex-direction: column; padding: 20px 12px; background: #20242d;">
+                                <h5 style="font-size: 18px">Mi panel</h5>
+                                <div style="display: flex; flex-direction: column; gap: 10px;">
+                                    <button style="height: 38px;">Resumen</button>
+                                    <button style="height: 38px;">Usuarios</button>
+                                </div>
+                            </div>
+                        </GridItem>
+                    </Grid>
+                </div>
+            """))
+            def walk(node):
+                yield node
+                for child in node.children:
+                    yield from walk(child)
+            widgets = [(node.node.type,
+                        node.handle.widget if node.handle is not None else None)
+                       for node in walk(root)]
+            print("SIDE_GEOMETRY", [(name, tuple(w.pos), tuple(w.size))
+                  for name, w in widgets if w is not None], flush=True)
+            buttons = [w for name, w in widgets if name == "button"]
+            assert len(buttons) == 2, widgets
+            # Native coordinate origin is bottom-left. Header and buttons
+            # belong near the TOP of a 600px viewport, not its bottom edge.
+            for button in buttons:
+                top = button.to_window(button.width / 2, button.height, relative=True)[1]
+                assert top > 380, (top, widgets)
+            tree.unmount()
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_real_kivy_native_bottom_left_geometry_and_reconciliation(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
