@@ -60,6 +60,11 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             reuse = GridIntrinsicReuse()
             renderer._psx_grid_intrinsic_reuse = reuse
         reuse_transaction = reuse.begin(invalidation_epoch)
+        from .grid_native_composition import FlowBlueprintReuse
+        flow_reuse = getattr(renderer, "_psx_grid_flow_blueprints", None)
+        if flow_reuse is None:
+            flow_reuse = FlowBlueprintReuse()
+            renderer._psx_grid_flow_blueprints = flow_reuse
         components, handles = {}, {}
 
         def gather(instance):
@@ -131,6 +136,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
                 engine=renderer._sfle_engine,
                 viewport_constraints=renderer._sfle_constraints,
+                flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
             )
             prepared = composed.prepared
             batch, commit_widgets, composed_heights = compose_geometry_batch(
