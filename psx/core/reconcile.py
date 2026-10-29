@@ -634,6 +634,11 @@ def _is_event(name: str) -> bool:
     return name.startswith(_EVENT_PREFIX)
 
 
+def _native_prop_equal(a: object, b: object) -> bool:
+    from .native import _native_equal
+    return _native_equal(a, b)
+
+
 def _prop_delta(
     old: Mapping[str, object], new: Mapping[str, object]
 ) -> tuple[dict[str, object], frozenset[str]]:
@@ -642,7 +647,7 @@ def _prop_delta(
         for name, value in new.items()
         if not _is_event(name)
         and name not in _RUNTIME_PROPS
-        and (name not in old or old[name] is not value and old[name] != value)
+        and (name not in old or not _native_prop_equal(old[name], value))
     }
     removed = frozenset(
         name for name in old if name not in new and not _is_event(name) and name not in _RUNTIME_PROPS
