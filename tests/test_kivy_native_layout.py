@@ -1408,7 +1408,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             root = tree.render(psx("""
                 <div style="height: 100vh; background: red;">
                     <Grid gap="0px">
-                        <GridItem span={{"base": 3, "md": 3, "lg": 2}}>
+                        <GridItem span="2">
                             <div style="height: 100vh; display: flex; flex-direction: column; padding: 20px 12px; background: #20242d;">
                                 <h5 style="font-size: 18px">Mi panel</h5>
                                 <div style="display: flex; flex-direction: column; gap: 10px;">
