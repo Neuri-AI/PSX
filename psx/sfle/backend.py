@@ -29,11 +29,12 @@ class RustLayoutEngine:
         return CONTRACT_ONLY_CAPABILITIES
 
     def compute(self, request: LayoutInput) -> LayoutResult:
-        # Mixed Block/Flex contexts share one flow compositor, while each
-        # nested Flex context is solved by this Rust engine.
+        # Every semantic Block root needs the same CSS flow compositor as
+        # the Python engine. A nested Flex remains solved by this Rust engine;
+        # routing only Flex-containing blocks through the compositor causes
+        # Grid/paragraph-only trees to use incompatible native geometry.
         from psx.markup.html_aliases import FORMATTING_TAGS
-        if (request.nodes and request.nodes[0].component in FORMATTING_TAGS
-                and any(node.component == "Flex" for node in request.nodes[1:])):
+        if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
             from .measured_block_snapshot import compute_measured_block_snapshot
             return compute_measured_block_snapshot(request, flex_engine=self)
         return deserialize_response(
@@ -49,6 +50,9 @@ class RustLayoutEngine:
         native_measurement_invalidated: bool = False,
     ) -> LayoutResult:
         """Use native optional incremental ABI when a safe prior result exists."""
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
+            return self.compute(request)
         native = getattr(self._module, "compute_incremental_json", None)
         if (native_measurement_invalidated or previous_input is None
                 or previous_result is None or not callable(native)):
@@ -62,6 +66,9 @@ class RustLayoutEngine:
         )
 
     def compute_provisional(self, request: LayoutInput) -> LayoutResult:
+        from psx.markup.html_aliases import FORMATTING_TAGS
+        if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
+            return self.compute(request)
         return deserialize_response(
             self._module.compute_provisional_json(serialize_snapshot(request)), request
         )
