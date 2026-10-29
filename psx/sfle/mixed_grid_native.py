@@ -101,9 +101,13 @@ class MountedMixedGrid:
                 source = KivyMeasurementSource({identifier: handle.widget})
             else:
                 raise GridPackingError("Mixed native Grid requires a toolkit backend.")
-            result = self._intrinsic_reuse.measure(
-                self.backend.value, handle.widget, node, allocated_width,
-                lambda: source.measure_width(identifier, allocated_width),
+            reuse_round = getattr(self, "_intrinsic_reuse", None)
+            result = (
+                reuse_round.measure(
+                    self.backend.value, handle.widget, node, allocated_width,
+                    lambda: source.measure_width(identifier, allocated_width),
+                ) if reuse_round is not None
+                else source.measure_width(identifier, allocated_width)
             )
             if not isinstance(result, IntrinsicSizes):
                 raise GridPackingError("Mixed Grid needs measured terminal native leaves.")
@@ -117,8 +121,8 @@ class MountedMixedGrid:
             breakpoints=self.breakpoints,
             engine=self.renderer._sfle_engine,
             viewport_constraints=self.renderer._sfle_constraints,
-            flow_reuse=self._flow_reuse,
-            invalidation_epoch=self._intrinsic_epoch,
+            flow_reuse=getattr(self, "_flow_reuse", None),
+            invalidation_epoch=getattr(self, "_intrinsic_epoch", 0),
         )
         # Never publish a partial result after a measurement exception.
         self._composition_cache[key] = composition
@@ -128,7 +132,9 @@ class MountedMixedGrid:
         # Call only AFTER the outer renderer's native commit, readback and
         # semantic epoch checks all succeeded. Partial measurements are never
         # published on a rejected/rolled-back transaction.
-        self._intrinsic_reuse.accept(self.renderer._sfle_measurement_invalidations.epoch)
+        reuse_round = getattr(self, "_intrinsic_reuse", None)
+        if reuse_round is not None:
+            reuse_round.accept(self.renderer._sfle_measurement_invalidations.epoch)
 
     def intrinsic(self, node_id, width):
         measured = self.compose(node_id, width)
