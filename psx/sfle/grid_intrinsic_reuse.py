@@ -9,8 +9,26 @@ from __future__ import annotations
 from collections import OrderedDict
 from weakref import ref
 
-from psx.core.vnode import NodeKind
+from psx.core.vnode import NodeKind, VNode
 from .model import IntrinsicSizes
+
+
+class _Identity:
+    """Hash an immutable VNode/style by identity, never its enormous CSS repr.
+
+    Holding the referent prevents object-id recycling while the bounded
+    cache entry is alive. This wrapper does not retain a native widget.
+    """
+    __slots__ = ("referent",)
+
+    def __init__(self, referent):
+        self.referent = referent
+
+    def __hash__(self):
+        return id(self.referent)
+
+    def __eq__(self, other):
+        return isinstance(other, _Identity) and self.referent is other.referent
 
 
 class GridIntrinsicReuse:
@@ -64,6 +82,21 @@ class GridIntrinsicTransaction:
             has_height_for_width = getattr(widget, "hasHeightForWidth", None)
             if callable(has_height_for_width) and not has_height_for_width():
                 width_key = None
+        if isinstance(source, VNode):
+            # Public VNodes and the CSS snapshots attached by the compiler
+            # are immutable. Identity changes on reconciliation, stylesheet
+            # application or derived CSS updates; both snapshots are kept
+            # alive by _Identity until cache eviction. Native widgets remain
+            # represented only by weakref.
+            return (
+                backend, widget_ref, width_key,
+                _Identity(source), _Identity(source.props),
+                _Identity(source.css_computed),
+                _Identity(source.css_stylesheet),
+                _Identity(source.css_source),
+            )
+        # Test doubles and non-VNode sources do not carry the immutability
+        # contract; retain full value-based cache invalidation.
         return (
             backend, widget_ref, width_key, source.type,
             repr(source.props), repr(source.css_computed),
