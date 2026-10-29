@@ -70,6 +70,30 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.addCleanup(self.renderer.close)
         self.addCleanup(self.reconciler.unmount)
 
+    def test_stable_tk_viewport_resize_reuses_settled_native_measurement_baseline(self):
+        from unittest.mock import patch
+
+        root = self.reconciler.render(Flex(
+            Text("Stable native text", key="text"), width="100%", height="100%",
+        ))
+        with patch.object(
+            self.renderer.root, "update_idletasks",
+            wraps=self.renderer.root.update_idletasks,
+        ) as idle:
+            self.renderer.set_sfle_constraints(constraints(220, 80))
+            self.renderer.commit_layout(root)
+            # Only the post-placement drain remains. The prior successful
+            # transaction already settled native requested-size hints.
+            self.assertEqual(idle.call_count, 1)
+            idle.reset_mock()
+            self.renderer._sfle_measurement_invalidations.request("font")
+            self.renderer.commit_layout(root)
+            self.assertGreaterEqual(idle.call_count, 2)
+            self.renderer._sfle_measurement_invalidations.acknowledge(
+                self.renderer._sfle_measurement_invalidations.epoch,
+            )
+
+
     def test_aqua_surface_sync_skips_only_unchanged_geometry_resizes(self):
         from unittest.mock import patch
 
