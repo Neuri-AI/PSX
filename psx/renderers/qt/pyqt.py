@@ -1353,7 +1353,7 @@ class QtRenderer:
             raise RendererCapabilityError(
                 f"{event} is not supported by {target.node_type!r} in PyQt.")
         if target.node_type == "Input" and event == "on_click":
-            qt_core = importlib.import_module(self._binding + ".QtCore")
+            qt_core = self._qtcore
             event_type = qt_core.QEvent.Type.MouseButtonPress if hasattr(qt_core.QEvent, "Type") else qt_core.QEvent.MouseButtonPress
             class ClickFilter(qt_core.QObject):
                 def eventFilter(self, watched, native_event):
