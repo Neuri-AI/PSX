@@ -258,6 +258,7 @@ register_primitive(
     events={
         "on_change": ("textChanged", emit_input_value),
         "on_submit": ("returnPressed", lambda w, s: (lambda: s.invoke())),
+        "on_click": ("__psx_mouse_press__", emit_call),
     },
 )
 register_primitive(
@@ -1351,6 +1352,17 @@ class QtRenderer:
         if definition is None:
             raise RendererCapabilityError(
                 f"{event} is not supported by {target.node_type!r} in PyQt.")
+        if target.node_type == "Input" and event == "on_click":
+            qt_core = importlib.import_module(self._binding + ".QtCore")
+            event_type = qt_core.QEvent.Type.MouseButtonPress if hasattr(qt_core.QEvent, "Type") else qt_core.QEvent.MouseButtonPress
+            class ClickFilter(qt_core.QObject):
+                def eventFilter(self, watched, native_event):
+                    if native_event.type() == event_type and watched.isEnabled():
+                        slot.invoke()
+                    return False
+            filter_object = ClickFilter(target.widget)
+            target.widget.installEventFilter(filter_object)
+            return NativeEventSubscription(lambda: target.widget.removeEventFilter(filter_object))
         signal_name, make_callback = definition
         signal = getattr(target.widget, signal_name)
         # only the requested event's closure is built
