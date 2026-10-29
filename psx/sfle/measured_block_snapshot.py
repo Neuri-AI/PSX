@@ -51,8 +51,10 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
 
     def quantized_rect(x: float, y: float, width: float, height: float) -> Rect:
         """Keep flow boxes on Cinnamon's shared 1/64 px geometry grid."""
-        return Rect(*(nearest_layout_px(value)
-                      for value in (x, y, width, height)))
+        return Rect(
+            nearest_layout_px(x), nearest_layout_px(y),
+            nearest_layout_px(width), nearest_layout_px(height),
+        )
 
 
     def dimension(node, axis: str, available: float) -> float | None:
