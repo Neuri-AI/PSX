@@ -1500,15 +1500,15 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             for expected_x, item in ((0, left), (200, right)):
                 text = item.children[0].handle.widget
                 print("TEXT_RECTS", tuple(text.pos),tuple(text.size), "item", geometry(item),flush=True)
+                absolute_x = 0.0
                 absolute_y = 0.0
                 current = text
                 while current is not None and current is not Window:
+                    absolute_x += current.x
                     absolute_y += current.y
                     current = current.parent
                 assert absolute_y > 400, (absolute_y, geometry(item), geometry(grid))
-                window_coordinates = text.to_window(0, 0)
-                assert abs(window_coordinates[0] - expected_x) <= 1, window_coordinates
-                assert window_coordinates[1] > 400, window_coordinates
+                assert abs(absolute_x - expected_x) <= 1, (absolute_x, expected_x)
             Window.remove_widget(root.handle.widget)
             tree.unmount()
         ''')
