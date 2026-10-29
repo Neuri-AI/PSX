@@ -91,7 +91,6 @@ class FlowBlueprintReuse:
                         constraints=constraints,
                     ),
                     viewport_constraints=viewport_constraints,
-                    flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                 )
                 # The CSS root can change its width while retaining a
                 # content-height-auto constraint. Preserve that height
