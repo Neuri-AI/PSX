@@ -1450,6 +1450,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
 
     def test_two_grid_items_fill_row_with_unrestricted_auto_span(self):
         script = textwrap.dedent(r'''
+            import os
             from kivy.config import Config
             Config.set("graphics", "window_state", "hidden")
             from kivy.core.window import Window
@@ -1458,12 +1459,18 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
             from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.backend import load_layout_engine
             from psx.sfle.model import AvailableSize, LayoutConstraints
 
+            engine = (load_layout_engine()
+                      if os.getenv("PSX_KIVY_LAYOUT_ENGINE") == "rust"
+                      else PythonLayoutEngine())
+            if os.getenv("PSX_KIVY_LAYOUT_ENGINE") == "rust":
+                assert engine.backend_name == "rust"
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
                     AvailableSize(1200, True), AvailableSize(600, True)),
-                engine=PythonLayoutEngine(),
+                engine=engine,
             )
             tree = Reconciler(renderer)
             root = tree.render(psx("""
@@ -1490,7 +1497,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             Window.add_widget(root.handle.widget)
             Clock.tick()
             Clock.tick()
-            for item in (left, right):
+            for expected_x, item in ((0, left), (200, right)):
                 text = item.children[0].handle.widget
                 print("TEXT_RECTS", tuple(text.pos),tuple(text.size), "item", geometry(item),flush=True)
                 absolute_y = 0.0
@@ -1499,7 +1506,9 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                     absolute_y += current.y
                     current = current.parent
                 assert absolute_y > 400, (absolute_y, geometry(item), geometry(grid))
-                assert text.to_window(0, 0)[1] > 400
+                window_coordinates = text.to_window(0, 0)
+                assert abs(window_coordinates[0] - expected_x) <= 1, window_coordinates
+                assert window_coordinates[1] > 400, window_coordinates
             Window.remove_widget(root.handle.widget)
             tree.unmount()
         ''')
