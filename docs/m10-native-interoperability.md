@@ -35,7 +35,7 @@ def render():
 `Native(...)` infers the backend from its widget class, creates an owned native
 control, and preserves the same instance while its class and key remain
 compatible. Qt properties use setters (so `url` becomes `setUrl(QUrl(...))`),
-Tk properties use `configure`, and Kivy properties use their declared native
+Qt property names may use either native camelCase setters (`window_title` -> `setWindowTitle`) or Python-style setters (`url` -> `set_url`). Values passed to custom setters are unchanged; Qt's built-in `setUrl` automatically converts strings to `QUrl`. Tk properties use `configure`, and Kivy properties use their declared native
 properties. Signals are connected once and PSX replaces their callback without
 creating duplicate connections.
 
