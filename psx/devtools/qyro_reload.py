@@ -221,6 +221,7 @@ def _load_updated_class(source: Path, previous: type[object], modules: frozenset
         transformed.source if transformed.transformed_calls else text,
         previous.__name__,
         modules,
+        authored_source=text,
     )
     with tempfile.TemporaryDirectory(prefix="psx-qyro-reload-") as directory:
         generated = Path(directory) / source.name
@@ -253,7 +254,7 @@ def _load_updated_class(source: Path, previous: type[object], modules: frozenset
             sys.modules.pop(module_name, None)
 
 
-def _render_class_source(source: str, class_name: str, modules: frozenset[str]) -> str:
+def _render_class_source(source: str, class_name: str, modules: frozenset[str], *, authored_source: str | None = None) -> str:
     """Keep reload candidates free of application bootstrap side effects."""
     tree = ast.parse(source)
     selected: list[ast.stmt] = []
@@ -262,7 +263,10 @@ def _render_class_source(source: str, class_name: str, modules: frozenset[str]) 
     # therefore be present in the candidate module as well.
     import re
     native_widget_names: set[str] = set()
-    for statement in ast.walk(tree):
+    # Scan authored markup before expressive lowering erases its string literal.
+    # This preserves Native widget classes in isolated source-refresh modules.
+    authored_tree = ast.parse(authored_source) if authored_source is not None else tree
+    for statement in ast.walk(authored_tree):
         if isinstance(statement, ast.Constant) and isinstance(statement.value, str):
             native_widget_names.update(re.findall(
                 r"<Native\b[^>]*\bwidget\s*=\s*\{\s*([A-Za-z_]\w*)\s*\}",
