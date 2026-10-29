@@ -14,10 +14,14 @@ from .model import IntrinsicSizes
 
 
 class GridIntrinsicReuse:
-    def __init__(self, limit: int = 512):
+    def __init__(self, limit: int = 4096):
         self._entries: OrderedDict[tuple, IntrinsicSizes] = OrderedDict()
         self.limit = limit
         self.epoch: int | None = None
+
+    def clear(self):
+        self._entries.clear()
+        self.epoch = None
 
     def begin(self, epoch: int):
         if self.epoch != epoch:
