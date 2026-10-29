@@ -61,7 +61,7 @@ class MountedMixedGrid:
         grid = self.grids[node_id]
         # The native baseline is shared by all width probes in this one
         # transaction, including re-entrant nested Grid compositions.
-        if self.backend is GridCommitBackend.TK and not self._tk_idle_synced:
+        if self.backend is GridCommitBackend.TK and not getattr(self, "_tk_idle_synced", False):
             self.renderer.root.update_idletasks()
             self._tk_idle_synced = True
 
