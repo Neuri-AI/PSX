@@ -1440,6 +1440,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         ''')
         environment = dict(os.environ)
         environment["KIVY_NO_FILELOG"] = "1"
+        environment.pop("KIVY_NO_CONSOLELOG", None)
         environment["KIVY_NO_ARGS"] = "1"
         result = subprocess.run(
             [sys.executable, "-c", script], env=environment,
