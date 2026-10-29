@@ -138,12 +138,16 @@ jobs:
               assert rows and all("error" not in row for row in rows)
               assert all(row["native_widgets"] > 0 and row["mounted_nodes"] > 0
                          for row in rows)
-              assert all(row["structural_snapshot_builds"] >= 1
-                             and row["structural_snapshot_hits"] >= 1
-                             for row in rows), "Viewport-only native resize unexpectedly rebuilt structural PSX tree"
-              assert all(row["css_projection_builds"] >= 1
-                             and row["css_projection_hits"] >= 1
-                             for row in rows), "Stable native viewport resize unexpectedly reprojected immutable CSS"
+              # Direct Grid roots use their own Grid measurement bridge;
+              # only Flex/Block roots pass through the CSS structural cache.
+              css_rows = [row for row in rows if row["scenario"] != "controls"]
+              assert css_rows and all(
+                  row["structural_snapshot_builds"] >= 1
+                  and row["structural_snapshot_hits"] >= 1
+                  and row["css_projection_builds"] >= 1
+                  and row["css_projection_hits"] >= 1
+                  for row in css_rows
+              ), "Viewport-only Flex/Block resize unexpectedly rebuilt immutable PSX/CSS structure"
               assert any(row["logical_items"] == 60 for row in rows)
               assert {(r["adapter"]) for r in rows} == {"qt", "tk"}
           PY
