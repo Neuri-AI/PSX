@@ -404,7 +404,9 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 )
             # F2 checks signed 1/64px precision before mutating a single child.
             committer(result)
-            mixed_receipts = mixed_grid.commit(mixed_plans)
+            mixed_receipts = mixed_grid.commit(
+                mixed_plans, prior_snapshot=mixed_before,
+            )
             for node in snapshot.nodes:
                 if node.parent_id is not None:
                     parent = widgets[node.parent_id]
