@@ -14,7 +14,7 @@ from .core.errors import (
 )
 from .core.hooks import Ref, use_effect, use_ref, use_state
 from .markup import psx
-from .core.native import Native, NativeOwnership, NativeWidget
+from .core.native import Native, NativeOwnership, NativeWidget, native_adapter
 from .core.registry import ComponentDefinition, ComponentRegistry, builtin_component_registry
 from .extensions import WebView
 from .plugins import (
@@ -93,6 +93,7 @@ __all__ = [
     "MarkupSyntaxError",
     "NativeOwnership",
     "NativeWidget",
+    "native_adapter",
     "PSXError",
     "PLUGIN_ENTRY_POINT_GROUP",
     "Plugin",
