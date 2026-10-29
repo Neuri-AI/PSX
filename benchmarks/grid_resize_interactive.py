@@ -227,6 +227,12 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
             "logical_items": card_count,
             "mounted_nodes": mounted_nodes,
             "native_widgets": native_widgets,
+            "structural_snapshot_builds": getattr(
+                getattr(renderer, "_sfle_structural_snapshot_reuse", None), "builds", 0,
+            ),
+            "structural_snapshot_hits": getattr(
+                getattr(renderer, "_sfle_structural_snapshot_reuse", None), "hits", 0,
+            ),
             "cycles": cycles,
             "warmup": warmup,
             "styled": styled,
