@@ -11,6 +11,7 @@ import base64
 import math
 import struct
 import zlib
+from functools import lru_cache
 from typing import Mapping
 
 import tkinter as tk
@@ -89,6 +90,28 @@ def _corner_pixels(
                         totals[index] += channel
             output.extend(round(value / 16) for value in totals)
     return bytes(output)
+
+
+
+@lru_cache(maxsize=256)
+def _cached_corner_png(
+    radius: int,
+    corner: str,
+    parent: tuple[int, int, int],
+    fill: tuple[int, int, int],
+    sides: tuple[tuple[str, float, tuple[int, int, int]], ...],
+) -> str:
+    """Identical rounded-corner PNG bytes shared by equivalent CSS styles.
+
+    This caches *only* pure encoded pixels; native PhotoImage instances remain
+    per-canvas and are created on the Tk owner thread. Same radius, colors,
+    and stroke geometry yield identical antialiasing on all platforms.
+    """
+    return _png_rgb(radius, radius, _corner_pixels(
+        radius, corner, parent, fill,
+        {name: (thickness, ink) for name, thickness, ink in sides},
+    ))
+
 
 
 def draw_rounded_surface(
@@ -182,9 +205,14 @@ def draw_rounded_surface(
                 side: (thickness, _rgb(canvas, ink))
                 for side, (thickness, ink) in sides.items()
             }
+            ink_key = tuple(sorted(
+                (side, thickness, ink)
+                for side, (thickness, ink) in rgb_sides.items()
+            ))
             images = tuple(tk.PhotoImage(
-                master=canvas, data=_png_rgb(r, r, _corner_pixels(
-                    r, corner, rgb_parent, rgb_fill, rgb_sides)), format="png",
+                master=canvas,
+                data=_cached_corner_png(r, corner, rgb_parent, rgb_fill, ink_key),
+                format="png",
             ) for corner in ("tl", "tr", "bl", "br"))
         positions = {"tl": (0, 0), "tr": (width - r, 0),
                      "bl": (0, height - r), "br": (width - r, height - r)}
