@@ -273,7 +273,7 @@ def _qt_update(widget: object, changed: Mapping[str, object], removed: frozenset
         # Avoid calling arbitrary methods: only property setters are eligible.
         parts = name.split("_")
         camel = "".join(part[:1].upper() + part[1:] for part in parts)
-        candidates = (f"set{camel}", f"set_{name}")
+        candidates = (f"set_{name}", f"set{camel}")
         setter_name = next((candidate for candidate in candidates if callable(getattr(widget, candidate, None))), None)
         if setter_name is not None:
             setter = getattr(widget, setter_name)
