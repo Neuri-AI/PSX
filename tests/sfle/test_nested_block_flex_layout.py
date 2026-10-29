@@ -100,3 +100,36 @@ def test_nested_activity_flex_remeasures_wrapped_description_at_assigned_width()
     assert measured_widths["description"] < 380
     assert boxes["description"].border.height >= 42
     assert boxes["row"].border.height >= boxes["description"].border.height
+
+
+def test_rust_block_root_without_flex_uses_same_native_grid_flow_as_python():
+    """Block/Grid snapshots must not take the raw Rust Flex geometry path."""
+    from psx.sfle.backend import RustLayoutEngine
+
+    class UnexpectedRawGeometry:
+        def compute_json(self, *args):
+            raise AssertionError("Semantic Grid root bypassed shared block compositor")
+        def compute_incremental_json(self, *args):
+            raise AssertionError("Semantic Grid root used native incremental Flex ABI")
+        def compute_provisional_json(self, *args):
+            raise AssertionError("Semantic Grid root used provisional Flex ABI")
+
+    constraints = LayoutConstraints(AvailableSize(1200, True), AvailableSize(600, True))
+    snapshot = LayoutInput(
+        1, 2, WritingDirection.LTR, constraints,
+        (
+            LayoutNode("root", None, "div", (("display", "block"), ("layout_height", "600px"))),
+            LayoutNode("grid", "root", "Grid", ()),
+        ),
+        (MeasuredBox("grid", _intrinsic(1200, 19), constraints, 2),),
+    )
+    reference = PythonLayoutEngine().compute(snapshot)
+    rust = RustLayoutEngine(UnexpectedRawGeometry())
+    assert rust.compute(snapshot).boxes == reference.boxes
+    assert rust.compute_provisional(snapshot).boxes == reference.boxes
+    assert rust.compute_incremental(
+        snapshot, previous_input=snapshot, previous_result=reference,
+    ).boxes == reference.boxes
+    boxes = dict(reference.boxes)
+    assert boxes["grid"].border.y == 0
+    assert boxes["grid"].border.height == 19
