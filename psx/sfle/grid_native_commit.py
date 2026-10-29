@@ -93,8 +93,10 @@ def commit_grid_native_geometry(
             raise GridPackingError("Kivy parent height must be finite and nonnegative.")
         y = (local_height - placement.y - placement.height
              if backend is GridCommitBackend.KIVY else placement.y)
-        if y < 0:
-            raise GridPackingError("Grid rectangle exceeds Kivy parent content height.")
+        # Negative local Y is valid for content overflowing below its parent.
+        # Kivy coordinates are bottom-left relative to the immediate parent;
+        # clamping or rejecting the solver rectangle changes authored geometry.
+        # The allocated Cinnamon rectangle and native readback remain authoritative.
         target[placement.node_id] = Rect(placement.x, y, placement.width, placement.height)
 
     def read(widget: object) -> Rect:
