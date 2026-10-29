@@ -162,6 +162,12 @@ class QyroComponentReloader:
         (or Tk root, or Kivy event loop).
         """
         try:
+            refresh = getattr(type(self.host).render, "_psx_pydux_update", None)
+            if refresh is not None:
+                live_store, candidate_slices = refresh
+                from pydux.toolkit.hot_reload import reconfigure_store
+                reconfigure_store(live_store, candidate_slices)
+                delattr(type(self.host).render, "_psx_pydux_update")
             instance = _find_component(mounted.app.reconciler.root, root_component)
             if instance is None:
                 self.report("FAILED: PSX root boundary not found")
@@ -249,6 +255,14 @@ def _load_updated_class(source: Path, previous: type[object], modules: frozenset
             if not isinstance(target, type):
                 raise RuntimeError("Updated Qyro component class was not found.")
             _stop_candidate_inspectors(module)
+            # Candidate module is temporary. Reuse the live store and patch only
+            # its reducers/schema on the UI thread, preserving subscriptions.
+            old_store = getattr(previous.render, "__globals__", {}).get("store")
+            candidate_store = vars(module).get("store")
+            definitions = getattr(candidate_store, "_pydux_slice_definitions", None)
+            if old_store is not None and definitions is not None:
+                setattr(target.render, "_psx_pydux_update", (old_store, definitions))
+                target.render.__globals__["store"] = old_store
             return target
         finally:
             sys.modules.pop(module_name, None)
@@ -293,10 +307,20 @@ def _render_class_source(source: str, class_name: str, modules: frozenset[str], 
             selected.append(statement)
         elif isinstance(statement, ast.Import):
             selected.append(statement)
-        elif isinstance(statement, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id.startswith("_psx_template_")
-            for target in statement.targets
+        elif isinstance(statement, ast.Assign) and (
+            any(isinstance(target, ast.Name) and target.id.startswith("_psx_template_")
+                for target in statement.targets)
+            or (isinstance(statement.value, ast.Call) and isinstance(statement.value.func, ast.Name)
+                and statement.value.func.id in {"create_slice", "configure_store"})
         ):
+            # Fresh slice definitions are required to migrate the live Pydux
+            # store. Never evaluate arbitrary top-level assignments here.
+            if (isinstance(statement.value, ast.Call) and isinstance(statement.value.func, ast.Name)
+                    and statement.value.func.id == "configure_store"):
+                statement.value.keywords = [keyword for keyword in statement.value.keywords
+                    if keyword.arg != "inspector_auto_start"] + [
+                        ast.keyword(arg="inspector_auto_start", value=ast.Constant(value=False))
+                    ]
             selected.append(statement)
     if not any(isinstance(statement, ast.ClassDef) and statement.name == class_name for statement in selected):
         raise RuntimeError(f"Updated class {class_name!r} was not found.")
