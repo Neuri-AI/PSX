@@ -321,7 +321,7 @@ class PySide6RendererTests(unittest.TestCase):
         calls: list[str] = []
         ref = Ref()
         self.reconciler.render(
-            Native(QPushButton, props={"text": "Save"}, signals={"clicked": lambda: calls.append("clicked")}, ref=ref)
+            Native(QPushButton, text="Save", signals={"clicked": lambda: calls.append("clicked")}, ref=ref)
         )
         self.assertIsInstance(ref.current, QPushButton)
         ref.current.click()
