@@ -733,6 +733,8 @@ class TkinterRenderer:
         # bounded number of times using the latest semantic epoch; never
         # publish a transaction rejected for stale measurements.
         from psx.sfle.errors import SFLEError
+        prior_signatures = self._sfle_committed_signatures
+        semantic_dirty = self._sfle_measurement_invalidations.needs_commit()
         for attempt in range(3):
             try:
                 if is_mounted_native_grid_root(root):
@@ -744,7 +746,21 @@ class TkinterRenderer:
                 if ("Stale semantic invalidation" not in str(error)
                         or attempt == 2):
                     raise
-        self._sync_aqua_layout_surfaces()
+        # An Aqua background reconciliation walks every descendant and
+        # crosses the Tcl bridge for each one. Pure viewport changes cannot
+        # change CSS backgrounds when the mounted identities, declarative
+        # dependencies and paint properties are unchanged. Keep the full
+        # walk for first mount, semantic invalidations, unsafe properties,
+        # replacements and style changes.
+        current_signatures = self._sfle_committed_signatures
+        same_paint_tree = (
+            prior_signatures is not None
+            and current_signatures is not None
+            and prior_signatures[0][1] == current_signatures[0][1]
+            and prior_signatures[1] == current_signatures[1]
+        )
+        if semantic_dirty or not same_paint_tree:
+            self._sync_aqua_layout_surfaces()
         self._sfle_measurement_invalidations.acknowledge(
             self._sfle_measurement_invalidations.epoch)
 
