@@ -43,6 +43,7 @@ class NativeGeometryCommitter:
         external_ports: Mapping[str, SFLEExternalPort] | None = None,
         skip_unchanged: bool = False,
         prior_tk_placements: Mapping[str, Mapping[str, object]] | None = None,
+        prior_qt_rectangles: Mapping[str, tuple[int, int, int, int]] | None = None,
     ) -> None:
         if not isinstance(backend, GeometryBackend):
             raise TypeError("Expected GeometryBackend.")
@@ -56,6 +57,15 @@ class NativeGeometryCommitter:
         self._prior_tk_placements = (
             {key: dict(info) for key, info in prior_tk_placements.items()}
             if prior_tk_placements is not None else None
+        )
+        if prior_qt_rectangles is not None and backend is not GeometryBackend.QT:
+            raise TypeError("Pre-captured Qt geometry requires the Qt backend.")
+        # Captured native rectangles already form the mandatory rollback
+        # baseline. Reuse them to check unchanged geometry without another
+        # QWidget.geometry() call for each node in the commit batch.
+        self._prior_qt_rectangles = (
+            dict(prior_qt_rectangles)
+            if prior_qt_rectangles is not None else None
         )
         self._parents = {node.node_id: node.parent_id for node in nodes}
         if len(self._parents) != len(nodes):
@@ -145,9 +155,14 @@ class NativeGeometryCommitter:
                                 x, y, width, height):
                             continue
                 elif self._backend == GeometryBackend.QT:
-                    rect = widget.geometry()
-                    if (rect.x(), rect.y(), rect.width(), rect.height()) == (
-                            round(x), round(y), round(width), round(height)):
+                    prior = (
+                        self._prior_qt_rectangles.get(node_id)
+                        if self._prior_qt_rectangles is not None else None
+                    )
+                    if prior is None:
+                        rect = widget.geometry()
+                        prior = (rect.x(), rect.y(), rect.width(), rect.height())
+                    if prior == (round(x), round(y), round(width), round(height)):
                         continue
                 elif self._backend == GeometryBackend.TK:
                     info = (
