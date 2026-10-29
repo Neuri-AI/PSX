@@ -15,6 +15,7 @@ import statistics
 import time
 
 from grid_resize_profile import cards, viewport
+from psx import Grid, GridItem, Flex, Text, Button, psx
 from psx.core.reconcile import Reconciler
 from psx.renderers.tkinter.tkinter import TkinterRenderer
 from psx.sfle.backend import load_layout_engine
@@ -26,7 +27,46 @@ def percentile(values, percentage):
     return ordered[max(0, (len(ordered) * percentage + 99) // 100 - 1)]
 
 
-def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled=False):
+def build_workload(count, scenario, *, styled=False):
+    """Independent UI shapes, not only the benchmark's six rounded cards."""
+    if scenario == "cards":
+        return cards(count, styled=styled)
+    if scenario == "controls":
+        return Grid(*(
+            GridItem(Flex(
+                Text(f"Settings row {i}", key="label"),
+                Button(f"Apply {i}", key="action"),
+                Text(f"Value {i * 17}", key="value"),
+                direction="column", gap="8px",
+            ), key=f"row-{i}")
+            for i in range(count)
+        ), gap="16px")
+    if scenario == "flow":
+        children = "".join(
+            f'<p key="label-{i}">Row {i}: responsive content</p>'
+            f'<button key="action-{i}">Apply {i}</button>'
+            for i in range(count)
+        )
+        return psx(f"<div>{children}</div>")
+    raise ValueError(f"Unknown native scaling scenario: {scenario}")
+
+
+def mounted_stats(root):
+    """Count actual mounted nodes/handles, not just logical rows or cards."""
+    nodes, handles = 0, set()
+    stack = [root]
+    while stack:
+        instance = stack.pop()
+        nodes += 1
+        handle = getattr(instance, "handle", None)
+        widget = getattr(handle, "widget", None)
+        if widget is not None:
+            handles.add(id(widget))
+        stack.extend(instance.children)
+    return nodes, len(handles)
+
+
+def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled=False, scenario="cards"):
     engine = PythonLayoutEngine() if engine_name == "python" else load_layout_engine()
     if engine.backend_name != engine_name:
         raise RuntimeError(f"Expected Cinnamon {engine_name}, got {engine.backend_name}")
@@ -47,7 +87,8 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
     tk_observer_tag = None
     tk_observer_commands = ()
     try:
-        mounted = tree.render(cards(card_count, styled=styled))
+        mounted = tree.render(build_workload(card_count, scenario, styled=styled))
+        mounted_nodes, native_widgets = mounted_stats(mounted)
         original_commit = renderer.commit_layout
 
         def timed_commit(root):
@@ -139,6 +180,9 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
                 raise RuntimeError(
                     f"Native {adapter} resize {target} did not produce a completed Cinnamon commit"
                 )
+            failure = getattr(renderer, "_sfle_resize_error", None)
+            if failure is not None:
+                raise RuntimeError("Native resize layout failed") from failure
             finished_at = time.perf_counter_ns()
             cpu_ms = (time.process_time_ns() - cpu_started) / 1e6
             observed = [t for w, t in events[event_count:] if w == target]
@@ -164,6 +208,10 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
             "engine": engine_name,
             "adapter": adapter,
             "cards": card_count,
+            "scenario": scenario,
+            "logical_items": card_count,
+            "mounted_nodes": mounted_nodes,
+            "native_widgets": native_widgets,
             "cycles": cycles,
             "warmup": warmup,
             "styled": styled,
@@ -210,6 +258,8 @@ def main():
     parser.add_argument("--cards", type=int, default=24)
     parser.add_argument("--cycles", type=int, default=20)
     parser.add_argument("--warmup", type=int, default=2)
+    parser.add_argument("--scenario", choices=("cards", "controls", "flow"), default="cards",
+                        help="Independent native UI workloads (count is logical items)")
     parser.add_argument("--styled", action="store_true",
                         help="Include CSS rounded cards and native repaint work")
     args = parser.parse_args()
@@ -220,7 +270,7 @@ def main():
     widths = (680, 760, 800, 900, 1000, 1200, 980, 750)
     print(json.dumps([
         exercise(engine, adapter, args.cards, args.cycles, args.warmup, widths,
-                 styled=args.styled)
+                 styled=args.styled, scenario=args.scenario)
         for engine in engines for adapter in adapters
     ], indent=2))
 
