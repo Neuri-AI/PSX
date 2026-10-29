@@ -149,3 +149,23 @@ def test_css_snapshot_cache_drops_on_semantic_epoch_change():
     assert cache.builds == 2
     assert cache.projections == 2
     assert cache.projection_hits == 2
+
+
+def test_direct_grid_root_normalization_reused_without_fabricating_css_layout():
+    root = psx(
+        '<Grid gap="8px">'
+        '<GridItem span="6" key="a"><button>A</button></GridItem>'
+        '<GridItem span="6" key="b"><button>B</button></GridItem>'
+        '</Grid>'
+    )
+    cache = NativeStructuralSnapshotReuse()
+    stamp = stamp_tree(root)
+    first = cache.normalize(root, {}, stamp, 0)
+    assert first._participating_roots()[0].type == "Grid"
+    for _ in range(5):
+        assert cache.normalize(root, {}, stamp, 0) is first
+    assert cache.builds == 1 and cache.hits == 5
+    assert cache.projections == 0 and cache.projection_hits == 0
+    changed = cache.normalize(root, {}, stamp, 1)
+    assert changed is not first
+    assert cache.builds == 2
