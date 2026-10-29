@@ -269,18 +269,26 @@ def _removed(removed: frozenset[str]) -> None:
 def _qt_update(widget: object, changed: Mapping[str, object], removed: frozenset[str]) -> None:
     _removed(removed)
     for name, value in changed.items():
-        setter = getattr(widget, f"set{name[:1].upper()}{name[1:]}", None)
-        if name == "url" and callable(setter) and type(value).__name__ != "QUrl":
-            root = type(widget).__module__.split(".", 1)[0]
-            value = importlib.import_module(f"{root}.QtCore").QUrl(str(value))
-        if callable(setter):
+        # Respect both native Qt setFooBar and Pythonic set_foo_bar.
+        # Avoid calling arbitrary methods: only property setters are eligible.
+        parts = name.split("_")
+        camel = "".join(part[:1].upper() + part[1:] for part in parts)
+        candidates = (f"set{camel}", f"set_{name}")
+        setter_name = next((candidate for candidate in candidates if callable(getattr(widget, candidate, None))), None)
+        if setter_name is not None:
+            setter = getattr(widget, setter_name)
+            # Qt's setUrl expects QUrl; custom set_url methods retain the
+            # original Python value and can perform their own conversion.
+            if setter_name == "setUrl" and name == "url" and type(value).__name__ != "QUrl":
+                root = type(widget).__module__.split(".", 1)[0]
+                value = importlib.import_module(f"{root}.QtCore").QUrl(str(value))
             setter(value)
         elif hasattr(widget, "setProperty") and widget.setProperty(name, value):  # type: ignore[attr-defined]
             continue
-        elif hasattr(widget, name):
+        elif hasattr(widget, name) and not callable(getattr(widget, name)):
             setattr(widget, name, value)
         else:
-            raise AttributeError(f"{type(widget).__name__} has no native property {name!r}.")
+            raise AttributeError(f"{type(widget).__name__} has no writable native property {name!r}.")
 
 
 def _qt_bind(widget: object, event: str, slot: EventSlot) -> Callable[[], None]:
