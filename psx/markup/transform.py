@@ -148,7 +148,7 @@ def _has_expressive_interpolation(source: str) -> bool:
     # The restricted M4A runtime never enters this transform.
     # Native needs the CSS-aware VNode path even without an arrow expression.
     import re
-    if re.search(r"<Native(?=[\\s/>])", source):
+    if re.search(r"<Native(?=[\s/>])", source):
         return True
     if "={{" in source or "={[" in source or "={(" in source:
         return True
