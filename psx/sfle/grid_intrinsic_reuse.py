@@ -50,8 +50,18 @@ class GridIntrinsicTransaction:
         source = node.source
         # CSS computed state lives outside VNode.props; include its value and
         # stylesheet scope so text/font/style changes cannot reuse stale hints.
+        # Qt's native measurement is width-invariant when the widget does
+        # not advertise height-for-width: QtMeasurementSource.measure_width()
+        # only uses the supplied width for hasHeightForWidth() widgets.
+        # Reuse one certified hint across viewport widths for those leaves.
+        # Wrapped labels and other backends keep width-specific cache keys.
+        width_key = float(width)
+        if backend == "qt":
+            has_height_for_width = getattr(widget, "hasHeightForWidth", None)
+            if callable(has_height_for_width) and not has_height_for_width():
+                width_key = None
         return (
-            backend, widget_ref, float(width), source.type,
+            backend, widget_ref, width_key, source.type,
             repr(source.props), repr(source.css_computed),
             repr(source.css_stylesheet), repr(source.children),
         )
