@@ -949,20 +949,22 @@ class QtRenderer:
                         # applying native geometry. The unbounded-document
                         # intrinsic size is independent of the allocated width;
                         # only heightForWidth() needs a fresh width-based solve.
-                        signature = (
-                            document, document.revision(),
-                            document.defaultFont().key(), document.documentMargin(),
-                        )
+                        # CSS projection reconstructs the document for
+                        # text/font/line-height changes. QTextDocument's
+                        # revision changes on text edits. Avoid the expensive
+                        # QFont.key() construction on every native sizeHint.
+                        revision = document.revision()
                         cached = self._psx_css_intrinsic_hint
-                        if cached is not None and cached[0] == signature:
-                            return core.QSize(cached[1])
+                        if (cached is not None and cached[0] is document
+                                and cached[1] == revision):
+                            return core.QSize(cached[2])
                         document.setTextWidth(-1)
                         size = document.size()
                         hint = core.QSize(
                             max(1, round(size.width())),
                             max(1, round(size.height())),
                         )
-                        self._psx_css_intrinsic_hint = (signature, hint)
+                        self._psx_css_intrinsic_hint = (document, revision, hint)
                         return core.QSize(hint)
 
                     def heightForWidth(self, width):
