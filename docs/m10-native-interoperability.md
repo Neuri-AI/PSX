@@ -25,7 +25,7 @@ def render():
     return Column(
         Native(
             QWebEngineView,
-            props={"url": "https://example.com"},
+            url="https://example.com",
             signals={"loadFinished": lambda ok: print(ok)},
             key="browser",
         )
@@ -98,3 +98,7 @@ purpose-built PSX primitive when a portable contract exists.
 
 The adapter validates the native base class for its selected binding. The
 headless renderer intentionally accepts no native declarations.
+
+
+For the new explicit `props` mapping, use `update_props(props, changed)` on your
+widget or register `@native_adapter`. See [Native reactive props](native-reactive-props.md).
