@@ -64,6 +64,27 @@ def test_zero_edge_native_boxes_reuse_already_quantized_geometry():
         assert box.border is box.margin
 
 
+def test_transaction_edge_cache_recomputes_percentages_for_new_viewport():
+    for viewport_width, expected_left in ((200, 20), (400, 40)):
+        initial = snapshot()
+        constraints = LayoutConstraints(
+            AvailableSize(viewport_width, True),
+            AvailableSize(400, True),
+        )
+        root = LayoutNode("root", None, "div", (
+            ("layout_padding_left", Length.percent(0.1)),
+        ))
+        current = LayoutInput(
+            initial.schema_version, initial.generation, initial.direction,
+            constraints, (root, *initial.nodes[1:]), initial.measurements,
+        )
+        boxes = dict(compute_measured_block_snapshot(current).boxes)
+        assert boxes["root"].content.x == expected_left
+        assert boxes["root"].border.x == 0
+        assert boxes["root"].border.width == viewport_width
+        assert boxes["button"].border.x == expected_left
+
+
 def test_unmeasured_native_leaf_is_not_replaced_with_fake_zero():
     with pytest.raises(SFLECapabilityError, match="missing intrinsic"):
         compute_measured_block_snapshot(snapshot(measured=False))
