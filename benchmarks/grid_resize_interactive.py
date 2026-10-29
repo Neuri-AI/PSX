@@ -50,7 +50,7 @@ def build_workload(count, scenario, *, styled=False):
         if scenario == "dense-flow":
             # One GridItem contains N Flow children; exercises the previously
             # quadratic parent lookup and the single large subtree case.
-            return psx(f'<Grid><GridItem span="12"><div>{children}</div></GridItem></Grid>')
+            return psx(f'<div><Grid><GridItem span="12"><div>{children}</div></GridItem></Grid></div>')
         return psx(f"<div>{children}</div>")
     raise ValueError(f"Unknown native scaling scenario: {scenario}")
 
