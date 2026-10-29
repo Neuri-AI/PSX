@@ -29,7 +29,7 @@ def main():
     parser.add_argument("--adapter", choices=("qt", "tk", "both"), default="both")
     parser.add_argument("--engine", choices=("python", "rust", "both"), default="rust")
     parser.add_argument("--counts", type=int, nargs="+", default=(6, 24, 60, 120))
-    parser.add_argument("--scenarios", nargs="+", choices=("cards", "controls", "flow", "dense-flow"),
+    parser.add_argument("--scenarios", nargs="+", choices=("cards", "controls", "flow", "dense-flow", "flex-siblings"),
                         default=("cards", "controls", "flow"))
     parser.add_argument("--cycles", type=int, default=10)
     parser.add_argument("--warmup", type=int, default=2)
