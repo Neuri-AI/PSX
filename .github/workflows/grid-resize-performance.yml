@@ -1,5 +1,11 @@
 name: Grid resize performance
 on:
+  push:
+    branches: [fixes/psx-issues]
+    paths:
+      - "psx/sfle/**"
+      - "tests/test_flow_linear_complexity.py"
+      - ".github/workflows/grid-resize-performance.yml"
   pull_request:
     branches: [develop]
     paths:
