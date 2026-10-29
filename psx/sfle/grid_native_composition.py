@@ -595,9 +595,12 @@ def compose_geometry_batch(
                 widgets[flow_id] = handles[id(child.source)]
                 heights[flow_id] = placement.height
                 boxes = dict(flow.result.boxes)
+                # A Flow with N children formerly scanned N snapshot nodes
+                # for every child (quadratic). Build the immutable parent
+                # index once; geometry and identity checks remain identical.
+                nodes_by_id = {node.node_id: node for node in flow.prepared.snapshot.nodes}
                 for source_id, source in flow.prepared.identities[1:]:
-                    current = next(node for node in flow.prepared.snapshot.nodes
-                                   if node.node_id == source_id)
+                    current = nodes_by_id[source_id]
                     rect = boxes[source_id].border
                     parent = boxes[current.parent_id].border
                     local_x, local_y = rect.x - parent.x, rect.y - parent.y
