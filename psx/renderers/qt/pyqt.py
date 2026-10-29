@@ -648,9 +648,11 @@ class QtRenderer:
             return
         self._sfle_resize_scheduled = True
         epoch = self._sfle_resize_epoch
-        # Frame-sized trailing-edge debounce: Qt may deliver consecutive
-        # top-level window Resize events over multiple nested event turns.
-        self._qtcore.QTimer.singleShot(16, lambda: self._sfle_flush_viewport_resize(epoch))
+        # Coalesce bursts within the current event turn without imposing a
+        # full-frame delay. A zero-timeout callback executes after Qt finishes
+        # dispatching the current native resize; pending holds the latest size.
+        # Keep the callback out of the Resize event's native call stack.
+        self._qtcore.QTimer.singleShot(0, lambda: self._sfle_flush_viewport_resize(epoch))
 
     def _sfle_flush_viewport_resize(self, epoch: int) -> None:
         self._sfle_resize_scheduled = False
