@@ -48,6 +48,12 @@ class MountedMixedGrid:
             renderer._psx_grid_intrinsic_reuse = reuse
         self._intrinsic_epoch = renderer._sfle_measurement_invalidations.epoch
         self._intrinsic_reuse = reuse.begin(self._intrinsic_epoch)
+        from .grid_native_composition import FlowBlueprintReuse
+        flow_reuse = getattr(renderer, "_psx_grid_flow_blueprints", None)
+        if flow_reuse is None:
+            flow_reuse = FlowBlueprintReuse()
+            renderer._psx_grid_flow_blueprints = flow_reuse
+        self._flow_reuse = flow_reuse
 
         def visit(node):
             if node.kind is NodeKind.HOST and node.type == "Grid":
@@ -111,6 +117,8 @@ class MountedMixedGrid:
             breakpoints=self.breakpoints,
             engine=self.renderer._sfle_engine,
             viewport_constraints=self.renderer._sfle_constraints,
+            flow_reuse=self._flow_reuse,
+            invalidation_epoch=self._intrinsic_epoch,
         )
         # Never publish a partial result after a measurement exception.
         self._composition_cache[key] = composition
