@@ -130,8 +130,8 @@ def run_cell(adapter, engine_name, warmup, cycles, output, widths):
     # Portable minimal valid 1x1 PNG.
     import base64
     image.write_bytes(base64.b64decode(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
-        "AAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg=="))
+        "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91Jpz"
+        "AAAAFklEQVR4nGPUrVjAwMDAxMDAwMDAAAAO8wFJy/W0agAAAABJRU5ErkJggg=="))
     tree = Reconciler(renderer)
     events, commits, samples, checks = [], [], [], {}
     observer = None
