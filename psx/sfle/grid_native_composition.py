@@ -63,24 +63,49 @@ class FlowBlueprintReuse:
         # Include the actual normalized descendants, not just a parent
         # VNode. Nested component/hooks reconciliation may replace children
         # while retaining the outer element identity.
+        # VNode props, resolved CSS and stylesheet are immutable snapshots.
+        # The cached PreparedNativeLayoutSnapshot itself strongly retains
+        # every VNode, so object identities cannot be recycled while an
+        # entry remains live. Avoid serializing a complete CSS registry
+        # through repr() for every descendant on every resize.
+        from .lengths import Length, LengthKind
+        viewport_kinds = {
+            LengthKind.VW, LengthKind.VH, LengthKind.VMIN, LengthKind.VMAX,
+        }
+        viewport_suffixes = ("vw", "vh", "vmin", "vmax")
+
+        def has_viewport_unit(value):
+            if isinstance(value, Length):
+                return value.kind in viewport_kinds
+            return (isinstance(value, str)
+                    and value.strip().lower().endswith(viewport_suffixes))
+
         fingerprint = []
+        cacheable = True
         def visit(node):
+            nonlocal cacheable
             origin = node.source
             fingerprint.append((
-                path_identity(node.path), id(origin), repr(origin.props),
-                repr(origin.css_computed), repr(origin.css_stylesheet),
+                node.path, id(origin), id(origin.props),
+                id(origin.css_computed), id(origin.css_stylesheet),
+                id(origin.css_source),
             ))
+            if cacheable:
+                computed = origin.css_computed
+                if any(has_viewport_unit(value) for value in origin.props.values()):
+                    cacheable = False
+                elif computed is not None:
+                    properties = getattr(computed, "properties", None)
+                    specified = getattr(computed, "specified", ())
+                    if properties is not None and any(
+                        has_viewport_unit(properties[name])
+                        for name in specified if name in properties
+                    ):
+                        cacheable = False
             for child in node.effective_children:
                 visit(child)
         visit(flow)
         signature = tuple(fingerprint)
-        # Re-resolve viewport-dependent CSS every time: it is not safe to
-        # cache a snapshot containing already-resolved vw/vh/vmin/vmax.
-        viewport_units = ("vw", "vh", "vmin", "vmax")
-        cacheable = not any(
-            any(unit in part.lower() for unit in viewport_units)
-            for item in signature for part in item[2:]
-        )
         key = (id(flow.source), path_identity(flow.path))
         cached = self._entries.get(key) if cacheable else None
         if cached is not None:
