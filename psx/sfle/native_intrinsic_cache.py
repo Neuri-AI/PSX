@@ -51,17 +51,24 @@ class NativeMeasurementRound:
         node_id: str,
         generation: int,
         measure: Callable[[], MeasuredBox],
+        viewport_independent: bool = False,
     ) -> MeasuredBox:
+        # Native size hints of a certified width-independent leaf depend on
+        # its style/content, not the root's current viewport constraints.
+        # Cache the intrinsic only; the MeasuredBox is ALWAYS rebound to the
+        # newest constraints, identity, and generation for the solver.
+        # Unknown and height-for-width widgets retain the strict key.
+        cache_constraints = None if viewport_independent else constraints
         identity = id(widget)
         old = self.cache.entries.get(identity)
         if (not self.invalidate_all and identity not in self.dirty_widgets
                 and old is not None
-                and old[0] == props and old[1] == constraints):
+                and old[0] == props and old[1] == cache_constraints):
             intrinsic = old[2]
         else:
             intrinsic = measure().intrinsic
             self.measured.add(identity)
-        self.updated[identity] = (props, constraints, intrinsic)
+        self.updated[identity] = (props, cache_constraints, intrinsic)
         return MeasuredBox(node_id, intrinsic, constraints, generation)
 
     def read_width(
