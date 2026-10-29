@@ -32,7 +32,7 @@ from tkinter import ttk
 from psx.core.errors import RendererCapabilityError
 from psx.markup.html_aliases import FORMATTING_TAGS
 from psx.core.events import EventSlot
-from psx.core.native import NativeOwnership, NativeWidget
+from psx.core.native import NativeOwnership, NativeWidget, _clear_native_snapshot
 from psx.core.vnode import NodeKind, VNode
 from psx.core.props import FLEX_ITEM_PROPS
 from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
@@ -2375,6 +2375,8 @@ class TkinterRenderer:
 
     def _adapter_destroy(self, handle: object) -> None:
         target = _as_handle(handle)
+        if target.native is not None:
+            _clear_native_snapshot(target.widget)
         if target.native is not None and target.native.ownership is NativeOwnership.BORROWED:
             return
         if target.widget.winfo_exists():
