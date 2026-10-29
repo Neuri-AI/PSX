@@ -70,3 +70,30 @@ def test_does_not_call_arbitrary_methods():
 def test_removed_props_remain_explicitly_unsupported():
     with pytest.raises(ValueError, match="cannot be removed"):
         _qt_update(CustomWidget(), {}, frozenset({"url"}))
+
+
+def test_custom_python_setter_takes_priority_over_inherited_qt_setter():
+    class QtBase:
+        def __init__(self):
+            self.calls = []
+
+        def setUrl(self, value):
+            self.calls.append(("Qt inherited", value))
+
+    class Browser(QtBase):
+        def set_url(self, value):
+            self.calls.append(("custom", value))
+
+    browser = Browser()
+    _qt_update(browser, {"url": "https://example.com"}, frozenset())
+    assert browser.calls == [("custom", "https://example.com")]
+
+
+def test_unchanged_custom_prop_is_not_dispatched_by_reconciler():
+    """The update callback receives only changed props from reconciliation."""
+    # This contract is exercised end-to-end with QLabel by
+    # test_native_facade_updates_qt_properties_without_recreating_widget.
+    widget = CustomWidget()
+    _qt_update(widget, {"url": "https://example.com"}, frozenset())
+    _qt_update(widget, {}, frozenset())
+    assert widget.calls == [("url", "https://example.com")]
