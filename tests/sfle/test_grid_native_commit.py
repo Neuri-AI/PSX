@@ -147,6 +147,41 @@ def test_tk_native_commit_reads_each_rectangle_once_after_writes():
     assert [widgets[key].read_count for key in ("a", "b")] == [2, 2]
 
 
+def test_tk_grid_reuses_prior_snapshot_but_still_reads_final_geometry():
+    class Widget:
+        def __init__(self):
+            self.state = {}
+            self.reads = 0
+
+        def place_info(self):
+            self.reads += 1
+            return dict(self.state)
+
+        def place(self, **values):
+            self.state = {key: str(value) for key, value in values.items()}
+
+        def place_forget(self):
+            self.state = {}
+
+    widgets = {"a": Widget(), "b": Widget()}
+    receipt = commit_grid_native_geometry(
+        (placement("a", 1, 2), placement("b", 50, 2)),
+        backend=GridCommitBackend.TK, widgets=widgets,
+        generation=1, current_generation=lambda: 1, is_ui_thread=lambda: True,
+        prior_tk_placements={"a": {}, "b": {}},
+    )
+    assert receipt.max_readback_error == 0
+    assert [widgets[key].reads for key in ("a", "b")] == [1, 1]
+    assert widgets["a"].state["x"] == "1"
+    with pytest.raises(GridPackingError, match="Tk backend"):
+        commit_grid_native_geometry(
+            (placement("a", 1, 2), ()),
+            backend=GridCommitBackend.QT, widgets=widgets,
+            generation=1, current_generation=lambda: 1, is_ui_thread=lambda: True,
+            prior_tk_placements={},
+        )
+
+
 def test_kivy_real_widget_geometry_projection_and_readback():
     pytest.importorskip("kivy")
     from kivy.uix.widget import Widget
