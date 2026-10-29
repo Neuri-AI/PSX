@@ -78,9 +78,9 @@ def _html_input(*children: object, **props: object) -> VNode:
         from psx.core.vnode import Checkbox
         props.pop("value", None)  # checkbox changes carry a boolean checked state
         callback = props.get("on_change")
-        if callback is not None and name is not None:
+        if callback is not None:
             def emit(checked: bool) -> object:
-                return callback(InputChangeEvent(InputEventTarget(name, checked, checked)))
+                return callback(InputChangeEvent(InputEventTarget(name or "", checked, checked)))
             props["on_change"] = emit
         return Checkbox(**props)
     if kind == "password":
@@ -92,7 +92,7 @@ def _html_input(*children: object, **props: object) -> VNode:
     callback = props.get("on_change")
     if callback is not None and name is not None:
         def emit(value: str) -> object:
-            return callback(InputChangeEvent(InputEventTarget(name, value)))
+            return callback(InputChangeEvent(InputEventTarget(name or "", value)))
         props["on_change"] = emit
     return Input(**props)
 
