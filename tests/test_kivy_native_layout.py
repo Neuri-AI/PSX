@@ -1487,7 +1487,12 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             for item in (left, right):
                 text = item.children[0].handle.widget
                 print("TEXT_RECTS", tuple(text.pos),tuple(text.size), "item", geometry(item),flush=True)
-                assert text.to_window(0, 0)[1] > 400, (text.to_window(0,0),geometry(item))
+                absolute_y = 0.0
+                current = text
+                while current is not None:
+                    absolute_y += current.y
+                    current = current.parent
+                assert absolute_y > 400, (absolute_y, geometry(item), geometry(grid))
             tree.unmount()
         ''')
         environment = dict(os.environ)
