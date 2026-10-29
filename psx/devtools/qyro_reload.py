@@ -273,6 +273,39 @@ def _render_class_source(source: str, class_name: str, modules: frozenset[str], 
                 statement.value,
                 re.DOTALL,
             ))
+    # Include module-level constants referenced by selected declarations.
+    # Resolve dependencies transitively, preserving original source order.
+    top_level = {
+        target.id: statement
+        for statement in tree.body
+        if isinstance(statement, (ast.Assign, ast.AnnAssign))
+        for target in (statement.targets if isinstance(statement, ast.Assign) else [statement.target])
+        if isinstance(target, ast.Name)
+    }
+    required = set()
+    seed_nodes = [
+        statement for statement in tree.body
+        if (isinstance(statement, ast.ClassDef) and statement.name == class_name)
+        or (isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and any(isinstance(decorator, ast.Name) and decorator.id == "component"
+                    for decorator in statement.decorator_list))
+        or (isinstance(statement, ast.Assign) and isinstance(statement.value, ast.Call)
+            and isinstance(statement.value.func, ast.Name)
+            and statement.value.func.id in {"create_slice", "configure_store"})
+    ]
+    pending = list(seed_nodes)
+    visited = set()
+    while pending:
+        node = pending.pop()
+        if id(node) in visited:
+            continue
+        visited.add(id(node))
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
+                dependency = top_level.get(child.id)
+                if dependency is not None and dependency is not node:
+                    required.add(id(dependency))
+                    pending.append(dependency)
     for statement in tree.body:
         if isinstance(statement, ast.ClassDef) and (
             statement.name == class_name or statement.name in native_widget_names
@@ -294,7 +327,8 @@ def _render_class_source(source: str, class_name: str, modules: frozenset[str], 
         elif isinstance(statement, ast.Import):
             selected.append(statement)
         elif isinstance(statement, ast.Assign) and (
-            any(isinstance(target, ast.Name) and target.id.startswith("_psx_template_")
+            id(statement) in required
+            or any(isinstance(target, ast.Name) and target.id.startswith("_psx_template_")
                 for target in statement.targets)
             or (isinstance(statement.value, ast.Call) and isinstance(statement.value.func, ast.Name)
                 and statement.value.func.id in {"create_slice", "configure_store"})
@@ -307,6 +341,8 @@ def _render_class_source(source: str, class_name: str, modules: frozenset[str], 
                     if keyword.arg != "inspector_auto_start"] + [
                         ast.keyword(arg="inspector_auto_start", value=ast.Constant(value=False))
                     ]
+            selected.append(statement)
+        elif isinstance(statement, ast.AnnAssign) and id(statement) in required:
             selected.append(statement)
     if not any(isinstance(statement, ast.ClassDef) and statement.name == class_name for statement in selected):
         raise RuntimeError(f"Updated class {class_name!r} was not found.")
