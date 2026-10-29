@@ -23,6 +23,28 @@ class NativeSizingTests(unittest.TestCase):
         with self.assertRaisesRegex(TypeError, "both width and layout_width"):
             Native(DummyWidget, renderer="pyside6", width="100%", layout_width="200px")
 
+    def test_cinnamon_receives_native_css_dimensions(self):
+        from psx.core.layout_tree import normalize_flex_tree
+        from psx.core.vnode import Flex
+        from psx.sfle.model import AvailableSize, LayoutConstraints
+        from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+        from psx.sfle.lengths import LengthKind
+
+        child = Native(DummyWidget, renderer="pyside6")
+        from dataclasses import replace
+        from psx.css.markup import parse_markup_style
+        child = replace(child, css_source=parse_markup_style("native", class_value="browser"))
+        root = compute_markup_styles(Flex(child), ".browser { width: 100%; height: 50vh; }")
+        limits = LayoutConstraints(AvailableSize(800, True), AvailableSize(600, True))
+        prepared = prepare_native_layout_snapshot(normalize_flex_tree(root), limits, generation=1)
+        snapshot = prepared.css_geometry_snapshot()
+        native_node = next(node for node in snapshot.nodes if node.component == "Native")
+        style = dict(native_node.style)
+        self.assertEqual(style["layout_width"].kind, LengthKind.PERCENT)
+        self.assertEqual(style["layout_width"].value, 1.0)
+        self.assertEqual(style["layout_height"].kind, LengthKind.PX)
+        self.assertEqual(style["layout_height"].value, 300.0)
+
     def test_native_class_resolves_css(self):
         source = ("from psx import psx\n"
                   "from psx.core.native import Native\n"
