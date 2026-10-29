@@ -105,3 +105,39 @@ def test_qt_nonwrapping_reuse_respects_style_and_invalidation_epoch():
         "qt", widget, new_style, 380,
         lambda: (calls.append("epoch"), metric(380))[1])
     assert calls == ["initial", "style", "epoch"]
+
+
+def test_immutable_vnode_reuse_invalidates_on_css_reprojection_without_repr():
+    """Cache a real VNode without serializing its complete CSS property map."""
+    from dataclasses import replace
+    from psx import Text
+    from psx.css.cascade import ComputedStyle
+    from psx.sfle.grid_intrinsic_reuse import GridIntrinsicReuse
+
+    class Widget:
+        def hasHeightForWidth(self):
+            return False
+
+    cache = GridIntrinsicReuse()
+    widget = Widget()
+    base = Text("hello")
+    computed_a = ComputedStyle({"color": "#123456"}, frozenset(("color",)))
+    computed_b = ComputedStyle({"color": "#654321"}, frozenset(("color",)))
+    first = replace(base, css_computed=computed_a)
+    recolored = replace(base, css_computed=computed_b)
+
+    def node(source):
+        return SimpleNamespace(
+            kind=NodeKind.HOST, type="Text", effective_children=(),
+            source=source,
+        )
+
+    reads = []
+    for source, width in ((first, 180), (first, 300), (recolored, 300)):
+        transaction = cache.begin(0)
+        transaction.measure(
+            "qt", widget, node(source), width,
+            lambda width=width: (reads.append(width), metric(width))[1],
+        )
+        transaction.accept(0)
+    assert reads == [180, 300]
