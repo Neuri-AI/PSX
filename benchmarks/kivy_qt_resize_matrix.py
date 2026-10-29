@@ -10,7 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from benchmarks.kivy_qt_mixed_resize import compare
+from kivy_qt_mixed_resize import compare
 
 
 CELLS = (("qt", "python"), ("kivy", "rust"),
