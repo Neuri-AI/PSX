@@ -735,9 +735,10 @@ class TkinterRenderer:
         from psx.sfle.errors import SFLEError
         prior_signatures = getattr(self, "_sfle_committed_signatures", None)
         semantic_dirty = self._sfle_measurement_invalidations.needs_commit()
+        grid_root = is_mounted_native_grid_root(root)
         for attempt in range(3):
             try:
-                if is_mounted_native_grid_root(root):
+                if grid_root:
                     commit_native_grid(self, root, backend=GridCommitBackend.TK)
                 else:
                     commit_tk_sfle(self, root)
@@ -754,7 +755,8 @@ class TkinterRenderer:
         # replacements and style changes.
         current_signatures = getattr(self, "_sfle_committed_signatures", None)
         same_paint_tree = (
-            prior_signatures is not None
+            not grid_root
+            and prior_signatures is not None
             and current_signatures is not None
             and prior_signatures[0][1] == current_signatures[0][1]
             and prior_signatures[1] == current_signatures[1]
