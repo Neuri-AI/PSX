@@ -74,6 +74,13 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
     for node_id in preorder_stack:
         subtree_end[node_id] = len(snapshot.nodes)
     metrics = {item.node_id: item.intrinsic for item in snapshot.measurements}
+    # Per-subtree Flex composition must not rescan every native measurement.
+    # Keep source ordering metadata so atypical caller-supplied measurement
+    # orders still produce exactly the same local LayoutInput as before.
+    measurements_by_id = {item.node_id: item for item in snapshot.measurements}
+    measurement_order = {
+        item.node_id: i for i, item in enumerate(snapshot.measurements)
+    }
     geometry: dict[str, Rect] = {}
     composed_boxes: dict[str, BoxRect] = {}
     containing_width: dict[str, float] = {}
@@ -222,7 +229,6 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
             local_nodes = snapshot.nodes[
                 node_positions[node.node_id]:subtree_end[node.node_id]
             ]
-            selected = {item.node_id for item in local_nodes}
         else:
             # Fallback retains original LayoutInput ordering even when a
             # caller has supplied a non-preorder but valid parent graph.
@@ -259,11 +265,18 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
         constraints = LayoutConstraints(
             AvailableSize(available, True), AvailableSize(None, False),
         )
+        local_measurements = [
+            measurements_by_id[item.node_id]
+            for item in local_nodes if item.node_id in measurements_by_id
+        ]
+        # Preserve the original measurement tuple order on noncanonical
+        # inputs. The usual preorder case never sorts.
+        if any(measurement_order[a.node_id] > measurement_order[b.node_id]
+               for a, b in zip(local_measurements, local_measurements[1:])):
+            local_measurements.sort(key=lambda item: measurement_order[item.node_id])
         local = LayoutInput(
             snapshot.schema_version, snapshot.generation, snapshot.direction,
-            constraints, tuple(descendants),
-            tuple(measured for measured in snapshot.measurements
-                  if measured.node_id in selected),
+            constraints, tuple(descendants), tuple(local_measurements),
         )
         if measure_width is not None:
             from .width_dependent_intrinsic_measurement import (
