@@ -36,7 +36,7 @@ def run(adapter, engine_name, frames, output):
         from psx.renderers.kivy.kivy import KivyRenderer
         renderer = KivyRenderer(sfle_constraints=viewport(widths[0]), engine=engine)
     output.parent.mkdir(parents=True, exist_ok=True)
-    from kivy_qt_mixed_resize import base64
+    import base64
     image = output.parent / "paced-benchmark-image.png"
     image.write_bytes(base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91Jpz"
