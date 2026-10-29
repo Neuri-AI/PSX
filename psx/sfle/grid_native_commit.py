@@ -42,6 +42,7 @@ def commit_grid_native_geometry(
     parent_height: float | None = None,
     parent_heights: Mapping[str, float] | None = None,
     readback_tolerance: float = 1.0,
+    prior_tk_placements: Mapping[str, Mapping[str, object]] | None = None,
 ) -> GridNativeCommitReceipt:
     """Commit a complete mounted Grid batch, verifying every native readback.
 
@@ -66,6 +67,8 @@ def commit_grid_native_geometry(
 
     if parent_heights is not None and backend is not GridCommitBackend.KIVY:
         raise GridPackingError("Per-widget parent heights are only valid for Kivy.")
+    if prior_tk_placements is not None and backend is not GridCommitBackend.TK:
+        raise GridPackingError("Prior Tk placements require the Tk backend.")
     ids = tuple(p.node_id for p in placements)
     if any(not isinstance(p, GridNativePlacement) for p in placements):
         raise GridPackingError("Grid commit requires preflighted Cinnamon placements.")
@@ -129,7 +132,12 @@ def commit_grid_native_geometry(
         originals = {}
         unplaced = set()
         for node_id in ids:
-            info = widgets[node_id].place_info()
+            info = (
+                prior_tk_placements[node_id]
+                if prior_tk_placements is not None
+                   and node_id in prior_tk_placements
+                else widgets[node_id].place_info()
+            )
             if info:
                 originals[node_id] = Rect(*(
                     float(info[k]) for k in ("x", "y", "width", "height")
