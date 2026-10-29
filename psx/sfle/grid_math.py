@@ -84,7 +84,12 @@ def pack_grid_rows(items: tuple[GridSlot, ...] | list[GridSlot]) -> tuple[Packed
         raise GridPackingError("Grid items must be a tuple or list.")
     slots = tuple(items)
     _validate(slots)
-    ordered = sorted(slots, key=lambda item: item.order)
+    # Most CSS Grid trees use the default order=0. Preserve the already
+    # validated source order without allocating/sorting O(N log N) slots.
+    # Mixed explicit order retains Python's stable sort semantics.
+    ordered = slots if all(item.order == 0 for item in slots) else sorted(
+        slots, key=lambda item: item.order
+    )
     rows: list[PackedGridRow] = []
     current: list[GridSlot] = []
     explicit_used = 0
