@@ -56,6 +56,23 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
     children = defaultdict(list)
     for node in snapshot.nodes[1:]:
         children[node.parent_id].append(node)
+    # Most native snapshots are depth-first/preorder. Index that structure
+    # once so a Flex subtree with k nodes costs O(k), not O(N) scans of
+    # the entire Flow snapshot for each sibling Flex context. Preserve the
+    # original order for unusual caller-supplied non-preorder snapshots.
+    node_positions = {node.node_id: i for i, node in enumerate(snapshot.nodes)}
+    subtree_end = {}
+    preorder_stack = []
+    preorder_valid = True
+    for index, node in enumerate(snapshot.nodes):
+        if index:
+            while preorder_stack and preorder_stack[-1] != node.parent_id:
+                subtree_end[preorder_stack.pop()] = index
+            if not preorder_stack or preorder_stack[-1] != node.parent_id:
+                preorder_valid = False
+        preorder_stack.append(node.node_id)
+    for node_id in preorder_stack:
+        subtree_end[node_id] = len(snapshot.nodes)
     metrics = {item.node_id: item.intrinsic for item in snapshot.measurements}
     geometry: dict[str, Rect] = {}
     composed_boxes: dict[str, BoxRect] = {}
@@ -201,13 +218,25 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
         from .backend import load_layout_engine
 
         selected_engine = flex_engine if flex_engine is not None else load_layout_engine()
+        if preorder_valid:
+            local_nodes = snapshot.nodes[
+                node_positions[node.node_id]:subtree_end[node.node_id]
+            ]
+            selected = {item.node_id for item in local_nodes}
+        else:
+            # Fallback retains original LayoutInput ordering even when a
+            # caller has supplied a non-preorder but valid parent graph.
+            pending = [node.node_id]
+            selected = set()
+            while pending:
+                current = pending.pop()
+                selected.add(current)
+                pending.extend(child.node_id for child in children[current])
+            local_nodes = sorted(
+                (tree[item_id] for item_id in selected),
+                key=lambda item: node_positions[item.node_id],
+            )
         descendants = []
-        pending = [node.node_id]
-        selected = set()
-        while pending:
-            current = pending.pop()
-            selected.add(current)
-            pending.extend(child.node_id for child in children[current])
         # The parent supplies the available border-box width. For an
         # auto-sized nested Flex, Cinnamon must lay out its children within
         # the content box, leaving the Flex host's padding and border inside.
@@ -216,18 +245,17 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
             for group in ("padding", "border", "margin")
             for side in (1, 3)
         )
-        for item in snapshot.nodes:
-            if item.node_id in selected:
-                style = dict(item.style)
-                if item.node_id == node.node_id and "layout_width" not in style:
-                    style["layout_width"] = Length.px(
-                        max(0.0, available - horizontal_edges)
-                    )
-                descendants.append(LayoutNode(
-                    item.node_id,
-                    None if item.node_id == node.node_id else item.parent_id,
-                    item.component, tuple(sorted(style.items())),
-                ))
+        for item in local_nodes:
+            style = dict(item.style)
+            if item.node_id == node.node_id and "layout_width" not in style:
+                style["layout_width"] = Length.px(
+                    max(0.0, available - horizontal_edges)
+                )
+            descendants.append(LayoutNode(
+                item.node_id,
+                None if item.node_id == node.node_id else item.parent_id,
+                item.component, tuple(sorted(style.items())),
+            ))
         constraints = LayoutConstraints(
             AvailableSize(available, True), AvailableSize(None, False),
         )
@@ -244,10 +272,12 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
             # Nested CSS Flex rows receive their final assigned widths only
             # after Cinnamon's provisional pass. Seeded viewport-width text
             # metrics cannot be reused for wrapped paragraph labels.
+            measured_ids = {metric.node_id for metric in local.measurements}
+            parent_ids = {child.parent_id for child in local.nodes}
             width_ids = frozenset(
                 item.node_id for item in local.nodes
-                if item.node_id in {metric.node_id for metric in local.measurements}
-                and not any(child.parent_id == item.node_id for child in local.nodes)
+                if item.node_id in measured_ids
+                and item.node_id not in parent_ids
                 and "layout_height" not in style_by_id[item.node_id]
                 and item.component in ("Text", "p", "span")
             )
