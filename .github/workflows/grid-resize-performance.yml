@@ -147,6 +147,17 @@ jobs:
               assert any(row["logical_items"] == 60 for row in rows)
               assert {(r["adapter"]) for r in rows} == {"qt", "tk"}
           PY
+      - name: Compare immutable reuse against identical full-rebuild native resizes
+        run: |
+          xvfb-run -a python -u benchmarks/structural_resize_ab.py --engine rust --counts 60 --cycles 5 --output benchmark-results/structural-resize-ab-rust.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          rows = json.loads(Path("benchmark-results/structural-resize-ab-rust.json").read_text())["rows"]
+          assert len(rows) == 8
+          assert all(row["native_widgets"] > 0 for row in rows)
+          assert {row["adapter"] for row in rows} == {"qt", "tk"}
+          PY
       - name: Profile N-element resize hot paths (diagnostic only)
         run: |
           xvfb-run -a python -m cProfile -s cumtime benchmarks/native_resize_scaling.py --engine rust --adapter qt --scenarios cards --counts 60 --cycles 3 --warmup 1 > benchmark-results/qt-60-cprofile.txt
