@@ -400,3 +400,23 @@ def test_kivy_grid_overflow_rejects_invalid_parent_height_without_writes():
             )
         assert tuple(widget.pos) == (2, 3)
         assert tuple(widget.size) == (4, 5)
+
+
+def test_kivy_real_widget_renders_overflow_outside_parent_box():
+    """Real Kivy widgets retain the solver's unclamped bottom-left geometry."""
+    pytest.importorskip("kivy")
+    from kivy.uix.widget import Widget
+
+    parent = Widget(size_hint=(None, None), size=(100, 100))
+    child = Widget(size_hint=(None, None))
+    parent.add_widget(child)
+    receipt = commit_grid_native_geometry(
+        (placement("child", 6, 85, 40, 30),),
+        backend=GridCommitBackend.KIVY,
+        widgets={"child": child},
+        generation=1, current_generation=lambda: 1,
+        is_ui_thread=lambda: True, parent_height=100,
+    )
+    assert tuple(child.pos) == (6, -15)
+    assert tuple(child.size) == (40, 30)
+    assert receipt.max_readback_error == 0
