@@ -52,9 +52,12 @@ class FlowBlueprintReuse:
     are always fresh. No background work and no native handle retention.
     """
 
-    def __init__(self, limit: int = 512):
+    def __init__(self, limit: int = 4096):
         self.limit = limit
         self._entries = OrderedDict()
+
+    def clear(self):
+        self._entries.clear()
 
     def prepare(self, flow, constraints, generation, viewport_constraints, epoch):
         # Include the actual normalized descendants, not just a parent
