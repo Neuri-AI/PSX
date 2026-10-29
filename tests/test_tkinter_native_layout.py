@@ -70,6 +70,27 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.addCleanup(self.renderer.close)
         self.addCleanup(self.reconciler.unmount)
 
+    def test_aqua_surface_sync_skips_only_unchanged_geometry_resizes(self):
+        from unittest.mock import patch
+
+        root = self.reconciler.render(Flex(
+            Text("Constant", key="text"), width="100%", height="100%",
+        ))
+        self.assertIsNotNone(self.renderer._sfle_committed_signatures)
+        with patch.object(self.renderer, "_sync_aqua_layout_surfaces") as sync:
+            self.renderer.set_sfle_constraints(constraints(240, 80))
+            self.renderer.commit_layout(root)
+            sync.assert_not_called()
+            # Theme changes can change native background even without any
+            # declarative property edits: force the original full walk.
+            self.renderer._sfle_measurement_invalidations.request("theme")
+            self.renderer.commit_layout(root)
+            sync.assert_called_once()
+            self.renderer._sfle_measurement_invalidations.acknowledge(
+                self.renderer._sfle_measurement_invalidations.epoch,
+            )
+
+
     def test_css_background_is_scoped_to_a_single_ttk_frame(self):
         first = self.reconciler.render(psx('<div key="same" style="background-color: #112233" />'))
         widget = first.handle.widget
