@@ -27,6 +27,7 @@ class NativeOwnership(str, Enum):
 NativeUpdate: TypeAlias = Callable[[object, Mapping[str, object], frozenset[str]], None]
 NativeBindEvent: TypeAlias = Callable[[object, str, EventSlot], Callable[[], None]]
 _SIGNAL_PREFIX = "on_native_signal:"
+_NATIVE_LAYOUT_PROPS = frozenset({"layout_width", "layout_height"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -352,9 +353,10 @@ def _bind_for(renderer: str) -> NativeBindEvent:
 
 
 def _removed(removed: frozenset[str]) -> None:
-    if removed:
+    unsupported = removed - _NATIVE_LAYOUT_PROPS
+    if unsupported:
         raise ValueError(
-            "Native props cannot be removed without a specialized adapter: " + ", ".join(sorted(removed))
+            "Native props cannot be removed without a specialized adapter: " + ", ".join(sorted(unsupported))
         )
 
 
@@ -363,7 +365,7 @@ def _qt_update(widget: object, changed: Mapping[str, object], removed: frozenset
     if "props" in changed:
         _apply_reactive_props(widget, changed["props"])
     for name, value in changed.items():
-        if name == "props":
+        if name == "props" or name in _NATIVE_LAYOUT_PROPS:
             continue
         # Respect both native Qt setFooBar and Pythonic set_foo_bar.
         # Avoid calling arbitrary methods: only property setters are eligible.
@@ -411,7 +413,7 @@ def _tk_update(widget: object, changed: Mapping[str, object], removed: frozenset
     _removed(removed)
     if "props" in changed:
         _apply_reactive_props(widget, changed["props"])
-    changed = {k: v for k, v in changed.items() if k != "props"}
+    changed = {k: v for k, v in changed.items() if k != "props" and k not in _NATIVE_LAYOUT_PROPS}
     if changed:
         try:
             widget.configure(**changed)  # type: ignore[attr-defined]
@@ -438,7 +440,7 @@ def _kivy_update(widget: object, changed: Mapping[str, object], removed: frozens
     if "props" in changed:
         _apply_reactive_props(widget, changed["props"])
     for name, value in changed.items():
-        if name == "props":
+        if name == "props" or name in _NATIVE_LAYOUT_PROPS:
             continue
         if not hasattr(widget, name):
             raise AttributeError(f"{type(widget).__name__} has no Kivy property {name!r}.")
