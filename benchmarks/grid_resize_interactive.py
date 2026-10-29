@@ -233,6 +233,12 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
             "structural_snapshot_hits": getattr(
                 getattr(renderer, "_sfle_structural_snapshot_reuse", None), "hits", 0,
             ),
+            "css_projection_builds": getattr(
+                getattr(renderer, "_sfle_structural_snapshot_reuse", None), "projections", 0,
+            ),
+            "css_projection_hits": getattr(
+                getattr(renderer, "_sfle_structural_snapshot_reuse", None), "projection_hits", 0,
+            ),
             "cycles": cycles,
             "warmup": warmup,
             "styled": styled,
