@@ -85,6 +85,29 @@ def test_invalid_viewport_values_fail_closed(source):
         parse_length(source)
 
 
+def test_viewport_projection_reuses_nodes_without_units_and_keeps_sources_immutable():
+    root = Flex(Text("static", layout_width="24px"),
+                Text("dynamic", layout_width="50vw"))
+    normalized = normalize_flex_tree(root)
+    constraints = LayoutConstraints(AvailableSize(800, True), AvailableSize(600, True))
+    prepared = prepare_native_layout_snapshot(normalized, constraints, generation=1)
+    original = prepared.snapshot
+    projected = prepared._resolve_viewport_units(original)
+    assert projected is not original
+    assert projected.nodes[0] is original.nodes[0]
+    static_id = next(i for i, node in enumerate(original.nodes)
+                     if dict(node.style).get("layout_width") == "24px")
+    assert projected.nodes[static_id] is original.nodes[static_id]
+    assert any(dict(node.style).get("layout_width") == Length.px(400)
+               for node in projected.nodes)
+    assert any(dict(node.style).get("layout_width") == "50vw"
+               for node in original.nodes)
+    plain = prepare_native_layout_snapshot(
+        normalize_flex_tree(Flex(Text("static"))), constraints, generation=1,
+    )
+    assert plain._resolve_viewport_units(plain.snapshot) is plain.snapshot
+
+
 def test_nested_flow_uses_window_viewport_instead_of_local_grid_constraints():
     # GridItem composition has an allocated width but an intrinsically measured height.
     # Neither constraint is the reference for viewport-relative CSS lengths.
