@@ -455,25 +455,19 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             for node in snapshot.nodes:
                 if node.parent_id is None:
                     continue
-                border, parent = boxes[node.node_id].border, boxes[node.parent_id].border
-                local_x = (LayoutUnit.from_nearest(border.x) -
-                           LayoutUnit.from_nearest(parent.x)).to_px()
-                local_y = (LayoutUnit.from_nearest(border.y) -
-                           LayoutUnit.from_nearest(parent.y)).to_px()
-                parent_widget = bindings[node.parent_id].widget
-                if getattr(parent_widget, "_psx_sfle_scroll", False):
-                    parent_height = border.height
-                elif (node.parent_id == root_id
-                      and getattr(parent_widget, "_psx_sfle_semantic_viewport", False)):
-                    parent_height = float(parent_widget.height)
-                else:
-                    parent_height = parent.height
-                projected_y = (LayoutUnit.from_nearest(parent_height) -
-                               LayoutUnit.from_nearest(local_y) -
-                               LayoutUnit.from_nearest(border.height)).to_px()
+                border = boxes[node.node_id].border
+                root_border = boxes[root_id].border
+                # Kivy native positions are window-space canvas coordinates,
+                # not the parent-local Qt/Tk geometry. Compare like with like.
+                projected_x = (LayoutUnit.from_nearest(border.x) -
+                               LayoutUnit.from_nearest(root_border.x)).to_px() + float(host.x)
+                projected_y = (LayoutUnit.from_nearest(float(host.height))
+                               - (LayoutUnit.from_nearest(border.y) -
+                                  LayoutUnit.from_nearest(root_border.y))
+                               - LayoutUnit.from_nearest(border.height)).to_px() + float(host.y)
                 actual = observed[node.node_id]
                 expected_native = Rect(
-                    local_x, projected_y, border.width, border.height)
+                    projected_x, projected_y, border.width, border.height)
                 actual_native = Rect(
                     *(actual[axis] for axis in ("x", "y", "width", "height")))
                 logical_error, physical_error = pixel_space.error(
