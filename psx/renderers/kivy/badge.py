@@ -53,13 +53,17 @@ class _BadgeLabel(Label):
                 RoundedRectangle(pos=(x, y), size=(width, height), radius=[radius])
             if props["appearance"] == "outline":
                 Color(*hex_rgba(stroke))
+                # Stroke coordinates and width share the same drawable
+                # density. A fixed 1px line becomes too thin on Retina.
+                half = self._psx_badge_pixel_scale / 2
                 Line(
                     rounded_rectangle=(
-                        x + 0.5, y + 0.5,
-                        max(0, width - 1), max(0, height - 1),
-                        max(0, radius - 0.5),
+                        x + half, y + half,
+                        max(0, width - 2 * half),
+                        max(0, height - 2 * half),
+                        max(0, radius - half),
                     ),
-                    width=1,
+                    width=2 * half,
                 )
 
 
