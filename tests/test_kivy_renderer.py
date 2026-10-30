@@ -92,6 +92,34 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                                 text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_retina_resize_prefers_drawable_window_over_system_event_size(self) -> None:
+        script = textwrap.dedent("""
+            from psx.renderers.kivy.kivy import KivyRenderer
+
+            renderer = object.__new__(KivyRenderer)
+            class Window:
+                size = (1600, 1200)
+            window = Window()
+            class Root:
+                parent = window
+                size = (800, 600)
+            root = Root()
+            renderer._sfle_watched_widget = root
+            renderer._sfle_on_window_resize(window, 800, 600)
+            assert root.size == (1600, 1200), root.size
+            # Repeated Cocoa event with unchanged drawable dimensions must
+            # not resize the root or reenter the SFLE transaction.
+            renderer._sfle_on_window_resize(window, 800, 600)
+            assert root.size == (1600, 1200), root.size
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_ARGS"] = "1"
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_css_button_background_overrides_kivy_theme(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
