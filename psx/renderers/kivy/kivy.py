@@ -1680,7 +1680,14 @@ class KivyRenderer:
                         root.size = (width, height)
 
         Clock.schedule_once(sync_attached_viewport, 0)
-        runTouchApp(self._root)
+        try:
+            runTouchApp(self._root)
+        finally:
+            # runTouchApp stops Kivy's EventLoop itself. Release PSX's
+            # window observers and pending layout/resize callbacks on both
+            # normal close and interrupted native loops, so nothing retains
+            # a detached root after the loop returns.
+            self.invalidate_layout()
         return 0
 
     # -- factories --------------------------------------------------------
