@@ -41,7 +41,7 @@ jobs:
       - name: Install native OpenGL/Xvfb runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libmtdev1 libgl1 libx11-6
+          sudo apt-get install -y xvfb xauth libmtdev1 libgl1 libx11-6 libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
           python -m pip install -e '.[kivy,pyside6]' pytest Pillow
       - name: Report actual SDL2 window ratio (this is not a Retina monitor)
         env:
