@@ -66,6 +66,7 @@ def _classify_path(path: str) -> set[str]:
     if path in ("scripts/ci/impact.py", "tests/test_ci_impact.py") or path.startswith("scripts/ci/"):
         return {"router"}
     if path in ("tests/certification/qt_kivy_css_native_raster.py",
+                "tests/certification/qt_kivy_native_text_metrics.py",
                 ".github/workflows/kivy-retina-css-parity.yml"):
         # Native raster fixture exercises both painters, not only CSS parsing.
         return {"router", "qt", "kivy"}
