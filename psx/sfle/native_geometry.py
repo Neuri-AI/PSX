@@ -110,6 +110,15 @@ class NativeGeometryCommitter:
         # Check the full input before applying any geometry. Native mutation
         # itself is non-transactional and must remain on the owner UI thread.
         placements = []
+        # Resolve the Kivy canvas origin once; a parent walk for every node
+        # would turn the O(N) geometry commit into quadratic work.
+        kivy_root = None
+        kivy_root_box = None
+        if self._backend == GeometryBackend.KIVY:
+            root_id = next(node_id for node_id, parent_id in self._parents.items()
+                           if parent_id is None)
+            kivy_root = self._widgets[root_id]
+            kivy_root_box = boxes[root_id]
         for node_id, parent_id in self._parents.items():
             if parent_id is None:
                 continue
@@ -124,16 +133,12 @@ class NativeGeometryCommitter:
                 # translate their canvas by each ancestor's position.
                 # Qt/Tk use parent-local coordinates, but projecting those
                 # values into Kivy places every nested Label at (0, 0).
-                root_id = next(key for key, owner in self._parents.items()
-                               if owner is None)
-                root = self._widgets[root_id]
-                root_box = boxes[root_id]
                 x = (LayoutUnit.from_nearest(border.x)
-                     - LayoutUnit.from_nearest(root_box.x)).to_px() + float(root.x)
-                y = (LayoutUnit.from_nearest(float(root.height))
+                     - LayoutUnit.from_nearest(kivy_root_box.x)).to_px() + float(kivy_root.x)
+                y = (LayoutUnit.from_nearest(float(kivy_root.height))
                      - (LayoutUnit.from_nearest(border.y)
-                        - LayoutUnit.from_nearest(root_box.y))
-                     - LayoutUnit.from_nearest(border.height)).to_px() + float(root.y)
+                        - LayoutUnit.from_nearest(kivy_root_box.y))
+                     - LayoutUnit.from_nearest(border.height)).to_px() + float(kivy_root.y)
             placements.append((node_id, self._widgets[node_id], x, y, border.width, border.height))
         for node_id, widget, x, y, width, height in placements:
             port = self._external_ports.get(node_id)
