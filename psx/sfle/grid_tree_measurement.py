@@ -55,6 +55,7 @@ def prepare_grid_measurement(
     constraints: Mapping[str, GridItemConstraints] | None = None,
     rtl: bool = False,
     breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
+    pixel_scale: float = 1.0,
 ) -> PreparedGridMeasurement:
     """Resolve responsive Grid items against the Grid content box.
 
@@ -72,6 +73,10 @@ def prepare_grid_measurement(
     from .fixed_point import I32_MAX
     if not isfinite(content_width) or content_width < 0 or content_width * 64 > I32_MAX:
         raise GridPackingError("Grid content width is invalid or unrepresentable.")
+    from math import isfinite
+    if (isinstance(pixel_scale, bool) or not isinstance(pixel_scale, (int, float))
+            or not isfinite(pixel_scale) or pixel_scale <= 0):
+        raise GridPackingError("Grid native pixel scale must be finite and positive.")
     props = normalize_grid_props(grid.source.props)
     children = grid.effective_children
     slots: list[GridSlot] = []
@@ -107,8 +112,8 @@ def prepare_grid_measurement(
         item_id: measured[item_id].intrinsic.preferred_height for item_id in ids
     }
     rows = compute_grid(
-        slots, content_width, _pixel(props["column_gap"], "Grid.column_gap"),
-        _pixel(props["row_gap"], "Grid.row_gap"),
+        slots, content_width, _pixel(props["column_gap"], "Grid.column_gap") * pixel_scale,
+        _pixel(props["row_gap"], "Grid.row_gap") * pixel_scale,
         heights, limits, rtl=rtl,
     )
     placements = plan_grid_native_geometry(
