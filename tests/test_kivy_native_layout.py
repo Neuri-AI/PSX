@@ -1511,6 +1511,47 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                                 capture_output=True, text=True, timeout=45)
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_simulated_retina_css_px_preserves_font_padding_and_height(self):
+        """A 2x drawable viewport requires 2x native geometry, not 2x CSS units."""
+        script = textwrap.dedent(r'''
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            # A deterministic 2x window/system ratio, independent of the
+            # headless CI monitor's real physical density.
+            KivyRenderer._read_css_pixel_scale = staticmethod(lambda: 2.0)
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(800, True), AvailableSize(600, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(psx("""
+                <div style="height:100vh">
+                    <button style="height:38px; font-size:15px; padding:0px 10px">Save</button>
+                </div>
+            """))
+            button = root.children[0].handle.widget
+            assert abs(button.height - 76) <= 1, button.size
+            assert abs(button.font_size - 30) <= 0.01, button.font_size
+            assert list(button.padding) == [20, 0, 20, 0], button.padding
+            assert abs(root.handle.widget.height - 600) <= 1
+            tree.unmount()
+        ''')
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            env=environment, capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_two_grid_items_fill_row_with_unrestricted_auto_span(self):
         script = textwrap.dedent(r'''
             import os
