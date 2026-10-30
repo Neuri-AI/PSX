@@ -77,3 +77,23 @@ def test_one_pixel_side_border_uses_same_retina_raster_policy(scale, kind):
     renderer.apply_css(handle, None)
     assert not hasattr(widget, "_psx_css_side_strokes")
     assert not hasattr(widget, "_psx_css_control_side_strokes")
+
+
+
+@pytest.mark.parametrize("kind", ("div", "Button"))
+def test_authored_css_cursor_reaches_renderer_and_releases_window_binding(kind):
+    renderer = KivyRenderer()
+    widget = Widget() if kind == "div" else Button()
+    handle = KivyHandle(kind, widget, {})
+    renderer.apply_css(handle, _style("cursor: pointer"))
+    manager = renderer._psx_css_cursor_manager
+    assert manager.styles[widget] == "pointer"
+    renderer.apply_css(handle, _style("cursor: default"))
+    assert manager.styles[widget] == "default"
+    renderer.apply_css(handle, _style("cursor: auto"))
+    assert widget not in manager.styles
+    renderer.apply_css(handle, _style("cursor: pointer"))
+    assert manager.styles[widget] == "pointer"
+    renderer.apply_css(handle, None)
+    assert widget not in manager.styles
+    assert manager._bound is False
