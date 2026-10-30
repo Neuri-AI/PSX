@@ -40,3 +40,19 @@ The same SHA also passed [Native reactive contract](https://github.com/Neuri-AI/
 **Public behavior census:** N/A for the new correction, which repairs the preexisting Button CSS reset contract rather than advertising a new property. Existing public behavior certification jobs were run and passed.
 
 This document is a record of tests at the exact implementation SHA; do not transfer its PASS status to another commit without rerunning the required validation. No merge to `develop` is authorized by this stage-specific evidence.
+
+## Retina/macOS review — reopening the cross-display CSS acceptance gate (2026-10-29)
+
+**Status correction:** the PASS above is limited to the tested Linux logical-coordinate configurations. **Do not interpret it as a completed macOS Retina stage-2 CSS acceptance certificate.** The owner reported half-size Kivy interfaces on Retina displays and requested this stage be repeated for high-DPI configurations. That requirement remains OPEN pending real native/macOS evidence.
+
+The Kivy issue [#8140](https://github.com/kivy/kivy/issues/8140) documents a `Window.size` versus widget/window-coordinate discrepancy that was addressed in upstream PR #8630, but varying Kivy versions and Cocoa/SDL providers still require verifying the current installed runtime. In Kivy the `Window.size` getter represents drawable pixels and `Window.system_size` represents window-coordinate dimensions; the ratio may be approximately 2 on Retina hardware. `dp()` and `sp()` are styling conversions, not a license to multiply already-physical coordinates or to use `Window.size` as the CSS logical viewport unconditionally.
+
+Current PSX source paths requiring coordinated verification before modifying DPI conversions:
+
+1. `psx/renderers/kivy/kivy.py`: `_sfle_on_window_resize`, `_sfle_on_root_size`, `set_sfle_constraints`, `apply_css`. These currently use the attached native window/root dimensions; there is no demonstrated mapping from Qt's logical CSS viewport to Kivy's drawable/window-coordinate distinction.
+2. `psx/sfle/native_pixel_space.py`: `DevicePixelSpace.from_widget('kivy', ...)` currently returns scale 1 unconditionally. The existing comment treats widget `pos/size` as Kivy pixel coordinates. This may be correct for the widget API but does not prove Qt-logical-to-Kivy-drawable visual parity.
+3. `psx/sfle/kivy_layout_bridge.py` and `grid_native_commit.py`: preserve Cinnamon's single geometry authority and inverse-Y projection. Native readback, paint rectangles, control strokes and touch hit-testing must agree in the same space.
+4. `psx/sfle/kivy_measurement.py`: font textures, glyph/textarea metrics, and `dp`-scaled intrinsic minima must match the selected logical space. CSS `font-size`, `line-height`, padding, border and widths must scale coherently, not independently.
+5. `tests/test_kivy_renderer.py::test_css_px_font_matches_cinnamon_at_all_density_settings` currently expects raw numeric font sizes even at density 2, reflecting the old assumption. Its existing pass is **not** Retina visual equivalence evidence.
+
+**Mandatory acceptance before re-closing:** real macOS Retina and non-Retina native Kivy/PySide6 paired executions at scale 1 and 2 (plus fractional ratio if supported); capture both `Window.size` and `Window.system_size`, Metrics.density/fontscale, logical Cinnamon rectangles, widget geometry and screenshot dimensions; confirm a CSS `height:38px`, `font-size:15px`, `padding:0 10px`, `line-height` and border yield the same on-screen logical proportions; confirm unchanged event targets and continuous resize without feedback; repeat both Cinnamon Rust and Python. No implicit platform-wide `Metrics.density` override, `Window.size = Window.size`, or native BoxLayout replacement is approved. This is a blocker, not an already executed certificate.
