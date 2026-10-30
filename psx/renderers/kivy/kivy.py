@@ -542,10 +542,21 @@ class KivyRenderer:
 
     def _sfle_on_window_resize(self, window, width: float, height: float) -> None:
         # A free-standing preview root must not follow a different Kivy window.
-        if (self._sfle_watched_widget is not None
-                and self._sfle_watched_widget.parent is window
-                and width > 0 and height > 0):
-            self._sfle_watched_widget.size = (width, height)
+        root = self._sfle_watched_widget
+        if (root is None or root.parent is not window
+                or width <= 0 or height <= 0):
+            return
+        new_size = (width, height)
+        # Some Cocoa/SDL2 providers dispatch resize callbacks while applying
+        # an earlier resize. Never write identical properties (which may
+        # dispatch again), nor re-enter a Kivy property change transaction.
+        if tuple(root.size) == new_size or getattr(self, "_sfle_window_resizing", False):
+            return
+        self._sfle_window_resizing = True
+        try:
+            root.size = new_size
+        finally:
+            self._sfle_window_resizing = False
 
     def _sfle_flush_viewport_resize(self, epoch: int) -> None:
         self._sfle_resize_event = None
