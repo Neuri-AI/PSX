@@ -127,6 +127,44 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             self.skipTest("No usable Kivy window provider.")
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_css_button_font_reset_respects_updated_component_prop(self) -> None:
+        """A keyed Button update must not restore its first-mount font size."""
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
+        script = textwrap.dedent("""
+            from psx import Button
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.css.parser import parse_stylesheet
+            from psx.css.cascade import StyleTarget, resolve_style
+
+            renderer = KivyRenderer()
+            reconciler = Reconciler(renderer)
+            instance = reconciler.render(Button("Save", font_size=14))
+            handle = instance.handle
+            widget = handle.widget
+            styled = resolve_style(parse_stylesheet(
+                "button { font-size: 16px; }"
+            ), StyleTarget("button"))
+            unstyled = resolve_style(parse_stylesheet(""), StyleTarget("button"))
+            renderer.apply_css(handle, styled)
+            assert widget.font_size == 16
+            renderer.update(handle, {"font_size": 22}, frozenset())
+            renderer.apply_css(handle, styled)
+            assert widget.font_size == 16
+            renderer.apply_css(handle, unstyled)
+            assert widget.font_size == 22
+            assert handle.widget is widget
+            reconciler.unmount()
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        if "Unable to get a Window" in result.stderr:
+            self.skipTest("No usable Kivy window provider.")
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_counter_preserves_button_identity_and_uses_clock_scheduler(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
