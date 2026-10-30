@@ -44,6 +44,12 @@ def compile_component(function: Callable[..., object]) -> Callable[..., object]:
     interpolation never reads a frame, evaluates text, or invokes a compiler.
     Non-literal PSX calls and explicit-scope calls retain their current API.
     """
+    # velto build transforms every project module before PyInstaller analysis.
+    # Frozen components already contain lexical bindings in their code objects;
+    # inspecting their original source would both fail and require shipping .py.
+    if function.__globals__.get("__psx_build_precompiled__") is True:
+        return function
+
     try:
         lines, start_line = inspect.getsourcelines(function)
     except (OSError, TypeError):
