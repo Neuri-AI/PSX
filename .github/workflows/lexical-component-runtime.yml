@@ -7,10 +7,12 @@ on:
       - 'psx/markup/component_compiler.py'
       - 'psx/markup/transform.py'
       - 'tests/test_component_lexical_runtime.py'
+      - 'tests/test_markup_transform.py'
       - '.github/workflows/lexical-component-runtime.yml'
   push:
     branches:
       - 'fix/component-lexical-psx-runtime'
+      - 'fixes/psx-issues'
     paths:
       - 'psx/core/component.py'
       - 'psx/markup/component_compiler.py'
@@ -33,4 +35,4 @@ jobs:
       - name: Install package and pytest
         run: python -m pip install -e . pytest
       - name: Verify normal Python startup and hooks
-        run: python -m pytest -q tests/test_component_lexical_runtime.py
+        run: python -m pytest -q tests/test_component_lexical_runtime.py tests/test_markup_transform.py
