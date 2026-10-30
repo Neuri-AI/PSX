@@ -279,9 +279,10 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             # Some Kivy SDL2 text providers report glyph-tight textures
             # even when text_size constrains the label. Only native
             # unwrapped width and state restoration are portable invariants.
-            assert 0 < natural.preferred_width <= 800
-            assert natural.preferred_height > 0
-            assert label.text_size == (800.0, None)
+            print("NATIVE_TEXT_PROBE", natural, label.text_size, flush=True)
+            assert 0 < natural.preferred_width <= 800, natural
+            assert natural.preferred_height > 0, natural
+            assert tuple(label.text_size) == (800.0, None), label.text_size
         """)
         result = subprocess.run(
             [sys.executable, "-c", script], env=environment,
