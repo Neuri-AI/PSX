@@ -327,6 +327,56 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_control_text_align_respects_padding_and_resize_then_resets(self):
+        """Native Label.halign needs an authored content-width text_size."""
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
+        script = textwrap.dedent("""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.button import Button
+            from kivy.uix.spinner import Spinner
+            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
+            from psx.css.parser import parse_stylesheet
+            from psx.css.cascade import StyleTarget, resolve_style
+
+            def style(decls):
+                return resolve_style(parse_stylesheet(
+                    "button {" + decls + "}"
+                ), StyleTarget("button"))
+            renderer = KivyRenderer()
+            aligned = style("text-align:right; padding:0px 10px")
+            empty = style("")
+            for kind, widget in (
+                ("Button", Button(text="Save")),
+                ("Select", Spinner(text="One")),
+                ("Link", Button(text="Go")),
+            ):
+                widget.size_hint = (None, None)
+                widget.size = (160, 40)
+                original = tuple(widget.text_size)
+                handle = KivyHandle(kind, widget, {})
+                renderer.apply_css(handle, aligned)
+                assert widget.halign == "right", (kind, widget.halign)
+                assert abs(widget.text_size[0] - 140) < 1, (
+                    kind, widget.text_size
+                )
+                widget.width = 200
+                assert abs(widget.text_size[0] - 180) < 1, (
+                    kind, widget.text_size
+                )
+                renderer.apply_css(handle, empty)
+                assert tuple(widget.text_size) == original, (
+                    kind, widget.text_size, original
+                )
+                assert not hasattr(widget, "_psx_css_text_align_resize")
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_css_button_background_overrides_kivy_theme(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
