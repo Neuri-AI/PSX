@@ -5,6 +5,13 @@ from scripts.ci.impact import SUITES, classify
 
 
 class RoutingTests(unittest.TestCase):
+    def test_qt_kivy_visual_raster_routes_to_both_native_backends(self):
+        for path in ("tests/certification/qt_kivy_css_native_raster.py",
+                     ".github/workflows/kivy-retina-css-parity.yml"):
+            self.assertEqual(
+                set(classify([path])["selected"]), {"router", "qt", "kivy"}
+            )
+
     def selected(self, *paths):
         return set(classify(list(paths))["selected"])
 
