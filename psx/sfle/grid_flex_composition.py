@@ -120,9 +120,12 @@ def prepare_composed_flex(
     prepared = prepare_native_layout_snapshot(
         flex, constraints, generation=generation,
     )
-    prepared = replace(
-        prepared, snapshot=prepared.css_geometry_snapshot(pixel_scale=pixel_scale)
-    )
+    if pixel_scale != 1.0:
+        # Preserve certified Qt/Tk 1x composition exactly. Only Kivy
+        # drawable-space projection needs authored CSS px conversion.
+        prepared = replace(
+            prepared, snapshot=prepared.css_geometry_snapshot(pixel_scale=pixel_scale)
+        )
     prepared = _with_auto_root_content_width(
         prepared, flex, content_width, pixel_scale,
     )
