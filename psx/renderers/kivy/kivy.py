@@ -394,6 +394,7 @@ class KivyRenderer:
         self._sfle_watched_widget = None
         self._sfle_resize_pending = None
         self._sfle_resize_event = None
+        self._sfle_window_resize_event = None
         self._sfle_resize_epoch = 0
         self._sfle_resize_error: Exception | None = None
         self._sfle_textarea_event = None
@@ -527,7 +528,9 @@ class KivyRenderer:
         self._sfle_constraints = constraints
         self._sfle_generation += 1
         if self._root is not None:
-            self._root.size = (constraints.width.value, constraints.height.value)
+            desired = (constraints.width.value, constraints.height.value)
+            if tuple(self._root.size) != desired:
+                self._root.size = desired
 
     def _sfle_on_root_size(self, widget: Widget, size: object) -> None:
         if widget is not self._sfle_watched_widget:
@@ -547,41 +550,38 @@ class KivyRenderer:
             )
 
     def _sfle_on_window_resize(self, window, width: float, height: float) -> None:
-        # A free-standing preview root must not follow a different Kivy window.
+        """Coalesce SDL/Cocoa resize events without mutating native geometry.
+
+        The callback arguments and Window.size can describe different resize
+        epochs on macOS Retina displays. Do not mix them, or dispatch root
+        size changes while SDL is still delivering on_resize.
+        """
         root = self._sfle_watched_widget
-        if (root is None or root.parent is not window
-                or width <= 0 or height <= 0):
+        if root is None or root.parent is not window:
             return
-        # Cocoa/SDL2 may dispatch width/height in window-coordinate units
-        # while Window.size reports drawable pixels. Cinnamon and Widget.pos
-        # use the drawable viewport: never size the root from a potentially
-        # half-resolution macOS event payload.
+        if self._sfle_window_resize_event is not None:
+            return
+        epoch = self._sfle_resize_epoch
+        self._sfle_window_resize_event = Clock.schedule_once(
+            lambda _dt: self._sfle_flush_window_resize(window, epoch), 0,
+        )
+
+    def _sfle_flush_window_resize(self, window, epoch: int) -> None:
+        self._sfle_window_resize_event = None
+        root = self._sfle_watched_widget
+        if (epoch != self._sfle_resize_epoch or root is None
+                or root.parent is not window):
+            return
+        # Window.size is Kivy's current drawable-space geometry. The
+        # on_resize payload may still be in Cocoa point coordinates.
         drawable = getattr(window, "size", None)
-        system = getattr(window, "system_size", None)
-        new_size = (width, height)
-        if (drawable is not None and system is not None
-                and len(drawable) == 2 and len(system) == 2
-                and all(isinstance(v, (float, int)) and v > 0
-                        for v in (*drawable, *system))):
-            density = tuple(drawable[index] / system[index] for index in (0, 1))
-            # Only substitute the backing pixel dimensions when the
-            # callback actually reports *current system_size*. Synthetic
-            # on_resize dispatches used by integrations/tests can specify a
-            # new viewport without changing Window.system_size first.
-            if (any(abs(value - 1.0) > .01 for value in density)
-                    and all(abs(value - system[index]) <= 1.0
-                            for index, value in enumerate((width, height)))):
-                new_size = tuple(drawable)
-        # Some Cocoa/SDL2 providers dispatch resize callbacks while applying
-        # an earlier resize. Never write identical properties (which may
-        # dispatch again), nor re-enter a Kivy property change transaction.
-        if tuple(root.size) == new_size or getattr(self, "_sfle_window_resizing", False):
+        if (drawable is None or len(drawable) != 2
+                or any(not isinstance(value, (int, float)) or value <= 0
+                       for value in drawable)):
             return
-        self._sfle_window_resizing = True
-        try:
+        new_size = tuple(drawable)
+        if tuple(root.size) != new_size:
             root.size = new_size
-        finally:
-            self._sfle_window_resizing = False
 
     def _sfle_flush_viewport_resize(self, epoch: int) -> None:
         self._sfle_resize_event = None
@@ -594,6 +594,9 @@ class KivyRenderer:
         root = self._sfle_mounted_root
         if root.disposed:
             return
+        # Drop an obsolete size notification if another native event has
+        # already resized the mounted root before this Clock callback.
+        size = tuple(root.native_handle().widget.size)
         from psx.sfle.model import AvailableSize
         try:
             self.set_sfle_constraints(LayoutConstraints(
@@ -704,6 +707,9 @@ class KivyRenderer:
             if self._sfle_resize_event is not None:
                 self._sfle_resize_event.cancel()
                 self._sfle_resize_event = None
+            if self._sfle_window_resize_event is not None:
+                self._sfle_window_resize_event.cancel()
+                self._sfle_window_resize_event = None
             widget.bind(size=self._sfle_on_root_size)
             self._sfle_watched_widget = widget
         from kivy.core.window import Window
@@ -744,6 +750,9 @@ class KivyRenderer:
             if self._sfle_resize_event is not None:
                 self._sfle_resize_event.cancel()
                 self._sfle_resize_event = None
+            if self._sfle_window_resize_event is not None:
+                self._sfle_window_resize_event.cancel()
+                self._sfle_window_resize_event = None
             if self._sfle_watched_widget is not None:
                 self._sfle_watched_widget.unbind(size=self._sfle_on_root_size)
                 self._sfle_watched_widget = None
