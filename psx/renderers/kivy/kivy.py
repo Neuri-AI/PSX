@@ -948,7 +948,10 @@ class KivyRenderer:
             from .css_cursor import KivyCssCursorManager
             cursor_manager = KivyCssCursorManager(Window)
             self._psx_css_cursor_manager = cursor_manager
-        if cursor_manager is not None:
+        if cursor_manager is not None and (
+            cursor_value in ("pointer", "default")
+            or target.widget in cursor_manager.styles
+        ):
             cursor_manager.set_style(target.widget, cursor_value)
 
         # Apply one owned stroke to both HTML-like boxes and PascalCase
