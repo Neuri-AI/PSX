@@ -758,6 +758,10 @@ class KivyRenderer:
         self._sfle_image_resource_watch.clear()
         self._sfle_resource_poll_scheduled = False
         self._sfle_mounted_root = None
+        cursor_manager = getattr(self, "_psx_css_cursor_manager", None)
+        if cursor_manager is not None:
+            cursor_manager.close()
+            self._psx_css_cursor_manager = None
         if self._sfle_constraints is not None:
             self._sfle_generation += 1
             self._sfle_resize_epoch += 1
