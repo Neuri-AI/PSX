@@ -1388,7 +1388,7 @@ class TkinterRenderer:
                     dict(relx=1, x=-n, y=0, width=n, relheight=1),
                 )
                 for edge, place in zip(edges, placements):
-                    edge.configure(background=color)
+                    edge.configure(background=color, cursor=str(widget.cget("cursor")))
                     edge.place(**place)
                     edge.lift()
                 if not r or (target.node_type in FORMATTING_TAGS
