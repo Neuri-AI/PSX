@@ -945,7 +945,9 @@ class KivyRenderer:
             )
             widget = target.widget
             radius = native_border_radius(computed) * pixel_scale
-            sides = tuple(
+            # A uniform CSS border is already painted by the full rounded
+            # stroke above. Painting its four sides again doubles the width.
+            sides = () if native_border_paint(computed, alpha=True) is not None else tuple(
                 (side, thickness * pixel_scale, color)
                 for side, thickness, color in native_side_border_paint(computed)
             )
@@ -1271,7 +1273,11 @@ class KivyRenderer:
         radius = native_border_radius(computed) * pixel_scale
         from psx.sfle.lengths import Length, LengthKind
         from kivy.graphics import Line
-        side_styles = tuple((side, thickness * pixel_scale, color) for side, thickness, color in native_side_border_paint(computed))
+        # Uniform borders own one closed stroke. Per-side instructions are
+        # reserved for asymmetric edges; otherwise Retina draws each twice.
+        side_styles = (() if border_rgba(computed) is not None else
+                       tuple((side, thickness * pixel_scale, color)
+                             for side, thickness, color in native_side_border_paint(computed)))
         old_side = getattr(widget, "_psx_css_side_strokes", None)
         if old_side is not None and old_side[2] != side_styles:
             group, redraw, _styles, _lines = old_side
