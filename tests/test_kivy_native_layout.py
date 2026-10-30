@@ -1707,6 +1707,61 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_retina_sidebar_buttons_use_css_height_spacing_and_padding(self):
+        """CSS sidebar gaps and 38px button boxes must survive nested Grid."""
+        script = textwrap.dedent(r'''
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            KivyRenderer._read_css_pixel_scale = staticmethod(lambda: 2.0)
+            renderer = KivyRenderer(sfle_constraints=LayoutConstraints(
+                AvailableSize(1600, True), AvailableSize(1200, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(psx("""
+                <div style="height:100vh">
+                    <Grid gap="0px">
+                        <GridItem span="2">
+                            <div style="height:100vh;background:#1f2430;padding:20px 12px;display:flex;flex-direction:column;gap:20px">
+                                <h5 style="margin-left:8px">Mi panel</h5>
+                                <div style="display:flex;flex-direction:column;gap:10px">
+                                    <button style="height:38px;font-size:15px;padding:0px 10px;background:#3b6ef5;color:white;text-align:left">Resumen</button>
+                                    <button style="height:38px;font-size:15px;padding:0px 10px;color:#6b7385;text-align:left">Usuarios</button>
+                                    <button style="height:38px;font-size:15px;padding:0px 10px;color:#6b7385;text-align:left">Reportes</button>
+                                </div>
+                            </div>
+                        </GridItem>
+                    </Grid>
+                </div>
+            """))
+            sidebar = root.children[0].children[0].children[0]
+            nav = sidebar.children[1]
+            buttons = [item.handle.widget for item in nav.children]
+            assert len(buttons) == 3
+            for item in buttons:
+                assert abs(item.height - 76) <= 1, (item.pos, item.size)
+            for first, second in zip(buttons, buttons[1:]):
+                gap = first.y - (second.y + second.height)
+                assert abs(gap - 20) <= 1, (gap, first.pos, second.pos)
+            assert all(abs(item.x - (sidebar.handle.widget.x + 24)) <= 1
+                       for item in buttons), [item.pos for item in buttons]
+            assert buttons[1].background_normal == ""
+            assert buttons[1]._psx_css_button_background[2].rgba[3] == 0
+            tree.unmount()
+        ''')
+        environment = dict(os.environ, KIVY_NO_FILELOG="1", KIVY_NO_ARGS="1")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_two_grid_items_fill_row_with_unrestricted_auto_span(self):
         script = textwrap.dedent(r'''
             import os
