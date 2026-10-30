@@ -710,7 +710,12 @@ def compose_geometry_batch(
                     scroll_width, scroll_extent, False, False,
                 ))
                 widgets[flow_id] = handles[id(content_root.source)]
-                heights[flow_id] = scroll_height
+                # A Kivy ScrollView translates its own viewport canvas.
+                # The content root starts at the bottom of that *content*
+                # extent, not relative to the shorter visible viewport.
+                # Using scroll_height here shifts the entire flow upward
+                # when scroll_extent > scroll_height, leaving a black gap.
+                heights[flow_id] = scroll_extent
                 boxes = dict(flow.result.boxes)
                 nodes_by_id = {node.node_id: node for node in flow.prepared.snapshot.nodes}
                 for source_id, source in flow.prepared.identities[1:]:
