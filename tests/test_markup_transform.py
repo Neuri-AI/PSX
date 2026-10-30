@@ -259,12 +259,12 @@ def Sidebar():
                    side_effect=AssertionError("source inspection is forbidden")):
             namespace: dict[str, object] = {"__name__": "frozen_sidebar"}
             exec(compile(generated.source, "/missing/sidebar.py", "exec"), namespace)
-            root = Reconciler(HeadlessRenderer()).render(namespace["Sidebar"]())
+            root = Reconciler(measured_headless()).render(namespace["Sidebar"]())
             self.assertIsNotNone(root)
 
     def test_frozen_module_marker_is_after_future_imports(self) -> None:
         generated = transform_source(
-            "from __future__ import annotations\\nvalue = 42\\n",
+            "from __future__ import annotations\nvalue = 42\n",
             precompiled=True,
         )
         namespace: dict[str, object] = {}
