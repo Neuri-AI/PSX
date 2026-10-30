@@ -1448,6 +1448,62 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_css_fixed_heights_use_cinnamon_not_kivy_defaults(self):
+        """CSS height:30px must appear in native geometry without feedback hangs."""
+        script = textwrap.dedent(r'''
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.clock import Clock
+            from kivy.core.window import Window
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(800, True), AvailableSize(600, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(psx("""
+                <div style="height:100vh">
+                    <div style="height:30px; background:red"><p>First</p></div>
+                    <div style="height:50px; background:blue"><p>Second</p></div>
+                </div>
+            """))
+            first, second = root.children
+            assert abs(first.handle.widget.height - 30) <= 1, first.handle.widget.size
+            assert abs(second.handle.widget.height - 50) <= 1, second.handle.widget.size
+            assert abs(second.handle.widget.y - (600 - 30 - 50)) <= 1, (
+                first.handle.widget.pos, second.handle.widget.pos,
+            )
+            Window.size = (800, 600)
+            Window.add_widget(root.handle.widget)
+            try:
+                for _ in range(15):
+                    Clock.tick()
+                assert renderer._sfle_resize_error is None, renderer._sfle_resize_error
+                assert abs(first.handle.widget.height - 30) <= 1
+                assert abs(second.handle.widget.height - 50) <= 1
+                Window.dispatch("on_resize", 700, 500)
+                for _ in range(15):
+                    Clock.tick()
+                assert renderer._sfle_resize_error is None, renderer._sfle_resize_error
+                assert abs(first.handle.widget.height - 30) <= 1
+                assert abs(second.handle.widget.height - 50) <= 1
+            finally:
+                Window.remove_widget(root.handle.widget)
+                tree.unmount()
+        ''')
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        result = subprocess.run([sys.executable, "-c", script], env=environment,
+                                capture_output=True, text=True, timeout=45)
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_two_grid_items_fill_row_with_unrestricted_auto_span(self):
         script = textwrap.dedent(r'''
             import os
