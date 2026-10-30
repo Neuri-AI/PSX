@@ -78,3 +78,31 @@ sample must not be relabeled as full stage 3.
 
 **No known native OpenGL limitation may be replaced with a skipped test,
 synthetic screenshot, hardcoded theme color, or false certification PASS.**
+
+
+## Latest representative native border parity evidence (2026-10-30)
+
+The dashboard audit exposed a concrete Kivy OpenGL stroke raster coverage error:
+a CSS 2px border was visibly four pixels wide (and leaked one pixel outside
+the Qt border box) at native 1x Linux resolution. The CSS geometry was not
+the source of this difference; Kivy's `Line` rasterizer covered a wider
+pixel footprint than its nominal numeric width.
+
+The visual gate now independently classifies straight border edges and
+rejects width errors even when rounded-corner tolerance is met. We calibrated
+the **Kivy line painter only**, leaving CSS values, Cinnamon geometry, and
+Qt/Tk renderers unchanged. Paired native Qt/QSS and SDL2/OpenGL screenshots
+from [run 41007052598](https://github.com/Neuri-AI/PSX/actions/runs/41007052598)
+show **0.0% straight-edge classification disagreement** in all four
+light/dark box/button fixtures. Corner disagreement is **14.0625% light**
+and **7.4219% dark**; pixel-perfect fidelity is not asserted. The gate has
+been tightened to 15% for corners and 15% for straight edges.
+
+These are Linux Xvfb/SDL2 results. They neither certify a full real-world
+dashboard nor substitute for the user's macOS Retina and Windows GPU
+screenshots. Hosted macOS runners fail to create the necessary SDL2/OpenGL
+context, and hosted Windows reports the Microsoft GDI Generic OpenGL 1.1
+renderer. Both remain explicit native-graphics blockers, not silently
+skipped tests. Before Stage 3 closure, verify the same border width, sidebar
+spacing, header greeting, card padding and right-aligned activity dates in
+real macOS/Windows UI screenshots with both Cinnamon engines.
