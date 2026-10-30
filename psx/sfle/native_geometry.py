@@ -1,8 +1,8 @@
 """Native geometry adapters for the resolved SFLE rectangle contract.
 
-Boxes use absolute top-left logical coordinates. Toolkit child positions
-are relative to their actual native parent; Kivy's vertical origin is
-bottom-left. The root host/window is never resized by this adapter.
+Boxes use absolute top-left logical coordinates. Qt/Tk widget geometry is
+parent-local; Kivy widget positions/canvas instructions use the native window
+plane, with a bottom-left Y origin. The root host is adapter-owned.
 """
 from __future__ import annotations
 
@@ -119,20 +119,21 @@ class NativeGeometryCommitter:
             x = (LayoutUnit.from_nearest(border.x) - LayoutUnit.from_nearest(parent.x)).to_px()
             y = (LayoutUnit.from_nearest(border.y) - LayoutUnit.from_nearest(parent.y)).to_px()
             if self._backend == GeometryBackend.KIVY:
-                # A ScrollView renders its explicit Flex root in a separate
-                # content Widget whose extent is the child's SFLE border box.
-                # Its bottom-left projection must use that content extent,
-                # not the clipped viewport height.
-                parent_widget = self._widgets.get(parent_id)
-                if getattr(parent_widget, "_psx_sfle_scroll", False):
-                    parent_height = border.height
-                elif (self._parents[parent_id] is None
-                      and getattr(parent_widget, "_psx_sfle_semantic_viewport", False)):
-                    parent_height = float(parent_widget.height)
-                else:
-                    parent_height = parent.height
-                y = (LayoutUnit.from_nearest(parent_height) - LayoutUnit.from_nearest(y)
-                     - LayoutUnit.from_nearest(border.height)).to_px()
+                # Kivy Widget.pos and canvas instructions share the native
+                # window coordinate plane. Merely nesting widgets does NOT
+                # translate their canvas by each ancestor's position.
+                # Qt/Tk use parent-local coordinates, but projecting those
+                # values into Kivy places every nested Label at (0, 0).
+                root_id = next(key for key, owner in self._parents.items()
+                               if owner is None)
+                root = self._widgets[root_id]
+                root_box = boxes[root_id]
+                x = (LayoutUnit.from_nearest(border.x)
+                     - LayoutUnit.from_nearest(root_box.x)).to_px() + float(root.x)
+                y = (LayoutUnit.from_nearest(float(root.height))
+                     - (LayoutUnit.from_nearest(border.y)
+                        - LayoutUnit.from_nearest(root_box.y))
+                     - LayoutUnit.from_nearest(border.height)).to_px() + float(root.y)
             placements.append((node_id, self._widgets[node_id], x, y, border.width, border.height))
         for node_id, widget, x, y, width, height in placements:
             port = self._external_ports.get(node_id)
