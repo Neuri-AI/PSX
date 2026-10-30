@@ -147,6 +147,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                 pixel_scale=(getattr(renderer, "_psx_css_pixel_scale", 1.0)
                              if backend is GridCommitBackend.KIVY else 1.0),
+                kivy_text_basis=(backend is GridCommitBackend.KIVY),
             )
             prepared = composed.prepared
             batch, commit_widgets, composed_heights = compose_geometry_batch(
