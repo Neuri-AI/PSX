@@ -437,6 +437,43 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_badge_font_uses_current_drawable_scale_not_fixed_double_size(self):
+        """Badge presentation follows the live screen scale without remount."""
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
+        script = textwrap.dedent("""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import Badge
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+
+            renderer = KivyRenderer()
+            tree = Reconciler(renderer)
+            mounted = tree.render(Badge(label="READY"))
+            handle = mounted.handle
+            widget = handle.widget
+            base = widget.font_size
+            logical_scale = widget._psx_badge_pixel_scale
+            assert logical_scale == renderer._psx_css_pixel_scale
+            # Shared Badge font is point-sized in Qt; Kivy converts it
+            # at CSS 96/72 DPI, not an unconditional 2x multiplier.
+            assert abs(base - 12 * (96 / 72) * logical_scale) < 0.02
+            renderer._psx_css_pixel_scale = logical_scale * 2
+            renderer._scale_component_font(handle)
+            assert widget.font_size == base * 2
+            assert mounted.handle.widget is widget
+            renderer._psx_css_pixel_scale = logical_scale
+            renderer._scale_component_font(handle)
+            assert abs(widget.font_size - base) < 0.02
+            tree.unmount()
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_css_button_background_overrides_kivy_theme(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
