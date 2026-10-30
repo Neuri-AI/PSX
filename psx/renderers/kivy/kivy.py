@@ -367,6 +367,7 @@ class KivyRenderer:
         self._sfle_constraints = sfle_constraints
         self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
         self._sfle_backend = "kivy"
+        self._psx_css_pixel_scale = self._read_css_pixel_scale()
         self._sfle_generation = 0
         from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
         self._sfle_measurement_invalidations = MeasurementInvalidations()
@@ -607,9 +608,20 @@ class KivyRenderer:
             import logging
             logging.getLogger(__name__).exception("Kivy TextArea SFLE remeasurement failed")
 
+    @staticmethod
+    def _read_css_pixel_scale() -> float:
+        from kivy.core.window import Window
+        from psx.sfle.kivy_display_scale import KivyDisplayScale
+        return KivyDisplayScale.from_window(Window).uniform
+
     def commit_layout(self, root: object) -> None:
         if self._sfle_constraints is None:
             return
+        current_scale = self._read_css_pixel_scale()
+        if current_scale != self._psx_css_pixel_scale:
+            self._psx_css_pixel_scale = current_scale
+            self._sfle_generation += 1
+            self._sfle_measurement_invalidations.request("font")
         from psx.sfle.native_grid_bridge import is_mounted_native_grid_root, commit_native_grid
         from psx.sfle.grid_native_commit import GridCommitBackend
         from psx.sfle.kivy_layout_bridge import commit_kivy_sfle
@@ -821,6 +833,7 @@ class KivyRenderer:
         from kivy.graphics import Color, InstructionGroup, Rectangle
 
         target = _handle(handle)
+        pixel_scale = getattr(self, "_psx_css_pixel_scale", 1.0)
         # Apply one owned stroke to both HTML-like boxes and PascalCase
         # controls, before the typography branches return.
         if target.node_type in ("Text", "Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Badge"):
@@ -868,7 +881,7 @@ class KivyRenderer:
             if "font-family" in styles:
                 target.widget.font_name = styles["font-family"]
             if "font-size" in styles:
-                target.widget.font_size = styles["font-size"]
+                target.widget.font_size = styles["font-size"] * pixel_scale
             if "font-weight" in styles:
                 target.widget.bold = styles["font-weight"] >= 600
             if "text-align" in styles:
@@ -876,7 +889,7 @@ class KivyRenderer:
             if "color" in styles:
                 target.widget.color = styles["color"]
             target.widget.line_height = (
-                styles["line-height"] / target.widget.font_size
+                styles["line-height"] * pixel_scale / target.widget.font_size
                 if "line-height" in styles else target.widget.property("line_height").defaultvalue
             )
             if self._sfle_constraints is not None:
@@ -969,7 +982,7 @@ class KivyRenderer:
             if "font-family" in styles and hasattr(widget, "font_name"):
                 widget.font_name = styles["font-family"]
             if "font-size" in styles:
-                widget.font_size = styles["font-size"]
+                widget.font_size = styles["font-size"] * pixel_scale
             if "font-weight" in styles:
                 if not hasattr(widget, "bold"):
                     raise ValueError(f"Kivy {target.node_type} does not expose native font-weight.")
@@ -988,7 +1001,7 @@ class KivyRenderer:
                     length = computed.properties[f"padding-{side}"]
                     if length.kind is not LengthKind.PX:
                         raise ValueError("Kivy native Button padding requires pixel lengths.")
-                    values.append(float(length.value))
+                    values.append(float(length.value) * pixel_scale)
                 widget.padding = values
             elif target.node_type == "Button" and hasattr(widget, "_psx_css_original_padding"):
                 widget.padding = widget._psx_css_original_padding
@@ -999,7 +1012,7 @@ class KivyRenderer:
             if "line-height" in styles:
                 if not hasattr(widget, "line_height"):
                     raise ValueError(f"Kivy {target.node_type} does not support line-height.")
-                widget.line_height = styles["line-height"] / widget.font_size
+                widget.line_height = styles["line-height"] * pixel_scale / widget.font_size
             if "color" in styles:
                 if target.node_type in ("Input", "TextArea") and hasattr(widget, "foreground_color"):
                     widget.foreground_color = styles["color"]
