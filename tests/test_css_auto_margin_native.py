@@ -18,7 +18,7 @@ def test_css_auto_inline_margins_center_block():
         elif backend == 'tk':
             left = float(widget.place_info()['x'])
             w = float(widget.place_info()['width'])
-            total = float(parent.winfo_width())
+            total = renderer._sfle_constraints.width.value
         else:
             left, w, total = widget.x, widget.width, parent.width
         assert abs(left - (total - w) / 2) <= 1
