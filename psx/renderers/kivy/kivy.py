@@ -1157,6 +1157,12 @@ class KivyRenderer:
             props = spec.updated_props(target.props, changed, removed)
             spec.apply(target.widget, props)
             target.props = props
+            # Component props are the baseline for CSS, not a snapshot of the
+            # first mount. Refresh only fields explicitly controlled by the
+            # component; leave CSS-owned fields for the projection/reset path.
+            baseline = getattr(target.widget, "_psx_css_default_typography", None)
+            if baseline is not None and "font_size" in baseline and "font_size" in changed:
+                baseline["font_size"] = target.widget.font_size
             return
         if removed or not changed.keys() <= _LAYOUT_PROPS:
             unsupported = set(removed) | (set(changed) - _LAYOUT_PROPS)
