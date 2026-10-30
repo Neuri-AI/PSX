@@ -189,11 +189,36 @@ class PreparedNativeLayoutSnapshot:
                     constraints.width, AvailableSize(None, False),
                 )
         if pixel_scale != 1.0:
-            from psx.sfle.lengths import Length, LengthKind
+            from psx.sfle.lengths import Length, LengthKind, parse_length
+            # CSS-computed edges are typed Length values, but native Flex
+            # props can still enter as strings ("16px") or numeric CSS px.
+            # All three representations must use the same drawable space.
+            # Never scale dimensionless values such as flex-grow or order.
+            length_keys = {
+                "row_gap", "column_gap", "gap",
+                "width", "height", "min_width", "min_height",
+                "max_width", "max_height", "flex_basis",
+            }
+
+            def project_pixel_length(key: str, value: object) -> object:
+                if isinstance(value, Length):
+                    return (Length.px(value.value * pixel_scale)
+                            if value.kind is LengthKind.PX else value)
+                if not (key in length_keys or key.startswith("layout_")):
+                    return value
+                if type(value) in (int, float):
+                    return Length.px(float(value) * pixel_scale)
+                if isinstance(value, str):
+                    try:
+                        parsed = parse_length(value)
+                    except (TypeError, ValueError):
+                        return value
+                    if parsed.kind is LengthKind.PX:
+                        return Length.px(parsed.value * pixel_scale)
+                return value
+
             normalized = [replace(node, style=tuple(sorted(
-                (key, Length.px(value.value * pixel_scale)
-                 if isinstance(value, Length) and value.kind is LengthKind.PX
-                 else value)
+                (key, project_pixel_length(key, value))
                 for key, value in node.style
             ))) for node in normalized]
         return self._resolve_viewport_units(replace(baseline, nodes=tuple(normalized), constraints=constraints))
