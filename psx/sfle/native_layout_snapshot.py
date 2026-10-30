@@ -97,7 +97,8 @@ class PreparedNativeLayoutSnapshot:
             raise ValueError("CSS pixel scale must be finite and positive.")
         # Scale authored PX before resolving vw/vh against native drawable bounds;
         # scaling after viewport resolution would multiply viewport units twice.
-        baseline = self.canonical_snapshot(resolve_viewport=False)
+        baseline = (self.canonical_snapshot() if pixel_scale == 1.0
+                    else self.canonical_snapshot(resolve_viewport=False))
         originals = dict(self.identities)
         converted: list[LayoutNode] = []
         for node in baseline.nodes:
