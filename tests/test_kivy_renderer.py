@@ -203,6 +203,10 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                 renderer.apply_css(handle, styled)
                 assert widget._psx_css_button_background is painted
                 renderer.apply_css(handle, empty)
+                assert widget.background_normal == ""
+                assert widget.background_down == ""
+                assert widget._psx_css_button_background[2].rgba[3] == 0
+                renderer.apply_css(handle, None)
                 assert not hasattr(widget, "_psx_css_button_background")
                 assert (widget.background_normal, widget.background_down,
                         tuple(widget.background_color)) == original
@@ -567,6 +571,9 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                 round(59/255, 4), round(110/255, 4), round(245/255, 4), 1)
             renderer.apply_css(instance.handle, resolve_style(
                 parse_stylesheet("button {color: #ffffff}"), StyleTarget("button")))
+            assert widget.background_normal == "" and widget.background_down == ""
+            assert widget._psx_css_button_background[2].rgba[3] == 0
+            renderer.apply_css(instance.handle, None)
             assert not hasattr(widget, "_psx_css_button_background")
             assert (widget.background_normal, widget.background_down) == original
             reconciler.unmount()
