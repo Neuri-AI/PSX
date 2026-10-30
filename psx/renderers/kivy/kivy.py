@@ -970,6 +970,45 @@ class KivyRenderer:
                 )
             if sides:
                 widget._psx_css_control_side_strokes[1](widget, None)
+        if target.node_type in ("Checkbox", "Radio"):
+            # Keep native indicators and their input state intact. Authored
+            # background paint is confined to the control host behind the
+            # checkbox/radio content rather than replacing its native skin.
+            from kivy.graphics import RoundedRectangle
+            widget = target.widget
+            rgba = background_rgba(computed)
+            painted = getattr(widget, "_psx_css_check_background", None)
+            if rgba is None:
+                if painted is not None:
+                    group, redraw, _, _ = painted
+                    widget.unbind(pos=redraw, size=redraw)
+                    widget.canvas.before.remove(group)
+                    del widget._psx_css_check_background
+            elif painted is None:
+                group = InstructionGroup()
+                color = Color(*rgba)
+                radius = native_border_radius(computed) * pixel_scale
+                rectangle = RoundedRectangle(
+                    pos=widget.pos, size=widget.size, radius=[radius] * 4,
+                )
+                group.add(color)
+                group.add(rectangle)
+
+                def redraw(instance, _):
+                    rectangle.pos = instance.pos
+                    rectangle.size = instance.size
+
+                widget.canvas.before.add(group)
+                widget.bind(pos=redraw, size=redraw)
+                widget._psx_css_check_background = (
+                    group, redraw, color, rectangle,
+                )
+            else:
+                _, _, color, rectangle = painted
+                color.rgba = rgba
+                rectangle.radius = [
+                    native_border_radius(computed) * pixel_scale
+                ] * 4
         if target.node_type == "Text":
             from psx.css.native_paint import native_text_typography
             from psx.renderers.components.text import apply_kivy_text
