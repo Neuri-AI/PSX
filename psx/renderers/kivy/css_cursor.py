@@ -18,7 +18,8 @@ class KivyCssCursorManager:
         self.styles: WeakKeyDictionary = WeakKeyDictionary()
         self._bound = False
         self._current = "arrow"
-        self._visible = getattr(window, "show_cursor", True)
+        self._original_visibility = getattr(window, "show_cursor", True)
+        self._visible = self._original_visibility
 
     def set_style(self, widget: object, value: str | None) -> None:
         if value in KIVY_CURSOR_SHAPES:
@@ -87,7 +88,7 @@ class KivyCssCursorManager:
     def _set_cursor(self, value: str | None) -> None:
         # Kivy's SDL 'no' may fall back to IBeam under Wayland. Use the
         # Window visibility property for CSS none instead.
-        visible = value != "none"
+        visible = self._original_visibility if value is None else value != "none"
         if visible != self._visible:
             self.window.show_cursor = visible
             self._visible = visible
@@ -100,7 +101,7 @@ class KivyCssCursorManager:
         self.update(point)
 
     def _on_cursor_leave(self, *_args: object) -> None:
-        self._set_cursor("arrow")
+        self._set_cursor(None)
 
     def _on_cursor_enter(self, *_args: object) -> None:
         self.update(self.window.mouse_pos)
