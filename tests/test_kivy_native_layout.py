@@ -1650,6 +1650,19 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                     AvailableSize(1600, True), AvailableSize(1200, True)),
                 engine=PythonLayoutEngine(),
             )
+            from psx.sfle import grid_native_composition as composition
+            _prepare = composition.prepare_composed_flow
+            def traced_flow(*args, **kwargs):
+                result = _prepare(*args, **kwargs)
+                boxes = dict(result.result.boxes)
+                print("FLEX_TRACE", kwargs.get("kivy_text_basis"),
+                      [(n.component, n.node_id, dict(n.style).get("direction"),
+                        dict(n.style).get("flex_basis"),
+                        getattr(boxes.get(n.node_id), "border", None))
+                       for n in result.prepared.snapshot.nodes],
+                      flush=True)
+                return result
+            composition.prepare_composed_flow = traced_flow
             tree = Reconciler(renderer)
             root = tree.render(psx("""
                 <div style="height:100vh">
