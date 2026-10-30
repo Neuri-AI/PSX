@@ -42,7 +42,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb libmtdev1 libgl1 libx11-6
-          python -m pip install -e '.[kivy]' pytest Pillow
+          python -m pip install -e '.[kivy,pyside6]' pytest Pillow
       - name: Report actual SDL2 window ratio (this is not a Retina monitor)
         env:
           KIVY_NO_ARGS: '1'
@@ -68,3 +68,17 @@ jobs:
         run: |
           xvfb-run -a python -m pytest -q tests/test_kivy_native_layout.py -k simulated_retina_css_px_preserves_font_padding_and_height
           xvfb-run -a python -m pytest -q tests/test_kivy_renderer.py -k css_px_font_matches_cinnamon_at_all_density_settings
+
+      - name: Capture and compare native Qt/QSS and Kivy/SDL2 CSS surfaces
+        env:
+          KIVY_NO_ARGS: '1'
+          KIVY_NO_FILELOG: '1'
+        run: |
+          mkdir -p qt-kivy-native-visual
+          xvfb-run -a python -m tests.certification.qt_kivy_css_native_raster --output qt-kivy-native-visual
+      - name: Upload native raster comparisons
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qt-kivy-css-native-raster
+          path: qt-kivy-native-visual/
