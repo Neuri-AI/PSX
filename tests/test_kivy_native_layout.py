@@ -1569,6 +1569,70 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_retina_nested_grid_dashboard_css_gap_padding_and_height(self):
+        """A CSS GridItem flow must use the same drawable px as outer Cinnamon."""
+        script = textwrap.dedent(r'''
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            KivyRenderer._read_css_pixel_scale = staticmethod(lambda: 2.0)
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(1600, True), AvailableSize(1200, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(psx("""
+                <div style="height:100vh">
+                    <Grid gap="16px">
+                        <GridItem span="6">
+                            <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+                                <button style="height:38px;font-size:15px;padding:0px 10px">Save</button>
+                            </div>
+                        </GridItem>
+                        <GridItem span="6">
+                            <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+                                <button style="height:38px;font-size:15px;padding:0px 10px">Cancel</button>
+                            </div>
+                        </GridItem>
+                    </Grid>
+                </div>
+            """))
+            grid = root.children[0]
+            left, right = grid.children
+            spacing = right.handle.widget.x - (
+                left.handle.widget.x + left.handle.widget.width
+            )
+            assert abs(spacing - 32) <= 1, (
+                spacing, left.handle.widget.pos, left.handle.widget.size,
+                right.handle.widget.pos, right.handle.widget.size,
+            )
+            button = left.children[0].children[0].handle.widget
+            assert abs(button.height - 76) <= 1, button.size
+            assert abs(button.font_size - 30) < .01, button.font_size
+            assert list(button.padding) == [20, 0, 20, 0], button.padding
+            left_box = left.children[0].handle.widget
+            # CSS card padding is 16 logical px = 32 native drawable px.
+            assert abs(button.x - left_box.x - 32) <= 1, (
+                button.pos, left_box.pos
+            )
+            assert button.y >= left_box.y
+            tree.unmount()
+        ''')
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_two_grid_items_fill_row_with_unrestricted_auto_span(self):
         script = textwrap.dedent(r'''
             import os
