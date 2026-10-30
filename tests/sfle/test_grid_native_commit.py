@@ -460,3 +460,56 @@ def test_kivy_real_widget_renders_overflow_outside_parent_box():
     assert tuple(child.pos) == (6, -15)
     assert tuple(child.size) == (40, 30)
     assert receipt.max_readback_error == 0
+
+
+def test_kivy_scrolled_grid_item_content_starts_at_content_origin():
+    """A viewport shorter than its content must not offset the GridItem."""
+    from types import SimpleNamespace
+    from psx.sfle.grid_native_composition import (
+        ComposedGrid, compose_geometry_batch,
+    )
+    from psx.sfle.native_layout_snapshot import path_identity
+
+    item_source, scroll_source, root_source = object(), object(), object()
+    identifier = path_identity(("dashboard", "main"))
+    content = SimpleNamespace(source=root_source)
+    scroll = SimpleNamespace(source=scroll_source, effective_children=(content,))
+    item = SimpleNamespace(
+        source=item_source, path=("dashboard", "main"),
+        effective_children=(scroll,),
+    )
+    flow = SimpleNamespace(
+        prepared=SimpleNamespace(
+            identities=(),
+            snapshot=SimpleNamespace(nodes=()),
+        ),
+        result=SimpleNamespace(boxes=()),
+        nested_grids={},
+    )
+    composed = ComposedGrid(
+        grid=SimpleNamespace(effective_children=(item,)),
+        prepared=SimpleNamespace(placements=(
+            placement(identifier, 0, 0, 400, 600),
+        )),
+        nested={}, nested_flex={}, nested_flow={},
+        nested_scroll={identifier: (flow, 400.0, 600.0, 1100.0)},
+        content_height=600.0,
+    )
+    batch, widgets, heights = compose_geometry_batch(
+        composed, handles={
+            id(item_source): "item",
+            id(scroll_source): "scroll",
+            id(root_source): "content",
+        },
+        root_height=800.0,
+    )
+    content_id = identifier + "/scroll/content"
+    assert widgets[content_id] == "content"
+    assert heights[content_id] == 1100.0
+    content_placement = next(p for p in batch if p.node_id == content_id)
+    assert content_placement.height == 1100.0
+    # The native projection is measured from the full Scroll content, not
+    # its 600-pixel visible viewport: top-level content starts at local y=0.
+    assert heights[content_id] - content_placement.y - content_placement.height == 0.0
+
+
