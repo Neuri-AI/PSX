@@ -66,6 +66,13 @@ def render_qt(out: Path, background: str, fill: str, border: str,
     parent.show()
     app.processEvents()
     assert parent.grab(QRect(0, 0, *CANVAS)).save(str(out), "PNG")
+    # Retina QPixmap snapshots are physical pixels; the comparison is made
+    # in the reference application's logical client coordinates.
+    with Image.open(out) as native_image:
+        if native_image.size != CANVAS:
+            native_image.convert("RGB").resize(
+                CANVAS, Image.Resampling.LANCZOS
+            ).save(out)
     parent.close()
     app.processEvents()
 
@@ -78,17 +85,20 @@ def render_kivy(out: Path, background: str, fill: str, border: str,
     from kivy.uix.button import Button
     from kivy.clock import Clock
     from psx.renderers.kivy.kivy import KivyHandle, KivyRenderer
+    from psx.sfle.kivy_display_scale import KivyDisplayScale
 
     def rgb(value):
         return tuple(int(value[i:i + 2], 16) / 255 for i in (1, 3, 5))
-    Window.size = CANVAS
+    Window.system_size = CANVAS
+    display_scale = KivyDisplayScale.from_window(Window).uniform
+    drawable = tuple(Window.size)
     Window.clearcolor = (*rgb(background), 1)
-    root = Widget(size_hint=(None, None), size=CANVAS)
+    root = Widget(size_hint=(None, None), size=drawable)
     is_button = "-button-" in out.name
     card = (Button(text="") if is_button else Widget())
     card.size_hint = (None, None)
-    card.pos = (CARD[0], CARD[1])
-    card.size = (CARD[2], CARD[3])
+    card.pos = (CARD[0] * display_scale, CARD[1] * display_scale)
+    card.size = (CARD[2] * display_scale, CARD[3] * display_scale)
     renderer = KivyRenderer()
     renderer.apply_css(
         KivyHandle("Button" if is_button else "div", card, {}),
@@ -101,7 +111,10 @@ def render_kivy(out: Path, background: str, fill: str, border: str,
         # and captured without runTouchApp(). Request actual present frames
         # and verify that the authored fill reached the GPU before capture.
         # This is a bounded readiness check, not a synthetic screenshot.
-        center = (CARD[0] + CARD[2] // 2, CANVAS[1] - CARD[1] - CARD[3] // 2)
+        center = (
+            round((CARD[0] + CARD[2] // 2) * display_scale),
+            round((CANVAS[1] - CARD[1] - CARD[3] // 2) * display_scale),
+        )
         expected = _rgb(fill)
         for attempt in range(16):
             Window.canvas.ask_update()
@@ -112,9 +125,10 @@ def render_kivy(out: Path, background: str, fill: str, border: str,
             with Image.open(result) as captured:
                 pixel = captured.convert("RGB").getpixel(center)
             if sum(abs(pixel[i] - expected[i]) for i in range(3)) <= 6:
-                if Path(result) != out:
-                    from shutil import copyfile
-                    copyfile(result, out)
+                with Image.open(result) as native_image:
+                    native_image.convert("RGB").resize(
+                        CANVAS, Image.Resampling.LANCZOS
+                    ).save(out)
                 break
         else:
             raise AssertionError(
