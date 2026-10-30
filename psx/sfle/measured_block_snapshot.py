@@ -508,7 +508,9 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
     else:
         content_height = block_node(root, 0.0, 0.0, width)
     has_root_edges = any(
-        edges(root, group) != (0.0, 0.0, 0.0, 0.0)
+        (resolved_block_margins.get(root.node_id, edges(root, "margin"))
+         if group == "margin" else edges(root, group))
+        != (0.0, 0.0, 0.0, 0.0)
         for group in ("margin", "padding", "border")
     )
     if not has_root_edges:
