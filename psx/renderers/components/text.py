@@ -78,7 +78,8 @@ def apply_tk_text(widget: object, props: Mapping[str, object]) -> None:
 def apply_kivy_text(widget: object, props: Mapping[str, object]) -> None:
     p = text_props(props)
     widget.text = str(p["value"])
-    widget.font_size = p["font_size"]
+    from kivy.metrics import sp
+    widget.font_size = sp(p["font_size"])
     widget.bold = p["bold"]
     widget.italic = p["italic"]
     if p["color"] is None:
