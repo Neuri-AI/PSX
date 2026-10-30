@@ -967,6 +967,51 @@ class KivyRenderer:
                 label._psx_css_original_foreground = tuple(label.color)
             label.color = styles.get("color", label._psx_css_original_foreground)
             return
+        if target.node_type in ("Input", "TextArea"):
+            # TextInput owns a normal and a focused background texture. Both
+            # must be suppressed while an authored CSS color is active, or the
+            # native focused skin can paint over the CSS surface.
+            from kivy.graphics import RoundedRectangle
+            widget = target.widget
+            rgba = background_rgba(computed)
+            painted = getattr(widget, "_psx_css_input_background", None)
+            if rgba is None:
+                if painted is not None:
+                    group, redraw, _, _, normal, active, tint = painted
+                    widget.unbind(pos=redraw, size=redraw)
+                    widget.canvas.before.remove(group)
+                    widget.background_normal = normal
+                    widget.background_active = active
+                    widget.background_color = tint
+                    del widget._psx_css_input_background
+            elif painted is None:
+                group = InstructionGroup()
+                color = Color(*rgba)
+                radius = native_border_radius(computed) * pixel_scale
+                shape = RoundedRectangle(
+                    pos=widget.pos, size=widget.size, radius=[radius] * 4,
+                )
+                group.add(color)
+                group.add(shape)
+                original = (
+                    widget.background_normal, widget.background_active,
+                    tuple(widget.background_color),
+                )
+                widget.background_normal = ""
+                widget.background_active = ""
+                widget.background_color = (0, 0, 0, 0)
+                def redraw(instance, _):
+                    shape.pos = instance.pos
+                    shape.size = instance.size
+                widget.canvas.before.add(group)
+                widget.bind(pos=redraw, size=redraw)
+                widget._psx_css_input_background = (
+                    group, redraw, color, shape, *original,
+                )
+            else:
+                _, _, color, shape, _, _, _ = painted
+                color.rgba = rgba
+                shape.radius = [native_border_radius(computed) * pixel_scale] * 4
         if target.node_type == "Button":
             # Kivy's theme texture otherwise obscures authored CSS backgrounds.
             from psx.css.native_paint import native_border_radius
