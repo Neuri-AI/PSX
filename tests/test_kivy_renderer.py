@@ -172,6 +172,46 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_select_and_link_background_styles_own_and_restore_native_skins(self):
+        """Spinners and links use authored backgrounds without theme bleed."""
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
+        script = textwrap.dedent("""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.spinner import Spinner
+            from kivy.uix.button import Button
+            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
+            from psx.css.cascade import StyleTarget, resolve_style
+            from psx.css.parser import parse_stylesheet
+
+            renderer = KivyRenderer()
+            for node_type, widget in (("Select", Spinner()), ("Link", Button())):
+                handle = KivyHandle(node_type, widget, {})
+                original = (widget.background_normal, widget.background_down,
+                            tuple(widget.background_color))
+                styled = resolve_style(parse_stylesheet(
+                    "button {background-color:#123456; border-radius:8px}"),
+                    StyleTarget("button"))
+                empty = resolve_style(parse_stylesheet(""), StyleTarget("button"))
+                renderer.apply_css(handle, styled)
+                painted = widget._psx_css_button_background
+                assert widget.background_normal == ""
+                assert widget.background_down == ""
+                assert tuple(widget.background_color) == (0, 0, 0, 0)
+                assert painted[2].rgba[0] > 0
+                renderer.apply_css(handle, styled)
+                assert widget._psx_css_button_background is painted
+                renderer.apply_css(handle, empty)
+                assert not hasattr(widget, "_psx_css_button_background")
+                assert (widget.background_normal, widget.background_down,
+                        tuple(widget.background_color)) == original
+        """)
+        result = subprocess.run([sys.executable, "-c", script],
+                                env=environment, capture_output=True,
+                                text=True, timeout=90)
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_css_button_background_overrides_kivy_theme(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
