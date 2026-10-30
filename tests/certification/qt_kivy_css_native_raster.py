@@ -89,6 +89,12 @@ def render_kivy(out: Path, background: str, fill: str, border: str,
 
     def rgb(value):
         return tuple(int(value[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    if Window is None:
+        raise RuntimeError(
+            "Kivy did not create a usable SDL2/OpenGL window. "
+            "This native visual gate cannot pass on a runner without a "
+            "graphics context; mathematical Retina tests are not a substitute."
+        )
     Window.system_size = CANVAS
     display_scale = KivyDisplayScale.from_window(Window).uniform
     drawable = tuple(Window.size)
@@ -219,13 +225,24 @@ def main():
                        QT_QPA_PLATFORM="offscreen")
     for item in CASES:
         for renderer in ("qt", "kivy"):
-            result = subprocess.run(
-                [sys.executable, "-m",
-                 "tests.certification.qt_kivy_css_native_raster",
-                 "--renderer", renderer, "--case", item[0],
-                 "--output", str(output)],
-                env=environment, capture_output=True, text=True, timeout=90,
-            )
+            command = [
+                sys.executable, "-m",
+                "tests.certification.qt_kivy_css_native_raster",
+                "--renderer", renderer, "--case", item[0],
+                "--output", str(output),
+            ]
+            try:
+                result = subprocess.run(
+                    command, env=environment, capture_output=True,
+                    text=True, timeout=30,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise RuntimeError(
+                    f"{renderer} {item[0]} did not present a native frame "
+                    "within the bounded certification window. "
+                    "This is a failed native graphics gate, not a skip. "
+                    f"stdout={exc.stdout!r} stderr={exc.stderr!r}"
+                ) from exc
             assert result.returncode == 0, (
                 renderer, item[0], result.stdout, result.stderr
             )
