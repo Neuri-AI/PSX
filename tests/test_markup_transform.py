@@ -241,6 +241,37 @@ title = "Ada"
         self.assertEqual(child.node.type.name, "Card")
         self.assertEqual(child.node.props["title"], "Ada")
 
+    def test_frozen_module_does_not_inspect_component_source(self) -> None:
+        source = """
+from __future__ import annotations
+from psx import component, psx
+
+@component
+def Sidebar():
+    return psx("<div><p>Frozen</p></div>")
+"""
+        generated = transform_source(source, filename="sidebar.py", precompiled=True)
+        self.assertEqual(generated.transformed_calls, 1)
+        self.assertIn("__psx_build_precompiled__ = True", generated.source)
+        self.assertNotIn("return psx(", generated.source)
+        # Compile under a virtual filename which does not exist on disk.
+        with patch("psx.markup.component_compiler.inspect.getsourcelines",
+                   side_effect=AssertionError("source inspection is forbidden")):
+            namespace: dict[str, object] = {"__name__": "frozen_sidebar"}
+            exec(compile(generated.source, "/missing/sidebar.py", "exec"), namespace)
+            root = Reconciler(HeadlessRenderer()).render(namespace["Sidebar"]())
+            self.assertIsNotNone(root)
+
+    def test_frozen_module_marker_is_after_future_imports(self) -> None:
+        generated = transform_source(
+            "from __future__ import annotations\\nvalue = 42\\n",
+            precompiled=True,
+        )
+        namespace: dict[str, object] = {}
+        exec(compile(generated.source, "/missing/other.py", "exec"), namespace)
+        self.assertTrue(namespace["__psx_build_precompiled__"])
+        self.assertEqual(namespace["value"], 42)
+
     def test_dynamic_and_explicit_scope_calls_are_not_transformed(self) -> None:
         result = transform_source(
             """
