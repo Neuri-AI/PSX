@@ -1748,9 +1748,9 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             inner = root.children[0].handle.widget
             external_widget = root.children[0].children[0].handle.widget
             assert external_widget.parent is inner
-            assert tuple(external_widget.pos) + tuple(external_widget.size) == (0, 28, 26, 12)
+            assert tuple(external_widget.pos) + tuple(external_widget.size) == (0, 68, 26, 12)
             assert "measure" in external_calls
-            assert ("apply", Rect(0, 28, 26, 12)) in external_calls
+            assert ("apply", Rect(0, 68, 26, 12)) in external_calls
             assert "read" in external_calls
             assert backend.sfle_result.geometry_commit_error <= 1.0
             cleanup(backend, tree)
