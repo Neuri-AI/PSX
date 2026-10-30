@@ -121,6 +121,16 @@ class NativeGeometryCommitter:
             # preserve their explicitly parent-local projection contract.
             kivy_root = self._widgets.get(root_id)
             kivy_root_box = boxes[root_id] if kivy_root is not None else None
+        scroll_descendants: set[str] = set()
+        if self._backend == GeometryBackend.KIVY:
+            # Native ScrollView owns a movable content transform. Preserve
+            # its local geometry contract rather than double-translating it.
+            for node_id, parent_id in self._parents.items():
+                if parent_id is not None and (
+                    parent_id in scroll_descendants or
+                    getattr(self._widgets.get(parent_id), "_psx_sfle_scroll", False)
+                ):
+                    scroll_descendants.add(node_id)
         for node_id, parent_id in self._parents.items():
             if parent_id is None:
                 continue
@@ -135,7 +145,7 @@ class NativeGeometryCommitter:
                 # translate their canvas by each ancestor's position.
                 # Qt/Tk use parent-local coordinates, but projecting those
                 # values into Kivy places every nested Label at (0, 0).
-                if kivy_root is not None:
+                if kivy_root is not None and node_id not in scroll_descendants:
                     x = (LayoutUnit.from_nearest(border.x)
                          - LayoutUnit.from_nearest(kivy_root_box.x)).to_px() + float(kivy_root.x)
                     y = (LayoutUnit.from_nearest(float(kivy_root.height))
