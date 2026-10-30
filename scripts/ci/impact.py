@@ -244,6 +244,8 @@ def _classify_path(path: str) -> set[str]:
     if path.startswith("tests/ui/"):
         return {"qt", "kivy", "tkinter"}
     if path.startswith("tests/sfle/"):
+        if path == "tests/sfle/test_kivy_scroll_extent_projection.py":
+            return {"sfle", "kivy"}
         if "qt" in path:
             return {"sfle", "qt"}
         return {"sfle"}
