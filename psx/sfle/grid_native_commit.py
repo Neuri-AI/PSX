@@ -41,6 +41,7 @@ def commit_grid_native_geometry(
     is_ui_thread: Callable[[], bool],
     parent_height: float | None = None,
     parent_heights: Mapping[str, float] | None = None,
+    kivy_window_coordinates: bool = False,
     readback_tolerance: float = 1.0,
     prior_tk_placements: Mapping[str, Mapping[str, object]] | None = None,
 ) -> GridNativeCommitReceipt:
@@ -76,7 +77,12 @@ def commit_grid_native_geometry(
         raise GridPackingError("Grid native geometry identities do not match mounted widgets.")
     if parent_heights is not None and set(parent_heights) != set(ids):
         raise GridPackingError("Kivy parent heights must cover exactly the mounted placements.")
+    if type(kivy_window_coordinates) is not bool or (
+        kivy_window_coordinates and backend is not GridCommitBackend.KIVY
+    ):
+        raise GridPackingError("Window-space Grid geometry is Kivy-only.")
     target: dict[str, Rect] = {}
+    pending_native: dict[int, Rect] = {}
     for placement in placements:
         values = (placement.x, placement.y, placement.width, placement.height)
         if any(type(v) not in (int, float) or not isfinite(v) or v < 0 for v in values):
@@ -97,7 +103,27 @@ def commit_grid_native_geometry(
         # Kivy coordinates are bottom-left relative to the immediate parent;
         # clamping or rejecting the solver rectangle changes authored geometry.
         # The allocated Cinnamon rectangle and native readback remain authoritative.
-        target[placement.node_id] = Rect(placement.x, y, placement.width, placement.height)
+        if kivy_window_coordinates:
+            # Kivy's Widget canvas uses window-space coordinates even when
+            # the widget belongs to a nested GridItem or semantic block.
+            # Resolve parents from this same immutable batch (parents precede
+            # descendants) before touching any native widget.
+            widget = widgets[placement.node_id]
+            owner = getattr(widget, "parent", None)
+            if owner is not None:
+                previous = pending_native.get(id(owner))
+                px, py = ((previous.x, previous.y) if previous is not None
+                          else (float(owner.x), float(owner.y)))
+                x = px + placement.x
+                y = py + y
+            else:
+                x = placement.x
+        else:
+            x = placement.x
+        resolved = Rect(x, y, placement.width, placement.height)
+        target[placement.node_id] = resolved
+        if kivy_window_coordinates:
+            pending_native[id(widgets[placement.node_id])] = resolved
 
     def read(widget: object) -> Rect:
         if backend is GridCommitBackend.HEADLESS:
