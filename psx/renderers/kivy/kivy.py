@@ -552,9 +552,21 @@ class KivyRenderer:
         # use the drawable viewport: never size the root from a potentially
         # half-resolution macOS event payload.
         drawable = getattr(window, "size", None)
-        new_size = tuple(drawable) if drawable is not None and all(
-            isinstance(v, (float, int)) and v > 0 for v in drawable
-        ) else (width, height)
+        system = getattr(window, "system_size", None)
+        new_size = (width, height)
+        if (drawable is not None and system is not None
+                and len(drawable) == 2 and len(system) == 2
+                and all(isinstance(v, (float, int)) and v > 0
+                        for v in (*drawable, *system))):
+            density = tuple(drawable[index] / system[index] for index in (0, 1))
+            # Only substitute the backing pixel dimensions when the
+            # callback actually reports *current system_size*. Synthetic
+            # on_resize dispatches used by integrations/tests can specify a
+            # new viewport without changing Window.system_size first.
+            if (any(abs(value - 1.0) > .01 for value in density)
+                    and all(abs(value - system[index]) <= 1.0
+                            for index, value in enumerate((width, height)))):
+                new_size = tuple(drawable)
         # Some Cocoa/SDL2 providers dispatch resize callbacks while applying
         # an earlier resize. Never write identical properties (which may
         # dispatch again), nor re-enter a Kivy property change transaction.
