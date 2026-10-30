@@ -125,6 +125,7 @@ class MountedMixedGrid:
             invalidation_epoch=getattr(self, "_intrinsic_epoch", 0),
             pixel_scale=(getattr(self.renderer, "_psx_css_pixel_scale", 1.0)
                          if self.backend is GridCommitBackend.KIVY else 1.0),
+            kivy_text_basis=(self.backend is GridCommitBackend.KIVY),
         )
         # Never publish a partial result after a measurement exception.
         self._composition_cache[key] = composition
