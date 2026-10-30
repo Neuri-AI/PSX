@@ -18,6 +18,7 @@ on:
       - 'psx/markup/component_compiler.py'
       - 'psx/markup/transform.py'
       - 'tests/test_component_lexical_runtime.py'
+      - 'tests/test_markup_transform.py'
       - '.github/workflows/lexical-component-runtime.yml'
 
 jobs:
