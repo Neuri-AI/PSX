@@ -128,6 +128,27 @@ def native_side_border_paint(
     return tuple(result)
 
 
+def inset_rounded_border_box(
+    x: float, y: float, width: float, height: float,
+    radius: float, thickness: float,
+) -> tuple[float, float, float, float, float]:
+    """Center a native stroke wholly inside its CSS border box.
+
+    Kivy Line expands half its width outward from its path. Using the
+    unadjusted border-box perimeter leaks paint beyond the box and differs
+    from Qt/QSS, which paints borders inward.
+    """
+    if width < 0 or height < 0 or radius < 0 or thickness <= 0:
+        raise ValueError("CSS border geometry must be nonnegative.")
+    half = thickness / 2.0
+    return (
+        x + half, y + half,
+        max(0.0, width - thickness),
+        max(0.0, height - thickness),
+        max(0.0, radius - half),
+    )
+
+
 def rounded_side_stroke_points(
     side: str, width: float, height: float, radius: float, thickness: float,
 ) -> tuple[float, ...]:
