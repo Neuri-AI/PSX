@@ -246,7 +246,7 @@ def compare(out: Path, name: str, background: str, fill: str, border: str,
         "pixel_perfect_claim": False,
     }
     (out / (name + ".json")).write_text(json.dumps(metrics, indent=2))
-    assert rate <= 0.35, metrics
+    assert rate <= 0.15, metrics
     # A mismatched straight stroke cannot hide inside a corner-only check.
     assert edge_disagreement <= 0.15, metrics
 
