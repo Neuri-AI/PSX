@@ -20,6 +20,9 @@ def main() -> None:
     target = Path(args.output).resolve()
     target.mkdir(parents=True, exist_ok=True)
 
+    # Kivy parses sys.argv at import time unless disabled. The reporter
+    # owns --output, not the Kivy runtime.
+    os.environ.setdefault("KIVY_NO_ARGS", "1")
     from kivy import __version__ as kivy_version
     from kivy.core.window import Window
     from kivy.metrics import Metrics
