@@ -612,6 +612,10 @@ class KivyRenderer:
     def _read_css_pixel_scale() -> float:
         from kivy.core.window import Window
         from psx.sfle.kivy_display_scale import KivyDisplayScale
+        # Before Cocoa/SDL2 creates its window, there is no backing-store
+        # ratio to sample. Defer to the first mounted native layout pass.
+        if Window is None:
+            return 1.0
         return KivyDisplayScale.from_window(Window).uniform
 
     def commit_layout(self, root: object) -> None:
