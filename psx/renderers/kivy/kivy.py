@@ -957,6 +957,13 @@ class KivyRenderer:
                     ("font_name", "font_size", "bold", "halign", "line_height", "color", "foreground_color")
                     if hasattr(widget, key)
                 }
+            # The portable Button font size is a live component prop. A CSS
+            # projection must not restore the value cached at the first mount
+            # after keyed reconciliation has updated that prop.
+            if target.node_type == "Button":
+                widget._psx_css_default_typography["font_size"] = target.props.get(
+                    "font_size", widget._psx_css_default_typography["font_size"]
+                )
             for key, value in widget._psx_css_default_typography.items():
                 setattr(widget, key, value)
             if "font-family" in styles and hasattr(widget, "font_name"):
