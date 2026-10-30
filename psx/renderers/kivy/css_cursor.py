@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from weakref import WeakKeyDictionary
 
+from psx.css.cursor import KIVY_CURSOR_SHAPES
+
 
 class KivyCssCursorManager:
     def __init__(self, window: object):
@@ -16,9 +18,10 @@ class KivyCssCursorManager:
         self.styles: WeakKeyDictionary = WeakKeyDictionary()
         self._bound = False
         self._current = "arrow"
+        self._visible = getattr(window, "show_cursor", True)
 
     def set_style(self, widget: object, value: str | None) -> None:
-        if value in ("pointer", "default"):
+        if value in KIVY_CURSOR_SHAPES:
             self.styles[widget] = value
             if not self._bound:
                 self.window.bind(
@@ -79,13 +82,19 @@ class KivyCssCursorManager:
                 continue
             if selected is None or rank > selected_rank:
                 selected, selected_rank = cursor, rank
-        self._set_cursor("hand" if selected == "pointer" else "arrow")
+        self._set_cursor(selected)
 
-    def _set_cursor(self, cursor: str) -> None:
-        if cursor == self._current:
-            return
-        self.window.set_system_cursor(cursor)
-        self._current = cursor
+    def _set_cursor(self, value: str | None) -> None:
+        # Kivy's SDL 'no' may fall back to IBeam under Wayland. Use the
+        # Window visibility property for CSS none instead.
+        visible = value != "none"
+        if visible != self._visible:
+            self.window.show_cursor = visible
+            self._visible = visible
+        cursor = KIVY_CURSOR_SHAPES.get(value, "arrow")
+        if cursor != self._current:
+            self.window.set_system_cursor(cursor)
+            self._current = cursor
 
     def _on_mouse_pos(self, _window: object, point: tuple[float, float]) -> None:
         self.update(point)
