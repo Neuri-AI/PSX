@@ -772,6 +772,13 @@ class KivyRenderer:
 
     def _scale_component_font(self, handle: object) -> None:
         target = _handle(handle)
+        if target.node_type == "Badge":
+            widget = target.widget
+            if widget._psx_badge_pixel_scale != self._psx_css_pixel_scale:
+                from psx.renderers.kivy.badge import KivyBadgeAdapter
+                widget._psx_badge_pixel_scale = self._psx_css_pixel_scale
+                KivyBadgeAdapter._apply(widget, target.props)
+            return
         if (target.node_type in ("Text", "Button", "Input", "TextArea", "Select", "Link")
                 and "font_size" in target.props and hasattr(target.widget, "font_size")):
             scaled = target.props["font_size"] * self._psx_css_pixel_scale
