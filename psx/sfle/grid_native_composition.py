@@ -333,6 +333,19 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
             parent_style = dict(parent.style) if parent is not None else {}
             is_row = (parent is not None and parent.component == "Flex"
                       and parent_style.get("direction", "row") in ("row", "row-reverse"))
+            # A percentage width on a flex item is its preferred main size,
+            # not an immutable box width: CSS flex-shrink must still be able
+            # to make room for a trailing min-width sibling (activity date).
+            if (is_row and origin is not None and
+                    origin.kind is NodeKind.HOST and
+                    origin.type in FORMATTING_TAGS and node.component == "Flex"
+                    and "flex_basis" not in style):
+                preferred = style.get("layout_width", style.get("width"))
+                if isinstance(preferred, Length) and preferred.kind is LengthKind.PERCENT:
+                    style.pop("layout_width", None)
+                    style.pop("width", None)
+                    style["flex_basis"] = preferred
+                    node = replace(node, style=tuple(sorted(style.items())))
             if (is_row and origin is not None and
                     origin.kind is NodeKind.HOST and
                     origin.type in FORMATTING_TAGS and
