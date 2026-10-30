@@ -117,8 +117,10 @@ class NativeGeometryCommitter:
         if self._backend == GeometryBackend.KIVY:
             root_id = next(node_id for node_id, parent_id in self._parents.items()
                            if parent_id is None)
-            kivy_root = self._widgets[root_id]
-            kivy_root_box = boxes[root_id]
+            # Standalone geometry ports may omit the native root widget;
+            # preserve their explicitly parent-local projection contract.
+            kivy_root = self._widgets.get(root_id)
+            kivy_root_box = boxes[root_id] if kivy_root is not None else None
         for node_id, parent_id in self._parents.items():
             if parent_id is None:
                 continue
@@ -133,12 +135,25 @@ class NativeGeometryCommitter:
                 # translate their canvas by each ancestor's position.
                 # Qt/Tk use parent-local coordinates, but projecting those
                 # values into Kivy places every nested Label at (0, 0).
-                x = (LayoutUnit.from_nearest(border.x)
-                     - LayoutUnit.from_nearest(kivy_root_box.x)).to_px() + float(kivy_root.x)
-                y = (LayoutUnit.from_nearest(float(kivy_root.height))
-                     - (LayoutUnit.from_nearest(border.y)
-                        - LayoutUnit.from_nearest(kivy_root_box.y))
-                     - LayoutUnit.from_nearest(border.height)).to_px() + float(kivy_root.y)
+                if kivy_root is not None:
+                    x = (LayoutUnit.from_nearest(border.x)
+                         - LayoutUnit.from_nearest(kivy_root_box.x)).to_px() + float(kivy_root.x)
+                    y = (LayoutUnit.from_nearest(float(kivy_root.height))
+                         - (LayoutUnit.from_nearest(border.y)
+                            - LayoutUnit.from_nearest(kivy_root_box.y))
+                         - LayoutUnit.from_nearest(border.height)).to_px() + float(kivy_root.y)
+                else:
+                    parent_widget = self._widgets.get(parent_id)
+                    if getattr(parent_widget, "_psx_sfle_scroll", False):
+                        parent_height = border.height
+                    elif (self._parents[parent_id] is None
+                          and getattr(parent_widget, "_psx_sfle_semantic_viewport", False)):
+                        parent_height = float(parent_widget.height)
+                    else:
+                        parent_height = parent.height
+                    y = (LayoutUnit.from_nearest(parent_height)
+                         - LayoutUnit.from_nearest(y)
+                         - LayoutUnit.from_nearest(border.height)).to_px()
             placements.append((node_id, self._widgets[node_id], x, y, border.width, border.height))
         for node_id, widget, x, y, width, height in placements:
             port = self._external_ports.get(node_id)
