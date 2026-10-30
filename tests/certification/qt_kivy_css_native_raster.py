@@ -21,6 +21,8 @@ CARD = (20, 20, 180, 100)
 CASES = (
     ("light", "#e9edf3", "#ffffff", "#364152", 8, 2),
     ("dark", "#161d2d", "#303a4d", "#d2a251", 16, 2),
+    ("light-button", "#e9edf3", "#ffffff", "#364152", 8, 2),
+    ("dark-button", "#161d2d", "#303a4d", "#d2a251", 16, 2),
 )
 
 
@@ -41,7 +43,7 @@ def computed(sheet: str):
 
 def render_qt(out: Path, background: str, fill: str, border: str,
               radius: int, width: int) -> None:
-    from PySide6.QtWidgets import QApplication, QWidget
+    from PySide6.QtWidgets import QApplication, QPushButton, QWidget
     from PySide6.QtCore import QRect
     from psx.css.native_paint import qt_semantic_stylesheet
 
@@ -52,7 +54,7 @@ def render_qt(out: Path, background: str, fill: str, border: str,
     parent.setStyleSheet(
         "QWidget#rasterParent { background-color: " + background + "; }"
     )
-    child = QWidget(parent)
+    child = (QPushButton("", parent) if "-button-" in out.name else QWidget(parent))
     child.setObjectName("rasterCard")
     child.setGeometry(*CARD)
     child.setStyleSheet(
@@ -72,6 +74,7 @@ def render_kivy(out: Path, background: str, fill: str, border: str,
     from kivy.core.window import Window
     from kivy.base import EventLoop
     from kivy.uix.widget import Widget
+    from kivy.uix.button import Button
     from kivy.clock import Clock
     from psx.renderers.kivy.kivy import KivyHandle, KivyRenderer
 
@@ -80,11 +83,15 @@ def render_kivy(out: Path, background: str, fill: str, border: str,
     Window.size = CANVAS
     Window.clearcolor = (*rgb(background), 1)
     root = Widget(size_hint=(None, None), size=CANVAS)
-    card = Widget(size_hint=(None, None), pos=(CARD[0], CARD[1]),
-                  size=(CARD[2], CARD[3]))
+    is_button = "-button-" in out.name
+    card = (Button(text="") if is_button else Widget())
+    card.size_hint = (None, None)
+    card.pos = (CARD[0], CARD[1])
+    card.size = (CARD[2], CARD[3])
     renderer = KivyRenderer()
     renderer.apply_css(
-        KivyHandle("div", card, {}), computed(css(fill, border, radius, width))
+        KivyHandle("Button" if is_button else "div", card, {}),
+        computed(css(fill, border, radius, width))
     )
     root.add_widget(card)
     Window.add_widget(root)
