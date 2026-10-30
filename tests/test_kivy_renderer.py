@@ -212,6 +212,54 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                                 text=True, timeout=90)
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_checkbox_and_radio_authored_surfaces_preserve_native_indicators(self):
+        """CSS host paint must not replace checkbox/radio selection state."""
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
+        script = textwrap.dedent("""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.checkbox import CheckBox
+            from kivy.uix.boxlayout import BoxLayout
+            from kivy.uix.label import Label
+            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
+            from psx.css.cascade import StyleTarget, resolve_style
+            from psx.css.parser import parse_stylesheet
+
+            def style(text):
+                return resolve_style(
+                    parse_stylesheet("div {" + text + "}"),
+                    StyleTarget("div"),
+                )
+            renderer = KivyRenderer()
+            checked = CheckBox()
+            checked.active = True
+            radio = BoxLayout()
+            radio._psx_label = Label()
+            for name, widget in (("Checkbox", checked), ("Radio", radio)):
+                initial = checked.active
+                handle = KivyHandle(name, widget, {})
+                renderer.apply_css(handle, style(
+                    "background-color:#123456; border-radius:8px"
+                ))
+                painted = widget._psx_css_check_background
+                assert painted[2].rgba[0] > 0
+                assert painted[0] in widget.canvas.before.children
+                renderer.apply_css(handle, style(
+                    "background-color:#abcdef; border-radius:12px"
+                ))
+                assert widget._psx_css_check_background is painted
+                renderer.apply_css(handle, style(""))
+                assert not hasattr(widget, "_psx_css_check_background")
+                assert painted[0] not in widget.canvas.before.children
+                assert checked.active == initial
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_control_css_side_borders_keep_untouched_edges_transparent(self):
         """Native Kivy sides follow Qt/QSS authored per-edge semantics."""
         environment = dict(os.environ)
