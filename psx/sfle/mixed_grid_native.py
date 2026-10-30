@@ -102,7 +102,14 @@ class MountedMixedGrid:
             else:
                 raise GridPackingError("Mixed native Grid requires a toolkit backend.")
             reuse_round = getattr(self, "_intrinsic_reuse", None)
-            result = (
+            if allocated_width is None:
+                if self.backend is not GridCommitBackend.KIVY:
+                    raise GridPackingError("Intrinsic unwrapped text width requires Kivy.")
+                # This is an explicit native glyph-width probe. Do not reuse
+                # a previous width-constrained measurement as its cache key.
+                result = source.measure_width(identifier, None)
+            else:
+                result = (
                 reuse_round.measure(
                     self.backend.value, handle.widget, node, allocated_width,
                     lambda: source.measure_width(identifier, allocated_width),
