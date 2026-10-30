@@ -89,14 +89,30 @@ def render_kivy(out: Path, background: str, fill: str, border: str,
     root.add_widget(card)
     Window.add_widget(root)
     try:
-        for _ in range(8):
+        # SDL2 can yield an empty first framebuffer when a window is created
+        # and captured without runTouchApp(). Request actual present frames
+        # and verify that the authored fill reached the GPU before capture.
+        # This is a bounded readiness check, not a synthetic screenshot.
+        center = (CARD[0] + CARD[2] // 2, CANVAS[1] - CARD[1] - CARD[3] // 2)
+        expected = _rgb(fill)
+        for attempt in range(16):
+            Window.canvas.ask_update()
             Clock.tick()
             EventLoop.idle()
-        result = Window.screenshot(name=str(out))
-        assert result and Path(result).is_file(), result
-        if Path(result) != out:
-            from shutil import copyfile
-            copyfile(result, out)
+            result = Window.screenshot(name=str(out))
+            assert result and Path(result).is_file(), result
+            with Image.open(result) as captured:
+                pixel = captured.convert("RGB").getpixel(center)
+            if sum(abs(pixel[i] - expected[i]) for i in range(3)) <= 6:
+                if Path(result) != out:
+                    from shutil import copyfile
+                    copyfile(result, out)
+                break
+        else:
+            raise AssertionError(
+                "Kivy SDL2 never presented authored CSS fill; "
+                f"last center pixel={pixel}, expected={expected}"
+            )
     finally:
         Window.remove_widget(root)
 
