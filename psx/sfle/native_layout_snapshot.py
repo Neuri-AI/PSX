@@ -172,7 +172,7 @@ class PreparedNativeLayoutSnapshot:
 
         def native_inline_run(parent_id: str) -> bool:
             direct = children_by_parent.get(parent_id, ())
-            if len(direct) < 2:
+            if not direct:
                 return False
             for child in direct:
                 origin = originals[child.node_id]
