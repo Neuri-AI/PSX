@@ -1498,17 +1498,18 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             Clock.tick()
             Clock.tick()
             for expected_x, item in ((0, left), (200, right)):
-                text = item.children[0].handle.widget
-                print("TEXT_RECTS", tuple(text.pos),tuple(text.size), "item", geometry(item),flush=True)
-                absolute_x = 0.0
-                absolute_y = 0.0
-                current = text
-                while current is not None and current is not Window:
-                    absolute_x += current.x
-                    absolute_y += current.y
-                    current = current.parent
-                assert absolute_y > 400, (absolute_y, geometry(item), geometry(grid))
-                assert abs(absolute_x - expected_x) <= 1, (absolute_x, expected_x)
+                # Kivy canvas positions are in window coordinates: a native
+                # Label at (0,0) paints bottom-left even if its parent is
+                # placed at y=581. A summed ancestor offset is NOT evidence
+                # that the native text is actually top-aligned.
+                paragraph = item.children[0].handle.widget
+                label = item.children[0].children[0].handle.widget
+                for widget in (item.handle.widget, paragraph, label):
+                    print("NATIVE_WIDGET_RECT", tuple(widget.pos),
+                          tuple(widget.size), flush=True)
+                    assert abs(widget.x - expected_x) <= 1, (
+                        expected_x, tuple(widget.pos))
+                    assert widget.y >= 550, tuple(widget.pos)
             Window.remove_widget(root.handle.widget)
             tree.unmount()
         ''')
