@@ -189,7 +189,9 @@ def _has_expressive_interpolation(source: str) -> bool:
     return False
 
 
-def transform_source(source: str, *, filename: str = "<module>") -> TransformResult:
+def transform_source(
+    source: str, *, filename: str = "<module>", precompiled: bool = False,
+) -> TransformResult:
     """Transform statically known inline ``psx`` calls into lexical factories.
 
     Calls that already supply ``scope=`` and calls whose first argument is not a
@@ -198,10 +200,17 @@ def transform_source(source: str, *, filename: str = "<module>") -> TransformRes
     module = ast.parse(source, filename=filename)
     transformer = _Transformer(filename)
     module = transformer.visit(module)
-    if transformer.templates or transformer.expressive_count:
+    if transformer.templates or transformer.expressive_count or precompiled:
         insertion = _insertion_index(module.body)
         declarations = ([] if not transformer.expressive_count else [helper_import()])
         declarations.extend(_factory_declarations(transformer.templates) if transformer.templates else [])
+        # A frozen module has already passed through this lexical transform.
+        # @component must never try to recover its original .py with inspect.
+        if precompiled:
+            declarations.insert(0, ast.Assign(
+                targets=[ast.Name(id="__psx_build_precompiled__", ctx=ast.Store())],
+                value=ast.Constant(value=True),
+            ))
         module.body[insertion:insertion] = declarations
     ast.fix_missing_locations(module)
     return TransformResult(
