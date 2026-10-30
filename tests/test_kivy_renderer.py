@@ -380,6 +380,63 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_authored_css_foreground_survives_disabled_control_states(self):
+        """CSS color remains authored while disabled, and resets both paints."""
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
+        script = textwrap.dedent("""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.button import Button
+            from kivy.uix.spinner import Spinner
+            from kivy.uix.textinput import TextInput
+            from kivy.uix.label import Label
+            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
+            from psx.css.parser import parse_stylesheet
+            from psx.css.cascade import StyleTarget, resolve_style
+
+            def style(value):
+                return resolve_style(
+                    parse_stylesheet("button {" + value + "}"),
+                    StyleTarget("button"),
+                )
+            authored = style("color:#a1b2c3")
+            empty = style("")
+            renderer = KivyRenderer()
+            for name, widget, normal, disabled in (
+                ("Button", Button(), "color", "disabled_color"),
+                ("Select", Spinner(), "color", "disabled_color"),
+                ("Input", TextInput(), "foreground_color", "disabled_foreground_color"),
+                ("TextArea", TextInput(multiline=True), "foreground_color", "disabled_foreground_color"),
+            ):
+                if not hasattr(widget, disabled):
+                    continue
+                before = (tuple(getattr(widget, normal)), tuple(getattr(widget, disabled)))
+                widget.disabled = True
+                handle = KivyHandle(name, widget, {})
+                renderer.apply_css(handle, authored)
+                rgb = (161 / 255, 178 / 255, 195 / 255)
+                for attr in (normal, disabled):
+                    actual = getattr(widget, attr)
+                    assert all(abs(a-b)<1e-5 for a, b in zip(actual[:3], rgb)), (
+                        name, attr, actual
+                    )
+                renderer.apply_css(handle, empty)
+                assert (tuple(getattr(widget, normal)),
+                        tuple(getattr(widget, disabled))) == before, name
+                assert widget.disabled
+            label = Label()
+            handle = KivyHandle("Text", label, {"value":"Save"})
+            renderer.apply_css(handle, authored)
+            assert tuple(label.disabled_color[:3]) == tuple(label.color[:3])
+            renderer.apply_css(handle, empty)
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_css_button_background_overrides_kivy_theme(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
