@@ -264,6 +264,46 @@ def test_kivy_nested_grid_coordinates_use_immediate_parent_height():
     assert tuple(leaf.pos) == (0, 25)
 
 
+def test_kivy_nested_grid_uses_window_coordinates_after_vertical_resize():
+    """Nested canvas positions follow the GridItem instead of staying local."""
+    class Widget:
+        def __init__(self, parent=None):
+            self.parent = parent
+            self.pos = (0.0, 0.0)
+            self.size = (0.0, 0.0)
+
+        @property
+        def x(self):
+            return self.pos[0]
+
+        @property
+        def y(self):
+            return self.pos[1]
+
+    root = Widget()
+    wrapper = Widget(root)
+    leaf = Widget(wrapper)
+    placements = (
+        placement("item", 10, 10, 100, 40),
+        placement("item/leaf", 4, 10, 30, 20),
+    )
+    widgets = {"item": wrapper, "item/leaf": leaf}
+    for generation, height in ((1, 200.0), (2, 300.0)):
+        receipt = commit_grid_native_geometry(
+            placements, backend=GridCommitBackend.KIVY,
+            widgets=widgets, generation=generation,
+            current_generation=lambda generation=generation: generation,
+            is_ui_thread=lambda: True,
+            parent_height=height,
+            parent_heights={"item": height, "item/leaf": 40.0},
+            kivy_window_coordinates=True,
+        )
+        assert receipt.max_readback_error == 0
+        assert tuple(wrapper.pos) == (10, height - 50)
+        assert tuple(leaf.pos) == (14, height - 40)
+        assert leaf.y - wrapper.y == 10
+
+
 def test_kivy_parent_height_mismatch_rejects_before_mutation():
     pytest.importorskip("kivy")
     from kivy.uix.widget import Widget
