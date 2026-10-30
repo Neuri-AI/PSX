@@ -260,6 +260,42 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_uniform_border_has_exactly_one_paint_path_on_retina(self):
+        """Never overpaint a uniform border with four duplicate side lines."""
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
+        script = textwrap.dedent("""
+            from kivy.uix.button import Button
+            from kivy.uix.widget import Widget
+            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
+            from psx.css.parser import parse_stylesheet
+            from psx.css.cascade import StyleTarget, resolve_style
+
+            renderer = KivyRenderer()
+            renderer._psx_css_pixel_scale = 2.0
+            for node_type, widget in (("Button", Button()), ("div", Widget())):
+                style = resolve_style(
+                    parse_stylesheet(
+                        "div { border: 2px solid #364152; border-radius: 8px; }"
+                    ), StyleTarget("div"),
+                )
+                handle = KivyHandle(node_type, widget, {})
+                renderer.apply_css(handle, style)
+                border = (widget._psx_css_control_stroke if node_type == "Button"
+                          else widget._psx_css_stroke)
+                assert abs(border[3].width - 4) < 0.01
+                assert not hasattr(widget, "_psx_css_control_side_strokes")
+                assert not hasattr(widget, "_psx_css_side_strokes")
+                renderer.apply_css(handle, None)
+                assert not hasattr(widget, "_psx_css_control_stroke")
+                assert not hasattr(widget, "_psx_css_stroke")
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_control_css_side_borders_keep_untouched_edges_transparent(self):
         """Native Kivy sides follow Qt/QSS authored per-edge semantics."""
         environment = dict(os.environ)
