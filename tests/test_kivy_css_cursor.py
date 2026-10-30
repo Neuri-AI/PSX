@@ -115,3 +115,22 @@ def test_invisible_or_unmounted_widget_cannot_control_window_cursor():
     assert window.cursors[-1] == "arrow"
     manager.close()
     assert not window.bindings
+
+
+
+def test_pointer_inside_scrolled_content_stays_within_visible_viewport():
+    window = Window()
+    viewport = Widget(window, (0, 0, 100, 60))
+    viewport._psx_content = object()  # Kivy Scroll ownership marker
+    content = Widget(viewport, (0, 0, 100, 180))
+    button = Widget(content, (10, 80, 40, 40))
+    manager = KivyCssCursorManager(window)
+    manager.set_style(button, "pointer")
+    # Inside Button's native coordinates, but outside the visible viewport.
+    window.emit("mouse_pos", (20, 90))
+    assert window.cursors == []
+    button.y = 10
+    window.emit("mouse_pos", (20, 20))
+    assert window.cursors[-1] == "hand"
+    manager.close()
+    assert window.cursors[-1] == "arrow"
