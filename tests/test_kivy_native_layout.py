@@ -1633,6 +1633,80 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_retina_dashboard_header_and_activity_dates_stay_inside_content(self):
+        """Nested CSS Flex rows must preserve right-aligned trailing text."""
+        script = textwrap.dedent(r'''
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            KivyRenderer._read_css_pixel_scale = staticmethod(lambda: 2.0)
+            renderer = KivyRenderer(
+                sfle_constraints=LayoutConstraints(
+                    AvailableSize(1600, True), AvailableSize(1200, True)),
+                engine=PythonLayoutEngine(),
+            )
+            tree = Reconciler(renderer)
+            root = tree.render(psx("""
+                <div style="height:100vh">
+                    <Grid gap="0px">
+                        <GridItem span="2">
+                            <div style="height:100vh;background:#1f2430;padding:20px 12px">
+                                <h5 style="margin-left:8px">Mi panel</h5>
+                            </div>
+                        </GridItem>
+                        <GridItem span="10">
+                            <div style="height:100vh;background:white">
+                                <div style="display:flex;flex-direction:row;justify-content:space-between;align-items:center;padding:16px 20px">
+                                    <p style="font-size:18px">Resumen</p>
+                                    <p style="font-size:15px">Hola, Fredo</p>
+                                </div>
+                                <div style="padding:16px">
+                                    <div style="padding:16px;border:1px solid #e0e0e0">
+                                        <div style="display:flex;flex-direction:row;justify-content:space-between;align-items:center;gap:10px;padding:16px 20px">
+                                            <p style="width:100%;font-size:14px">Ana López creó un reporte</p>
+                                            <p style="min-width:120px;font-size:14px;text-align:right">23 de Octubre</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </GridItem>
+                    </Grid>
+                </div>
+            """))
+            content = root.children[0].children[1].children[0]
+            header = content.children[0]
+            title, greeting = header.children
+            rect = lambda mounted: mounted.handle.widget
+            assert rect(greeting).right <= rect(header).right + 1, (
+                rect(greeting).pos, rect(greeting).size,
+                rect(header).pos, rect(header).size,
+            )
+            assert rect(greeting).x > rect(title).right
+            row = content.children[1].children[0].children[0]
+            description, date = row.children
+            assert rect(date).right <= rect(row).right + 1, (
+                rect(date).pos, rect(date).size,
+                rect(row).pos, rect(row).size,
+            )
+            assert rect(date).x >= rect(description).right - 1, (
+                rect(date).pos, rect(description).pos, rect(description).size,
+            )
+            tree.unmount()
+        ''')
+        environment = dict(os.environ)
+        environment["KIVY_NO_FILELOG"] = "1"
+        environment["KIVY_NO_ARGS"] = "1"
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_two_grid_items_fill_row_with_unrestricted_auto_span(self):
         script = textwrap.dedent(r'''
             import os
