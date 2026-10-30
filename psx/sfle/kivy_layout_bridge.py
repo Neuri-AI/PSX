@@ -414,9 +414,11 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     paint_rect.pos = (local_x, local_y)
                     paint_rect.size = (root_rect.width, root_rect.height)
                 if native_stroke is not None:
-                    native_stroke[3].rounded_rectangle = (
+                    from psx.css.native_paint import inset_rounded_border_box
+                    native_stroke[3].rounded_rectangle = inset_rounded_border_box(
                         local_x, local_y, root_rect.width, root_rect.height,
                         getattr(host, "_psx_css_semantic_radius", 0),
+                        native_stroke[3].width,
                     )
             mixed_receipts = mixed_grid.commit(mixed_plans)
             for node in snapshot.nodes:
