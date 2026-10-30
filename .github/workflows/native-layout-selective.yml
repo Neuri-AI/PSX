@@ -6,6 +6,8 @@ on:
     paths:
       - "psx/sfle/**"
       - "psx/renderers/kivy/kivy.py"
+      - "psx/renderers/components/text.py"
+      - "tests/test_kivy_renderer.py"
       - "psx/renderers/qt/pyqt.py"
       - "psx/renderers/tkinter/tkinter.py"
       - "tests/test_flow_linear_complexity.py"
