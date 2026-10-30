@@ -212,6 +212,73 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                                 text=True, timeout=90)
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_control_css_side_borders_keep_untouched_edges_transparent(self):
+        """Native Kivy sides follow Qt/QSS authored per-edge semantics."""
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
+        script = textwrap.dedent("""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.uix.button import Button
+            from kivy.uix.spinner import Spinner
+            from kivy.uix.textinput import TextInput
+            from kivy.uix.checkbox import CheckBox
+            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
+            from psx.css.parser import parse_stylesheet
+            from psx.css.cascade import StyleTarget, resolve_style
+
+            def style(css):
+                return resolve_style(
+                    parse_stylesheet("button {" + css + "}"),
+                    StyleTarget("button"),
+                )
+            bottom = style(
+                "border-bottom-width:2px; border-bottom-color:#123456;"
+                "border-radius:8px;"
+            )
+            rounded = style(
+                "border-bottom-width:2px; border-bottom-color:#123456;"
+                "border-radius:12px;"
+            )
+            top = style(
+                "border-top-width:3px; border-top-color:#aabbcc;"
+                "border-radius:0px;"
+            )
+            empty = style("")
+            renderer = KivyRenderer()
+            for name, widget in (
+                ("Button", Button()), ("Input", TextInput(multiline=False)),
+                ("TextArea", TextInput(multiline=True)),
+                ("Select", Spinner()), ("Link", Button()),
+                ("Checkbox", CheckBox()),
+            ):
+                widget.size_hint = (None, None)
+                widget.size = (180, 45)
+                handle = KivyHandle(name, widget, {})
+                renderer.apply_css(handle, bottom)
+                group, redraw, sides, lines = widget._psx_css_control_side_strokes
+                assert len(sides) == len(lines) == 1, (name, sides)
+                assert sides[0][0] == "bottom", (name, sides)
+                assert abs(lines[0][2].width - 2) < 0.01
+                old_points = tuple(lines[0][2].points)
+                widget.pos = (4, 7)
+                assert tuple(lines[0][2].points) != old_points
+                renderer.apply_css(handle, rounded)
+                assert widget._psx_css_control_side_strokes[0] is group
+                assert widget._psx_css_control_side_radius == 12
+                renderer.apply_css(handle, top)
+                assert widget._psx_css_control_side_strokes[0] is not group
+                assert widget._psx_css_control_side_strokes[2][0][0] == "top"
+                renderer.apply_css(handle, empty)
+                assert not hasattr(widget, "_psx_css_control_side_strokes")
+                assert group not in tuple(widget.canvas.after.children)
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_css_button_background_overrides_kivy_theme(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
