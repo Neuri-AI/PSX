@@ -313,14 +313,16 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                 renderer.apply_css(handle, style)
                 border = (widget._psx_css_control_stroke if node_type == "Button"
                           else widget._psx_css_stroke)
-                assert abs(border[3].width - 3) < 0.01
+                assert abs(border[3].width - 2) < 0.01
+                assert border[3].force_custom_drawing_method
                 widget.pos = (10, 20)
                 widget.size = (200, 100)
                 # Kivy Line exposes rounded_rectangle as a setter only;
                 # native redraw and a stable stroke width are the observable
                 # contract. Exact inset coordinates are verified by the
                 # pure test_css_inset_border_geometry suite.
-                assert abs(border[3].width - 3) < 0.01
+                assert abs(border[3].width - 2) < 0.01
+                assert border[3].force_custom_drawing_method
                 assert not hasattr(widget, "_psx_css_control_side_strokes")
                 assert not hasattr(widget, "_psx_css_side_strokes")
                 renderer.apply_css(handle, None)
@@ -380,7 +382,8 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                 group, redraw, sides, lines = widget._psx_css_control_side_strokes
                 assert len(sides) == len(lines) == 1, (name, sides)
                 assert sides[0][0] == "bottom", (name, sides)
-                assert abs(lines[0][2].width - 2) < 0.01
+                assert abs(lines[0][2].width - 1) < 0.01
+                assert lines[0][2].force_custom_drawing_method
                 old_points = tuple(lines[0][2].points)
                 widget.pos = (4, 7)
                 assert tuple(lines[0][2].points) != old_points
