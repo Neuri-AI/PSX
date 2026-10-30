@@ -5,6 +5,7 @@ from __future__ import annotations
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.widget import Widget
 from kivy.uix.scrollview import ScrollView
+from kivy.effects.scroll import ScrollEffect
 
 from psx.core.errors import RendererCapabilityError
 from psx.core.native import NativeOwnership
@@ -39,8 +40,13 @@ class KivyScrollAdapter:
             size_hint=(None, None) if sfle else (1, 1),
             bar_width=6, scroll_type=["bars", "content"],
             scroll_wheel_distance=48,
-            # Never rubber-band an empty/short viewport. Kivy defaults this
-            # to True, exposing the unpainted SDL background around GridItem.
+            # A Grid Scroll viewport has Cinnamon-owned geometry. Kivy's
+            # default DampedScrollEffect can spring beyond its changing Y
+            # bounds during live resize, visually shifting the content after
+            # the window has stopped. ScrollEffect retains kinetic scrolling
+            # but clamps the Y offset instead of applying spring overscroll.
+            # Leave legacy Scroll and the X effect unchanged.
+            **({"effect_y": ScrollEffect()} if sfle else {}),
             always_overscroll=False,
         )
         content = (
