@@ -621,6 +621,17 @@ class KivyRenderer:
         if current_scale != self._psx_css_pixel_scale:
             self._psx_css_pixel_scale = current_scale
             self._sfle_generation += 1
+            # Retain widget identity while refreshing native glyph metrics
+            # and the canvas after moving between Retina and standard screens.
+            pending = [root]
+            while pending:
+                mounted = pending.pop()
+                if mounted.handle is not None:
+                    self._scale_component_font(mounted.handle)
+                    computed = getattr(mounted.node, "css_computed", None)
+                    if computed is not None:
+                        self.apply_css(mounted.handle, computed)
+                pending.extend(mounted.children)
             self._sfle_measurement_invalidations.request("font")
         from psx.sfle.native_grid_bridge import is_mounted_native_grid_root, commit_native_grid
         from psx.sfle.grid_native_commit import GridCommitBackend
