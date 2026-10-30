@@ -120,6 +120,12 @@ class NativeGeometryCommitter:
             # Standalone geometry ports may omit the native root widget;
             # preserve their explicitly parent-local projection contract.
             kivy_root = self._widgets.get(root_id)
+            # Pure adapter tests may supply a placeholder root rather than
+            # an actual Kivy widget; only mounted roots expose canvas origin.
+            if kivy_root is not None and not all(
+                hasattr(kivy_root, axis) for axis in ("x", "y", "height")
+            ):
+                kivy_root = None
             kivy_root_box = boxes[root_id] if kivy_root is not None else None
         scroll_descendants: set[str] = set()
         if self._backend == GeometryBackend.KIVY:
