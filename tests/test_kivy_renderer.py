@@ -264,6 +264,28 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_kivy_native_text_intrinsic_width_is_unwrapped_and_restores_label(self):
+        """Percent-width activity rows must reserve measured greeting/date text."""
+        environment = dict(os.environ, KIVY_NO_ARGS="1", KIVY_NO_FILELOG="1")
+        script = textwrap.dedent("""
+            from kivy.uix.label import Label
+            from psx.sfle.kivy_measurement import KivyMeasurementSource
+            label = Label(text="Hola, Fredo", font_size=30)
+            label.text_size = (800.0, None)
+            label.texture_update()
+            source = KivyMeasurementSource({"label": label})
+            stretched = source.measure_width("label", 800.0)
+            natural = source.measure_width("label", None)
+            assert 0 < natural.preferred_width < stretched.preferred_width
+            assert natural.preferred_height > 0
+            assert label.text_size == (800.0, None)
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_uniform_border_has_exactly_one_paint_path_on_retina(self):
         """Never overpaint a uniform border with four duplicate side lines."""
         environment = dict(os.environ)
