@@ -5,6 +5,16 @@ from scripts.ci.impact import SUITES, classify
 
 
 class RoutingTests(unittest.TestCase):
+    def test_scroll_extent_projection_routes_cinnamon_and_kivy(self):
+        self.assertEqual(
+            self.selected("tests/sfle/test_kivy_scroll_extent_projection.py"),
+            {"sfle", "kivy"},
+        )
+        self.assertIn(
+            "kivy",
+            self.selected("psx/sfle/grid_native_composition.py"),
+        )
+
     def test_qt_kivy_visual_raster_routes_to_both_native_backends(self):
         for path in ("tests/certification/qt_kivy_css_native_raster.py",
                      "tests/certification/qt_kivy_native_text_metrics.py",
