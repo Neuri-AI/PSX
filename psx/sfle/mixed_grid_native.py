@@ -285,6 +285,7 @@ class MountedMixedGrid:
                                    if self.backend is GridCommitBackend.KIVY else None),
                     parent_heights=(heights
                                     if self.backend is GridCommitBackend.KIVY else None),
+                    kivy_window_coordinates=(self.backend is GridCommitBackend.KIVY),
                 )
                 self._bind_nested_scrolls(composition, scroll_before)
                 receipts.append((composition.prepared, receipt))
