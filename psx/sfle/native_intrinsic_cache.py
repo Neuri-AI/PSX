@@ -79,23 +79,17 @@ class NativeMeasurementRound:
         constraints: object,
         width: float,
         measure: Callable[[], object],
-        viewport_independent: bool = False,
     ) -> object:
-        # An explicitly certified width-dependent glyph measurement is
-        # independent of the viewport's height once the assigned text width
-        # and native font/content are unchanged. Other widgets retain the
-        # strict constraints key by default.
-        cache_constraints = None if viewport_independent else constraints
         key = (id(widget), width)
         previous = self.cache.width_entries.get(key)
         if (not self.invalidate_all and key[0] not in self.dirty_widgets
                 and previous is not None
-                and previous[0] == props and previous[1] == cache_constraints):
+                and previous[0] == props and previous[1] == constraints):
             intrinsic = previous[2]
         else:
             intrinsic = measure()
             self.measured_width.add(key)
-        self.updated_width[key] = (props, cache_constraints, intrinsic)
+        self.updated_width[key] = (props, constraints, intrinsic)
         return intrinsic
 
     def publish(self) -> None:
