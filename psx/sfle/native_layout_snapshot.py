@@ -152,9 +152,40 @@ class PreparedNativeLayoutSnapshot:
                         style["display"] = display
             converted.append(replace(node, component=component,
                                      style=tuple(sorted(style.items()))))
-        # Keep the semantic VNode identity but translate block children of
-        # CSS Flex containers into vertical inner layout contexts.
+        # A CSS flex item keeps its *own* inner formatting context. In
+        # particular, a block-level <div> may contain inline-level native
+        # controls (<button>, <input>, ...) whose default visual flow is
+        # horizontal, even when the div itself is a child of a column Flex.
+        # Pure native-control inline runs are projected as a wrapping row
+        # while the HTML Block/Inline compositor is integrated with nested
+        # Flex contexts. Do not rewrite explicitly authored display:flex
+        # containers: their own flex-direction remains authoritative.
         from psx.markup.html_aliases import FORMATTING_TAGS
+        inline_controls = frozenset({
+            "Button", "Input", "TextArea", "Select", "Checkbox",
+            "Radio", "Link", "Badge", "SpinBox", "Switch",
+        })
+        children_by_parent: dict[str, list[LayoutNode]] = {}
+        for item in converted:
+            if item.parent_id is not None:
+                children_by_parent.setdefault(item.parent_id, []).append(item)
+
+        def native_inline_run(parent_id: str) -> bool:
+            direct = children_by_parent.get(parent_id, ())
+            if len(direct) < 2:
+                return False
+            for child in direct:
+                origin = originals[child.node_id]
+                if origin.kind is not NodeKind.HOST or origin.type not in inline_controls:
+                    return False
+                computed = origin.css_computed
+                # An explicit display:block declaration makes a control a
+                # block participant rather than an inline-level box.
+                if (computed is not None and "display" in computed.specified
+                        and computed.properties["display"] != "inline"):
+                    return False
+            return True
+
         mapped: dict[str, LayoutNode] = {}
         normalized = []
         for node in converted:
@@ -162,12 +193,20 @@ class PreparedNativeLayoutSnapshot:
             origin = originals[node.node_id]
             style = dict(node.style)
             if (parent is not None and parent.component == "Flex"
+                    and node.component != "Flex"
                     and origin.kind is NodeKind.HOST
                     and origin.type in FORMATTING_TAGS):
                 display = style.get("display", origin.props.get("display"))
                 if display in ("block", "inline"):
                     style.pop("display", None)
-                    style.setdefault("direction", "column" if display == "block" else "row")
+                    # CSS block children that are purely an inline control
+                    # run receive row wrapping, preserving browser-like
+                    # Button intrinsic widths instead of column stacking.
+                    inline_run = display == "block" and native_inline_run(node.node_id)
+                    style.setdefault("direction", "row" if (display == "inline" or inline_run) else "column")
+                    if inline_run:
+                        style.setdefault("wrap", "wrap")
+                        style.setdefault("align_items", "flex-start")
                     node = replace(node, component="Flex",
                                    style=tuple(sorted(style.items())))
             normalized.append(node)
