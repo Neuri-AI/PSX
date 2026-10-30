@@ -344,7 +344,10 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
                 # projected here. Other containers retain Cinnamon's native
                 # sizing algorithm and receive no fabricated measurements.
                 if len(descendants) == 1 and descendants[0].node_id in measured_widths:
-                    natural = measured_widths[descendants[0].node_id]
+                    leaf = descendants[0]
+                    natural = measure_flow_leaf(
+                        leaf.node_id, identities[leaf.node_id], None,
+                    ).preferred_width
                     for group in ("padding", "border"):
                         for side in ("left", "right"):
                             edge = style.get(f"layout_{group}_{side}")
