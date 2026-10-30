@@ -95,9 +95,19 @@ def render_kivy(out: Path, background: str, fill: str, border: str,
             "This native visual gate cannot pass on a runner without a "
             "graphics context; mathematical Retina tests are not a substitute."
         )
-    Window.system_size = CANVAS
-    display_scale = KivyDisplayScale.from_window(Window).css_scale
+    # On Cocoa/SDL2, assigning Window.system_size is asynchronous. Sampling
+    # Window.size immediately afterwards mixes the *previous* drawable size
+    # with the *new* system size (e.g. 1600/220, 1200/140) and invents an
+    # invalid density. Keep the real current window unchanged and capture a
+    # fixed logical client-area crop from its bottom-left corner instead.
+    observed = KivyDisplayScale.from_window(Window)
+    display_scale = observed.css_scale
     drawable = tuple(Window.size)
+    if drawable[0] < CANVAS[0] * display_scale or drawable[1] < CANVAS[1] * display_scale:
+        raise RuntimeError(
+            f"Native Kivy window is too small for a {CANVAS} logical crop: "
+            f"size={drawable}, ratio={observed.snapshot()}"
+        )
     Window.clearcolor = (*rgb(background), 1)
     root = Widget(size_hint=(None, None), size=drawable)
     is_button = "-button-" in out.name
@@ -119,7 +129,7 @@ def render_kivy(out: Path, background: str, fill: str, border: str,
         # This is a bounded readiness check, not a synthetic screenshot.
         center = (
             round((CARD[0] + CARD[2] // 2) * display_scale),
-            round((CANVAS[1] - CARD[1] - CARD[3] // 2) * display_scale),
+            round(drawable[1] - (CARD[1] + CARD[3] // 2) * display_scale),
         )
         expected = _rgb(fill)
         for attempt in range(16):
@@ -132,9 +142,18 @@ def render_kivy(out: Path, background: str, fill: str, border: str,
                 pixel = captured.convert("RGB").getpixel(center)
             if sum(abs(pixel[i] - expected[i]) for i in range(3)) <= 6:
                 with Image.open(result) as native_image:
-                    native_image.convert("RGB").resize(
-                        CANVAS, Image.Resampling.LANCZOS
-                    ).save(out)
+                    physical_width = round(CANVAS[0] * display_scale)
+                    physical_height = round(CANVAS[1] * display_scale)
+                    physical_size = native_image.size
+                    if physical_size[0] < physical_width or physical_size[1] < physical_height:
+                        raise RuntimeError(
+                            "Kivy framebuffer does not cover the logical crop: "
+                            f"{physical_size} vs {physical_width}x{physical_height}"
+                        )
+                    native_image.convert("RGB").crop((
+                        0, physical_size[1] - physical_height,
+                        physical_width, physical_size[1],
+                    )).resize(CANVAS, Image.Resampling.LANCZOS).save(out)
                 break
         else:
             raise AssertionError(
