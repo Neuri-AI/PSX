@@ -452,19 +452,39 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             observed = ports.read_rectangles()
             maximum = 0.0
             physical_maximum = 0.0
+            scroll_descendants = set()
+            for node in snapshot.nodes:
+                if node.parent_id is not None and (
+                    node.parent_id in scroll_descendants or
+                    getattr(bindings[node.parent_id].widget, "_psx_sfle_scroll", False)
+                ):
+                    scroll_descendants.add(node.node_id)
             for node in snapshot.nodes:
                 if node.parent_id is None:
                     continue
                 border = boxes[node.node_id].border
-                root_border = boxes[root_id].border
-                # Kivy native positions are window-space canvas coordinates,
-                # not the parent-local Qt/Tk geometry. Compare like with like.
-                projected_x = (LayoutUnit.from_nearest(border.x) -
-                               LayoutUnit.from_nearest(root_border.x)).to_px() + float(host.x)
-                projected_y = (LayoutUnit.from_nearest(float(host.height))
-                               - (LayoutUnit.from_nearest(border.y) -
-                                  LayoutUnit.from_nearest(root_border.y))
-                               - LayoutUnit.from_nearest(border.height)).to_px() + float(host.y)
+                if node.node_id in scroll_descendants:
+                    parent = boxes[node.parent_id].border
+                    projected_x = (LayoutUnit.from_nearest(border.x) -
+                                   LayoutUnit.from_nearest(parent.x)).to_px()
+                    local_y = (LayoutUnit.from_nearest(border.y) -
+                               LayoutUnit.from_nearest(parent.y)).to_px()
+                    parent_widget = bindings[node.parent_id].widget
+                    if getattr(parent_widget, "_psx_sfle_scroll", False):
+                        parent_height = border.height
+                    else:
+                        parent_height = parent.height
+                    projected_y = (LayoutUnit.from_nearest(parent_height) -
+                                   LayoutUnit.from_nearest(local_y) -
+                                   LayoutUnit.from_nearest(border.height)).to_px()
+                else:
+                    root_border = boxes[root_id].border
+                    projected_x = (LayoutUnit.from_nearest(border.x) -
+                                   LayoutUnit.from_nearest(root_border.x)).to_px() + float(host.x)
+                    projected_y = (LayoutUnit.from_nearest(float(host.height))
+                                   - (LayoutUnit.from_nearest(border.y) -
+                                      LayoutUnit.from_nearest(root_border.y))
+                                   - LayoutUnit.from_nearest(border.height)).to_px() + float(host.y)
                 actual = observed[node.node_id]
                 expected_native = Rect(
                     projected_x, projected_y, border.width, border.height)
