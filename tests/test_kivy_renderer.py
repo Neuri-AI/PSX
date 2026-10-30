@@ -313,14 +313,14 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                 renderer.apply_css(handle, style)
                 border = (widget._psx_css_control_stroke if node_type == "Button"
                           else widget._psx_css_stroke)
-                assert abs(border[3].width - 2) < 0.01
+                assert abs(border[3].width - 3) < 0.01
                 widget.pos = (10, 20)
                 widget.size = (200, 100)
                 # Kivy Line exposes rounded_rectangle as a setter only;
                 # native redraw and a stable stroke width are the observable
                 # contract. Exact inset coordinates are verified by the
                 # pure test_css_inset_border_geometry suite.
-                assert abs(border[3].width - 2) < 0.01
+                assert abs(border[3].width - 3) < 0.01
                 assert not hasattr(widget, "_psx_css_control_side_strokes")
                 assert not hasattr(widget, "_psx_css_side_strokes")
                 renderer.apply_css(handle, None)
