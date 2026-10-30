@@ -75,6 +75,11 @@ from psx.core.contracts import (
 from psx.renderers.kivy.divider import KivyDividerAdapter
 
 
+# Qt/QSS and Kivy/OpenGL report different raster coverage for equal
+# nominal line widths. Calibrated using actual paired native 2px CSS edges
+# on Linux/SDL2; the CSS box and Cinnamon dimensions remain unchanged.
+_KIVY_LINE_RASTER_FACTOR = 0.75
+
 _LAYOUT_PROPS = frozenset({"spacing", "padding"})
 
 # (Kivy event/property name passed to widget.bind, factory building the Python callback)
@@ -915,7 +920,7 @@ class KivyRenderer:
                 width, rgba = stroke
                 group = InstructionGroup()
                 paint = Color(*rgba)
-                line = Line(width=width * pixel_scale * 0.75)
+                line = Line(width=width * pixel_scale * _KIVY_LINE_RASTER_FACTOR)
                 line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, line.width)
                 group.add(paint)
                 group.add(line)
@@ -928,7 +933,7 @@ class KivyRenderer:
                 widget._psx_css_control_stroke = (group, redraw, paint, line)
             else:
                 _, _, paint, line = existing_border
-                line.width, paint.rgba = stroke[0] * pixel_scale * 0.75, stroke[1]
+                line.width, paint.rgba = stroke[0] * pixel_scale * _KIVY_LINE_RASTER_FACTOR, stroke[1]
                 widget._psx_css_stroke_radius = radius
                 line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, line.width)
         if target.node_type in (
@@ -1335,7 +1340,7 @@ class KivyRenderer:
         elif old_stroke is None:
             stroke_group = InstructionGroup()
             stroke_color = Color(*border)
-            stroke_line = Line(rounded_rectangle=inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, stroke_width * 0.75), width=stroke_width * 0.75)
+            stroke_line = Line(rounded_rectangle=inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, stroke_width * _KIVY_LINE_RASTER_FACTOR), width=stroke_width * _KIVY_LINE_RASTER_FACTOR)
             stroke_group.add(stroke_color)
             stroke_group.add(stroke_line)
             def stroke_redraw(instance, _value):
@@ -1347,9 +1352,9 @@ class KivyRenderer:
         else:
             _, _, stroke_color, stroke_line = old_stroke
             stroke_color.rgba = border
-            stroke_line.width = stroke_width * 0.75
+            stroke_line.width = stroke_width * _KIVY_LINE_RASTER_FACTOR
             widget._psx_css_semantic_radius = radius
-            stroke_line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, stroke_width * 0.75)
+            stroke_line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, stroke_width * _KIVY_LINE_RASTER_FACTOR)
         existing = getattr(widget, "_psx_css_paint", None)
         if rgba is None:
             if existing is not None:
