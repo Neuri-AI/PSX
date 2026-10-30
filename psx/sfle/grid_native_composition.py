@@ -353,7 +353,7 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
                             edge = style.get(f"layout_{group}_{side}")
                             if isinstance(edge, Length) and edge.kind is LengthKind.PX:
                                 natural += edge.value
-                    style["flex_basis"] = Length.px(natural)
+                    style["layout_width"] = Length.px(natural)
                     node = replace(node, style=tuple(sorted(style.items())))
             adjusted.append(node)
         normalized = replace(normalized, nodes=tuple(adjusted))
