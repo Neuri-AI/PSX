@@ -99,6 +99,7 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             renderer = object.__new__(KivyRenderer)
             class Window:
                 size = (1600, 1200)
+                system_size = (800, 600)
             window = Window()
             class Root:
                 parent = window
