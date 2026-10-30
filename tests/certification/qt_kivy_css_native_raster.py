@@ -178,7 +178,7 @@ def main():
         return
     environment = dict(os.environ)
     environment.update(KIVY_NO_ARGS="1", KIVY_NO_FILELOG="1",
-                       QT_QPA_PLATFORM="xcb")
+                       QT_QPA_PLATFORM="offscreen")
     for item in CASES:
         for renderer in ("qt", "kivy"):
             result = subprocess.run(
