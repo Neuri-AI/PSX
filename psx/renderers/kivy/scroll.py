@@ -14,93 +14,18 @@ from psx.renderers.components.scroll import (
 
 
 class _PSXScrollView(ScrollView):
-    """Native Kivy scroll input and boundary handling.
+    """Let Kivy own the complete wheel, trackpad and touch lifecycle.
 
-    Avoid overriding on_scroll_start: Kivy uses scrollup/scrolldown in its
-    effect-coordinate convention, and pre-filtering based on scroll_y can
-    block wheel/trackpad events even when content can move.
+    ScrollView.on_scroll_start/on_scroll_move already negotiate gestures with
+    nested scroll viewports and keep the kinetic effects synchronized. A
+    second PSX wheel/trackpad implementation that writes scroll_x/scroll_y
+    before native dispatch can fight those effects and recursively dispatch
+    input while Cocoa is delivering a trackpad gesture.
+
+    Cinnamon owns content dimensions and native scroll offsets remain owned
+    by Kivy. No extra motion-event dispatch or ancestor delta chaining belongs
+    in this adapter.
     """
-
-    def _psx_scroll_delta(self, dx, dy):
-        """Apply logical movement once and chain only the unconsumed delta."""
-        from psx.renderers.components.scroll import consume_scroll
-        remainder_x, remainder_y = float(dx), float(dy)
-        props = getattr(self, "_psx_props", None)
-        content = getattr(self, "_psx_content", None)
-        if props is not None and props["enabled"] and content is not None:
-            allow_x, allow_y = scroll_axes(props["direction"])
-            max_x = max(0.0, content.width - self.width)
-            max_y = max(0.0, content.height - self.height)
-            if allow_x and max_x and remainder_x:
-                position, remainder_x = consume_scroll(
-                    self.scroll_x * max_x, max_x, remainder_x,
-                )
-                self.scroll_x = position / max_x
-            if allow_y and max_y and remainder_y:
-                position, remainder_y = consume_scroll(
-                    (1.0 - self.scroll_y) * max_y, max_y, remainder_y,
-                )
-                self.scroll_y = 1.0 - position / max_y
-        if remainder_x or remainder_y:
-            parent = self.parent
-            while parent is not None:
-                if hasattr(parent, "_psx_scroll_delta"):
-                    return parent._psx_scroll_delta(remainder_x, remainder_y)
-                parent = parent.parent
-        return remainder_x, remainder_y
-
-    def on_scroll_move(self, touch):
-        """Let Kivy own touch kinetics; chain only motion beyond an edge."""
-        from psx.renderers.components.scroll import consume_scroll
-        props = getattr(self, "_psx_props", None)
-        content = getattr(self, "_psx_content", None)
-        if not (getattr(self, "_psx_sfle_scroll", False)
-                and props and props["enabled"] and content is not None):
-            return super().on_scroll_move(touch)
-        max_x = max(0.0, content.width - self.width)
-        max_y = max(0.0, content.height - self.height)
-        start_x = self.scroll_x * max_x
-        start_y = (1.0 - self.scroll_y) * max_y
-        native_handled = super().on_scroll_move(touch)
-        # Screen motion points in the opposite direction to content travel.
-        dx = -float(getattr(touch, "dx", 0.0))
-        dy = -float(getattr(touch, "dy", 0.0))
-        allow_x, allow_y = scroll_axes(props["direction"])
-        remainder_x, remainder_y = dx, dy
-        if allow_x:
-            _, remainder_x = consume_scroll(start_x, max_x, dx)
-        if allow_y:
-            _, remainder_y = consume_scroll(start_y, max_y, dy)
-        if remainder_x or remainder_y:
-            ancestor = self.parent
-            while ancestor is not None:
-                if hasattr(ancestor, "_psx_scroll_delta"):
-                    tail = ancestor._psx_scroll_delta(remainder_x, remainder_y)
-                    if tail != (remainder_x, remainder_y):
-                        return True
-                    break
-                ancestor = ancestor.parent
-        return native_handled
-
-    def on_touch_down(self, touch):
-        # Wheel input is discrete. Pan/touch gestures remain owned by Kivy's
-        # ScrollView, preserving kinetic effects and native touch lifecycle.
-        if (getattr(self, "_psx_sfle_scroll", False)
-                and getattr(touch, "is_mouse_scrolling", False)
-                and self.collide_point(*touch.pos)):
-            directions = {
-                "scrollup": (0.0, -48.0),
-                "scrolldown": (0.0, 48.0),
-                "scrollleft": (-48.0, 0.0),
-                "scrollright": (48.0, 0.0),
-            }
-            movement = directions.get(getattr(touch, "button", ""))
-            if movement is not None:
-                remaining = self._psx_scroll_delta(*movement)
-                if remaining != movement:
-                    return True
-                return False
-        return super().on_touch_down(touch)
 
 
 class KivyScrollAdapter:
@@ -114,6 +39,9 @@ class KivyScrollAdapter:
             size_hint=(None, None) if sfle else (1, 1),
             bar_width=6, scroll_type=["bars", "content"],
             scroll_wheel_distance=48,
+            # Never rubber-band an empty/short viewport. Kivy defaults this
+            # to True, exposing the unpainted SDL background around GridItem.
+            always_overscroll=False,
         )
         content = (
             Widget(size_hint=(None, None)) if sfle else
