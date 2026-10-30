@@ -5,6 +5,25 @@ from scripts.ci.impact import SUITES, classify
 
 
 class RoutingTests(unittest.TestCase):
+    def test_kivy_css_pointer_and_retina_borders_run_in_native_ci(self):
+        from pathlib import Path
+        workflow = (
+            Path(__file__).resolve().parents[1]
+            / ".github/workflows/native-layout-selective.yml"
+        ).read_text(encoding="utf-8")
+        for path in (
+            "psx/renderers/kivy/css_cursor.py",
+            "tests/test_kivy_css_cursor.py",
+            "tests/test_kivy_css_border_retina.py",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), {"kivy"})
+        self.assertIn("tests/test_kivy_css_cursor.py", workflow)
+        self.assertIn("tests/test_kivy_css_border_retina.py", workflow)
+        self.assertIn(
+            "kivy", self.selected("psx/renderers/kivy/kivy.py")
+        )
+
     def test_kivy_resize_regressions_execute_in_native_ci(self):
         from pathlib import Path
         workflow = (
