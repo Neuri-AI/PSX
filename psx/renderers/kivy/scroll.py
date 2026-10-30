@@ -159,12 +159,25 @@ class KivyScrollAdapter:
 
     @staticmethod
     def _resize_content(view):
-        content = view._psx_content
-        x, y = scroll_axes(view._psx_props["direction"])
-        # Cross-axis sizing clamps to the viewport. The scrollable axis must
-        # retain measured minimum dimensions instead of a fill size_hint.
-        content.width = max(content.minimum_width, view.width) if x else view.width
-        content.height = max(content.minimum_height, view.height) if y else view.height
+        # A BoxLayout can dispatch minimum_size while its size is being
+        # applied. Never recursively resize the same scroll content during
+        # that dispatch: doing so can starve the Kivy event loop on resize.
+        if getattr(view, "_psx_resizing_content", False):
+            return
+        view._psx_resizing_content = True
+        try:
+            content = view._psx_content
+            x, y = scroll_axes(view._psx_props["direction"])
+            # Cross-axis sizing clamps to the viewport. The scrollable axis
+            # retains its measured minimum dimensions.
+            width = max(content.minimum_width, view.width) if x else view.width
+            height = max(content.minimum_height, view.height) if y else view.height
+            if content.width != width:
+                content.width = width
+            if content.height != height:
+                content.height = height
+        finally:
+            view._psx_resizing_content = False
 
     @staticmethod
     def _connect(view):
