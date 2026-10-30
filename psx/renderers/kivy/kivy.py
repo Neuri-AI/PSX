@@ -1012,8 +1012,8 @@ class KivyRenderer:
                 _, _, color, shape, _, _, _ = painted
                 color.rgba = rgba
                 shape.radius = [native_border_radius(computed) * pixel_scale] * 4
-        if target.node_type == "Button":
-            # Kivy's theme texture otherwise obscures authored CSS backgrounds.
+        if target.node_type in ("Button", "Select", "Link"):
+            # Kivy Button/Spinner skins otherwise obscure authored CSS backgrounds.
             from psx.css.native_paint import native_border_radius
             from kivy.graphics import RoundedRectangle
             widget = target.widget
