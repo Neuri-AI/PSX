@@ -1028,6 +1028,8 @@ class KivyRenderer:
                 target.widget.halign = styles["text-align"]
             if "color" in styles:
                 target.widget.color = styles["color"]
+                if hasattr(target.widget, "disabled_color"):
+                    target.widget.disabled_color = styles["color"]
             target.widget.line_height = (
                 styles["line-height"] * pixel_scale / target.widget.font_size
                 if "line-height" in styles else target.widget.property("line_height").defaultvalue
@@ -1152,7 +1154,7 @@ class KivyRenderer:
             if not hasattr(widget, "_psx_css_default_typography"):
                 widget._psx_css_default_typography = {
                     key: getattr(widget, key) for key in
-                    ("font_name", "font_size", "bold", "halign", "line_height", "color", "foreground_color")
+                    ("font_name", "font_size", "bold", "halign", "line_height", "color", "foreground_color", "disabled_color", "disabled_foreground_color")
                     if hasattr(widget, key)
                 }
             # The portable Button font size is a live component prop. A CSS
@@ -1226,8 +1228,12 @@ class KivyRenderer:
             if "color" in styles:
                 if target.node_type in ("Input", "TextArea") and hasattr(widget, "foreground_color"):
                     widget.foreground_color = styles["color"]
+                    if hasattr(widget, "disabled_foreground_color"):
+                        widget.disabled_foreground_color = styles["color"]
                 elif hasattr(widget, "color"):
                     widget.color = styles["color"]
+                    if hasattr(widget, "disabled_color"):
+                        widget.disabled_color = styles["color"]
                 else:
                     raise ValueError(f"Kivy {target.node_type} has no foreground paint property.")
             if self._sfle_constraints is not None:
