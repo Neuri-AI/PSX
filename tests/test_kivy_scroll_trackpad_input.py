@@ -51,7 +51,9 @@ def test_vertical_effect_clamps_on_shrinking_resize_bounds():
     # A taller window reduces the scrollable extent. A damped effect leaves
     # the old displacement outside bounds and springs back over later frames.
     effect.min = -180
-    effect.value = -350
+    # A changed effect value dispatches on_value; assigning the unchanged
+    # value is a no-op in Kivy's NumericProperty implementation.
+    effect.value = -351
     assert effect.value == -180
     assert effect.scroll == -180
     assert effect.velocity == 0
