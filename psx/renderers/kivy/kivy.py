@@ -729,11 +729,18 @@ class KivyRenderer:
         # All adapter kinds, including custom ProgressBar adapters, must
         # advertise the same intrinsic port before native measurement.
         handle = self._adapter_for(adapter_key(node)).create(self, node, parent)
+        self._scale_component_font(handle)
         if self._sfle_constraints is not None and node.type in (
             "Input", "Checkbox", "ProgressBar",
         ):
             handle.widget._psx_sfle_intrinsic_kind = node.type
         return handle
+
+    def _scale_component_font(self, handle: object) -> None:
+        target = _handle(handle)
+        if (target.node_type in ("Text", "Button", "Input", "TextArea", "Select", "Link")
+                and "font_size" in target.props and hasattr(target.widget, "font_size")):
+            target.widget.font_size = target.props["font_size"] * self._psx_css_pixel_scale
 
     def _adapter_create(self, node: VNode, parent: object | None) -> KivyHandle:
         if node.kind is NodeKind.HOST and node.type in FORMATTING_TAGS:
@@ -876,6 +883,7 @@ class KivyRenderer:
             if not hasattr(target.widget, "_psx_css_default_font_name"):
                 target.widget._psx_css_default_font_name = target.widget.font_name
             apply_kivy_text(target.widget, target.props)
+            self._scale_component_font(target)
             styles = native_text_typography(computed, alpha=True, line_height=True)
             target.widget.font_name = target.widget._psx_css_default_font_name
             if "font-family" in styles:
@@ -1170,6 +1178,7 @@ class KivyRenderer:
             props = spec.updated_props(target.props, changed, removed)
             spec.apply(target.widget, props)
             target.props = props
+            self._scale_component_font(target)
             # Component props are the baseline for CSS, not a snapshot of the
             # first mount. Refresh only fields explicitly controlled by the
             # component; leave CSS-owned fields for the projection/reset path.
