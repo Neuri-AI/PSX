@@ -806,6 +806,7 @@ class KivyRenderer:
 
     def apply_css(self, handle: object, computed: object) -> None:
         """Paint native semantic backgrounds with one owned canvas instruction."""
+        from kivy.metrics import sp
         from psx.css.native_paint import background_rgba
         from kivy.graphics import Color, InstructionGroup, Rectangle
 
@@ -857,7 +858,7 @@ class KivyRenderer:
             if "font-family" in styles:
                 target.widget.font_name = styles["font-family"]
             if "font-size" in styles:
-                target.widget.font_size = styles["font-size"]
+                target.widget.font_size = sp(styles["font-size"])
             if "font-weight" in styles:
                 target.widget.bold = styles["font-weight"] >= 600
             if "text-align" in styles:
@@ -865,7 +866,7 @@ class KivyRenderer:
             if "color" in styles:
                 target.widget.color = styles["color"]
             target.widget.line_height = (
-                styles["line-height"] / target.widget.font_size
+                sp(styles["line-height"]) / target.widget.font_size
                 if "line-height" in styles else target.widget.property("line_height").defaultvalue
             )
             if self._sfle_constraints is not None:
@@ -951,7 +952,7 @@ class KivyRenderer:
             if "font-family" in styles and hasattr(widget, "font_name"):
                 widget.font_name = styles["font-family"]
             if "font-size" in styles:
-                widget.font_size = styles["font-size"]
+                widget.font_size = sp(styles["font-size"])
             if "font-weight" in styles:
                 if not hasattr(widget, "bold"):
                     raise ValueError(f"Kivy {target.node_type} does not expose native font-weight.")
@@ -981,7 +982,7 @@ class KivyRenderer:
             if "line-height" in styles:
                 if not hasattr(widget, "line_height"):
                     raise ValueError(f"Kivy {target.node_type} does not support line-height.")
-                widget.line_height = styles["line-height"] / widget.font_size
+                widget.line_height = sp(styles["line-height"]) / widget.font_size
             if "color" in styles:
                 if target.node_type in ("Input", "TextArea") and hasattr(widget, "foreground_color"):
                     widget.foreground_color = styles["color"]
