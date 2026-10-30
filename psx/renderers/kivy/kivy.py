@@ -847,7 +847,7 @@ class KivyRenderer:
             from psx.css.native_paint import native_border_paint, native_border_radius
             from kivy.graphics import Line
             stroke = native_border_paint(computed, alpha=True)
-            radius = native_border_radius(computed)
+            radius = native_border_radius(computed) * pixel_scale
             widget = target.widget
             existing_border = getattr(widget, "_psx_css_control_stroke", None)
             if stroke is None:
@@ -861,7 +861,7 @@ class KivyRenderer:
                 width, rgba = stroke
                 group = InstructionGroup()
                 paint = Color(*rgba)
-                line = Line(width=width)
+                line = Line(width=width * pixel_scale)
                 line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
                 group.add(paint)
                 group.add(line)
@@ -874,7 +874,7 @@ class KivyRenderer:
                 widget._psx_css_control_stroke = (group, redraw, paint, line)
             else:
                 _, _, paint, line = existing_border
-                line.width, paint.rgba = stroke
+                line.width, paint.rgba = stroke[0] * pixel_scale, stroke[1]
                 widget._psx_css_stroke_radius = radius
                 line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
         if target.node_type == "Text":
@@ -948,7 +948,7 @@ class KivyRenderer:
             elif painted is None:
                 group = InstructionGroup()
                 color = Color(*rgba)
-                radius = native_border_radius(computed)
+                radius = native_border_radius(computed) * pixel_scale
                 shape = RoundedRectangle(pos=widget.pos, size=widget.size, radius=[radius] * 4)
                 group.add(color)
                 group.add(shape)
@@ -966,7 +966,7 @@ class KivyRenderer:
             else:
                 _, _, color, shape, _, _, _ = painted
                 color.rgba = rgba
-                shape.radius = [native_border_radius(computed)] * 4
+                shape.radius = [native_border_radius(computed) * pixel_scale] * 4
         if target.node_type in ("Button", "Input", "TextArea", "Select", "Link"):
             from psx.css.native_paint import native_text_typography
             styles = native_text_typography(computed, alpha=True,
@@ -983,8 +983,8 @@ class KivyRenderer:
             # after keyed reconciliation has updated that prop.
             if target.node_type == "Button":
                 widget._psx_css_default_typography["font_size"] = target.props.get(
-                    "font_size", widget._psx_css_default_typography["font_size"]
-                )
+                    "font_size", widget._psx_css_default_typography["font_size"] / pixel_scale
+                ) * pixel_scale
             for key, value in widget._psx_css_default_typography.items():
                 setattr(widget, key, value)
             if "font-family" in styles and hasattr(widget, "font_name"):
@@ -1044,10 +1044,10 @@ class KivyRenderer:
             border_rgba, native_border_radius, native_side_border_paint,
             rounded_side_stroke_points,
         )
-        radius = native_border_radius(computed)
+        radius = native_border_radius(computed) * pixel_scale
         from psx.sfle.lengths import Length, LengthKind
         from kivy.graphics import Line
-        side_styles = native_side_border_paint(computed)
+        side_styles = tuple((side, thickness * pixel_scale, color) for side, thickness, color in native_side_border_paint(computed))
         old_side = getattr(widget, "_psx_css_side_strokes", None)
         if old_side is not None and old_side[2] != side_styles:
             group, redraw, _styles, _lines = old_side
@@ -1088,7 +1088,7 @@ class KivyRenderer:
         if border is not None:
             if not isinstance(thickness, Length) or thickness.kind != LengthKind.PX:
                 raise ValueError("Kivy CSS border paint requires a pixel width.")
-        stroke_width = float(thickness.value) if border is not None else 0.0
+        stroke_width = float(thickness.value) * pixel_scale if border is not None else 0.0
         old_stroke = getattr(widget, "_psx_css_stroke", None)
         if border is None or stroke_width <= 0:
             if old_stroke is not None:
