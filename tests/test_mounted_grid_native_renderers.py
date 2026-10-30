@@ -3364,6 +3364,10 @@ def test_kivy_trackpad_grid_item_scroll_does_not_shift_content_on_vertical_resiz
         '<GridItem span="3"><div><p>Sidebar</p></div></GridItem>'
         '<Scroll direction="vertical" height="100vh"><GridItem>'
         '<div class="content" style="background: #202630;">'
+        '<div class="container"><Grid gap="16px">'
+        '<GridItem span="6"><div><p>Users</p></div></GridItem>'
+        '<GridItem span="6"><div><p>Sales</p></div></GridItem>'
+        '</Grid></div>'
         + paragraphs
         + '</div></GridItem></Scroll></Grid></div>'
     )
