@@ -186,5 +186,12 @@ class KivyScrollAdapter:
 
     def destroy(self, renderer, handle):
         view = handle.widget
+        # An unmounted viewport must not keep scheduling kinetic-effect or
+        # scrollbar animation updates after its GridItem has been removed.
+        from kivy.animation import Animation
+        Animation.stop_all(view)
+        for effect in (view.effect_x, view.effect_y):
+            if effect is not None:
+                effect.cancel()
         if view.parent is not None:
             view.parent.remove_widget(view)
