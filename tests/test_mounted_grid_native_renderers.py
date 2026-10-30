@@ -3349,6 +3349,50 @@ def test_scroll_wrapped_grid_item_uses_native_viewport_across_backends(wrapped_r
         close()
 
 
+def test_kivy_trackpad_grid_item_scroll_does_not_shift_content_on_vertical_resize():
+    """Real Grid > Scroll > GridItem keeps its content origin while panning."""
+    if os.environ.get("PSX_GRID_BACKEND") != "kivy":
+        pytest.skip("Kivy-specific native scroll coordinate reproduction")
+    from psx import psx
+    from kivy.uix.scrollview import ScrollView
+
+    renderer, close = make_renderer("kivy")
+    tree = Reconciler(renderer)
+    paragraphs = "".join(f"<p>Activity entry {n}</p>" for n in range(50))
+    markup = (
+        '<div><Grid gap="0px">'
+        '<GridItem span="3"><div><p>Sidebar</p></div></GridItem>'
+        '<Scroll direction="vertical" height="100vh"><GridItem>'
+        '<div class="content" style="background: #202630;">'
+        + paragraphs
+        + '</div></GridItem></Scroll></Grid></div>'
+    )
+    try:
+        root = tree.render(psx(markup))
+        grid = root.children[0]
+        scroll = grid.children[1].children[0]
+        native = scroll.handle.widget
+        assert isinstance(native, ScrollView)
+        assert native.always_overscroll is False
+        # Scroll > GridItem > div; the HTML root fills the renderer-owned
+        # content viewport, not the short visible Scroll rectangle.
+        content_root = scroll.children[0].children[0].handle.widget
+        assert native._psx_content.height > native.height
+        native.scroll_y = 0.4
+        for height in (280, 360, 190, 420, 210):
+            renderer.set_sfle_constraints(LayoutConstraints(
+                AvailableSize(900, True), AvailableSize(height, True)))
+            renderer.commit_layout(root)
+            assert scroll.handle.widget is native
+            assert native._psx_content.height > native.height
+            assert content_root.y - content_root.parent.y == pytest.approx(0, abs=1)
+            assert 0 <= native.scroll_y <= 1
+            assert renderer.grid_result is not None
+    finally:
+        tree.unmount()
+        close()
+
+
 def test_grid_flow_leaf_remeasures_after_content_change():
     """Per-composition measurements must never outlive a content update."""
     from psx import psx
