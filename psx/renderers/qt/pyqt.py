@@ -1185,16 +1185,6 @@ class QtRenderer:
                     )
                 if "border-width" in computed.specified and border is None:
                     declarations.append("border: none;")
-            if computed is not None:
-                value = computed.properties.get("cursor", "auto")
-                if "cursor" in computed.specified:
-                    qt = self._qtcore.Qt
-                    shapes = getattr(qt, "CursorShape", qt)
-                    from psx.css.cursor import QT_CURSOR_SHAPES
-                    widget.setCursor(getattr(shapes, QT_CURSOR_SHAPES[value]))
-                elif hasattr(widget, "_psx_css_cursor_applied"):
-                    widget.unsetCursor()
-                widget._psx_css_cursor_applied = "cursor" in computed.specified
             baseline = widget._psx_css_base_stylesheet
             authored = " ".join(declarations)
             if authored and baseline.rstrip().endswith("}"):
