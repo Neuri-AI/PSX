@@ -131,6 +131,10 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                     native_source = KivyMeasurementSource({identifier: widget})
                 else:
                     raise AssertionError("Unexpected native Grid backend.")
+                if allocated_width is None:
+                    if backend is not GridCommitBackend.KIVY:
+                        raise GridPackingError("Unwrapped text measurement requires Kivy.")
+                    return native_source.measure_width(identifier, None)
                 return reuse_transaction.measure(
                     backend.value, widget, node, allocated_width,
                     lambda: native_source.measure_width(identifier, allocated_width),
