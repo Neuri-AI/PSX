@@ -112,6 +112,11 @@ def _classify_path(path: str) -> set[str]:
         # The visual raster comparison runs in the Qt job but exercises the
         # Tk implementation too; never route these changes to Tk alone.
         return {"qt", "tkinter"}
+    if path in (
+        "psx/css/cursor.py",
+        "tests/css/test_cursor_shape_mapping.py",
+    ):
+        return {"core", "qt", "kivy", "tkinter"}
     if path == "psx/css/native_paint.py" or path == "tests/css/test_native_paint.py":
         return {"core", "qt", "kivy", "tkinter"}
     if path in ("psx/css/properties.py", "psx/css/parser.py", "psx/css/cascade.py", "psx/css/markup.py", "tests/css/test_parser_and_cascade.py"):
