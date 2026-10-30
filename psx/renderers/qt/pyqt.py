@@ -1173,10 +1173,8 @@ class QtRenderer:
                 if "cursor" in computed.specified:
                     qt = self._qtcore.Qt
                     shapes = getattr(qt, "CursorShape", qt)
-                    widget.setCursor(
-                        shapes.PointingHandCursor if value == "pointer"
-                        else shapes.ArrowCursor
-                    )
+                    from psx.css.cursor import QT_CURSOR_SHAPES
+                    widget.setCursor(getattr(shapes, QT_CURSOR_SHAPES[value]))
                 elif hasattr(widget, "_psx_css_cursor_applied"):
                     widget.unsetCursor()
                 widget._psx_css_cursor_applied = "cursor" in computed.specified
