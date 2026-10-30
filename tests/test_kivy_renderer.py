@@ -121,6 +121,57 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_input_and_textarea_css_background_survives_focus_and_resets(self):
+        """CSS paint must replace both TextInput skin states without remount."""
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
+        script = textwrap.dedent("""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
+            from psx.css.parser import parse_stylesheet
+            from psx.css.cascade import StyleTarget, resolve_style
+            from kivy.uix.textinput import TextInput
+
+            renderer = KivyRenderer()
+            for component in ("Input", "TextArea"):
+                widget = TextInput(multiline=component == "TextArea")
+                handle = KivyHandle(component, widget, {})
+                original = (widget.background_normal,
+                            widget.background_active,
+                            tuple(widget.background_color))
+                def style(value):
+                    return resolve_style(
+                        parse_stylesheet("input {" + value + "}"),
+                        StyleTarget("input"),
+                    )
+                renderer.apply_css(handle, style(
+                    "background-color: #123456; border-radius: 8px;"
+                ))
+                painted = widget._psx_css_input_background
+                assert widget.background_normal == ""
+                assert widget.background_active == ""
+                assert tuple(widget.background_color) == (0, 0, 0, 0)
+                assert painted[2].rgba[:3] == [18/255, 52/255, 86/255]
+                widget.focus = True
+                assert widget._psx_css_input_background is painted
+                renderer.apply_css(handle, style(
+                    "background-color: #abcdef; border-radius: 12px;"
+                ))
+                assert widget._psx_css_input_background is painted
+                assert painted[3].radius[0] == 12
+                renderer.apply_css(handle, style(""))
+                assert not hasattr(widget, "_psx_css_input_background")
+                assert (widget.background_normal,
+                        widget.background_active,
+                        tuple(widget.background_color)) == original
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_css_button_background_overrides_kivy_theme(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
