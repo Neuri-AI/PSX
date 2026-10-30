@@ -3098,6 +3098,55 @@ def test_css_div_flex_row_gap_renders_distinct_native_positions():
         close()
 
 
+def test_sidebar_nested_block_preserves_inline_button_flow_and_auto_footer():
+    """Browser-like navigation in a column Flex on all native adapters."""
+    from psx.css.markup import compute_markup_styles
+    from psx import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    document = compute_markup_styles(psx("""
+        <div class="sidebar">
+            <div class="navigation">
+                <button>Inicio</button>
+                <button>Configuración</button>
+            </div>
+            <div class="sidebar-footer"><p>Mi perfil</p></div>
+        </div>
+    """), """
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: red;
+        }
+        .sidebar-footer { margin-top: auto; }
+    """)
+    try:
+        mounted = reconciler.render(document)
+        for height in (200, 500, 320):
+            constraints = LayoutConstraints(
+                AvailableSize(800, True), AvailableSize(height, True))
+            renderer.set_sfle_constraints(constraints)
+            renderer.commit_layout(mounted)
+            boxes = [box.border for _, box in renderer.sfle_result.boxes]
+            # Root, navigation, two native buttons, footer, paragraph, text.
+            assert len(boxes) >= 6
+            root_box, nav, first, second, footer = boxes[:5]
+            assert first.y == pytest.approx(second.y, abs=1)
+            assert second.x >= first.x + first.width - 1
+            assert second.x + second.width <= nav.x + nav.width + 1
+            assert footer.y >= nav.y + nav.height - 1
+            assert footer.y + footer.height == pytest.approx(
+                root_box.y + root_box.height, abs=1,
+            )
+            assert renderer.sfle_result.geometry_commit_error <= 1
+    finally:
+        reconciler.unmount()
+        close()
+
+
 def test_css_display_switch_reflows_same_semantic_native_div():
     from psx.css.markup import compute_markup_styles
     from psx import psx
