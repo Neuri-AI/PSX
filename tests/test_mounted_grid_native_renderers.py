@@ -3363,12 +3363,16 @@ def test_kivy_trackpad_grid_item_scroll_does_not_shift_content_on_vertical_resiz
         '<div><Grid gap="0px">'
         '<GridItem span="3"><div><p>Sidebar</p></div></GridItem>'
         '<Scroll direction="vertical" height="100vh"><GridItem>'
-        '<div class="content" style="background: #202630;">'
+        # The CSS root has a short fixed border box while the final paragraph
+        # extends far below it. This reproduces the full-extent Kivy bug.
+        '<div class="content" style="height: 160px; background: #202630;">'
+        '<p style="margin: 0px;">Start of dashboard</p>'
         '<div class="container"><Grid gap="16px">'
         '<GridItem span="6"><div><p>Users</p></div></GridItem>'
         '<GridItem span="6"><div><p>Sales</p></div></GridItem>'
         '</Grid></div>'
         + paragraphs
+        + '<p style="margin: 0px;">End of dashboard</p>'
         + '</div></GridItem></Scroll></Grid></div>'
     )
     try:
@@ -3380,7 +3384,10 @@ def test_kivy_trackpad_grid_item_scroll_does_not_shift_content_on_vertical_resiz
         assert native.always_overscroll is False
         # Scroll > GridItem > div; the HTML root fills the renderer-owned
         # content viewport, not the short visible Scroll rectangle.
-        content_root = scroll.children[0].children[0].handle.widget
+        html_root = scroll.children[0].children[0]
+        content_root = html_root.handle.widget
+        first = html_root.children[0].handle.widget
+        last = html_root.children[-1].handle.widget
         assert native._psx_content.height > native.height
         native.scroll_y = 0.4
         for height in (280, 360, 190, 420, 210):
@@ -3390,6 +3397,15 @@ def test_kivy_trackpad_grid_item_scroll_does_not_shift_content_on_vertical_resiz
             assert scroll.handle.widget is native
             assert native._psx_content.height > native.height
             assert content_root.y - content_root.parent.y == pytest.approx(0, abs=1)
+            assert content_root.height == pytest.approx(
+                native._psx_content.height, abs=1,
+            )
+            # ScrollView translates its content by -(extent - viewport) at
+            # scroll_y=1 and by 0 at scroll_y=0. The first and last native
+            # widgets must stay inside those two reachable extremes.
+            extent = native._psx_content.height
+            assert first.top - content_root.y == pytest.approx(extent, abs=2)
+            assert last.y >= content_root.y - 2
             assert 0 <= native.scroll_y <= 1
             assert renderer.grid_result is not None
     finally:
