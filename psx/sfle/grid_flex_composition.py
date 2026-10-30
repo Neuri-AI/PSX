@@ -30,7 +30,8 @@ class ComposedFlex:
     content_height: float
 
 
-def _auto_root_content_width(flex: NormalizedLayoutNode, border_width: float) -> float | None:
+def _auto_root_content_width(flex: NormalizedLayoutNode, border_width: float,
+                             pixel_scale: float = 1.0) -> float | None:
     """Return an auto Flex root's content width inside its GridItem border box.
 
     A Grid placement is a border-box rectangle.  An auto-width Flex occupying
@@ -59,7 +60,7 @@ def _auto_root_content_width(flex: NormalizedLayoutNode, border_width: float) ->
         value = props.get(name, fallback)
         parsed = parse_length(value)
         if parsed.kind is LengthKind.PX:
-            return float(parsed.value)
+            return float(parsed.value) * pixel_scale
         if parsed.kind is LengthKind.PERCENT:
             return border_width * float(parsed.value)
         raise GridPackingError(f"GridItem Flex {name} must be a concrete length.")
@@ -74,7 +75,7 @@ def _auto_root_content_width(flex: NormalizedLayoutNode, border_width: float) ->
 
 
 def _with_auto_root_content_width(prepared, flex: NormalizedLayoutNode,
-                                  border_width: float):
+                                  border_width: float, pixel_scale: float = 1.0):
     """Pin only the root content box; retain the outer Grid constraint.
 
     The Grid bridge's outer constraint is also used by Qt while negotiating a
@@ -83,7 +84,7 @@ def _with_auto_root_content_width(prepared, flex: NormalizedLayoutNode,
     explicit resolved ``layout_width`` instead preserves the Grid border-box
     contract while making the inner Flex children honor padding.
     """
-    width = _auto_root_content_width(flex, border_width)
+    width = _auto_root_content_width(flex, border_width, pixel_scale)
     if width is None:
         return prepared
     root, *rest = prepared.snapshot.nodes
@@ -106,6 +107,7 @@ def prepare_composed_flex(
     measure_grid: Callable[[NormalizedLayoutNode, float], object],
     is_ui_thread: Callable[[], bool],
     engine: object,
+    pixel_scale: float = 1.0,
 ) -> ComposedFlex:
     """Compute one declarative Flex child with strict bounded width remeasurement."""
     if flex.kind is not NodeKind.HOST or flex.type != "Flex":
@@ -115,9 +117,14 @@ def prepare_composed_flex(
     constraints = LayoutConstraints(
         AvailableSize(content_width, True), AvailableSize(None, False),
     )
+    prepared = prepare_native_layout_snapshot(
+        flex, constraints, generation=generation,
+    )
+    prepared = replace(
+        prepared, snapshot=prepared.css_geometry_snapshot(pixel_scale=pixel_scale)
+    )
     prepared = _with_auto_root_content_width(
-        prepare_native_layout_snapshot(flex, constraints, generation=generation),
-        flex, content_width,
+        prepared, flex, content_width, pixel_scale,
     )
     all_nodes = {}
 
