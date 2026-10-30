@@ -14,6 +14,7 @@ class RoutingTests(unittest.TestCase):
         for path in (
             "tests/test_kivy_window_resize_coalescing.py",
             "tests/test_kivy_scroll_trackpad_input.py",
+            "tests/test_kivy_vertical_paragraph_resize.py",
         ):
             with self.subTest(path=path):
                 self.assertEqual(self.selected(path), {"kivy"})
