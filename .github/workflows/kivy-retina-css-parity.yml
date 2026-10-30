@@ -41,7 +41,7 @@ jobs:
       - name: Install native OpenGL/Xvfb runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb xauth libmtdev1 libgl1 libx11-6 libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+          sudo apt-get install -y xvfb xauth libmtdev1 libgl1 libx11-6 libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 fonts-dejavu-core
           python -m pip install -e '.[kivy,pyside6]' pytest Pillow
       - name: Report actual SDL2 window ratio (this is not a Retina monitor)
         env:
@@ -76,6 +76,14 @@ jobs:
         run: |
           mkdir -p qt-kivy-native-visual
           xvfb-run -a python -m tests.certification.qt_kivy_css_native_raster --output qt-kivy-native-visual
+      - name: Compare native Qt and Kivy text metrics from the same font file
+        env:
+          KIVY_NO_ARGS: '1'
+          KIVY_NO_FILELOG: '1'
+          QT_QPA_PLATFORM: 'offscreen'
+          PSX_QT_KIVY_FONT_METRICS_OUTPUT: qt-kivy-native-visual/font-metrics
+        run: |
+          xvfb-run -a python -m pytest -q tests/certification/qt_kivy_native_text_metrics.py
       - name: Upload native raster comparisons
         if: always()
         uses: actions/upload-artifact@v4
