@@ -212,16 +212,43 @@ def compare(out: Path, name: str, background: str, fill: str, border: str,
                         _category(kv.getpixel((x, y)), reference)
                     )
     rate = sum(samples) / len(samples)
+    # Measure the authored stroke independently of the four anti-aliased
+    # corners. A card can otherwise pass a very generous corner tolerance
+    # while Kivy draws the wrong thickness along its straight edges.
+    x, y, w, h = CARD
+    top = CANVAS[1] - y - h
+    bottom = CANVAS[1] - y - 1
+    inset = max(radius + 2, width + 2)
+    edge_points = []
+    for offset in range(0, max(4, width + 3)):
+        edge_points.extend(
+            (column, row)
+            for column in range(x + inset, x + w - inset)
+            for row in (top + offset, bottom - offset)
+        )
+        edge_points.extend(
+            (column, row)
+            for row in range(top + inset, bottom - inset)
+            for column in (x + offset, x + w - 1 - offset)
+        )
+    edge_disagreement = sum(
+        _category(qt.getpixel(point), reference) !=
+        _category(kv.getpixel(point), reference)
+        for point in edge_points
+    ) / len(edge_points)
     ImageChops.difference(qt, kv).save(out / (name + "-difference.png"))
     metrics = {
         "case": name, "corner_class_disagreement": round(rate, 6),
         "all_pixel_class_disagreement": round(disagreement / (CANVAS[0] * CANVAS[1]), 6),
+        "straight_edge_class_disagreement": round(edge_disagreement, 6),
         "qt_reference": "PySide6 QWidget/QSS real grab",
         "kivy_native": "SDL2/OpenGL real window screenshot",
         "pixel_perfect_claim": False,
     }
     (out / (name + ".json")).write_text(json.dumps(metrics, indent=2))
     assert rate <= 0.35, metrics
+    # A mismatched straight stroke cannot hide inside a corner-only check.
+    assert edge_disagreement <= 0.15, metrics
 
 
 def main():
