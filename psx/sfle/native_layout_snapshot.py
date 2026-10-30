@@ -83,7 +83,7 @@ class PreparedNativeLayoutSnapshot:
                 changed = True
         return replace(snapshot, nodes=tuple(converted)) if changed else snapshot
 
-    def css_geometry_snapshot(self) -> LayoutInput:
+    def css_geometry_snapshot(self, *, pixel_scale: float = 1.0) -> LayoutInput:
         """Project computed CSS geometry into typed Cinnamon input, opt-in.
 
         Explicit layout_* metadata always wins; CSS never overwrites native
@@ -92,7 +92,12 @@ class PreparedNativeLayoutSnapshot:
         """
         from psx.css.geometry import css_layout_overrides
 
-        baseline = self.canonical_snapshot()
+        from math import isfinite
+        if isinstance(pixel_scale, bool) or not isinstance(pixel_scale, (int, float)) or not isfinite(pixel_scale) or pixel_scale <= 0:
+            raise ValueError("CSS pixel scale must be finite and positive.")
+        # Scale authored PX before resolving vw/vh against native drawable bounds;
+        # scaling after viewport resolution would multiply viewport units twice.
+        baseline = self.canonical_snapshot(resolve_viewport=False)
         originals = dict(self.identities)
         converted: list[LayoutNode] = []
         for node in baseline.nodes:
@@ -182,9 +187,17 @@ class PreparedNativeLayoutSnapshot:
                 constraints = LayoutConstraints(
                     constraints.width, AvailableSize(None, False),
                 )
+        if pixel_scale != 1.0:
+            from psx.sfle.lengths import Length, LengthKind
+            normalized = [replace(node, style=tuple(sorted(
+                (key, Length.px(value.value * pixel_scale)
+                 if isinstance(value, Length) and value.kind is LengthKind.PX
+                 else value)
+                for key, value in node.style
+            ))) for node in normalized]
         return self._resolve_viewport_units(replace(baseline, nodes=tuple(normalized), constraints=constraints))
 
-    def canonical_snapshot(self) -> LayoutInput:
+    def canonical_snapshot(self, *, resolve_viewport: bool = True) -> LayoutInput:
         """Build engine-ready typed item lengths without changing source props.
 
         This is an explicit opt-in integration path. Existing native renderer
@@ -213,7 +226,8 @@ class PreparedNativeLayoutSnapshot:
                     if name in source_props and name in normalized:
                         normalized[name] = getattr(edges, side)
             nodes.append(replace(node, style=tuple(sorted(normalized.items()))))
-        return self._resolve_viewport_units(replace(self.snapshot, nodes=tuple(nodes)))
+        result = replace(self.snapshot, nodes=tuple(nodes))
+        return self._resolve_viewport_units(result) if resolve_viewport else result
 
 
 # Retain the old class name for existing internal imports during migration.
