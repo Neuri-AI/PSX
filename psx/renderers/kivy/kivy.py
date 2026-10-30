@@ -751,7 +751,11 @@ class KivyRenderer:
         target = _handle(handle)
         if (target.node_type in ("Text", "Button", "Input", "TextArea", "Select", "Link")
                 and "font_size" in target.props and hasattr(target.widget, "font_size")):
-            target.widget.font_size = target.props["font_size"] * self._psx_css_pixel_scale
+            scaled = target.props["font_size"] * self._psx_css_pixel_scale
+            target.widget.font_size = scaled
+            baseline = getattr(target.widget, "_psx_css_default_typography", None)
+            if baseline is not None and "font_size" in baseline:
+                baseline["font_size"] = scaled
 
     def _adapter_create(self, node: VNode, parent: object | None) -> KivyHandle:
         if node.kind is NodeKind.HOST and node.type in FORMATTING_TAGS:
