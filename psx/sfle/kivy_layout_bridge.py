@@ -185,27 +185,37 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         declared_props = {node_id: dict(vnode.props)
                           for node_id, vnode in prepared.identities}
         for node_id, widget in leaf_widgets.items():
-            # Kivy computes texture_size lazily; force only intrinsic texture
-            # update, never a parent/BoxLayout placement pass.
+            # On a height-only resize, the Label's font and assigned width
+            # are unchanged. A cache hit must not toggle text_size between
+            # natural and wrapped widths or rebuild its glyph texture: that
+            # introduces a second native line box while the viewport moves.
             refresh = getattr(widget, "texture_update", None)
             if (bindings[node_id].node_type == "Text"
                     and hasattr(widget, "text_size")):
-                original_text_size = widget.text_size
-                try:
-                    widget.text_size = (None, None)
-                    if callable(refresh):
-                        refresh()
-                    readings.append(native_round.read(
-                        widget=widget, props=declared_props[node_id],
-                        constraints=renderer._sfle_constraints,
-                        node_id=node_id, generation=generation,
-                        measure=lambda node_id=node_id: source.measure(MeasurementRequest(
-                            node_id, renderer._sfle_constraints, generation, generation)),
-                    ))
-                finally:
-                    widget.text_size = original_text_size
-                    if callable(refresh):
-                        refresh()
+                def measure_unwrapped_text(node_id=node_id, widget=widget,
+                                           refresh=refresh):
+                    original_text_size = tuple(widget.text_size)
+                    try:
+                        if original_text_size != (None, None):
+                            widget.text_size = (None, None)
+                        if callable(refresh):
+                            refresh()
+                        return source.measure(MeasurementRequest(
+                            node_id, renderer._sfle_constraints,
+                            generation, generation))
+                    finally:
+                        if tuple(widget.text_size) != original_text_size:
+                            widget.text_size = original_text_size
+                            if callable(refresh):
+                                refresh()
+
+                readings.append(native_round.read(
+                    widget=widget, props=declared_props[node_id],
+                    constraints=renderer._sfle_constraints,
+                    node_id=node_id, generation=generation,
+                    measure=measure_unwrapped_text,
+                    viewport_independent=True,
+                ))
                 if renderer._sfle_generation != generation:
                     raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                     "Kivy measurement became stale.")
@@ -242,10 +252,11 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         ), measurements=tuple(readings))
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
-            node_id: (lambda width, node_id=node_id: native_round.read_width(
+            node_id: (lambda width, node_id=node_id, is_text=(vnode.type == "Text"): native_round.read_width(
                 widget=bindings[node_id].widget, props=declared_props[node_id],
                 constraints=renderer._sfle_constraints, width=width,
                 measure=lambda: source.measure_width(node_id, width),
+                viewport_independent=is_text,
             ))
             for node_id, vnode in prepared.identities
             if node_id in automatic and vnode.kind is NodeKind.HOST
@@ -445,8 +456,10 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     KivyDividerAdapter._redraw(widget, widget._psx_props)
             for node_id in previous_text_sizes:
                 widget = bindings[node_id].widget
-                widget.text_size = (boxes[node_id].content.width, None)
-                widget.texture_update()
+                desired_text_size = (boxes[node_id].content.width, None)
+                if tuple(widget.text_size) != desired_text_size:
+                    widget.text_size = desired_text_size
+                    widget.texture_update()
             if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Stale semantic invalidation after native geometry.")
