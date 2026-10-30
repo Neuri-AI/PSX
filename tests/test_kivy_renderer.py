@@ -55,6 +55,43 @@ class KivyRendererSubprocessTests(unittest.TestCase):
             self.skipTest("No usable Kivy window provider.")
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_nested_window_resize_event_does_not_recurse(self) -> None:
+        """SDL2/Cocoa synchronous property dispatch must not loop on resize."""
+        script = textwrap.dedent("""
+            from psx.renderers.kivy.kivy import KivyRenderer
+
+            renderer = object.__new__(KivyRenderer)
+            window = object()
+            class Root:
+                parent = window
+                def __init__(self):
+                    self._size = (200, 150)
+                    self.writes = 0
+                @property
+                def size(self):
+                    return self._size
+                @size.setter
+                def size(self, size):
+                    self.writes += 1
+                    self._size = tuple(size)
+                    # Emulate a nested event callback while a native property
+                    # write is still active, with provider-adjusted dimensions.
+                    renderer._sfle_on_window_resize(window, size[0] + 1, size[1] + 1)
+            root = Root()
+            renderer._sfle_watched_widget = root
+            renderer._sfle_on_window_resize(window, 800, 600)
+            assert root.size == (800, 600)
+            assert root.writes == 1
+            renderer._sfle_on_window_resize(window, 800, 600)
+            assert root.writes == 1
+        """)
+        environment = dict(os.environ)
+        environment["KIVY_NO_ARGS"] = "1"
+        result = subprocess.run([sys.executable, "-c", script],
+                                env=environment, capture_output=True,
+                                text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_css_button_background_overrides_kivy_theme(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
