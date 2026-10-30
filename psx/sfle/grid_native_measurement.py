@@ -44,6 +44,7 @@ def measure_grid_native(
     rtl: bool = False,
     allow_nested: bool = False,
     breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
+    pixel_scale: float = 1.0,
 ) -> PreparedGridMeasurement:
     """Perform real width-aware native measurement, then run Cinnamon Grid.
 
@@ -64,6 +65,8 @@ def measure_grid_native(
     from .fixed_point import I32_MAX
     if type(content_width) not in (int, float) or not isfinite(content_width) or content_width < 0 or content_width * 64 > I32_MAX:
         raise GridPackingError("Grid content width must be definite and representable.")
+    if type(pixel_scale) not in (int, float) or not isfinite(pixel_scale) or pixel_scale <= 0:
+        raise GridPackingError("Grid native pixel scale must be finite and positive.")
     props = normalize_grid_props(grid.source.props)
     children = grid.effective_children
     slots: list[GridSlot] = []
@@ -102,7 +105,7 @@ def measure_grid_native(
     # Project without fabricating heights: row membership and horizontal
     # allocation are independent of vertical intrinsic measurements.
     packed = pack_grid_rows(slots)
-    projected = project_grid_rows(packed, content_width, _pixel(props["column_gap"], "Grid.column_gap"))
+    projected = project_grid_rows(packed, content_width, _pixel(props["column_gap"], "Grid.column_gap") * pixel_scale)
     widths = {item.id: item.width_raw / 64 for row in projected for item in row.items}
     requests = tuple(MeasurementRequest(
         identifier,
@@ -124,6 +127,7 @@ def measure_grid_native(
         mounted_ids=mounted_ids, generation=generation,
         current_generation=current_generation, constraints=constraints, rtl=rtl,
         breakpoints=breakpoints,
+        pixel_scale=pixel_scale,
     )
 
 
