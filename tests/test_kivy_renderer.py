@@ -9,6 +9,52 @@ import unittest
 
 class KivyRendererSubprocessTests(unittest.TestCase):
 
+    def test_retina_text_font_uses_kivy_scaled_sp(self) -> None:
+        """Authored CSS px fonts must not shrink to half-size on Retina."""
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
+        script = textwrap.dedent("""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from kivy.metrics import Metrics, sp
+            from kivy.uix.label import Label
+            from psx.renderers.components.text import apply_kivy_text
+            from psx.css.parser import parse_stylesheet
+            from psx.css.cascade import StyleTarget, resolve_style
+            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
+
+            renderer = KivyRenderer()
+            original_density = Metrics.density
+            original_fontscale = Metrics.fontscale
+            try:
+                for density in (1., 1.5, 2.):
+                    Metrics.density = density
+                    Metrics.fontscale = 1.
+                    widget = Label()
+                    apply_kivy_text(widget, {"value": "Hello", "font_size": 14})
+                    assert abs(widget.font_size - sp(14)) < 0.01
+                    # Authored CSS font-size / line-height are both scaled;
+                    # the dimensionless line_height remains stable.
+                    handle = KivyHandle("Text", widget, {"value": "Hello"})
+                    style = resolve_style(
+                        parse_stylesheet("p {font-size: 16px; line-height: 24px}"),
+                        StyleTarget("p"),
+                    )
+                    renderer.apply_css(handle, style)
+                    assert abs(widget.font_size - sp(16)) < 0.01
+                    assert abs(widget.line_height - 1.5) < 0.01
+            finally:
+                Metrics.density = original_density
+                Metrics.fontscale = original_fontscale
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        if "Unable to get a Window" in result.stderr:
+            self.skipTest("No usable Kivy window provider.")
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_css_button_background_overrides_kivy_theme(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
