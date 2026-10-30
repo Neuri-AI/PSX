@@ -88,7 +88,7 @@ def prepare_grid_measurement(
             raise GridPackingError("GridItem requires exactly one effective child.")
         identifier = path_identity(child.path)
         values = resolve_grid_item_props(
-            normalize_grid_item_props(child.source.props), content_width,
+            normalize_grid_item_props(child.source.props), content_width / pixel_scale,
             breakpoints=breakpoints,
         )
         slots.append(GridSlot(identifier, values["span"], values["offset"]))
