@@ -290,6 +290,10 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 is_ui_thread=source.is_ui_thread,
                 parent_height=float(height) if backend is GridCommitBackend.KIVY else None,
                 parent_heights=kivy_heights,
+                # Kivy canvas and widget positions are in the same window
+                # space. A nested GridItem cannot use parent-local coordinates
+                # or its descendants shift as the viewport height changes.
+                kivy_window_coordinates=(backend is GridCommitBackend.KIVY),
             )
             if nested_content:
                 rollback_scope._bind_nested_scrolls(composed, scroll_before)
