@@ -2,8 +2,7 @@ name: Kivy Retina CSS parity
 
 on:
   push:
-    branches:
-      - fixes/psx-issues
+    branches: [fixes/psx-issues]
   pull_request:
   workflow_dispatch:
 
@@ -11,27 +10,45 @@ permissions:
   contents: read
 
 jobs:
-  kivy-retina-css:
-    name: Kivy Retina CSS / ${{ matrix.os }}
+  scale-math:
+    name: Retina CSS scale math / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-15, macos-15-intel]
-    timeout-minutes: 35
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install Cocoa / SDL Kivy runtime and tests
+      - name: Install CSS/core and Kivy environment
         run: python -m pip install -e '.[kivy]' pytest Pillow
-      - name: Report live Kivy window and display metrics
+      - name: Certify Kivy drawable/system metric conversion independent of WindowServer
+        run: |
+          python -m pytest -q tests/test_kivy_display_scale.py tests/css/test_geometry_handoff.py
+
+  linux-native:
+    name: Native Kivy 1x/2x simulated Retina / SDL2 + Xvfb
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install native OpenGL/Xvfb runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libmtdev1 libgl1 libx11-6
+          python -m pip install -e '.[kivy]' pytest Pillow
+      - name: Report actual SDL2 window ratio (this is not a Retina monitor)
         env:
           KIVY_NO_ARGS: '1'
           KIVY_NO_FILELOG: '1'
         run: |
-          python - <<'PY'
+          xvfb-run -a python - <<'PY'
           import json
           from kivy.core.window import Window
           from kivy.metrics import Metrics
@@ -44,11 +61,10 @@ jobs:
           }, sort_keys=True))
           assert observed.uniform > 0
           PY
-      - name: Prove Retina conversion and authored CSS without physical display changes
+      - name: Validate SDL2 CSS px and simulated 2x Retina native projection
         env:
           KIVY_NO_ARGS: '1'
           KIVY_NO_FILELOG: '1'
         run: |
-          python -m pytest -q tests/test_kivy_display_scale.py tests/css/test_geometry_handoff.py
-          python -m pytest -q tests/test_kivy_native_layout.py -k simulated_retina_css_px_preserves_font_padding_and_height
-          python -m pytest -q tests/test_kivy_renderer.py -k css_px_font_matches_cinnamon_at_all_density_settings
+          xvfb-run -a python -m pytest -q tests/test_kivy_native_layout.py -k simulated_retina_css_px_preserves_font_padding_and_height
+          xvfb-run -a python -m pytest -q tests/test_kivy_renderer.py -k css_px_font_matches_cinnamon_at_all_density_settings
