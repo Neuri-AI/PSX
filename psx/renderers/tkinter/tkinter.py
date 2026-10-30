@@ -1315,7 +1315,28 @@ class TkinterRenderer:
     def apply_css(self, handle: object, computed: object) -> None:
         """Apply CSS backgrounds through an instance-scoped ttk Frame style."""
         from psx.css.native_paint import background_hex
+        from psx.css.cursor import TK_CURSOR_SHAPES
         target = _as_handle(handle)
+        widget = target.widget
+        # Tk cursors belong to the actual widget, not ttk's global theme.
+        # Resolve CSS even for bare div/p and Text, not just buttons.
+        authored_cursor = (
+            computed.properties["cursor"] if computed is not None
+            and "cursor" in computed.specified else "auto"
+        )
+        if authored_cursor != "auto":
+            if not hasattr(widget, "_psx_css_original_cursor"):
+                widget._psx_css_original_cursor = str(widget.cget("cursor"))
+            native_cursor = TK_CURSOR_SHAPES[authored_cursor]
+            try:
+                widget.configure(cursor=native_cursor)
+            except tk.TclError:
+                # Tk does not expose every CSS cursor on every OS provider.
+                # Preserve the application instead of aborting source refresh.
+                widget.configure(cursor="arrow")
+        elif hasattr(widget, "_psx_css_original_cursor"):
+            widget.configure(cursor=widget._psx_css_original_cursor)
+            del widget._psx_css_original_cursor
         from psx.css.native_paint import native_border_radius, native_border_paint, native_side_border_paint
         unified = (
             target.node_type in FORMATTING_TAGS
@@ -1774,7 +1795,6 @@ class TkinterRenderer:
                     padx=max(left, right), pady=max(top, bottom),
                     anchor={"left": "w", "center": "center", "right": "e"}[
                         styles.get("text-align", "center")],
-                    cursor=("hand2" if props.get("cursor") == "pointer" else "arrow"),
                 )
                 # Aqua paints its native button surface even if Tk's bg
                 # options are set. Own the pixel surface with a single Canvas
@@ -1926,13 +1946,6 @@ class TkinterRenderer:
                     color = background_hex(computed)
                     if color is not None:
                         config["background"] = color
-                    if computed is not None and "cursor" in computed.specified:
-                        widget.configure(cursor=(
-                            "hand2" if computed.properties["cursor"] == "pointer"
-                            else "arrow"
-                        ))
-                    else:
-                        widget.configure(cursor="")
                     leading = styles.get("line-height")
                     if leading is not None and (
                         "\n" in str(widget.cget("text"))
