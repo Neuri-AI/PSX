@@ -52,6 +52,9 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
     # style tuples once, not on every edge/dimension/display query.
     style_by_id = {node.node_id: dict(node.style) for node in snapshot.nodes}
     edge_cache: dict[tuple[str, str, float], tuple[float, float, float, float]] = {}
+    # Auto margins are resolved from remaining block inline space, not from
+    # the CSS lexer. Keep their used values for the border/margin box receipt.
+    resolved_block_margins: dict[str, tuple[float, float, float, float]] = {}
     display_cache: dict[str, str] = {}
     children = defaultdict(list)
     for node in snapshot.nodes[1:]:
@@ -145,6 +148,11 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
                 resolved = float(length.value)
             elif length.kind is LengthKind.PERCENT:
                 resolved = float(length.value) * reference
+            elif prefix == "margin" and length.kind is LengthKind.AUTO:
+                # Used vertical auto margins are zero in normal block flow.
+                # Horizontal auto margins are distributed by block_node once
+                # the content width has been determined.
+                resolved = 0.0
             else:
                 raise SFLECapabilityError(
                     DiagnosticCode.UNSUPPORTED_FEATURE,
@@ -175,7 +183,9 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
             )
         padded = expand(content, edges(node, "padding"))
         bordered = expand(padded, edges(node, "border"))
-        margin = expand(bordered, edges(node, "margin"))
+        margin = expand(
+            bordered, resolved_block_margins.get(node.node_id, edges(node, "margin"))
+        )
         return BoxRect(content, padded, bordered, margin)
 
     def valid_style(node) -> bool:
@@ -402,11 +412,34 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
         padding = edges(node, "padding")
         border = edges(node, "border")
         top = margin[0] + padding[0] + border[0]
-        left = margin[3] + padding[3] + border[3]
         bottom = margin[2] + padding[2] + border[2]
         horizontal = sum(group[1] + group[3] for group in (margin, padding, border))
         content_available = max(0.0, available - horizontal)
         used_width = constrained_dimension(node, "width", available, content_available)
+
+        # CSS 2.1 §10.3.3: distribute positive leftover inline space across
+        # authored auto margins AFTER resolving the used content width. When
+        # both sides are auto, center; one side absorbs all free space.
+        # Block auto margins on the vertical axis resolve to zero. Flex auto
+        # margins are already handled by the shared Rust/Python flex solver.
+        margin_style = style_by_id[node.node_id]
+        auto_left = (
+            parse_length(margin_style["layout_margin_left"]).kind is LengthKind.AUTO
+            if "layout_margin_left" in margin_style else False
+        )
+        auto_right = (
+            parse_length(margin_style["layout_margin_right"]).kind is LengthKind.AUTO
+            if "layout_margin_right" in margin_style else False
+        )
+        if auto_left or auto_right:
+            remaining = max(0.0, content_available - used_width)
+            share = remaining / (int(auto_left) + int(auto_right))
+            margin = (
+                margin[0], share if auto_right else margin[1],
+                margin[2], share if auto_left else margin[3],
+            )
+            resolved_block_margins[node.node_id] = margin
+        left = margin[3] + padding[3] + border[3]
         content_x, content_y = x + left, y + top
         parent_height = dimension(node, "height", available)
         for child in children[node.node_id]:
