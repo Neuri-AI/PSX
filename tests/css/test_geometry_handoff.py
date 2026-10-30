@@ -208,3 +208,31 @@ def test_two_value_padding_reaches_cinnamon_geometry():
     assert style["layout_padding_right"] == Length.px(12)
     assert style["layout_padding_bottom"] == Length.px(20)
     assert style["layout_padding_left"] == Length.px(12)
+
+def test_retina_css_pixel_projection_scales_px_but_not_viewport_twice():
+    prepared = _prepared(
+        '<div class="panel"><button class="control">Save</button></div>',
+        '.panel {height: 100vh; padding: 10px 5px}'
+        '.control {height: 38px; width: 40%; margin-left: 2px}',
+    )
+    logical = prepared.css_geometry_snapshot()
+    retina = prepared.css_geometry_snapshot(pixel_scale=2)
+    root = dict(retina.nodes[0].style)
+    button = dict(retina.nodes[1].style)
+    assert root["layout_height"] == Length.px(200)
+    assert root["layout_padding_top"] == Length.px(20)
+    assert root["layout_padding_left"] == Length.px(10)
+    assert button["layout_height"] == Length.px(76)
+    assert button["layout_margin_left"] == Length.px(4)
+    assert button["layout_width"] == Length.percent(.4)
+    assert dict(logical.nodes[1].style)["layout_height"] == Length.px(38)
+    assert prepared.snapshot is not retina
+
+
+def test_retina_pixel_projection_rejects_invalid_scale():
+    import math
+    import pytest
+    prepared = _prepared('<div style="height:38px"/>', '')
+    for factor in (0, -1, math.nan, math.inf, True):
+        with pytest.raises((ValueError, TypeError)):
+            prepared.css_geometry_snapshot(pixel_scale=factor)
