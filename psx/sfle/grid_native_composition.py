@@ -402,16 +402,6 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
                     node = replace(node, style=tuple(sorted(style.items())))
             adjusted.append(node)
         normalized = replace(normalized, nodes=tuple(adjusted))
-        import os
-        if os.environ.get("PSX_CERT_DEBUG_BASIS") == "1":
-            print("BASIS_TRACE", [
-                (n.component, n.parent_id, n.node_id,
-                 dict(n.style).get("direction"),
-                 dict(n.style).get("display"),
-                 dict(n.style).get("flex_basis"),
-                 dict(n.style).get("layout_width"))
-                for n in normalized.nodes
-            ], flush=True)
     snapshot = replace(normalized, measurements=tuple(measurements))
     if normalized.nodes[0].component == "Flex":
         from .width_dependent_intrinsic_measurement import (
