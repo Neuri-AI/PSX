@@ -898,7 +898,7 @@ class KivyRenderer:
         # Apply one owned stroke to both HTML-like boxes and PascalCase
         # controls, before the typography branches return.
         if target.node_type in ("Text", "Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Badge"):
-            from psx.css.native_paint import native_border_paint, native_border_radius
+            from psx.css.native_paint import native_border_paint, native_border_radius, inset_rounded_border_box
             from kivy.graphics import Line
             stroke = native_border_paint(computed, alpha=True)
             radius = native_border_radius(computed) * pixel_scale
@@ -916,12 +916,12 @@ class KivyRenderer:
                 group = InstructionGroup()
                 paint = Color(*rgba)
                 line = Line(width=width * pixel_scale)
-                line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
+                line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, line.width)
                 group.add(paint)
                 group.add(line)
                 def redraw(instance, _):
                     r = widget._psx_css_stroke_radius
-                    line.rounded_rectangle = (instance.x, instance.y, instance.width, instance.height, r)
+                    line.rounded_rectangle = inset_rounded_border_box(instance.x, instance.y, instance.width, instance.height, r, line.width)
                 widget._psx_css_stroke_radius = radius
                 widget.canvas.after.add(group)
                 widget.bind(pos=redraw, size=redraw)
@@ -930,7 +930,7 @@ class KivyRenderer:
                 _, _, paint, line = existing_border
                 line.width, paint.rgba = stroke[0] * pixel_scale, stroke[1]
                 widget._psx_css_stroke_radius = radius
-                line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
+                line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, line.width)
         if target.node_type in (
             "Text", "Button", "Input", "TextArea", "Checkbox", "Radio",
             "Select", "Link", "Badge",
@@ -1273,7 +1273,7 @@ class KivyRenderer:
         widget = target.widget
         rgba = background_rgba(computed)
         from psx.css.native_paint import (
-            border_rgba, native_border_radius, native_side_border_paint,
+            border_rgba, native_border_radius, native_side_border_paint, inset_rounded_border_box,
             rounded_side_stroke_points,
         )
         radius = native_border_radius(computed) * pixel_scale
@@ -1335,11 +1335,11 @@ class KivyRenderer:
         elif old_stroke is None:
             stroke_group = InstructionGroup()
             stroke_color = Color(*border)
-            stroke_line = Line(rounded_rectangle=(widget.x, widget.y, widget.width, widget.height, radius), width=stroke_width)
+            stroke_line = Line(rounded_rectangle=inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, stroke_width), width=stroke_width)
             stroke_group.add(stroke_color)
             stroke_group.add(stroke_line)
             def stroke_redraw(instance, _value):
-                stroke_line.rounded_rectangle = (instance.x, instance.y, instance.width, instance.height, widget._psx_css_semantic_radius)
+                stroke_line.rounded_rectangle = inset_rounded_border_box(instance.x, instance.y, instance.width, instance.height, widget._psx_css_semantic_radius, stroke_line.width)
             widget._psx_css_semantic_radius = radius
             widget.canvas.after.add(stroke_group)
             widget.bind(pos=stroke_redraw, size=stroke_redraw)
@@ -1349,7 +1349,7 @@ class KivyRenderer:
             stroke_color.rgba = border
             stroke_line.width = stroke_width
             widget._psx_css_semantic_radius = radius
-            stroke_line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
+            stroke_line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, stroke_width)
         existing = getattr(widget, "_psx_css_paint", None)
         if rgba is None:
             if existing is not None:
