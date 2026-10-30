@@ -123,6 +123,8 @@ class MountedMixedGrid:
             viewport_constraints=self.renderer._sfle_constraints,
             flow_reuse=getattr(self, "_flow_reuse", None),
             invalidation_epoch=getattr(self, "_intrinsic_epoch", 0),
+            pixel_scale=(getattr(self.renderer, "_psx_css_pixel_scale", 1.0)
+                         if self.backend is GridCommitBackend.KIVY else 1.0),
         )
         # Never publish a partial result after a measurement exception.
         self._composition_cache[key] = composition
