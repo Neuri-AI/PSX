@@ -342,10 +342,42 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
                     and "flex_basis" not in style):
                 preferred = style.get("layout_width", style.get("width"))
                 if isinstance(preferred, Length) and preferred.kind is LengthKind.PERCENT:
-                    style.pop("layout_width", None)
-                    style.pop("width", None)
-                    style["flex_basis"] = preferred
-                    node = replace(node, style=tuple(sorted(style.items())))
+                    # A 100%-width description in a row cannot consume the
+                    # space explicitly reserved by the trailing date's
+                    # min-width and the authored CSS gap. Project that
+                    # *available* width as a max constraint for Cinnamon
+                    # instead of moving/clipping widgets after layout.
+                    siblings = children_by_id.get(parent.node_id, ())
+                    from .lengths import parse_length
+                    reserved = 0.0
+                    for sibling in siblings:
+                        if sibling.node_id == node.node_id:
+                            continue
+                        sibling_style = dict(sibling.style)
+                        minimum = sibling_style.get(
+                            "layout_min_width", sibling_style.get("min_width")
+                        )
+                        if minimum is not None:
+                            parsed = parse_length(minimum)
+                            if parsed.kind is LengthKind.PX:
+                                reserved += float(parsed.value)
+                    gap = parent_style.get("column_gap", parent_style.get("gap"))
+                    if gap is not None:
+                        parsed_gap = parse_length(gap)
+                        if parsed_gap.kind is LengthKind.PX:
+                            reserved += float(parsed_gap.value) * max(0, len(siblings) - 1)
+                    if reserved:
+                        containing = containing_widths.resolve(node.node_id)
+                        capacity = max(0.0, containing - reserved)
+                        authored_max = style.get(
+                            "layout_max_width", style.get("max_width"),
+                        )
+                        if authored_max is not None:
+                            specified_max = parse_length(authored_max)
+                            if specified_max.kind is LengthKind.PX:
+                                capacity = min(capacity, float(specified_max.value))
+                        style["layout_max_width"] = Length.px(capacity)
+                        node = replace(node, style=tuple(sorted(style.items())))
             if (is_row and origin is not None and
                     origin.kind is NodeKind.HOST and
                     origin.type in FORMATTING_TAGS and
