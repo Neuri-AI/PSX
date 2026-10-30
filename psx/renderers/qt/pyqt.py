@@ -1043,6 +1043,23 @@ class QtRenderer:
         """Paint explicit CSS backgrounds on Cinnamon-owned semantic hosts."""
         from psx.css.native_paint import qt_semantic_stylesheet
         target = _handle(handle)
+        from psx.css.cursor import QT_CURSOR_SHAPES
+        native_widget = target.widget
+        authored_cursor = (
+            computed.properties["cursor"] if computed is not None
+            and "cursor" in computed.specified else "auto"
+        )
+        if authored_cursor != "auto":
+            shape_enum = self._qtcore.Qt
+            shapes = getattr(shape_enum, "CursorShape", shape_enum)
+            cursor_shape = getattr(shapes, QT_CURSOR_SHAPES[authored_cursor])
+            if (not getattr(native_widget, "_psx_css_cursor_applied", False)
+                    or native_widget.cursor().shape() != cursor_shape):
+                native_widget.setCursor(cursor_shape)
+            native_widget._psx_css_cursor_applied = True
+        elif getattr(native_widget, "_psx_css_cursor_applied", False):
+            native_widget.unsetCursor()
+            native_widget._psx_css_cursor_applied = False
         if target.node_type == "Badge":
             from psx.css.native_paint import foreground_hex
             target.widget._psx_css_foreground = foreground_hex(computed)
