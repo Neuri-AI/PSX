@@ -59,7 +59,7 @@ class FlowBlueprintReuse:
     def clear(self):
         self._entries.clear()
 
-    def prepare(self, flow, constraints, generation, viewport_constraints, epoch):
+    def prepare(self, flow, constraints, generation, viewport_constraints, epoch, pixel_scale=1.0):
         # Include the actual normalized descendants, not just a parent
         # VNode. Nested component/hooks reconciliation may replace children
         # while retaining the outer element identity.
@@ -106,7 +106,7 @@ class FlowBlueprintReuse:
                 visit(child)
         visit(flow)
         signature = tuple(fingerprint)
-        key = (id(flow.source), path_identity(flow.path))
+        key = (id(flow.source), path_identity(flow.path), pixel_scale)
         cached = self._entries.get(key) if cacheable else None
         if cached is not None:
             retained_source, saved_signature, saved_epoch, saved_prepared, saved_css = cached
@@ -134,7 +134,7 @@ class FlowBlueprintReuse:
             flow, constraints, generation=generation,
             viewport_constraints=viewport_constraints,
         )
-        normalized = prepared.css_geometry_snapshot()
+        normalized = prepared.css_geometry_snapshot(pixel_scale=pixel_scale)
         if cacheable:
             self._entries[key] = (
                 flow.source, signature, epoch, prepared, normalized,
@@ -216,7 +216,7 @@ def nested_flow_grid_width(snapshot, node_id, width, *, resolver=None):
 
 def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
                           viewport_constraints=None, measure_grid=None,
-                          flow_reuse=None, invalidation_epoch=0):
+                          flow_reuse=None, invalidation_epoch=0, pixel_scale=1.0):
     """Measure an HTML block subtree using Cinnamon's flow layout kernel."""
     constraints = LayoutConstraints(AvailableSize(width, True),
                                     AvailableSize(None, False))
@@ -225,11 +225,11 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
             flow, constraints, generation=generation,
             viewport_constraints=viewport_constraints,
         )
-        normalized = prepared.css_geometry_snapshot()
+        normalized = prepared.css_geometry_snapshot(pixel_scale=pixel_scale)
     else:
         prepared, normalized = flow_reuse.prepare(
             flow, constraints, generation, viewport_constraints,
-            invalidation_epoch,
+            invalidation_epoch, pixel_scale=pixel_scale,
         )
     if normalized.nodes[0].component == "Flex":
         # Grid allocates a border-box width. An auto-sized CSS Flex host
@@ -369,6 +369,7 @@ def prepare_composed_grid(
     viewport_constraints: LayoutConstraints | None = None,
     flow_reuse: FlowBlueprintReuse | None = None,
     invalidation_epoch: int = 0,
+    pixel_scale: float = 1.0,
 ) -> ComposedGrid:
     """Measure nested Grid children bottom-up using parent-allocated widths.
 
@@ -424,6 +425,7 @@ def prepare_composed_grid(
                     measure_leaf=measure_leaf, engine=engine,
                     viewport_constraints=viewport_constraints,
                     flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                    pixel_scale=pixel_scale,
                     measure_grid=lambda subgrid, grid_width:
                         prepare_composed_grid(
                             subgrid, content_width=grid_width,
@@ -432,6 +434,7 @@ def prepare_composed_grid(
                             breakpoints=breakpoints, engine=engine,
                             viewport_constraints=viewport_constraints,
                             flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                            pixel_scale=pixel_scale,
                         ),
                 )
                 height = flow.content_height
@@ -455,7 +458,9 @@ def prepare_composed_grid(
                         raise GridPackingError(
                             "GridItem Scroll height requires a definite positive size."
                         )
-                    height = float(parsed.value)
+                    height = float(parsed.value) * (
+                        pixel_scale if parse_length(requested).kind is LengthKind.PX else 1.0
+                    )
                 # A fixed-height CSS content root may still have descendants
                 # overflowing its border box. Scroll extent is the union of
                 # actual Cinnamon descendant rectangles, not just root height.
@@ -481,6 +486,7 @@ def prepare_composed_grid(
                     breakpoints=breakpoints, engine=engine,
                     viewport_constraints=viewport_constraints,
                     flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                    pixel_scale=pixel_scale,
                 )
                 nested[identifier] = subgrid
                 height = subgrid.content_height
@@ -502,8 +508,10 @@ def prepare_composed_grid(
                             breakpoints=breakpoints, engine=engine,
                             viewport_constraints=viewport_constraints,
                             flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                            pixel_scale=pixel_scale,
                         ),
                     is_ui_thread=is_ui_thread, engine=engine,
+                    pixel_scale=pixel_scale,
                 )
                 nested_flex[identifier] = flex
                 height = flex.content_height
@@ -514,6 +522,7 @@ def prepare_composed_grid(
                     measure_leaf=measure_leaf, engine=engine,
                     viewport_constraints=viewport_constraints,
                     flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                    pixel_scale=pixel_scale,
                     measure_grid=lambda subgrid, grid_width:
                         prepare_composed_grid(
                             subgrid, content_width=grid_width,
@@ -525,6 +534,7 @@ def prepare_composed_grid(
                             engine=engine,
                             viewport_constraints=viewport_constraints,
                             flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                            pixel_scale=pixel_scale,
                         ),
                 )
                 nested_flow[identifier] = flow
@@ -542,7 +552,7 @@ def prepare_composed_grid(
         grid, content_width=content_width, source=Source(),
         mounted_ids=ids, revisions={identifier: generation for identifier in ids},
         generation=generation, current_generation=current_generation,
-        allow_nested=True, breakpoints=breakpoints,
+        allow_nested=True, breakpoints=breakpoints, pixel_scale=pixel_scale,
     )
     height = max((placement.y + placement.height for placement in prepared.placements),
                  default=0.0)
