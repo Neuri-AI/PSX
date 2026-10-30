@@ -237,7 +237,9 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         readings.extend(mixed_grid.seed_measurements())
         # Consume canonical item box lengths after Kivy's real intrinsic readings;
         # preserve existing widget ownership, width dependencies and Grid path.
-        snapshot = replace(prepared.css_geometry_snapshot(), measurements=tuple(readings))
+        snapshot = replace(prepared.css_geometry_snapshot(
+            pixel_scale=getattr(renderer, \"_psx_css_pixel_scale\", 1.0)
+        ), measurements=tuple(readings))
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
             node_id: (lambda width, node_id=node_id: native_round.read_width(
