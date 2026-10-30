@@ -1471,11 +1471,13 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 <div style="height:100vh">
                     <div style="height:30px; background:red"><p>First</p></div>
                     <div style="height:50px; background:blue"><p>Second</p></div>
+                    <button style="height:30px">Button</button>
                 </div>
             """))
-            first, second = root.children
+            first, second, button = root.children
             assert abs(first.handle.widget.height - 30) <= 1, first.handle.widget.size
             assert abs(second.handle.widget.height - 50) <= 1, second.handle.widget.size
+            assert abs(button.handle.widget.height - 30) <= 1, button.handle.widget.size
             assert abs(second.handle.widget.y - (600 - 30 - 50)) <= 1, (
                 first.handle.widget.pos, second.handle.widget.pos,
             )
@@ -1487,6 +1489,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 assert renderer._sfle_resize_error is None, renderer._sfle_resize_error
                 assert abs(first.handle.widget.height - 30) <= 1
                 assert abs(second.handle.widget.height - 50) <= 1
+                assert abs(button.handle.widget.height - 30) <= 1
                 Window.dispatch("on_resize", 700, 500)
                 for _ in range(15):
                     Clock.tick()
