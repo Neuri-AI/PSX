@@ -27,7 +27,7 @@ jobs:
         run: python -m pip install -e '.[kivy]' pytest Pillow
       - name: Certify Kivy drawable/system metric conversion independent of WindowServer
         run: |
-          python -m pytest -q tests/test_kivy_display_scale.py tests/css/test_geometry_handoff.py
+          python -m pytest -q tests/test_kivy_display_scale.py tests/css/test_geometry_handoff.py tests/test_grid_native_density_parity.py tests/test_grid_flow_blueprint_reuse.py tests/test_native_layout_snapshot.py tests/test_css_inset_border_geometry.py
 
   linux-native:
     name: Native Kivy 1x/2x simulated Retina / SDL2 + Xvfb
@@ -66,8 +66,8 @@ jobs:
           KIVY_NO_ARGS: '1'
           KIVY_NO_FILELOG: '1'
         run: |
-          xvfb-run -a python -m pytest -q tests/test_kivy_native_layout.py -k simulated_retina_css_px_preserves_font_padding_and_height
-          xvfb-run -a python -m pytest -q tests/test_kivy_renderer.py -k css_px_font_matches_cinnamon_at_all_density_settings
+          xvfb-run -a python -m pytest -q tests/test_kivy_native_layout.py -k "simulated_retina_css_px_preserves_font_padding_and_height or retina_nested_grid_dashboard_css_gap_padding_and_height or retina_dashboard_header_and_activity_dates_stay_inside_content"
+          xvfb-run -a python -m pytest -q tests/test_kivy_renderer.py -k "css_px_font_matches_cinnamon_at_all_density_settings or uniform_border_has_exactly_one_paint_path_on_retina or css_button_without_background_removes_native_gray_skin"
 
       - name: Capture and compare native Qt/QSS and Kivy/SDL2 CSS surfaces
         env:
