@@ -943,13 +943,14 @@ class KivyRenderer:
             and "cursor" in computed.specified else None
         )
         cursor_manager = getattr(self, "_psx_css_cursor_manager", None)
-        if cursor_value in ("pointer", "default") and cursor_manager is None:
+        from psx.css.cursor import KIVY_CURSOR_SHAPES
+        if cursor_value in KIVY_CURSOR_SHAPES and cursor_manager is None:
             from kivy.core.window import Window
             from .css_cursor import KivyCssCursorManager
             cursor_manager = KivyCssCursorManager(Window)
             self._psx_css_cursor_manager = cursor_manager
         if cursor_manager is not None and (
-            cursor_value in ("pointer", "default")
+            cursor_value in KIVY_CURSOR_SHAPES
             or target.widget in cursor_manager.styles
         ):
             cursor_manager.set_style(target.widget, cursor_value)
