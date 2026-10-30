@@ -510,6 +510,38 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
+    def test_css_button_without_background_removes_native_gray_skin(self) -> None:
+        """Unstyled navigation buttons must stay transparent under CSS."""
+        environment = dict(os.environ)
+        environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
+        script = textwrap.dedent("""
+            from kivy.uix.button import Button
+            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
+            from psx.css.parser import parse_stylesheet
+            from psx.css.cascade import StyleTarget, resolve_style
+
+            renderer = KivyRenderer()
+            widget = Button(text="Usuarios")
+            original = (widget.background_normal, widget.background_down,
+                        tuple(widget.background_color))
+            style = resolve_style(
+                parse_stylesheet("button {color:#6b7385; height:38px; border:none}"),
+                StyleTarget("button"))
+            handle = KivyHandle("Button", widget, {})
+            renderer.apply_css(handle, style)
+            assert widget.background_normal == ""
+            assert widget.background_down == ""
+            assert widget._psx_css_button_background[2].rgba[3] == 0
+            renderer.apply_css(handle, None)
+            assert (widget.background_normal, widget.background_down,
+                    tuple(widget.background_color)) == original
+        """)
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=environment,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
+
     def test_css_button_background_overrides_kivy_theme(self) -> None:
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1"})
