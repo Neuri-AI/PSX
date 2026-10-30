@@ -1619,8 +1619,11 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert type(nested) is Widget and not isinstance(nested, BoxLayout)
             assert nested.parent is root.handle.widget
             assert (nested.x, nested.y, nested.width, nested.height) == (10, 30, 120, 40), tuple(nested.pos) + tuple(nested.size)
-            assert (a.x, a.y, a.width, a.height) == (0, 25, 30, 15)
-            assert (b.x, b.y, b.width, b.height) == (36, 25, 20, 15)
+            # Kivy native canvases do not inherit a parent's translation.
+            # The nested Flex is at (10, 30) and must paint its children
+            # in window-space, not at detached parent-relative (0, 25).
+            assert (a.x, a.y, a.width, a.height) == (10, 55, 30, 15)
+            assert (b.x, b.y, b.width, b.height) == (46, 55, 20, 15)
             cleanup(backend, tree)
 
             # Moving keyed children must retain the exact Kivy native Widget objects.
