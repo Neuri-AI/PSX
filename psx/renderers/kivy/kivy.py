@@ -583,6 +583,25 @@ class KivyRenderer:
         if tuple(root.size) != new_size:
             root.size = new_size
 
+        # Window resize already runs in a Clock callback, outside Cocoa's
+        # native on_resize dispatch. A root-size notification schedules a
+        # *second* Clock callback; that leaves the old Cinnamon layout
+        # visible for an extra frame, particularly apparent on the Y axis
+        # when ScrollView is also updating its vertical bounds. Reuse this
+        # same UI tick for the committed viewport and cancel the redundant
+        # root-size observer callback. Preserve the observer path for
+        # synthetic/standalone root resizes that have no Window event.
+        mounted = getattr(self, "_sfle_mounted_root", None)
+        constraints = getattr(self, "_sfle_constraints", None)
+        if (mounted is None or mounted.disposed or constraints is None
+                or (constraints.width.value, constraints.height.value) == new_size):
+            return
+        if self._sfle_resize_event is not None:
+            self._sfle_resize_event.cancel()
+            self._sfle_resize_event = None
+        self._sfle_resize_pending = new_size
+        self._sfle_flush_viewport_resize(epoch)
+
     def _sfle_flush_viewport_resize(self, epoch: int) -> None:
         self._sfle_resize_event = None
         if epoch != self._sfle_resize_epoch or self._sfle_mounted_root is None:
