@@ -5,6 +5,20 @@ from scripts.ci.impact import SUITES, classify
 
 
 class RoutingTests(unittest.TestCase):
+    def test_kivy_resize_regressions_execute_in_native_ci(self):
+        from pathlib import Path
+        workflow = (
+            Path(__file__).resolve().parents[1]
+            / ".github/workflows/native-layout-selective.yml"
+        ).read_text(encoding="utf-8")
+        for path in (
+            "tests/test_kivy_window_resize_coalescing.py",
+            "tests/test_kivy_scroll_trackpad_input.py",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(self.selected(path), {"kivy"})
+                self.assertIn(path, workflow)
+
     def test_scroll_extent_projection_routes_cinnamon_and_kivy(self):
         self.assertEqual(
             self.selected("tests/sfle/test_kivy_scroll_extent_projection.py"),
