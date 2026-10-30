@@ -145,6 +145,8 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 engine=renderer._sfle_engine,
                 viewport_constraints=renderer._sfle_constraints,
                 flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
+                pixel_scale=(getattr(renderer, "_psx_css_pixel_scale", 1.0)
+                             if backend is GridCommitBackend.KIVY else 1.0),
             )
             prepared = composed.prepared
             batch, commit_widgets, composed_heights = compose_geometry_batch(
@@ -204,6 +206,8 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 revisions={identifier: generation for identifier in ids},
                 generation=generation, current_generation=renderer._sfle_generation,
                 breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
+                pixel_scale=(getattr(renderer, "_psx_css_pixel_scale", 1.0)
+                             if backend is GridCommitBackend.KIVY else 1.0),
             )
             batch, commit_widgets = list(prepared.placements), {
                 identifier: handle.widget for identifier, handle in item_handles.items()
