@@ -268,7 +268,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                     )
                 )
         dependent.update(mixed_grid.width_dependencies())
-        snapshot = seed_unconstrained_width_measurements(snapshot, frozenset(dependent))
+        snapshot = seed_unconstrained_width_measurements(snapshot, frozenset(leaf_widgets) | frozenset(dependent))
         if snapshot.nodes[0].component in FORMATTING_TAGS:
             # Both Rust primary and Python fallback own the same measured flow wire.
             from psx.sfle.model import MeasuredBox
