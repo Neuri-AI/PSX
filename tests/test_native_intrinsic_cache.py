@@ -247,3 +247,44 @@ def test_native_viewport_reuse_is_opt_in_and_never_poisoned_by_prior_mode():
     assert calls == [
         (False, 80), (False, 300), (True, 80), (False, 300),
     ]
+
+
+
+def test_width_only_glyph_intrinsics_survive_vertical_viewport_resize():
+    """Only opted-in text may reuse width metrics across viewport heights."""
+    cache = NativeIntrinsicCache()
+    widget = object()
+    calls = []
+
+    def read(width, height, props=None, *, opt_in=True, dirty=False):
+        viewport = LayoutConstraints(
+            AvailableSize(width, True), AvailableSize(height, True))
+        tx = cache.begin(dirty_widgets=(
+            frozenset({id(widget)}) if dirty else frozenset()
+        ))
+        value = tx.read_width(
+            widget=widget,
+            props={"text": "Hola", "font": 30} if props is None else props,
+            constraints=viewport, width=width,
+            measure=lambda: (calls.append((width, height)), (width, 70))[1],
+            viewport_independent=opt_in,
+        )
+        tx.publish()
+        return value
+
+    assert read(400, 200) == (400, 70)
+    for height in (300, 100, 700, 150, 500):
+        assert read(400, height) == (400, 70)
+        assert not cache.last_width_measured
+    assert calls == [(400, 200)]
+
+    # The actual text width and CSS font revision still cause fresh reads.
+    assert read(320, 500) == (320, 70)
+    assert read(320, 510, {"text": "Hola", "font": 32}) == (320, 70)
+    assert read(320, 520, {"text": "Hola", "font": 32}, dirty=True) == (320, 70)
+    assert len(calls) == 4
+
+    # Strict native widgets must still remeasure on viewport changes.
+    assert read(320, 530, opt_in=False) == (320, 70)
+    assert read(320, 540, opt_in=False) == (320, 70)
+    assert len(calls) == 6
