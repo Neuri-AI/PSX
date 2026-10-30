@@ -915,6 +915,61 @@ class KivyRenderer:
                 line.width, paint.rgba = stroke[0] * pixel_scale, stroke[1]
                 widget._psx_css_stroke_radius = radius
                 line.rounded_rectangle = (widget.x, widget.y, widget.width, widget.height, radius)
+        if target.node_type in (
+            "Text", "Button", "Input", "TextArea", "Checkbox", "Radio",
+            "Select", "Link", "Badge",
+        ):
+            # Qt applies authored CSS edges individually to controls.
+            # A single rounded_rectangle would invent strokes on untouched
+            # edges, so retain one native Line for every specified CSS side.
+            from kivy.graphics import Line
+            from psx.css.native_paint import (
+                native_border_radius, native_side_border_paint,
+                rounded_side_stroke_points,
+            )
+            widget = target.widget
+            radius = native_border_radius(computed) * pixel_scale
+            sides = tuple(
+                (side, thickness * pixel_scale, color)
+                for side, thickness, color in native_side_border_paint(computed)
+            )
+            existing = getattr(widget, "_psx_css_control_side_strokes", None)
+            if existing is not None and existing[2] != sides:
+                group, redraw, _old_sides, _lines = existing
+                widget.unbind(pos=redraw, size=redraw)
+                widget.canvas.after.remove(group)
+                del widget._psx_css_control_side_strokes
+                existing = None
+            widget._psx_css_control_side_radius = radius
+            if sides and existing is None:
+                group = InstructionGroup()
+                lines = []
+                for side, thickness, color in sides:
+                    group.add(Color(*color))
+                    line = Line(width=thickness)
+                    group.add(line)
+                    lines.append((side, thickness, line))
+
+                def redraw(instance, _value):
+                    x, y = instance.pos
+                    width, height = instance.size
+                    for side, thickness, line in lines:
+                        points = rounded_side_stroke_points(
+                            side, width, height,
+                            instance._psx_css_control_side_radius, thickness,
+                        )
+                        line.points = tuple(
+                            value + (x if index % 2 == 0 else y)
+                            for index, value in enumerate(points)
+                        )
+
+                widget.canvas.after.add(group)
+                widget.bind(pos=redraw, size=redraw)
+                widget._psx_css_control_side_strokes = (
+                    group, redraw, sides, lines,
+                )
+            if sides:
+                widget._psx_css_control_side_strokes[1](widget, None)
         if target.node_type == "Text":
             from psx.css.native_paint import native_text_typography
             from psx.renderers.components.text import apply_kivy_text
