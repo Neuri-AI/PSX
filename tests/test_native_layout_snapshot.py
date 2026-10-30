@@ -429,3 +429,22 @@ def test_nested_list_inline_fragment_does_not_leak_display_into_flex_solver():
     assert all("display" not in dict(node.style) for node in snapshot.nodes)
     assert any(dict(node.style).get("direction") == "row"
                for node in snapshot.nodes[1:])
+
+
+def test_css_pixel_scale_applies_to_numeric_and_string_native_flex_lengths():
+    prepared = _prepare(Flex(
+        Flex(flex_grow=1, layout_width="40px", layout_margin_left=3),
+        gap="16px", padding=(4, 8),
+    ))
+    normal = prepared.css_geometry_snapshot(pixel_scale=1.0)
+    retina = prepared.css_geometry_snapshot(pixel_scale=2.0)
+    root = dict(retina.nodes[0].style)
+    child = dict(retina.nodes[1].style)
+    assert root["row_gap"] == Length.px(32)
+    assert root["column_gap"] == Length.px(32)
+    assert root["layout_padding_top"] == Length.px(8)
+    assert root["layout_padding_right"] == Length.px(16)
+    assert child["layout_width"] == Length.px(80)
+    assert child["layout_margin_left"] == Length.px(6)
+    assert child["flex_grow"] == 1
+    assert dict(normal.nodes[0].style)["row_gap"] == "16px"
