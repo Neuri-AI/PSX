@@ -56,6 +56,24 @@ class KivyDisplayScale:
             )
         return (self.x + self.y) / 2
 
+    @property
+    def css_scale(self) -> float:
+        """Choose a safe CSS-to-drawable multiplier for live Cocoa/SDL windows.
+
+        Some macOS providers report drawable and system dimensions from
+        different resize epochs (or include a titlebar on one axis). Do not
+        block application startup because those two measurements disagree.
+        Prefer the horizontal ratio, which does not include vertical window
+        chrome, but accept it only near a known display density. Otherwise
+        preserve 1x CSS sizing and leave both raw axes in the receipt.
+        """
+        known = (1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0)
+        for ratio in (self.x, self.y):
+            nearest = min(known, key=lambda candidate: abs(candidate - ratio))
+            if abs(ratio - nearest) <= max(0.04, nearest * 0.04):
+                return nearest
+        return 1.0
+
     def snapshot(self) -> dict[str, float]:
         """Comparable, serializable observation for Retina acceptance receipts."""
         return {
