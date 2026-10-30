@@ -1194,6 +1194,31 @@ class KivyRenderer:
                 if not hasattr(widget, "halign"):
                     raise ValueError(f"Kivy {target.node_type} does not support text-align.")
                 widget.halign = styles["text-align"]
+                if target.node_type in ("Button", "Select", "Link"):
+                    # Kivy Label.halign has no visible effect when text_size
+                    # follows the glyph texture instead of the native box.
+                    # Bind only while CSS owns alignment; Cinnamon continues
+                    # to own the outer rectangle.
+                    if not hasattr(widget, "_psx_css_text_align_resize"):
+                        widget._psx_css_original_text_size = tuple(widget.text_size)
+
+                        def align_resize(instance, _value):
+                            padding = instance.padding
+                            horizontal = float(padding[0]) + float(padding[2])
+                            instance.text_size = (
+                                max(0.0, float(instance.width) - horizontal), None
+                            )
+
+                        widget._psx_css_text_align_resize = align_resize
+                        widget.bind(size=align_resize)
+                    widget._psx_css_text_align_resize(widget, None)
+            elif target.node_type in ("Button", "Select", "Link"):
+                resize = getattr(widget, "_psx_css_text_align_resize", None)
+                if resize is not None:
+                    widget.unbind(size=resize)
+                    widget.text_size = widget._psx_css_original_text_size
+                    del widget._psx_css_text_align_resize
+                    del widget._psx_css_original_text_size
             if "line-height" in styles:
                 if not hasattr(widget, "line_height"):
                     raise ValueError(f"Kivy {target.node_type} does not support line-height.")
