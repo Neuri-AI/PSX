@@ -805,14 +805,6 @@ class KivyRenderer:
         # All adapter kinds, including custom ProgressBar adapters, must
         # advertise the same intrinsic port before native measurement.
         handle = self._adapter_for(adapter_key(node)).create(self, node, parent)
-        if self._sfle_constraints is not None and _handle(handle).node_type == "Text":
-            # Legacy Kivy Text mirrors the entire native Label.size into
-            # text_size. Cinnamon instead owns height and measures wrapping
-            # with (content_width, None). Running both size owners during a
-            # vertical viewport resize alternates the label's glyph box
-            # between fixed-height and natural-height text, visibly shaking
-            # a <p> even when its width and font have not changed.
-            handle.widget.unbind(size=size_kivy_text)
         self._scale_component_font(handle)
         if self._sfle_constraints is not None and node.type in (
             "Input", "Checkbox", "ProgressBar",
