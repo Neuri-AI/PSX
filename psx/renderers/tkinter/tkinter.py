@@ -1422,7 +1422,7 @@ class TkinterRenderer:
                         (dict(relx=1, rely=1, x=-r, y=-r), (-r, -r, r, r), 270),
                     )
                     for corner, (place, bounds, start) in zip(corners, positions):
-                        corner.configure(background=surface)
+                        corner.configure(background=surface, cursor=str(widget.cget('cursor')))
                         corner.delete("all")
                         corner.create_arc(*bounds, start=start, extent=90,
                                           style="arc", outline=color, width=n)
