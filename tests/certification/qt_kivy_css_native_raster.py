@@ -57,8 +57,9 @@ def render_qt(out: Path, background: str, fill: str, border: str,
     child = (QPushButton("", parent) if "-button-" in out.name else QWidget(parent))
     child.setObjectName("rasterCard")
     child.setGeometry(*CARD)
+    child_selector = "QPushButton" if "-button-" in out.name else "QWidget"
     child.setStyleSheet(
-        "QWidget#rasterCard {" +
+        child_selector + "#rasterCard {" +
         qt_semantic_stylesheet(computed(css(fill, border, radius, width))) +
         "}"
     )
