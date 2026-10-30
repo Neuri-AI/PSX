@@ -216,7 +216,8 @@ def nested_flow_grid_width(snapshot, node_id, width, *, resolver=None):
 
 def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
                           viewport_constraints=None, measure_grid=None,
-                          flow_reuse=None, invalidation_epoch=0, pixel_scale=1.0):
+                          flow_reuse=None, invalidation_epoch=0, pixel_scale=1.0,
+                          kivy_text_basis=False):
     """Measure an HTML block subtree using Cinnamon's flow layout kernel."""
     constraints = LayoutConstraints(AvailableSize(width, True),
                                     AvailableSize(None, False))
@@ -308,6 +309,51 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
         measurements.append(MeasuredBox(node.node_id, intrinsic,
             LayoutConstraints(AvailableSize(width, True),
                               AvailableSize(None, False)), generation))
+    if kivy_text_basis:
+        # A semantic <p>/<span> becomes an inner Flex formatting context.
+        # Without its intrinsic text width Cinnamon stretches EACH child to
+        # the entire available row. The second child (greetings/dates) is
+        # consequently laid out entirely beyond the right edge. Measure using
+        # the actual mounted Kivy Text texture, never a guessed character
+        # width or an engine-specific fixed offset.
+        from .lengths import Length, LengthKind
+        measured_widths = {
+            receipt.node_id: receipt.intrinsic.preferred_width
+            for receipt in measurements
+        }
+        nodes_by_id = {node.node_id: node for node in normalized.nodes}
+        children_by_id = {}
+        for node in normalized.nodes:
+            children_by_id.setdefault(node.parent_id, []).append(node)
+        adjusted = []
+        for node in normalized.nodes:
+            parent = nodes_by_id.get(node.parent_id)
+            style = dict(node.style)
+            origin = identities.get(node.node_id)
+            parent_style = dict(parent.style) if parent is not None else {}
+            is_row = (parent is not None and parent.component == "Flex"
+                      and parent_style.get("direction", "row") in ("row", "row-reverse"))
+            if (is_row and origin is not None and
+                    origin.kind is NodeKind.HOST and
+                    origin.type in FORMATTING_TAGS and
+                    node.component == "Flex" and
+                    "layout_width" not in style and "width" not in style and
+                    "flex_basis" not in style):
+                descendants = children_by_id.get(node.node_id, [])
+                # Only a one-text-child formatting context is intrinsically
+                # projected here. Other containers retain Cinnamon's native
+                # sizing algorithm and receive no fabricated measurements.
+                if len(descendants) == 1 and descendants[0].node_id in measured_widths:
+                    natural = measured_widths[descendants[0].node_id]
+                    for group in ("padding", "border"):
+                        for side in ("left", "right"):
+                            edge = style.get(f"layout_{group}_{side}")
+                            if isinstance(edge, Length) and edge.kind is LengthKind.PX:
+                                natural += edge.value
+                    style["flex_basis"] = Length.px(natural)
+                    node = replace(node, style=tuple(sorted(style.items())))
+            adjusted.append(node)
+        normalized = replace(normalized, nodes=tuple(adjusted))
     snapshot = replace(normalized, measurements=tuple(measurements))
     if normalized.nodes[0].component == "Flex":
         from .width_dependent_intrinsic_measurement import (
@@ -370,6 +416,7 @@ def prepare_composed_grid(
     flow_reuse: FlowBlueprintReuse | None = None,
     invalidation_epoch: int = 0,
     pixel_scale: float = 1.0,
+    kivy_text_basis: bool = False,
 ) -> ComposedGrid:
     """Measure nested Grid children bottom-up using parent-allocated widths.
 
@@ -426,6 +473,7 @@ def prepare_composed_grid(
                     viewport_constraints=viewport_constraints,
                     flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                     pixel_scale=pixel_scale,
+                    kivy_text_basis=kivy_text_basis,
                     measure_grid=lambda subgrid, grid_width:
                         prepare_composed_grid(
                             subgrid, content_width=grid_width,
@@ -435,6 +483,7 @@ def prepare_composed_grid(
                             viewport_constraints=viewport_constraints,
                             flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                             pixel_scale=pixel_scale,
+                            kivy_text_basis=kivy_text_basis,
                         ),
                 )
                 height = flow.content_height
@@ -487,6 +536,7 @@ def prepare_composed_grid(
                     viewport_constraints=viewport_constraints,
                     flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                     pixel_scale=pixel_scale,
+                    kivy_text_basis=kivy_text_basis,
                 )
                 nested[identifier] = subgrid
                 height = subgrid.content_height
@@ -509,6 +559,7 @@ def prepare_composed_grid(
                             viewport_constraints=viewport_constraints,
                             flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                             pixel_scale=pixel_scale,
+                            kivy_text_basis=kivy_text_basis,
                         ),
                     is_ui_thread=is_ui_thread, engine=engine,
                     pixel_scale=pixel_scale,
@@ -523,6 +574,7 @@ def prepare_composed_grid(
                     viewport_constraints=viewport_constraints,
                     flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                     pixel_scale=pixel_scale,
+                    kivy_text_basis=kivy_text_basis,
                     measure_grid=lambda subgrid, grid_width:
                         prepare_composed_grid(
                             subgrid, content_width=grid_width,
@@ -535,6 +587,7 @@ def prepare_composed_grid(
                             viewport_constraints=viewport_constraints,
                             flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                             pixel_scale=pixel_scale,
+                            kivy_text_basis=kivy_text_basis,
                         ),
                 )
                 nested_flow[identifier] = flow
