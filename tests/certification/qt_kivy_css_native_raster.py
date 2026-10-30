@@ -96,7 +96,7 @@ def render_kivy(out: Path, background: str, fill: str, border: str,
             "graphics context; mathematical Retina tests are not a substitute."
         )
     Window.system_size = CANVAS
-    display_scale = KivyDisplayScale.from_window(Window).uniform
+    display_scale = KivyDisplayScale.from_window(Window).css_scale
     drawable = tuple(Window.size)
     Window.clearcolor = (*rgb(background), 1)
     root = Widget(size_hint=(None, None), size=drawable)
