@@ -1714,6 +1714,7 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         environment = dict(os.environ)
         environment["KIVY_NO_FILELOG"] = "1"
         environment["KIVY_NO_ARGS"] = "1"
+        environment["PSX_CERT_DEBUG_BASIS"] = "1"
         result = subprocess.run(
             [sys.executable, "-c", script], env=environment,
             capture_output=True, text=True, timeout=90,
