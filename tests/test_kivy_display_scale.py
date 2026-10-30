@@ -38,3 +38,30 @@ def test_no_implicit_kivy_density_or_widget_scaling():
     # This class reports the backing pixel ratio; it does not assert that
     # Widget.size is in Cocoa points or dictate a conversion for every host.
     assert not hasattr(scale, "scale_widget")
+
+
+@pytest.mark.parametrize(
+    ("drawable", "system", "expected"),
+    [
+        ((1600, 1200), (800, 600), 2.0),
+        ((1600, 1200), (800, 590), 2.0),
+        ((1600, 1200), (800, 500), 2.0),
+        ((1200, 900), (800, 600), 1.5),
+        ((800, 600), (800, 600), 1.0),
+        ((1537, 999), (811, 417), 1.0),
+    ],
+)
+def test_css_scale_does_not_block_startup_when_cocoa_axes_disagree(
+    drawable, system, expected,
+):
+    scale = KivyDisplayScale.from_window(
+        SimpleNamespace(size=drawable, system_size=system)
+    )
+    assert scale.css_scale == pytest.approx(expected)
+
+
+def test_anisotropic_diagnostic_remains_available_even_if_runtime_can_boot():
+    scale = KivyDisplayScale(1600, 1200, 800, 500)
+    assert scale.css_scale == 2.0
+    with pytest.raises(ValueError, match="unequal axis"):
+        _ = scale.uniform
