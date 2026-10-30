@@ -547,7 +547,14 @@ class KivyRenderer:
         if (root is None or root.parent is not window
                 or width <= 0 or height <= 0):
             return
-        new_size = (width, height)
+        # Cocoa/SDL2 may dispatch width/height in window-coordinate units
+        # while Window.size reports drawable pixels. Cinnamon and Widget.pos
+        # use the drawable viewport: never size the root from a potentially
+        # half-resolution macOS event payload.
+        drawable = getattr(window, "size", None)
+        new_size = tuple(drawable) if drawable is not None and all(
+            isinstance(v, (float, int)) and v > 0 for v in drawable
+        ) else (width, height)
         # Some Cocoa/SDL2 providers dispatch resize callbacks while applying
         # an earlier resize. Never write identical properties (which may
         # dispatch again), nor re-enter a Kivy property change transaction.
