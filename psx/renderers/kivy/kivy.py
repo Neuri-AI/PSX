@@ -635,7 +635,16 @@ class KivyRenderer:
         # ratio to sample. Defer to the first mounted native layout pass.
         if Window is None:
             return 1.0
-        return KivyDisplayScale.from_window(Window).uniform
+        observed = KivyDisplayScale.from_window(Window)
+        chosen = observed.css_scale
+        if abs(observed.x - observed.y) > 0.02:
+            from kivy.logger import Logger
+            Logger.warning(
+                "PSX Retina: Window.size/system_size differ by axis: "
+                f"{observed.snapshot()}; CSS scale={chosen:g}. "
+                "Preserving startup; capture this report on the device."
+            )
+        return chosen
 
     def commit_layout(self, root: object) -> None:
         if self._sfle_constraints is None:
