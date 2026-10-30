@@ -358,12 +358,15 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                 handle = KivyHandle(kind, widget, {})
                 renderer.apply_css(handle, aligned)
                 assert widget.halign == "right", (kind, widget.halign)
-                assert abs(widget.text_size[0] - 140) < 1, (
-                    kind, widget.text_size
+                # Qt currently certifies CSS internal padding only for
+                # Button; Select and Link preserve their native padding.
+                inset = 20 if kind == "Button" else 0
+                assert abs(widget.text_size[0] - (160 - inset)) < 1, (
+                    kind, widget.text_size, widget.padding
                 )
                 widget.width = 200
-                assert abs(widget.text_size[0] - 180) < 1, (
-                    kind, widget.text_size
+                assert abs(widget.text_size[0] - (200 - inset)) < 1, (
+                    kind, widget.text_size, widget.padding
                 )
                 renderer.apply_css(handle, empty)
                 assert tuple(widget.text_size) == original, (
