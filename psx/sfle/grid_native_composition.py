@@ -718,6 +718,7 @@ def compose_geometry_batch(
                 heights[flow_id] = scroll_extent
                 boxes = dict(flow.result.boxes)
                 nodes_by_id = {node.node_id: node for node in flow.prepared.snapshot.nodes}
+                flow_root_id = flow.prepared.snapshot.nodes[0].node_id
                 for source_id, source in flow.prepared.identities[1:]:
                     current = nodes_by_id[source_id]
                     rect = boxes[source_id].border
@@ -730,7 +731,19 @@ def compose_geometry_batch(
                         False, False,
                     ))
                     widgets[segment_id] = handles[id(source)]
-                    heights[segment_id] = parent.height
+                    # The Scroll canvas translates the entire content using
+                    # its *full* scroll_extent. We extend the HTML content
+                    # root to that height so overflowing descendants remain
+                    # visible. Its direct children must be Y-flipped against
+                    # that same extended native height, not the smaller
+                    # Cinnamon border box, or a gap equal to the difference
+                    # appears above the first child after vertical resizing.
+                    # Descendants of other parents retain their own border
+                    # box heights and Cinnamon's measured local coordinates.
+                    heights[segment_id] = (
+                        scroll_extent if current.parent_id == flow_root_id
+                        else parent.height
+                    )
                     nested_grid = flow.nested_grids.get(source_id)
                     if nested_grid is not None:
                         walk(nested_grid, rect.height)
