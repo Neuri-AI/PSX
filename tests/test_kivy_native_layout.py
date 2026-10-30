@@ -1524,7 +1524,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
 
             # A deterministic 2x window/system ratio, independent of the
             # headless CI monitor's real physical density.
-            KivyRenderer._read_css_pixel_scale = staticmethod(lambda: 2.0)
+            scale = {"value": 2.0}
+            KivyRenderer._read_css_pixel_scale = staticmethod(lambda: scale["value"])
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
                     AvailableSize(800, True), AvailableSize(600, True)),
@@ -1541,6 +1542,22 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert abs(button.font_size - 30) <= 0.01, button.font_size
             assert list(button.padding) == [20, 0, 20, 0], button.padding
             assert abs(root.handle.widget.height - 600) <= 1
+            first_handle = root.children[0].handle
+            # Simulate moving the same mounted window to a standard display,
+            # then back to Retina. Native fonts and CSS paint must rescale
+            # without replacing native widgets or changing authored CSS.
+            scale["value"] = 1.0
+            renderer.commit_layout(root)
+            assert root.children[0].handle is first_handle
+            assert abs(button.height - 38) <= 1, button.size
+            assert abs(button.font_size - 15) <= 0.01, button.font_size
+            assert list(button.padding) == [10, 0, 10, 0], button.padding
+            scale["value"] = 2.0
+            renderer.commit_layout(root)
+            assert root.children[0].handle is first_handle
+            assert abs(button.height - 76) <= 1, button.size
+            assert abs(button.font_size - 30) <= 0.01, button.font_size
+            assert list(button.padding) == [20, 0, 20, 0], button.padding
             tree.unmount()
         ''')
         environment = dict(os.environ)
