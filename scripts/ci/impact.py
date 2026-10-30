@@ -102,6 +102,11 @@ def _classify_path(path: str) -> set[str]:
         return {"qt"}
     if path in ("tests/test_qt_css_control_background.py", "tests/test_qt_semantic_border_scope.py", "tests/test_qt_scroll_wheel_continuity.py", "tests/test_qt_native_chart_refresh.py"):
         return {"qt"}
+    if path == "psx/renderers/kivy/css_cursor.py" or path in (
+        "tests/test_kivy_css_cursor.py",
+        "tests/test_kivy_css_border_retina.py",
+    ):
+        return {"kivy"}
     if path in ("psx/renderers/tkinter/rounded_surface.py",
                 "tests/test_native_rounded_card_visual.py"):
         # The visual raster comparison runs in the Qt job but exercises the
