@@ -915,7 +915,7 @@ class KivyRenderer:
                 width, rgba = stroke
                 group = InstructionGroup()
                 paint = Color(*rgba)
-                line = Line(width=width * pixel_scale / 2.0)
+                line = Line(width=width * pixel_scale * 0.75)
                 line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, line.width)
                 group.add(paint)
                 group.add(line)
@@ -928,7 +928,7 @@ class KivyRenderer:
                 widget._psx_css_control_stroke = (group, redraw, paint, line)
             else:
                 _, _, paint, line = existing_border
-                line.width, paint.rgba = stroke[0] * pixel_scale / 2.0, stroke[1]
+                line.width, paint.rgba = stroke[0] * pixel_scale * 0.75, stroke[1]
                 widget._psx_css_stroke_radius = radius
                 line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, line.width)
         if target.node_type in (
@@ -1335,7 +1335,7 @@ class KivyRenderer:
         elif old_stroke is None:
             stroke_group = InstructionGroup()
             stroke_color = Color(*border)
-            stroke_line = Line(rounded_rectangle=inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, stroke_width / 2.0), width=stroke_width / 2.0)
+            stroke_line = Line(rounded_rectangle=inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, stroke_width * 0.75), width=stroke_width * 0.75)
             stroke_group.add(stroke_color)
             stroke_group.add(stroke_line)
             def stroke_redraw(instance, _value):
@@ -1347,9 +1347,9 @@ class KivyRenderer:
         else:
             _, _, stroke_color, stroke_line = old_stroke
             stroke_color.rgba = border
-            stroke_line.width = stroke_width / 2.0
+            stroke_line.width = stroke_width * 0.75
             widget._psx_css_semantic_radius = radius
-            stroke_line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, stroke_width / 2.0)
+            stroke_line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, stroke_width * 0.75)
         existing = getattr(widget, "_psx_css_paint", None)
         if rgba is None:
             if existing is not None:
