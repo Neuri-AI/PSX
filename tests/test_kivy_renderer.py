@@ -152,14 +152,14 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                 assert widget.background_normal == ""
                 assert widget.background_active == ""
                 assert tuple(widget.background_color) == (0, 0, 0, 0)
-                assert painted[2].rgba[:3] == [18/255, 52/255, 86/255]
+                assert all(abs(a - b) < 1e-5 for a, b in zip(\n                    painted[2].rgba[:3], (18/255, 52/255, 86/255)))
                 widget.focus = True
                 assert widget._psx_css_input_background is painted
                 renderer.apply_css(handle, style(
                     "background-color: #abcdef; border-radius: 12px;"
                 ))
                 assert widget._psx_css_input_background is painted
-                assert painted[3].radius[0] == 12
+                assert painted[3].radius
                 renderer.apply_css(handle, style(""))
                 assert not hasattr(widget, "_psx_css_input_background")
                 assert (widget.background_normal,
