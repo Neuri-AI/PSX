@@ -54,7 +54,21 @@ class KivyCssCursorManager:
         if not getattr(widget, "opacity", 1) or getattr(widget, "disabled", False):
             return False
         x, y = widget.to_widget(*point)
-        return 0 <= x < widget.width and 0 <= y < widget.height
+        if not (0 <= x < widget.width and 0 <= y < widget.height):
+            return False
+        # Scroll's canvas transformation can leave a descendant's native
+        # bounds under the mouse even when the viewport clips it. Never
+        # advertise a pointer outside the visible clipping rectangle.
+        parent = getattr(widget, "parent", None)
+        while parent is not None:
+            if not getattr(parent, "opacity", 1):
+                return False
+            if hasattr(parent, "_psx_content"):
+                x, y = parent.to_widget(*point)
+                if not (0 <= x < parent.width and 0 <= y < parent.height):
+                    return False
+            parent = getattr(parent, "parent", None)
+        return True
 
     def update(self, point: tuple[float, float]) -> None:
         selected = None
