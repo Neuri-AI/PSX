@@ -75,10 +75,12 @@ from psx.core.contracts import (
 from psx.renderers.kivy.divider import KivyDividerAdapter
 
 
-# Qt/QSS and Kivy/OpenGL report different raster coverage for equal
-# nominal line widths. Calibrated using actual paired native 2px CSS edges
-# on Linux/SDL2; the CSS box and Cinnamon dimensions remain unchanged.
-_KIVY_LINE_RASTER_FACTOR = 0.75
+# Kivy 2.3's triangulated Line treats "width" as half the painted
+# thickness. Scale the CSS width into drawable pixels, then halve only for
+# the Kivy graphics instruction; layout/border-box geometry is unchanged.
+# Always force the triangulated method, including width=1, because GL_LINE
+# switches to a one-device-pixel path at exactly that value.
+_KIVY_LINE_RASTER_FACTOR = 0.5
 
 _LAYOUT_PROPS = frozenset({"spacing", "padding"})
 
@@ -928,6 +930,23 @@ class KivyRenderer:
 
         target = _handle(handle)
         pixel_scale = getattr(self, "_psx_css_pixel_scale", 1.0)
+
+        # CSS cursor is paint-only. Kivy's widgets have no individual OS
+        # cursor, so the renderer owns one Window mouse_pos listener rather
+        # than creating a global binding for every styled native widget.
+        cursor_value = (
+            computed.properties.get("cursor") if computed is not None
+            and "cursor" in computed.specified else None
+        )
+        cursor_manager = getattr(self, "_psx_css_cursor_manager", None)
+        if cursor_value in ("pointer", "default") and cursor_manager is None:
+            from kivy.core.window import Window
+            from .css_cursor import KivyCssCursorManager
+            cursor_manager = KivyCssCursorManager(Window)
+            self._psx_css_cursor_manager = cursor_manager
+        if cursor_manager is not None:
+            cursor_manager.set_style(target.widget, cursor_value)
+
         # Apply one owned stroke to both HTML-like boxes and PascalCase
         # controls, before the typography branches return.
         if target.node_type in ("Text", "Button", "Input", "TextArea", "Checkbox", "Radio", "Select", "Link", "Badge"):
@@ -948,13 +967,22 @@ class KivyRenderer:
                 width, rgba = stroke
                 group = InstructionGroup()
                 paint = Color(*rgba)
-                line = Line(width=width * pixel_scale * _KIVY_LINE_RASTER_FACTOR)
-                line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, line.width)
+                line = Line(
+                    width=width * pixel_scale * _KIVY_LINE_RASTER_FACTOR,
+                    force_custom_drawing_method=True,
+                )
+                line.rounded_rectangle = inset_rounded_border_box(
+                    widget.x, widget.y, widget.width, widget.height,
+                    radius, width * pixel_scale,
+                )
                 group.add(paint)
                 group.add(line)
                 def redraw(instance, _):
                     r = widget._psx_css_stroke_radius
-                    line.rounded_rectangle = inset_rounded_border_box(instance.x, instance.y, instance.width, instance.height, r, line.width)
+                    line.rounded_rectangle = inset_rounded_border_box(
+                        instance.x, instance.y, instance.width,
+                        instance.height, r, line.width / _KIVY_LINE_RASTER_FACTOR,
+                    )
                 widget._psx_css_stroke_radius = radius
                 widget.canvas.after.add(group)
                 widget.bind(pos=redraw, size=redraw)
@@ -963,7 +991,10 @@ class KivyRenderer:
                 _, _, paint, line = existing_border
                 line.width, paint.rgba = stroke[0] * pixel_scale * _KIVY_LINE_RASTER_FACTOR, stroke[1]
                 widget._psx_css_stroke_radius = radius
-                line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, line.width)
+                line.rounded_rectangle = inset_rounded_border_box(
+                    widget.x, widget.y, widget.width, widget.height,
+                    radius, stroke[0] * pixel_scale,
+                )
         if target.node_type in (
             "Text", "Button", "Input", "TextArea", "Checkbox", "Radio",
             "Select", "Link", "Badge",
@@ -997,7 +1028,10 @@ class KivyRenderer:
                 lines = []
                 for side, thickness, color in sides:
                     group.add(Color(*color))
-                    line = Line(width=thickness)
+                    line = Line(
+                        width=thickness * _KIVY_LINE_RASTER_FACTOR,
+                        force_custom_drawing_method=True,
+                    )
                     group.add(line)
                     lines.append((side, thickness, line))
 
@@ -1330,7 +1364,10 @@ class KivyRenderer:
             lines = []
             for side, thickness, color in side_styles:
                 group.add(Color(*color))
-                line = Line(width=thickness)
+                line = Line(
+                    width=thickness * _KIVY_LINE_RASTER_FACTOR,
+                    force_custom_drawing_method=True,
+                )
                 group.add(line)
                 lines.append((side, thickness, line))
 
@@ -1368,11 +1405,22 @@ class KivyRenderer:
         elif old_stroke is None:
             stroke_group = InstructionGroup()
             stroke_color = Color(*border)
-            stroke_line = Line(rounded_rectangle=inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, stroke_width * _KIVY_LINE_RASTER_FACTOR), width=stroke_width * _KIVY_LINE_RASTER_FACTOR)
+            stroke_line = Line(
+                rounded_rectangle=inset_rounded_border_box(
+                    widget.x, widget.y, widget.width, widget.height,
+                    radius, stroke_width,
+                ),
+                width=stroke_width * _KIVY_LINE_RASTER_FACTOR,
+                force_custom_drawing_method=True,
+            )
             stroke_group.add(stroke_color)
             stroke_group.add(stroke_line)
             def stroke_redraw(instance, _value):
-                stroke_line.rounded_rectangle = inset_rounded_border_box(instance.x, instance.y, instance.width, instance.height, widget._psx_css_semantic_radius, stroke_line.width)
+                stroke_line.rounded_rectangle = inset_rounded_border_box(
+                    instance.x, instance.y, instance.width, instance.height,
+                    widget._psx_css_semantic_radius,
+                    stroke_line.width / _KIVY_LINE_RASTER_FACTOR,
+                )
             widget._psx_css_semantic_radius = radius
             widget.canvas.after.add(stroke_group)
             widget.bind(pos=stroke_redraw, size=stroke_redraw)
@@ -1382,7 +1430,10 @@ class KivyRenderer:
             stroke_color.rgba = border
             stroke_line.width = stroke_width * _KIVY_LINE_RASTER_FACTOR
             widget._psx_css_semantic_radius = radius
-            stroke_line.rounded_rectangle = inset_rounded_border_box(widget.x, widget.y, widget.width, widget.height, radius, stroke_width * _KIVY_LINE_RASTER_FACTOR)
+            stroke_line.rounded_rectangle = inset_rounded_border_box(
+                widget.x, widget.y, widget.width, widget.height,
+                radius, stroke_width,
+            )
         existing = getattr(widget, "_psx_css_paint", None)
         if rgba is None:
             if existing is not None:
