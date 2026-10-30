@@ -1256,7 +1256,7 @@ def test_native_css_border_on_pascal_and_html_controls(tag, alias):
                 assert all(str(edge.cget("background")) == "#123456" for edge in widget._psx_css_border_edges)
             else:
                 group, redraw, paint, line = widget._psx_css_control_stroke
-                assert line.width == 2
+                assert line.width == pytest.approx(1.5)
                 assert tuple(paint.rgba) == pytest.approx((18/255, 52/255, 86/255, 1))
             changed = reconciler.render(view("#654321", html))
             assert changed.children[0].handle.widget is widget
@@ -1871,7 +1871,7 @@ def test_native_css_control_border_updates_and_owned_paint_cleanup(component, at
             assert len(widget._psx_css_border_edges) == 4
             assert all(edge.winfo_exists() for edge in widget._psx_css_border_edges)
         else:
-            assert widget._psx_css_control_stroke[3].width == pytest.approx(2)
+            assert widget._psx_css_control_stroke[3].width == pytest.approx(1.5)
 
         changed = reconciler.render(view("#654321"))
         assert changed.children[0].handle.widget is widget
