@@ -116,7 +116,12 @@ def readback(component, widget, props, name):
         assert widget.disabled == (not value)
     elif component == 'Badge':
         if name == 'label': assert widget.text == value
-        else: assert widget.font_size == {'small': 22, 'medium': 24, 'large': 28}[value]
+        else:
+            # Badge points follow the *observed* Kivy drawable density, not
+            # the historic fixed 2x assumption used in this driver.
+            expected = {'small': 11, 'medium': 12, 'large': 14}[value]
+            expected *= (96.0 / 72.0) * widget._psx_badge_pixel_scale
+            assert abs(widget.font_size - expected) < 0.01
     elif component == 'Text':
         native = {'value': 'text', 'align': 'halign'}.get(name, name)
         observed = getattr(widget, native)
@@ -438,7 +443,12 @@ def decoration(component):
         assert not any(isinstance(i, RoundedRectangle) for i in widget.canvas.before.children)
         widget = render(shape='rounded')
         rect = next(i for i in widget.canvas.before.children if isinstance(i, RoundedRectangle))
-        assert all(radius == (10, 10) for radius in rect.radius)
+        expected_radius = min(
+            5 * widget._psx_badge_pixel_scale,
+            rect.size[0] / 2, rect.size[1] / 2,
+        )
+        assert all(radius == (expected_radius, expected_radius)
+                   for radius in rect.radius)
         widget = render(shape='pill')
         rect = next(i for i in widget.canvas.before.children if isinstance(i, RoundedRectangle))
         assert all(radius == (rect.size[1]/2, rect.size[1]/2) for radius in rect.radius)
