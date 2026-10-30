@@ -114,3 +114,42 @@ def test_extent_shrink_removes_both_native_offsets():
                               Rect(0, 0, 40, 30), True, True)
     assert host_geometry(b, ScrollOffset(20, 40)).offset == ScrollOffset()
     assert b.viewport == Rect(0, 0, 100, 80)
+
+
+class _ObservedScrollProperties:
+    def __init__(self, **values):
+        self.writes = []
+        self.__dict__.update(values)
+
+    def __setattr__(self, name, value):
+        if name not in ("writes",) and hasattr(self, "writes"):
+            self.writes.append((name, value))
+        object.__setattr__(self, name, value)
+
+
+def test_kivy_scroll_does_not_republish_identical_native_properties():
+    """No size or scroll setters may dispatch again for an unchanged layout."""
+    b = binding()
+    content = _ObservedScrollProperties(size=(100, 80), size_hint=(1, 1))
+    view = _ObservedScrollProperties(
+        _psx_content=content, scroll_x=0.0, scroll_y=1.0,
+    )
+    first = apply_kivy_scroll(view, b, ScrollOffset(40, 30))
+    assert first.offset == ScrollOffset(40, 30)
+    assert content.size == (300, 200)
+    first_content_writes = list(content.writes)
+    first_view_writes = list(view.writes)
+    assert any(name == "size" for name, _ in first_content_writes)
+    assert any(name == "scroll_y" for name, _ in first_view_writes)
+
+    apply_kivy_scroll(view, b, ScrollOffset(40, 30))
+    assert content.writes == first_content_writes
+    assert not any(
+        name in ("scroll_x", "scroll_y")
+        for name, _ in view.writes[len(first_view_writes):]
+    )
+
+    apply_kivy_scroll(view, b, ScrollOffset(40, 60))
+    assert content.writes == first_content_writes
+    assert view.scroll_x == 0.2
+    assert view.scroll_y == 0.5
