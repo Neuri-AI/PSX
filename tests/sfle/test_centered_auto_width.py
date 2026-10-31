@@ -53,6 +53,16 @@ def test_linked_stylesheet_starter_template_uses_full_block_width():
     assert "align_self" not in records["Button"][1]
 
 
+def test_native_flex_root_and_css_flex_root_share_block_sizing():
+    _, records = _prepared(
+        '<Flex direction="column" align_items="center">'
+        '<p>Block nested under the native Flex component</p>'
+        '<Button label="Intrinsic control" /></Flex>'
+    )
+    assert records["p"][1]["align_self"] == "stretch"
+    assert "align_self" not in records["Button"][1]
+
+
 def test_default_html_blocks_fill_column_parent_without_stretching_controls():
     _, records = _prepared(
         '<div style="display: flex; flex-direction: column; '
