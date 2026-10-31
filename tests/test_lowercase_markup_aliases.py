@@ -63,7 +63,10 @@ def test_img_rejects_unsupported_or_nonpositive_dimensions(bad):
 
 
 def test_img_literal_src_prefers_qyro_resource_and_keeps_missing_path(tmp_path, monkeypatch):
-    import qyro
+    import sys
+    from types import ModuleType
+    qyro = ModuleType("qyro")
+    monkeypatch.setitem(sys.modules, "qyro", qyro)
     file = tmp_path / "logo.svg"
     file.write_text("<svg/>", encoding="utf-8")
     requested = []
