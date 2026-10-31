@@ -6,6 +6,17 @@ from psx.css import CssProperty, CssPropertyRegistry, CssValidationError, founda
 from psx.sfle.lengths import Length, LengthKind
 
 
+@pytest.mark.parametrize("value", ["0", "+0", "-0", "0.0"])
+def test_unitless_zero_is_valid_css_length(value):
+    assert foundation_registry().validate("margin-top", value).value == Length.px(0)
+
+
+@pytest.mark.parametrize("value", ["1", "-1", "0.5", "12"])
+def test_nonzero_unitless_css_lengths_remain_invalid(value):
+    with pytest.raises(CssValidationError):
+        foundation_registry().validate("margin-top", value)
+
+
 def test_percentages_remain_symbolic():
     result = foundation_registry().validate("width", "50%")
     assert result.value == Length.percent(0.5)
