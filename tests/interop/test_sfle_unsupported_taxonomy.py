@@ -59,9 +59,12 @@ def _graph(property_name, value, seed):
         nodes.append(replace(node,node_id=id_map[node.node_id],
                     parent_id=id_map[node.parent_id] if node.parent_id else None,
                     style=tuple(style.items())))
-    # The source fixture's original measured node ID must not leak into
-    # renamed graphs; property classification precedes any UI measurement.
-    return replace(original, generation=seed,nodes=tuple(nodes),measurements=()), id_map["child"]
+    # Preserve valid intrinsic measurements under the renamed identities.
+    # Otherwise missing text metrics can mask the unsupported CSS diagnostic.
+    measurements = tuple(replace(measurement, node_id=id_map[measurement.node_id])
+                         for measurement in original.measurements)
+    return replace(original, generation=seed, nodes=tuple(nodes),
+                   measurements=measurements), id_map["child"]
 
 
 @pytest.mark.parametrize("case",UNSUPPORTED_PROPERTY_FAMILIES,ids=lambda row:row[0])
