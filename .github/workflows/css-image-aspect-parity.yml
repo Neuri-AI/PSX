@@ -1,0 +1,109 @@
+name: CSS img intrinsic aspect parity
+
+on:
+  push:
+    branches: [fixes/psx-issues]
+    paths:
+      - 'psx/sfle/replaced_image_sizing.py'
+      - 'psx/sfle/qt_layout_bridge.py'
+      - 'psx/sfle/tkinter_layout_bridge.py'
+      - 'psx/sfle/kivy_layout_bridge.py'
+      - 'tests/sfle/test_css_image_intrinsic_ratio.py'
+      - 'tests/test_markup_css_binding.py'
+      - 'tests/test_pyside6_native_layout.py'
+      - 'tests/test_tkinter_native_layout.py'
+      - 'tests/test_kivy_native_layout.py'
+      - 'rust/sfle-core/tests/f2_css_image_aspect.rs'
+      - '.github/workflows/css-image-aspect-parity.yml'
+  pull_request:
+    paths:
+      - 'psx/sfle/replaced_image_sizing.py'
+      - 'psx/sfle/qt_layout_bridge.py'
+      - 'psx/sfle/tkinter_layout_bridge.py'
+      - 'psx/sfle/kivy_layout_bridge.py'
+      - 'tests/sfle/test_css_image_intrinsic_ratio.py'
+      - 'tests/test_markup_css_binding.py'
+      - 'tests/test_pyside6_native_layout.py'
+      - 'tests/test_tkinter_native_layout.py'
+      - 'tests/test_kivy_native_layout.py'
+      - 'rust/sfle-core/tests/f2_css_image_aspect.rs'
+      - '.github/workflows/css-image-aspect-parity.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pure-python:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install -e . pytest
+      - name: Test CSS image selector and responsive replaced aspect ratio
+        run: >-
+          python -m pytest -q
+          tests/sfle/test_css_image_intrinsic_ratio.py
+          tests/test_markup_css_binding.py
+
+  qt:
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+          python -m pip install -e '.[pyside6]' pytest
+      - run: >-
+          python -m pytest -q tests/test_pyside6_native_layout.py
+          -k css_img_width_preserves_ratio_without_empty_vertical_space
+
+  tkinter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk xvfb xauth
+          python -m pip install -e . Pillow pytest
+      - run: >-
+          xvfb-run -a python -m pytest -q tests/test_tkinter_native_layout.py
+          -k css_image_width_uses_ratio_and_avoids_phantom_gap
+
+  kivy:
+    runs-on: ubuntu-latest
+    env:
+      KIVY_NO_ARGS: '1'
+      KIVY_NO_FILELOG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth libmtdev1 libgl1 libx11-6 libegl1 libopengl0
+          python -m pip install -e '.[kivy]' Pillow pytest
+      - run: >-
+          xvfb-run -a python -m pytest -q tests/test_kivy_native_layout.py
+          -k css_image_width_uses_native_aspect_and_no_blank_gap
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --manifest-path rust/sfle-core/Cargo.toml --test f2_css_image_aspect
