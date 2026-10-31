@@ -1,54 +1,101 @@
-"""Regression: a centered column flex block uses CSS shrink-to-fit width.
+"""HTML block width semantics use one CSS/Cinnamon projection for every backend.
 
-The nested block is represented as a Flex participant by the HTML/CSS
-snapshot bridge; no Qt widget or guessed geometry is needed for this test.
+Qt, Tk and Kivy all call PreparedNativeLayoutSnapshot.css_geometry_snapshot,
+which determines block host geometry before any native widget placement.
 """
 import pytest
 
+from psx.markup.compile import psx
+from psx.core.layout_tree import normalize_flex_tree
+from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
-    LayoutNode, MeasuredBox, WritingDirection,
+    MeasuredBox,
 )
 
 
-def _layout(viewport: int, *, fixed: bool = False):
+def _prepared(markup, viewport=800):
     constraints = LayoutConstraints(
         AvailableSize(viewport, True), AvailableSize(600, True),
     )
-    paragraph_style = (("direction", "column"),)
-    if fixed:
-        paragraph_style += (("layout_width", "350px"),)
-    nodes = (
-        LayoutNode("root", None, "Flex", (
-            ("direction", "column"), ("align_items", "center"),
-            ("row_gap", "16px"),
-        )),
-        LayoutNode("paragraph", "root", "Flex", paragraph_style),
-        LayoutNode("text", "paragraph", "Text", ()),
+    node = psx(markup)
+    prepared = prepare_native_layout_snapshot(
+        normalize_flex_tree(node), constraints, generation=1,
     )
-    measured = MeasuredBox(
-        "text", IntrinsicSizes(
-            min_content_width=75, max_content_width=302,
-            min_content_height=18, max_content_height=18,
-            preferred_width=302, preferred_height=18,
-        ),
-        LayoutConstraints(AvailableSize(None, False), AvailableSize(None, False)),
-        1,
+    snapshot = prepared.css_geometry_snapshot()
+    records = {
+        source.type: (node, dict(node.style))
+        for node in snapshot.nodes
+        for identifier, source in prepared.identities
+        if identifier == node.node_id
+    }
+    return snapshot, records
+
+
+def test_default_html_blocks_fill_column_parent_without_stretching_controls():
+    _, records = _prepared(
+        '<div style="display: flex; flex-direction: column; '
+        'align-items: center; height: 100vh">'
+        '<h1>Get started</h1>'
+        '<p style="background-color: red">Edit src/App.tsx and save to test HMR</p>'
+        '<button>Count is 0</button></div>'
     )
-    return dict(PythonLayoutEngine().compute(LayoutInput(
-        1, 1, WritingDirection.LTR, constraints, nodes, (measured,),
-    )).boxes)
+    for name in ("h1", "p"):
+        component, style = records[name]
+        assert component.component == "Flex"
+        assert style["layout_width"] == "100%"
+    assert "layout_width" not in records["Button"][1]
 
 
-@pytest.mark.parametrize("viewport,expected", [(800, 302), (140, 140), (60, 75)])
-def test_centered_auto_width_is_shrink_to_fit(viewport, expected):
-    rectangles = _layout(viewport)
-    assert rectangles["root"].content.width == viewport
-    assert abs(rectangles["paragraph"].content.width - expected) <= 1 / 64
-    assert abs(rectangles["text"].content.width - expected) <= 1 / 64
+@pytest.mark.parametrize("width", [800, 320, 140])
+def test_full_width_block_tracks_parent_viewport(width):
+    snapshot, records = _prepared(
+        '<div style="display: flex; flex-direction: column; '
+        'align-items: center; height: 100vh">'
+        '<p>Text wrapping at the actual block width</p>'
+        '<button>Small control</button></div>',
+        viewport=width,
+    )
+    measurements = []
+    for node in snapshot.nodes:
+        if node.component in ("Text", "Button"):
+            intrinsic = IntrinsicSizes(60, 260, 18, 18, 260, 18) if node.component == "Text" else IntrinsicSizes(80, 80, 24, 24, 80, 24)
+            measurements.append(MeasuredBox(
+                node.node_id, intrinsic,
+                LayoutConstraints(AvailableSize(None, False), AvailableSize(None, False)),
+                snapshot.generation,
+            ))
+    from dataclasses import replace
+    solved = dict(PythonLayoutEngine().compute(
+        replace(snapshot, measurements=tuple(measurements))
+    ).boxes)
+    paragraph = records["p"][0]
+    button = records["Button"][0]
+    assert abs(solved[paragraph.node_id].content.width - width) <= 1 / 64
+    if width > 80:
+        assert solved[button.node_id].content.width < width
 
 
-def test_explicit_width_is_not_overridden_by_shrink_to_fit():
-    rectangles = _layout(140, fixed=True)
-    assert rectangles["paragraph"].content.width == 350
+def test_authored_css_width_and_native_layout_width_are_not_overridden():
+    _, records = _prepared(
+        '<div style="display: flex; flex-direction: column; align-items: center">'
+        '<p style="width: 120px">Fixed</p>'
+        '<h1 layout_width="50%">Half width</h1></div>'
+    )
+    from psx.sfle.lengths import Length
+    assert records["p"][1]["layout_width"] == Length.px(120)
+    assert records["h1"][1]["layout_width"] == "50%"
+
+
+def test_inline_display_and_row_flex_do_not_synthesize_block_width():
+    _, records = _prepared(
+        '<div style="display: flex; flex-direction: column">'
+        '<p style="display: inline">Inline</p></div>'
+    )
+    assert "layout_width" not in records["p"][1]
+    _, records = _prepared(
+        '<div style="display: flex; flex-direction: row">'
+        '<p>Row participant</p></div>'
+    )
+    assert "layout_width" not in records["p"][1]
