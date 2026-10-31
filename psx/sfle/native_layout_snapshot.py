@@ -37,6 +37,51 @@ def path_identity(path: LayoutPath) -> str:
     return repr(path)
 
 
+def inline_atomic_text_ids(prepared: "PreparedNativeLayoutSnapshot") -> frozenset[str]:
+    """Find native text words inside mixed inline block runs in O(N).
+
+    Markup preserves each span/style VNode but gives native adapters atomic
+    measured text words. The container decides where to wrap; an individual
+    word must never independently wrap inside its QLabel / Tk / Kivy label.
+    Structural classification is shared, never inferred from widget width.
+    """
+    origins = dict(prepared.identities)
+    children: dict[str, list[str]] = {}
+    for node in prepared.snapshot.nodes:
+        if node.parent_id is not None:
+            children.setdefault(node.parent_id, []).append(node.node_id)
+
+    mixed_blocks = []
+    for identifier, source in prepared.identities:
+        if source.kind is not NodeKind.HOST or source.type not in (
+            "p", "h1", "h2", "h3", "h4", "h5", "h6",
+            "div", "section", "main", "header", "footer", "li",
+        ):
+            continue
+        direct = children.get(identifier, ())
+        has_inline = any(origins[child].type in ("span", "label")
+                         for child in direct)
+        if (has_inline and all(
+                origins[child].type in ("Text", "span", "label")
+                for child in direct)):
+            mixed_blocks.append(identifier)
+
+    atomic: set[str] = set()
+    for block in mixed_blocks:
+        pending = list(children.get(block, ()))
+        while pending:
+            identifier = pending.pop()
+            source = origins[identifier]
+            if source.kind is not NodeKind.HOST:
+                continue
+            if source.type == "Text":
+                if len(str(source.props.get("value", "")).split()) <= 1:
+                    atomic.add(identifier)
+            elif source.type in ("span", "label"):
+                pending.extend(children.get(identifier, ()))
+    return frozenset(atomic)
+
+
 @dataclass(frozen=True, slots=True)
 class PreparedNativeLayoutSnapshot:
     """Immutable SFLE input plus the exact originating PSX node identities."""
