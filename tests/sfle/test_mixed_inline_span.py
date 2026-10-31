@@ -51,6 +51,10 @@ def test_css_flex_paragraph_treats_mixed_inline_nodes_as_wrapping_row(width):
     assert style["direction"] == "row"
     assert style["wrap"] == "wrap"
     assert style["align_self"] == "stretch"
+    for node in snapshot.nodes:
+        original = by_source[node.node_id]
+        if original.type in ("span", "Text") and node.parent_id == blocks[0].node_id:
+            assert dict(node.style)["flex_shrink"] == 0.0
     assert any(vnode.type == "span" for vnode in by_source.values())
     assert sum(1 for vnode in by_source.values() if vnode.type == "Text") >= 5
 
