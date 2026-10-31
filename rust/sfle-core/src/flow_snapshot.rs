@@ -351,7 +351,7 @@ impl Flow<'_> {
                 self.edge(index, "margin", "top", available)?, resolved_right,
                 self.edge(index, "margin", "bottom", available)?, resolved_left,
             ]);
-            left += resolved_left;
+            if auto_left { left += share; }
         }
         let content_x = x + left;
         let content_y = y + top;
