@@ -9,6 +9,7 @@ No BoxLayout, size_hint, alternate CSS solver or rewritten SFLE boxes.
 from __future__ import annotations
 
 from psx.sfle.inline_baselines import with_inline_span_baselines
+from psx.sfle.replaced_image_sizing import with_replaced_image_aspect_ratios
 
 from psx.markup.html_aliases import FORMATTING_TAGS
 
@@ -245,6 +246,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             ), measurements=tuple(readings)),
             prepared.identities,
         )
+        snapshot = with_replaced_image_aspect_ratios(snapshot)
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
             node_id: (lambda width, node_id=node_id: native_round.read_width(
