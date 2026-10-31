@@ -112,10 +112,8 @@ class QtSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(alpha.x(), beta.width())
         self.assertIsNone(original.handle.widget.layout())
 
-    def test_centered_flex_paragraph_uses_unwrapped_intrinsic_width_and_wrap_height(self):
-        # Real Qt regression for the starter template:
-        # a <p> under align-items:center must be max-content width when
-        # space permits, then grow in height if the viewport becomes narrow.
+    def test_centered_flex_paragraph_uses_full_block_width_and_wrap_height(self):
+        """Block h1/p fill the root, but button remains intrinsic and centered."""
         self.renderer.set_sfle_constraints(constraints(800, 600))
         label = "Edit src/App.tsx and save to test HMR"
         root = self.r.render(psx(
@@ -129,36 +127,36 @@ class QtSFLEGeometryTests(unittest.TestCase):
         ))
         heading, paragraph, button = root.children
         text = paragraph.children[0].handle.widget
-        natural = text.fontMetrics().horizontalAdvance(label)
-        # Qt's wrapped QLabel.sizeHint() is narrower than its max-content
-        # width. Cinnamon needs unwrapped width for centered auto-sized flex
-        # children; a narrow one-line box clips the wrapped text.
-        self.assertGreaterEqual(paragraph.handle.widget.width(), natural - 2)
-        self.assertLessEqual(paragraph.handle.widget.width(), 800)
-        self.assertGreaterEqual(text.width(), natural - 2)
+        title = heading.children[0].handle.widget
+        for block in (heading, paragraph):
+            self.assertAlmostEqual(block.handle.widget.width(), 800, delta=1)
+        self.assertGreaterEqual(text.width(), 798)
+        self.assertGreaterEqual(title.width(), 798)
         self.assertGreaterEqual(text.height(), text.heightForWidth(text.width()) - 1)
-        self.assertGreaterEqual(
-            paragraph.handle.widget.height(),
-            text.heightForWidth(text.width()) - 1,
-        )
+        self.assertGreaterEqual(title.height(), title.heightForWidth(title.width()) - 1)
         self.assertIn("background", paragraph.handle.widget.styleSheet().lower())
+        self.assertLess(button.handle.widget.width(), 800)
         self.assertGreaterEqual(button.handle.widget.y(),
                                 paragraph.handle.widget.y() + paragraph.handle.widget.height())
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
-        # Width-dependent measurement is repeated with the actual new width.
-        # Auto height must never remain at the previous single-line height.
-        self.renderer.set_sfle_constraints(constraints(140, 600))
-        self.renderer.commit_layout(root)
-        self.assertLessEqual(paragraph.handle.widget.width(), 140)
-        self.assertGreaterEqual(
-            text.height(),
-            text.heightForWidth(text.width()) - 1,
-        )
-        self.assertGreaterEqual(paragraph.handle.widget.height(), text.height() - 1)
-        self.assertGreaterEqual(button.handle.widget.y(),
-                                paragraph.handle.widget.y() + paragraph.handle.widget.height())
-        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+        for width in (320, 140, 800):
+            self.renderer.set_sfle_constraints(constraints(width, 600))
+            self.renderer.commit_layout(root)
+            for block in (heading, paragraph):
+                self.assertAlmostEqual(block.handle.widget.width(), width, delta=1)
+            # Reflow must increase automatic height, not clip glyphs inside
+            # the background or overlap the next flex sibling.
+            self.assertGreaterEqual(text.height(), text.heightForWidth(text.width()) - 1)
+            self.assertGreaterEqual(title.height(), title.heightForWidth(title.width()) - 1)
+            self.assertGreaterEqual(paragraph.handle.widget.height(), text.height() - 1)
+            self.assertGreaterEqual(heading.handle.widget.height(), title.height() - 1)
+            self.assertGreaterEqual(
+                button.handle.widget.y(),
+                paragraph.handle.widget.y() + paragraph.handle.widget.height(),
+            )
+            self.assertLess(button.handle.widget.width(), width)
+            self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
     def test_nested_html_headings_paragraphs_and_inline_text_use_native_flow(self):
         self.renderer.set_sfle_constraints(constraints(320, 200))
