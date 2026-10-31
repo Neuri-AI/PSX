@@ -13,6 +13,74 @@ import unittest
 
 
 class KivySFLEGeometrySubprocessTests(unittest.TestCase):
+    def test_css_image_width_uses_native_aspect_and_no_blank_gap(self):
+        script = textwrap.dedent(r"""
+            from pathlib import Path
+            import struct, tempfile, zlib
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+
+            def constraints(width):
+                return LayoutConstraints(
+                    AvailableSize(width, True), AvailableSize(600, True),
+                )
+            def chunk(kind, data):
+                return (struct.pack(">I", len(data)) + kind + data
+                        + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
+            def make_png(path, width, height):
+                row = b"\\x00" + b"\\x39\\xec\\xc1\\xff" * width
+                path.write_bytes(
+                    b"\\x89PNG\\r\\n\\x1a\\n"
+                    + chunk(b"IHDR", struct.pack(">2I5B", width, height, 8, 6, 0, 0, 0))
+                    + chunk(b"IDAT", zlib.compress(row * height))
+                    + chunk(b"IEND", b"")
+                )
+            with tempfile.TemporaryDirectory() as folder:
+                path = Path(folder) / "logo.png"
+                make_png(path, 400, 300)
+                renderer = KivyRenderer(
+                    sfle_constraints=constraints(800), engine=PythonLayoutEngine(),
+                )
+                reconciler = Reconciler(renderer)
+                css = (
+                    '.root {display:flex; flex-direction:column; gap:16px; '
+                    'justify-content:center; align-items:center; height:100vh;}'
+                    'img {width:200px;}'
+                )
+                root = reconciler.render(psx(
+                    '<link rel="stylesheet" href="css/styles.css"/>'
+                    '<div class="root"><img src="' + str(path) + '" />'
+                    '<h1>Get started</h1><button>Count is 0</button></div>',
+                    scope={"__velto_css_resource_resolver__": lambda _: css},
+                ))
+                image, heading, button = root.children
+                for width in (800, 1100, 800):
+                    renderer.set_sfle_constraints(constraints(width))
+                    renderer.commit_layout(root)
+                    pic = image.handle.widget
+                    title = heading.handle.widget
+                    assert abs(pic.width - 200) <= 1, pic.width
+                    assert abs(pic.height - 150) <= 1, pic.height
+                    # Kivy uses bottom-left origin: previous item's bottom
+                    # is exactly one CSS gap above the next item's top.
+                    assert abs((pic.y - title.top) - 16) <= 1, (pic.y, title.top)
+                    assert abs((title.y - button.handle.widget.top) - 16) <= 1
+                    assert renderer.sfle_result.geometry_commit_error <= 1
+                reconciler.unmount()
+        """)
+        env = dict(os.environ)
+        env.update(KIVY_NO_ARGS="1", KIVY_NO_FILELOG="1")
+        outcome = subprocess.run(
+            [sys.executable, "-c", script], env=env,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(outcome.returncode, 0, outcome.stdout + "\n" + outcome.stderr)
+
     def test_centered_column_blocks_remain_full_width_after_resize(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
