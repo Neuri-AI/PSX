@@ -5,6 +5,8 @@ on:
     branches: [fixes/psx-issues]
     paths:
       - 'psx/markup/html_aliases.py'
+      - 'psx/markup/compile.py'
+      - 'psx/markup/expressive_lower.py'
       - 'psx/sfle/native_layout_snapshot.py'
       - 'psx/sfle/measured_block_snapshot.py'
       - 'tests/sfle/test_mixed_inline_span.py'
@@ -16,6 +18,8 @@ on:
   pull_request:
     paths:
       - 'psx/markup/html_aliases.py'
+      - 'psx/markup/compile.py'
+      - 'psx/markup/expressive_lower.py'
       - 'psx/sfle/native_layout_snapshot.py'
       - 'psx/sfle/measured_block_snapshot.py'
       - 'tests/sfle/test_mixed_inline_span.py'
