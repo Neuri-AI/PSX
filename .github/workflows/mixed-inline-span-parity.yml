@@ -1,0 +1,98 @@
+name: Mixed inline span parity
+
+on:
+  push:
+    branches: [fixes/psx-issues]
+    paths:
+      - 'psx/markup/html_aliases.py'
+      - 'psx/sfle/native_layout_snapshot.py'
+      - 'psx/sfle/measured_block_snapshot.py'
+      - 'tests/sfle/test_mixed_inline_span.py'
+      - 'tests/test_markup_css_binding.py'
+      - 'tests/test_pyside6_native_layout.py'
+      - 'tests/test_tkinter_native_layout.py'
+      - 'tests/test_kivy_native_layout.py'
+      - '.github/workflows/mixed-inline-span-parity.yml'
+  pull_request:
+    paths:
+      - 'psx/markup/html_aliases.py'
+      - 'psx/sfle/native_layout_snapshot.py'
+      - 'psx/sfle/measured_block_snapshot.py'
+      - 'tests/sfle/test_mixed_inline_span.py'
+      - 'tests/test_markup_css_binding.py'
+      - 'tests/test_pyside6_native_layout.py'
+      - 'tests/test_tkinter_native_layout.py'
+      - 'tests/test_kivy_native_layout.py'
+      - '.github/workflows/mixed-inline-span-parity.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pure-layout:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install -e . pytest
+      - name: Certify mixed inline markup and Cinnamon flow snapshots
+        run: >-
+          python -m pytest -q tests/sfle/test_mixed_inline_span.py
+          tests/test_markup_css_binding.py
+          tests/sfle/test_nested_block_flex_layout.py
+
+  native-qt:
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+          python -m pip install -e '.[pyside6]' pytest
+      - run: >-
+          python -m pytest -q tests/test_pyside6_native_layout.py
+          -k mixed_inline_span_remains_in_paragraph_text_line
+
+  native-tk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth python3-tk
+          python -m pip install -e . pytest
+      - run: >-
+          xvfb-run -a python -m pytest -q tests/test_tkinter_native_layout.py
+          -k inline_span_stays_on_paragraph_line_in_tk
+
+  native-kivy:
+    runs-on: ubuntu-latest
+    env:
+      KIVY_NO_ARGS: '1'
+      KIVY_NO_FILELOG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth libmtdev1 libgl1 libx11-6 libegl1 libopengl0
+          python -m pip install -e '.[kivy]' pytest
+      - run: >-
+          xvfb-run -a python -m pytest -q tests/test_kivy_native_layout.py
+          -k mixed_inline_span_keeps_one_line_when_available
