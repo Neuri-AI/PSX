@@ -1,10 +1,13 @@
-name: Qt centered paragraph intrinsic layout
+name: HTML block full-width parity
 
 on:
   push:
     branches: [fixes/psx-issues]
     paths:
       - 'psx/sfle/qt_measurement.py'
+      - 'psx/sfle/native_layout_snapshot.py'
+      - 'tests/test_tkinter_native_layout.py'
+      - 'tests/test_kivy_native_layout.py'
       - 'psx/sfle/compute_alpha.py'
       - 'rust/sfle-core/src/compute_layout.rs'
       - 'rust/sfle-core/tests/f2_centered_auto_cross.rs'
@@ -48,6 +51,47 @@ jobs:
           tests/sfle/test_centered_auto_width.py
           tests/test_pyside6_native_layout.py
           tests/sfle/test_nested_block_flex_layout.py
+
+  native-tk:
+    runs-on: ubuntu-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Tcl/Tk and Xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk xvfb xauth
+          python -m pip install -e . pytest
+      - name: Verify native Tkinter block width and font-height geometry
+        run: >-
+          xvfb-run -a python -m pytest -q
+          tests/test_tkinter_native_layout.py
+          -k centered_column_block_and_text_widths_survive_resize
+
+  native-kivy:
+    runs-on: ubuntu-latest
+    env:
+      KIVY_NO_ARGS: '1'
+      KIVY_NO_FILELOG: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install SDL2/Xvfb/Kivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth libmtdev1 libgl1 libx11-6 libegl1 libopengl0
+          python -m pip install -e '.[kivy]' pytest Pillow
+      - name: Verify native Kivy block width and font-height geometry
+        run: >-
+          xvfb-run -a python -m pytest -q
+          tests/test_kivy_native_layout.py
+          -k centered_column_blocks_remain_full_width_after_resize
 
   rust-build:
     runs-on: ubuntu-latest
