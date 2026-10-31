@@ -136,6 +136,33 @@ class TkSFLEGeometryTests(unittest.TestCase):
             )
 
 
+    def test_centered_column_block_and_text_widths_survive_resize(self):
+        self.renderer.set_sfle_constraints(constraints(500, 500))
+        root = self.reconciler.render(psx(
+            '<div style="display: flex; flex-direction: column; '
+            'align-items: center; gap: 16px; height: 100vh">'
+            '<h1>Get started</h1>'
+            '<p style="background-color: red">Edit src/App.tsx and save to test HMR</p>'
+            '<button>Count is 0</button></div>'
+        ))
+        title, paragraph, button = root.children
+        for viewport in (500, 280, 160, 500):
+            self.renderer.set_sfle_constraints(constraints(viewport, 500))
+            self.renderer.commit_layout(root)
+            for block in (title, paragraph):
+                actual = rect(block.handle.widget)
+                self.assertAlmostEqual(actual[2], viewport, delta=1)
+                label = block.children[0].handle.widget
+                label_size = rect(label)
+                self.assertGreaterEqual(actual[3], label_size[3] - 1)
+                self.assertAlmostEqual(label_size[2], viewport, delta=1)
+            self.assertLess(rect(button.handle.widget)[2], viewport)
+            self.assertGreaterEqual(
+                rect(button.handle.widget)[1],
+                rect(paragraph.handle.widget)[1] + rect(paragraph.handle.widget)[3],
+            )
+            self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_css_background_is_scoped_to_a_single_ttk_frame(self):
         first = self.reconciler.render(psx('<div key="same" style="background-color: #112233" />'))
         widget = first.handle.widget
