@@ -73,7 +73,7 @@ def test_img_literal_src_prefers_qyro_resource_and_keeps_missing_path(tmp_path, 
     def get_resource(name, *, required):
         requested.append((name, required))
         return str(file if name == "images/logo.svg" else tmp_path / "missing.png")
-    monkeypatch.setattr(qyro, "get_resource", get_resource)
+    monkeypatch.setattr(qyro, "get_resource", get_resource, raising=False)
     assert psx('<img src="images/logo.svg" />').props["source"] == str(file)
     assert psx('<img src="missing.png" />').props["source"] == "missing.png"
     assert requested == [("images/logo.svg", False), ("missing.png", False)]
