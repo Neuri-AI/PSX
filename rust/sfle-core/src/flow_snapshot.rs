@@ -125,6 +125,10 @@ impl Flow<'_> {
         let resolved = match (kind, raw) {
             ("px", Some(n)) if n.is_finite() => n,
             ("percent", Some(n)) if n.is_finite() => n * available,
+            // Auto margins on native inline flow atoms consume no intrinsic
+            // width. Block-level auto-margin distribution is handled by the
+            // block layout path, not by this edge measurement.
+            ("auto", None) if group == "margin" && !formatting_tag(&node.component) => 0.0,
             _ => return Err(unsupported(format!("Unsupported flow {group} edge keyword."), &node.node_id)),
         };
         if group != "margin" && resolved < 0.0 {
