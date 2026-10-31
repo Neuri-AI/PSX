@@ -154,11 +154,25 @@ def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast
             else:
                 values.append(ast.Constant(value))
         props = ast.Dict(keys=names, values=values)
-        children = ast.Tuple(
-            elts=[lower(part, filename=filename, child=True)
-                  for part in node.children if not _blank(part)],
-            ctx=ast.Load(),
+        # HTML collapses whitespace between inline siblings to one space.
+        # An isolated text literal between two spans is content, not source
+        # indentation. Keep it inside mixed inline formatting hosts while
+        # still dropping leading/trailing source-only whitespace.
+        mixed_inline = (
+            tag in ("p", "h1", "h2", "h3", "h4", "h5", "h6",
+                    "div", "main", "section", "header", "footer", "li", "label")
+            and any(isinstance(part, syntax.Element)
+                    and part.tag in ("span", "label")
+                    for part in node.children)
         )
+        lowered_children = []
+        for index, part in enumerate(node.children):
+            if _blank(part):
+                if mixed_inline and 0 < index < len(node.children) - 1:
+                    lowered_children.append(ast.Constant(value=" "))
+                continue
+            lowered_children.append(lower(part, filename=filename, child=True))
+        children = ast.Tuple(elts=lowered_children, ctx=ast.Load())
         custom = (ast.Constant(None) if tag in _BUILTINS
                   else lower(syntax.Name(tag, node.location), filename=filename))
         return _helper("element", ast.Constant(tag), props, children,
