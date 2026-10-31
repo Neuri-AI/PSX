@@ -350,7 +350,14 @@ class PreparedNativeLayoutSnapshot:
                         )
                     if inline_run or text_run:
                         style.setdefault("wrap", "wrap")
-                        style.setdefault("align_items", "flex-start")
+                        # Mixed inline text belongs to one typographic
+                        # baseline. flex-start aligns border tops, so a span
+                        # with padding shifts its glyphs below adjacent text.
+                        # The native measurement ports supply font baselines.
+                        style.setdefault(
+                            "align_items",
+                            "baseline" if text_run else "flex-start",
+                        )
                     if text_run:
                         # A block text formatting context uses one shared
                         # inline line. Word fragments wrap as individual
