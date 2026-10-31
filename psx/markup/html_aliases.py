@@ -354,7 +354,7 @@ def _formatting_host(
                 name: value for name, value in child.props.items()
                 if name not in ("value", "ref")
             }
-            for token in re.findall(r"\\s*\\S+\\s*|\\s+", re.sub(r"\\s+", " ", raw)):
+            for token in re.findall(r"\s*\S+\s*|\s+", re.sub(r"\s+", " ", raw)):
                 normalized.append(Text(token, **preserved))
         elif tag in ("span", "label", "li") and isinstance(child, VNode) and child.type == "Text":
             normalized.extend(_inline_text_fragments(child))
