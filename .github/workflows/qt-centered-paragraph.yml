@@ -7,6 +7,7 @@ on:
       - 'psx/sfle/qt_measurement.py'
       - 'psx/sfle/compute_alpha.py'
       - 'rust/sfle-core/src/compute_layout.rs'
+      - 'rust/sfle-core/tests/f2_centered_auto_cross.rs'
       - 'tests/sfle/test_centered_auto_width.py'
       - 'psx/sfle/qt_layout_bridge.py'
       - 'tests/test_pyside6_native_layout.py'
@@ -53,5 +54,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Compile Rust Cinnamon core without errors
-        run: cargo check --manifest-path rust/sfle-core/Cargo.toml
+      - name: Test Rust Cinnamon centered auto cross sizing
+        run: cargo test --manifest-path rust/sfle-core/Cargo.toml --test f2_centered_auto_cross
