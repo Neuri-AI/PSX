@@ -87,9 +87,14 @@ def test_unimplemented_css_values_and_expressions_fail_closed(name,value,seed,ru
     snapshot,expected=_graph(name,value,seed)
     py=_python_compute(snapshot)
     rs=_rust_compute(rust_binary,snapshot)
+    # Viewport gaps are not yet supported by the SFLE core. Its gap
+    # validator classifies the value as INVALID_LENGTH, not a generic
+    # unsupported feature. Check the exact error in both backends.
+    diagnostic = ("SFLE_INVALID_LENGTH" if (name, value) == ("column_gap", "1vw")
+                  else "SFLE_UNSUPPORTED_FEATURE")
     for backend,response in (("python",py),("rust",rs)):
         assert not response["ok"],f"{backend} silently accepted {name}={value}"
-        assert response["error"]["code"]=="SFLE_UNSUPPORTED_FEATURE",response
+        assert response["error"]["code"]==diagnostic,response
         assert response["error"]["node_id"]==expected,response
 
 
