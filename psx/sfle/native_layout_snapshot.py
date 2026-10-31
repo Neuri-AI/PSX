@@ -8,6 +8,7 @@ never turn into invisible SFLE layout boxes.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from functools import lru_cache
 from typing import Iterable
 
 from psx.core.layout_tree import LayoutPath, NormalizedLayoutNode
@@ -170,6 +171,7 @@ class PreparedNativeLayoutSnapshot:
             if item.parent_id is not None:
                 children_by_parent.setdefault(item.parent_id, []).append(item)
 
+        @lru_cache(maxsize=None)
         def mixed_text_inline_run(parent_id: str) -> bool:
             """A semantic block containing an inline span is a text line run.
 
