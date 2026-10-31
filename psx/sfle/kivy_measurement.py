@@ -313,7 +313,16 @@ class KivyMeasurementSource:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                             "Invalid Kivy intrinsic metrics.")
 
-        metrics = IntrinsicSizes(width, width, height, height, width, height)
+        # Kivy's Label texture height is the native line box in device
+        # pixels. Its public SDL2 provider does not expose a separate font
+        # ascent. Use the measured line-box end consistently for all Text
+        # siblings (including those nested in spans); shared alignment then
+        # cancels the added span padding without guessing a pixel offset.
+        is_text = hasattr(widget, "text") and hasattr(widget, "font_size")
+        metrics = IntrinsicSizes(
+            width, width, height, height, width, height,
+            baseline=height if is_text else None,
+        )
         return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
 
     def measure_width(self, node_id: str, width: float | None) -> IntrinsicSizes:
