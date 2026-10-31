@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import threading
+from dataclasses import replace
 from collections.abc import Mapping
 
 from .errors import DiagnosticCode, SFLEError
@@ -189,6 +190,13 @@ class TkMeasurementSource:
             )
         if getattr(widget, "_psx_css_line_height", None) is not None:
             metrics = self._css_text_metrics(widget, None)
+            font = widget._psx_text_font
+            font_height = float(font.metrics("linespace"))
+            ascent = float(font.metrics("ascent"))
+            offset = max(0.0, (metrics.preferred_height - font_height) / 2.0)
+            metrics = replace(
+                metrics, baseline=min(metrics.preferred_height, offset + ascent),
+            )
             return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
         if request.node_id in self._textarea_ids:
             metrics = self._textarea_metrics(widget, None)
@@ -214,10 +222,13 @@ class TkMeasurementSource:
                 widget.configure(wraplength=old_wrap)
         if width < 0 or height < 0:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Invalid Tk requested widget size.")
+        font = getattr(widget, "_psx_text_font", None)
+        ascent = float(font.metrics("ascent")) if font is not None else None
         metrics = IntrinsicSizes(
             min_content_width=width, max_content_width=width,
             min_content_height=height, max_content_height=height,
             preferred_width=width, preferred_height=height,
+            baseline=min(height, ascent) if ascent is not None else None,
         )
         return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
 
