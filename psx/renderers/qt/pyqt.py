@@ -980,13 +980,17 @@ class QtRenderer:
                     def heightForWidth(self, width):
                         if self._psx_css_document is None:
                             return super().heightForWidth(width)
-                        self._psx_css_document.setTextWidth(max(1, width))
+                        self._psx_css_document.setTextWidth(
+                            -1 if not self.wordWrap() else max(1, width)
+                        )
                         return max(1, round(self._psx_css_document.size().height()))
 
                     def paintEvent(self, event):
                         if self._psx_css_document is None:
                             return super().paintEvent(event)
-                        self._psx_css_document.setTextWidth(max(1, self.width()))
+                        self._psx_css_document.setTextWidth(
+                            -1 if not self.wordWrap() else max(1, self.width())
+                        )
                         painter = gui.QPainter(self)
                         self._psx_css_document.drawContents(painter)
                         painter.end()
