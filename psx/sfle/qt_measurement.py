@@ -88,16 +88,18 @@ class QtMeasurementSource:
         center need their *max-content* contribution for auto cross sizing.
         Height remains width-dependent and is measured separately by Qt.
         """
-        doc = getattr(widget, "_psx_css_document", None)
-        if doc is not None:
-            # The CSS line-height path has an unbounded QTextDocument sizeHint.
-            natural = float(widget.sizeHint().width())
-        else:
-            metrics = widget.fontMetrics()
-            text = widget.text()
-            lines = text.split("\n") if text else [""]
-            edges = max(0, int(widget.margin())) * 2 + max(0, int(widget.frameWidth())) * 2
-            natural = float(max(metrics.horizontalAdvance(line) for line in lines) + edges)
+        # QTextDocument.setTextWidth() is changed by heightForWidth() and
+        # paintEvent(). Therefore QWidget.sizeHint() on the CSS line-height
+        # label can reflect the *previously wrapped width*, not max-content.
+        # Measure the unwrapped string against the widget's current font in
+        # both CSS and plain QLabel paths. Fixed CSS line-height affects only
+        # height, never the advance of glyphs in the inline axis.
+        metrics = widget.fontMetrics()
+        text = widget.text()
+        lines = text.split("\n") if text else [""]
+        edges = (max(0, int(widget.margin())) * 2
+                 + max(0, int(widget.frameWidth())) * 2)
+        natural = float(max(metrics.horizontalAdvance(line) for line in lines) + edges)
         # Ignore artificial preferred widths caused by wrapping; preserve
         # the actual unwrapped content width as the max-content bound.
         natural = max(0.0, natural)
