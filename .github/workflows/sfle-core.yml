@@ -93,9 +93,9 @@ jobs:
       - name: Install Qt offscreen system libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 xvfb xauth python3-tk libmtdev1 libgl1 libx11-6
       - name: Install SFLE and Qt test dependencies
-        run: python -m pip install -e '.[pyside6]' pytest
+        run: python -m pip install -e '.[pyside6,kivy]' pytest
       - name: Compile SFLE Python
         run: python -m compileall -q psx/sfle
       - name: SFLE focused tests (zero skip policy)
@@ -103,7 +103,7 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           set -o pipefail
-          python -m pytest -q -rs tests/sfle | tee /tmp/sfle-python-tests.txt
+          xvfb-run -a python -m pytest -q -rs tests/sfle | tee /tmp/sfle-python-tests.txt
           if grep -Eq '([0-9]+ skipped|SKIPPED \[)' /tmp/sfle-python-tests.txt; then
             echo 'SFLE Core must execute every collected test, including Qt lifecycle'; exit 1
           fi
