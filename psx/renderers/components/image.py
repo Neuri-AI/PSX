@@ -9,12 +9,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from psx.core.contracts import IMAGE_DEFAULTS, IMAGE_PROPS, validate_image_props
+from psx.core.contracts import IMAGE_CONTRACT, IMAGE_DEFAULTS, IMAGE_PROPS
+from psx.core.props import FLEX_ITEM_PROPS
 from psx.core.errors import RendererCapabilityError
 
 
 def image_props(props: Mapping[str, object]) -> dict[str, object]:
-    validate_image_props(props)
+    IMAGE_CONTRACT.validate(props)
     return {**IMAGE_DEFAULTS, **props}
 
 
@@ -23,7 +24,7 @@ def updated_image_props(
     changed: Mapping[str, object],
     removed: frozenset[str],
 ) -> dict[str, object]:
-    unknown = (set(changed) | set(removed)) - IMAGE_PROPS
+    unknown = (set(changed) | set(removed)) - IMAGE_PROPS - FLEX_ITEM_PROPS
     if unknown:
         raise RendererCapabilityError(
             f"Unsupported Image props: {', '.join(sorted(unknown))}"
