@@ -53,6 +53,27 @@ the native measurement port supplies its resulting auto height.
 A full-width block does not imply centered text: `text-align: center`
 must be authored separately when centered glyphs are desired.
 
+## Inline text nested in block hosts
+
+A block host can contain a mixed text run such as
+`<p>Edit <span>src/App.tsx</span> and save to test HMR</p>`.
+The `span` stays a distinct source VNode, retaining CSS inheritance, keys,
+and native identity; the preceding and following Text nodes participate in
+the same inline run. Word-sized measured fragments wrap at the container
+inline width instead of inserting forced line breaks around the span.
+
+For CSS Flex parents, the block host remains an auto-height, cross-axis
+stretched flex item; the shared projection represents a mixed text run as
+a wrapping row of native-measured fragments. For semantic block roots, the
+measured Block/Inline compositor gathers the inline nodes into one line
+sequence. Both paths use Cinnamon's immutable geometry and are toolkit
+independent (Qt, Tkinter, Kivy). CSS `text-align` controls line alignment;
+`align-items:center` does not imply centered glyphs.
+
+This increment certifies the bounded mixed text/inline-span subset. It does
+not claim browser-grade bidirectional shaping, letter-level fragmentation,
+inline decoration fragmentation or inline layout of arbitrary controls.
+
 ## Unsupported cases
 
 The semantic Block/Inline subset is not a browser layout algorithm. It does
