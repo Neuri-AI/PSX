@@ -819,6 +819,21 @@ impl Context<'_>{
                     cross=Some(subtract_units(width.unwrap(),[padding_box.padding.left,padding_box.padding.right,padding_box.border.left,padding_box.border.right,
                         fixed_margin(child_style.margin_left),fixed_margin(child_style.margin_right)]).max(0.0));
                 }
+                if cross.is_none() && width.is_some()
+                    && matches!(child_style.width,Length::Auto)
+                    && align!=CrossAlign::Stretch {
+                    // CSS shrink-to-fit auto cross size for non-stretched
+                    // column flex items; keep Rust/Python Cinnamon parity.
+                    let available=subtract_units(width.unwrap(),[
+                        padding_box.padding.left,padding_box.padding.right,
+                        padding_box.border.left,padding_box.border.right,
+                        fixed_margin(child_style.margin_left),
+                        fixed_margin(child_style.margin_right),
+                    ]).max(0.0);
+                    let minimum=self.intrinsic_contribution(child,true,true)?;
+                    let maximum=self.intrinsic_contribution(child,true,false)?;
+                    cross=Some(maximum.min(minimum.max(available)));
+                }
                 self.layout(child,cross,Some(target),width,height)?
             };
             // CSS auto cross contribution is the entire child padding box,
