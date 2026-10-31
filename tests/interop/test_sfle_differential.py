@@ -439,3 +439,40 @@ def test_block_auto_margin_geometry_matches_rust_python(
     assert pbox["content"]["width"] == 100.0
     assert pbox["margin"]["x"] == 0.0
     assert pbox["margin"]["width"] == 200.0
+
+
+@pytest.mark.parametrize("viewport", [400, 800, 1200])
+def test_definite_root_percentage_replaced_image_rust_python_parity(rust_binary, viewport):
+    """Rust must resolve the same definite root percentage as Python."""
+    from psx.sfle.model import (
+        AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
+        LayoutNode, MeasuredBox, WritingDirection,
+    )
+    from psx.sfle.replaced_image_sizing import with_replaced_image_aspect_ratios
+
+    constraints = LayoutConstraints(
+        AvailableSize(viewport, True), AvailableSize(600, True),
+    )
+    nodes = (
+        LayoutNode("root", None, "Flex", (
+            ("direction", "column"), ("align_items", "center"),
+        )),
+        LayoutNode("image", "root", "Image", (
+            ("layout_width", Length.percent(0.25)),
+        )),
+    )
+    measurements = (
+        MeasuredBox("image", IntrinsicSizes(400, 400, 300, 300, 400, 300),
+                    constraints, 1),
+    )
+    snapshot = with_replaced_image_aspect_ratios(
+        LayoutInput(1, 1, WritingDirection.LTR, constraints, nodes, measurements)
+    )
+    python, rust = _python_compute(snapshot), _rust_compute(rust_binary, snapshot)
+    assert python["ok"], python.get("error")
+    assert rust["ok"], rust.get("error")
+    p = _rects(python["result"])["image"]
+    r = _rects(rust["result"])["image"]
+    assert p == r
+    assert p["content"]["width"] == viewport / 4
+    assert p["content"]["height"] == viewport * 3 / 16
