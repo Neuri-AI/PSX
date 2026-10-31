@@ -99,6 +99,8 @@ fn length(raw: Option<&Value>, id: &str) -> Result<Length, ComputeError> {
     if let Some(original) = v.as_str() {
         let normalized=original.trim().to_ascii_lowercase();
         let s=normalized.as_str();
+        // CSS accepts unitless zero as an absolute zero length.
+        if css_decimal(s).is_some_and(|n| n == 0.0) { return Ok(Length::Px(0.0)); }
         if s=="auto" { return Ok(Length::Auto); }
         if s=="min-content" { return Ok(Length::MinContent); }
         if s=="max-content" { return Ok(Length::MaxContent); }
