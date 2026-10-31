@@ -1,0 +1,38 @@
+name: HTML img resources and responsive dimensions
+
+on:
+  push:
+    branches: [fixes/psx-issues]
+    paths:
+      - 'psx/markup/html_aliases.py'
+      - 'psx/markup/image_sources.py'
+      - 'psx/renderers/components/image.py'
+      - 'tests/test_lowercase_markup_aliases.py'
+      - '.github/workflows/html-img-resources.yml'
+  pull_request:
+    paths:
+      - 'psx/markup/html_aliases.py'
+      - 'psx/markup/image_sources.py'
+      - 'psx/renderers/components/image.py'
+      - 'tests/test_lowercase_markup_aliases.py'
+      - '.github/workflows/html-img-resources.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  img-contract:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install PSX
+        run: python -m pip install -e . pytest
+      - name: Verify img, viewport geometry, literal resources, and markup
+        run: python -m pytest -q tests/test_lowercase_markup_aliases.py tests/test_markup_transform.py tests/test_viewport_lengths.py
