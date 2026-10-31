@@ -68,7 +68,9 @@ impl Flow<'_> {
         } else if let Some(number) = value.as_f64() {
             ("px", Some(number))
         } else if let Some(text) = value.as_str() {
-            if matches!(text, "auto" | "none") {
+            if text.trim().parse::<f64>().ok().is_some_and(|n| n == 0.0) {
+                ("px", Some(0.0))
+            } else if matches!(text, "auto" | "none") {
                 return Ok(None);
             }
             if let Some(number) = text.strip_suffix("px").and_then(|s| s.parse::<f64>().ok()) {
@@ -113,7 +115,9 @@ impl Flow<'_> {
         } else if let Some(number) = value.as_f64() {
             ("px", Some(number))
         } else if let Some(text) = value.as_str() {
-            if let Some(n) = text.strip_suffix("px").and_then(|s| s.parse::<f64>().ok()) {
+            if text.trim().parse::<f64>().ok().is_some_and(|n| n == 0.0) {
+                ("px", Some(0.0))
+            } else if let Some(n) = text.strip_suffix("px").and_then(|s| s.parse::<f64>().ok()) {
                 ("px", Some(n))
             } else if let Some(n) = text.strip_suffix('%').and_then(|s| s.parse::<f64>().ok()) {
                 ("percent", Some(n / 100.0))
