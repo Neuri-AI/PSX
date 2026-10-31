@@ -476,3 +476,23 @@ def test_definite_root_percentage_replaced_image_rust_python_parity(rust_binary,
     assert p == r
     assert p["content"]["width"] == viewport / 4
     assert p["content"]["height"] == viewport * 3 / 16
+
+
+@pytest.mark.parametrize("literal", ["0", "+0", "-0", "0.0"])
+def test_unitless_zero_length_parity_in_direct_flow(rust_binary, literal):
+    """CSS permits unitless zero in block dimensions and box edges."""
+    from psx.sfle.model import (
+        AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
+    )
+    constraints = LayoutConstraints(AvailableSize(200, True), AvailableSize(100, True))
+    snapshot = LayoutInput(1, 1, WritingDirection.LTR, constraints, (
+        LayoutNode("root", None, "div", (("display", "block"),)),
+        LayoutNode("child", "root", "div", (
+            ("display", "block"), ("layout_width", "100px"),
+            ("layout_margin_left", literal), ("layout_padding_top", literal),
+        )),
+    ), ())
+    py, rs = _python_compute(snapshot), _rust_compute(rust_binary, snapshot)
+    assert py["ok"], py.get("error")
+    assert rs["ok"], rs.get("error")
+    assert _rects(py["result"]) == _rects(rs["result"])
