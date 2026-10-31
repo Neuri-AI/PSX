@@ -7,6 +7,8 @@ No pack/grid/fake text measurements or second CSS layout algorithm.
 """
 from __future__ import annotations
 
+from psx.sfle.inline_baselines import with_inline_span_baselines
+
 from psx.markup.html_aliases import FORMATTING_TAGS
 
 from dataclasses import replace
@@ -239,7 +241,10 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         readings.extend(mixed_grid.seed_measurements())
         # Normalize explicitly declared item box lengths after native Tk
         # measurements, retaining the existing container and Grid contracts.
-        snapshot = replace(reuse.project_css(prepared), measurements=tuple(readings))
+        snapshot = with_inline_span_baselines(
+            replace(reuse.project_css(prepared), measurements=tuple(readings)),
+            prepared.identities,
+        )
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
             node_id: (lambda width, node_id=node_id: native_round.read_width(
