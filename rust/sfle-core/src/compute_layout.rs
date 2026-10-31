@@ -1179,6 +1179,12 @@ pub fn compute_normalized_incremental(
                 || matches!(styles[node].width,Length::Px(_));
         };
         let parent=indices[parent_name];
+        // A root with definite available width establishes a containing
+        // block even if its authored CSS width is auto. Keep descendant
+        // intrinsic-auto chains conservative to reject genuine cycles.
+        if input.nodes[parent].parent_id.is_none() && input.constraints.width.definite {
+            return true;
+        }
         match styles[parent].width{
             Length::Px(_)=>true,
             Length::Percent(_)=>definite_inline(parent,input,styles,indices,depth+1),
