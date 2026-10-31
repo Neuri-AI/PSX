@@ -43,6 +43,7 @@ struct Flow<'a> {
     boxes: Vec<Option<Rect>>,
     containing_width: Vec<f64>,
     containing_height: Vec<Option<f64>>,
+    resolved_block_margins: HashMap<usize, [f64; 4]>,
 }
 fn valid_flow_style(name: &str) -> bool {
     matches!(name,
@@ -128,7 +129,7 @@ impl Flow<'_> {
             // Auto margins on native inline flow atoms consume no intrinsic
             // width. Block-level auto-margin distribution is handled by the
             // block layout path, not by this edge measurement.
-            ("auto", None) if group == "margin" && !formatting_tag(&node.component) => 0.0,
+            ("auto", None) if group == "margin" => 0.0,
             _ => return Err(unsupported(format!("Unsupported flow {group} edge keyword."), &node.node_id)),
         };
         if group != "margin" && resolved < 0.0 {
@@ -140,10 +141,19 @@ impl Flow<'_> {
     fn box_rect(&self, index: usize, content: Rect, available: f64) -> Result<LayoutBox, ComputeError> {
         let id = &self.input.nodes[index].node_id;
         let expand = |inner: &Rect, group: &str| -> Result<Rect, ComputeError> {
-            let top = self.edge(index, group, "top", available)?;
-            let right = self.edge(index, group, "right", available)?;
-            let bottom = self.edge(index, group, "bottom", available)?;
-            let left = self.edge(index, group, "left", available)?;
+            let [top, right, bottom, left] = if group == "margin" {
+                self.resolved_block_margins.get(&index).copied().unwrap_or([
+                    self.edge(index, group, "top", available)?,
+                    self.edge(index, group, "right", available)?,
+                    self.edge(index, group, "bottom", available)?,
+                    self.edge(index, group, "left", available)?,
+                ])
+            } else {
+                [self.edge(index, group, "top", available)?,
+                 self.edge(index, group, "right", available)?,
+                 self.edge(index, group, "bottom", available)?,
+                 self.edge(index, group, "left", available)?]
+            };
             rect(inner.x - left, inner.y - top,
                  (inner.width + left + right).max(0.0),
                  (inner.height + top + bottom).max(0.0), id)
@@ -324,6 +334,25 @@ impl Flow<'_> {
         }
         let content_available = (available - horizontal).max(0.0);
         let parent_content_width = self.constrained_dimension(index, "width", available, content_available)?;
+        let margin_auto = |side: &str| {
+            let key = format!("layout_margin_{side}");
+            let value = self.input.nodes[index].style.get(&key);
+            value.is_some_and(|v| v.as_str() == Some("auto") ||
+                v.as_object().is_some_and(|m| m.get("kind").and_then(|k| k.as_str()) == Some("auto")))
+        };
+        let auto_left = margin_auto("left");
+        let auto_right = margin_auto("right");
+        if auto_left || auto_right {
+            let share = (content_available - parent_content_width).max(0.0)
+                / f64::from(u8::from(auto_left) + u8::from(auto_right));
+            let resolved_left = if auto_left { share } else { self.edge(index, "margin", "left", available)? };
+            let resolved_right = if auto_right { share } else { self.edge(index, "margin", "right", available)? };
+            self.resolved_block_margins.insert(index, [
+                self.edge(index, "margin", "top", available)?, resolved_right,
+                self.edge(index, "margin", "bottom", available)?, resolved_left,
+            ]);
+            left += resolved_left;
+        }
         let content_x = x + left;
         let content_y = y + top;
         let parent_height = self.dimension(index, "height", available)?;
@@ -410,7 +439,7 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
     }
     let measurements = input.measurements.iter()
         .map(|item| (item.node_id.as_str(), &item.intrinsic)).collect();
-    let mut flow = Flow { input, children, measurements, boxes: vec![None; input.nodes.len()], containing_width: vec![width; input.nodes.len()], containing_height: vec![if input.constraints.height.definite { input.constraints.height.value } else { None }; input.nodes.len()] };
+    let mut flow = Flow { input, children, measurements, boxes: vec![None; input.nodes.len()], containing_width: vec![width; input.nodes.len()], containing_height: vec![if input.constraints.height.definite { input.constraints.height.value } else { None }; input.nodes.len()], resolved_block_margins: HashMap::new() };
     let content_height = if flow.display(0)? == Some(true) {
         let roots = flow.children[0].clone();
         flow.inline_run(&roots, 0.0, 0.0, width)?
