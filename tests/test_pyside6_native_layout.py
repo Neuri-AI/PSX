@@ -177,6 +177,15 @@ class QtSFLEGeometryTests(unittest.TestCase):
         assert prefix.x() < span.x() < suffix.x()
         assert nested.text() == "src/App.tsx"
         assert span.width() >= nested.width() - 1
+        natural_span_width = nested.fontMetrics().horizontalAdvance(nested.text())
+        assert nested.width() >= natural_span_width - 2, (
+            "Inline span clipped despite an 800px paragraph:",
+            nested.width(), natural_span_width, span.width(),
+        )
+        assert nested.height() <= nested.fontMetrics().height() + 3, (
+            "Inline span unexpectedly wrapped despite available width:",
+            nested.height(), nested.fontMetrics().height(),
+        )
         assert button.handle.widget.y() >= (
             paragraph.handle.widget.y() + paragraph.handle.widget.height()
         )
@@ -184,10 +193,16 @@ class QtSFLEGeometryTests(unittest.TestCase):
 
         # The sentence is one inline run; resizing may wrap words but must
         # never split solely at the <span> element boundary.
-        for width in (220, 800):
+        for width in (400, 220, 800):
             self.renderer.set_sfle_constraints(constraints(width, 400))
             self.renderer.commit_layout(root)
             assert abs(paragraph.handle.widget.width() - width) <= 1
+            if width >= 400:
+                assert nested.width() >= natural_span_width - 2, (
+                    "Inline span clipped after window resize:",
+                    width, nested.width(), natural_span_width,
+                )
+                assert nested.height() <= nested.fontMetrics().height() + 3
             assert paragraph.handle.widget.height() >= prefix.height()
             assert button.handle.widget.y() >= (
                 paragraph.handle.widget.y() + paragraph.handle.widget.height()
