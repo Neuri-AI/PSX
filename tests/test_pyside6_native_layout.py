@@ -239,6 +239,47 @@ class QtSFLEGeometryTests(unittest.TestCase):
             )
             self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
+    def test_css_img_width_preserves_ratio_without_empty_vertical_space(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from PySide6.QtGui import QImage, QColor
+
+        with TemporaryDirectory() as folder:
+            filepath = Path(folder) / "logo.png"
+            picture = QImage(400, 300, QImage.Format.Format_ARGB32)
+            picture.fill(QColor("#39ecc1"))
+            self.assertTrue(picture.save(str(filepath)))
+
+            self.renderer.set_sfle_constraints(constraints(800, 600))
+            css = (
+                '.root {display:flex; flex-direction:column; gap:16px; '
+                'justify-content:center; align-items:center; height:100vh;}'
+                'img {width:200px;}'
+            )
+            root = self.r.render(psx(
+                '<link rel="stylesheet" href="css/styles.css"/>'
+                '<div class="root"><img src="' + str(filepath) + '" />'
+                '<h1>Get started</h1><button>Count is 0</button></div>',
+                scope={"__velto_css_resource_resolver__": lambda _: css},
+            ))
+            image, heading, button = root.children
+            widget = image.handle.widget
+            for viewport in (800, 1100, 800):
+                self.renderer.set_sfle_constraints(constraints(viewport, 600))
+                self.renderer.commit_layout(root)
+                self.assertEqual(widget.width(), 200)
+                self.assertEqual(widget.height(), 150)
+                self.assertAlmostEqual(
+                    heading.handle.widget.y()
+                    - widget.y() - widget.height(), 16, delta=1,
+                )
+                self.assertAlmostEqual(
+                    button.handle.widget.y()
+                    - heading.handle.widget.y() - heading.handle.widget.height(),
+                    16, delta=1,
+                )
+                self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_nested_html_headings_paragraphs_and_inline_text_use_native_flow(self):
         self.renderer.set_sfle_constraints(constraints(320, 200))
         root = self.r.render(psx(
