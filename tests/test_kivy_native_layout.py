@@ -131,6 +131,56 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_inline_span_padding_preserves_kivy_glyph_alignment(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            def constraints():
+                return LayoutConstraints(
+                    AvailableSize(650, True), AvailableSize(350, True),
+                )
+            renderer = KivyRenderer(
+                sfle_constraints=constraints(), engine=PythonLayoutEngine(),
+            )
+            reconciler = Reconciler(renderer)
+            for padding in (0, 4, 19):
+                root = reconciler.render(psx(
+                    '<div style="display:flex; flex-direction:column; align-items:center">'
+                    '<p>esto es una <span style="background:#404243; '
+                    f'border-radius:4px; padding:{padding}px">hola</span> prueba</p>'
+                    '</div>'
+                ))
+                paragraph = root.children[0]
+                span = next(item for item in paragraph.children
+                            if item.node.type == "span")
+                before = paragraph.children[0].handle.widget
+                after = paragraph.children[-1].handle.widget
+                inside = span.children[0].handle.widget
+                # Kivy uses bottom-left origins. Convert child text line
+                # tops into the same paragraph-local coordinate system.
+                tops = [
+                    before.y + before.height,
+                    span.handle.widget.y + inside.y + inside.height,
+                    after.y + after.height,
+                ]
+                assert max(tops) - min(tops) <= 1, (padding, tops)
+                assert span.handle.widget.height >= inside.height + 2*padding - 1
+                assert renderer.sfle_result.geometry_commit_error <= 1
+            reconciler.unmount()
+        """)
+        env = dict(os.environ)
+        env.update(KIVY_NO_ARGS="1", KIVY_NO_FILELOG="1")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=env,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_css_background_updates_and_canvas_cleanup(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
