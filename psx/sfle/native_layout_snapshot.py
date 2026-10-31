@@ -193,10 +193,19 @@ class PreparedNativeLayoutSnapshot:
             origin = originals[node.node_id]
             style = dict(node.style)
             if (parent is not None and parent.component == "Flex"
-                    and node.component != "Flex"
                     and origin.kind is NodeKind.HOST
                     and origin.type in FORMATTING_TAGS):
-                display = style.get("display", origin.props.get("display"))
+                computed = origin.css_computed
+                display = (
+                    computed.properties["display"]
+                    if computed is not None and "display" in computed.specified
+                    else style.get("display", origin.props.get("display"))
+                )
+                # A root authored as native <Flex> may have already lowered
+                # its nested <p>/<h1> to component="Flex" in the structural
+                # snapshot. Do not skip the same block-width semantics merely
+                # because the source tree used <Flex> instead of CSS display.
+                # Explicit CSS display:flex is a different formatting mode.
                 if display in ("block", "inline"):
                     style.pop("display", None)
                     # HTML block hosts fill the available inline axis of
