@@ -72,6 +72,10 @@ class Length:
 @lru_cache(maxsize=2048)
 def _parse_normalized_length(normalized: str) -> Length | None:
     """Cache only pure, immutable lexical parsing (never viewport resolution)."""
+    # CSS permits a unitless zero for lengths (e.g. margin: 0 auto).
+    # Other unitless numbers remain invalid CSS lengths.
+    if normalized in ("0", "+0", "-0", "0.0", "+0.0", "-0.0"):
+        return Length.px(0)
     for kind in LengthKind:
         if normalized == kind.value:
             return Length(kind)
