@@ -350,3 +350,12 @@ def test_mixed_inline_span_keeps_css_inheritance_and_own_style():
     assert all(child.css_computed.properties["color"] == CssColor("#ff0000")
                for child in span.children if child.type == "Text")
     assert paragraph.children[0].css_computed.properties["color"] == CssColor("#334455")
+
+
+def test_explicit_scope_space_between_adjacent_inline_spans_is_preserved():
+    paragraph = psx('<p><span>A</span> <span>B</span></p>')
+    def content(node):
+        return node.props["value"] if node.type == "Text" else "".join(
+            content(child) for child in node.children
+        )
+    assert content(paragraph) == "A B"
