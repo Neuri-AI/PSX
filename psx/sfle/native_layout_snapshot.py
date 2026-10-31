@@ -240,8 +240,11 @@ class PreparedNativeLayoutSnapshot:
                     origin.css_computed.specified
                     if origin.css_computed is not None else frozenset()
                 )
-                if ("flex_shrink" not in style
+                if ("flex_shrink" not in origin.props
                         and "flex-shrink" not in declared):
+                    # The canonical style may already carry a generated
+                    # default flex_shrink=1. Only author-specified values
+                    # override the inline text formatting contract.
                     style["flex_shrink"] = 0.0
             if (parent is not None and parent.component == "Flex"
                     and origin.kind is NodeKind.HOST
