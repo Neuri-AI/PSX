@@ -359,3 +359,11 @@ def test_explicit_scope_space_between_adjacent_inline_spans_is_preserved():
             content(child) for child in node.children
         )
     assert content(paragraph) == "A B"
+
+
+def test_mixed_inline_heading_preserves_native_title_size():
+    heading = psx('<h1>Get <span>started</span></h1>')
+    assert heading.type == "h1"
+    words = [child for child in heading.children if child.type == "Text"]
+    assert words
+    assert all(child.props["font_size"] == 32 and child.props["bold"] for child in words)
