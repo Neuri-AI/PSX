@@ -180,10 +180,10 @@ class TkSFLEGeometryTests(unittest.TestCase):
         assert rect(prefix)[1] == rect(span)[1] == rect(suffix)[1]
         assert rect(prefix)[0] < rect(span)[0] < rect(suffix)[0]
         assert nested.cget("text") == "src/App.tsx"
-        # Tk's native font advance is the paintable unwrapped text width;
-        # equal y coordinates alone do not prove the span is visible.
-        from tkinter.font import Font
-        natural = Font(root=nested, font=nested.cget("font")).measure("src/App.tsx")
+        # A themed ttk.Label can have an effective style font different
+        # from cget('font'); Tk's own unwrapped requested geometry is the
+        # authoritative painted-text intrinsic width.
+        natural = nested.winfo_reqwidth()
         assert rect(nested)[2] >= natural - 2, (
             rect(nested), natural, rect(span),
         )
