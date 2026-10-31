@@ -204,6 +204,37 @@ class TkSFLEGeometryTests(unittest.TestCase):
             )
             self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
+    def test_inline_span_padding_does_not_shift_tk_glyph_baseline(self):
+        for padding in (0, 4, 19):
+            self.renderer.set_sfle_constraints(constraints(650, 350))
+            root = self.reconciler.render(psx(
+                '<div style="display:flex; flex-direction:column; align-items:center">'
+                '<p>esto es una <span style="background:#404243; '
+                f'border-radius:4px; padding:{padding}px">hola</span> prueba</p>'
+                '</div>'
+            ))
+            paragraph = root.children[0]
+            span = next(item for item in paragraph.children if item.node.type == "span")
+            before = paragraph.children[0].handle.widget
+            after = paragraph.children[-1].handle.widget
+            inside = span.children[0].handle.widget
+            def baseline(widget, span_host=None):
+                offset = rect(widget)[1]
+                if span_host is not None:
+                    offset += rect(span_host)[1]
+                font = widget._psx_text_font
+                return offset + font.metrics("ascent")
+            actual = [
+                baseline(before),
+                baseline(inside, span.handle.widget),
+                baseline(after),
+            ]
+            self.assertLessEqual(max(actual) - min(actual), 1, (padding, actual))
+            self.assertGreaterEqual(
+                rect(span.handle.widget)[3], rect(inside)[3] + 2 * padding - 1,
+            )
+            self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_css_background_is_scoped_to_a_single_ttk_frame(self):
         first = self.reconciler.render(psx('<div key="same" style="background-color: #112233" />'))
         widget = first.handle.widget
