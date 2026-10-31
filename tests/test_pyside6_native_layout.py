@@ -158,6 +158,42 @@ class QtSFLEGeometryTests(unittest.TestCase):
             self.assertLess(button.handle.widget.width(), width)
             self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
+    def test_mixed_inline_span_remains_in_paragraph_text_line(self):
+        self.renderer.set_sfle_constraints(constraints(800, 400))
+        root = self.r.render(psx(
+            '<div style="display:flex; flex-direction:column; '
+            'align-items:center; height:100vh">'
+            '<p>Edit <span style="color:red">src/App.tsx</span>'
+            ' and save to test HMR</p>'
+            '<button>Count is 0</button></div>'
+        ))
+        paragraph, button = root.children
+        prefix = paragraph.children[0].handle.widget
+        span = paragraph.children[1].handle.widget
+        suffix = paragraph.children[2].handle.widget
+        nested = paragraph.children[1].children[0].handle.widget
+        assert paragraph.handle.widget.width() == 800
+        assert prefix.y() == span.y() == suffix.y()
+        assert prefix.x() < span.x() < suffix.x()
+        assert nested.text() == "src/App.tsx"
+        assert span.width() >= nested.width() - 1
+        assert button.handle.widget.y() >= (
+            paragraph.handle.widget.y() + paragraph.handle.widget.height()
+        )
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
+        # The sentence is one inline run; resizing may wrap words but must
+        # never split solely at the <span> element boundary.
+        for width in (220, 800):
+            self.renderer.set_sfle_constraints(constraints(width, 400))
+            self.renderer.commit_layout(root)
+            assert abs(paragraph.handle.widget.width() - width) <= 1
+            assert paragraph.handle.widget.height() >= prefix.height()
+            assert button.handle.widget.y() >= (
+                paragraph.handle.widget.y() + paragraph.handle.widget.height()
+            )
+            self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_nested_html_headings_paragraphs_and_inline_text_use_native_flow(self):
         self.renderer.set_sfle_constraints(constraints(320, 200))
         root = self.r.render(psx(
