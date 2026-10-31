@@ -14,8 +14,13 @@ from psx.core.props import FLEX_ITEM_PROPS
 from psx.core.errors import RendererCapabilityError
 
 
-def image_props(props: Mapping[str, object]) -> dict[str, object]:
+def validate_image_props(props: Mapping[str, object]) -> None:
+    """Keep the adapter-facing validator API and include Cinnamon metadata."""
     IMAGE_CONTRACT.validate(props)
+
+
+def image_props(props: Mapping[str, object]) -> dict[str, object]:
+    validate_image_props(props)
     return {**IMAGE_DEFAULTS, **props}
 
 
