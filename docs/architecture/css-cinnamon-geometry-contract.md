@@ -31,6 +31,28 @@ the host window dimensions. Existing explicit validated `layout_*`
 declarations override the corresponding CSS source slot. Native component
 `width` and `height` properties retain their component-specific meanings.
 
+## Block hosts inside column Flex
+
+PSX formatting hosts such as `<p>`, `<h1>`, `<section>` and `<div>`
+retain block-style full available inline width when placed in a column
+Flex container, including under `align-items: center`. This is a bounded
+HTML-like block-host contract: it does not override native controls, images,
+inline boxes or row-direction Flex children.
+
+The shared CSS-to-Cinnamon projection marks an otherwise auto-sized block
+item for *cross-axis stretch*, rather than injecting `width: 100%`.
+This avoids a cyclic percentage dependency during recursive intrinsic
+measurement and uses exactly the same immutable input in Qt, Tkinter,
+Kivy and both Rust/Python Cinnamon engines.
+
+Explicit `width`, `layout_width` and `align-self` are preserved. The
+parent's `align-items` still aligns native controls that do not participate
+in the block-host rule. Text reflows at the width assigned by Cinnamon, and
+the native measurement port supplies its resulting auto height.
+
+A full-width block does not imply centered text: `text-align: center`
+must be authored separately when centered glyphs are desired.
+
 ## Unsupported cases
 
 The semantic Block/Inline subset is not a browser layout algorithm. It does
