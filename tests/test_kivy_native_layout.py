@@ -64,6 +64,57 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
 
+    def test_mixed_inline_span_keeps_one_line_when_available(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            def constraints(width):
+                return LayoutConstraints(
+                    AvailableSize(width, True), AvailableSize(400, True),
+                )
+            renderer = KivyRenderer(
+                sfle_constraints=constraints(800), engine=PythonLayoutEngine(),
+            )
+            reconciler = Reconciler(renderer)
+            root = reconciler.render(psx(
+                '<div style="display:flex; flex-direction:column; '
+                'align-items:center; height:100vh">'
+                '<p>Edit <span style="color:red">src/App.tsx</span>'
+                ' and save to test HMR</p>'
+                '<button>Count is 0</button></div>'
+            ))
+            paragraph, button = root.children
+            prefix = paragraph.children[0].handle.widget
+            span = paragraph.children[1].handle.widget
+            suffix = paragraph.children[2].handle.widget
+            nested = paragraph.children[1].children[0].handle.widget
+            assert abs(prefix.y - span.y) <= 1, (prefix.y, span.y)
+            assert abs(suffix.y - span.y) <= 1, (suffix.y, span.y)
+            assert prefix.x < span.x < suffix.x, (prefix.x, span.x, suffix.x)
+            assert nested.text == "src/App.tsx"
+            assert abs(paragraph.handle.widget.width - 800) <= 1
+            assert renderer.sfle_result.geometry_commit_error <= 1
+            for width in (220, 800):
+                renderer.set_sfle_constraints(constraints(width))
+                renderer.commit_layout(root)
+                assert abs(paragraph.handle.widget.width - width) <= 1
+                assert paragraph.handle.widget.height >= prefix.height - 1
+                assert renderer.sfle_result.geometry_commit_error <= 1
+            reconciler.unmount()
+        """)
+        env = dict(os.environ)
+        env.update(KIVY_NO_ARGS="1", KIVY_NO_FILELOG="1")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=env,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_css_background_updates_and_canvas_cleanup(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
