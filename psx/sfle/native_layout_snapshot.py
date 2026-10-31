@@ -224,6 +224,24 @@ class PreparedNativeLayoutSnapshot:
             origin = originals[node.node_id]
             style = dict(node.style)
             if (parent is not None and parent.component == "Flex"
+                    and mixed_text_inline_run(node.parent_id)
+                    and origin.kind is NodeKind.HOST
+                    and origin.type in ({"Text", "span", "label"})):
+                # A text fragment is an inline *content* contribution,
+                # not a flexible box to compress. The enclosing paragraph
+                # owns word wrapping. Shrinking the span's widget to a
+                # min-content hint while leaving adjacent fragments on the
+                # line makes paths like src/App.tsx paint as two clipped lines.
+                #
+                # CSS explicitly authored flex-shrink remains authoritative.
+                declared = (
+                    origin.css_computed.specified
+                    if origin.css_computed is not None else frozenset()
+                )
+                if ("flex_shrink" not in style
+                        and "flex-shrink" not in declared):
+                    style["flex_shrink"] = 0.0
+            if (parent is not None and parent.component == "Flex"
                     and origin.kind is NodeKind.HOST
                     and origin.type in FORMATTING_TAGS):
                 computed = origin.css_computed
