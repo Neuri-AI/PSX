@@ -1,9 +1,9 @@
-//! Rust/Python parity: column flex non-stretched block uses shrink-to-fit.
+//! Rust/Python parity: projected HTML block width fills its column flex parent.
 use sfle_core::compute::{compute, LayoutInput};
 use serde_json::{json, Value};
 
 fn snapshot(viewport: u32, fixed: bool) -> LayoutInput {
-    let mut paragraph = json!({"direction": "column"});
+    let mut paragraph = json!({"direction": "column", "layout_width":"100%"});
     if fixed {
         paragraph["layout_width"] = json!(350);
     }
@@ -45,8 +45,8 @@ fn snapshot(viewport: u32, fixed: bool) -> LayoutInput {
 }
 
 #[test]
-fn centered_block_shrinks_to_containing_width_and_respects_min_content() {
-    for (viewport, expected) in [(800,302.0),(140,140.0),(60,75.0)] {
+fn html_block_fills_column_container_width() {
+    for (viewport, expected) in [(800,800.0),(140,140.0),(60,60.0)] {
         let result = compute(&snapshot(viewport,false)).expect("Rust should solve auto-width flex");
         let paragraph = result.boxes.iter().find(|b| b.node_id=="paragraph").unwrap();
         let text = result.boxes.iter().find(|b| b.node_id=="text").unwrap();
