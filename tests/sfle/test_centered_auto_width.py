@@ -15,11 +15,11 @@ from psx.sfle.model import (
 )
 
 
-def _prepared(markup, viewport=800):
+def _prepared(markup, viewport=800, scope=None):
     constraints = LayoutConstraints(
         AvailableSize(viewport, True), AvailableSize(600, True),
     )
-    node = psx(markup)
+    node = psx(markup, scope=scope)
     prepared = prepare_native_layout_snapshot(
         normalize_flex_tree(node), constraints, generation=1,
     )
@@ -31,6 +31,26 @@ def _prepared(markup, viewport=800):
         if identifier == node.node_id
     }
     return snapshot, records
+
+
+def test_linked_stylesheet_starter_template_uses_full_block_width():
+    css = (
+        ".root { display: flex; flex-direction: column; gap: 16px; "
+        "justify-content: center; align-items: center; height: 100vh; } "
+        "p { background-color: red; }"
+    )
+    _, records = _prepared(
+        '<><link rel="stylesheet" href="css/styles.css" />'
+        '<div class="root">'
+        '<h1>Get started</h1>'
+        '<p>Edit src/App.tsx and save to test HMR</p>'
+        '<button>Count is 0</button>'
+        '</div></>',
+        scope={"__velto_css_resource_resolver__": lambda _: css},
+    )
+    assert records["h1"][1]["layout_width"] == "100%"
+    assert records["p"][1]["layout_width"] == "100%"
+    assert "layout_width" not in records["Button"][1]
 
 
 def test_default_html_blocks_fill_column_parent_without_stretching_controls():
