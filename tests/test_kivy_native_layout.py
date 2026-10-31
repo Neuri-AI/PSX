@@ -13,6 +13,57 @@ import unittest
 
 
 class KivySFLEGeometrySubprocessTests(unittest.TestCase):
+    def test_centered_column_blocks_remain_full_width_after_resize(self):
+        script = textwrap.dedent(r"""
+            from kivy.config import Config
+            Config.set("graphics", "window_state", "hidden")
+            from psx import psx
+            from psx.core.reconcile import Reconciler
+            from psx.renderers.kivy.kivy import KivyRenderer
+            from psx.sfle.engine import PythonLayoutEngine
+            from psx.sfle.model import AvailableSize, LayoutConstraints
+            def constraints(width):
+                return LayoutConstraints(
+                    AvailableSize(width, True), AvailableSize(500, True),
+                )
+            renderer = KivyRenderer(
+                sfle_constraints=constraints(500), engine=PythonLayoutEngine(),
+            )
+            reconciler = Reconciler(renderer)
+            root = reconciler.render(psx(
+                '<div style="display: flex; flex-direction: column; '
+                'align-items: center; gap: 16px; height: 100vh">'
+                '<h1>Get started</h1>'
+                '<p style="background-color: red">Edit src/App.tsx and save to test HMR</p>'
+                '<button>Count is 0</button></div>'
+            ))
+            title, paragraph, button = root.children
+            for width in (500, 280, 160, 500):
+                renderer.set_sfle_constraints(constraints(width))
+                renderer.commit_layout(root)
+                for block in (title, paragraph):
+                    assert abs(block.handle.widget.width - width) <= 1, (
+                        width, block.handle.widget.width,
+                    )
+                    label = block.children[0].handle.widget
+                    assert abs(label.width - width) <= 1, (
+                        width, label.width,
+                    )
+                    assert block.handle.widget.height >= label.height - 1, (
+                        block.handle.widget.height, label.height,
+                    )
+                assert button.handle.widget.width < width
+                assert renderer.sfle_result.geometry_commit_error <= 1
+            reconciler.unmount()
+        """)
+        env = dict(os.environ)
+        env.update(KIVY_NO_ARGS="1", KIVY_NO_FILELOG="1")
+        result = subprocess.run(
+            [sys.executable, "-c", script], env=env,
+            capture_output=True, text=True, timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + "\n" + result.stderr)
+
     def test_css_background_updates_and_canvas_cleanup(self):
         script = textwrap.dedent(r"""
             from kivy.config import Config
