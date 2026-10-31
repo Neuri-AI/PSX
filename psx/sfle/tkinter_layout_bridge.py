@@ -8,6 +8,7 @@ No pack/grid/fake text measurements or second CSS layout algorithm.
 from __future__ import annotations
 
 from psx.sfle.inline_baselines import with_inline_span_baselines
+from psx.sfle.replaced_image_sizing import with_replaced_image_aspect_ratios
 
 from psx.markup.html_aliases import FORMATTING_TAGS
 
@@ -245,6 +246,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             replace(reuse.project_css(prepared), measurements=tuple(readings)),
             prepared.identities,
         )
+        snapshot = with_replaced_image_aspect_ratios(snapshot)
         automatic = auto_height_measurement_ids(snapshot)
         dependent = {
             node_id: (lambda width, node_id=node_id: native_round.read_width(
