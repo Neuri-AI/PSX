@@ -326,9 +326,37 @@ def _formatting_host(
     on_submit = props.pop("on_submit", None) if tag == "form" else None
     if on_submit is not None and not callable(on_submit):
         raise TypeError("form on_submit must be callable.")
+    # Text, inline spans, and trailing text are a single inline formatting
+    # run inside a block. Split only these mixed runs at word boundaries so
+    # Cinnamon can wrap at available inline width rather than treating the
+    # entire trailing text (or each separate child) as an independent line.
+    #
+    # Preserve each span VNode, key and CSS inheritance; flattening it to
+    # plain text would silently discard authored colors, selectors and refs.
+    # Ordinary single-text paragraphs remain one native measured Text leaf.
+    mixed_inline = (
+        tag in _BLOCK_TAGS
+        and any(isinstance(child, VNode) and child.type in _INLINE_TAGS
+                for child in children)
+        and all(isinstance(child, VNode) and
+                (child.type == "Text" or child.type in _INLINE_TAGS)
+                for child in children)
+    )
     normalized = []
     for child in children:
-        if tag in ("span", "label", "li") and isinstance(child, VNode) and child.type == "Text":
+        if mixed_inline and isinstance(child, VNode) and child.type == "Text":
+            raw = child.props["value"]
+            if not isinstance(raw, str):
+                raise TypeError("Inline text must have a string value.")
+            # Keep leading and trailing whitespace around inline tags. Losing
+            # the leading space in ' and save...' concatenates it with </span>.
+            preserved = {
+                name: value for name, value in child.props.items()
+                if name not in ("value", "ref")
+            }
+            for token in re.findall(r"\\s*\\S+\\s*|\\s+", re.sub(r"\\s+", " ", raw)):
+                normalized.append(Text(token, **preserved))
+        elif tag in ("span", "label", "li") and isinstance(child, VNode) and child.type == "Text":
             normalized.extend(_inline_text_fragments(child))
         elif tag in _HEADING_FONT_SIZES and isinstance(child, VNode) and child.type == "Text":
             options = {
