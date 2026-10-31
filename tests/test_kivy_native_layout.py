@@ -97,12 +97,28 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert abs(suffix.y - span.y) <= 1, (suffix.y, span.y)
             assert prefix.x < span.x < suffix.x, (prefix.x, span.x, suffix.x)
             assert nested.text == "src/App.tsx"
+            # The native texture must be paintable inside the assigned width.
+            # Geometry order alone missed the screenshot's clipped "src/".
+            old_text_size = nested.text_size
+            nested.text_size = (None, None)
+            nested.texture_update()
+            natural = nested.texture_size[0]
+            nested.text_size = old_text_size
+            nested.texture_update()
+            assert nested.width >= natural - 2, (
+                "Unpaintable inline Kivy span", nested.width, natural,
+                span.width,
+            )
             assert abs(paragraph.handle.widget.width - 800) <= 1
             assert renderer.sfle_result.geometry_commit_error <= 1
-            for width in (220, 800):
+            for width in (400, 220, 800):
                 renderer.set_sfle_constraints(constraints(width))
                 renderer.commit_layout(root)
                 assert abs(paragraph.handle.widget.width - width) <= 1
+                if width >= 400:
+                    assert nested.width >= natural - 2, (
+                        width, nested.width, natural,
+                    )
                 assert paragraph.handle.widget.height >= prefix.height - 1
                 assert renderer.sfle_result.geometry_commit_error <= 1
             reconciler.unmount()
