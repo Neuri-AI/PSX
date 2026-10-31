@@ -388,6 +388,16 @@ def test_unimplemented_css_flow_cases_fail_closed_in_both_engines(rust_binary, s
     )
     snapshot = LayoutInput(1, 1, WritingDirection.LTR, size, nodes, measures)
     python, rust = _python_compute(snapshot), _rust_compute(rust_binary, snapshot)
-    assert python["ok"] is False, scenario
-    assert rust["ok"] is False, scenario
-    assert python["error"]["code"] == rust["error"]["code"] == "SFLE_UNSUPPORTED_FEATURE"
+    if scenario == "auto-margin":
+        # Auto margins are now supported; certify their actual geometry in
+        # both engines rather than demanding the retired fail-closed result.
+        assert python["ok"], python.get("error")
+        assert rust["ok"], rust.get("error")
+        py_boxes, rs_boxes = _rects(python["result"]), _rects(rust["result"])
+        for box_type in ("content", "padding", "border", "margin"):
+            for axis in ("x", "y", "width", "height"):
+                assert py_boxes["leaf"][box_type][axis] == rs_boxes["leaf"][box_type][axis]
+    else:
+        assert python["ok"] is False, scenario
+        assert rust["ok"] is False, scenario
+        assert python["error"]["code"] == rust["error"]["code"] == "SFLE_UNSUPPORTED_FEATURE"
