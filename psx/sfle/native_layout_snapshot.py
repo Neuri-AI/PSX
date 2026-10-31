@@ -367,6 +367,12 @@ class PreparedNativeLayoutSnapshot:
                             style.setdefault("justify_content", "flex-end")
                     node = replace(node, component="Flex",
                                    style=tuple(sorted(style.items())))
+            # The item may be a Text leaf rather than a semantic formatting
+            # host. Persist its inline sizing metadata into the immutable
+            # Cinnamon snapshot too; previously only <span> received it.
+            projected_style = tuple(sorted(style.items()))
+            if node.style != projected_style:
+                node = replace(node, style=projected_style)
             normalized.append(node)
             mapped[node.node_id] = node
         constraints = baseline.constraints
