@@ -114,7 +114,7 @@ jobs:
             libxkbcommon-x11-0 \
             libxcb-cursor0
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e '.[dev,qt]'
+      - run: python -m pip install -e '.[dev,pyside6]'
       - name: Install Neuri PyDux (pinned source)
         run: |
           python -m pip install "git+https://github.com/Neuri-AI/Pydux.git@56e6df858bc0e1ae598cd1cab0aa384c921cf253"
