@@ -14,16 +14,60 @@ from psx.core.registry import ComponentDefinition
 from psx.core.vnode import Image, Text, VNode, create_element
 from psx.sfle.display_context import resolve_display
 
-def _html_img(*children: object, src: str | None = None, source: str | None = None, **props: object) -> VNode:
-    """Translate HTML src to the existing portable image source property."""
+def _html_img(*children: object, src: object = None, **props: object) -> VNode:
+    """Lower HTML img src and responsive dimensions to portable Image/Cinnamon.
+
+    The public HTML spelling is `src`; native Image.source remains unchanged.
+    Layout owns %/viewport sizes so they are re-evaluated on every resize,
+    while the native pixel properties retain legacy intrinsic sizing behavior.
+    """
+    from pathlib import Path
+    from psx.sfle.lengths import LengthKind, parse_length
+    from .image_sources import resolve_markup_image_source
+
     if children:
-        raise TypeError("img is a void element and cannot have children")
-    if src is not None and source is not None:
-        raise ValueError("img cannot specify both src and source")
-    selected = src if src is not None else source
-    if selected is None:
-        raise ValueError("img requires src (or the legacy source property)")
-    return Image(selected, **props)
+        raise TypeError("img is a void element and cannot have children.")
+    if "source" in props:
+        raise ValueError("img uses src, not source.")
+    if isinstance(src, Path):
+        src = str(src)
+    if not isinstance(src, str) or not src:
+        raise ValueError("img requires a non-empty src path.")
+
+    for axis in ("width", "height"):
+        if axis not in props:
+            continue
+        raw = props.pop(axis)
+        if isinstance(raw, str) and raw.strip().replace(".", "", 1).isdigit():
+            raw = float(raw)  # HTML unitless dimensions are CSS pixels.
+        try:
+            length = parse_length(raw)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(
+                f"img {axis} must use a positive px, %, vw or vh dimension."
+            ) from exc
+        if length.kind not in (
+            LengthKind.PX, LengthKind.PERCENT, LengthKind.VW, LengthKind.VH,
+        ) or length.value is None or length.value <= 0:
+            raise ValueError(
+                f"img {axis} must use a positive px, %, vw or vh dimension."
+            )
+        layout_axis = f"layout_{axis}"
+        if layout_axis in props:
+            raise ValueError(f"img cannot specify both {axis} and {layout_axis}.")
+        # Preserve percentages/viewport units for Cinnamon; never collapse
+        # them to the initial window geometry.
+        if length.kind is LengthKind.PX:
+            pixels = float(length.value)
+            props[axis] = max(1, round(pixels))
+            props[layout_axis] = f"{pixels:g}px"
+        else:
+            props[layout_axis] = (
+                f"{length.value * 100:g}%"
+                if length.kind is LengthKind.PERCENT
+                else f"{length.value * 100:g}{length.kind.value}"
+            )
+    return Image(resolve_markup_image_source(src), **props)
 
 
 @dataclass(frozen=True, slots=True)
