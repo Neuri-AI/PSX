@@ -180,15 +180,24 @@ class TkSFLEGeometryTests(unittest.TestCase):
         assert rect(prefix)[1] == rect(span)[1] == rect(suffix)[1]
         assert rect(prefix)[0] < rect(span)[0] < rect(suffix)[0]
         assert nested.cget("text") == "src/App.tsx"
+        # Tk's native font advance is the paintable unwrapped text width;
+        # equal y coordinates alone do not prove the span is visible.
+        from tkinter.font import Font
+        natural = Font(root=nested, font=nested.cget("font")).measure("src/App.tsx")
+        assert rect(nested)[2] >= natural - 2, (
+            rect(nested), natural, rect(span),
+        )
         assert rect(paragraph.handle.widget)[2] == 800
         assert rect(button.handle.widget)[1] >= (
             rect(paragraph.handle.widget)[1] + rect(paragraph.handle.widget)[3]
         )
         self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
-        for width in (220, 800):
+        for width in (400, 220, 800):
             self.renderer.set_sfle_constraints(constraints(width, 400))
             self.renderer.commit_layout(root)
             assert abs(rect(paragraph.handle.widget)[2] - width) <= 1
+            if width >= 400:
+                assert rect(nested)[2] >= natural - 2
             assert rect(paragraph.handle.widget)[3] >= rect(prefix)[3]
             assert rect(button.handle.widget)[1] >= (
                 rect(paragraph.handle.widget)[1] + rect(paragraph.handle.widget)[3]
