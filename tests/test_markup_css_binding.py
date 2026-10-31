@@ -320,3 +320,33 @@ def test_css_universal_specificity_below_type_and_class():
         StyleTarget("button", frozenset({"accent"})),
     )
     assert computed.properties["color"] == CssColor("#aabbcc")
+
+
+def test_mixed_inline_paragraph_preserves_source_order_and_whitespace():
+    paragraph = psx(
+        '<p>Edit <span>src/App.tsx</span> and save to test HMR</p>'
+    )
+    assert paragraph.type == "p"
+    assert [child.type for child in paragraph.children][:2] == ["Text", "span"]
+    assert len([child for child in paragraph.children if child.type == "span"]) == 1
+    span = paragraph.children[1]
+    assert span.children[0].props["value"] == "src/App.tsx"
+    def text_content(node):
+        if node.type == "Text":
+            return node.props["value"]
+        return "".join(text_content(child) for child in node.children)
+    assert text_content(paragraph) == "Edit src/App.tsx and save to test HMR"
+
+
+def test_mixed_inline_span_keeps_css_inheritance_and_own_style():
+    paragraph = styled(
+        '<p style="color: #334455">Edit '
+        '<span key="path" style="color: #ff0000">src/App.tsx</span>'
+        ' and save to test HMR</p>', "",
+    )
+    span = next(child for child in paragraph.children if child.type == "span")
+    assert span.key == "path"
+    assert span.css_computed.properties["color"] == CssColor("#ff0000")
+    assert all(child.css_computed.properties["color"] == CssColor("#ff0000")
+               for child in span.children if child.type == "Text")
+    assert paragraph.children[0].css_computed.properties["color"] == CssColor("#334455")
