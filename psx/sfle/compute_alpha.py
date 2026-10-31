@@ -392,7 +392,8 @@ def _intrinsic_gap(length: Length, node_id: str) -> float:
             raise SFLEError(DiagnosticCode.INVALID_LENGTH, "Negative gap percentage.", node_id)
         # CSS cyclic gap contributes zero during intrinsic contribution only.
         return 0.0
-    raise SFLECapabilityError(DiagnosticCode.INVALID_LENGTH, "Invalid gap keyword.", node_id)
+    raise SFLECapabilityError(DiagnosticCode.UNSUPPORTED_FEATURE,
+                              "Unsupported CSS length keyword or expression.", node_id)
 
 
 def _used_gap(length: Length, reference: float, node_id: str) -> float:
