@@ -406,6 +406,15 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
             )
         return max((place.y + place.height for place in placements), default=0.0)
 
+    def has_mixed_inline_text(node) -> bool:
+        """Direct text and inline spans share one line run in normal block flow."""
+        direct = children[node.node_id]
+        return (
+            any(display(child) == "inline" for child in direct)
+            and all(child.component == "Text" or display(child) == "inline"
+                    for child in direct)
+        )
+
     def block_node(node, x: float, y: float, available: float) -> float:
         containing_width[node.node_id] = available
         margin = edges(node, "margin")
@@ -462,6 +471,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
             return inline_run((node,), x, y, available)
         cursor = 0.0
         pending = []
+        mixed_inline_text = has_mixed_inline_text(node)
 
         def flush() -> None:
             nonlocal cursor
@@ -473,7 +483,10 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
             if child.component == "Flex":
                 flush()
                 cursor += flex_node(child, content_x, content_y + cursor, used_width)
-            elif display(child) == "inline" or (display(child) is None and child.component not in ("Text", "Grid", "Native")):
+            elif (display(child) == "inline"
+                  or (mixed_inline_text and child.component == "Text")
+                  or (display(child) is None
+                      and child.component not in ("Text", "Grid", "Native"))):
                 pending.append(child)
             else:
                 flush()
