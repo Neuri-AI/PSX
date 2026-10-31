@@ -145,3 +145,61 @@ def render(count, set_count):
     }
     assert styles["p"]["direction"] == "row"
     assert styles["p"]["wrap"] == "wrap"
+
+
+@pytest.mark.parametrize("padding", [0, 4, 19])
+def test_padded_span_preserves_text_baseline_in_same_inline_line(padding):
+    """Browser-style glyph alignment: padding expands background, not text shift."""
+    from dataclasses import replace
+    from psx.sfle.inline_baselines import with_inline_span_baselines
+
+    source = psx(
+        '<div style="display:flex; flex-direction:column; align-items:center">'
+        '<p>esto es una <span style="background:#404243; border-radius:4px; '
+        f'padding:{padding}px">hola</span> prueba</p>'
+        '</div>'
+    )
+    prepared = prepare_native_layout_snapshot(
+        normalize_flex_tree(source), _constraints(650), generation=1,
+    )
+    projected = prepared.css_geometry_snapshot()
+    original = dict(prepared.identities)
+    measurements = []
+    for node in projected.nodes:
+        vnode = original[node.node_id]
+        if vnode.type != "Text":
+            continue
+        length = len(str(vnode.props["value"]))
+        width = 8.0 * length
+        measurements.append(MeasuredBox(
+            node.node_id, IntrinsicSizes(
+                width, width, 18, 18, width, 18, baseline=14,
+            ), _constraints(650), 1,
+        ))
+    snapshot = with_inline_span_baselines(
+        replace(projected, measurements=tuple(measurements)),
+        prepared.identities,
+    )
+    paragraph = next(n for n in snapshot.nodes if original[n.node_id].type == "p")
+    assert dict(paragraph.style)["align_items"] == "baseline"
+    span = next(n for n in snapshot.nodes if original[n.node_id].type == "span")
+    span_measure = next(m for m in snapshot.measurements if m.node_id == span.node_id)
+    assert span_measure.intrinsic.baseline == 14
+    solved = dict(PythonLayoutEngine().compute(snapshot).boxes)
+    words = [
+        (node, original[node.node_id].props["value"])
+        for node in snapshot.nodes if original[node.node_id].type == "Text"
+    ]
+    before = next(node for node, text in words if "esto" in text)
+    nested = next(node for node, text in words if "hola" in text)
+    after = next(node for node, text in words if "prueba" in text)
+    baselines = [solved[node.node_id].content.y + 14
+                 for node in (before, nested, after)]
+    assert max(baselines) - min(baselines) <= 1 / 64, (
+        padding, baselines,
+    )
+    assert abs(
+        solved[nested.node_id].content.y
+        - solved[span.node_id].content.y - padding
+    ) <= 1 / 64
+    assert solved[span.node_id].border.height >= 18 + 2 * padding
