@@ -95,7 +95,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
       - name: Install SFLE and Qt test dependencies
-        run: python -m pip install -e '.[qt]' pytest
+        run: python -m pip install -e '.[pyside6]' pytest
       - name: Compile SFLE Python
         run: python -m compileall -q psx/sfle
       - name: SFLE focused tests (zero skip policy)
@@ -156,7 +156,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
       - name: Install SFLE source with real Qt and maturin
-        run: python -m pip install -e '.[qt]' pytest 'maturin>=1.8,<2'
+        run: python -m pip install -e '.[pyside6]' pytest 'maturin>=1.8,<2'
       - name: Build Rust PyO3 wheel
         run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out /tmp/sfle-native-wheels
       - name: Install native wheel and inspect actual import locations
