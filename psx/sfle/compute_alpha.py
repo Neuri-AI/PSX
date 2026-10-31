@@ -1307,24 +1307,6 @@ def compute_snapshot(
                     cross = max(0.0, _subtract_units(width, (edges[child_id].padding.left,
                         edges[child_id].padding.right, edges[child_id].border.left, edges[child_id].border.right, fixed_margin(child_style.margin_left),
                         fixed_margin(child_style.margin_right))))
-                if (cross is None and width is not None
-                        and child_style.width.kind is LengthKind.AUTO
-                        and alignment is not CrossAlign.STRETCH):
-                    # A non-stretched column flex item's auto inline size is
-                    # shrink-to-fit: min(max-content, max(min-content, available)).
-                    # In particular, block <p> inside align-items:center
-                    # may wrap in a narrow viewport but stays one line when
-                    # its natural text width fits. Never force a fake fixed
-                    # width or override an explicitly authored width.
-                    available_cross = max(0.0, _subtract_units(width, (
-                        edges[child_id].padding.left, edges[child_id].padding.right,
-                        edges[child_id].border.left, edges[child_id].border.right,
-                        fixed_margin(child_style.margin_left),
-                        fixed_margin(child_style.margin_right),
-                    )))
-                    minimum = preferred(child_id, True, minimum=True)
-                    maximum = preferred(child_id, True)
-                    cross = min(maximum, max(minimum, available_cross))
                 child_width, child_height = layout(child_id,cross,target,width,height)
                 cross_sizes.append(max(0.0, _sum_units((child_width, edges[child_id].padding.left,
                     edges[child_id].padding.right, edges[child_id].border.left, edges[child_id].border.right, fixed_margin(child_style.margin_left),
