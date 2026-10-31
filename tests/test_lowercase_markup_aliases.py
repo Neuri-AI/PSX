@@ -98,6 +98,16 @@ def view(src, width):
     assert node.props["layout_height"] == "20vh"
 
 
+def test_html_img_layout_metadata_is_accepted_by_shared_renderer():
+    from psx.renderers.components.image import image_props, updated_image_props
+    node = psx('<img src="logo.png" width="80%" height="30vh" />')
+    current = image_props(node.props)
+    assert current["source"] == "logo.png"
+    assert current["layout_width"] == "80%"
+    revised = updated_image_props(current, {"layout_width": "20vw"}, frozenset())
+    assert revised["layout_width"] == "20vw"
+
+
 def test_img_viewport_dimensions_recompute_with_cinnamon():
     from psx.core.layout_tree import normalize_flex_tree
     from psx.core.vnode import Flex
