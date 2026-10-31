@@ -170,6 +170,37 @@ class PreparedNativeLayoutSnapshot:
             if item.parent_id is not None:
                 children_by_parent.setdefault(item.parent_id, []).append(item)
 
+        def mixed_text_inline_run(parent_id: str) -> bool:
+            """A semantic block containing an inline span is a text line run.
+
+            Keep the source VNode/native hierarchy, but let Cinnamon place
+            measured words and inline span boxes along shared horizontal
+            lines rather than stacking their three sibling source segments.
+            This rule is renderer-independent (Qt, Tkinter and Kivy).
+            """
+            direct = children_by_parent.get(parent_id, ())
+            if not direct:
+                return False
+            has_inline_host = False
+            for child in direct:
+                original = originals[child.node_id]
+                if original.kind is not NodeKind.HOST:
+                    return False
+                if original.type == "Text":
+                    continue
+                if original.type not in ("span", "label"):
+                    return False
+                computed = original.css_computed
+                display = (
+                    computed.properties["display"]
+                    if computed is not None and "display" in computed.specified
+                    else original.props.get("display", "inline")
+                )
+                if display != "inline":
+                    return False
+                has_inline_host = True
+            return has_inline_host
+
         def native_inline_run(parent_id: str) -> bool:
             direct = children_by_parent.get(parent_id, ())
             if not direct:
@@ -235,10 +266,30 @@ class PreparedNativeLayoutSnapshot:
                     # run receive row wrapping, preserving browser-like
                     # Button intrinsic widths instead of column stacking.
                     inline_run = display == "block" and native_inline_run(node.node_id)
-                    style.setdefault("direction", "row" if (display == "inline" or inline_run) else "column")
-                    if inline_run:
+                    text_run = (display == "block"
+                                and mixed_text_inline_run(node.node_id))
+                    style.setdefault(
+                        "direction",
+                        "row" if (display == "inline" or inline_run or text_run)
+                        else "column",
+                    )
+                    if inline_run or text_run:
                         style.setdefault("wrap", "wrap")
                         style.setdefault("align_items", "flex-start")
+                    if text_run:
+                        # A block text formatting context uses one shared
+                        # inline line. Word fragments wrap as individual
+                        # measured flex participants; line breaks may occur
+                        # at spaces, not at the span element boundary.
+                        # Author-specified text-align controls line alignment.
+                        text_align = (
+                            computed.properties.get("text-align", "left")
+                            if computed is not None else "left"
+                        )
+                        if text_align == "center":
+                            style.setdefault("justify_content", "center")
+                        elif text_align in ("right", "end"):
+                            style.setdefault("justify_content", "flex-end")
                     node = replace(node, component="Flex",
                                    style=tuple(sorted(style.items())))
             normalized.append(node)
