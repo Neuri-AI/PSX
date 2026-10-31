@@ -199,6 +199,22 @@ class PreparedNativeLayoutSnapshot:
                 display = style.get("display", origin.props.get("display"))
                 if display in ("block", "inline"):
                     style.pop("display", None)
+                    # PSX's HTML block hosts fill the available inline axis
+                    # of a column Flex, independently of cross-axis centering.
+                    # This is a semantic block-host rule (p, h1, section,
+                    # etc.), not a global override for Image/Button/Native
+                    # flex items. Authored CSS width/layout_width always wins.
+                    direction = dict(parent.style).get("direction", "row")
+                    specified_width = (
+                        origin.css_computed is not None
+                        and "width" in origin.css_computed.specified
+                    )
+                    if (display == "block"
+                            and direction in ("column", "column-reverse")
+                            and "layout_width" not in style
+                            and "width" not in style
+                            and not specified_width):
+                        style["layout_width"] = "100%"
                     # CSS block children that are purely an inline control
                     # run receive row wrapping, preserving browser-like
                     # Button intrinsic widths instead of column stacking.
