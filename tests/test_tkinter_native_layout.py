@@ -920,6 +920,38 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(
             errors[0].code, DiagnosticCode.UNSUPPORTED_MEASUREMENT)
 
+    def test_css_image_width_uses_ratio_and_avoids_phantom_gap(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "native.png"
+            write_png(path, 400, 300)
+            self.renderer.set_sfle_constraints(constraints(800, 600))
+            css = (
+                '.root {display:flex; flex-direction:column; gap:16px; '
+                'justify-content:center; align-items:center; height:100vh;}'
+                'img {width:200px;}'
+            )
+            root = self.reconciler.render(psx(
+                '<link rel="stylesheet" href="css/styles.css"/>'
+                '<div class="root"><img src="' + str(path) + '" />'
+                '<h1>Get started</h1><button>Count is 0</button></div>',
+                scope={"__velto_css_resource_resolver__": lambda _: css},
+            ))
+            image, heading, button = root.children
+            for width in (800, 1100, 800):
+                self.renderer.set_sfle_constraints(constraints(width, 600))
+                self.renderer.commit_layout(root)
+                img_box = rect(image.handle.widget)
+                title_box = rect(heading.handle.widget)
+                button_box = rect(button.handle.widget)
+                self.assertEqual(img_box[2:], (200, 150))
+                self.assertAlmostEqual(
+                    title_box[1] - (img_box[1] + img_box[3]), 16, delta=1,
+                )
+                self.assertAlmostEqual(
+                    button_box[1] - (title_box[1] + title_box[3]), 16, delta=1,
+                )
+                self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_image_intrinsic_source_resize_and_keyed_native_reuse(self):
         from psx import Image
         with TemporaryDirectory() as directory:
