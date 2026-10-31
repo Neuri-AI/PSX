@@ -10,7 +10,7 @@ import pytest
 
 from psx import psx
 from psx.core.layout_tree import normalize_flex_tree
-from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+from psx.sfle.native_layout_snapshot import (prepare_native_layout_snapshot, inline_atomic_text_ids)
 from psx.sfle.engine import PythonLayoutEngine
 from psx.sfle.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
@@ -57,6 +57,11 @@ def test_css_flex_paragraph_treats_mixed_inline_nodes_as_wrapping_row(width):
             assert dict(node.style)["flex_shrink"] == 0.0
     assert any(vnode.type == "span" for vnode in by_source.values())
     assert sum(1 for vnode in by_source.values() if vnode.type == "Text") >= 5
+    atomic = inline_atomic_text_ids(prepared)
+    assert any(by_source[identifier].type == "Text"
+               and by_source[identifier].props["value"] == "src/App.tsx"
+               for identifier in atomic)
+    assert len(atomic) >= 5
 
 
 def test_block_root_inline_span_stays_on_same_measured_line_when_it_fits():
