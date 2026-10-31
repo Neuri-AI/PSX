@@ -174,7 +174,7 @@ def test_padded_span_preserves_text_baseline_in_same_inline_line(padding):
         measurements.append(MeasuredBox(
             node.node_id, IntrinsicSizes(
                 width, width, 18, 18, width, 18, baseline=14,
-            ), _constraints(650), 1,
+            ), LayoutConstraints(AvailableSize(width, True), AvailableSize(280, True)), 1,
         ))
     snapshot = with_inline_span_baselines(
         replace(projected, measurements=tuple(measurements)),
