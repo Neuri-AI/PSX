@@ -209,6 +209,36 @@ class QtSFLEGeometryTests(unittest.TestCase):
             )
             self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
+    def test_inline_span_padding_keeps_native_text_baselines(self):
+        """Padding expands inline decoration without moving span glyphs."""
+        from PySide6.QtCore import QPoint
+        for padding in (0, 4, 19):
+            self.renderer.set_sfle_constraints(constraints(650, 350))
+            root = self.r.render(psx(
+                '<div style="display:flex; flex-direction:column; align-items:center">'
+                '<p>esto es una <span style="background:#404243; '
+                f'border-radius:4px; padding:{padding}px">hola</span> prueba</p>'
+                '</div>'
+            ))
+            paragraph = root.children[0]
+            span = next(item for item in paragraph.children if item.node.type == "span")
+            before = paragraph.children[0].handle.widget
+            after = paragraph.children[-1].handle.widget
+            inside = span.children[0].handle.widget
+            host = paragraph.handle.widget
+            baselines = [
+                widget.mapTo(host, QPoint(0, 0)).y()
+                + widget.fontMetrics().ascent()
+                for widget in (before, inside, after)
+            ]
+            self.assertLessEqual(max(baselines) - min(baselines), 1,
+                                 (padding, baselines))
+            self.assertGreaterEqual(
+                span.handle.widget.height(),
+                inside.height() + 2 * padding - 1,
+            )
+            self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_nested_html_headings_paragraphs_and_inline_text_use_native_flow(self):
         self.renderer.set_sfle_constraints(constraints(320, 200))
         root = self.r.render(psx(
