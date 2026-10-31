@@ -144,6 +144,35 @@ The uppercase `<Image source={...}/>` and Python `Image(source, ...)`
 retain their existing native property contract. The `img` alias rejects
 the legacy `source` attribute to avoid exposing two public spellings.
 
+### CSS width and height are layout dimensions
+
+HTML-style `<img>` also respects stylesheets, not just XML-style width and
+height attributes. For example:
+
+```css
+img {
+    width: 200px;
+}
+```
+
+```jsx
+<img src="images/logo.svg" />
+```
+
+When CSS specifies only `width`, Cinnamon resolves the other auto axis from
+the image's **native decoded intrinsic aspect ratio**, including within flex
+columns. This means the following heading starts after the *used image height*
+rather than after the resource's original unscaled height. A CSS-only
+`height` works symmetrically. Percentage and viewport widths are reevaluated
+with the current containing block/viewport.
+
+When CSS specifies both axes, they are honored independently and `fit`
+determines drawing within that rectangle. No renderer may change the
+declarative `Image.width` or `Image.height` props as a workaround.
+The same immutable aspect hint is passed to Qt, Tkinter, Kivy and both
+Python/Rust Cinnamon implementations. Undecodable resources without
+intrinsic dimensions do not produce a guessed aspect ratio.
+
 ## Supported formats and dependencies
 
 `source` accepts whatever the underlying toolkit can decode. Common cases:
