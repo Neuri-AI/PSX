@@ -23,6 +23,7 @@ class QtMeasurementSource:
     def __init__(
         self, widgets: Mapping[str, object], *, qtcore: object,
         textarea_ids: frozenset[str] = frozenset(),
+        text_ids: frozenset[str] = frozenset(),
         image_ids: frozenset[str] = frozenset(),
         spacer_ids: frozenset[str] = frozenset(),
         divider_nodes: Mapping[str, object] | None = None,
@@ -32,6 +33,9 @@ class QtMeasurementSource:
         if not textarea_ids <= self._widgets.keys():
             raise ValueError("TextArea measurement IDs must refer to mounted widgets.")
         self._textarea_ids = textarea_ids
+        if not text_ids <= self._widgets.keys():
+            raise ValueError("Text measurement IDs must refer to mounted Qt widgets.")
+        self._text_ids = text_ids
         if not image_ids <= self._widgets.keys():
             raise ValueError("Image measurement IDs must refer to mounted Qt widgets.")
         self._image_ids = image_ids
@@ -74,6 +78,33 @@ class QtMeasurementSource:
             float(width), float(width), float(height), float(height),
             float(width), float(height),
         )
+
+    @staticmethod
+    def _text_intrinsic_widths(widget: object, fallback_min: float, fallback_width: float) -> tuple[float, float]:
+        """Measure real min/max-content, not QLabel's word-wrapped sizeHint.
+
+        QLabel's sizeHint() with wordWrap=True deliberately proposes a
+        relatively narrow multi-line width. CSS flex items with align-items:
+        center need their *max-content* contribution for auto cross sizing.
+        Height remains width-dependent and is measured separately by Qt.
+        """
+        import re
+
+        doc = getattr(widget, "_psx_css_document", None)
+        if doc is not None:
+            # The CSS line-height path has an unbounded QTextDocument sizeHint.
+            natural = float(widget.sizeHint().width())
+        else:
+            metrics = widget.fontMetrics()
+            text = widget.text()
+            lines = text.split("\n") if text else [""]
+            edges = max(0, int(widget.margin())) * 2 + max(0, int(widget.frameWidth())) * 2
+            natural = float(max(metrics.horizontalAdvance(line) for line in lines) + edges)
+        # Ignore artificial preferred widths caused by wrapping; preserve
+        # the actual unwrapped content width as the max-content bound.
+        natural = max(0.0, natural)
+        minimum = min(natural, fallback_min)
+        return minimum, natural
 
     def is_ui_thread(self) -> bool:
         qthread = getattr(self._qtcore, "QThread", None)
@@ -133,14 +164,15 @@ class QtMeasurementSource:
             baseline = min(height, max(0.0,
                 (height - float(font_metrics.height())) / 2.0
                 + float(font_metrics.ascent())))
+        if request.node_id in self._text_ids:
+            min_width, width = self._text_intrinsic_widths(widget, min_width, width)
         metrics = IntrinsicSizes(
             min_content_width=min_width, max_content_width=max(width, min_width),
             min_content_height=min_height, max_content_height=max(height, min_height),
             preferred_width=width, preferred_height=height, baseline=baseline,
         )
-        # Qt sizeHint is NOT a proof of CSS min-content/max-content for wrapped
-        # text. Consumers requiring exact intrinsic widths must supply richer
-        # text metrics instead; this port only provides a native size hint.
+        # Native text max-content is measured unwrapped, not from Qt's
+        # wrapped sizeHint; used height still follows heightForWidth().
         return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
 
     def measure_width(self, node_id: str, width: float) -> IntrinsicSizes:
