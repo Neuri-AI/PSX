@@ -756,6 +756,12 @@ def compute_snapshot(
         ancestor = styles[parent]
         if ancestor.width.kind == LengthKind.PX:
             return True
+        # The layout root receives its containing-block width directly from
+        # the definite request constraints, even when CSS width is auto.
+        # Auto-sized descendants do not inherit that guarantee: their inline
+        # size may depend on intrinsic content and create a real cycle.
+        if parents[parent] is None and request.constraints.width.definite:
+            return True
         if ancestor.width.kind == LengthKind.PERCENT:
             return inline_reference_definite(parent)
         if ancestor.grow > 0:
