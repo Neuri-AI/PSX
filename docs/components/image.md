@@ -97,6 +97,53 @@ psx("""
 )
 ```
 
+## HTML-style `<img>` in PSX Markup
+
+The lowercase `img` alias follows HTML naming and uses **`src`**, not the
+internal `Image.source` attribute. Use either a literal resource path or
+a normal PSX lexical expression:
+
+```python
+from velto import VeltoContext
+from velto.ui import psx
+from velto.runtime import get_resource
+
+class App(VeltoContext):
+    def render(self):
+        logo = get_resource("images/logo.svg")
+        return psx("""
+            <div>
+                <img src="images/logo.svg" width="200"/>
+                <img src={logo} width="25vw" height="50%"/>
+            </div>
+        """)
+```
+
+Both forms lower to the existing native `Image` VNode. Literal relative
+`src` paths are resolved through Qyro's `get_resource` when that resource
+exists, including resources extracted from frozen packages. A pre-resolved
+absolute path (such as `src={get_resource(...)}`) is preserved as-is.
+Standalone PSX retains ordinary relative filesystem paths.
+
+The HTML sizing attributes accept positive unitless numbers (CSS pixels),
+`px`, `%`, `vw`, and `vh`. Percentages remain relative to the
+containing layout, while viewport lengths are resolved against the
+current Cinnamon viewport on resize:
+
+| Attribute | Example | Meaning |
+| --- | --- | --- |
+| `width="200"` | 200 | 200 logical CSS pixels |
+| `width="200px"` | 200px | 200 logical CSS pixels |
+| `width="50%"` | 50% | Half of the containing block's available width |
+| `width="25vw"` | 25vw | One quarter of the window viewport width |
+| `height="30vh"` | 30vh | 30% of the window viewport height |
+
+Viewport/percentage dimensions require a Cinnamon-managed layout; older
+unmanaged native layouts do not resolve a percentage against their parent.
+The uppercase `<Image source={...}/>` and Python `Image(source, ...)`
+retain their existing native property contract. The `img` alias rejects
+the legacy `source` attribute to avoid exposing two public spellings.
+
 ## Supported formats and dependencies
 
 `source` accepts whatever the underlying toolkit can decode. Common cases:
@@ -107,8 +154,9 @@ psx("""
   `GIF`, `BMP`, `SVG` when `svg` is installed). No extra dependency is
   required for the common formats.
 - **Tkinter**: native `tk.PhotoImage` supports only `PNG`, `GIF`, `PPM`, and
-  `PGM`, and cannot scale by arbitrary factors. For `JPEG`, `SVG`, arbitrary
-  scaling, or `width`/`height` overrides, install `Pillow`. Without Pillow,
+  `PGM`, and cannot scale by arbitrary factors. For `JPEG`, arbitrary
+  scaling, or `width`/`height` overrides, install `Pillow`. SVG decoding
+  needs a separate SVG-capable provider; Pillow alone does not decode SVG. Without Pillow,
   the adapter falls back to displaying the image at its natural size and
   ignores `fit`, `width`, and `height`.
 
