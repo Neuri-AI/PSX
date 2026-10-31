@@ -80,7 +80,7 @@ class QtMeasurementSource:
         )
 
     @staticmethod
-    def _text_intrinsic_widths(widget: object, fallback_min: float, fallback_width: float) -> tuple[float, float]:
+    def _text_intrinsic_widths(widget: object, fallback_min: float) -> tuple[float, float]:
         """Measure real min/max-content, not QLabel's word-wrapped sizeHint.
 
         QLabel's sizeHint() with wordWrap=True deliberately proposes a
@@ -88,8 +88,6 @@ class QtMeasurementSource:
         center need their *max-content* contribution for auto cross sizing.
         Height remains width-dependent and is measured separately by Qt.
         """
-        import re
-
         doc = getattr(widget, "_psx_css_document", None)
         if doc is not None:
             # The CSS line-height path has an unbounded QTextDocument sizeHint.
@@ -165,7 +163,7 @@ class QtMeasurementSource:
                 (height - float(font_metrics.height())) / 2.0
                 + float(font_metrics.ascent())))
         if request.node_id in self._text_ids:
-            min_width, width = self._text_intrinsic_widths(widget, min_width, width)
+            min_width, width = self._text_intrinsic_widths(widget, min_width)
         metrics = IntrinsicSizes(
             min_content_width=min_width, max_content_width=max(width, min_width),
             min_content_height=min_height, max_content_height=max(height, min_height),
