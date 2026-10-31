@@ -31,11 +31,89 @@ def test_lowercase_and_pascalcase_are_both_available():
         assert not native_registry.contains(lower)
 
 
-def test_image_alias_rejects_missing_or_conflicting_sources():
-    with pytest.raises(ValueError, match="requires src"):
+def test_image_alias_requires_src_and_rejects_legacy_source():
+    with pytest.raises(ValueError, match="requires a non-empty src"):
         psx("<img />")
-    with pytest.raises(ValueError, match="both src and source"):
+    with pytest.raises(ValueError, match="uses src, not source"):
         psx('<img src="a.png" source="b.png" />')
+    with pytest.raises(ValueError, match="uses src, not source"):
+        psx('<img source="b.png" />')
+
+
+@pytest.mark.parametrize("width,height,expected", [
+    ("200", "100px", (200, 100, "200px", "100px")),
+    ("50%", "25vh", (None, None, "50%", "25vh")),
+    ("35vw", "90%", (None, None, "35vw", "90%")),
+])
+def test_img_dimensions_lower_to_native_pixels_and_cinnamon_lengths(
+    width, height, expected,
+):
+    node = psx(f'<img src="logo.png" width="{width}" height="{height}"/>')
+    assert node.type == "Image"
+    assert (
+        node.props["width"], node.props["height"],
+        node.props["layout_width"], node.props["layout_height"],
+    ) == expected
+
+
+@pytest.mark.parametrize("bad", ["0px", "-4px", "calc(100%)", "30em", "nanvw"])
+def test_img_rejects_unsupported_or_nonpositive_dimensions(bad):
+    with pytest.raises(ValueError, match="img width must use"):
+        psx(f'<img src="logo.png" width="{bad}" />')
+
+
+def test_img_literal_src_prefers_qyro_resource_and_keeps_missing_path(tmp_path, monkeypatch):
+    import qyro
+    file = tmp_path / "logo.svg"
+    file.write_text("<svg/>", encoding="utf-8")
+    requested = []
+    def get_resource(name, *, required):
+        requested.append((name, required))
+        return str(file if name == "images/logo.svg" else tmp_path / "missing.png")
+    monkeypatch.setattr(qyro, "get_resource", get_resource)
+    assert psx('<img src="images/logo.svg" />').props["source"] == str(file)
+    assert psx('<img src="missing.png" />').props["source"] == "missing.png"
+    assert requested == [("images/logo.svg", False), ("missing.png", False)]
+
+
+def test_img_explicit_python_src_path_and_expressive_dimensions(tmp_path):
+    from pathlib import Path
+    from psx.markup.transform import transform_source
+
+    source = """from psx import psx
+def view(src, width):
+    return psx('<img src={src} width={width} height="20vh" />')
+"""
+    result = transform_source(source, filename="image_view.py")
+    namespace = {"__name__": "image_view"}
+    exec(compile(result.source, "image_view.py", "exec"), namespace)
+    path = tmp_path / "logo.svg"
+    node = namespace["view"](path, "50%")
+    assert node.type == "Image"
+    assert node.props["source"] == str(path)
+    assert node.props["layout_width"] == "50%"
+    assert node.props["layout_height"] == "20vh"
+
+
+def test_img_viewport_dimensions_recompute_with_cinnamon():
+    from psx.core.layout_tree import normalize_flex_tree
+    from psx.core.vnode import Flex
+    from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+    from psx.sfle.lengths import Length
+    from psx.sfle.model import AvailableSize, LayoutConstraints
+
+    root = Flex(psx('<img src="logo.png" width="25vw" height="50vh" />'))
+    values = []
+    for width, height in ((800, 600), (1200, 900)):
+        snapshot = prepare_native_layout_snapshot(
+            normalize_flex_tree(root),
+            LayoutConstraints(AvailableSize(width, True), AvailableSize(height, True)),
+            generation=1,
+        ).canonical_snapshot()
+        node = next(dict(item.style) for item in snapshot.nodes if "layout_width" in dict(item.style))
+        values.append((node["layout_width"], node["layout_height"]))
+    assert values == [(Length.px(200), Length.px(300)),
+                      (Length.px(300), Length.px(450))]
 
 
 def test_div_preserves_an_independent_block_host():
