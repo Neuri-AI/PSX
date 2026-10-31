@@ -344,7 +344,8 @@ def _formatting_host(
     )
     normalized = []
     for child in children:
-        if mixed_inline and isinstance(child, VNode) and child.type == "Text":
+        if (mixed_inline and isinstance(child, VNode) and child.type == "Text"
+                and child.key is None and child.props.get("ref") is None):
             raw = child.props["value"]
             if not isinstance(raw, str):
                 raise TypeError("Inline text must have a string value.")
@@ -355,7 +356,12 @@ def _formatting_host(
                 if name not in ("value", "ref")
             }
             for token in re.findall(r"\s*\S+\s*|\s+", re.sub(r"\s+", " ", raw)):
-                normalized.append(Text(token, **preserved))
+                # CSS text-content nodes inherit their parent style instead
+                # of independently matching a global 'text' selector.
+                normalized.append(replace(
+                    Text(token, **preserved),
+                    css_source=child.css_source,
+                ))
         elif tag in ("span", "label", "li") and isinstance(child, VNode) and child.type == "Text":
             normalized.extend(_inline_text_fragments(child))
         elif tag in _HEADING_FONT_SIZES and isinstance(child, VNode) and child.type == "Text":
