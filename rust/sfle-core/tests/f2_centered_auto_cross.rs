@@ -3,7 +3,7 @@ use sfle_core::compute::{compute, LayoutInput};
 use serde_json::{json, Value};
 
 fn snapshot(viewport: u32, fixed: bool) -> LayoutInput {
-    let mut paragraph = json!({"direction": "column", "layout_width":"100%"});
+    let mut paragraph = json!({"direction": "column", "align_self":"stretch"});
     if fixed {
         paragraph["layout_width"] = json!(350);
     }
