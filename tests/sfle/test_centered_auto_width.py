@@ -48,9 +48,9 @@ def test_linked_stylesheet_starter_template_uses_full_block_width():
         '</div></>',
         scope={"__velto_css_resource_resolver__": lambda _: css},
     )
-    assert records["h1"][1]["layout_width"] == "100%"
-    assert records["p"][1]["layout_width"] == "100%"
-    assert "layout_width" not in records["Button"][1]
+    assert records["h1"][1]["align_self"] == "stretch"
+    assert records["p"][1]["align_self"] == "stretch"
+    assert "align_self" not in records["Button"][1]
 
 
 def test_default_html_blocks_fill_column_parent_without_stretching_controls():
@@ -64,7 +64,7 @@ def test_default_html_blocks_fill_column_parent_without_stretching_controls():
     for name in ("h1", "p"):
         component, style = records[name]
         assert component.component == "Flex"
-        assert style["layout_width"] == "100%"
+        assert style["align_self"] == "stretch"
     assert "layout_width" not in records["Button"][1]
 
 
@@ -105,7 +105,15 @@ def test_authored_css_width_and_native_layout_width_are_not_overridden():
     )
     from psx.sfle.lengths import Length
     assert records["p"][1]["layout_width"] == Length.px(120)
-    assert records["h1"][1]["layout_width"] == "50%"
+    assert records["h1"][1]["layout_width"] == Length.percent(0.5)
+
+
+def test_authored_align_self_preserves_user_choice():
+    _, records = _prepared(
+        '<div style="display: flex; flex-direction: column; align-items: center">'
+        '<p style="align-self: center">Author controls alignment</p></div>'
+    )
+    assert records["p"][1]["align_self"] == "center"
 
 
 def test_inline_display_and_row_flex_do_not_synthesize_block_width():
@@ -113,7 +121,7 @@ def test_inline_display_and_row_flex_do_not_synthesize_block_width():
         '<div style="display: flex; flex-direction: column">'
         '<p style="display: inline">Inline</p></div>'
     )
-    assert "layout_width" not in records["p"][1]
+    assert "align_self" not in records["p"][1]
     _, records = _prepared(
         '<div style="display: flex; flex-direction: row">'
         '<p>Row participant</p></div>'
