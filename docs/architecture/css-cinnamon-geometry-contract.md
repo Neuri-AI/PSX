@@ -74,6 +74,29 @@ This increment certifies the bounded mixed text/inline-span subset. It does
 not claim browser-grade bidirectional shaping, letter-level fragmentation,
 inline decoration fragmentation or inline layout of arbitrary controls.
 
+## Inline span padding and text baselines
+
+An inline `<span>` with CSS `padding` expands its border/background rectangle
+without changing the glyph baseline relative to adjacent Text siblings.
+For mixed inline runs, CSS projection uses `align_items: baseline` rather
+than `flex-start`. Qt and Tk supply font ascent metrics from the actual
+native widgets. Kivy uses the native label's measured line-box end for
+same-font inline alignment when the installed text provider does not expose
+a public glyph ascent.
+
+Structural `span` containers have no native intrinsic glyph: the shared
+`with_inline_span_baselines` projection forwards the first nested text
+measurement to an immutable intrinsic baseline measurement for the span.
+Cinnamon adds the span's own top padding and border to the baseline offset,
+so its label is painted on the same text line as its siblings. The same
+snapshot is evaluated by Rust and Python engines and committed by Qt,
+Tkinter and Kivy.
+
+This addresses baseline alignment with padded inline decorations. It does
+not yet guarantee that inline vertical padding overflows the line box
+without increasing its height exactly as a browser's CSS inline formatting
+context would do; that requires true inline fragment box composition.
+
 ## Unsupported cases
 
 The semantic Block/Inline subset is not a browser layout algorithm. It does
