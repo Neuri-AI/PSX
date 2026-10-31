@@ -367,3 +367,33 @@ def test_mixed_inline_heading_preserves_native_title_size():
     words = [child for child in heading.children if child.type == "Text"]
     assert words
     assert all(child.props["font_size"] == 32 and child.props["bold"] for child in words)
+
+
+def test_html_img_css_width_reaches_cinnamon_without_rewriting_native_source():
+    from psx.core.layout_tree import normalize_flex_tree
+    from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+    from psx.sfle.model import AvailableSize, LayoutConstraints
+
+    root = styled(
+        '<div class="root"><img src="images/logo.svg" />'
+        '<h1>Get started</h1></div>',
+        '.root {display:flex; flex-direction:column; align-items:center;'
+        'gap:16px; height:100vh;} img {width:200px;}',
+    )
+    image = root.children[0]
+    assert image.type == "Image"
+    assert image.props["width"] is None
+    assert image.props["height"] is None
+    assert image.css_computed.properties["width"] == Length.px(200)
+    snapshot = prepare_native_layout_snapshot(
+        normalize_flex_tree(root),
+        LayoutConstraints(AvailableSize(800, True), AvailableSize(600, True)),
+        generation=1,
+    ).css_geometry_snapshot()
+    matching = [
+        dict(node.style) for node in snapshot.nodes
+        if node.component == "Image"
+    ]
+    assert len(matching) == 1
+    assert matching[0]["layout_width"] == Length.px(200)
+    assert "layout_height" not in matching[0]
