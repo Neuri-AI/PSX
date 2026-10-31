@@ -268,11 +268,18 @@ class PreparedNativeLayoutSnapshot:
                     inline_run = display == "block" and native_inline_run(node.node_id)
                     text_run = (display == "block"
                                 and mixed_text_inline_run(node.node_id))
-                    style.setdefault(
-                        "direction",
-                        "row" if (display == "inline" or inline_run or text_run)
-                        else "column",
-                    )
+                    if text_run:
+                        # prepare_native_layout_snapshot represents nested
+                        # semantic blocks as column Flex by default. Override
+                        # that *implicit* direction for mixed inline text;
+                        # otherwise its Text/span/Text children stack.
+                        style["direction"] = "row"
+                    else:
+                        style.setdefault(
+                            "direction", "row"
+                            if (display == "inline" or inline_run)
+                            else "column",
+                        )
                     if inline_run or text_run:
                         style.setdefault("wrap", "wrap")
                         style.setdefault("align_items", "flex-start")
