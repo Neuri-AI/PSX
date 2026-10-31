@@ -401,3 +401,41 @@ def test_unimplemented_css_flow_cases_fail_closed_in_both_engines(rust_binary, s
         assert python["ok"] is False, scenario
         assert rust["ok"] is False, scenario
         assert python["error"]["code"] == rust["error"]["code"] == "SFLE_UNSUPPORTED_FEATURE"
+
+
+@pytest.mark.parametrize("margin_left,margin_right,expected_x", [
+    (True, True, 50.0),
+    (True, False, 100.0),
+    (False, True, 0.0),
+])
+def test_block_auto_margin_geometry_matches_rust_python(
+    rust_binary, margin_left, margin_right, expected_x,
+):
+    """Direct Rust flow and public Python flow agree on used block margins."""
+    from psx.sfle.model import (
+        AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
+    )
+    from psx.sfle.lengths import LengthKind
+
+    constraints = LayoutConstraints(
+        AvailableSize(200, True), AvailableSize(100, True),
+    )
+    styles = [("display", "block"), ("layout_width", Length.px(100))]
+    if margin_left:
+        styles.append(("layout_margin_left", Length(LengthKind.AUTO)))
+    if margin_right:
+        styles.append(("layout_margin_right", Length(LengthKind.AUTO)))
+    snapshot = LayoutInput(1, 2, WritingDirection.LTR, constraints, (
+        LayoutNode("root", None, "div", (("display", "block"),)),
+        LayoutNode("child", "root", "div", tuple(styles)),
+    ), ())
+    python, rust = _python_compute(snapshot), _rust_compute(rust_binary, snapshot)
+    assert python["ok"], python.get("error")
+    assert rust["ok"], rust.get("error")
+    pbox = _rects(python["result"])["child"]
+    rbox = _rects(rust["result"])["child"]
+    assert pbox == rbox
+    assert pbox["content"]["x"] == expected_x
+    assert pbox["content"]["width"] == 100.0
+    assert pbox["margin"]["x"] == 0.0
+    assert pbox["margin"]["width"] == 200.0
