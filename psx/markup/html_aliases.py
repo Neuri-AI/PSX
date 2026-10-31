@@ -355,6 +355,13 @@ def _formatting_host(
                 name: value for name, value in child.props.items()
                 if name not in ("value", "ref")
             }
+            if tag in _HEADING_FONT_SIZES:
+                # Mixed-content headings retain their heading font contract.
+                # Native span descendants still have their own CSS cascade.
+                preserved.pop("font_size", None)
+                preserved.pop("bold", None)
+                preserved["font_size"] = _HEADING_FONT_SIZES[tag]
+                preserved["bold"] = True
             for token in re.findall(r"\s*\S+\s*|\s+", re.sub(r"\s+", " ", raw)):
                 # CSS text-content nodes inherit their parent style instead
                 # of independently matching a global 'text' selector.
