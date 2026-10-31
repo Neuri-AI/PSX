@@ -163,6 +163,38 @@ class TkSFLEGeometryTests(unittest.TestCase):
             )
             self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
 
+    def test_inline_span_stays_on_paragraph_line_in_tk(self):
+        self.renderer.set_sfle_constraints(constraints(800, 400))
+        root = self.reconciler.render(psx(
+            '<div style="display:flex; flex-direction:column; '
+            'align-items:center; height:100vh">'
+            '<p>Edit <span style="color:red">src/App.tsx</span>'
+            ' and save to test HMR</p>'
+            '<button>Count is 0</button></div>'
+        ))
+        paragraph, button = root.children
+        prefix = paragraph.children[0].handle.widget
+        span = paragraph.children[1].handle.widget
+        suffix = paragraph.children[2].handle.widget
+        nested = paragraph.children[1].children[0].handle.widget
+        assert rect(prefix)[1] == rect(span)[1] == rect(suffix)[1]
+        assert rect(prefix)[0] < rect(span)[0] < rect(suffix)[0]
+        assert nested.cget("text") == "src/App.tsx"
+        assert rect(paragraph.handle.widget)[2] == 800
+        assert rect(button.handle.widget)[1] >= (
+            rect(paragraph.handle.widget)[1] + rect(paragraph.handle.widget)[3]
+        )
+        self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+        for width in (220, 800):
+            self.renderer.set_sfle_constraints(constraints(width, 400))
+            self.renderer.commit_layout(root)
+            assert abs(rect(paragraph.handle.widget)[2] - width) <= 1
+            assert rect(paragraph.handle.widget)[3] >= rect(prefix)[3]
+            assert rect(button.handle.widget)[1] >= (
+                rect(paragraph.handle.widget)[1] + rect(paragraph.handle.widget)[3]
+            )
+            self.assertLessEqual(self.renderer.sfle_result.geometry_commit_error, 1.0)
+
     def test_css_background_is_scoped_to_a_single_ttk_frame(self):
         first = self.reconciler.render(psx('<div key="same" style="background-color: #112233" />'))
         widget = first.handle.widget
