@@ -481,7 +481,7 @@ def test_kivy_scrolled_grid_item_content_starts_at_content_origin():
     flow = SimpleNamespace(
         prepared=SimpleNamespace(
             identities=(),
-            snapshot=SimpleNamespace(nodes=()),
+            snapshot=SimpleNamespace(nodes=(SimpleNamespace(node_id="flow-root"),)),
         ),
         result=SimpleNamespace(boxes=()),
         nested_grids={},
