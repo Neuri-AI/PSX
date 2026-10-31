@@ -199,22 +199,29 @@ class PreparedNativeLayoutSnapshot:
                 display = style.get("display", origin.props.get("display"))
                 if display in ("block", "inline"):
                     style.pop("display", None)
-                    # PSX's HTML block hosts fill the available inline axis
-                    # of a column Flex, independently of cross-axis centering.
-                    # This is a semantic block-host rule (p, h1, section,
-                    # etc.), not a global override for Image/Button/Native
-                    # flex items. Authored CSS width/layout_width always wins.
+                    # HTML block hosts fill the available inline axis of
+                    # a column Flex, including when the parent centers native
+                    # controls. Use Cinnamon's cross-axis stretch, NOT an
+                    # injected 100% length: the latter can introduce an
+                    # indefinite percentage dependency cycle.
+                    #
+                    # Only un-sized, unaligned blocks receive this default.
+                    # Authored CSS width / align-self or native layout_width
+                    # always wins. Native Button/Image/Native items are not
+                    # formatting hosts and remain intrinsically sized.
                     direction = dict(parent.style).get("direction", "row")
-                    specified_width = (
-                        origin.css_computed is not None
-                        and "width" in origin.css_computed.specified
+                    specified = (
+                        origin.css_computed.specified
+                        if origin.css_computed is not None else frozenset()
                     )
                     if (display == "block"
                             and direction in ("column", "column-reverse")
                             and "layout_width" not in style
                             and "width" not in style
-                            and not specified_width):
-                        style["layout_width"] = "100%"
+                            and "width" not in specified
+                            and "align-self" not in specified
+                            and "align_self" not in style):
+                        style["align_self"] = "stretch"
                     # CSS block children that are purely an inline control
                     # run receive row wrapping, preserving browser-like
                     # Button intrinsic widths instead of column stacking.
