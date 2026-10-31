@@ -166,6 +166,13 @@ class QtMeasurementSource:
                 + float(font_metrics.ascent())))
         if request.node_id in self._text_ids:
             min_width, width = self._text_intrinsic_widths(widget, min_width)
+            font_metrics = widget.fontMetrics()
+            # The Text label's content is vertically centered inside its
+            # CSS line-height box. Baseline follows the actual native ascent,
+            # not the QLabel border (which differs for padded span siblings).
+            baseline = min(height, max(0.0,
+                (height - float(font_metrics.height())) / 2.0
+                + float(font_metrics.ascent())))
         metrics = IntrinsicSizes(
             min_content_width=min_width, max_content_width=max(width, min_width),
             min_content_height=min_height, max_content_height=max(height, min_height),
