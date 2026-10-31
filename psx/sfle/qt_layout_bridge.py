@@ -18,7 +18,7 @@ from psx.sfle.grid_native_commit import GridCommitBackend
 from psx.core.vnode import NodeKind
 from psx.sfle.adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+from psx.sfle.native_layout_snapshot import (prepare_native_layout_snapshot, inline_atomic_text_ids)
 from psx.sfle.external_native_geometry_ports import external_port_for, measure_external, read_external
 from psx.sfle.margin_tree import MarginTreeNode
 from psx.sfle.measurement_plan import MeasurementRequest
@@ -194,9 +194,28 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         if not source.is_ui_thread():
             raise SFLEError(DiagnosticCode.UNSUPPORTED_MEASUREMENT,
                             "Qt intrinsic measurement requires widget owner thread.")
+        atomic_words = inline_atomic_text_ids(prepared)
+        changed_word_wrap = False
+        for node_id in text_ids:
+            widget = leaf_widgets[node_id]
+            # The enclosing semantic inline run owns word wrapping. Qt's
+            # QLabel.wordWrap splits paths at '/', even when the parent line
+            # has space; a Text leaf representing one measured word is atomic.
+            # Restore normal QLabel wrapping if a future render removes the
+            # inline formatting context.
+            desired_wrap = node_id not in atomic_words
+            if widget.wordWrap() != desired_wrap:
+                widget.setWordWrap(desired_wrap)
+                document = getattr(widget, "_psx_css_document", None)
+                if document is not None:
+                    document.setTextWidth(-1 if not desired_wrap else max(1, widget.width()))
+                    widget._psx_css_intrinsic_hint = None
+                widget.updateGeometry()
+                changed_word_wrap = True
         measurements = []
         native_round = renderer._sfle_native_intrinsic_cache.begin(
-            invalidate_all=renderer._sfle_measurement_invalidations.invalidate_all,
+            invalidate_all=(renderer._sfle_measurement_invalidations.invalidate_all
+                            or changed_word_wrap),
             dirty_widgets=frozenset(renderer._sfle_measurement_invalidations.dirty_widgets))
         declared_props = {node_id: dict(vnode.props)
                           for node_id, vnode in prepared.identities}
