@@ -156,11 +156,15 @@ def _nodes(
     filename: str,
     *,
     lexical: bool,
+    preserve_text_edges: bool = False,
 ) -> list[VNode]:
     result: list[VNode] = []
     for node in nodes:
         if isinstance(node, TextNode):
-            value = _inline_text(node, scope, filename, lexical=lexical)
+            value = (
+                _inline_text_preserving_edges(node, scope, filename, lexical=lexical)
+                if preserve_text_edges else _inline_text(node, scope, filename, lexical=lexical)
+            )
             if value:
                 result.append(replace(Text(value), css_source=parse_markup_style("__psx_text_content__")))
         elif isinstance(node, Fragment):
@@ -258,7 +262,20 @@ def _element(
         return finish(constructor(_text_value(value, filename, element.span), key=key, **props))
     if contract is not None and contract.child_policy == "none" and element.children:
         _error(f"{definition.name} does not accept child content; use its props instead", filename, element.span)
-    children = _nodes(element.children, scope, resolver, filename, lexical=lexical)
+    # Preserve the spaces bordering inline tags: trimming every TextNode
+    # independently turns 'Edit <span>path</span> and save' into 'Editpathand
+    # save'. Structural newline-only indentation remains discarded by the
+    # normal parser for other (non-mixed) elements.
+    from psx.markup.html_aliases import FORMATTING_TAGS
+    mixed_inline = (
+        element.name in FORMATTING_TAGS
+        and any(isinstance(child, Element) and child.name in ("span", "label")
+                for child in element.children)
+    )
+    children = _nodes(
+        element.children, scope, resolver, filename, lexical=lexical,
+        preserve_text_edges=mixed_inline,
+    )
     return finish(constructor(*children, key=key, **props))
 
 
@@ -342,6 +359,21 @@ def _inline_children(
             _error("Only text interpolation is allowed inside Text and Button in M4A", filename, child.span)
         values.append(_inline_text(child, scope, filename, lexical=lexical))
     return _normalize_text("".join(values))
+
+
+def _inline_text_preserving_edges(
+    node: TextNode, scope: Mapping[str, object], filename: str, *, lexical: bool
+) -> str:
+    # HTML white-space:normal collapses internal runs but retains a single
+    # boundary space on either side of inline markup. Never strip each text
+    # sibling independently; the inline formatting run owns line edges.
+    output = []
+    for part in node.parts:
+        if isinstance(part, TextPart):
+            output.append(part.value)
+        else:
+            output.append(str(_resolve_reference(part.reference, scope, filename, lexical=lexical)))
+    return re.sub(r"\s+", " ", "".join(output))
 
 
 def _inline_text(node: TextNode, scope: Mapping[str, object], filename: str, *, lexical: bool) -> str:
