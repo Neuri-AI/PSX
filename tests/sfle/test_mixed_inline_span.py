@@ -200,6 +200,6 @@ def test_padded_span_preserves_text_baseline_in_same_inline_line(padding):
     )
     assert abs(
         solved[nested.node_id].content.y
-        - solved[span.node_id].content.y - padding
+        - solved[span.node_id].border.y - padding
     ) <= 1 / 64
     assert solved[span.node_id].border.height >= 18 + 2 * padding
