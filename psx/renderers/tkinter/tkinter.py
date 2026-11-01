@@ -1990,6 +1990,13 @@ class TkinterRenderer:
                     }[styles.get("text-align", "center")]
                 elif "text-align" in styles:
                     raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
+                if target.node_type == "Button":
+                    # ttk styles survive stylesheet refreshes. Omitting a
+                    # formerly authored color from configure() does not remove
+                    # its old value, so explicitly clear stale overrides.
+                    for paint_key in ("foreground", "background"):
+                        if paint_key not in config:
+                            config[paint_key] = ""
                 style.configure(style_name, **config)
                 if target.node_type == "Button":
                     # Theme maps can override the configured ordinary-state
