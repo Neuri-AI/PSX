@@ -99,3 +99,34 @@ def test_native_measured_flow_abi_is_negotiated_explicitly():
     assert present.status("measured_flow_primitives") == "certified"
     assert PYTHON_CAPABILITIES.status("measured_flow_primitives") == "certified"
 
+
+def test_legacy_css_and_used_size_imports_are_identical_shared_types():
+    """Old imports remain source-compatible without a second class hierarchy."""
+    from psx.layout.fallback.sizing import (
+        SizeProperty as OldProperty, ResolvedLength as OldResolved,
+    )
+    from psx.layout.projection.size_resolution import SizeProperty, ResolvedLength
+    from psx.layout.fallback.constraint_propagation import ChildSizing as OldSizing
+    from psx.layout.runtime.constraint_propagation import ChildSizing
+    from psx.layout.fallback.percentage_box_sizing import BoxSizing as OldBoxSizing
+    from psx.layout.projection.box_sizing import BoxSizing
+    from psx.layout.fallback.used_size_tree import (
+        UsedSizeTree as OldTree, NodeUsedSizing as OldNode,
+        propagate_definite_used_sizes as OldPropagate,
+    )
+    from psx.layout.projection.used_size_tree import (
+        NodeUsedSizing, propagate_definite_used_sizes,
+    )
+    from psx.layout.contracts.used_size import UsedSizeTree
+    from psx.layout.fallback.used_size import resolve_used_content_size as old_size
+    from psx.layout.projection.used_size import resolve_used_content_size as shared_size
+
+    assert OldProperty is SizeProperty
+    assert OldResolved is ResolvedLength
+    assert OldSizing is ChildSizing
+    assert OldBoxSizing is BoxSizing
+    assert OldTree is UsedSizeTree
+    assert OldNode is NodeUsedSizing
+    assert OldPropagate is propagate_definite_used_sizes
+    assert old_size is shared_size
+
