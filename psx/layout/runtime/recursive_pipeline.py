@@ -83,9 +83,10 @@ def compute_recursive_pipeline(
             generation=current_generation, writing=snapshot.direction,
         )
         if auto_cross:
-            sized = compute_auto_cross_tree(
+            sized = compute_margin_tree(
                 prepared, auto_cross=auto_cross,
                 generation=current_generation, writing=snapshot.direction,
+                engine=engine,
             )
         else:
             sized = compute_margin_tree(
