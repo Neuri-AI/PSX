@@ -63,3 +63,9 @@ jobs:
           mv psx/layout/fallback /tmp/cinnamon-fallback-removed
           test ! -e psx/layout/fallback
           python -m pytest -q -rs tests/architecture/test_rust_only_layout.py
+      - name: Certify real PySide6 renderer without Python solver
+        run: xvfb-run -a python -m pytest -q tests/architecture/test_rust_only_native_renderers.py -k qt_actual
+      - name: Certify real Tkinter renderer without Python solver
+        run: xvfb-run -a python -m pytest -q tests/architecture/test_rust_only_native_renderers.py -k tk_actual
+      - name: Certify real Kivy renderer without Python solver
+        run: xvfb-run -a python -m pytest -q tests/architecture/test_rust_only_native_renderers.py -k kivy_actual
