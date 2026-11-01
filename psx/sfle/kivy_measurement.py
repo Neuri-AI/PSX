@@ -95,7 +95,7 @@ class KivyMeasurementSource:
 
         return IntrinsicSizes(
             float(width), float(width), float(height), float(height),
-            float(width), float(height),
+            float(width), float(height), baseline=float(height),
         )
 
     @staticmethod
