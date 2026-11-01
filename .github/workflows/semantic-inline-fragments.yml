@@ -13,6 +13,9 @@ on:
       - 'psx/sfle/*layout_bridge.py'
       - 'tests/sfle/test_semantic_inline_text.py'
       - 'tests/interop/test_semantic_inline_rust_python_parity.py'
+      - 'tests/interop/test_cinnamon_block_rust_python_parity.py'
+      - 'rust/sfle-core/src/flow_snapshot.rs'
+      - 'psx/layout/engine/backend.py'
       - 'tests/sfle/test_semantic_inline_native_layout.py'
       - 'tests/test_kivy_button_default_padding.py'
       - 'tests/test_kivy_native_layout.py'
@@ -28,6 +31,9 @@ on:
       - 'psx/sfle/*layout_bridge.py'
       - 'tests/sfle/test_semantic_inline_text.py'
       - 'tests/interop/test_semantic_inline_rust_python_parity.py'
+      - 'tests/interop/test_cinnamon_block_rust_python_parity.py'
+      - 'rust/sfle-core/src/flow_snapshot.rs'
+      - 'psx/layout/engine/backend.py'
       - '.github/workflows/semantic-inline-fragments.yml'
 
 permissions:
@@ -95,3 +101,5 @@ jobs:
           python -c "import _sfle_native as x; assert x.schema_version()==1 and callable(x.compute_inline_text_json)"
       - name: Compare exact fragment, line, baseline and fixed-point positions
         run: python -m pytest -q tests/interop/test_semantic_inline_rust_python_parity.py
+      - name: Certify independent Block/Inline kernels (exact geometry)
+        run: python -m pytest -q tests/interop/test_cinnamon_block_rust_python_parity.py
