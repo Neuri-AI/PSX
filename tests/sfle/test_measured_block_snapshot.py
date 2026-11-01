@@ -91,9 +91,15 @@ def test_unmeasured_native_leaf_is_not_replaced_with_fake_zero():
         compute_measured_block_snapshot(snapshot(measured=False))
 
 
-def test_nested_native_tree_needs_real_nested_formatter():
-    with pytest.raises(SFLECapabilityError, match="Nested Block/Inline"):
-        compute_measured_block_snapshot(snapshot(nested=True))
+def test_nested_native_host_positions_its_child_without_resizing_native_box():
+    result = compute_measured_block_snapshot(snapshot(nested=True))
+    boxes = dict(result.boxes)
+    assert boxes["button"].content.width == 40
+    assert boxes["button"].content.height == 12
+    assert boxes["text"].content.x == boxes["button"].content.x
+    assert boxes["text"].content.y == boxes["button"].content.y
+    assert boxes["text"].content.width == 40
+    assert boxes["root"].content.height == 12
 
 
 def test_inline_atoms_share_a_line_and_align_native_baselines():
