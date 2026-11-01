@@ -317,6 +317,13 @@ class KivyMeasurementSource:
                 "Kivy widget has no known intrinsic measurement (texture/minimum size).",
             )
         width, height = (float(v) for v in pair)
+        if getattr(widget, "_psx_ua_button_padding_active", False):
+            # CSS authored padding belongs to Cinnamon box edges; only the
+            # default UA inset belongs to native intrinsic Button metrics.
+            from kivy.metrics import dp
+            left, top, right, bottom = widget._psx_ua_button_padding
+            width += dp(left + right)
+            height += dp(top + bottom)
         if width < 0 or height < 0:
 
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
