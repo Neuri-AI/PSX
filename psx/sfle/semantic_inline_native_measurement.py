@@ -32,7 +32,9 @@ def tk_inline_measure(widgets: dict[str, object]) -> Callable[[str, str], Inline
     for node_id, widget in widgets.items():
         selected = widget.cget("font") if "font" in widget.keys() else ""
         if not selected and isinstance(widget, ttk.Widget):
-            selected = ttk.Style(widget).lookup(widget.winfo_class(), "font")
+            style_name = (widget.cget("style") if "style" in widget.keys()
+                          else "") or widget.winfo_class()
+            selected = ttk.Style(widget).lookup(style_name, "font")
         if not selected:
             selected = "TkDefaultFont"
         # Copy Tcl's actual font attributes into a transaction-local font.
