@@ -5,6 +5,7 @@ on:
     branches: [feature/semantic-inline-fragments]
     paths:
       - '.github/workflows/layout-architecture-migration.yml'
+      - 'scripts/normalize_cinnamon_imports.py'
   workflow_dispatch:
 
 permissions:
@@ -30,6 +31,9 @@ jobs:
       - name: Apply deterministic 113-module source migration
         run: |
           python scripts/migrate_layout_architecture.py
+          if test -f scripts/normalize_cinnamon_imports.py; then
+            python scripts/normalize_cinnamon_imports.py
+          fi
           test ! -e psx/sfle
           python - <<'PY'
           import ast
