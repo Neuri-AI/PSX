@@ -68,6 +68,7 @@ def layout_measured_children(
     mode: DisplayMode,
     available_width: float,
     items: tuple[object, ...],
+    *, engine: object | None = None,
 ) -> tuple[object, ...]:
     """Dispatch a strictly measured flow, without claiming full CSS support.
 
@@ -75,20 +76,19 @@ def layout_measured_children(
     atomic InlineAtom boxes. Text fragments must be handled by a separate
     typography-aware formatter; flex belongs to the existing Cinnamon solver.
     """
-    from psx.layout.fallback.flow_layout import (
-        BlockItem, InlineAtom, layout_block_children, layout_inline_atoms,
-    )
+    from psx.layout.contracts.flow import BlockItem, InlineAtom
+    from psx.layout.flow.solver import layout_block_children, layout_inline_atoms
 
     if mode.inner is InnerDisplay.FLEX:
         raise NotImplementedError("Flex display must use the Cinnamon Flex solver.")
     if mode.outer is OuterDisplay.BLOCK and mode.inner is InnerDisplay.FLOW:
         if not all(isinstance(item, BlockItem) for item in items):
             raise TypeError("Block flow requires measured BlockItem boxes.")
-        return layout_block_children(available_width, items)
+        return layout_block_children(available_width, items, engine=engine)
     if mode.inner is InnerDisplay.FLOW and mode.outer is OuterDisplay.INLINE:
         if not all(isinstance(item, InlineAtom) for item in items):
             raise TypeError("Inline flow requires measured atomic boxes; text runs are not supported.")
-        return layout_inline_atoms(available_width, items)
+        return layout_inline_atoms(available_width, items, engine=engine)
     raise NotImplementedError(
         "Independent flow-root and inline-block contexts require native "
         "measurement and nested formatting integration."

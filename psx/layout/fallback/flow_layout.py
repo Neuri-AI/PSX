@@ -6,29 +6,9 @@ corresponding formatting algorithm is certified.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from psx.layout.contracts.flow import BlockItem, BlockPlacement, InlineAtom
 
 from psx.layout.contracts.fixed_point import LayoutUnit
-
-
-@dataclass(frozen=True, slots=True)
-class BlockItem:
-    """A measured child border box and its resolved outer margins in CSS px."""
-
-    width: float
-    height: float
-    margin_top: float = 0.0
-    margin_right: float = 0.0
-    margin_bottom: float = 0.0
-    margin_left: float = 0.0
-
-
-@dataclass(frozen=True, slots=True)
-class BlockPlacement:
-    x: float
-    y: float
-    width: float
-    height: float
 
 
 def layout_block_children(
@@ -63,15 +43,6 @@ def layout_block_children(
         placements.append(BlockPlacement(x, y, child_width, px(child.height)))
         cursor = px(y + child.height + child.margin_bottom)
     return tuple(placements)
-
-
-@dataclass(frozen=True, slots=True)
-class InlineAtom:
-    """One measured, unbreakable inline-level box (not text fragments)."""
-
-    width: float
-    height: float
-    baseline: float
 
 
 def layout_inline_atoms(

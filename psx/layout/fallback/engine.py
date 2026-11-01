@@ -106,3 +106,10 @@ class PythonLayoutEngine:
         return python_layout_inline_text(
             sources, available_width, measure, text_align=text_align,
         )
+    def layout_block_children(self, available_width, children):
+        from psx.layout.flow.solver import layout_block_children
+        return layout_block_children(available_width, children, engine=self)
+
+    def layout_inline_atoms(self, available_width, atoms):
+        from psx.layout.flow.solver import layout_inline_atoms
+        return layout_inline_atoms(available_width, atoms, engine=self)

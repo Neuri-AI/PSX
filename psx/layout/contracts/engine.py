@@ -10,6 +10,7 @@ from typing import Protocol
 from psx.layout.contracts.capabilities import EngineCapabilities
 from psx.layout.contracts.errors import SFLECapabilityError
 from psx.layout.contracts.model import LayoutInput, LayoutResult
+from psx.layout.contracts.flow import BlockItem, BlockPlacement, InlineAtom
 from psx.layout.grid.contracts import GridConstrainedRect, GridItemConstraints, GridSlot
 from psx.layout.inline.semantic_inline_text import (
     InlineTextLayout, InlineTextMetrics, InlineTextSource,
@@ -53,3 +54,10 @@ class LayoutEngine(Protocol):
         measure: Callable[[str, str], InlineTextMetrics], *,
         text_align: str = "left",
     ) -> InlineTextLayout: ...
+    def layout_block_children(
+        self, available_width: float, children: tuple[BlockItem, ...],
+    ) -> tuple[BlockPlacement, ...]: ...
+
+    def layout_inline_atoms(
+        self, available_width: float, atoms: tuple[InlineAtom, ...],
+    ) -> tuple[BlockPlacement, ...]: ...
