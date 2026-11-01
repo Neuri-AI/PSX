@@ -162,13 +162,19 @@ class HeadlessRenderer:
     def commit_layout(self, root: object) -> None:
         """Commit actual SFLE geometry for the mounted root (if enabled)."""
         if self._sfle_constraints is not None:
-            from psx.layout.adapters.headless_grid_bridge import is_mounted_grid_root, commit_headless_grid
-            from psx.layout.adapters.headless_block_bridge import (
-                commit_headless_block, is_mounted_block_root,
-            )
-            if is_mounted_grid_root(root):
+            # Dispatch by the mounted semantic root BEFORE importing a
+            # specialized adapter. Otherwise a simple Rust Flex layout
+            # eagerly imports Grid's optional Python numerical solver.
+            from psx.markup.html_aliases import FORMATTING_TAGS
+            mounted = root
+            while mounted.node.kind is NodeKind.COMPONENT and len(mounted.children) == 1:
+                mounted = mounted.children[0]
+            kind = mounted.node.type
+            if kind == "Grid":
+                from psx.layout.adapters.headless_grid_bridge import commit_headless_grid
                 commit_headless_grid(self, root)
-            elif is_mounted_block_root(root):
+            elif kind in FORMATTING_TAGS:
+                from psx.layout.adapters.headless_block_bridge import commit_headless_block
                 commit_headless_block(self, root)
             else:
                 from psx.layout.adapters.headless_layout_bridge import commit_headless_sfle
