@@ -1,4 +1,4 @@
-"""Rust-primary Cinnamon Grid math entry point.
+"""Engine-neutral Cinnamon Grid entry point.
 
 Native width allocations and final rectangles are calculated by _sfle_native
 when the selected Cinnamon engine is Rust. The optional Python solver is
@@ -6,7 +6,6 @@ imported ONLY when Python was explicitly selected because native is absent.
 """
 from __future__ import annotations
 
-import json
 import math
 from collections.abc import Mapping, Sequence
 
@@ -109,45 +108,13 @@ def compute_grid(
     if engine is None:
         from psx.layout.engine.backend import load_layout_engine
         engine = load_layout_engine()
-    backend = getattr(engine, "backend_name", None)
-    if backend == "python":
-        from psx.layout.fallback.grid_math import compute_grid as python_compute_grid
-        return python_compute_grid(
-            slots, content_width, column_gap, row_gap, item_heights,
-            constraints, rtl=rtl,
-        )
-    if backend != "rust":
-        raise TypeError("Cinnamon Grid requires a RustLayoutEngine or PythonLayoutEngine.")
-    method = getattr(getattr(engine, "_module", None), "compute_grid_json", None)
-    if not callable(method):
-        from psx.layout.contracts.errors import SFLEError, DiagnosticCode
-        raise SFLEError(DiagnosticCode.BACKEND_MISMATCH,
-                        "Cinnamon Rust wheel lacks the mandatory Grid ABI.")
-    payload = {
-        "items": [
-            {"id": s.id, "span": s.span, "offset": s.offset, "order": s.order}
-            for s in slots
-        ],
-        "width": content_width,
-        "column_gap": column_gap,
-        "row_gap": row_gap,
-        "heights": dict(item_heights or {}),
-        "constraints": {
-            key: {
-                "min_width": value.min_width,
-                "max_width": value.max_width,
-                "min_height": value.min_height,
-                "max_height": value.max_height,
-            }
-            for key, value in (constraints or {}).items()
-        },
-        "rtl": rtl,
-    }
-    try:
-        raw = json.loads(method(json.dumps(payload, allow_nan=False)))
-        return tuple(tuple(GridConstrainedRect(**cell) for cell in row) for row in raw)
-    except (TypeError, ValueError, KeyError) as exc:
-        raise GridPackingError(f"Cinnamon Rust Grid result is invalid: {exc}") from exc
+    compute = getattr(engine, "compute_grid", None)
+    if not callable(compute):
+        raise TypeError("Cinnamon Grid requires an engine with compute_grid().")
+    return compute(
+        slots, content_width, column_gap, row_gap,
+        item_heights, constraints, rtl=rtl,
+    )
 
 
 def grid_widths(

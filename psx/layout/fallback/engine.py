@@ -79,23 +79,19 @@ class PythonLayoutEngine:
         return compute_snapshot(request, provisional=True)
 
     def compute_grid(
-        self,
-        slots,
-        content_width,
-        column_gap=0,
-        row_gap=0,
-        item_heights=None,
-        constraints=None,
-        *,
-        rtl=False,
+        self, slots, content_width, column_gap=0, row_gap=0,
+        item_heights=None, constraints=None, *, rtl=False,
     ):
-        """Pure Cinnamon Grid math integration; native mounting remains G3."""
-        # The common adapter validates the same inputs for Rust and Python.
-        # It routes back into the standalone Python algorithm without recursion.
-        from psx.layout.grid.solver import compute_grid
-        return compute_grid(
-            slots, content_width, column_gap, row_gap, item_heights,
-            constraints, rtl=rtl, engine=self,
+        """Compute with the independent optional Python Grid solver."""
+        from psx.layout.grid.solver import _validate_grid_input
+        from psx.layout.fallback.grid_math import compute_grid as python_compute
+        _validate_grid_input(
+            slots, content_width, column_gap, row_gap,
+            item_heights, constraints, rtl=rtl,
+        )
+        return python_compute(
+            slots, content_width, column_gap, row_gap,
+            item_heights, constraints, rtl=rtl,
         )
 
     def layout_inline_text(
@@ -117,12 +113,15 @@ class PythonLayoutEngine:
     def compute_recursive_tree(
         self, nodes, *, generation, writing=None, auto_cross=(),
     ):
-        """Run independent Python recursive numerical geometry."""
+        """Compute with the independent optional Python recursive solver."""
         from psx.layout.contracts.model import WritingDirection
-        from psx.layout.runtime.recursive_geometry import compute_margin_tree
-        return compute_margin_tree(
-            nodes, generation=generation,
-            writing=WritingDirection.LTR if writing is None else writing,
-            auto_cross=auto_cross, engine=self,
-        )
-
+        if writing is None:
+            writing = WritingDirection.LTR
+        if auto_cross:
+            from psx.layout.fallback.auto_cross_tree import compute_auto_cross_tree
+            return compute_auto_cross_tree(
+                nodes, auto_cross=auto_cross,
+                generation=generation, writing=writing,
+            )
+        from psx.layout.fallback.margin_tree import compute_margin_tree
+        return compute_margin_tree(nodes, generation=generation, writing=writing)

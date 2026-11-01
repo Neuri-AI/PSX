@@ -100,21 +100,68 @@ class RustLayoutEngine:
         self, slots, content_width, column_gap=0, row_gap=0,
         item_heights=None, constraints=None, *, rtl=False,
     ):
-        """Compute Grid using this engine's actual native PyO3 ABI."""
-        from psx.layout.grid.solver import compute_grid
-        return compute_grid(
-            slots, content_width, column_gap, row_gap, item_heights,
-            constraints, rtl=rtl, engine=self,
+        """Compute Grid through the real native Rust ABI."""
+        import json
+        from psx.layout.grid.contracts import GridConstrainedRect, GridPackingError
+        from psx.layout.grid.solver import _validate_grid_input
+        _validate_grid_input(
+            slots, content_width, column_gap, row_gap,
+            item_heights, constraints, rtl=rtl,
         )
+    method = getattr(self._module, "compute_grid_json", None)
+    if not callable(method):
+        from psx.layout.contracts.errors import SFLEError, DiagnosticCode
+        raise SFLEError(DiagnosticCode.BACKEND_MISMATCH,
+                        "Cinnamon Rust wheel lacks the mandatory Grid ABI.")
+    payload = {
+        "items": [
+            {"id": s.id, "span": s.span, "offset": s.offset, "order": s.order}
+            for s in slots
+        ],
+        "width": content_width,
+        "column_gap": column_gap,
+        "row_gap": row_gap,
+        "heights": dict(item_heights or {}),
+        "constraints": {
+            key: {
+                "min_width": value.min_width,
+                "max_width": value.max_width,
+                "min_height": value.min_height,
+                "max_height": value.max_height,
+            }
+            for key, value in (constraints or {}).items()
+        },
+        "rtl": rtl,
+    }
+    try:
+        raw = json.loads(method(json.dumps(payload, allow_nan=False)))
+        return tuple(tuple(GridConstrainedRect(**cell) for cell in row) for row in raw)
+    except (TypeError, ValueError, KeyError) as exc:
+        raise GridPackingError(f"Cinnamon Rust Grid result is invalid: {exc}") from exc
 
     def layout_inline_text(
         self, sources, available_width, measure, *, text_align="left",
     ):
-        """Compute text geometry with Rust's independent numerical kernel."""
-        from psx.layout.inline.semantic_inline_text import layout_inline_text
-        return layout_inline_text(
-            sources, available_width, measure,
-            text_align=text_align, engine=self,
+        """Tokenize/measure shared text, solve native Rust fragment placement."""
+        import math
+        from psx.layout.inline.semantic_inline_text import (
+            _measured_inline_atoms, InlineTextFragment, InlineTextLayout,
+        )
+        if not math.isfinite(available_width) or available_width < 0:
+            raise ValueError("Inline containing width must be finite and nonnegative.")
+        if text_align not in ("left", "right", "center"):
+            raise ValueError("Unsupported inline text alignment.")
+        response = self.compute_inline_text({
+            "width": available_width,
+            "text_align": text_align,
+            "atoms": _measured_inline_atoms(sources, measure),
+        })
+        fragments = tuple(
+            InlineTextFragment(**part) for part in response["fragments"]
+        )
+        return InlineTextLayout(
+            fragments, response["width"], response["height"],
+            response["line_count"],
         )
 
     def layout_block_children(self, available_width, children):
@@ -130,14 +177,99 @@ class RustLayoutEngine:
     def compute_recursive_tree(
         self, nodes, *, generation, writing=None, auto_cross=(),
     ):
-        """Run independent native Rust recursion with the legacy typed-tree ABI."""
-        from psx.layout.contracts.model import WritingDirection
-        from psx.layout.runtime.recursive_geometry import compute_margin_tree
-        return compute_margin_tree(
-            nodes, generation=generation,
-            writing=WritingDirection.LTR if writing is None else writing,
-            auto_cross=auto_cross, engine=self,
+        """Run the independently compiled Rust recursive layout kernel."""
+        from dataclasses import asdict
+        from enum import Enum
+        import json
+        from psx.layout.contracts.model import Rect, WritingDirection
+        from psx.layout.contracts.recursive_tree import (
+            MarginFlexBox, MarginTreeLayout, MarginTreeNode,
         )
+        if writing is None:
+            writing = WritingDirection.LTR
+        if type(generation) is not int or generation < 0:
+            raise ValueError("generation must be a nonnegative integer.")
+        if not isinstance(writing, WritingDirection):
+            raise TypeError("writing must be WritingDirection.")
+        if not isinstance(nodes, tuple) or any(
+            not isinstance(node, MarginTreeNode) for node in nodes
+        ):
+            raise TypeError("nodes must be tuple[MarginTreeNode, ...].")
+    module = self._module
+    native = getattr(module, "compute_recursive_tree_json", None)
+    if not callable(native):
+        raise SFLEError(
+            DiagnosticCode.BACKEND_MISMATCH,
+            "The selected Rust Cinnamon wheel lacks recursive geometry ABI.",
+        )
+    payload = {
+        "generation": generation,
+        "writing": writing.value,
+        "nodes": [asdict(node) for node in nodes],
+        "auto_cross": [item.node_id for item in auto_cross],
+    }
+    # Explicit serializer of enums preserves the original typed contract.
+    def serialize(value: object):
+        if isinstance(value, Enum):
+            return value.value
+        raise TypeError(f"Unsupported recursive wire value: {type(value).__name__}")
+
+    try:
+        wire = json.dumps(payload, default=serialize, allow_nan=False)
+    except (TypeError, ValueError) as exc:
+        raise SFLEError(
+            DiagnosticCode.INVALID_SNAPSHOT,
+            f"Invalid recursive geometry snapshot: {exc}",
+        ) from exc
+    try:
+        result = json.loads(native(wire))
+    except (ValueError, TypeError) as exc:
+        raise SFLEError(
+            DiagnosticCode.INVALID_TREE,
+            f"Native recursive geometry rejected the tree: {exc}",
+        ) from exc
+    if not isinstance(result, dict) or result.get("generation") != generation:
+        raise SFLEError(
+            DiagnosticCode.BACKEND_MISMATCH,
+            "Rust recursive geometry returned an invalid generation.",
+        )
+    def rect(data):
+        return Rect(data["x"], data["y"], data["width"], data["height"])
+
+    # Fixed (non-auto) CSS margins are *inputs*, not computed layout sizes.
+    # A serde_json float roundtrip can change the shortest binary rendering by
+    # one ULP; the historical Python API preserves the exact supplied value.
+    # Leave auto margins and every coordinate to the real native Rust solver.
+    source_items = {
+        node.node_id: node.item for node in nodes if node.item is not None
+    }
+    def used_margin(box, side):
+        item = source_items.get(box["node_id"])
+        if item is not None:
+            declared = getattr(item, side).value
+            if declared is not None:
+                return declared
+        return box["used_" + side + "_margin"]
+
+    try:
+        boxes = tuple(MarginFlexBox(
+            box["node_id"], rect(box["content"]), rect(box["padding"]),
+            rect(box["border"]), used_margin(box, "main_start"),
+            used_margin(box, "main_end"), box["line_index"],
+            box["used_cross_start_margin"], box["used_cross_end_margin"],
+        ) for box in result["boxes"])
+    except (TypeError, KeyError, ValueError) as exc:
+        raise SFLEError(
+            DiagnosticCode.BACKEND_MISMATCH,
+            "Rust recursive geometry returned malformed rectangles.",
+        ) from exc
+    if tuple(b.node_id for b in boxes) != tuple(n.node_id for n in nodes):
+        raise SFLEError(
+            DiagnosticCode.BACKEND_MISMATCH,
+            "Rust recursive geometry changed tree ordering or identities.",
+        )
+    return MarginTreeLayout(generation, boxes)
+
 
 
 def load_layout_engine() -> RustLayoutEngine | object:

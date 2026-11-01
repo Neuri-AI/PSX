@@ -130,31 +130,9 @@ def layout_inline_text(
     if engine is None:
         from psx.layout.engine.backend import load_layout_engine
         engine = load_layout_engine()
-    backend = getattr(engine, "backend_name", None)
-    if backend not in ("python", "rust"):
-        raise TypeError("Inline layout requires a Cinnamon Rust or Python engine.")
-
-    # Fail closed for a selected Rust engine: no Python calculations may
-    # masquerade as native Rust output. The extension must provide the
-    # explicit inline ABI, otherwise this layout transaction fails.
-    if backend == "rust":
-        payload = {
-            "width": available_width,
-            "text_align": text_align,
-            "atoms": _measured_inline_atoms(sources, measure),
-        }
-        native = getattr(engine, "compute_inline_text", None)
-        if not callable(native):
-            raise RuntimeError("Rust Cinnamon inline ABI is unavailable.")
-        result = native(payload)
-        fragments = tuple(InlineTextFragment(**part)
-                          for part in result["fragments"])
-        return InlineTextLayout(fragments, result["width"],
-                                result["height"], result["line_count"])
-
-    # Only the explicitly selected Python engine uses the Python solver.
-    # Rust's native numeric result is returned above without importing it.
-    from psx.layout.fallback.semantic_inline_text import python_layout_inline_text
-    return python_layout_inline_text(
+    compute = getattr(engine, "layout_inline_text", None)
+    if not callable(compute):
+        raise TypeError("Inline layout requires an engine with layout_inline_text().")
+    return compute(
         sources, available_width, measure, text_align=text_align,
     )
