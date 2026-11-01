@@ -84,11 +84,14 @@ def _tk_paint(widget, fragments, box):
     surface.configure(background=background)
     surface.place(x=0, y=0, relwidth=1, relheight=1)
     surface.delete("all")
+    # PSX assigns a widget-specific ttk style for authored CSS color/font.
+    # TLabel would silently fall back to the theme instead of the span's red.
+    style_name = (widget.cget("style") if "style" in widget.keys()
+                  else "") or widget.winfo_class()
     font = widget.cget("font") if "font" in widget.keys() else ""
     if not font:
-        font = style.lookup(widget.winfo_class(), "font") or "TkDefaultFont"
-    color = (style.lookup(widget.winfo_class(), "foreground")
-             or widget.cget("foreground"))
+        font = style.lookup(style_name, "font") or "TkDefaultFont"
+    color = style.lookup(style_name, "foreground") or widget.cget("foreground")
     for f in fragments:
         if f.text.isspace():
             continue
