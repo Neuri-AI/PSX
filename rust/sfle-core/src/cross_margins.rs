@@ -36,10 +36,13 @@ pub fn position_cross_margins(
 
     let (used_start, used_end) = if auto_count > 0 && free > 0.0 {
         let share = unit(free / auto_count as f64);
-        (start.unwrap_or(share), end.unwrap_or(share))
+        (if start.is_none() { share } else { start_fixed },
+         if end.is_none() { share } else { end_fixed })
     } else if auto_count > 0 {
-        let used_start = start.unwrap_or(0.0);
-        (used_start, end.unwrap_or(sub(line_cross_size,[border_cross_size,used_start])))
+        let used_start = if start.is_none() { 0.0 } else { start_fixed };
+        (used_start, if end.is_none() {
+            sub(line_cross_size,[border_cross_size,used_start])
+        } else { end_fixed })
     } else {
         (start_fixed, end_fixed)
     };
@@ -72,6 +75,21 @@ mod tests {
         assert_eq!(p.used_start_margin, 0.0);
         assert_eq!(p.used_end_margin, -30.0);
         assert_eq!(p.border_start, 0.0);
+    }
+
+    #[test]
+    fn fixed_fractional_cross_margin_is_quantized_even_with_auto_opposite() {
+        let m = position_cross_margins(
+            24.0, 80.0, None, Some(3.993317968460473), true,
+        ).unwrap();
+        assert_eq!(m.used_start_margin, 52.0);
+        assert_eq!(m.used_end_margin, 4.0);
+
+        let n = position_cross_margins(
+            24.0, 20.0, Some(3.993317968460473), None, true,
+        ).unwrap();
+        assert_eq!(n.used_start_margin, 4.0);
+        assert_eq!(n.used_end_margin, -8.0);
     }
 
     #[test]
