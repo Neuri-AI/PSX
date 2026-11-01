@@ -64,6 +64,13 @@ class KivyMeasurementSource:
         from psx.renderers.components.image import compute_target_size
         texture = widget.texture
         if texture is None:
+            # Kivy may clear the displayed texture on a deferred Clock tick
+            # for an SVG whose native source is intentionally blank. The
+            # adapter retains the decoded texture as the intrinsic authority.
+            texture = getattr(widget, "_psx_svg_texture", None)
+            if texture is not None:
+                widget.texture = texture
+        if texture is None:
             # kivy.uix.image.Image normally loads local sources immediately.
             # On providers deferring the widget texture, force a synchronous
             # *source* decode, never fall back to Widget.size=(100,100).
