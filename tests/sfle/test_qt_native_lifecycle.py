@@ -4,17 +4,17 @@ import pytest
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
 QtCore = pytest.importorskip("PySide6.QtCore")
 
-from psx.sfle.constraint_propagation import ChildSizing
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.lengths import Length
-from psx.sfle.margin_flex_pipeline import MarginFlexItem
-from psx.sfle.margin_tree import MarginTreeNode
-from psx.sfle.model import (
+from psx.layout.fallback.constraint_propagation import ChildSizing
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.contracts.lengths import Length
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem
+from psx.layout.fallback.margin_tree import MarginTreeNode
+from psx.layout.contracts.model import (
     AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
 )
-from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
-from psx.sfle.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
-from psx.sfle.qt_measurement import QtMeasurementSource
+from psx.layout.adapters.native_geometry import GeometryBackend, NativeGeometryCommitter
+from psx.layout.runtime.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
+from psx.renderers.qt.cinnamon_qt_measurement import QtMeasurementSource
 
 
 def test_qt_offscreen_native_measure_and_commit():

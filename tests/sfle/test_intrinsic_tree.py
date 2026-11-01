@@ -1,14 +1,14 @@
 """Measured leaf flex input integration tests."""
 import pytest
 
-from psx.sfle.errors import SFLEError
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.intrinsic_tree import IntrinsicLeafStyle, compute_measured_leaf_tree
-from psx.sfle.lengths import Length, LengthKind
-from psx.sfle.line_layout import FlexDirection
-from psx.sfle.margin_flex_pipeline import MarginFlexItem
-from psx.sfle.margin_tree import MarginTreeNode
-from psx.sfle.model import (
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.intrinsic_tree import IntrinsicLeafStyle, compute_measured_leaf_tree
+from psx.layout.contracts.lengths import Length, LengthKind
+from psx.layout.fallback.line_layout import FlexDirection
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem
+from psx.layout.fallback.margin_tree import MarginTreeNode
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox,
 )
 

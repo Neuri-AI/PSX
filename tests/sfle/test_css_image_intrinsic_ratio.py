@@ -7,13 +7,13 @@ unscaled intrinsic block size after a CSS width override.
 from dataclasses import replace
 import pytest
 
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.lengths import Length
-from psx.sfle.model import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.lengths import Length
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints,
     LayoutInput, LayoutNode, MeasuredBox, WritingDirection,
 )
-from psx.sfle.replaced_image_sizing import with_replaced_image_aspect_ratios
+from psx.layout.projection.replaced_image_sizing import with_replaced_image_aspect_ratios
 
 
 def _input(image_style, *, viewport=800, source=(400, 300)):

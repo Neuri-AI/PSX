@@ -15,8 +15,8 @@ class ComponentLexicalRuntimeTests(unittest.TestCase):
         source = '''
 from psx import App, component, psx, use_effect, use_ref, use_state
 from psx.renderers.headless import HeadlessRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
 events = []
 
@@ -91,8 +91,8 @@ print("LEXICAL_COMPONENT_OK")
         source = '''
 from psx import App, component, psx, use_state
 from psx.renderers.headless import HeadlessRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
 @component
 def CustomButton():
@@ -159,8 +159,8 @@ print("COMPOSITION_TERNARY_OK")
         source = '''
 from psx import App, component, psx, use_state
 from psx.renderers.headless import HeadlessRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
 events = []
 

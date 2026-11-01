@@ -10,9 +10,9 @@ import pytest
 
 from psx import psx
 from psx.core.layout_tree import normalize_flex_tree
-from psx.sfle.native_layout_snapshot import (prepare_native_layout_snapshot, inline_atomic_text_ids)
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import (
+from psx.layout.projection.native_layout_snapshot import (prepare_native_layout_snapshot, inline_atomic_text_ids)
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, MeasuredBox, WritingDirection,
 )
@@ -71,7 +71,7 @@ def test_css_flex_paragraph_treats_mixed_inline_nodes_as_wrapping_row(width):
 
 
 def test_block_root_inline_span_stays_on_same_measured_line_when_it_fits():
-    from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
+    from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
     constraints = _constraints(400)
     nodes = (
         LayoutNode("root", None, "div", (("display", "block"),)),
@@ -97,7 +97,7 @@ def test_block_root_inline_span_stays_on_same_measured_line_when_it_fits():
 
 
 def test_block_root_mixed_inline_wraps_at_available_width():
-    from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
+    from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
     constraints = _constraints(150)
     nodes = (
         LayoutNode("p", None, "p", (("display", "block"),)),
@@ -157,7 +157,7 @@ def render(count, set_count):
 def test_padded_span_preserves_text_baseline_in_same_inline_line(padding):
     """Browser-style glyph alignment: padding expands background, not text shift."""
     from dataclasses import replace
-    from psx.sfle.inline_baselines import with_inline_span_baselines
+    from psx.layout.projection.inline_baselines import with_inline_span_baselines
 
     source = psx(
         '<div style="display:flex; flex-direction:column; align-items:center">'

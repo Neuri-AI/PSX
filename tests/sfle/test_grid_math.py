@@ -7,7 +7,7 @@ import random
 
 import pytest
 
-from psx.sfle.grid_math import (
+from psx.layout.fallback.grid_math import (
     GridPackingError, GridSlot, pack_grid_rows,
 )
 
@@ -90,7 +90,7 @@ PIXEL_CASES = json.loads(
 
 @pytest.mark.parametrize("case", PIXEL_CASES, ids=lambda item: item["name"])
 def test_fixed_point_pixel_projection_matches_shared_rust_fixtures(case):
-    from psx.sfle.grid_math import project_grid_rows
+    from psx.layout.fallback.grid_math import project_grid_rows
     rows = pack_grid_rows([GridSlot(**item) for item in case["items"]])
     if case.get("error") == "invalid":
         with pytest.raises(GridPackingError):
@@ -108,14 +108,14 @@ def test_fixed_point_pixel_projection_matches_shared_rust_fixtures(case):
     (100, float("inf")), (100, -1), (100, True),
 ))
 def test_pixel_projection_rejects_invalid_constraints(width, gap):
-    from psx.sfle.grid_math import project_grid_rows
+    from psx.layout.fallback.grid_math import project_grid_rows
     rows = pack_grid_rows([GridSlot("a", "auto")])
     with pytest.raises(GridPackingError):
         project_grid_rows(rows, width, gap)
 
 
 def test_pixel_projection_does_not_accumulate_edge_drift():
-    from psx.sfle.grid_math import project_grid_rows
+    from psx.layout.fallback.grid_math import project_grid_rows
     rows = pack_grid_rows([GridSlot(str(index), "auto") for index in range(11)])
     projection = project_grid_rows(rows, 109.17, 0.31)[0].items
     gap_raw = round(0.31 * 64)
@@ -132,7 +132,7 @@ CROSS_AXIS_CASES = json.loads(
 
 @pytest.mark.parametrize("case", CROSS_AXIS_CASES, ids=lambda item: item["name"])
 def test_grid_rtl_and_cross_axis_shared_fixtures(case):
-    from psx.sfle.grid_math import layout_grid_rects
+    from psx.layout.fallback.grid_math import layout_grid_rects
     rows = pack_grid_rows([GridSlot(**item) for item in case["items"]])
     if case.get("error") == "invalid":
         with pytest.raises(GridPackingError):
@@ -159,7 +159,7 @@ def test_grid_rtl_and_cross_axis_shared_fixtures(case):
     (0, {"a": 10}, 1),
 ))
 def test_grid_cross_axis_rejects_invalid_input(row_gap, heights, rtl):
-    from psx.sfle.grid_math import layout_grid_rects
+    from psx.layout.fallback.grid_math import layout_grid_rects
     rows = pack_grid_rows([GridSlot("a", 12)])
     with pytest.raises(GridPackingError):
         layout_grid_rects(rows, 120, 0, row_gap, heights, rtl=rtl)
@@ -170,7 +170,7 @@ def test_grid_cross_axis_rejects_invalid_input(row_gap, heights, rtl):
     (100, 40_000_000),
 ))
 def test_grid_pixel_projection_rejects_unrepresentable_dimensions(width, gap):
-    from psx.sfle.grid_math import project_grid_rows
+    from psx.layout.fallback.grid_math import project_grid_rows
     rows = pack_grid_rows([GridSlot("a", 6), GridSlot("b", 6)])
     with pytest.raises(GridPackingError, match="LayoutUnit"):
         project_grid_rows(rows, width, gap)
@@ -184,21 +184,21 @@ def test_grid_pixel_projection_rejects_unrepresentable_dimensions(width, gap):
 def test_grid_cross_axis_rejects_unrepresentable_dimensions(
     width, gap, row_gap, heights
 ):
-    from psx.sfle.grid_math import layout_grid_rects
+    from psx.layout.fallback.grid_math import layout_grid_rects
     rows = pack_grid_rows([GridSlot("a", 12)])
     with pytest.raises(GridPackingError, match="LayoutUnit"):
         layout_grid_rects(rows, width, gap, row_gap, heights)
 
 
 def test_grid_cross_axis_rejects_accumulated_vertical_overflow():
-    from psx.sfle.grid_math import layout_grid_rects
+    from psx.layout.fallback.grid_math import layout_grid_rects
     rows = pack_grid_rows([GridSlot("a", 12), GridSlot("b", 12)])
     with pytest.raises(GridPackingError, match="vertical geometry"):
         layout_grid_rects(rows, 100, 0, 10, {"a": 20_000_000, "b": 20_000_000})
 
 
 def test_grid_fixed_point_maximum_is_not_silently_clamped():
-    from psx.sfle.grid_math import project_grid_rows, layout_grid_rects
+    from psx.layout.fallback.grid_math import project_grid_rows, layout_grid_rects
     limit = 2_147_483_647 / 64
     rows = pack_grid_rows([GridSlot("a", 12)])
     assert project_grid_rows(rows, limit)[0].items[0].width_raw == 2_147_483_647
@@ -219,7 +219,7 @@ CONSTRAINT_CASES = json.loads(
 
 @pytest.mark.parametrize("case", CONSTRAINT_CASES, ids=lambda item: item["name"])
 def test_grid_constrained_geometry_shared_with_rust(case):
-    from psx.sfle.grid_math import compute_grid, GridItemConstraints
+    from psx.layout.fallback.grid_math import compute_grid, GridItemConstraints
     slots = [GridSlot(**item) for item in case["items"]]
     limits = {
         key: GridItemConstraints(**value)
@@ -237,8 +237,8 @@ def test_grid_constrained_geometry_shared_with_rust(case):
 
 
 def test_cinnamon_python_engine_grid_entry_point():
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.grid_math import GridItemConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.fallback.grid_math import GridItemConstraints
     engine = PythonLayoutEngine()
     result = engine.compute_grid(
         [GridSlot("a", 6), GridSlot("b", 6)], 120,
@@ -260,7 +260,7 @@ def test_cinnamon_python_engine_grid_entry_point():
     {"min_height": 11, "max_height": 10},
 ))
 def test_grid_invalid_min_max_fail_closed(bounds):
-    from psx.sfle.grid_math import compute_grid, GridItemConstraints
+    from psx.layout.fallback.grid_math import compute_grid, GridItemConstraints
     with pytest.raises(GridPackingError):
         compute_grid([GridSlot("a", 12)], 100, item_heights={"a": 10},
                      constraints={"a": GridItemConstraints(**bounds)})

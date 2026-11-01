@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
-from psx.sfle.model import (
+from psx.layout.runtime.native_intrinsic_cache import NativeIntrinsicCache
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox,
 )
 

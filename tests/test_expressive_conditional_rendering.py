@@ -181,8 +181,8 @@ def View():
         set_active(lambda value: not value)
     return psx('<Flex><Button label="Toggle" on_click={toggle} />{active && <Text value="Shown" />}</Flex>')
 """)
-        from psx.sfle.engine import PythonLayoutEngine
-        from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+        from psx.layout.fallback.engine import PythonLayoutEngine
+        from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
         renderer = HeadlessRenderer(
             sfle_constraints=LayoutConstraints(
                 AvailableSize(640, True), AvailableSize(480, True)

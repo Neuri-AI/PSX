@@ -11,15 +11,15 @@ import threading
 
 import pytest
 
-from psx.sfle.adapter_contract import (
+from psx.layout.runtime.adapter_contract import (
     SFLEAdapterPorts, derive_scroll_content_metrics, scroll_to_sfle_point,
     scroll_to_viewport_point, validate_adapter_commit,
 )
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.model import IntrinsicSizes
-from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
-from psx.sfle.worker_lifecycle import start_native_worker_layout
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.contracts.model import IntrinsicSizes
+from psx.layout.adapters.native_geometry import GeometryBackend, NativeGeometryCommitter
+from psx.layout.runtime.worker_lifecycle import start_native_worker_layout
 from test_native_worker_portable_regression import _UIQueue
 from test_authority_regression import _nested_snapshot, _viewports
 

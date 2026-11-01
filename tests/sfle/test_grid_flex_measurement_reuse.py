@@ -1,9 +1,9 @@
 """Native Grid Flex measurement reuse must remain transaction-scoped."""
 from psx import Flex, Text
 from psx.core.layout_tree import normalize_flex_tree
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.grid_flex_composition import prepare_composed_flex
-from psx.sfle.model import IntrinsicSizes
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.grid.grid_flex_composition import prepare_composed_flex
+from psx.layout.contracts.model import IntrinsicSizes
 
 
 def test_equal_leaf_widths_measure_once_per_composition_without_stale_reuse():

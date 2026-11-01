@@ -6,11 +6,11 @@ from dataclasses import replace
 
 import pytest
 
-from psx.sfle.errors import SFLECapabilityError
-from psx.sfle.intrinsic import IntrinsicFlexInput, MainAxis
-from psx.sfle.lengths import Length, LengthKind
-from psx.sfle.model import AvailableSize, IntrinsicSizes
-from psx.sfle.percentage_flex_basis import resolve_percentage_flex_basis
+from psx.layout.contracts.errors import SFLECapabilityError
+from psx.layout.fallback.intrinsic import IntrinsicFlexInput, MainAxis
+from psx.layout.contracts.lengths import Length, LengthKind
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes
+from psx.layout.fallback.percentage_flex_basis import resolve_percentage_flex_basis
 
 
 @pytest.fixture

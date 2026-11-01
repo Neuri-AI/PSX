@@ -1,7 +1,7 @@
 """Regression coverage for a CSS Flex formatting context inside block flow."""
 
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, MeasuredBox, WritingDirection,
 )
@@ -46,7 +46,7 @@ def test_nested_flex_uses_vertical_gap_without_overlapping_block_siblings():
 
 def test_mixed_flow_uses_the_selected_flex_engine():
     """Block composition must not silently switch from Rust to Python."""
-    from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
+    from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
 
     class TrackingEngine:
         def __init__(self):
@@ -54,7 +54,7 @@ def test_mixed_flow_uses_the_selected_flex_engine():
 
         def compute(self, request):
             self.calls.append(request)
-            from psx.sfle.engine import PythonLayoutEngine
+            from psx.layout.fallback.engine import PythonLayoutEngine
             return PythonLayoutEngine().compute(request)
 
     constraints = LayoutConstraints(AvailableSize(400, True), AvailableSize(200, True))
@@ -75,7 +75,7 @@ def test_mixed_flow_uses_the_selected_flex_engine():
 
 
 def test_nested_activity_flex_remeasures_wrapped_description_at_assigned_width():
-    from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
+    from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
     constraints = LayoutConstraints(AvailableSize(500, True), AvailableSize(None, False))
     nodes = (
         LayoutNode("root", None, "div", (("display", "block"),)),
@@ -104,7 +104,7 @@ def test_nested_activity_flex_remeasures_wrapped_description_at_assigned_width()
 
 def test_rust_block_root_without_flex_uses_same_native_grid_flow_as_python():
     """Block/Grid snapshots must not take the raw Rust Flex geometry path."""
-    from psx.sfle.backend import RustLayoutEngine
+    from psx.layout.engine.backend import RustLayoutEngine
 
     class UnexpectedRawGeometry:
         def compute_json(self, *args):

@@ -12,8 +12,8 @@ import pytest
 
 from psx import Button, Flex
 from psx.core.reconcile import Reconciler
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 from tests.certification.public_behavior_census import Feature, assert_feature
 from tests.certification.qt_public_properties import NATIVE_PROPERTY_CASES
 

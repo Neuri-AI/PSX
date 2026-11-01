@@ -5,7 +5,7 @@ from pathlib import Path
 import socket
 import sys
 from psx import App, Flex, Text
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
 backend, location = sys.argv[1:]
 trace = Path(location)

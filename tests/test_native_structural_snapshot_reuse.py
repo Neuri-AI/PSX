@@ -8,9 +8,9 @@ from types import SimpleNamespace
 
 from psx import psx
 from psx.core.layout_tree import normalize_flex_tree
-from psx.sfle.model import AvailableSize, LayoutConstraints
-from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
-from psx.sfle.native_structural_snapshot_reuse import (
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
+from psx.layout.projection.native_structural_snapshot_reuse import (
     NativeStructuralSnapshotReuse, mounted_structural_token,
 )
 

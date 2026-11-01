@@ -4,7 +4,7 @@ These low-level CSS Flex math helpers are intentionally floating-point; unlike
 LayoutUnit stages they must fail closed when finite input overflows f64.
 """
 import pytest
-from psx.sfle.flex_math import FlexBasis, resolve_flexible_lengths
+from psx.layout.fallback.flex_math import FlexBasis, resolve_flexible_lengths
 
 
 @pytest.mark.parametrize("gap", (1e308, 1.7976931348623157e308))

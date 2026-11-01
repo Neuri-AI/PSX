@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.errors import DiagnosticCode, SFLECapabilityError
-from psx.sfle.lengths import Length, LengthKind
-from psx.sfle.model import AvailableSize
-from psx.sfle.percentage_box_sizing import (
+from psx.layout.contracts.errors import DiagnosticCode, SFLECapabilityError
+from psx.layout.contracts.lengths import Length, LengthKind
+from psx.layout.contracts.model import AvailableSize
+from psx.layout.fallback.percentage_box_sizing import (
     BoxSizing, GapPhase, normalize_box_size, normalize_flex_box_basis, resolve_percentage_gap,
 )
 
@@ -119,9 +119,9 @@ def test_box_sizing_rejects_bad_constraints():
 
 
 def test_normalized_flex_basis_feeds_signed_margin_pipeline():
-    from psx.sfle.box_geometry import UsedBoxEdges, UsedEdges
-    from psx.sfle.main_margins import UsedMargin
-    from psx.sfle.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
+    from psx.layout.fallback.box_geometry import UsedBoxEdges, UsedEdges
+    from psx.layout.fallback.main_margins import UsedMargin
+    from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
 
     flex = normalize_flex_box_basis(
         100, 30, BoxSizing.BORDER_BOX, min_size=80, max_size=90

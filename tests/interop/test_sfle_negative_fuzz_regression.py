@@ -15,8 +15,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sfle"))
 from test_acceptance_contract_regression import case_snapshot  # noqa: E402
 from test_sfle_differential import _python_compute, _rust_compute, rust_binary  # noqa: E402,F401
-from psx.sfle.lengths import Length, LengthKind  # noqa: E402
-from psx.sfle.model import LayoutNode  # noqa: E402
+from psx.layout.contracts.lengths import Length, LengthKind  # noqa: E402
+from psx.layout.contracts.model import LayoutNode  # noqa: E402
 
 UNSUPPORTED = ("N01", "N02", "N03", "N04", "C99", "N06", "N07", "N08")
 SEEDS = tuple(0xABF200 + index * 313 for index in range(20))

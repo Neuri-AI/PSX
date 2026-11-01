@@ -6,7 +6,7 @@ never modified and the bridge does not perform a native geometry commit.
 from __future__ import annotations
 
 from psx.css.cascade import ComputedStyle
-from psx.sfle.lengths import Length
+from psx.layout.contracts.lengths import Length
 
 _SIZES = {
     "width": "layout_width", "height": "layout_height",

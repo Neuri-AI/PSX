@@ -3,12 +3,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from psx.sfle.model import (
+from psx.layout.contracts.model import (
     AvailableSize, BoxRect, LayoutConstraints, LayoutInput, LayoutNode,
     LayoutResult, Rect, WritingDirection,
 )
-from psx.sfle.semantic_inline_native_layout import compute_semantic_inline_native
-from psx.sfle.semantic_inline_text import InlineTextMetrics
+from psx.layout.inline.semantic_inline_native_layout import compute_semantic_inline_native
+from psx.layout.fallback.semantic_inline_text import InlineTextMetrics
 
 
 def box(x, y, width, height):

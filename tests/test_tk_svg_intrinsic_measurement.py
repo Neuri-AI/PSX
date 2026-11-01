@@ -8,7 +8,7 @@ def test_tk_svg_intrinsic_measurement(tmp_path):
     pytest.importorskip("PIL")
     import tkinter as tk
     from psx.renderers.tkinter.image import TkImageAdapter
-    from psx.sfle.tk_measurement import TkMeasurementSource
+    from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
 
     try:
         root = tk.Tk()

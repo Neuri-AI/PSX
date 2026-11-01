@@ -44,8 +44,8 @@ def test_divider_markup_rejects_multiple_children() -> None:
 
 
 def test_divider_mounts_updates_and_unmounts() -> None:
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
     renderer = HeadlessRenderer(
         sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)),
         engine=PythonLayoutEngine(),

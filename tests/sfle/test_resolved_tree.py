@@ -1,10 +1,10 @@
 """Restricted nested Flex geometry must preserve parent offsets and sizing."""
 import pytest
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.line_layout import FlexDirection
-from psx.sfle.resolved_tree import ResolvedTreeNode, compute_resolved_tree
-from psx.sfle.model import WritingDirection
-from psx.sfle.errors import SFLEError
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.line_layout import FlexDirection
+from psx.layout.fallback.resolved_tree import ResolvedTreeNode, compute_resolved_tree
+from psx.layout.contracts.model import WritingDirection
+from psx.layout.contracts.errors import SFLEError
 
 def flex(n, grow=0):
     return FlexBasis(basis=n, hypothetical=n, min_size=0, max_size=None, grow=grow, shrink=1)

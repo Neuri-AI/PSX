@@ -12,9 +12,9 @@ from psx import Button, Flex, Text, component, use_state, psx
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.renderers.qt.pyside import PySide6Renderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutResult
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints, LayoutResult
 
 
 def constraints(width=160, height=80):
@@ -357,9 +357,9 @@ class QtSFLEGeometryTests(unittest.TestCase):
 
     def test_scroll_disabled_axes_reset_existing_offsets(self):
         from psx import Scroll
-        from psx.sfle.model import Rect
-        from psx.sfle.native_scroll_hosts import apply_qt_scroll, binding_from_host
-        from psx.sfle.scroll_offsets import ScrollOffset
+        from psx.layout.contracts.model import Rect
+        from psx.layout.adapters.native_scroll_hosts import apply_qt_scroll, binding_from_host
+        from psx.layout.scroll.scroll_offsets import ScrollOffset
         self.renderer.set_sfle_constraints(constraints(300, 200))
         root = self.r.render(Flex(
             Scroll(Flex(item("Inside", "inside", 40),
@@ -386,9 +386,9 @@ class QtSFLEGeometryTests(unittest.TestCase):
 
     def test_native_scroll_overflow_offsets_and_viewport_clipping(self):
         from psx import Scroll
-        from psx.sfle.native_scroll_hosts import apply_qt_scroll, binding_from_host
-        from psx.sfle.scroll_offsets import ScrollOffset
-        from psx.sfle.model import Rect
+        from psx.layout.adapters.native_scroll_hosts import apply_qt_scroll, binding_from_host
+        from psx.layout.scroll.scroll_offsets import ScrollOffset
+        from psx.layout.contracts.model import Rect
 
         self.renderer.set_sfle_constraints(constraints(300, 200))
         root = self.r.render(Flex(
@@ -466,7 +466,7 @@ class QtSFLEGeometryTests(unittest.TestCase):
     def test_scroll_failed_native_commit_restores_offsets_and_extent(self):
         from unittest.mock import patch
         from psx import Scroll
-        from psx.sfle import native_scroll_hosts
+        from psx.layout import native_scroll_hosts
 
         self.renderer.set_sfle_constraints(constraints(300, 200))
         root = self.r.render(Flex(

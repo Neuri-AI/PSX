@@ -3,9 +3,9 @@ import math
 
 import pytest
 
-from psx.sfle.model import Rect
-from psx.sfle.native_scroll_viewport import ScrollViewportBinding
-from psx.sfle.scroll_offsets import (
+from psx.layout.contracts.model import Rect
+from psx.layout.scroll.native_scroll_viewport import ScrollViewportBinding
+from psx.layout.scroll.scroll_offsets import (
     ScrollOffset, clamp_scroll_offset, consume_scroll_delta,
     content_to_viewport, viewport_to_content,
 )

@@ -16,7 +16,7 @@ from psx.core.errors import RendererCapabilityError
 from psx.core.layout_tree import normalize_flex_tree
 from psx.core.registry import builtin_component_registry
 from psx.core.vnode import NodeKind, create_element
-from psx.sfle.lengths import Length, LengthKind
+from psx.layout.contracts.lengths import Length, LengthKind
 
 # The registry is the source of truth: no portable component can be missed.
 PORTABLE = {

@@ -1,10 +1,10 @@
 """F2.2.4.5 measurement round planning and atomic acceptance."""
 import pytest
 
-from psx.sfle.errors import SFLEError
-from psx.sfle.measurement_round import accept_round, prepare_round
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput, LayoutNode, MeasuredBox, WritingDirection
-from psx.sfle.remeasurement import RemeasurementDelta
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.fallback.measurement_round import accept_round, prepare_round
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput, LayoutNode, MeasuredBox, WritingDirection
+from psx.layout.fallback.remeasurement import RemeasurementDelta
 
 
 def size(value):

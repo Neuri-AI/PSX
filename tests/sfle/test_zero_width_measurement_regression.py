@@ -8,11 +8,11 @@ import math
 
 import pytest
 
-from psx.sfle.model import (
+from psx.layout.contracts.model import (
     AvailableSize, BoxRect, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, LayoutResult, Rect, WritingDirection,
 )
-from psx.sfle.remeasure_session import compute_with_width_measurements
+from psx.layout.runtime.remeasure_session import compute_with_width_measurements
 
 
 def _snapshot():

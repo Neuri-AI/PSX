@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.main_alignment import JustifyContent, resolve_main_alignment
+from psx.layout.fallback.main_alignment import JustifyContent, resolve_main_alignment
 
 
 @pytest.mark.parametrize(("mode", "leading", "between"), [

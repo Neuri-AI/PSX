@@ -5,9 +5,9 @@ import pytest
 
 from psx import Grid, GridItem, Text
 from psx.core.layout_tree import normalize_flex_tree
-from psx.sfle.grid_tree_measurement import prepare_grid_measurement
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox
-from psx.sfle.native_layout_snapshot import path_identity
+from psx.layout.grid.grid_tree_measurement import prepare_grid_measurement
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox
+from psx.layout.projection.native_layout_snapshot import path_identity
 
 
 def _grid_and_receipts():

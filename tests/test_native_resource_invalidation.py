@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from psx.core.vnode import Image, Flex
-from psx.sfle.native_resource_watch import ImageResourceWatch, file_signature
+from psx.layout.runtime.native_resource_watch import ImageResourceWatch, file_signature
 
 
 def test_native_invalidation_image_resource_revision_detected_without_vnode_or_handle_change(tmp_path):

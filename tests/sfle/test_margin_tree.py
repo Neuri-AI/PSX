@@ -1,11 +1,11 @@
 """Nested resolved margin/alignment fixtures: parent content origin and RTL."""
-from psx.sfle.box_geometry import UsedBoxEdges, UsedEdges
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.main_alignment import JustifyContent
-from psx.sfle.cross_alignment import CrossAlign
-from psx.sfle.margin_flex_pipeline import MarginFlexItem
-from psx.sfle.margin_tree import MarginTreeNode, compute_margin_tree
-from psx.sfle.model import WritingDirection
+from psx.layout.fallback.box_geometry import UsedBoxEdges, UsedEdges
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.main_alignment import JustifyContent
+from psx.layout.fallback.cross_alignment import CrossAlign
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem
+from psx.layout.fallback.margin_tree import MarginTreeNode, compute_margin_tree
+from psx.layout.contracts.model import WritingDirection
 
 
 def item(name: str, basis: float, *, padding: float = 0) -> MarginFlexItem:
@@ -50,7 +50,7 @@ def test_empty_nodes_and_root_padding_are_preserved():
 
 
 def test_nested_auto_and_signed_main_margins_remain_distinct_from_box_size():
-    from psx.sfle.main_margins import UsedMargin
+    from psx.layout.fallback.main_margins import UsedMargin
     root = MarginTreeNode("root", None, 200, 80)
     leading = MarginFlexItem(
         "leading", FlexBasis(20, 20, grow=0, shrink=0, min_size=0), 20,
@@ -75,9 +75,9 @@ def test_nested_auto_and_signed_main_margins_remain_distinct_from_box_size():
 
 
 def test_measured_intrinsic_flex_basis_feeds_nested_distribution():
-    from psx.sfle.intrinsic import IntrinsicFlexInput, MainAxis
-    from psx.sfle.lengths import Length, LengthKind
-    from psx.sfle.model import IntrinsicSizes
+    from psx.layout.fallback.intrinsic import IntrinsicFlexInput, MainAxis
+    from psx.layout.contracts.lengths import Length, LengthKind
+    from psx.layout.contracts.model import IntrinsicSizes
 
     intrinsic = IntrinsicFlexInput(
         intrinsic=IntrinsicSizes(20, 60, 10, 20, 60, 20),
@@ -100,10 +100,10 @@ def test_measured_intrinsic_flex_basis_feeds_nested_distribution():
 
 def test_unimplemented_intrinsic_percentage_basis_rejected():
     import pytest
-    from psx.sfle.errors import SFLECapabilityError
-    from psx.sfle.intrinsic import IntrinsicFlexInput, MainAxis
-    from psx.sfle.lengths import Length
-    from psx.sfle.model import IntrinsicSizes
+    from psx.layout.contracts.errors import SFLECapabilityError
+    from psx.layout.fallback.intrinsic import IntrinsicFlexInput, MainAxis
+    from psx.layout.contracts.lengths import Length
+    from psx.layout.contracts.model import IntrinsicSizes
 
     metric = IntrinsicSizes(20, 60, 10, 20, 60, 20)
     intrinsic = IntrinsicFlexInput(

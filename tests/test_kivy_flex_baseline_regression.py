@@ -6,7 +6,7 @@ import pytest
 def test_width_dependent_text_retains_baseline():
     pytest.importorskip("kivy")
     from kivy.uix.label import Label
-    from psx.sfle.kivy_measurement import KivyMeasurementSource
+    from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
 
     text = Label(text="Hello world", size_hint=(None, None))
     text.texture_update()
@@ -19,9 +19,9 @@ def test_width_dependent_text_retains_baseline():
 def test_link_native_measurement_has_baseline():
     pytest.importorskip("kivy")
     from kivy.uix.button import Button
-    from psx.sfle.kivy_measurement import KivyMeasurementSource
-    from psx.sfle.measurement_plan import MeasurementRequest
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
+    from psx.layout.fallback.measurement_plan import MeasurementRequest
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
     widget = Button(text="Explore docs", size_hint=(None, None))
     widget.texture_update()

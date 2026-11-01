@@ -10,12 +10,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from psx.sfle.fixed_point import I32_MAX, I32_MIN, SCALE, LayoutUnit
-from psx.sfle.model import (
+from psx.layout.contracts.fixed_point import I32_MAX, I32_MIN, SCALE, LayoutUnit
+from psx.layout.contracts.model import (
     AvailableSize, LayoutConstraints, LayoutInput, LayoutNode,
     WritingDirection,
 )
-from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
+from psx.layout.adapters.native_geometry import GeometryBackend, NativeGeometryCommitter
 from test_sfle_differential import _python_compute, _rust_compute, _rects, rust_binary
 
 
@@ -163,7 +163,7 @@ def test_huge_finite_percentage_margins_saturate_without_backend_exceptions(
 ):
     """Finite normalized CSS percentages must not create infinite raw geometry."""
     from dataclasses import replace
-    from psx.sfle.lengths import Length
+    from psx.layout.contracts.lengths import Length
     snapshot=_snapshot(MAX_PX, 25.0)
     child=snapshot.nodes[1]
     modified=replace(child,style=child.style+(("layout_margin_left",Length.percent(fraction)),))
@@ -193,7 +193,7 @@ def test_entire_many_item_flex_pipeline_uses_bounded_accumulated_gaps(
     saturates it. All *subsequent* repeated gaps and physical placements
     must remain bounded, regardless of child count or main axis.
     """
-    from psx.sfle.lengths import Length
+    from psx.layout.contracts.lengths import Length
     nodes=[LayoutNode("root",None,"Flex",(
         ("direction",direction),("width","180px"),("height","120px"),
         ("wrap","nowrap"),("justify_content","flex-start"),

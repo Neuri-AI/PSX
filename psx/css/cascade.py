@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Mapping
 
-from psx.sfle.lengths import Length
+from psx.layout.contracts.lengths import Length
 from .parser import Stylesheet
 from .properties import CssDeclaration, CssPropertyRegistry, foundation_registry
 

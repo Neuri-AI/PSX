@@ -1,13 +1,13 @@
 """Native Scroll transaction regression: resize, old extents and rollback."""
 from types import SimpleNamespace
 
-from psx.sfle.native_scroll_transaction import (
+from psx.layout.runtime.native_scroll_transaction import (
     capture_scroll_hosts, restore_scroll_hosts, prior_scroll_offset,
 )
-from psx.sfle.scroll_offsets import ScrollOffset
-from psx.sfle.native_scroll_hosts import apply_kivy_scroll
-from psx.sfle.native_scroll_viewport import ScrollViewportBinding
-from psx.sfle.model import Rect
+from psx.layout.scroll.scroll_offsets import ScrollOffset
+from psx.layout.adapters.native_scroll_hosts import apply_kivy_scroll
+from psx.layout.scroll.native_scroll_viewport import ScrollViewportBinding
+from psx.layout.contracts.model import Rect
 
 
 class Content:

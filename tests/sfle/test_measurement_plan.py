@@ -5,9 +5,9 @@ from dataclasses import replace
 
 import pytest
 
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.measurement_plan import accept_measurement, plan_measurements
-from psx.sfle.model import (
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.fallback.measurement_plan import accept_measurement, plan_measurements
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput, LayoutNode,
     MeasuredBox, WritingDirection,
 )

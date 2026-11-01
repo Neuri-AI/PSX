@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.line_layout import FlexDirection, FlexWrap
-from psx.sfle.model import WritingDirection
-from psx.sfle.resolved_pipeline import ResolvedFlexItem, compute_resolved_flex
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.line_layout import FlexDirection, FlexWrap
+from psx.layout.contracts.model import WritingDirection
+from psx.layout.fallback.resolved_pipeline import ResolvedFlexItem, compute_resolved_flex
 
 
 def node(

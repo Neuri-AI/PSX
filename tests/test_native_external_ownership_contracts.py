@@ -5,8 +5,8 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from psx.sfle.native_external_ownership_cases import EXTERNAL_OWNERSHIP_CASES_BY_BACKEND, EXTERNAL_OWNERSHIP_CASES
-from psx.sfle.native_external_ownership_receipts import certify_c4
+from psx.layout.compat.native_external_ownership_cases import EXTERNAL_OWNERSHIP_CASES_BY_BACKEND, EXTERNAL_OWNERSHIP_CASES
+from psx.layout.compat.native_external_ownership_receipts import certify_c4
 
 
 def test_external_ownership_inventory_has_explicit_external_variants_for_each_backend():

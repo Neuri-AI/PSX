@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Mapping
 
-from psx.sfle.lengths import Length, LengthKind, parse_length
+from psx.layout.contracts.lengths import Length, LengthKind, parse_length
 from .visual_values import VISUAL_EFFECTS, normalize_visual_value, CssColor
 
 

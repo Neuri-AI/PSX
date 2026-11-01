@@ -8,12 +8,12 @@ import json
 import subprocess
 import pytest
 from fuzz_dimension_helpers import _typed, rust_binary
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput, LayoutNode,
     MeasuredBox, WritingDirection,
 )
-from psx.sfle.native_wire import serialize_snapshot
+from psx.layout.contracts.native_wire import serialize_snapshot
 
 TEXTS=("AAAA BBBBBBB CCC", "abcdefgh ij klmnopq", "alpha beta gamma delta")
 

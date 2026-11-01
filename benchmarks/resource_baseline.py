@@ -18,9 +18,9 @@ from pathlib import Path
 from psx import Flex, Text
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.backend import RustLayoutEngine, load_layout_engine
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.engine.backend import RustLayoutEngine, load_layout_engine
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
 
 def make_renderer(engine_name='python'):

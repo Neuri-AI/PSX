@@ -269,7 +269,7 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         environment = dict(os.environ, KIVY_NO_ARGS="1", KIVY_NO_FILELOG="1")
         script = textwrap.dedent("""
             from kivy.uix.label import Label
-            from psx.sfle.kivy_measurement import KivyMeasurementSource
+            from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
             label = Label(text="Hola, Fredo", font_size=30)
             label.text_size = (800.0, None)
             label.texture_update()
@@ -681,8 +681,8 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                 return Flex(Text(str(value), key="text"), Button("+", key="button", on_click=lambda: set_value(value + 1)), direction="column")
 
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
                     AvailableSize(400, True), AvailableSize(320, True)),

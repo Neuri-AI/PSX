@@ -31,8 +31,8 @@ class PySide6RendererTests(unittest.TestCase):
 
 
     def _enable_native_sfle(self) -> None:
-        from psx.sfle.engine import PythonLayoutEngine
-        from psx.sfle.model import AvailableSize, LayoutConstraints
+        from psx.layout.fallback.engine import PythonLayoutEngine
+        from psx.layout.contracts.model import AvailableSize, LayoutConstraints
         native = PySide6Renderer(
             sfle_constraints=LayoutConstraints(
                 AvailableSize(640, True), AvailableSize(480, True)),
@@ -42,8 +42,8 @@ class PySide6RendererTests(unittest.TestCase):
 
     @staticmethod
     def _native_geometry_port():
-        from psx.sfle.external_native_geometry_ports import SFLEExternalPort
-        from psx.sfle.model import IntrinsicSizes, Rect
+        from psx.layout.adapters.external_native_geometry_ports import SFLEExternalPort
+        from psx.layout.contracts.model import IntrinsicSizes, Rect
 
         def measure(widget, limits):
             return IntrinsicSizes(12, 48, 18, 20, 48, 20)

@@ -5,8 +5,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from psx.core.reconcile import Reconciler
 from psx.markup.compile import psx
 from psx.renderers.qt.pyside import PySide6Renderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
 def make_renderer():
     return PySide6Renderer(

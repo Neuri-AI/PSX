@@ -5,9 +5,9 @@ The exact same tree and measurement data is consumed by the Rust adapter.
 import json
 from pathlib import Path
 import pytest
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.lengths import parse_length
-from psx.sfle.model import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.lengths import parse_length
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, MeasuredBox, WritingDirection,
 )

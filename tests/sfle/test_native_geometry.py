@@ -1,11 +1,11 @@
 """Native geometry coordinate and widget API tests."""
 from types import SimpleNamespace
 
-from psx.sfle.margin_tree import MarginTreeNode, compute_margin_tree
-from psx.sfle.margin_flex_pipeline import MarginFlexItem
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.native_geometry import NativeGeometryCommitter, GeometryBackend
-from psx.sfle.recursive_measurement import RecursiveMeasurementResult
+from psx.layout.fallback.margin_tree import MarginTreeNode, compute_margin_tree
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.adapters.native_geometry import NativeGeometryCommitter, GeometryBackend
+from psx.layout.runtime.recursive_measurement import RecursiveMeasurementResult
 
 
 def sample():

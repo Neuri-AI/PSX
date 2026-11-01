@@ -4,14 +4,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from psx.sfle.kivy_measurement import KivyMeasurementSource
-from psx.sfle.qt_measurement import QtMeasurementSource
-from psx.sfle.tk_measurement import TkMeasurementSource
-from psx.sfle.errors import SFLEError
-from psx.sfle.measurement_plan import MeasurementRequest
-from psx.sfle.measurement_round import MeasurementRound
-from psx.sfle.model import AvailableSize, LayoutConstraints
-from psx.sfle.native_measurement import fulfill_native_round
+from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
+from psx.renderers.qt.cinnamon_qt_measurement import QtMeasurementSource
+from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.layout.fallback.measurement_round import MeasurementRound
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+from psx.layout.runtime.native_measurement import fulfill_native_round
 
 
 C = LayoutConstraints(AvailableSize(100, True), AvailableSize(None, False))

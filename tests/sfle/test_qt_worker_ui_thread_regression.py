@@ -8,9 +8,9 @@ from dataclasses import replace
 import pytest
 QtWidgets=pytest.importorskip("PySide6.QtWidgets")
 QtCore=pytest.importorskip("PySide6.QtCore")
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import SFLEError,DiagnosticCode
-from psx.sfle.live_lifecycle import layout_measure_and_commit
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import SFLEError,DiagnosticCode
+from psx.layout.runtime.live_lifecycle import layout_measure_and_commit
 from test_acceptance_contract_regression import case_snapshot
 
 

@@ -2,12 +2,12 @@
 
 import pytest
 
-from psx.sfle.constraint_propagation import ChildSizing
-from psx.sfle.lengths import Length, LengthKind
-from psx.sfle.model import AvailableSize, LayoutConstraints
-from psx.sfle.percentage_box_sizing import BoxSizing
-from psx.sfle.sizing import ResolutionKind
-from psx.sfle.used_size import resolve_used_content_size
+from psx.layout.fallback.constraint_propagation import ChildSizing
+from psx.layout.contracts.lengths import Length, LengthKind
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.percentage_box_sizing import BoxSizing
+from psx.layout.fallback.sizing import ResolutionKind
+from psx.layout.fallback.used_size import resolve_used_content_size
 
 
 def constraints(width: AvailableSize, height: AvailableSize) -> LayoutConstraints:

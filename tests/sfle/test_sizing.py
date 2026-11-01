@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.errors import DiagnosticCode, SFLECapabilityError
-from psx.sfle.lengths import Length, LengthKind
-from psx.sfle.model import AvailableSize
-from psx.sfle.sizing import ResolutionKind, SizeProperty, resolve_length
+from psx.layout.contracts.errors import DiagnosticCode, SFLECapabilityError
+from psx.layout.contracts.lengths import Length, LengthKind
+from psx.layout.contracts.model import AvailableSize
+from psx.layout.fallback.sizing import ResolutionKind, SizeProperty, resolve_length
 
 
 def definite(value: float) -> AvailableSize:

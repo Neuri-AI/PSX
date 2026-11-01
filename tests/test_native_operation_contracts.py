@@ -11,13 +11,13 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from psx.sfle.native_operation_contracts import (
+from psx.layout.compat.native_operation_contracts import (
     OWNER_BLOCK, native_contract_summary, native_operation_contracts,
 )
-from psx.sfle.native_operation_evidence import COMPONENT_OPERATION_TESTS
-from psx.sfle.native_component_matrix import BACKENDS, OPERATIONS, native_certification_matrix
-from psx.sfle.native_operation_receipts import certify_junit
-from psx.sfle.native_operation_oracles import ORACLES, Observation
+from psx.layout.compat.native_operation_evidence import COMPONENT_OPERATION_TESTS
+from psx.layout.compat.native_component_matrix import BACKENDS, OPERATIONS, native_certification_matrix
+from psx.layout.compat.native_operation_receipts import certify_junit
+from psx.layout.compat.native_operation_oracles import ORACLES, Observation
 
 
 def test_every_registry_backend_operation_has_a_unique_runnable_contract():

@@ -6,9 +6,9 @@ import pytest
 def test_button_default_padding_contributes_to_intrinsic_size():
     pytest.importorskip("kivy")
     from psx.renderers.kivy.kivy import _kivy_button_factory
-    from psx.sfle.kivy_measurement import KivyMeasurementSource
-    from psx.sfle.measurement_plan import MeasurementRequest
-    from psx.sfle.model import LayoutConstraints, AvailableSize
+    from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
+    from psx.layout.fallback.measurement_plan import MeasurementRequest
+    from psx.layout.contracts.model import LayoutConstraints, AvailableSize
 
     widget = _kivy_button_factory()
     widget.text = "Count is 0"
@@ -40,9 +40,9 @@ def test_button_ignores_previous_wrapped_texture_when_measuring_natural_width():
     pytest.importorskip("kivy")
     from psx.renderers.kivy.kivy import _kivy_button_factory
     from psx.renderers.components.button import apply_kivy_button
-    from psx.sfle.kivy_measurement import KivyMeasurementSource
-    from psx.sfle.measurement_plan import MeasurementRequest
-    from psx.sfle.model import LayoutConstraints, AvailableSize
+    from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
+    from psx.layout.fallback.measurement_plan import MeasurementRequest
+    from psx.layout.contracts.model import LayoutConstraints, AvailableSize
 
     widget = _kivy_button_factory()
     apply_kivy_button(widget, {"label": "Count is 0", "font_size": 16})
@@ -82,9 +82,9 @@ def test_css_center_aligned_button_retains_natural_intrinsic_width():
         KivyHandle, KivyRenderer, _kivy_button_factory,
     )
     from psx.renderers.components.button import apply_kivy_button
-    from psx.sfle.kivy_measurement import KivyMeasurementSource
-    from psx.sfle.measurement_plan import MeasurementRequest
-    from psx.sfle.model import LayoutConstraints, AvailableSize
+    from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
+    from psx.layout.fallback.measurement_plan import MeasurementRequest
+    from psx.layout.contracts.model import LayoutConstraints, AvailableSize
 
     renderer = KivyRenderer()
     widget = _kivy_button_factory()

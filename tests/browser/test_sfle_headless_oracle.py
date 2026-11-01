@@ -18,11 +18,11 @@ from test_sfle_differential import rust_binary  # noqa: E402
 from test_acceptance_contract_regression import case_snapshot  # noqa: E402
 from test_sfle_live_text_chromium import html_for, DATA  # noqa: E402
 from width_measurement_helpers import rust_compute  # noqa: E402
-from psx.sfle.engine import PythonLayoutEngine  # noqa: E402
-from psx.sfle.headless_measurement import HeadlessMeasurementSource  # noqa: E402
-from psx.sfle.measurement_plan import MeasurementRequest  # noqa: E402
-from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes  # noqa: E402
-from psx.sfle.remeasure_session import compute_with_width_measurements  # noqa: E402
+from psx.layout.fallback.engine import PythonLayoutEngine  # noqa: E402
+from psx.layout.adapters.headless_measurement import HeadlessMeasurementSource  # noqa: E402
+from psx.layout.fallback.measurement_plan import MeasurementRequest  # noqa: E402
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints, IntrinsicSizes  # noqa: E402
+from psx.layout.runtime.remeasure_session import compute_with_width_measurements  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -128,7 +128,7 @@ def test_nested_definite_percent_width_real_text_height_for_width(
     an exact percentage width from its definite grandparent. Both engines
     must agree with Chromium's actual rendered text line breaks and geometry.
     """
-    from psx.sfle.model import LayoutInput,LayoutNode,WritingDirection
+    from psx.layout.contracts.model import LayoutInput,LayoutNode,WritingDirection
     from fuzz_dimension_helpers import _typed
     generation=642
     page.set_content(

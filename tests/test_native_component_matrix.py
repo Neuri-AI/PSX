@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 
 from psx.core.registry import builtin_component_registry
-from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
-from psx.sfle.native_operation_evidence import COMPONENT_OPERATION_TESTS, SUITES as COMPONENT_SUITES
-from psx.sfle.native_component_matrix import (
+from psx.layout.projection.native_component_capabilities import NATIVE_LEAF_TYPES
+from psx.layout.compat.native_operation_evidence import COMPONENT_OPERATION_TESTS, SUITES as COMPONENT_SUITES
+from psx.layout.compat.native_component_matrix import (
     BACKENDS, EVIDENCE, OPERATIONS, native_certification_matrix, native_matrix_summary,
 )
 
@@ -90,7 +90,7 @@ def test_native_capability_all_registered_native_builtins_have_explicit_sfle_geo
 
 def test_native_capability_kivy_controls_have_intrinsic_port_without_pixel_bounds():
     from psx import Input, Checkbox, ProgressBar
-    from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
+    from psx.layout.projection.native_component_capabilities import native_leaf_needs_measurement
     for constructor in (Input, Checkbox, ProgressBar):
         assert native_leaf_needs_measurement(constructor(), backend="kivy")
         assert native_leaf_needs_measurement(
@@ -151,7 +151,7 @@ def test_component_evidence_requires_reviewer_manifest_and_no_implicit_green():
 
 
 def test_native_operation_operation_summary_exposes_all_missing_component_specific_evidence():
-    from psx.sfle.native_component_matrix import native_operation_coverage_summary
+    from psx.layout.compat.native_component_matrix import native_operation_coverage_summary
     coverage = native_operation_coverage_summary()
     assert set(coverage) == set(BACKENDS)
     for backend in BACKENDS:

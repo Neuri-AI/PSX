@@ -26,9 +26,9 @@ class NativeSizingTests(unittest.TestCase):
     def test_cinnamon_receives_native_css_dimensions(self):
         from psx.core.layout_tree import normalize_flex_tree
         from psx.core.vnode import Flex
-        from psx.sfle.model import AvailableSize, LayoutConstraints
-        from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
-        from psx.sfle.lengths import LengthKind
+        from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+        from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
+        from psx.layout.contracts.lengths import LengthKind
 
         child = Native(DummyWidget, renderer="pyside6")
         from dataclasses import replace

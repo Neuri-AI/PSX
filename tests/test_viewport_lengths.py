@@ -2,11 +2,11 @@
 import pytest
 
 from psx.css.parser import parse_stylesheet
-from psx.sfle.lengths import (
+from psx.layout.contracts.lengths import (
     Length, LengthKind, _parse_normalized_length, parse_length, resolve_viewport_length,
 )
-from psx.sfle.model import AvailableSize, LayoutConstraints
-from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
 from psx.core.layout_tree import normalize_flex_tree
 from psx.core.vnode import Flex, Text
 

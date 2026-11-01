@@ -12,8 +12,8 @@ from psx.renderers.headless import HeadlessRenderer
 
 class CoreTests(unittest.TestCase):
     def setUp(self) -> None:
-        from psx.sfle.engine import PythonLayoutEngine
-        from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+        from psx.layout.fallback.engine import PythonLayoutEngine
+        from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
         self.renderer = HeadlessRenderer(sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)), engine=PythonLayoutEngine(), measure_intrinsic=lambda node: IntrinsicSizes(4, 20, 8, 12, 18, 12, 8))
         self.reconciler = Reconciler(self.renderer)
 

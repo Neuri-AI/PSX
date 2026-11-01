@@ -3,11 +3,11 @@
 Extreme dimensions must never escape signed int32 raw pixel bounds even if
 multiple individually valid padding/border values are accumulated.
 """
-from psx.sfle.box_geometry import UsedBoxEdges, UsedEdges
-from psx.sfle.fixed_point import I32_MAX, I32_MIN, SCALE
-from psx.sfle.margin_flex_pipeline import MarginFlexBox
-from psx.sfle.margin_tree import MarginTreeNode, _translate, compute_margin_tree
-from psx.sfle.model import Rect
+from psx.layout.fallback.box_geometry import UsedBoxEdges, UsedEdges
+from psx.layout.contracts.fixed_point import I32_MAX, I32_MIN, SCALE
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexBox
+from psx.layout.fallback.margin_tree import MarginTreeNode, _translate, compute_margin_tree
+from psx.layout.contracts.model import Rect
 
 MAX = I32_MAX / SCALE
 MIN = I32_MIN / SCALE
@@ -49,9 +49,9 @@ def test_B2_nested_positive_and_negative_translation_saturates():
 
 
 def test_B2_edge_pipeline_python_inset_saturates_physical_offsets():
-    from psx.sfle.box_geometry import used_box_rect, UsedBoxEdges, UsedEdges
-    from psx.sfle.model import Rect
-    from psx.sfle.fixed_point import I32_MIN, I32_MAX, SCALE
+    from psx.layout.fallback.box_geometry import used_box_rect, UsedBoxEdges, UsedEdges
+    from psx.layout.contracts.model import Rect
+    from psx.layout.contracts.fixed_point import I32_MIN, I32_MAX, SCALE
     maximum=I32_MAX/SCALE
     minimum=I32_MIN/SCALE
     original=Rect(maximum, minimum, maximum, maximum)

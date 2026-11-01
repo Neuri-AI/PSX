@@ -1,18 +1,18 @@
 """Resolved Flex geometry -> native measurement integration contracts."""
 import pytest
 
-from psx.sfle.constraint_propagation import ChildSizing
-from psx.sfle.errors import SFLEError
-from psx.sfle.headless_measurement import HeadlessMeasurementSource
-from psx.sfle.lengths import Length, LengthKind
-from psx.sfle.margin_tree import MarginTreeNode
-from psx.sfle.margin_flex_pipeline import MarginFlexItem
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.model import (
+from psx.layout.fallback.constraint_propagation import ChildSizing
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.adapters.headless_measurement import HeadlessMeasurementSource
+from psx.layout.contracts.lengths import Length, LengthKind
+from psx.layout.fallback.margin_tree import MarginTreeNode
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput, LayoutNode,
     WritingDirection,
 )
-from psx.sfle.recursive_measurement import measure_resolved_margin_tree
+from psx.layout.runtime.recursive_measurement import measure_resolved_margin_tree
 
 CONSTRAINT = LayoutConstraints(AvailableSize(240, True), AvailableSize(90, True))
 METRICS = IntrinsicSizes(10, 30, 5, 15, 20, 10)

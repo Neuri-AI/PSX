@@ -1,7 +1,7 @@
 """RED A10: independent error magnitudes must not alias one another."""
 import pytest
-from psx.sfle.calibration import attach_calibration_errors
-from psx.sfle.engine import PythonLayoutEngine
+from psx.layout.runtime.calibration import attach_calibration_errors
+from psx.layout.fallback.engine import PythonLayoutEngine
 from test_acceptance_contract_regression import case_snapshot
 
 

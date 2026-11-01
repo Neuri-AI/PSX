@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from psx.sfle.flow_layout import (
+from psx.layout.fallback.flow_layout import (
     BlockItem, InlineAtom, layout_block_children, layout_inline_atoms,
 )
 

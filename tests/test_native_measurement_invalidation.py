@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.native_measurement_invalidation import MeasurementInvalidations, REASONS
+from psx.layout.runtime.native_measurement_invalidation import MeasurementInvalidations, REASONS
 
 
 def test_native_invalidation_invalidation_taxonomy_is_explicit():
@@ -42,8 +42,8 @@ def test_native_invalidation_unknown_invalidation_kind_fails_closed(reason):
 
 
 def test_every_supported_native_component_has_native_invalidation_invalidation_evidence():
-    from psx.sfle.native_component_matrix import native_certification_matrix
-    from psx.sfle.native_operation_contracts import native_operation_contracts
+    from psx.layout.compat.native_component_matrix import native_certification_matrix
+    from psx.layout.compat.native_operation_contracts import native_operation_contracts
     native = [c for c in native_certification_matrix() if c.status == "native"]
     assert native
     assert all("invalidation" in c.operations_with_evidence for c in native)
@@ -74,8 +74,8 @@ def test_native_invalidation_targeted_invalidation_coalesces_without_marking_glo
 
 
 def test_native_invalidation_dependency_closure_retains_flex_siblings():
-    from psx.sfle.native_measurement_dependencies import plan_layout_dependents
-    from psx.sfle.model import LayoutInput, LayoutNode, LayoutConstraints, AvailableSize, WritingDirection
+    from psx.layout.runtime.native_measurement_dependencies import plan_layout_dependents
+    from psx.layout.contracts.model import LayoutInput, LayoutNode, LayoutConstraints, AvailableSize, WritingDirection
 
     viewport = LayoutConstraints(AvailableSize(300, True), AvailableSize(200, True))
     nodes = (
@@ -98,8 +98,8 @@ def test_native_invalidation_dependency_closure_retains_flex_siblings():
 
 def test_targeted_typography_remeasurement_reuses_unaffected_native_sibling():
     """Only the edited widget is measured; independent native metrics are cached."""
-    from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
-    from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes, MeasuredBox
+    from psx.layout.runtime.native_intrinsic_cache import NativeIntrinsicCache
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints, IntrinsicSizes, MeasuredBox
 
     left, right = object(), object()
     constraints = LayoutConstraints(AvailableSize(300, True), AvailableSize(100, True))
@@ -142,7 +142,7 @@ def test_targeted_typography_remeasurement_reuses_unaffected_native_sibling():
 
 def test_native_width_measurement_cache_reuses_independent_widths():
     """Width-dependent wrapping invalidation must not evict independent leaves."""
-    from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
+    from psx.layout.runtime.native_intrinsic_cache import NativeIntrinsicCache
 
     one, other = object(), object()
     cache = NativeIntrinsicCache()
@@ -194,8 +194,8 @@ def test_redundant_native_invalidation_does_not_restart_commit_generation():
 
 
 def test_dependent_layout_plan_rejects_cycles_and_unknown_parents():
-    from psx.sfle.native_measurement_dependencies import plan_layout_dependents
-    from psx.sfle.model import LayoutInput, LayoutNode, LayoutConstraints, AvailableSize, WritingDirection
+    from psx.layout.runtime.native_measurement_dependencies import plan_layout_dependents
+    from psx.layout.contracts.model import LayoutInput, LayoutNode, LayoutConstraints, AvailableSize, WritingDirection
 
     constraints = LayoutConstraints(AvailableSize(300, True), AvailableSize(200, True))
 
@@ -228,8 +228,8 @@ def test_dependent_layout_plan_rejects_cycles_and_unknown_parents():
 
 def test_invalidation_soak_1000_cycles_bounds_cached_native_measurements():
     """Repeated updates must not grow cache ownership or remeasure siblings."""
-    from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
-    from psx.sfle.model import IntrinsicSizes, MeasuredBox, LayoutConstraints, AvailableSize
+    from psx.layout.runtime.native_intrinsic_cache import NativeIntrinsicCache
+    from psx.layout.contracts.model import IntrinsicSizes, MeasuredBox, LayoutConstraints, AvailableSize
 
     constraints = LayoutConstraints(AvailableSize(300, True), AvailableSize(100, True))
     intrinsic = IntrinsicSizes(10, 10, 10, 10, 10, 10)

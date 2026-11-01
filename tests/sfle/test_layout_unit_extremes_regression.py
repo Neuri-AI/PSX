@@ -6,7 +6,7 @@ stage-level tests; a passing DOM snapshot alone misses overflow and tie bugs.
 import math
 import pytest
 
-from psx.sfle.fixed_point import LayoutUnit, I32_MIN, I32_MAX
+from psx.layout.contracts.fixed_point import LayoutUnit, I32_MIN, I32_MAX
 
 
 @pytest.mark.parametrize(("value", "trunc", "floor", "ceil", "nearest"), [
@@ -64,10 +64,10 @@ def test_finite_percent_operands_overflow_to_saturated_layout_units(
     # Finite CSS tokens can overflow f64 in percent * containing-block
     # reference. Both engines must saturate the signed i32 raw result,
     # never throw ValueError, yield infinity or panic.
-    from psx.sfle.compute_alpha import (
+    from psx.layout.fallback.compute_alpha import (
         _percent_used_dimension, _percent_flex_basis_used, _used_gap,
     )
-    from psx.sfle.lengths import Length
+    from psx.layout.contracts.lengths import Length
     assert _percent_used_dimension(fraction, reference) == expected
     assert _percent_flex_basis_used(fraction, reference) == expected
     if fraction > 0:

@@ -3,7 +3,7 @@
 import pytest
 
 from psx.css import CssProperty, CssPropertyRegistry, CssValidationError, foundation_registry
-from psx.sfle.lengths import Length, LengthKind
+from psx.layout.contracts.lengths import Length, LengthKind
 
 
 @pytest.mark.parametrize("value", ["0", "+0", "-0", "0.0"])

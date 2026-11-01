@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.box_geometry import UsedBoxEdges, UsedEdges, used_box_rect
-from psx.sfle.model import Rect
+from psx.layout.fallback.box_geometry import UsedBoxEdges, UsedEdges, used_box_rect
+from psx.layout.contracts.model import Rect
 
 
 def test_content_padding_border_margin_rectangles():

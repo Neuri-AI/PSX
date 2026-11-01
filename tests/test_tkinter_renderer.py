@@ -732,8 +732,8 @@ class TkinterRendererTests(unittest.TestCase):
             self.renderer.create(Flex(Text("A")), None)
 
     def _enable_native_sfle(self) -> None:
-        from psx.sfle.engine import PythonLayoutEngine
-        from psx.sfle.model import AvailableSize, LayoutConstraints
+        from psx.layout.fallback.engine import PythonLayoutEngine
+        from psx.layout.contracts.model import AvailableSize, LayoutConstraints
         native = TkinterRenderer(
             root=self.root,
             sfle_constraints=LayoutConstraints(

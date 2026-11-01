@@ -9,11 +9,11 @@ import pytest
 QtCore = pytest.importorskip("PySide6.QtCore")
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
 
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.measurement_plan import MeasurementRequest
-from psx.sfle.model import AvailableSize, LayoutConstraints
-from psx.sfle.qt_measurement import QtMeasurementSource
-from psx.sfle.worker_lifecycle import start_native_worker_layout
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+from psx.renderers.qt.cinnamon_qt_measurement import QtMeasurementSource
+from psx.layout.runtime.worker_lifecycle import start_native_worker_layout
 from test_acceptance_contract_regression import case_snapshot
 
 

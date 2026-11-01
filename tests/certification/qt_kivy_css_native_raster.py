@@ -85,7 +85,7 @@ def render_kivy(out: Path, background: str, fill: str, border: str,
     from kivy.uix.button import Button
     from kivy.clock import Clock
     from psx.renderers.kivy.kivy import KivyHandle, KivyRenderer
-    from psx.sfle.kivy_display_scale import KivyDisplayScale
+    from psx.renderers.kivy.cinnamon_kivy_display_scale import KivyDisplayScale
 
     def rgb(value):
         return tuple(int(value[i:i + 2], 16) / 255 for i in (1, 3, 5))

@@ -1,11 +1,11 @@
 """Block-flow horizontal auto margins use remaining inline space."""
 
-from psx.sfle.lengths import Length, LengthKind
-from psx.sfle.model import (
+from psx.layout.contracts.lengths import Length, LengthKind
+from psx.layout.contracts.model import (
     AvailableSize, LayoutConstraints, LayoutInput, LayoutNode,
     WritingDirection,
 )
-from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
+from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
 
 
 def layout(width, item_width, *, left="auto", right="auto", top=0, bottom=0):

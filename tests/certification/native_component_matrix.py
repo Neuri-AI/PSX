@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 
 from psx.core.registry import builtin_component_registry
-from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
+from psx.layout.projection.native_component_capabilities import NATIVE_LEAF_TYPES
 from .native_operation_evidence import COMPONENT_OPERATION_TESTS
 
 BACKENDS = ("qt", "tk", "kivy", "headless")

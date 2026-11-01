@@ -1,7 +1,7 @@
 """RED N06: unsupported CSS dependency graph must fail closed in full compute()."""
 import pytest
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import SFLEError, DiagnosticCode
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import SFLEError, DiagnosticCode
 from test_acceptance_contract_regression import case_snapshot
 
 

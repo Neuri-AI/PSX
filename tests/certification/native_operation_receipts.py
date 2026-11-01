@@ -1,6 +1,6 @@
 """Validate component-specific pytest execution receipts against C2 contracts.
 
-CLI: python -m psx.sfle.native_operation_receipts --backend qt --junit FILE.xml
+CLI: python -m psx.layout.compat.native_operation_receipts --backend qt --junit FILE.xml
 Exit nonzero if a declared reference was not executed and passed.
 No XML result can certify a pending operation or an N/A cell.
 """

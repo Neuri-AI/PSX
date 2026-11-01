@@ -32,11 +32,11 @@ def test_chromium_b1_orthogonal_intrinsic_padding_red(page, rust_binary, case_id
     import json
     import subprocess
 
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import (
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import (
         AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
     )
-    from psx.sfle.native_wire import serialize_snapshot
+    from psx.layout.contracts.native_wire import serialize_snapshot
     from fuzz_dimension_helpers import _typed
 
     root_w = 200 + 8 * case_id
@@ -117,11 +117,11 @@ def test_chromium_b1_recursive_auto_basis_includes_descendant_padding_red(page, 
     import json
     import subprocess
 
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import (
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import (
         AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
     )
-    from psx.sfle.native_wire import serialize_snapshot
+    from psx.layout.contracts.native_wire import serialize_snapshot
     from fuzz_dimension_helpers import _typed
 
     root_width = 250 + 8 * case_id

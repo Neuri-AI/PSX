@@ -5,7 +5,7 @@ import pytest
 
 from psx import Checkbox, Flex, Image, Input, ProgressBar, Slider, Spacer
 from psx.core.errors import RendererCapabilityError
-from psx.sfle.native_component_capabilities import (
+from psx.layout.projection.native_component_capabilities import (
     NATIVE_LEAF_TYPES, KIVY_EXPLICIT_BOUNDS, native_leaf_needs_measurement,
 )
 

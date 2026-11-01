@@ -2,7 +2,7 @@
 import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication, QLabel
-from psx.sfle.qt_measurement import QtMeasurementSource
+from psx.renderers.qt.cinnamon_qt_measurement import QtMeasurementSource
 
 
 def test_missing_image_without_intrinsic_dimensions_does_not_abort_cinnamon():

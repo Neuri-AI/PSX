@@ -8,14 +8,14 @@ import threading
 
 import pytest
 
-from psx.sfle.adapter_contract import (
+from psx.layout.runtime.adapter_contract import (
     SFLEAdapterPorts, ScrollViewport, derive_scroll_content_metrics,
     validate_adapter_commit,
 )
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.model import IntrinsicSizes, LayoutNode
-from psx.sfle.worker_lifecycle import start_native_worker_layout
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.contracts.model import IntrinsicSizes, LayoutNode
+from psx.layout.runtime.worker_lifecycle import start_native_worker_layout
 from test_adapter_authority_certification import _snapshot
 from test_native_worker_portable_regression import _UIQueue
 
@@ -111,7 +111,7 @@ def test_B_nested_scroll_overflow_must_not_expand_outer_viewport_content():
 
 
 def test_C_nested_viewport_projection_is_reversible_within_approved_precision():
-    from psx.sfle.adapter_contract import scroll_to_sfle_point, scroll_to_viewport_point
+    from psx.layout.runtime.adapter_contract import scroll_to_sfle_point, scroll_to_viewport_point
 
     snapshot = _nested_snapshot()
     result = PythonLayoutEngine().compute(snapshot)
@@ -127,7 +127,7 @@ def test_C_nested_viewport_projection_is_reversible_within_approved_precision():
 
 
 def test_C_foreign_scroll_transform_is_not_an_equivalent_coordinate_frame():
-    from psx.sfle.adapter_contract import scroll_to_sfle_point, scroll_to_viewport_point
+    from psx.layout.runtime.adapter_contract import scroll_to_sfle_point, scroll_to_viewport_point
 
     snapshot = _nested_snapshot()
     result = PythonLayoutEngine().compute(snapshot)

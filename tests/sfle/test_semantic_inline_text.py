@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.semantic_inline_text import (
+from psx.layout.fallback.semantic_inline_text import (
     InlineTextMetrics, InlineTextSource, layout_inline_text,
 )
 

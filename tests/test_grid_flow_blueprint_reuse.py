@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from psx import psx
 from psx.core.layout_tree import normalize_flex_tree
-from psx.sfle.grid_native_composition import FlowBlueprintReuse
-from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.grid.grid_native_composition import FlowBlueprintReuse
+from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
 
 def _flow(markup):
@@ -77,7 +77,7 @@ def test_blueprint_cache_is_bounded_to_avoid_retaining_unmounted_trees():
 
 
 def test_kivy_retina_nested_css_geometry_scales_and_cache_cannot_mix_densities():
-    from psx.sfle.lengths import Length
+    from psx.layout.contracts.lengths import Length
     flow = _flow(
         '<div style="display:flex;flex-direction:column;gap:10px;padding:12px">'
         '<span style="margin-left:3px">Alpha</span>'

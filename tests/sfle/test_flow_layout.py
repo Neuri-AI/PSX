@@ -1,7 +1,7 @@
 """Fixed-point block flow placement regressions (pure geometry only)."""
 import pytest
 
-from psx.sfle.flow_layout import BlockItem, InlineAtom, layout_block_children, layout_inline_atoms
+from psx.layout.fallback.flow_layout import BlockItem, InlineAtom, layout_block_children, layout_inline_atoms
 
 
 def test_block_flow_stacks_siblings_without_changing_measured_width():

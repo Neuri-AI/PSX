@@ -2,9 +2,9 @@
 
 import pytest
 
-from psx.sfle.errors import SFLECapabilityError
-from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
-from psx.sfle.model import (
+from psx.layout.contracts.errors import SFLECapabilityError
+from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, MeasuredBox, WritingDirection,
 )

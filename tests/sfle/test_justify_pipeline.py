@@ -6,12 +6,12 @@ from dataclasses import replace
 
 import pytest
 
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.line_layout import FlexDirection
-from psx.sfle.main_alignment import JustifyContent
-from psx.sfle.main_margins import UsedMargin
-from psx.sfle.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
-from psx.sfle.model import WritingDirection
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.line_layout import FlexDirection
+from psx.layout.fallback.main_alignment import JustifyContent
+from psx.layout.fallback.main_margins import UsedMargin
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
+from psx.layout.contracts.model import WritingDirection
 
 
 def item(name: str, *, start: float | None = 0,

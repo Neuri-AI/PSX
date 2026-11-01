@@ -1,10 +1,10 @@
 """Regression fixtures for pure F2.2.4.5 dependency invalidation."""
 import pytest
 
-from psx.sfle.errors import SFLEError
-from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection
-from psx.sfle.remeasurement import plan_remeasurement
-from psx.sfle.used_size_tree import UsedSizeTree
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection
+from psx.layout.fallback.remeasurement import plan_remeasurement
+from psx.layout.fallback.used_size_tree import UsedSizeTree
 
 
 def size(width, height=20):

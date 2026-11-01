@@ -28,7 +28,7 @@ def main() -> None:
     from kivy.metrics import Metrics
     from kivy.clock import Clock
     from kivy.base import EventLoop
-    from psx.sfle.kivy_display_scale import KivyDisplayScale
+    from psx.renderers.kivy.cinnamon_kivy_display_scale import KivyDisplayScale
     from psx.renderers.kivy.kivy import KivyRenderer
 
     if Window is None:

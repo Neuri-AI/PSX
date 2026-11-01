@@ -22,8 +22,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             def constraints(width):
                 return LayoutConstraints(
@@ -88,8 +88,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
             def constraints(width):
                 return LayoutConstraints(
                     AvailableSize(width, True), AvailableSize(500, True),
@@ -139,8 +139,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
             def constraints(width):
                 return LayoutConstraints(
                     AvailableSize(width, True), AvailableSize(400, True),
@@ -249,8 +249,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
             def constraints():
                 return LayoutConstraints(
                     AvailableSize(650, True), AvailableSize(350, True),
@@ -299,8 +299,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
                     AvailableSize(240, True), AvailableSize(140, True),
@@ -342,8 +342,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
                     AvailableSize(240, True), AvailableSize(140, True),
@@ -378,8 +378,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -429,10 +429,10 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Button, Flex
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.lengths import Length
-            from psx.sfle.model import AvailableSize, LayoutConstraints
-            from psx.sfle.native_layout_snapshot import PreparedNativeLayoutSnapshot
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.lengths import Length
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+            from psx.layout.projection.native_layout_snapshot import PreparedNativeLayoutSnapshot
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -490,8 +490,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx.core.errors import RendererCapabilityError
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -540,8 +540,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, Input
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -591,8 +591,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, Checkbox, ProgressBar
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             backend = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -653,8 +653,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, Text, Button
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             def constraints(w):
                 return LayoutConstraints(AvailableSize(w, True), AvailableSize(80, True))
@@ -724,8 +724,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, Link, Badge, Divider, Spacer, Button
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -800,8 +800,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, Switch, SpinBox, Select
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -897,8 +897,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx.core.vnode import Box
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -969,8 +969,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Button, Flex, Scroll
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -1084,8 +1084,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Button, Flex, Scroll
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -1128,9 +1128,9 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Button, Flex, Scroll
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
-            from psx.sfle import native_scroll_hosts
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+            from psx.layout import native_scroll_hosts
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -1187,8 +1187,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Button, Flex, Scroll
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -1237,8 +1237,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Button, Flex, Scroll
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -1268,11 +1268,11 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             assert scroll.scroll_x == 0.0
             assert scroll.scroll_y == 1.0
             assert renderer.sfle_result.geometry_commit_error <= 1
-            from psx.sfle.native_scroll_hosts import (
+            from psx.layout.adapters.native_scroll_hosts import (
                 apply_kivy_scroll, binding_from_host,
             )
-            from psx.sfle.scroll_offsets import ScrollOffset
-            from psx.sfle.model import Rect
+            from psx.layout.scroll.scroll_offsets import ScrollOffset
+            from psx.layout.contracts.model import Rect
             binding = binding_from_host(
                 scroll._psx_props, Rect(0, 0, 120, 80),
                 Rect(0, 0, 300, 200),
@@ -1313,9 +1313,9 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, Image, Button
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.errors import SFLEError
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.errors import SFLEError
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             def png(path, width, height):
                 def chunk(kind, data):
@@ -1388,8 +1388,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, TextArea, Button
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             def constraints(w=160, h=500):
                 return LayoutConstraints(AvailableSize(w, True),
@@ -1476,8 +1476,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, TextArea, Button
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             def limits(w):
                 return LayoutConstraints(AvailableSize(w, True),
@@ -1528,8 +1528,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, Button
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             def bounds(w, h):
                 return LayoutConstraints(AvailableSize(w, True), AvailableSize(h, True))
@@ -1617,8 +1617,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, Button
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -1675,8 +1675,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -1737,8 +1737,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -1798,8 +1798,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             # A deterministic 2x window/system ratio, independent of the
             # headless CI monitor's real physical density.
@@ -1856,8 +1856,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             KivyRenderer._read_css_pixel_scale = staticmethod(lambda: 2.0)
             renderer = KivyRenderer(
@@ -1920,8 +1920,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             KivyRenderer._read_css_pixel_scale = staticmethod(lambda: 2.0)
             renderer = KivyRenderer(
@@ -1994,8 +1994,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             KivyRenderer._read_css_pixel_scale = staticmethod(lambda: 2.0)
             renderer = KivyRenderer(sfle_constraints=LayoutConstraints(
@@ -2063,9 +2063,9 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import psx
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.backend import load_layout_engine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.engine.backend import load_layout_engine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             engine = (load_layout_engine()
                       if os.getenv("PSX_KIVY_LAYOUT_ENGINE") == "rust"
@@ -2141,15 +2141,15 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, Text, Button, Checkbox, Slider, Spacer, component, use_state, psx
             from psx.core.native import Native
             from psx.core.vnode import create_element
-            from psx.sfle.external_native_geometry_ports import SFLEExternalPort
-            from psx.sfle.model import IntrinsicSizes, Rect
+            from psx.layout.adapters.external_native_geometry_ports import SFLEExternalPort
+            from psx.layout.contracts.model import IntrinsicSizes, Rect
             from psx.renderers.kivy.kivy import KivyHandle
             from psx.core.reconcile import Reconciler
             from psx.core.errors import RendererCapabilityError
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.errors import SFLEError, DiagnosticCode
-            from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutResult
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.errors import SFLEError, DiagnosticCode
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints, LayoutResult
 
             assert Window is not None, "Real Kivy SDL2 Window provider required"
 
@@ -2475,10 +2475,10 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx.core.errors import RendererCapabilityError
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
-            from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
-            from psx.sfle.native_operation_oracles import Observation, ORACLES
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+            from psx.layout.projection.native_component_capabilities import NATIVE_LEAF_TYPES
+            from psx.layout.compat.native_operation_oracles import Observation, ORACLES
 
             with TemporaryDirectory() as tmp:
                 import struct
@@ -2681,10 +2681,10 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx.core.vnode import create_element
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
-            from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
-            from psx.sfle.native_operation_contracts import EVENTLESS
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+            from psx.layout.projection.native_component_capabilities import NATIVE_LEAF_TYPES
+            from psx.layout.compat.native_operation_contracts import EVENTLESS
 
             callbacks = {
                 "Button": (Button("Action"), "on_click", ()),
@@ -2762,10 +2762,10 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx.core.vnode import native_widget
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.external_native_geometry_ports import SFLEExternalPort
-            from psx.sfle.native_operation_oracles import Observation, ORACLES
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes, Rect
+            from psx.layout.adapters.external_native_geometry_ports import SFLEExternalPort
+            from psx.layout.compat.native_operation_oracles import Observation, ORACLES
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints, IntrinsicSizes, Rect
 
             caller_parent = Widget()
             widget = Widget()
@@ -2841,9 +2841,9 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx.core.reconcile import Reconciler
             from psx.core.errors import RendererCapabilityError
             from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
-            from psx.sfle.external_native_geometry_ports import SFLEExternalPort
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes, Rect
+            from psx.layout.adapters.external_native_geometry_ports import SFLEExternalPort
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints, IntrinsicSizes, Rect
 
             def port():
                 def measure(w, c):
@@ -2925,10 +2925,10 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx.core.native import NativeWidget, NativeOwnership
             from psx.core.vnode import native_widget
             from psx.core.reconcile import Reconciler
-            from psx.sfle.external_native_geometry_ports import SFLEExternalPort
+            from psx.layout.adapters.external_native_geometry_ports import SFLEExternalPort
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes, Rect
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints, IntrinsicSizes, Rect
 
             widget = Widget()
             caller = Widget()
@@ -2996,8 +2996,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, Text
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -3039,10 +3039,10 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Button, Flex
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.errors import SFLEError
-            from psx.sfle.model import AvailableSize, LayoutConstraints
-            import psx.sfle.kivy_layout_bridge as bridge
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.errors import SFLEError
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+            import psx.renderers.kivy.cinnamon_kivy_layout_bridge as bridge
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -3094,9 +3094,9 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Button, Flex
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
-            import psx.sfle.kivy_layout_bridge as bridge
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+            import psx.renderers.kivy.cinnamon_kivy_layout_bridge as bridge
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -3152,9 +3152,9 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Button, Flex
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
-            import psx.sfle.kivy_layout_bridge as bridge
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+            import psx.renderers.kivy.cinnamon_kivy_layout_bridge as bridge
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -3212,8 +3212,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Flex, Image, Button
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             def write_png(path, width, height):
                 def chunk(kind, value):
@@ -3270,8 +3270,8 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
             from psx import Button, Flex
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(
@@ -3313,8 +3313,8 @@ def test_html_flow_public_native_geometry_receipt_kivy(request):
         from psx import psx
         from psx.core.reconcile import Reconciler
         from psx.renderers.kivy.kivy import KivyRenderer
-        from psx.sfle.engine import PythonLayoutEngine
-        from psx.sfle.model import AvailableSize, LayoutConstraints
+        from psx.layout.fallback.engine import PythonLayoutEngine
+        from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
         renderer = KivyRenderer(
             sfle_constraints=LayoutConstraints(

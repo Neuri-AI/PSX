@@ -14,11 +14,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "interop"))
 from test_sfle_differential import rust_binary  # noqa: E402
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import SFLEError
-from psx.sfle.lengths import parse_length
-from psx.sfle.model import LayoutInput, LayoutNode, LayoutConstraints, AvailableSize, WritingDirection
-from psx.sfle.native_wire import serialize_snapshot
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.contracts.lengths import parse_length
+from psx.layout.contracts.model import LayoutInput, LayoutNode, LayoutConstraints, AvailableSize, WritingDirection
+from psx.layout.contracts.native_wire import serialize_snapshot
 
 TOLERANCE = 0.01
 DIMENSION_SEEDS = {

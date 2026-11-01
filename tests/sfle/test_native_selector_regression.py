@@ -2,7 +2,7 @@
 import sys
 from types import SimpleNamespace
 
-from psx.sfle.backend import load_layout_engine
+from psx.layout.engine.backend import load_layout_engine
 
 
 def test_A08_native_extension_selected_on_load(monkeypatch):

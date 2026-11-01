@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 
-from psx.sfle.lengths import LengthKind, parse_length
+from psx.layout.contracts.lengths import LengthKind, parse_length
 
 from .errors import RendererCapabilityError
 from .props import FLEX_ITEM_PROPS

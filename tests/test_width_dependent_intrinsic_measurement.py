@@ -5,13 +5,13 @@ from dataclasses import replace
 
 import pytest
 
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.width_dependent_intrinsic_measurement import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.runtime.width_dependent_intrinsic_measurement import (
     auto_height_measurement_ids, compute_width_dependent,
     seed_unconstrained_width_measurements,
 )
-from psx.sfle.model import (
+from psx.layout.contracts.model import (
     AvailableSize, BoxRect, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, LayoutResult, MeasuredBox, Rect, WritingDirection,
 )

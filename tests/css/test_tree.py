@@ -7,7 +7,7 @@ from psx.css.parser import parse_stylesheet
 from psx.css.properties import foundation_registry
 from psx.css.tree import resolve_vnode_styles
 from psx.css.visual_values import CssColor
-from psx.sfle.lengths import Length
+from psx.layout.contracts.lengths import Length
 
 
 def test_project_vnode_tree_without_mutation():

@@ -1,12 +1,12 @@
 """Bounded auto cross-axis container sizing contract."""
 import pytest
 
-from psx.sfle.auto_cross_tree import AutoCrossSize, compute_auto_cross_tree
-from psx.sfle.errors import SFLECapabilityError
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.margin_flex_pipeline import MarginFlexItem
-from psx.sfle.margin_tree import MarginTreeNode
-from psx.sfle.line_layout import FlexWrap
+from psx.layout.fallback.auto_cross_tree import AutoCrossSize, compute_auto_cross_tree
+from psx.layout.contracts.errors import SFLECapabilityError
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem
+from psx.layout.fallback.margin_tree import MarginTreeNode
+from psx.layout.fallback.line_layout import FlexWrap
 
 
 def item(id, cross):

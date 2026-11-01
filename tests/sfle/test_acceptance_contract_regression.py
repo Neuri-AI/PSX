@@ -9,10 +9,10 @@ from pathlib import Path
 
 _ACCEPTANCE = {case['id']: case['expected'] for case in json.loads((Path(__file__).parent / 'fixtures' / 'f2_alpha_acceptance.json').read_text())['cases']}
 
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.lengths import Length, LengthKind, parse_length
-from psx.sfle.model import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.contracts.lengths import Length, LengthKind, parse_length
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, MeasuredBox, WritingDirection,
 )
@@ -124,9 +124,9 @@ def test_A07_convergent_auto_layout_is_finite():
 
 
 def test_A06_stale_generation_never_commits_native_geometry():
-    from psx.sfle.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
-    from psx.sfle.native_measurement import NativeMeasurementPort
-    from psx.sfle.headless_measurement import HeadlessMeasurementSource
+    from psx.layout.runtime.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
+    from psx.layout.runtime.native_measurement import NativeMeasurementPort
+    from psx.layout.adapters.headless_measurement import HeadlessMeasurementSource
     from test_recursive_measurement import NODES, SIZING, METRICS, snapshot as existing_snapshot
     current_generation = [5]
     commits = []
@@ -147,8 +147,8 @@ def test_A06_stale_generation_never_commits_native_geometry():
 
 
 def test_A07_bounded_two_step_oscillation_rejected():
-    from psx.sfle.convergence import begin_convergence, advance_convergence
-    from psx.sfle.used_size_tree import UsedSizeTree
+    from psx.layout.fallback.convergence import begin_convergence, advance_convergence
+    from psx.layout.fallback.used_size_tree import UsedSizeTree
     def tree(width):
         return UsedSizeTree(17, (("root", LayoutConstraints(
             AvailableSize(width, True), AvailableSize(60, True))),), ())

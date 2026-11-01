@@ -35,9 +35,9 @@ from psx.core.events import EventSlot
 from psx.core.native import NativeOwnership, NativeWidget, _clear_native_snapshot
 from psx.core.vnode import NodeKind, VNode
 from psx.core.props import FLEX_ITEM_PROPS
-from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
-from psx.sfle.external_native_geometry_ports import external_port_for
-from psx.sfle.model import LayoutConstraints, LayoutResult
+from psx.layout.projection.native_component_capabilities import native_leaf_needs_measurement
+from psx.layout.adapters.external_native_geometry_ports import external_port_for
+from psx.layout.contracts.model import LayoutConstraints, LayoutResult
 from psx.renderers.adapters import (
     AdapterSubscription,
     DelegatingAdapter,
@@ -413,20 +413,20 @@ class TkinterRenderer:
             not sfle_constraints.width.definite or not sfle_constraints.height.definite
         ):
             raise RendererCapabilityError("Tk SFLE viewport requires definite axes.")
-        from psx.sfle.backend import load_layout_engine
+        from psx.layout.engine.backend import load_layout_engine
         self._sfle_constraints = sfle_constraints
         self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
         self._sfle_backend = "tk"
         self._sfle_generation = 0
         self._sfle_theme_bind_id = None
-        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+        from psx.layout.runtime.native_measurement_invalidation import MeasurementInvalidations
         self._sfle_measurement_invalidations = MeasurementInvalidations()
-        from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
+        from psx.layout.runtime.native_intrinsic_cache import NativeIntrinsicCache
         self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
         self._sfle_prior_solver_input = None
         self._sfle_prior_solver_result = None
         self._sfle_prior_solver_engine = None
-        from psx.sfle.native_resource_watch import ImageResourceWatch
+        from psx.layout.runtime.native_resource_watch import ImageResourceWatch
         self._sfle_image_resource_watch = ImageResourceWatch()
         self._sfle_resource_poll_scheduled = False
         self._sfle_resource_error: Exception | None = None
@@ -537,7 +537,7 @@ class TkinterRenderer:
         The mounted instance is reused; the existing SFLE transaction remains
         the only writer. Teardown invalidates queued work by epoch.
         """
-        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+        from psx.layout.runtime.native_measurement_invalidation import MeasurementInvalidations
 
         if self._sfle_constraints is None:
             raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
@@ -580,7 +580,7 @@ class TkinterRenderer:
         self._sfle_constraints = constraints
         self._sfle_generation += 1
         if self._sfle_root_widget is not None and self._sfle_root_widget.winfo_exists():
-            from psx.sfle.native_grid_bridge import is_mounted_native_grid_root
+            from psx.layout.adapters.native_grid_bridge import is_mounted_native_grid_root
             # A Grid root is projected together with its children by the
             # atomic commit. Placing it here exposes the new parent width
             # while the child rectangles still belong to the previous frame.
@@ -644,7 +644,7 @@ class TkinterRenderer:
     def _sfle_root_axis_tracks_viewport(self, axis: str) -> bool:
         """Whether the mounted SFLE root resolves this axis from the host."""
         from psx.core.vnode import NodeKind
-        from psx.sfle.lengths import LengthKind, parse_length
+        from psx.layout.contracts.lengths import LengthKind, parse_length
 
         instance = self._sfle_mounted_root
         while instance is not None and instance.node.kind is NodeKind.COMPONENT:
@@ -682,7 +682,7 @@ class TkinterRenderer:
         root = self._sfle_mounted_root
         if root.disposed:
             return
-        from psx.sfle.model import AvailableSize
+        from psx.layout.contracts.model import AvailableSize
         try:
             self.set_sfle_constraints(LayoutConstraints(
                 AvailableSize(size[0], True), AvailableSize(size[1], True),
@@ -727,13 +727,13 @@ class TkinterRenderer:
     def commit_layout(self, root: object) -> None:
         if self._sfle_constraints is None:
             return
-        from psx.sfle.native_grid_bridge import is_mounted_native_grid_root, commit_native_grid
-        from psx.sfle.grid_native_commit import GridCommitBackend
-        from psx.sfle.tkinter_layout_bridge import commit_tk_sfle
+        from psx.layout.adapters.native_grid_bridge import is_mounted_native_grid_root, commit_native_grid
+        from psx.layout.adapters.grid_native_commit import GridCommitBackend
+        from psx.renderers.tkinter.cinnamon_tkinter_layout_bridge import commit_tk_sfle
         # Native style/texture signals can arrive while measuring. Retry a
         # bounded number of times using the latest semantic epoch; never
         # publish a transaction rejected for stale measurements.
-        from psx.sfle.errors import SFLEError
+        from psx.layout.contracts.errors import SFLEError
         prior_signatures = getattr(self, "_sfle_committed_signatures", None)
         semantic_dirty = self._sfle_measurement_invalidations.needs_commit()
         grid_root = is_mounted_native_grid_root(root)
@@ -824,7 +824,7 @@ class TkinterRenderer:
         walk(self.root)
 
     def invalidate_layout(self) -> None:
-        from psx.sfle.semantic_inline_native_paint import release_native_inline_paint
+        from psx.layout.inline.semantic_inline_native_paint import release_native_inline_paint
         release_native_inline_paint(self, "tk")
         self._sfle_invalidation_lifetime += 1
         self._sfle_invalidation_scheduled = False
@@ -1128,7 +1128,7 @@ class TkinterRenderer:
         is paint only and never participates in Cinnamon geometry.
         """
         from psx.css.native_paint import background_hex, native_border_radius
-        from psx.sfle.lengths import LengthKind
+        from psx.layout.contracts.lengths import LengthKind
 
         painted = getattr(widget, "_psx_css_button_surface", None)
         paint_keys = (
@@ -1434,7 +1434,7 @@ class TkinterRenderer:
         # without adding borders to the other three edges.
         if target.node_type in FORMATTING_TAGS:
             from psx.css.visual_values import CssColor
-            from psx.sfle.lengths import Length, LengthKind
+            from psx.layout.contracts.lengths import Length, LengthKind
             side_edges = getattr(target.widget, "_psx_css_side_borders", None)
             active_sides = set()
             active_paint = {}
@@ -1781,7 +1781,7 @@ class TkinterRenderer:
                 if "font-weight" in styles:
                     font.configure(weight="bold" if styles["font-weight"] >= 600 else "normal")
                 props = computed.properties if computed is not None else {}
-                from psx.sfle.lengths import LengthKind
+                from psx.layout.contracts.lengths import LengthKind
                 padding = []
                 for side in ("left", "top", "right", "bottom"):
                     value = props.get(f"padding-{side}")
@@ -1975,7 +1975,7 @@ class TkinterRenderer:
                             for side in ("top", "right", "bottom", "left")
                         )
                     ):
-                        from psx.sfle.lengths import LengthKind
+                        from psx.layout.contracts.lengths import LengthKind
                         dimensions = []
                         for side in ("left", "top", "right", "bottom"):
                             length = computed.properties[f"padding-{side}"]

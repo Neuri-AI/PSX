@@ -14,7 +14,7 @@ import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from psx.sfle.native_measurement_invalidation import REASONS
+from psx.layout.runtime.native_measurement_invalidation import REASONS
 from .native_operation_contracts import native_operation_contracts
 
 COMPONENT_DRIVERS = {

@@ -6,12 +6,12 @@ from dataclasses import replace
 
 import pytest
 
-from psx.sfle.errors import SFLECapabilityError
-from psx.sfle.intrinsic import IntrinsicFlexInput, MainAxis
-from psx.sfle.lengths import Length, LengthKind
-from psx.sfle.model import AvailableSize, IntrinsicSizes
-from psx.sfle.percentage_box_sizing import BoxSizing
-from psx.sfle.percentage_constraints import (
+from psx.layout.contracts.errors import SFLECapabilityError
+from psx.layout.fallback.intrinsic import IntrinsicFlexInput, MainAxis
+from psx.layout.contracts.lengths import Length, LengthKind
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes
+from psx.layout.fallback.percentage_box_sizing import BoxSizing
+from psx.layout.fallback.percentage_constraints import (
     PercentageFlexConstraints, resolve_percentage_flex_constraints,
 )
 

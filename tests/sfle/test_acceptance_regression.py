@@ -5,13 +5,13 @@ Do not relax them to match the existing restricted helper implementations.
 """
 import pytest
 
-from psx.sfle.auto_cross_tree import AutoCrossSize, compute_auto_cross_tree
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.line_layout import FlexDirection
-from psx.sfle.margin_flex_pipeline import MarginFlexItem
-from psx.sfle.margin_tree import MarginTreeNode
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection
+from psx.layout.fallback.auto_cross_tree import AutoCrossSize, compute_auto_cross_tree
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.line_layout import FlexDirection
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem
+from psx.layout.fallback.margin_tree import MarginTreeNode
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection
 
 
 def _item(name: str, main: float, cross: float, grow: float = 0):

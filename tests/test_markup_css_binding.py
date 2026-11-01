@@ -5,7 +5,7 @@ from psx.core.errors import MarkupSyntaxError
 from psx.core.vnode import NodeKind
 from psx.markup.compile import compile_template, psx
 from psx.css.visual_values import CssColor
-from psx.sfle.lengths import Length
+from psx.layout.contracts.lengths import Length
 
 
 def styled(markup: str, css: str, scope=None):
@@ -376,8 +376,8 @@ def test_mixed_inline_heading_preserves_native_title_size():
 
 def test_html_img_css_width_reaches_cinnamon_without_rewriting_native_source():
     from psx.core.layout_tree import normalize_flex_tree
-    from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
     root = styled(
         '<div class="root"><img src="images/logo.svg" />'

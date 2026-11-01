@@ -6,8 +6,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from psx.markup.compile import psx
 from psx.core.reconcile import Reconciler
 from psx.renderers.qt.pyside import PySide6Renderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import LayoutConstraints, AvailableSize
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import LayoutConstraints, AvailableSize
 
 
 def test_grid_inside_div_with_text_item_is_native_measurable():

@@ -12,14 +12,14 @@ import threading
 import time
 import pytest
 
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import SFLEError, DiagnosticCode
-from psx.sfle.worker_lifecycle import start_native_worker_layout
-from psx.sfle.kivy_measurement import KivyMeasurementSource
-from psx.sfle.tk_measurement import TkMeasurementSource
-from psx.sfle.headless_measurement import HeadlessMeasurementSource
-from psx.sfle.measurement_plan import MeasurementRequest
-from psx.sfle.model import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import SFLEError, DiagnosticCode
+from psx.layout.runtime.worker_lifecycle import start_native_worker_layout
+from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
+from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
+from psx.layout.adapters.headless_measurement import HeadlessMeasurementSource
+from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.layout.contracts.model import (
     AvailableSize, LayoutConstraints, IntrinsicSizes,
 )
 from test_acceptance_contract_regression import case_snapshot

@@ -6,8 +6,8 @@ import pytest
 from psx import Grid, GridItem, Text
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 from tests.certification.public_behavior_census import Feature, assert_feature
 
 
@@ -213,7 +213,7 @@ def test_flex_grid_mixed_headless_width_allocation_readback_and_identity(request
 def test_headless_grid_inside_scroll_flex_preserves_layout_identity(request):
     """Headless certifies geometry, not native wheel/keyboard interactions."""
     from psx import Flex, Scroll
-    from psx.sfle.model import IntrinsicSizes
+    from psx.layout.contracts.model import IntrinsicSizes
     def metric(node, allocated_width=None):
         if node.type == "Text":
             width = allocated_width if allocated_width is not None else 20
@@ -258,7 +258,7 @@ def test_headless_grid_inside_scroll_flex_preserves_layout_identity(request):
 def test_headless_mixed_grid_rollback_and_recovery(request, monkeypatch):
     """Mixed root and Grid descendants share one rollback boundary."""
     from psx import Flex
-    from psx.sfle import grid_native_commit
+    from psx.layout import grid_native_commit
     renderer = make_renderer()
     reconciler = Reconciler(renderer)
     try:
@@ -469,8 +469,8 @@ def test_auto_width_flex_padding_stays_inside_its_grid_item(request):
 @pytest.mark.parametrize("reason", ("resource", "dpi"))
 def test_grid_root_semantic_invalidation_after_child_commit_rolls_back_and_recovers(request, monkeypatch, reason):
     """Late content/resource invalidation must not leave stale child geometry."""
-    from psx.sfle import headless_grid_bridge
-    from psx.sfle.errors import SFLEError
+    from psx.layout import headless_grid_bridge
+    from psx.layout.contracts.errors import SFLEError
     renderer = make_renderer()
     tree_instance = Reconciler(renderer)
     try:

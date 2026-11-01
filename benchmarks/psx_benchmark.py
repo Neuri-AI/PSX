@@ -27,8 +27,8 @@ from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
 
 
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
 
 def _native_headless_renderer():

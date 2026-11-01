@@ -9,10 +9,10 @@ import random
 
 import pytest
 
-from psx.sfle.backend import RustLayoutEngine, load_layout_engine
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.semantic_inline_text import (
+from psx.layout.engine.backend import RustLayoutEngine, load_layout_engine
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.fallback.semantic_inline_text import (
     InlineTextMetrics, InlineTextSource, layout_inline_text,
 )
 

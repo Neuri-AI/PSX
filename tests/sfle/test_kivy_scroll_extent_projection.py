@@ -10,11 +10,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from psx.sfle.grid_native_composition import ComposedGrid, compose_geometry_batch
-from psx.sfle.grid_native_commit import GridCommitBackend, commit_grid_native_geometry
-from psx.sfle.grid_native_plan import GridNativePlacement
-from psx.sfle.model import Rect
-from psx.sfle.native_layout_snapshot import path_identity
+from psx.layout.grid.grid_native_composition import ComposedGrid, compose_geometry_batch
+from psx.layout.adapters.grid_native_commit import GridCommitBackend, commit_grid_native_geometry
+from psx.layout.grid.grid_native_plan import GridNativePlacement
+from psx.layout.contracts.model import Rect
+from psx.layout.projection.native_layout_snapshot import path_identity
 
 
 class NativeWidget:

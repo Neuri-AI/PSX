@@ -76,7 +76,7 @@ class NativeWidget:
         if self.bind_event is not None and not callable(self.bind_event):
             raise TypeError("NativeWidget.bind_event must be callable or None.")
         if self.sfle_port is not None:
-            from psx.sfle.external_native_geometry_ports import SFLEExternalPort
+            from psx.layout.adapters.external_native_geometry_ports import SFLEExternalPort
             if not isinstance(self.sfle_port, SFLEExternalPort):
                 raise TypeError("NativeWidget.sfle_port requires SFLEExternalPort.")
 
@@ -287,8 +287,8 @@ def _default_sfle_port(renderer: str) -> object | None:
     expose the operations SFLE needs. Advanced ``NativeWidget`` adapters stay
     explicit because their geometry contract cannot be inferred.
     """
-    from psx.sfle.external_native_geometry_ports import SFLEExternalPort
-    from psx.sfle.model import IntrinsicSizes, Rect
+    from psx.layout.adapters.external_native_geometry_ports import SFLEExternalPort
+    from psx.layout.contracts.model import IntrinsicSizes, Rect
 
     if renderer == "tkinter":
         def measure_tk(widget: object, _constraints: object) -> IntrinsicSizes:

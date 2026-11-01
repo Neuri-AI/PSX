@@ -6,8 +6,8 @@ import pytest
 from psx import App, Flex, Text, component, use_effect, use_ref, use_state
 from psx.devtools import coordinated_refresh as refresh
 from psx.renderers.headless import HeadlessRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
 
 def renderer():

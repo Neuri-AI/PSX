@@ -6,7 +6,7 @@ from psx.css.parser import parse_stylesheet
 from psx.css.cascade import StyleTarget, resolve_style
 from psx.css.visual_values import CssColor
 from psx.css.effects import StyleEffect, classify_style_change
-from psx.sfle.lengths import Length
+from psx.layout.contracts.lengths import Length
 
 
 def test_catalog_includes_geometry_paint_and_font_with_metadata():

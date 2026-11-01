@@ -4,10 +4,10 @@ import time
 import pytest
 QtWidgets=pytest.importorskip("PySide6.QtWidgets")
 QtCore=pytest.importorskip("PySide6.QtCore")
-from psx.sfle.qt_worker_dispatch import start_qt_worker_layout
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import SFLEError, DiagnosticCode
-from psx.sfle.model import IntrinsicSizes
+from psx.renderers.qt.cinnamon_qt_worker_dispatch import start_qt_worker_layout
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import SFLEError, DiagnosticCode
+from psx.layout.contracts.model import IntrinsicSizes
 from test_acceptance_contract_regression import case_snapshot
 
 

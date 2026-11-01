@@ -2,14 +2,14 @@
 from __future__ import annotations
 from dataclasses import replace
 import pytest
-from psx.sfle.cross_stretch import resolve_cross_stretch
-from psx.sfle.cross_alignment import CrossAlign
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.line_layout import FlexDirection, FlexWrap
-from psx.sfle.main_margins import UsedMargin
-from psx.sfle.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
-from psx.sfle.model import WritingDirection
-from psx.sfle.box_geometry import UsedBoxEdges, UsedEdges
+from psx.layout.fallback.cross_stretch import resolve_cross_stretch
+from psx.layout.fallback.cross_alignment import CrossAlign
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.line_layout import FlexDirection, FlexWrap
+from psx.layout.fallback.main_margins import UsedMargin
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
+from psx.layout.contracts.model import WritingDirection
+from psx.layout.fallback.box_geometry import UsedBoxEdges, UsedEdges
 
 def item() -> MarginFlexItem:
     return MarginFlexItem("a", FlexBasis(20, 20, shrink=0), 10, cross_size_auto=True)
@@ -58,7 +58,7 @@ def test_definite_minimum_can_force_overflow():
 def test_stretch_uses_expanded_align_content_line():
     a=replace(item(), node_id="a")
     b=replace(item(), node_id="b")
-    from psx.sfle.align_content import AlignContent
+    from psx.layout.fallback.align_content import AlignContent
     out=compute_margin_flex_layout((a,b), 30, 100, wrap=FlexWrap.WRAP,
         align_items=CrossAlign.STRETCH, align_content=AlignContent.STRETCH, cross_gap=10)
     assert [box.border.height for box in out.boxes] == [45,45]

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-time, deterministic migration of psx.sfle to capability-owned modules.
+"""One-time, deterministic migration of psx.layout to capability-owned modules.
 
 Run from the PSX repository root:
     python scripts/migrate_layout_architecture.py
@@ -43,7 +43,7 @@ def migrate() -> dict[str, int]:
                     continue
             before = path.read_text(encoding="utf-8")
             def replace(match: re.Match[str]) -> str:
-                key = "psx.sfle." + match.group(1)
+                key = "psx.layout." + match.group(1)
                 if key not in MODULES:
                     raise RuntimeError(
                         f"Unmapped old module {key} referenced from {path}"

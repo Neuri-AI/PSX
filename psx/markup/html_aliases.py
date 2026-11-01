@@ -12,7 +12,7 @@ import re
 
 from psx.core.registry import ComponentDefinition
 from psx.core.vnode import Image, Text, VNode, create_element
-from psx.sfle.display_context import resolve_display
+from psx.layout.projection.display_context import resolve_display
 
 def _html_img(*children: object, src: object = None, **props: object) -> VNode:
     """Lower HTML img src and responsive dimensions to portable Image/Cinnamon.
@@ -22,7 +22,7 @@ def _html_img(*children: object, src: object = None, **props: object) -> VNode:
     while the native pixel properties retain legacy intrinsic sizing behavior.
     """
     from pathlib import Path
-    from psx.sfle.lengths import LengthKind, parse_length
+    from psx.layout.contracts.lengths import LengthKind, parse_length
     from .image_sources import resolve_markup_image_source
 
     if children:

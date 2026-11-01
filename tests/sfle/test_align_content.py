@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.align_content import AlignContent, distribute_cross_lines
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.line_layout import FlexDirection, FlexWrap
-from psx.sfle.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
-from psx.sfle.model import WritingDirection
+from psx.layout.fallback.align_content import AlignContent, distribute_cross_lines
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.line_layout import FlexDirection, FlexWrap
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
+from psx.layout.contracts.model import WritingDirection
 
 
 def sample(name: str, *, cross: float = 20) -> MarginFlexItem:
@@ -44,7 +44,7 @@ def test_align_content_stretch_expands_lines_not_fixed_height_items():
 
 
 def test_align_content_stretch_updates_alignment_inside_enlarged_line():
-    from psx.sfle.cross_alignment import CrossAlign
+    from psx.layout.fallback.cross_alignment import CrossAlign
 
     layout = compute_margin_flex_layout(
         (sample("a"), sample("b")), 100, 100,

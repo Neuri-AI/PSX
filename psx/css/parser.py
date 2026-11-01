@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 
 from .properties import CssValidationError, foundation_registry, expand_box_shorthand
-from psx.sfle.lengths import Length
+from psx.layout.contracts.lengths import Length
 
 _IDENT = r"[a-zA-Z_][a-zA-Z0-9_-]*"
 _SELECTOR = re.compile(rf"^(?P<tag>{_IDENT})?(?P<qualifiers>(?:[.#]{_IDENT})*)$")

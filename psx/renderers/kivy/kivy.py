@@ -26,9 +26,9 @@ from dataclasses import dataclass, field
 from threading import get_ident
 
 from psx.core.props import FLEX_ITEM_PROPS
-from psx.sfle.native_component_capabilities import native_leaf_needs_measurement
-from psx.sfle.external_native_geometry_ports import external_port_for
-from psx.sfle.model import LayoutConstraints, LayoutResult
+from psx.layout.projection.native_component_capabilities import native_leaf_needs_measurement
+from psx.layout.adapters.external_native_geometry_ports import external_port_for
+from psx.layout.contracts.model import LayoutConstraints, LayoutResult
 
 from kivy.base import runTouchApp
 from kivy.clock import Clock
@@ -383,20 +383,20 @@ class KivyRenderer:
             not sfle_constraints.width.definite or not sfle_constraints.height.definite
         ):
             raise RendererCapabilityError("Kivy SFLE viewport must have definite axes.")
-        from psx.sfle.backend import load_layout_engine
+        from psx.layout.engine.backend import load_layout_engine
         self._sfle_constraints = sfle_constraints
         self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
         self._sfle_backend = "kivy"
         self._psx_css_pixel_scale = self._read_css_pixel_scale()
         self._sfle_generation = 0
-        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+        from psx.layout.runtime.native_measurement_invalidation import MeasurementInvalidations
         self._sfle_measurement_invalidations = MeasurementInvalidations()
-        from psx.sfle.native_intrinsic_cache import NativeIntrinsicCache
+        from psx.layout.runtime.native_intrinsic_cache import NativeIntrinsicCache
         self._sfle_native_intrinsic_cache = NativeIntrinsicCache()
         self._sfle_prior_solver_input = None
         self._sfle_prior_solver_result = None
         self._sfle_prior_solver_engine = None
-        from psx.sfle.native_resource_watch import ImageResourceWatch
+        from psx.layout.runtime.native_resource_watch import ImageResourceWatch
         self._sfle_image_resource_watch = ImageResourceWatch()
         self._sfle_resource_poll_scheduled = False
         self._sfle_resource_error: Exception | None = None
@@ -501,7 +501,7 @@ class KivyRenderer:
         The mounted instance is reused; the existing SFLE transaction remains
         the only writer. Teardown invalidates queued work by epoch.
         """
-        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+        from psx.layout.runtime.native_measurement_invalidation import MeasurementInvalidations
 
         if self._sfle_constraints is None:
             raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
@@ -643,7 +643,7 @@ class KivyRenderer:
         # Drop an obsolete size notification if another native event has
         # already resized the mounted root before this Clock callback.
         size = tuple(root.native_handle().widget.size)
-        from psx.sfle.model import AvailableSize
+        from psx.layout.contracts.model import AvailableSize
         try:
             self.set_sfle_constraints(LayoutConstraints(
                 AvailableSize(size[0], True), AvailableSize(size[1], True),
@@ -684,7 +684,7 @@ class KivyRenderer:
     @staticmethod
     def _read_css_pixel_scale() -> float:
         from kivy.core.window import Window
-        from psx.sfle.kivy_display_scale import KivyDisplayScale
+        from psx.renderers.kivy.cinnamon_kivy_display_scale import KivyDisplayScale
         # Before Cocoa/SDL2 creates its window, there is no backing-store
         # ratio to sample. Defer to the first mounted native layout pass.
         if Window is None:
@@ -719,13 +719,13 @@ class KivyRenderer:
                         self.apply_css(mounted.handle, computed)
                 pending.extend(mounted.children)
             self._sfle_measurement_invalidations.request("font")
-        from psx.sfle.native_grid_bridge import is_mounted_native_grid_root, commit_native_grid
-        from psx.sfle.grid_native_commit import GridCommitBackend
-        from psx.sfle.kivy_layout_bridge import commit_kivy_sfle
+        from psx.layout.adapters.native_grid_bridge import is_mounted_native_grid_root, commit_native_grid
+        from psx.layout.adapters.grid_native_commit import GridCommitBackend
+        from psx.renderers.kivy.cinnamon_kivy_layout_bridge import commit_kivy_sfle
         # Native style/texture signals can arrive while measuring. Retry a
         # bounded number of times using the latest semantic epoch; never
         # publish a transaction rejected for stale measurements.
-        from psx.sfle.errors import SFLEError
+        from psx.layout.contracts.errors import SFLEError
         for attempt in range(3):
             try:
                 if is_mounted_native_grid_root(root):
@@ -766,7 +766,7 @@ class KivyRenderer:
         self._sfle_schedule_image_poll()
 
     def invalidate_layout(self) -> None:
-        from psx.sfle.semantic_inline_native_paint import release_native_inline_paint
+        from psx.layout.inline.semantic_inline_native_paint import release_native_inline_paint
         release_native_inline_paint(self, "kivy")
         self._sfle_invalidation_lifetime += 1
         self._sfle_invalidation_scheduled = False
@@ -1325,7 +1325,7 @@ class KivyRenderer:
                     for side in ("top", "right", "bottom", "left")
                 )
             ):
-                from psx.sfle.lengths import LengthKind
+                from psx.layout.contracts.lengths import LengthKind
                 if not hasattr(widget, "_psx_css_original_padding"):
                     widget._psx_css_original_padding = tuple(widget.padding)
                 values = []
@@ -1410,7 +1410,7 @@ class KivyRenderer:
             rounded_side_stroke_points,
         )
         radius = native_border_radius(computed) * pixel_scale
-        from psx.sfle.lengths import Length, LengthKind
+        from psx.layout.contracts.lengths import Length, LengthKind
         from kivy.graphics import Line
         # Uniform borders own one closed stroke. Per-side instructions are
         # reserved for asymmetric edges; otherwise Retina draws each twice.

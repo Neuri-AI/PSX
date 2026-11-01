@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.line_layout import (
+from psx.layout.fallback.line_layout import (
     FlexDirection, FlexWrap, ResolvedItem, form_flex_lines, place_resolved_lines,
 )
-from psx.sfle.model import WritingDirection
+from psx.layout.contracts.model import WritingDirection
 
 
 def item(name: str, main: float, cross: float = 10, order: int = 0) -> ResolvedItem:

@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
-from psx.sfle.lengths import Length, LengthKind, parse_length
+from psx.layout.contracts.lengths import Length, LengthKind, parse_length
 
 
 @dataclass(frozen=True, slots=True)

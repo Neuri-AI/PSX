@@ -11,9 +11,9 @@ from psx.core.native import Native
 from psx.core.vnode import create_element
 from psx.core.reconcile import Reconciler
 from psx.renderers.tkinter.tkinter import TkHandle, TkinterRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.external_native_geometry_ports import SFLEExternalPort
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints, Rect
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.adapters.external_native_geometry_ports import SFLEExternalPort
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints, Rect
 
 
 def constraints():

@@ -102,8 +102,8 @@ class _ScrollFrame(ttk.Frame):
         return "break" if abs(event._psx_scroll_remainder) < 0.5 else None
 
     def _keyboard(self, event):
-        from psx.sfle.scroll_events import scroll_key_delta
-        from psx.sfle.scroll_offsets import ScrollOffset
+        from psx.layout.scroll.scroll_events import scroll_key_delta
+        from psx.layout.scroll.scroll_offsets import ScrollOffset
         if self._psx_disposed or not self._psx_props["enabled"]:
             return None
         canvas = self._psx_canvas

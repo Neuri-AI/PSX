@@ -359,7 +359,7 @@ def validate_flex_props(props: Mapping[str, object]) -> None:
     for name, allowed in enums.items():
         if name in props and props[name] not in allowed:
             raise RendererCapabilityError(f"Invalid Flex.{name}: {props[name]!r}.")
-    from psx.sfle.lengths import parse_length, LengthKind
+    from psx.layout.contracts.lengths import parse_length, LengthKind
     def check_length(name: str, value: object, *, allow_auto: bool = False,
                      allow_none: bool = False, intrinsic: bool = False) -> None:
         try:

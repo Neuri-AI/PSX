@@ -24,8 +24,8 @@ class KivyNativeLifecycleTests(unittest.TestCase):
             from psx import Button, Flex, Native, Text, component, use_effect
             from psx.core.reconcile import Reconciler
             from psx.renderers.kivy.kivy import KivyRenderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
             renderer = KivyRenderer(
                 sfle_constraints=LayoutConstraints(

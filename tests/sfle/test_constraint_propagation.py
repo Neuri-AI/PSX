@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.constraint_propagation import (
+from psx.layout.fallback.constraint_propagation import (
     ChildSizing, plan_styled_measurements, resolve_child_constraints,
 )
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.lengths import Length, LengthKind
-from psx.sfle.model import (
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.contracts.lengths import Length, LengthKind
+from psx.layout.contracts.model import (
     AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
 )
-from psx.sfle.sizing import ResolutionKind
+from psx.layout.fallback.sizing import ResolutionKind
 
 
 def dimension(value: float | None, definite: bool = True) -> AvailableSize:
@@ -139,8 +139,8 @@ def test_invalid_length_type_and_negative_used_size_rejected():
 
 
 def test_used_boxes_supply_css_content_instead_of_border_dimensions():
-    from psx.sfle.constraint_propagation import plan_used_box_measurements
-    from psx.sfle.model import BoxRect, Rect
+    from psx.layout.fallback.constraint_propagation import plan_used_box_measurements
+    from psx.layout.contracts.model import BoxRect, Rect
 
     def box(width: float, height: float) -> BoxRect:
         content = Rect(4, 6, width, height)
@@ -161,8 +161,8 @@ def test_used_boxes_supply_css_content_instead_of_border_dimensions():
 
 
 def test_missing_duplicate_and_wrong_type_used_boxes_fail_closed():
-    from psx.sfle.constraint_propagation import plan_used_box_measurements
-    from psx.sfle.model import BoxRect, Rect
+    from psx.layout.fallback.constraint_propagation import plan_used_box_measurements
+    from psx.layout.contracts.model import BoxRect, Rect
 
     rect = Rect(0, 0, 200, 80)
     used = BoxRect(rect, rect, rect, rect)

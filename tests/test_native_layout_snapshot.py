@@ -7,11 +7,11 @@ import pytest
 
 from psx import Button, Flex, Fragment, Image, Scroll, Text, component, psx
 from psx.core.layout_tree import normalize_flex_tree
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLECapabilityError
-from psx.sfle.native_layout_snapshot import path_identity, prepare_native_layout_snapshot
-from psx.sfle.lengths import Length
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLECapabilityError
+from psx.layout.projection.native_layout_snapshot import path_identity, prepare_native_layout_snapshot
+from psx.layout.contracts.lengths import Length
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox
 
 
 def _constraints(width=160, height=90):
@@ -181,7 +181,7 @@ def test_generator_measurements_consumed_once() -> None:
 
 
 def test_layout_direction_and_generation_are_not_overwritten() -> None:
-    from psx.sfle.model import WritingDirection
+    from psx.layout.contracts.model import WritingDirection
     prepared = _prepare(Flex(), generation=91, direction=WritingDirection.RTL)
     assert prepared.snapshot.generation == 91
     assert prepared.snapshot.direction is WritingDirection.RTL

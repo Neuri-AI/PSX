@@ -6,8 +6,8 @@ import pytest
 from psx import Button, Flex, Text
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 from tests.certification.public_behavior_census import Feature, assert_feature
 from tests.certification.headless_public_geometry import GEOMETRY_CASES
 

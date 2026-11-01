@@ -3,9 +3,9 @@
 from psx import psx
 from psx.core.layout_tree import normalize_flex_tree
 from psx.css.markup import compute_markup_styles
-from psx.sfle.lengths import LengthKind
-from psx.sfle.model import AvailableSize, LayoutConstraints
-from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+from psx.layout.contracts.lengths import LengthKind
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
 
 
 MARKUP = """

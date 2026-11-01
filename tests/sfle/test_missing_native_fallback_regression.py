@@ -1,7 +1,7 @@
 """A08 fallback occurs only on extension loading failure."""
 import importlib
-from psx.sfle.backend import load_layout_engine
-from psx.sfle.engine import PythonLayoutEngine
+from psx.layout.engine.backend import load_layout_engine
+from psx.layout.fallback.engine import PythonLayoutEngine
 
 def test_A08_load_time_import_error_selects_python(monkeypatch):
     original=importlib.import_module

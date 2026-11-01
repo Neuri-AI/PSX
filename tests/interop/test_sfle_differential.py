@@ -15,9 +15,9 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "sfle"))
 from test_acceptance_contract_regression import case_snapshot  # noqa: E402
-from psx.sfle.engine import PythonLayoutEngine  # noqa: E402
-from psx.sfle.errors import SFLEError  # noqa: E402
-from psx.sfle.lengths import Length  # noqa: E402
+from psx.layout.fallback.engine import PythonLayoutEngine  # noqa: E402
+from psx.layout.contracts.errors import SFLEError  # noqa: E402
+from psx.layout.contracts.lengths import Length  # noqa: E402
 
 CORPUS = json.loads((ROOT / "tests/sfle/fixtures/f2_alpha_acceptance.json").read_text())
 RUST_ROOT = ROOT / "rust/sfle-core"
@@ -160,8 +160,8 @@ def test_canonical_box_lengths_match_rust_and_python_geometry(rust_binary):
     """Both engines consume exactly the same canonical item style payload."""
     from psx import Flex
     from psx.core.layout_tree import normalize_flex_tree
-    from psx.sfle.model import AvailableSize, LayoutConstraints
-    from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+    from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
 
     prepared = prepare_native_layout_snapshot(
         normalize_flex_tree(Flex(
@@ -194,7 +194,7 @@ def test_canonical_box_lengths_match_rust_and_python_geometry(rust_binary):
 @pytest.mark.parametrize("root_display", ("block", "inline"))
 def test_semantic_flow_snapshot_rust_python_geometry_parity(rust_binary, root_display):
     """Require actual Rust/Python parity on nested semantic flow snapshots."""
-    from psx.sfle.model import (
+    from psx.layout.contracts.model import (
         AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
         LayoutNode, MeasuredBox, WritingDirection,
     )
@@ -253,7 +253,7 @@ def test_semantic_flow_snapshot_rust_python_geometry_parity(rust_binary, root_di
 
 
 def test_semantic_flow_missing_native_measurement_fails_both_engines(rust_binary):
-    from psx.sfle.model import (
+    from psx.layout.contracts.model import (
         AvailableSize, LayoutConstraints, LayoutInput, LayoutNode,
         WritingDirection,
     )
@@ -283,7 +283,7 @@ def test_semantic_flow_missing_native_measurement_fails_both_engines(rust_binary
 def test_semantic_form_label_and_list_snapshots_match_rust_python(
     rust_binary, tag, display,
 ):
-    from psx.sfle.model import (
+    from psx.layout.contracts.model import (
         AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
         LayoutNode, MeasuredBox, WritingDirection,
     )
@@ -315,7 +315,7 @@ def test_semantic_form_label_and_list_snapshots_match_rust_python(
 @pytest.mark.parametrize("case", ("nested-edges", "min-over-max", "inline-edges"))
 def test_css_flow_box_geometry_matches_rust_and_python(rust_binary, case):
     """Compare actual content, padding, border and margin on identical inputs."""
-    from psx.sfle.model import (
+    from psx.layout.contracts.model import (
         AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
         LayoutNode, MeasuredBox, WritingDirection,
     )
@@ -368,8 +368,8 @@ def test_css_flow_box_geometry_matches_rust_and_python(rust_binary, case):
 
 @pytest.mark.parametrize("scenario", ("auto-margin", "inline-owner-padding"))
 def test_unimplemented_css_flow_cases_fail_closed_in_both_engines(rust_binary, scenario):
-    from psx.sfle.lengths import LengthKind
-    from psx.sfle.model import (
+    from psx.layout.contracts.lengths import LengthKind
+    from psx.layout.contracts.model import (
         AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
         LayoutNode, MeasuredBox, WritingDirection,
     )
@@ -412,10 +412,10 @@ def test_block_auto_margin_geometry_matches_rust_python(
     rust_binary, margin_left, margin_right, expected_x,
 ):
     """Direct Rust flow and public Python flow agree on used block margins."""
-    from psx.sfle.model import (
+    from psx.layout.contracts.model import (
         AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
     )
-    from psx.sfle.lengths import LengthKind
+    from psx.layout.contracts.lengths import LengthKind
 
     constraints = LayoutConstraints(
         AvailableSize(200, True), AvailableSize(100, True),
@@ -444,11 +444,11 @@ def test_block_auto_margin_geometry_matches_rust_python(
 @pytest.mark.parametrize("viewport", [400, 800, 1200])
 def test_definite_root_percentage_replaced_image_rust_python_parity(rust_binary, viewport):
     """Rust must resolve the same definite root percentage as Python."""
-    from psx.sfle.model import (
+    from psx.layout.contracts.model import (
         AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
         LayoutNode, MeasuredBox, WritingDirection,
     )
-    from psx.sfle.replaced_image_sizing import with_replaced_image_aspect_ratios
+    from psx.layout.projection.replaced_image_sizing import with_replaced_image_aspect_ratios
 
     constraints = LayoutConstraints(
         AvailableSize(viewport, True), AvailableSize(600, True),
@@ -481,7 +481,7 @@ def test_definite_root_percentage_replaced_image_rust_python_parity(rust_binary,
 @pytest.mark.parametrize("literal", ["0", "+0", "-0", "0.0"])
 def test_unitless_zero_length_parity_in_direct_flow(rust_binary, literal):
     """CSS permits unitless zero in block dimensions and box edges."""
-    from psx.sfle.model import (
+    from psx.layout.contracts.model import (
         AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
     )
     constraints = LayoutConstraints(AvailableSize(200, True), AvailableSize(100, True))
