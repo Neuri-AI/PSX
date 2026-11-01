@@ -90,10 +90,12 @@ class PythonLayoutEngine:
         rtl=False,
     ):
         """Pure Cinnamon Grid math integration; native mounting remains G3."""
-        from psx.layout.fallback.grid_math import compute_grid
+        # The common adapter validates the same inputs for Rust and Python.
+        # It routes back into the standalone Python algorithm without recursion.
+        from psx.layout.grid.solver import compute_grid
         return compute_grid(
             slots, content_width, column_gap, row_gap, item_heights,
-            constraints, rtl=rtl,
+            constraints, rtl=rtl, engine=self,
         )
 
     def layout_inline_text(

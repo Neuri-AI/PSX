@@ -362,3 +362,62 @@ def test_incremental_reuse_receipts_and_geometry_match_across_100_updates(backen
             generation, rust_receipts,
         )
         prior_snapshot, old_rust, old_python = current, next_rust, next_python
+
+
+@pytest.mark.parametrize("invalid", (
+    "missing-height", "duplicate-id", "bad-span", "bad-offset",
+    "bad-order", "span-plus-offset", "negative-width", "nan-gap",
+    "huge-width", "bad-row-gap", "bad-height", "extra-limit",
+    "negative-min", "max-before-min", "bad-limit-type", "bad-rtl",
+    "boolean-width",
+))
+def test_invalid_grid_declarations_have_identical_public_diagnostics(invalid, backends):
+    """Rust and Python reject bad Grid input with the same exception and text."""
+    from psx.layout.grid.contracts import GridPackingError
+    slots = (GridSlot("a", 6),)
+    width, gap, row_gap, heights, bounds, rtl = (
+        300.0, 4.0, 2.0, {"a": 12.0}, {}, False,
+    )
+    if invalid == "missing-height":
+        heights = None
+    elif invalid == "duplicate-id":
+        slots = (GridSlot("a", 6), GridSlot("a", 6))
+    elif invalid == "bad-span":
+        slots = (GridSlot("a", 13),)
+    elif invalid == "bad-offset":
+        slots = (GridSlot("a", 6, offset=-1),)
+    elif invalid == "bad-order":
+        slots = (GridSlot("a", 6, order=2.5),)
+    elif invalid == "span-plus-offset":
+        slots = (GridSlot("a", 7, offset=6),)
+    elif invalid == "negative-width":
+        width = -1.0
+    elif invalid == "nan-gap":
+        gap = float("nan")
+    elif invalid == "huge-width":
+        width = 40_000_000.0
+    elif invalid == "bad-row-gap":
+        row_gap = -0.25
+    elif invalid == "bad-height":
+        heights = {"a": float("nan")}
+    elif invalid == "extra-limit":
+        bounds = {"alien": GridItemConstraints()}
+    elif invalid == "negative-min":
+        bounds = {"a": GridItemConstraints(min_width=-1.0)}
+    elif invalid == "max-before-min":
+        bounds = {"a": GridItemConstraints(min_height=20, max_height=10)}
+    elif invalid == "bad-limit-type":
+        bounds = {"a": object()}
+    elif invalid == "bad-rtl":
+        rtl = "rtl"
+    elif invalid == "boolean-width":
+        width = True
+
+    observed = []
+    for engine in backends:
+        with pytest.raises(GridPackingError) as caught:
+            engine.compute_grid(
+                slots, width, gap, row_gap, heights, bounds, rtl=rtl,
+            )
+        observed.append(str(caught.value))
+    assert observed[0] == observed[1], (invalid, observed)
