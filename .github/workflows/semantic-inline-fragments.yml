@@ -14,6 +14,8 @@ on:
       - 'tests/sfle/test_semantic_inline_text.py'
       - 'tests/interop/test_semantic_inline_rust_python_parity.py'
       - 'tests/interop/test_cinnamon_block_rust_python_parity.py'
+      - 'tests/interop/test_cinnamon_grid_rust_python_parity.py'
+      - 'psx/layout/grid/solver.py'
       - 'rust/sfle-core/src/flow_snapshot.rs'
       - 'psx/layout/engine/backend.py'
       - 'tests/sfle/test_semantic_inline_native_layout.py'
@@ -32,6 +34,8 @@ on:
       - 'tests/sfle/test_semantic_inline_text.py'
       - 'tests/interop/test_semantic_inline_rust_python_parity.py'
       - 'tests/interop/test_cinnamon_block_rust_python_parity.py'
+      - 'tests/interop/test_cinnamon_grid_rust_python_parity.py'
+      - 'psx/layout/grid/solver.py'
       - 'rust/sfle-core/src/flow_snapshot.rs'
       - 'psx/layout/engine/backend.py'
       - '.github/workflows/semantic-inline-fragments.yml'
@@ -103,3 +107,5 @@ jobs:
         run: python -m pytest -q tests/interop/test_semantic_inline_rust_python_parity.py
       - name: Certify independent Block/Inline kernels (exact geometry)
         run: python -m pytest -q tests/interop/test_cinnamon_block_rust_python_parity.py
+      - name: Certify independent native Grid math with exact 1/64 px geometry
+        run: python -m pytest -q tests/interop/test_cinnamon_grid_rust_python_parity.py
