@@ -190,3 +190,132 @@ def test_rust_only_headless_grid_reconciliation_and_resize():
                     if key.startswith("psx.layout.fallback")]
     finally:
         reconciler.unmount()
+
+
+def _rust_only_grid_renderer(width=800):
+    from psx.renderers.headless import HeadlessRenderer
+    from psx.layout.contracts.model import IntrinsicSizes, AvailableSize, LayoutConstraints
+
+    def measure(node, allocated_width):
+        assert node.type == "Text"
+        height = 30 if allocated_width < 390 else 10
+        return IntrinsicSizes(0, allocated_width, 0, height,
+                              allocated_width, height)
+    return HeadlessRenderer(
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(width, True), AvailableSize(100, True),
+        ),
+        measure_intrinsic=measure,
+    )
+
+
+def test_rust_only_nested_grid_keeps_content_breakpoints_and_widget_identity():
+    from psx import Grid, GridItem, Text
+    from psx.core.reconcile import Reconciler
+    from psx.layout.contracts.model import LayoutConstraints, AvailableSize
+    renderer = _rust_only_grid_renderer()
+    reconciler = Reconciler(renderer)
+    nested = Grid(
+        GridItem(
+            Grid(
+                GridItem(Text("nested a"), key="a", span={"base": 12, "md": 6}),
+                GridItem(Text("nested b"), key="b", span={"base": 12, "md": 6}),
+                gap=4,
+            ),
+            key="nested", span={"base": 12, "md": 6},
+        ),
+        GridItem(Text("outer"), key="outer", span={"base": 12, "md": 6}),
+        gap=4,
+    )
+    try:
+        root = reconciler.render(nested)
+        subgrid = root.children[0].children[0]
+        first = subgrid.children[0].handle
+        second = subgrid.children[1].handle
+        assert first.geometry.width == 398
+        renderer.set_sfle_constraints(
+            LayoutConstraints(AvailableSize(1600, True), AvailableSize(100, True))
+        )
+        renderer.commit_layout(root)
+        assert first.geometry.width == 397
+        assert second.geometry.width == 397
+        assert subgrid.children[0].handle is first
+        assert renderer.grid_result[1].max_readback_error == 0
+        assert not [k for k in sys.modules if k.startswith("psx.layout.fallback")]
+    finally:
+        reconciler.unmount()
+
+
+def test_rust_only_mixed_flex_grid_allocates_width_without_python_math():
+    from psx import Flex, Grid, GridItem, Text
+    from psx.core.reconcile import Reconciler
+    from psx.layout.contracts.model import LayoutConstraints, AvailableSize
+    renderer = _rust_only_grid_renderer()
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(Flex(
+            Grid(
+                GridItem(Text("left"), key="left", span={"base": 12, "md": 6}),
+                GridItem(Text("right"), key="right", span={"base": 12, "md": 6}),
+                gap=4,
+            ),
+            direction="column", width="100%", height=100,
+        ))
+        grid = root.children[0]
+        first = grid.children[0].handle
+        leaf = grid.children[0].children[0].handle
+        assert grid.handle.geometry.width == 800
+        assert first.geometry.width == 398
+        renderer.set_sfle_constraints(
+            LayoutConstraints(AvailableSize(767, True), AvailableSize(100, True))
+        )
+        renderer.commit_layout(root)
+        assert grid.handle.geometry.width == 767
+        assert first.geometry.width == 767
+        assert grid.children[0].handle is first
+        assert grid.children[0].children[0].handle is leaf
+        assert not [k for k in sys.modules if k.startswith("psx.layout.fallback")]
+    finally:
+        reconciler.unmount()
+
+
+def test_rust_only_grid_inside_scroll_flex_preserves_identity():
+    from psx import Flex, Grid, GridItem, Text, Scroll
+    from psx.core.reconcile import Reconciler
+    renderer = _rust_only_grid_renderer()
+    reconciler = Reconciler(renderer)
+
+    def tree():
+        return Grid(
+            GridItem(Text("a"), span={"base": 12, "md": 6}, key="a"),
+            GridItem(Text("b"), span={"base": 12, "md": 6}, key="b"),
+            gap=4,
+        )
+
+    def scene(width):
+        return Flex(
+            Scroll(
+                Flex(tree(), direction="column", width=width, height="240px",
+                     key="content", align_items="stretch"),
+                key="viewport", direction="both",
+                layout_width="120px", layout_height="80px",
+                flex_basis="120px", flex_shrink=0,
+            ),
+            direction="row", width="800px", height="100px",
+            align_items="flex-start",
+        )
+
+    try:
+        root = reconciler.render(scene("800px"))
+        grid = root.children[0].children[0].children[0]
+        original = grid.children[0].handle
+        assert grid.handle.geometry.width == 800
+        assert original.geometry.width == 398
+        changed = reconciler.render(scene("600px"))
+        grid = changed.children[0].children[0].children[0]
+        assert grid.children[0].handle is original
+        assert grid.handle.geometry.width == 600
+        assert original.geometry.width == 600
+        assert not [k for k in sys.modules if k.startswith("psx.layout.fallback")]
+    finally:
+        reconciler.unmount()
