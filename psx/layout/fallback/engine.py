@@ -7,28 +7,11 @@ after a conformant Rust or Python implementation exists.
 
 from __future__ import annotations
 
-from typing import Protocol
 
 from psx.layout.contracts.capabilities import CONTRACT_ONLY_CAPABILITIES, EngineCapabilities
+from psx.layout.contracts.engine import LayoutEngine, UnsupportedLayoutFeature
 from psx.layout.contracts.errors import DiagnosticCode, SFLECapabilityError
 from psx.layout.contracts.model import LayoutInput, LayoutResult
-
-
-class UnsupportedLayoutFeature(SFLECapabilityError):
-    """The selected engine does not implement a CSS layout capability."""
-
-
-class LayoutEngine(Protocol):
-    """Pure, renderer-neutral engine interface shared by Rust and Python."""
-
-    @property
-    def capabilities(self) -> EngineCapabilities:
-        """Declare supported CSS features using the versioned manifest."""
-        ...
-
-    def compute(self, request: LayoutInput) -> LayoutResult:
-        """Compute a complete layout or raise an explicit capability error."""
-        ...
 
 
 class PythonLayoutEngine:

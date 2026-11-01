@@ -5,6 +5,7 @@ package initialization. Rust installations must be able to import and use
 these contracts without the fallback package being present.
 """
 from psx.layout.contracts.capabilities import EngineCapabilities, SCHEMA_VERSION
+from psx.layout.contracts.engine import LayoutEngine, UnsupportedLayoutFeature
 from psx.layout.contracts.errors import DiagnosticCode, SFLECapabilityError, SFLEError, SFLEWireError
 from psx.layout.contracts.lengths import Length, LengthKind, parse_length
 from psx.layout.contracts.model import (
@@ -34,9 +35,7 @@ __all__ = [
 
 # Backward-compatible *explicit* symbols are resolved lazily. A mere
 # import of psx.layout, markup or a Rust engine never loads the fallback.
-_OPTIONAL_FALLBACK = frozenset({
-    "LayoutEngine", "PythonLayoutEngine", "UnsupportedLayoutFeature",
-})
+_OPTIONAL_FALLBACK = frozenset({"PythonLayoutEngine"})
 _OPTIONAL_WORKERS = frozenset({
     "ToolkitWorkerAdapter", "start_kivy_worker_layout", "start_tk_worker_layout",
 })
