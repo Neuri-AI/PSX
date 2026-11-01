@@ -16,7 +16,7 @@ import re
 from psx.layout.contracts.fixed_point import nearest_layout_px
 from psx.layout.contracts.lengths import LengthKind, parse_length
 from psx.layout.contracts.model import BoxRect, LayoutInput, LayoutNode, LayoutResult, Rect
-from psx.layout.fallback.semantic_inline_text import (
+from psx.layout.inline.semantic_inline_text import (
     InlineTextFragment, InlineTextLayout, InlineTextSource,
     InlineTextMetrics, layout_inline_text,
 )

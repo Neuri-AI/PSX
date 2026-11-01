@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from psx.layout.fallback.semantic_inline_text import InlineTextFragment
+from psx.layout.inline.semantic_inline_text import InlineTextFragment
 
 
 def _qt_paint(widget, fragments, box, binding):

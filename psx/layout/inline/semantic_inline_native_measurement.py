@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from psx.layout.fallback.semantic_inline_text import InlineTextMetrics
+from psx.layout.inline.semantic_inline_text import InlineTextMetrics
 
 
 def qt_inline_measure(widgets: dict[str, object]) -> Callable[[str, str], InlineTextMetrics]:
