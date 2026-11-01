@@ -153,6 +153,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             and prior_signature[0] == layout_signature
             and prior_signature[1] != paint_signature
             and not renderer._sfle_measurement_invalidations.needs_commit()
+            and not getattr(renderer, "_sfle_semantic_inline_widgets", {})
         ):
             renderer._sfle_committed_signatures = (layout_signature, paint_signature)
             return
@@ -326,6 +327,25 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                     renderer._sfle_measurement_invalidations.needs_commit()
                 ),
             )
+
+        from psx.sfle.semantic_inline_native_layout import compute_semantic_inline_native
+        from psx.sfle.semantic_inline_native_measurement import tk_inline_measure
+
+        def _resolve_semantic_inline(adjusted):
+            if adjusted.nodes[0].component in FORMATTING_TAGS:
+                return renderer._sfle_engine.compute(adjusted)
+            return compute_width_dependent(
+                renderer._sfle_engine, adjusted, dependent,
+                current_generation=lambda: renderer._sfle_generation,
+            )
+
+        result, semantic_inline_paint = compute_semantic_inline_native(
+            snapshot, prepared.identities, result,
+            tk_inline_measure({node_id: leaf_widgets[node_id]
+                               for node_id in leaf_widgets if node_id in widgets
+                               and dict(prepared.identities)[node_id].type == "Text"}),
+            _resolve_semantic_inline,
+        )
 
         mixed_plans = mixed_grid.plan(dict(result.boxes))
 
@@ -516,6 +536,14 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 else:
                     widget.place_forget()
             raise
+        from psx.sfle.semantic_inline_native_paint import project_native_inline_paint
+        project_native_inline_paint(
+            renderer, "tk",
+            {node_id: leaf_widgets[node_id]
+             for node_id in leaf_widgets
+             if dict(prepared.identities)[node_id].type == "Text"},
+            semantic_inline_paint, rectangles,
+        )
         renderer._sfle_physical_commit_error = physical_error_maximum
         renderer.sfle_result = replace(result, geometry_commit_error=error)
         if mixed_receipts:
