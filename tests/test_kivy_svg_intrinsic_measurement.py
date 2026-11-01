@@ -7,7 +7,7 @@ import pytest
 
 def test_svg_texture_rasterization_and_measurement(tmp_path):
     pytest.importorskip("kivy")
-    pytest.importorskip("cairosvg")
+    pytest.importorskip("resvg_py")
     from psx.renderers.kivy.image import _apply_image_source
     from psx.sfle.kivy_measurement import KivyMeasurementSource
     from kivy.uix.image import Image
