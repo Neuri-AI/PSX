@@ -1779,23 +1779,21 @@ class KivyRenderer:
         if self._root is None:
             raise RuntimeError(
                 "KivyRenderer.run() requires a mounted PSX root.")
-        # A root with Cinnamon-owned geometry has size_hint=None. Kivy will
-        # not automatically expand it to the SDL2 window when runTouchApp
-        # attaches it, so reconcile the viewport once the root is mounted.
-        # The existing size observer schedules the corresponding layout.
-        def sync_attached_viewport(_dt):
-            from kivy.core.window import Window
-            root = self._sfle_watched_widget
-            if root is not None and root.parent is Window:
-                width, height = Window.size
-                if width > 0 and height > 0:
-                    if tuple(root.size) != (width, height):
-                        root.size = (width, height)
-
-        Clock.schedule_once(sync_attached_viewport, 0)
+        # The *window-facing* root is a viewport, not an ordinary Cinnamon
+        # child. Let Kivy size that one widget to its drawable window surface:
+        # Window.update_childsize will handle both initial attachment and
+        # native resize, while _sfle_on_root_size propagates the real size to
+        # Cinnamon. Descendant layout nodes remain exclusively SFLE-owned
+        # (size_hint=None); no platform-specific pixel multiplier is needed.
+        viewport_root = self._sfle_constraints is not None
+        original_size_hint = tuple(self._root.size_hint)
+        if viewport_root:
+            self._root.size_hint = (1.0, 1.0)
         try:
             runTouchApp(self._root)
         finally:
+            if viewport_root:
+                self._root.size_hint = original_size_hint
             # runTouchApp stops Kivy's EventLoop itself. Release PSX's
             # window observers and pending layout/resize callbacks on both
             # normal close and interrupted native loops, so nothing retains
