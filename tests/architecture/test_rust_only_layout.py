@@ -509,3 +509,60 @@ def test_rust_only_legacy_measured_flow_dispatch_uses_real_native_kernel():
     assert not [name for name in sys.modules
                 if name.startswith("psx.layout.fallback")]
 
+
+def test_rust_only_historical_measurement_and_css_planning_without_fallback():
+    """Former Python-only planners are usable after deleting fallback/."""
+    from psx.layout.contracts.used_size import UsedSizeTree
+    from psx.layout.runtime.remeasurement import plan_remeasurement
+    from psx.layout.runtime.constraint_propagation import (
+        ChildSizing, plan_styled_measurements, resolve_child_constraints,
+    )
+    from psx.layout.projection.size_resolution import (
+        ResolutionKind, SizeProperty, resolve_length,
+    )
+    from psx.layout.contracts.lengths import Length
+    from psx.layout.contracts.model import (
+        AvailableSize, LayoutConstraints, LayoutInput, LayoutNode,
+        WritingDirection,
+    )
+    constraints = LayoutConstraints(
+        AvailableSize(240, True), AvailableSize(100, True),
+    )
+    root = LayoutNode("root", None, "Flex", ())
+    child = LayoutNode("child", "root", "Text", ())
+    snapshot = LayoutInput(
+        1, 9, WritingDirection.LTR, constraints, (root, child), (),
+    )
+    css = ChildSizing(Length.percent(0.5), Length.px(20))
+    child_resolved = resolve_child_constraints(constraints, css)
+    assert child_resolved.width_kind == ResolutionKind.USED
+    assert child_resolved.constraints.width.value == 120
+    assert resolve_length(
+        Length.percent(0.5), SizeProperty.WIDTH,
+        containing_inline_size=constraints.width,
+        containing_block_axis_size=constraints.width,
+        flex_container_main_size=constraints.width,
+    ).require_used() == 120
+
+    plan = plan_styled_measurements(
+        snapshot, parent_content=(("root", constraints),),
+        child_sizing=(("child", css),),
+    )
+    assert tuple(req.node_id for req in plan.requests) == ("child", "root")
+    used_before = UsedSizeTree(8, (
+        ("root", constraints),
+        ("child", LayoutConstraints(AvailableSize(120, True),
+                                    AvailableSize(20, True))),
+    ), ())
+    used_after = UsedSizeTree(9, (
+        ("root", constraints),
+        ("child", LayoutConstraints(AvailableSize(100, True),
+                                    AvailableSize(20, True))),
+    ), ())
+    delta = plan_remeasurement(snapshot, used_before, used_after)
+    assert delta.changed == ("child",)
+    assert delta.remeasure == ("child", "root")
+    assert delta.deferred == ()
+    assert not [name for name in sys.modules
+                if name.startswith("psx.layout.fallback")]
+
