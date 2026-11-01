@@ -1233,7 +1233,10 @@ class KivyRenderer:
             # solid gray skin; leaving it in place creates phantom backgrounds
             # on unselected navigation buttons.
             if (rgba is None and computed is not None
-                    and target.node_type in ("Select", "Link")):
+                    and target.node_type in ("Button", "Select", "Link")):
+                # Any CSS-styled button without an authored background
+                # must not accidentally paint Kivy's opaque native skin.
+                # No-CSS widgets still retain their original themed skin.
                 rgba = (0.0, 0.0, 0.0, 0.0)
             painted = getattr(widget, "_psx_css_button_background", None)
             if rgba is None:
