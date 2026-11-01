@@ -199,6 +199,9 @@ class TkSFLEGeometryTests(unittest.TestCase):
             if child.node.type == "Text"
             and child.node.props["value"] == "src/App.tsx"
         )
+        assert suffix.cget("text") == " and save to test HMR"
+        assert hasattr(suffix, "_psx_semantic_inline_canvas")
+        assert len(suffix._psx_semantic_inline_canvas.find_all()) == 5
         assert rect(prefix)[1] == rect(span)[1] == rect(suffix)[1]
         assert rect(prefix)[0] < rect(span)[0] < rect(suffix)[0]
         assert nested.cget("text") == "src/App.tsx"
