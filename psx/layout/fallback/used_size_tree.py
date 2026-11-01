@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from psx.layout.fallback.constraint_propagation import ChildSizing
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 from psx.layout.contracts.model import LayoutConstraints, LayoutInput
+from psx.layout.contracts.used_size import UsedSizeTree
 from psx.layout.fallback.percentage_box_sizing import BoxSizing
 from psx.layout.fallback.used_size import resolve_used_content_size
 
@@ -22,13 +23,6 @@ class NodeUsedSizing:
     box_sizing: BoxSizing = BoxSizing.CONTENT_BOX
     horizontal_padding_border: float = 0.0
     vertical_padding_border: float = 0.0
-
-
-@dataclass(frozen=True, slots=True)
-class UsedSizeTree:
-    generation: int
-    content: tuple[tuple[str, LayoutConstraints], ...]
-    deferred: tuple[str, ...]
 
 
 def propagate_definite_used_sizes(

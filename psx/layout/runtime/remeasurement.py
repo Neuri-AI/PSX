@@ -10,9 +10,7 @@ from dataclasses import dataclass
 
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 from psx.layout.contracts.model import LayoutInput
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from psx.layout.fallback.used_size_tree import UsedSizeTree
+from psx.layout.contracts.used_size import UsedSizeTree
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,7 +31,6 @@ def plan_remeasurement(
     axes remain deferred rather than being treated as definite zero.
     Input snapshots must refer to the exact same node set and generation.
     """
-    from psx.layout.fallback.used_size_tree import UsedSizeTree
     if not isinstance(snapshot, LayoutInput) or not isinstance(previous, UsedSizeTree) or not isinstance(current, UsedSizeTree):
         raise TypeError("Expected LayoutInput and two UsedSizeTree snapshots.")
     if previous.generation > current.generation or current.generation != snapshot.generation:
