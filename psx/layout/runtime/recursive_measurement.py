@@ -38,7 +38,7 @@ def measure_resolved_margin_tree(
     still match, subject to conservative ancestor invalidation in the planner.
     """
     # This API is an optional Python legacy recursive computation facade.
-    from psx.layout.fallback.constraint_propagation import plan_styled_measurements
+    from psx.layout.runtime.constraint_propagation import plan_styled_measurements
     from psx.layout.fallback.margin_tree import compute_margin_tree
     if not isinstance(snapshot, LayoutInput):
         raise TypeError("snapshot must be LayoutInput.")

@@ -49,10 +49,6 @@ def layout_and_commit(
     """
     # Compatibility pipeline for explicitly selected Python recursive solver.
     # The native Rust path never imports these numerical implementation modules.
-    from psx.layout.fallback.margin_tree import MarginTreeNode
-    from psx.layout.fallback.constraint_propagation import ChildSizing
-    from psx.layout.fallback.auto_cross_tree import AutoCrossSize
-    from psx.layout.fallback.intrinsic_tree import IntrinsicLeafStyle
     if not isinstance(snapshot, LayoutInput) or not isinstance(lifecycle, NativeLayoutLifecycle):
         raise TypeError("Expected LayoutInput and NativeLayoutLifecycle.")
     generation = lifecycle.generation()
