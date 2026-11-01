@@ -615,3 +615,76 @@ def test_rust_only_historical_used_size_tree_propagates_percentages():
     assert not [name for name in sys.modules
                 if name.startswith("psx.layout.fallback")]
 
+
+def test_rust_only_all_three_historical_recursive_apis():
+    """Real Rust recursive kernel, UI measurement and atomic commit with no fallback."""
+    from psx.layout.contracts.recursive_tree import (
+        FlexBasis, MarginFlexItem, MarginTreeNode, IntrinsicLeafStyle,
+    )
+    from psx.layout.contracts.lengths import Length, LengthKind
+    from psx.layout.contracts.model import (
+        AvailableSize, LayoutConstraints, LayoutInput, LayoutNode,
+        IntrinsicSizes, MeasuredBox, WritingDirection,
+    )
+    from psx.layout.runtime.constraint_propagation import ChildSizing
+    from psx.layout.runtime.native_measurement import NativeMeasurementPort
+    from psx.layout.runtime.recursive_geometry import compute_margin_tree
+    from psx.layout.runtime.recursive_measurement import measure_resolved_margin_tree
+    from psx.layout.runtime.recursive_pipeline import compute_recursive_pipeline
+    from psx.layout.runtime.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
+    from psx.layout.engine.backend import RustLayoutEngine, load_layout_engine
+
+    engine = load_layout_engine()
+    assert isinstance(engine, RustLayoutEngine)
+    assert callable(engine._module.compute_recursive_tree_json)
+    nodes = (
+        MarginTreeNode("root", None, 150, 80),
+        MarginTreeNode("leaf", "root", 0, 0,
+            MarginFlexItem("leaf", FlexBasis(0, 0, grow=1, shrink=1), 0)),
+    )
+    snapshot = LayoutInput(
+        1, 27, WritingDirection.LTR,
+        LayoutConstraints(AvailableSize(150, True), AvailableSize(80, True)),
+        (LayoutNode("root", None, "Flex", ()),
+         LayoutNode("leaf", "root", "Text", ())), (),
+    )
+    calls = []
+    def measure(req):
+        calls.append((req.node_id, req.constraints.width.value))
+        width = req.constraints.width.value
+        height = 12 if width is not None and width >= 100 else 24
+        return MeasuredBox(
+            req.node_id, IntrinsicSizes(20, 60, 8, height, 60, height),
+            req.constraints, req.revision,
+        )
+    port = NativeMeasurementPort(lambda: True, measure)
+    first = compute_margin_tree(nodes, generation=27, engine=engine)
+    assert first.generation == 27
+    assert len(first.boxes) == 2
+    sized = (("leaf", ChildSizing(Length(LengthKind.AUTO),
+                                   Length(LengthKind.AUTO))),)
+    round_ = measure_resolved_margin_tree(
+        snapshot, nodes, child_sizing=sized, port=port,
+        current_generation=27, engine=engine,
+    )
+    assert round_.geometry == first
+    result = compute_recursive_pipeline(
+        snapshot, nodes, child_sizing=sized, native_port=port,
+        intrinsic_leaves=(IntrinsicLeafStyle("leaf", Length(LengthKind.AUTO)),),
+        current_generation=27, engine=engine,
+    )
+    assert result.deferred == ()
+    assert result.geometry.boxes[1].content.width == 150
+    committed = []
+    lifecycle = NativeLayoutLifecycle(lambda: 27, port, committed.append)
+    actual = layout_and_commit(
+        snapshot, nodes, lifecycle, child_sizing=sized,
+        intrinsic_leaves=(IntrinsicLeafStyle("leaf", Length(LengthKind.AUTO)),),
+        engine=engine,
+    )
+    assert committed == [actual]
+    assert actual.geometry == result.geometry
+    assert ("leaf", 150) in calls
+    assert not [name for name in sys.modules
+                if name.startswith("psx.layout.fallback")]
+
