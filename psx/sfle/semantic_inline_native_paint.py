@@ -190,3 +190,17 @@ def project_native_inline_paint(
         else:
             _kivy_paint(widget, fragments, box)
     renderer._sfle_semantic_inline_widgets = next_widgets
+
+
+def release_native_inline_paint(renderer, backend: str) -> None:
+    """Remove painter hooks on remount/unmount and release native references."""
+    previous = getattr(renderer, "_sfle_semantic_inline_widgets", {})
+    clear = {"qt": _qt_clear, "tk": _tk_clear, "kivy": _kivy_clear}[backend]
+    renderer._sfle_semantic_inline_widgets = {}
+    for widget in previous.values():
+        try:
+            clear(widget)
+        except Exception:
+            # A disposed QObject, Tcl widget or Kivy canvas may no longer
+            # admit native calls; never retain or resurrect that owner.
+            continue
