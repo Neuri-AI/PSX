@@ -179,8 +179,9 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         }
         from psx.sfle.native_layout_snapshot import inline_atomic_text_ids
         atomic_text = inline_atomic_text_ids(prepared)
-        for node_id in text_ids:
-            widget = bindings[node_id].widget
+        for node_id, widget in leaf_widgets.items():
+            if bindings[node_id].node_type != "Text":
+                continue
             is_atomic = node_id in atomic_text
             widget._psx_sfle_inline_atomic = is_atomic
             if is_atomic:
