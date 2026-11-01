@@ -147,8 +147,8 @@ def test_public_protocol_matches_for_every_engine(backends):
                "compute_grid", "layout_inline_text")
     for name in methods:
         expected = inspect.signature(getattr(LayoutEngine, name))
-        left = inspect.signature(getattr(rust, name))
-        right = inspect.signature(getattr(python, name))
+        left = inspect.signature(getattr(type(rust), name))
+        right = inspect.signature(getattr(type(python), name))
         assert tuple(expected.parameters) == tuple(left.parameters), name
         assert tuple(expected.parameters) == tuple(right.parameters), name
     for feature in (
