@@ -168,7 +168,12 @@ class QtSFLEGeometryTests(unittest.TestCase):
             '<button>Count is 0</button></div>'
         ))
         paragraph, button = root.children
-        # Inline formatting now tokenizes whitespace/words into independent
+        assert [item.node.type for item in paragraph.children] == [
+            "Text", "span", "Text",
+        ]
+        # The semantic Text leaves are painted from native inline glyph
+        # fragment plans; no extra QLabel is mounted for a space or word.
+        # Locate the source span without relying on sibling indexes.
         # Text nodes so Cinnamon can wrap at word boundaries. Never assume
         # that the span is the second paragraph child.
         children = paragraph.children
