@@ -327,10 +327,22 @@ def test_mixed_inline_paragraph_preserves_source_order_and_whitespace():
         '<p>Edit <span>src/App.tsx</span> and save to test HMR</p>'
     )
     assert paragraph.type == "p"
-    assert [child.type for child in paragraph.children][:2] == ["Text", "span"]
-    assert len([child for child in paragraph.children if child.type == "span"]) == 1
-    span = paragraph.children[1]
-    assert span.children[0].props["value"] == "src/App.tsx"
+    # A mixed paragraph's first literal is word-tokenized: "Edit" then
+    # " " then <span>. This keeps HTML whitespace intact and enables
+    # Cinnamon to wrap at word boundaries without splitting a span token.
+    assert [child.type for child in paragraph.children][:3] == [
+        "Text", "Text", "span",
+    ]
+    assert [child.props["value"] for child in paragraph.children[:2]] == [
+        "Edit", " ",
+    ]
+    spans = [child for child in paragraph.children if child.type == "span"]
+    assert len(spans) == 1
+    span = spans[0]
+    assert [child.props["value"] for child in span.children] == ["src/App.tsx"]
+    span_index = next(index for index, child in enumerate(paragraph.children)
+                      if child.type == "span")
+    assert paragraph.children[span_index + 1].props["value"] == " "
     def text_content(node):
         if node.type == "Text":
             return node.props["value"]
