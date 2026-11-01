@@ -9,12 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from psx.layout.fallback.auto_cross_tree import AutoCrossSize, compute_auto_cross_tree
-from psx.layout.fallback.constraint_propagation import ChildSizing
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.fallback.intrinsic_tree import IntrinsicLeafStyle, prepare_measured_leaf_nodes
 from psx.layout.contracts.lengths import LengthKind
-from psx.layout.fallback.margin_tree import MarginTreeNode, compute_margin_tree
 from psx.layout.contracts.model import LayoutInput, AvailableSize, LayoutConstraints
 from psx.layout.runtime.native_measurement import NativeMeasurementPort
 from psx.layout.runtime.recursive_measurement import RecursiveMeasurementResult, measure_resolved_margin_tree
@@ -48,6 +44,12 @@ def compute_recursive_pipeline(
     height-for-width text measurement without treating preferred sizes as
     final used dimensions. The returned geometry remains generation-scoped.
     """
+    # Numeric calculations are imported only when explicitly invoking the
+    # optional Python recursive compatibility pipeline.
+    from psx.layout.fallback.auto_cross_tree import compute_auto_cross_tree
+    from psx.layout.fallback.intrinsic_tree import prepare_measured_leaf_nodes
+    from psx.layout.fallback.margin_tree import compute_margin_tree
+    from psx.layout.fallback.constraint_propagation import ChildSizing
     first = measure_resolved_margin_tree(
         snapshot, nodes, child_sizing=child_sizing, revisions=revisions,
         port=native_port, current_generation=current_generation,

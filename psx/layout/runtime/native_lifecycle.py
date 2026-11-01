@@ -10,13 +10,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.fallback.margin_tree import MarginTreeNode
 from psx.layout.contracts.model import LayoutInput, MeasuredBox
 from psx.layout.runtime.native_measurement import NativeMeasurementPort
 from psx.layout.runtime.recursive_measurement import RecursiveMeasurementResult, measure_resolved_margin_tree
-from psx.layout.fallback.constraint_propagation import ChildSizing
-from psx.layout.fallback.auto_cross_tree import AutoCrossSize
-from psx.layout.fallback.intrinsic_tree import IntrinsicLeafStyle
 from psx.layout.runtime.recursive_pipeline import compute_recursive_pipeline
 
 
@@ -51,6 +47,12 @@ def layout_and_commit(
     before geometry commit. No framework event loop or worker scheduling is
     performed here. Renderers must call this function from their UI scheduler.
     """
+    # Compatibility pipeline for explicitly selected Python recursive solver.
+    # The native Rust path never imports these numerical implementation modules.
+    from psx.layout.fallback.margin_tree import MarginTreeNode
+    from psx.layout.fallback.constraint_propagation import ChildSizing
+    from psx.layout.fallback.auto_cross_tree import AutoCrossSize
+    from psx.layout.fallback.intrinsic_tree import IntrinsicLeafStyle
     if not isinstance(snapshot, LayoutInput) or not isinstance(lifecycle, NativeLayoutLifecycle):
         raise TypeError("Expected LayoutInput and NativeLayoutLifecycle.")
     generation = lifecycle.generation()

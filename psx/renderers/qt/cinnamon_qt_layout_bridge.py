@@ -23,8 +23,8 @@ from psx.layout.runtime.adapter_contract import SFLEAdapterPorts, validate_adapt
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 from psx.layout.projection.native_layout_snapshot import (prepare_native_layout_snapshot, inline_atomic_text_ids)
 from psx.layout.adapters.external_native_geometry_ports import external_port_for, measure_external, read_external
-from psx.layout.fallback.margin_tree import MarginTreeNode
-from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.layout.contracts.tree_identity import LayoutTreeIdentity as MarginTreeNode
+from psx.layout.runtime.measurement_plan import MeasurementRequest
 from psx.layout.adapters.native_geometry import GeometryBackend, NativeGeometryCommitter
 from psx.layout.adapters.native_pixel_space import DevicePixelSpace
 from psx.layout.contracts.model import Rect

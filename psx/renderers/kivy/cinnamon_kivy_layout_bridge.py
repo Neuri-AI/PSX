@@ -33,8 +33,8 @@ from psx.layout.runtime.width_dependent_intrinsic_measurement import (
     compute_width_dependent, auto_height_measurement_ids,
     seed_unconstrained_width_measurements,
 )
-from psx.layout.fallback.margin_tree import MarginTreeNode
-from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.layout.contracts.tree_identity import LayoutTreeIdentity as MarginTreeNode
+from psx.layout.runtime.measurement_plan import MeasurementRequest
 from psx.layout.adapters.native_geometry import GeometryBackend, NativeGeometryCommitter
 from psx.layout.adapters.native_pixel_space import DevicePixelSpace
 from psx.layout.contracts.model import Rect

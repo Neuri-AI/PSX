@@ -9,10 +9,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from psx.layout.fallback.constraint_propagation import ChildSizing, plan_styled_measurements
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.fallback.margin_tree import MarginTreeLayout, MarginTreeNode, compute_margin_tree
-from psx.layout.fallback.measurement_round import MeasurementRound
+from psx.layout.runtime.measurement_round import MeasurementRound
 from psx.layout.contracts.model import AvailableSize, LayoutConstraints, LayoutInput, MeasuredBox, WritingDirection
 from psx.layout.runtime.native_measurement import NativeMeasurementPort, fulfill_native_round
 
@@ -39,6 +37,9 @@ def measure_resolved_margin_tree(
     Cached measurements may only be reused when both revision and constraints
     still match, subject to conservative ancestor invalidation in the planner.
     """
+    # This API is an optional Python legacy recursive computation facade.
+    from psx.layout.fallback.constraint_propagation import plan_styled_measurements
+    from psx.layout.fallback.margin_tree import compute_margin_tree
     if not isinstance(snapshot, LayoutInput):
         raise TypeError("snapshot must be LayoutInput.")
     if not isinstance(port, NativeMeasurementPort):

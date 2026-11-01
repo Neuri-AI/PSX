@@ -9,14 +9,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
-from psx.layout.fallback.convergence import RoundStatus, begin_convergence
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.fallback.measurement_coordinator import complete_measurement_pass
-from psx.layout.fallback.measurement_round import prepare_round
+from psx.layout.runtime.measurement_round import prepare_round
 from psx.layout.contracts.model import LayoutInput, MeasuredBox
 from psx.layout.runtime.native_measurement import NativeMeasurementPort
-from psx.layout.fallback.remeasurement import plan_remeasurement
-from psx.layout.fallback.used_size_tree import UsedSizeTree
+from psx.layout.runtime.remeasurement import plan_remeasurement
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +43,9 @@ def resolve_measurement_dependencies(
     round are jointly required for successful completion. The callback must
     not mutate GUI widgets or request measurements itself.
     """
+    from psx.layout.fallback.convergence import RoundStatus, begin_convergence
+    from psx.layout.fallback.measurement_coordinator import complete_measurement_pass
+    from psx.layout.fallback.used_size_tree import UsedSizeTree
     if not isinstance(snapshot, LayoutInput) or not isinstance(initial_sizes, UsedSizeTree):
         raise TypeError("Expected LayoutInput and UsedSizeTree.")
     if not isinstance(native_port, NativeMeasurementPort) or not callable(recompute):
@@ -80,7 +80,7 @@ def resolve_measurement_dependencies(
         native_results = tuple(native_results_list)
         # Acceptance must occur before the pure CSS size recomputation, and
         # no partial results are exposed on invalid revisions/generations.
-        from psx.layout.fallback.measurement_round import accept_round
+        from psx.layout.runtime.measurement_round import accept_round
         accepted = accept_round(round_, native_results, current_generation=snapshot.generation)
         next_snapshot = replace(snapshot, measurements=accepted)
         updated = recompute(next_snapshot, current)

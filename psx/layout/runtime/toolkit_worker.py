@@ -7,7 +7,7 @@ from psx.layout.runtime.adapter_contract import ScrollViewport
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 from psx.layout.contracts.fixed_point import LayoutUnit
 from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
-from psx.layout.fallback.margin_tree import MarginTreeNode
+from psx.layout.contracts.tree_identity import LayoutTreeIdentity as MarginTreeNode
 from psx.layout.contracts.model import IntrinsicSizes, LayoutInput, LayoutResult
 from psx.layout.adapters.native_geometry import GeometryBackend, NativeGeometryCommitter
 from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource

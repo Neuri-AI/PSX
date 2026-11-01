@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from enum import Enum
 
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.fallback.margin_tree import MarginTreeNode
+from psx.layout.contracts.tree_identity import LayoutTreeIdentity as MarginTreeNode
 from psx.layout.runtime.recursive_measurement import RecursiveMeasurementResult
 from psx.layout.contracts.model import LayoutResult, Rect
 from typing import TYPE_CHECKING
