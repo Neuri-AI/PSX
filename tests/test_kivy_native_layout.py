@@ -157,7 +157,12 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 '<button>Count is 0</button></div>'
             ))
             paragraph, button = root.children
-            # Preserve the new per-word/whitespace Text hosts: find the
+            assert [item.node.type for item in paragraph.children] == [
+                "Text", "span", "Text",
+            ]
+            # Kivy retains only source Text Labels. Fragment textures are
+            # canvas instructions, not additional declarative nodes.
+            # Locate the authored span and adjacent source Text nodes.
             # actual span and the adjacent *non-space* text fragments.
             children = paragraph.children
             span_index = next(
