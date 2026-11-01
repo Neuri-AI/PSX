@@ -155,6 +155,10 @@ def test_public_protocol_matches_for_every_engine(backends):
         right = inspect.signature(getattr(type(python), name))
         assert tuple(expected.parameters) == tuple(left.parameters), name
         assert tuple(expected.parameters) == tuple(right.parameters), name
+    assert rust.capabilities.engine_name == "rust"
+    assert python.capabilities.engine_name == "python"
+    assert rust.capabilities.features == python.capabilities.features
+    assert rust.capabilities.certified_features == python.capabilities.certified_features
     for feature in (
         "full_layout_compute", "provisional_layout_compute",
         "incremental_layout_compute", "width_dependent_remeasurement",
