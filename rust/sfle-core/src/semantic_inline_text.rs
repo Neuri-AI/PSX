@@ -53,7 +53,7 @@ pub struct InlineResult {
 fn px(value: f64) -> Result<f64, String> {
     LayoutUnit::from_nearest(value)
         .map(LayoutUnit::to_px)
-        .map_err(str::to_string)
+        .map_err(|reason| reason.to_owned())
 }
 
 pub fn layout_inline(request: &InlineRequest) -> Result<InlineResult, String> {
