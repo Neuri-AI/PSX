@@ -88,6 +88,11 @@ fn compute_measured_flow_json(input: &str) -> PyResult<String> {
 }
 
 #[pyfunction]
+fn compute_recursive_tree_json(input: &str) -> PyResult<String> {
+    crate::recursive_wire::calculate(input).map_err(PyValueError::new_err)
+}
+
+#[pyfunction]
 fn compute_json(input: &str) -> PyResult<String> {
     compute_impl(input, false)
 }
@@ -126,6 +131,7 @@ fn _sfle_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(compute_grid_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_inline_text_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_measured_flow_json,module)?)?;
+    module.add_function(wrap_pyfunction!(compute_recursive_tree_json,module)?)?;
     Ok(())
 }
 
