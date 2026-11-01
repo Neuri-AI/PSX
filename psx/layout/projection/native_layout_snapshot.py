@@ -385,6 +385,10 @@ class PreparedNativeLayoutSnapshot:
                              and "display" in origin.css_computed.specified
                              and origin.css_computed.properties["display"] in ("flex", "inline-flex"))):
                 style = dict(node.style)
+                # This paragraph is now a Flex solver context. The CSS
+                # display declaration selected its formatting mode; it is
+                # not a supported numeric Flex item style on either engine.
+                style.pop("display", None)
                 style["direction"] = "row"
                 style["wrap"] = "wrap"
                 style["align_items"] = "baseline"
