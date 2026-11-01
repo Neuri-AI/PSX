@@ -55,13 +55,19 @@ def test_css_flex_paragraph_treats_mixed_inline_nodes_as_wrapping_row(width):
         original = by_source[node.node_id]
         if original.type in ("span", "Text") and node.parent_id == blocks[0].node_id:
             assert dict(node.style)["flex_shrink"] == 0.0
-    assert any(vnode.type == "span" for vnode in by_source.values())
-    assert sum(1 for vnode in by_source.values() if vnode.type == "Text") >= 5
+    # Source-level Text nodes are no longer split into word/space VNodes.
+    assert [child.type for child in source.children[0].children] == [
+        "Text", "span", "Text",
+    ]
+    assert sum(1 for vnode in by_source.values() if vnode.type == "Text") == 3
+    assert [vnode.props["value"] for vnode in by_source.values()
+            if vnode.type == "Text" and vnode.props["value"] in ("Edit ", " and save to test HMR")] == [
+        "Edit ", " and save to test HMR",
+    ]
     atomic = inline_atomic_text_ids(prepared)
     assert any(by_source[identifier].type == "Text"
                and by_source[identifier].props["value"] == "src/App.tsx"
                for identifier in atomic)
-    assert len(atomic) >= 5
 
 
 def test_block_root_inline_span_stays_on_same_measured_line_when_it_fits():
