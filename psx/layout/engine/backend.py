@@ -195,80 +195,80 @@ class RustLayoutEngine:
             not isinstance(node, MarginTreeNode) for node in nodes
         ):
             raise TypeError("nodes must be tuple[MarginTreeNode, ...].")
-    module = self._module
-    native = getattr(module, "compute_recursive_tree_json", None)
-    if not callable(native):
-        raise SFLEError(
-            DiagnosticCode.BACKEND_MISMATCH,
-            "The selected Rust Cinnamon wheel lacks recursive geometry ABI.",
-        )
-    payload = {
-        "generation": generation,
-        "writing": writing.value,
-        "nodes": [asdict(node) for node in nodes],
-        "auto_cross": [item.node_id for item in auto_cross],
-    }
-    # Explicit serializer of enums preserves the original typed contract.
-    def serialize(value: object):
-        if isinstance(value, Enum):
-            return value.value
-        raise TypeError(f"Unsupported recursive wire value: {type(value).__name__}")
+        module = self._module
+        native = getattr(module, "compute_recursive_tree_json", None)
+        if not callable(native):
+            raise SFLEError(
+                DiagnosticCode.BACKEND_MISMATCH,
+                "The selected Rust Cinnamon wheel lacks recursive geometry ABI.",
+            )
+        payload = {
+            "generation": generation,
+            "writing": writing.value,
+            "nodes": [asdict(node) for node in nodes],
+            "auto_cross": [item.node_id for item in auto_cross],
+        }
+        # Explicit serializer of enums preserves the original typed contract.
+        def serialize(value: object):
+            if isinstance(value, Enum):
+                return value.value
+            raise TypeError(f"Unsupported recursive wire value: {type(value).__name__}")
 
-    try:
-        wire = json.dumps(payload, default=serialize, allow_nan=False)
-    except (TypeError, ValueError) as exc:
-        raise SFLEError(
-            DiagnosticCode.INVALID_SNAPSHOT,
-            f"Invalid recursive geometry snapshot: {exc}",
-        ) from exc
-    try:
-        result = json.loads(native(wire))
-    except (ValueError, TypeError) as exc:
-        raise SFLEError(
-            DiagnosticCode.INVALID_TREE,
-            f"Native recursive geometry rejected the tree: {exc}",
-        ) from exc
-    if not isinstance(result, dict) or result.get("generation") != generation:
-        raise SFLEError(
-            DiagnosticCode.BACKEND_MISMATCH,
-            "Rust recursive geometry returned an invalid generation.",
-        )
-    def rect(data):
-        return Rect(data["x"], data["y"], data["width"], data["height"])
+        try:
+            wire = json.dumps(payload, default=serialize, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise SFLEError(
+                DiagnosticCode.INVALID_SNAPSHOT,
+                f"Invalid recursive geometry snapshot: {exc}",
+            ) from exc
+        try:
+            result = json.loads(native(wire))
+        except (ValueError, TypeError) as exc:
+            raise SFLEError(
+                DiagnosticCode.INVALID_TREE,
+                f"Native recursive geometry rejected the tree: {exc}",
+            ) from exc
+        if not isinstance(result, dict) or result.get("generation") != generation:
+            raise SFLEError(
+                DiagnosticCode.BACKEND_MISMATCH,
+                "Rust recursive geometry returned an invalid generation.",
+            )
+        def rect(data):
+            return Rect(data["x"], data["y"], data["width"], data["height"])
 
-    # Fixed (non-auto) CSS margins are *inputs*, not computed layout sizes.
-    # A serde_json float roundtrip can change the shortest binary rendering by
-    # one ULP; the historical Python API preserves the exact supplied value.
-    # Leave auto margins and every coordinate to the real native Rust solver.
-    source_items = {
-        node.node_id: node.item for node in nodes if node.item is not None
-    }
-    def used_margin(box, side):
-        item = source_items.get(box["node_id"])
-        if item is not None:
-            declared = getattr(item, side).value
-            if declared is not None:
-                return declared
-        return box["used_" + side + "_margin"]
+        # Fixed (non-auto) CSS margins are *inputs*, not computed layout sizes.
+        # A serde_json float roundtrip can change the shortest binary rendering by
+        # one ULP; the historical Python API preserves the exact supplied value.
+        # Leave auto margins and every coordinate to the real native Rust solver.
+        source_items = {
+            node.node_id: node.item for node in nodes if node.item is not None
+        }
+        def used_margin(box, side):
+            item = source_items.get(box["node_id"])
+            if item is not None:
+                declared = getattr(item, side).value
+                if declared is not None:
+                    return declared
+            return box["used_" + side + "_margin"]
 
-    try:
-        boxes = tuple(MarginFlexBox(
-            box["node_id"], rect(box["content"]), rect(box["padding"]),
-            rect(box["border"]), used_margin(box, "main_start"),
-            used_margin(box, "main_end"), box["line_index"],
-            box["used_cross_start_margin"], box["used_cross_end_margin"],
-        ) for box in result["boxes"])
-    except (TypeError, KeyError, ValueError) as exc:
-        raise SFLEError(
-            DiagnosticCode.BACKEND_MISMATCH,
-            "Rust recursive geometry returned malformed rectangles.",
-        ) from exc
-    if tuple(b.node_id for b in boxes) != tuple(n.node_id for n in nodes):
-        raise SFLEError(
-            DiagnosticCode.BACKEND_MISMATCH,
-            "Rust recursive geometry changed tree ordering or identities.",
-        )
-    return MarginTreeLayout(generation, boxes)
+        try:
+            boxes = tuple(MarginFlexBox(
+                box["node_id"], rect(box["content"]), rect(box["padding"]),
+                rect(box["border"]), used_margin(box, "main_start"),
+                used_margin(box, "main_end"), box["line_index"],
+                box["used_cross_start_margin"], box["used_cross_end_margin"],
+            ) for box in result["boxes"])
+        except (TypeError, KeyError, ValueError) as exc:
+            raise SFLEError(
+                DiagnosticCode.BACKEND_MISMATCH,
+                "Rust recursive geometry returned malformed rectangles.",
+            ) from exc
+        if tuple(b.node_id for b in boxes) != tuple(n.node_id for n in nodes):
+            raise SFLEError(
+                DiagnosticCode.BACKEND_MISMATCH,
+                "Rust recursive geometry changed tree ordering or identities.",
+            )
+        return MarginTreeLayout(generation, boxes)
 
 
 
