@@ -599,7 +599,7 @@ def test_grid_inside_scroll_flex_preserves_native_offsets_and_reflows(request):
 def test_mixed_flex_grid_transaction_failure_restores_all_native_geometry(request, monkeypatch):
     """A failed Grid batch cannot leave an already committed Flex rectangle."""
     from psx import Flex
-    from psx.layout.adapters import mixed_grid_native
+    from psx.layout.grid import mixed_grid_native
     backend = os.environ["PSX_GRID_BACKEND"]
     binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
         "tkinter" if backend == "tk" else "kivy")
@@ -824,7 +824,7 @@ def test_native_grid_root_late_resource_invalidation_is_atomic(request, monkeypa
 def test_multiple_mixed_grids_rollback_all_committed_siblings(request, monkeypatch):
     """A failure in the second Grid batch rolls back the first and Flex."""
     from psx import Flex
-    from psx.layout.adapters import mixed_grid_native
+    from psx.layout.grid import mixed_grid_native
     backend = os.environ["PSX_GRID_BACKEND"]
     binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
         "tkinter" if backend == "tk" else "kivy")
@@ -3239,7 +3239,7 @@ def test_grid_composition_reused_for_same_width_within_transaction(monkeypatch):
     from types import SimpleNamespace
     from psx.layout.adapters.grid_native_commit import GridCommitBackend
     from psx.layout.adapters.grid_native_commit import GridCommitBackend
-    from psx.layout.adapters import mixed_grid_native
+    from psx.layout.grid import mixed_grid_native
     from psx.layout.grid.mixed_grid_native import MountedMixedGrid
 
     calls = []
@@ -3275,7 +3275,7 @@ def test_tk_mixed_grid_syncs_native_idle_once_per_composition(monkeypatch):
     """A composed Grid cannot drain the entire Tcl idle queue per leaf."""
     from threading import get_ident
     from types import SimpleNamespace
-    from psx.layout.adapters import mixed_grid_native, tk_measurement
+    from psx.layout.grid import mixed_grid_native, tk_measurement
     from psx.layout.grid.mixed_grid_native import MountedMixedGrid
     from psx.layout.adapters.grid_native_commit import GridCommitBackend
     from psx.layout.contracts.model import IntrinsicSizes
@@ -3327,7 +3327,7 @@ def test_grid_composition_failure_is_not_cached(monkeypatch):
     from threading import get_ident
     from types import SimpleNamespace
     from psx.layout.adapters.grid_native_commit import GridCommitBackend
-    from psx.layout.adapters import mixed_grid_native
+    from psx.layout.grid import mixed_grid_native
     from psx.layout.grid.mixed_grid_native import MountedMixedGrid
 
     count = [0]
