@@ -56,7 +56,7 @@ jobs:
           import json
           from kivy.core.window import Window
           from kivy.metrics import Metrics
-          from psx.sfle.kivy_display_scale import KivyDisplayScale
+          from psx.renderers.kivy.cinnamon_kivy_display_scale import KivyDisplayScale
           observed = KivyDisplayScale.from_window(Window)
           print(json.dumps({
               "window_scale": observed.snapshot(),

@@ -102,17 +102,11 @@ def test_nested_activity_flex_remeasures_wrapped_description_at_assigned_width()
     assert boxes["row"].border.height >= boxes["description"].border.height
 
 
-def test_rust_block_root_without_flex_uses_same_native_grid_flow_as_python():
-    """Block/Grid snapshots must not take the raw Rust Flex geometry path."""
+def test_rust_block_root_routes_to_native_engine_without_python_compositor():
+    """The unit test checks facade dispatch; the installed-wheel suite checks math."""
+    import json
     from psx.layout.engine.backend import RustLayoutEngine
-
-    class UnexpectedRawGeometry:
-        def compute_json(self, *args):
-            raise AssertionError("Semantic Grid root bypassed shared block compositor")
-        def compute_incremental_json(self, *args):
-            raise AssertionError("Semantic Grid root used native incremental Flex ABI")
-        def compute_provisional_json(self, *args):
-            raise AssertionError("Semantic Grid root used provisional Flex ABI")
+    from psx.layout.contracts.native_wire import serialize_result
 
     constraints = LayoutConstraints(AvailableSize(1200, True), AvailableSize(600, True))
     snapshot = LayoutInput(
@@ -124,12 +118,25 @@ def test_rust_block_root_without_flex_uses_same_native_grid_flow_as_python():
         (MeasuredBox("grid", _intrinsic(1200, 19), constraints, 2),),
     )
     reference = PythonLayoutEngine().compute(snapshot)
-    rust = RustLayoutEngine(UnexpectedRawGeometry())
+
+    class RecordingNative:
+        calls = []
+        def answer(self, operation, *args):
+            self.calls.append(operation)
+            return json.dumps({"ok": True, "result": json.loads(serialize_result(reference))})
+        def compute_json(self, *args):
+            return self.answer("compute", *args)
+        def compute_incremental_json(self, *args):
+            return self.answer("incremental", *args)
+        def compute_provisional_json(self, *args):
+            return self.answer("provisional", *args)
+
+    native = RecordingNative()
+    rust = RustLayoutEngine(native)
     assert rust.compute(snapshot).boxes == reference.boxes
     assert rust.compute_provisional(snapshot).boxes == reference.boxes
     assert rust.compute_incremental(
         snapshot, previous_input=snapshot, previous_result=reference,
     ).boxes == reference.boxes
-    boxes = dict(reference.boxes)
-    assert boxes["grid"].border.y == 0
-    assert boxes["grid"].border.height == 19
+    assert native.calls == ["compute", "provisional", "incremental"]
+    assert dict(reference.boxes)["grid"].border.height == 19

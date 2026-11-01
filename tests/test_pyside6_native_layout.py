@@ -466,7 +466,7 @@ class QtSFLEGeometryTests(unittest.TestCase):
     def test_scroll_failed_native_commit_restores_offsets_and_extent(self):
         from unittest.mock import patch
         from psx import Scroll
-        from psx.layout import native_scroll_hosts
+        from psx.layout.adapters import native_scroll_hosts
 
         self.renderer.set_sfle_constraints(constraints(300, 200))
         root = self.r.render(Flex(
