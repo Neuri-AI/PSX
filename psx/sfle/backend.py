@@ -28,6 +28,25 @@ class RustLayoutEngine:
     def capabilities(self):
         return CONTRACT_ONLY_CAPABILITIES
 
+    def compute_inline_text(self, payload: dict[str, object]) -> dict[str, object]:
+        """Use the Rust numeric inline layout kernel; never silently fall back."""
+        import json
+        native = getattr(self._module, "compute_inline_text_json", None)
+        if not callable(native):
+            raise SFLEError(
+                DiagnosticCode.BACKEND_MISMATCH,
+                "Loaded Rust Cinnamon extension lacks compute_inline_text_json; "
+                "rebuild _sfle_native from the current PSX branch.",
+            )
+        wire = json.dumps(payload, ensure_ascii=False, allow_nan=False)
+        response = json.loads(native(wire))
+        if not isinstance(response, dict) or not all(
+            key in response for key in ("fragments", "width", "height", "line_count")
+        ):
+            raise SFLEError(DiagnosticCode.BACKEND_MISMATCH,
+                            "Invalid Rust inline fragment response.")
+        return response
+
     def compute(self, request: LayoutInput) -> LayoutResult:
         # Every semantic Block root needs the same CSS flow compositor as
         # the Python engine. A nested Flex remains solved by this Rust engine;
