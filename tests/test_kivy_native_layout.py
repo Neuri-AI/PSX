@@ -157,10 +157,28 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 '<button>Count is 0</button></div>'
             ))
             paragraph, button = root.children
-            prefix = paragraph.children[0].handle.widget
-            span = paragraph.children[1].handle.widget
-            suffix = paragraph.children[2].handle.widget
-            nested = paragraph.children[1].children[0].handle.widget
+            # Preserve the new per-word/whitespace Text hosts: find the
+            # actual span and the adjacent *non-space* text fragments.
+            children = paragraph.children
+            span_index = next(
+                index for index, child in enumerate(children)
+                if child.node.type == "span"
+            )
+            span_node = children[span_index]
+            prefix = next(
+                child.handle.widget for child in reversed(children[:span_index])
+                if child.node.type == "Text" and child.node.props["value"].strip()
+            )
+            suffix = next(
+                child.handle.widget for child in children[span_index + 1:]
+                if child.node.type == "Text" and child.node.props["value"].strip()
+            )
+            span = span_node.handle.widget
+            nested = next(
+                child.handle.widget for child in span_node.children
+                if child.node.type == "Text"
+                and child.node.props["value"] == "src/App.tsx"
+            )
             assert abs(prefix.y - span.y) <= 1, (prefix.y, span.y)
             assert abs(suffix.y - span.y) <= 1, (suffix.y, span.y)
             assert prefix.x < span.x < suffix.x, (prefix.x, span.x, suffix.x)
