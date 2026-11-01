@@ -61,10 +61,10 @@ for path in SHARED_NUMERICAL_ENTRY_POINTS:
                 "backend_name selection in shared numerical facade",
             ))
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-            if "psx.layout.fallback" in node.value:
+            if "psx.layout.fallback" in node.value or node.value == "backend_name":
                 violations.append((
                     str(path.relative_to(ROOT.parent)), node.lineno,
-                    "fallback reference in shared numerical facade",
+                    "concrete solver / backend selector in shared numerical facade",
                 ))
 
 if violations:

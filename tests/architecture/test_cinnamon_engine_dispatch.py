@@ -165,3 +165,6 @@ def test_shared_numerical_facades_have_no_implementation_import_or_backend_switc
                                for i in node.names), path
             if isinstance(node, ast.Attribute):
                 assert node.attr != "backend_name", path
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                assert "psx.layout.fallback" not in node.value, path
+                assert node.value != "backend_name", path
