@@ -1307,9 +1307,15 @@ class KivyRenderer:
                 )
                 widget._psx_ua_button_padding_active = not authored_padding
                 if not authored_padding:
+                    # Adapters may hand PSX a native Kivy Button without
+                    # passing through _kivy_button_factory(). Preserve the
+                    # same 6 CSS-px user-agent inset in either code path.
+                    default_inset = getattr(
+                        widget, "_psx_ua_button_padding",
+                        (6.0, 6.0, 6.0, 6.0),
+                    )
                     widget.padding = tuple(
-                        value * pixel_scale
-                        for value in widget._psx_ua_button_padding
+                        value * pixel_scale for value in default_inset
                     )
             if target.node_type == "Button" and computed is not None and (
                 "padding" in computed.specified or any(
