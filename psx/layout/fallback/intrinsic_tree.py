@@ -7,6 +7,8 @@ dependency, so this stage does not speculate about container auto sizes.
 """
 from __future__ import annotations
 
+from psx.layout.contracts.recursive_tree import IntrinsicLeafStyle
+
 from dataclasses import dataclass, replace
 
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
@@ -15,16 +17,6 @@ from psx.layout.contracts.lengths import Length
 from psx.layout.fallback.line_layout import FlexDirection
 from psx.layout.fallback.margin_tree import MarginTreeNode, MarginTreeLayout, compute_margin_tree
 from psx.layout.contracts.model import MeasuredBox, WritingDirection
-
-
-@dataclass(frozen=True, slots=True)
-class IntrinsicLeafStyle:
-    node_id: str
-    flex_basis: Length
-    main_size: float | None = None
-    min_main_size: float | None = None
-    max_main_size: float | None = None
-    cross_size_auto: bool = True
 
 
 def prepare_measured_leaf_nodes(

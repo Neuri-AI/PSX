@@ -6,6 +6,8 @@ used offsets: no fictitious nonnegative margin rectangle is created.
 """
 from __future__ import annotations
 
+from psx.layout.contracts.recursive_tree import MarginTreeNode, MarginTreeLayout
+
 from dataclasses import dataclass, replace
 from psx.layout.contracts.fixed_point import LayoutUnit
 
@@ -31,30 +33,6 @@ from psx.layout.fallback.line_layout import FlexDirection, FlexWrap
 from psx.layout.fallback.main_alignment import JustifyContent
 from psx.layout.fallback.margin_flex_pipeline import MarginFlexBox, MarginFlexItem, compute_margin_flex_layout
 from psx.layout.contracts.model import Rect, WritingDirection
-
-
-@dataclass(frozen=True, slots=True)
-class MarginTreeNode:
-    node_id: str
-    parent_id: str | None
-    width: float
-    height: float
-    item: MarginFlexItem | None = None
-    edges: UsedBoxEdges = UsedBoxEdges()
-    direction: FlexDirection = FlexDirection.ROW
-    wrap: FlexWrap = FlexWrap.NOWRAP
-    main_gap: float = 0.0
-    cross_gap: float = 0.0
-    justify: JustifyContent = JustifyContent.FLEX_START
-    align_items: CrossAlign = CrossAlign.FLEX_START
-    align_content: AlignContent = AlignContent.FLEX_START
-    intrinsic_basis: IntrinsicFlexInput | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class MarginTreeLayout:
-    generation: int
-    boxes: tuple[MarginFlexBox, ...]
 
 
 def _translate(box: MarginFlexBox, x: float, y: float) -> MarginFlexBox:

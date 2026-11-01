@@ -6,6 +6,8 @@ container cross size. No implicit measurement, wrapping or baseline logic.
 
 from __future__ import annotations
 
+from psx.layout.contracts.recursive_tree import AlignContent
+
 from dataclasses import dataclass
 from enum import Enum
 
@@ -29,16 +31,6 @@ def _sub(value: float, *deductions: float) -> float:
     for deduction in deductions:
         total = total - LayoutUnit.from_nearest(deduction)
     return total.to_px()
-
-
-class AlignContent(str, Enum):
-    FLEX_START = "flex-start"
-    FLEX_END = "flex-end"
-    CENTER = "center"
-    SPACE_BETWEEN = "space-between"
-    SPACE_AROUND = "space-around"
-    SPACE_EVENLY = "space-evenly"
-    STRETCH = "stretch"
 
 
 @dataclass(frozen=True, slots=True)

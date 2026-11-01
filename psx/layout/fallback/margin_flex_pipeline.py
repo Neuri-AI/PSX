@@ -7,6 +7,8 @@ Cross-axis auto margins override resolved non-stretch item alignment.
 
 from __future__ import annotations
 
+from psx.layout.contracts.recursive_tree import MarginFlexItem, MarginFlexBox, MarginFlexLayout
+
 from dataclasses import dataclass
 
 from psx.layout.fallback.box_geometry import UsedBoxEdges, UsedEdges
@@ -41,74 +43,6 @@ def _subtract_units(value: float, *deductions: float) -> float:
     for deduction in deductions:
         total = total - LayoutUnit.from_nearest(deduction)
     return total.to_px()
-
-
-@dataclass(frozen=True, slots=True)
-class MarginFlexItem:
-    node_id: str
-    flex: FlexBasis
-    cross_content_size: float
-    edges: UsedBoxEdges = UsedBoxEdges()
-    main_start: UsedMargin = UsedMargin()
-    main_end: UsedMargin = UsedMargin()
-    order: int = 0
-    cross_start: UsedMargin = UsedMargin()
-    cross_end: UsedMargin = UsedMargin()
-    align_self: CrossAlign = CrossAlign.AUTO
-    cross_size_auto: bool = False
-    min_cross_content_size: float = 0.0
-    max_cross_content_size: float | None = None
-    baseline_from_cross_start: float | None = None
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.node_id, str) or not self.node_id:
-            raise ValueError("node_id must be nonempty.")
-        if not isinstance(self.flex, FlexBasis) or not isinstance(self.edges, UsedBoxEdges):
-            raise TypeError("flex and edges must be normalized.")
-        if any(not isinstance(margin, UsedMargin) for margin in (
-            self.main_start, self.main_end, self.cross_start, self.cross_end
-        )):
-            raise TypeError("margins must be UsedMargin.")
-        if not isinstance(self.align_self, CrossAlign):
-            raise TypeError("align_self must be CrossAlign.")
-        if type(self.cross_size_auto) is not bool:
-            raise TypeError("cross_size_auto must be bool.")
-        minimum = _number(self.min_cross_content_size, "min_cross_content_size")
-        maximum = (None if self.max_cross_content_size is None else
-                   _number(self.max_cross_content_size, "max_cross_content_size"))
-        if minimum < 0 or (maximum is not None and maximum < 0):
-            raise ValueError("Cross size constraints must be nonnegative.")
-        if self.baseline_from_cross_start is not None:
-            baseline = _number(self.baseline_from_cross_start, "baseline_from_cross_start")
-            if not 0 <= baseline <= _number(self.cross_content_size, 'cross_content_size'):
-                raise ValueError("Measured baseline must lie within cross content size.")
-        if self.edges.margin != UsedEdges():
-            raise ValueError("Set all physical margins to zero; use main_start/main_end.")
-        if type(self.order) is not int:
-            raise TypeError("order must be a signed integer.")
-        size = _number(self.cross_content_size, "cross_content_size")
-        if size < 0:
-            raise ValueError("cross size cannot be negative.")
-        object.__setattr__(self, "cross_content_size", size)
-
-
-@dataclass(frozen=True, slots=True)
-class MarginFlexBox:
-    node_id: str
-    content: Rect
-    padding: Rect
-    border: Rect
-    used_main_start_margin: float
-    used_main_end_margin: float
-    line_index: int
-    used_cross_start_margin: float = 0.0
-    used_cross_end_margin: float = 0.0
-
-
-@dataclass(frozen=True, slots=True)
-class MarginFlexLayout:
-    lines: tuple[tuple[str, ...], ...]
-    boxes: tuple[MarginFlexBox, ...]
 
 
 def compute_margin_flex_layout(

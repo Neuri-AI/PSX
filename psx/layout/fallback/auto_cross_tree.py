@@ -1,6 +1,8 @@
 """Bottom-up intrinsic cross contributions for recursive Flex containers."""
 from __future__ import annotations
 
+from psx.layout.contracts.recursive_tree import AutoCrossSize
+
 from dataclasses import dataclass, replace
 
 from psx.layout.contracts.errors import DiagnosticCode, SFLECapabilityError, SFLEError
@@ -9,11 +11,6 @@ from psx.layout.fallback.flex_math import FlexBasis
 from psx.layout.fallback.line_layout import FlexDirection, FlexWrap
 from psx.layout.fallback.margin_tree import MarginTreeNode, MarginTreeLayout, compute_margin_tree
 from psx.layout.contracts.model import WritingDirection
-
-
-@dataclass(frozen=True, slots=True)
-class AutoCrossSize:
-    node_id: str
 
 
 def compute_auto_cross_tree(
