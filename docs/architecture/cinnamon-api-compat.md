@@ -14,13 +14,12 @@ entry points negotiate Rust first.
 
 ## Python-only historical APIs
 
-These entry points work with historical Python numerical tree types. They
-remain available **only with the Python numerical fallback present**:
+The remaining functions below accept legacy Python numerical tree types.
+They are not yet native Rust-compatible and require the optional fallback:
 
 - `runtime.recursive_measurement.measure_resolved_margin_tree`
 - `runtime.recursive_pipeline.compute_recursive_pipeline`
 - `runtime.native_lifecycle.layout_and_commit`
-- `runtime.remeasurement.plan_remeasurement` (uses Python `UsedSizeTree`)
 
 These are not called by the modern Rust engine. They are retained for explicit
 legacy Python consumers, not advertised as cross-engine APIs. A Rust-only
@@ -29,6 +28,38 @@ snapshot and call the native engine. The seven `psx.layout.compat.native_*`
 modules are deprecated development/test aliases into `tests.certification`.
 That test package is intentionally absent from installed PSX wheels; these
 aliases are **not application runtime APIs**.
+
+## Historical APIs migrated to fallback-independent layers
+
+The following historical interfaces are **not** Python-only:
+
+- `runtime.remeasurement.plan_remeasurement` accepts
+  `contracts.used_size.UsedSizeTree` directly, without importing the fallback.
+- `runtime.constraint_propagation` owns `ChildSizing`, the child
+  constraint resolver, and both styled/used-box measurement planners.
+- `projection.size_resolution` owns CSS length resolution and its enums.
+- `projection.box_sizing` and `projection.used_size` own CSS box sizing
+  and definite content-size resolution.
+- `projection.used_size_tree.propagate_definite_used_sizes` computes
+  declared, definite, preorder CSS reference sizes without importing
+  the optional numerical engine.
+
+Import paths in `psx.layout.fallback` remain backward-compatible
+re-exports of the **same** class/function objects. All five operations
+are tested both with the fallback present and physically removed. They
+belong to CSS projection and measurement orchestration, not the native
+Cinnamon numerical geometry solver.
+
+## Remaining legacy numerical compatibility boundary
+
+Historical `MarginTreeNode`, `MarginFlexItem`, intrinsic leaf, and
+auto-cross typed-tree computation must not be silently redirected through
+the Python fallback when the Rust engine is selected. The current Rust
+snapshot-native compute API is independent, but exact binary compatibility
+with those old Python-only typed-tree signatures is **not yet proven**.
+Do not label those historical operations as Rust-certified until their
+inputs/types are shared and both implementations pass strict differential
+fixtures.
 
 ## Real capability manifests
 
