@@ -295,15 +295,14 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
         script = textwrap.dedent("""
-            from kivy.uix.button import Button
             from kivy.uix.widget import Widget
-            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
+            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle, _kivy_button_factory
             from psx.css.parser import parse_stylesheet
             from psx.css.cascade import StyleTarget, resolve_style
 
             renderer = KivyRenderer()
             renderer._psx_css_pixel_scale = 2.0
-            for node_type, widget in (("Button", Button()), ("div", Widget())):
+            for node_type, widget in (("Button", _kivy_button_factory()), ("div", Widget())):
                 style = resolve_style(
                     parse_stylesheet(
                         "div { border: 2px solid #364152; border-radius: 8px; }"
@@ -555,13 +554,13 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
         script = textwrap.dedent("""
-            from kivy.uix.button import Button
-            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle
+            from psx.renderers.kivy.kivy import KivyRenderer, KivyHandle, _kivy_button_factory
             from psx.css.parser import parse_stylesheet
             from psx.css.cascade import StyleTarget, resolve_style
 
             renderer = KivyRenderer()
-            widget = Button(text="Usuarios")
+            widget = _kivy_button_factory()
+            widget.text = "Usuarios"
             original = (widget.background_normal, widget.background_down,
                         tuple(widget.background_color))
             style = resolve_style(
