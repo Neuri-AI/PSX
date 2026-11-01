@@ -1,75 +1,33 @@
-"""Backend-neutral SFLE contracts.
+"""Cinnamon-neutral layout contracts, projection and runtime integration.
 
-F2.1 foundation only: no public Flex widget, renderer integration or completed
-CSS Flexbox algorithm is exposed from this package yet.
+The optional Python numerical solver is intentionally NOT imported during
+package initialization. Rust installations must be able to import and use
+these contracts without the fallback package being present.
 """
-
 from psx.layout.contracts.capabilities import EngineCapabilities, SCHEMA_VERSION
-from psx.layout.fallback.engine import LayoutEngine, PythonLayoutEngine, UnsupportedLayoutFeature
 from psx.layout.contracts.errors import DiagnosticCode, SFLECapabilityError, SFLEError, SFLEWireError
 from psx.layout.contracts.lengths import Length, LengthKind, parse_length
-from psx.layout.contracts.wire import (
-    dumps_input,
-    layout_input_from_wire,
-    layout_input_to_wire,
-    layout_result_from_wire,
-    layout_result_to_wire,
-    length_from_wire,
-    length_to_wire,
-    loads_input,
-)
 from psx.layout.contracts.model import (
-    AvailableSize,
-    BoxEdges,
-    BoxRect,
-    IntrinsicSizes,
-    LayoutConstraints,
-    LayoutInput,
-    LayoutNode,
-    LayoutResult,
-    MeasuredBox,
-    Rect,
-    WritingDirection,
+    AvailableSize, BoxEdges, BoxRect, IntrinsicSizes,
+    LayoutConstraints, LayoutInput, LayoutNode, LayoutResult,
+    MeasuredBox, Rect, WritingDirection,
 )
-from psx.layout.runtime.toolkit_worker import (
-    ToolkitWorkerAdapter,
-    start_kivy_worker_layout,
-    start_tk_worker_layout,
+from psx.layout.contracts.wire import (
+    dumps_input, layout_input_from_wire, layout_input_to_wire,
+    layout_result_from_wire, layout_result_to_wire, length_from_wire,
+    length_to_wire, loads_input,
 )
 
+# Older callers may import the explicit fallback from
+# psx.layout.fallback.engine; do not re-export it eagerly here.
 __all__ = [
-    "AvailableSize",
-    "DiagnosticCode",
-    "EngineCapabilities",
-    "LayoutEngine",
-    "PythonLayoutEngine",
-    "SCHEMA_VERSION",
-    "SFLECapabilityError",
-    "SFLEError",
-    "SFLEWireError",
-    "UnsupportedLayoutFeature",
-    "dumps_input",
-    "loads_input",
-    "layout_input_from_wire",
-    "layout_input_to_wire",
-    "layout_result_from_wire",
-    "layout_result_to_wire",
-    "length_from_wire",
-    "length_to_wire",
-    "BoxEdges",
-    "BoxRect",
-    "IntrinsicSizes",
-    "LayoutConstraints",
-    "LayoutInput",
-    "LayoutNode",
-    "LayoutResult",
-    "Length",
-    "LengthKind",
-    "MeasuredBox",
-    "Rect",
-    "WritingDirection",
-    "parse_length",
-    "ToolkitWorkerAdapter",
-    "start_kivy_worker_layout",
-    "start_tk_worker_layout",
+    "AvailableSize", "BoxEdges", "BoxRect", "DiagnosticCode",
+    "EngineCapabilities", "IntrinsicSizes", "LayoutConstraints",
+    "LayoutInput", "LayoutNode", "LayoutResult", "Length",
+    "LengthKind", "MeasuredBox", "Rect", "SCHEMA_VERSION",
+    "SFLECapabilityError", "SFLEError", "SFLEWireError",
+    "WritingDirection", "dumps_input", "layout_input_from_wire",
+    "layout_input_to_wire", "layout_result_from_wire",
+    "layout_result_to_wire", "length_from_wire", "length_to_wire",
+    "loads_input", "parse_length",
 ]
