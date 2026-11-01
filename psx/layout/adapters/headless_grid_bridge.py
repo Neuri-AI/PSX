@@ -89,7 +89,6 @@ def commit_headless_grid(renderer: object, root: object) -> None:
                 is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
                 breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
                 engine=renderer._sfle_engine,
-                engine=renderer._sfle_engine,
                 viewport_constraints=renderer._sfle_constraints,
             )
             prepared = composed.prepared
@@ -115,6 +114,7 @@ def commit_headless_grid(renderer: object, root: object) -> None:
                 revisions={identifier: generation for identifier in ids},
                 generation=generation, current_generation=renderer._sfle_generation,
                 breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
+                engine=renderer._sfle_engine,
             )
             batch = list(prepared.placements)
             widget_map = dict(items)

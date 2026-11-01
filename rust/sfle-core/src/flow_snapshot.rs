@@ -358,8 +358,8 @@ impl Flow<'_> {
             }
             nodes.push(node);
         }
-        let ids: std::collections::HashSet<&str> =
-            nodes.iter().map(|node| node.node_id.as_str()).collect();
+        let ids: std::collections::HashSet<String> =
+            nodes.iter().map(|node| node.node_id.clone()).collect();
         let local = crate::compute::LayoutInput {
             schema_version: self.input.schema_version,
             generation: self.input.generation,
