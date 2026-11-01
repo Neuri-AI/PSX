@@ -277,7 +277,9 @@ class KivyMeasurementSource:
             height = max(24.0, float(widget.texture_size[1]) + 4.0)
 
             metrics = IntrinsicSizes(
-                width, width, height, height, width, height)
+                width, width, height, height, width, height,
+                baseline=height,
+            )
 
             return MeasuredBox(
                 request.node_id, metrics, request.constraints, request.revision,
@@ -370,7 +372,8 @@ class KivyMeasurementSource:
             if width is not None:
                 measured_width = min(float(width), measured_width)
             return IntrinsicSizes(measured_width, measured_width, height, height,
-                                  measured_width, height)
+                                  measured_width, height,
+                                  baseline=height if hasattr(widget, "text") else None)
         finally:
             if changed:
                 widget.text_size = previous
