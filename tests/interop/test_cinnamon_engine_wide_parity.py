@@ -313,3 +313,52 @@ def test_seeded_flex_geometry_and_provisional_parity_across_css_axes(backends):
             right = _outcome(lambda: getattr(backends[1], mode)(snapshot))
             assert left == right, (trial, mode, snapshot, left, right)
             assert left[0] == "ok", (trial, mode, snapshot, left)
+
+
+def test_incremental_reuse_receipts_and_geometry_match_across_100_updates(backends):
+    """A stable nested Flex sibling is actually reused by both independent solvers."""
+    from psx import psx
+    from psx.core.layout_tree import normalize_flex_tree
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+    from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
+
+    def snapshot(left_width, generation):
+        markup = psx(
+            '<Flex direction="row" width="350px" height="100px">'
+            f'<Flex width="{left_width}px" height="25px" flex_shrink="0">'
+            '<Flex width="20px" height="10px" /></Flex>'
+            '<Flex width="50px" height="25px" flex_shrink="0">'
+            '<Flex width="20px" height="10px" /></Flex>'
+            '</Flex>'
+        )
+        return prepare_native_layout_snapshot(
+            normalize_flex_tree(markup),
+            LayoutConstraints(AvailableSize(350, True),
+                              AvailableSize(100, True)),
+            generation=generation,
+        ).snapshot
+
+    rust, python = backends
+    prior_snapshot = snapshot(40, 1)
+    old_rust, old_python = rust.compute(prior_snapshot), python.compute(prior_snapshot)
+    assert old_rust == old_python
+    for generation in range(2, 102):
+        current = snapshot(40 if generation % 2 else 60, generation)
+        rust_receipts, python_receipts = [], []
+        next_rust = rust.compute_incremental(
+            current, previous_input=prior_snapshot,
+            previous_result=old_rust, reused_contexts=rust_receipts,
+        )
+        next_python = python.compute_incremental(
+            current, previous_input=prior_snapshot,
+            previous_result=old_python, reused_contexts=python_receipts,
+        )
+        expected_rust, expected_python = rust.compute(current), python.compute(current)
+        assert next_rust == next_python == expected_rust == expected_python, generation
+        assert rust_receipts == python_receipts, (
+            generation, rust_receipts, python_receipts,
+        )
+        assert current.nodes[3].node_id in rust_receipts, (
+            generation, rust_receipts,
+        )
+        prior_snapshot, old_rust, old_python = current, next_rust, next_python
