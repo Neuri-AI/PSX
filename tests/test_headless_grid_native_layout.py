@@ -258,7 +258,7 @@ def test_headless_grid_inside_scroll_flex_preserves_layout_identity(request):
 def test_headless_mixed_grid_rollback_and_recovery(request, monkeypatch):
     """Mixed root and Grid descendants share one rollback boundary."""
     from psx import Flex
-    from psx.layout import grid_native_commit
+    from psx.layout.adapters import grid_native_commit
     renderer = make_renderer()
     reconciler = Reconciler(renderer)
     try:
@@ -469,7 +469,7 @@ def test_auto_width_flex_padding_stays_inside_its_grid_item(request):
 @pytest.mark.parametrize("reason", ("resource", "dpi"))
 def test_grid_root_semantic_invalidation_after_child_commit_rolls_back_and_recovers(request, monkeypatch, reason):
     """Late content/resource invalidation must not leave stale child geometry."""
-    from psx.layout import headless_grid_bridge
+    from psx.layout.adapters import headless_grid_bridge
     from psx.layout.contracts.errors import SFLEError
     renderer = make_renderer()
     tree_instance = Reconciler(renderer)
