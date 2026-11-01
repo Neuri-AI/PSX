@@ -157,6 +157,23 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 '<button>Count is 0</button></div>'
             ))
             paragraph, button = root.children
+            # The paragraph's new fragment layout must not affect the
+            # intrinsic single-line sizing of a neighboring native Button.
+            caption = button.handle.widget
+            previous_text_size = tuple(caption.text_size)
+            caption.text_size = (None, None)
+            caption.texture_update()
+            natural_w, natural_h = caption.texture_size
+            caption.text_size = previous_text_size
+            caption.texture_update()
+            assert caption.width >= natural_w + 12 - 1, (
+                "Kivy button shrank below its caption:", caption.size,
+                natural_w, previous_text_size,
+            )
+            assert caption.height <= natural_h + 18, (
+                "Kivy button expanded from wrapped caption:", caption.size,
+                natural_h, previous_text_size,
+            )
             assert [item.node.type for item in paragraph.children] == [
                 "Text", "span", "Text",
             ]
