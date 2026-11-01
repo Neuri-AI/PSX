@@ -304,6 +304,10 @@ def _kivy_button_factory():
     # Authored CSS padding supersedes these defaults.
     widget._psx_ua_button_padding = (6.0, 6.0, 6.0, 6.0)
     widget._psx_ua_button_padding_active = True
+    # Set the UA inset at creation, even for a Button with no CSS rules.
+    # apply_css() scales these logical values for Retina and replaces them
+    # only when padding is explicitly authored.
+    widget.padding = widget._psx_ua_button_padding
     return widget
 
 
