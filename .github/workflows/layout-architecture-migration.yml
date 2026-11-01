@@ -1,0 +1,53 @@
+name: One-time Cinnamon architecture extraction
+
+on:
+  push:
+    branches: [feature/semantic-inline-fragments]
+    paths:
+      - '.github/workflows/layout-architecture-migration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cinnamon-architecture-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    if: github.ref == 'refs/heads/feature/semantic-inline-fragments'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/semantic-inline-fragments
+          fetch-depth: 1
+          persist-credentials: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Apply deterministic 113-module source migration
+        run: |
+          python scripts/migrate_layout_architecture.py
+          test ! -e psx/sfle
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          for path in Path("psx").rglob("*.py"):
+              ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+          print("All PSX source modules are valid Python after migration.")
+          PY
+      - name: Commit source and consumer rewrites to the same feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Migration already applied"
+            exit 0
+          fi
+          git commit -m "refactor(layout): move Cinnamon fallback and native bridges out of sfle"
+          git push origin HEAD:refs/heads/feature/semantic-inline-fragments
