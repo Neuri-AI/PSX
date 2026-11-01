@@ -10,6 +10,11 @@ texture becomes available and re-applied on every update.
 
 from __future__ import annotations
 
+from io import BytesIO
+from pathlib import Path
+
+from kivy.core.image import Image as CoreImage
+
 from kivy.uix.image import Image as KivyImage
 
 from psx.core.contracts import IMAGE_DEFAULTS
@@ -28,12 +33,37 @@ _FIT_MODE = {
 }
 
 
+def _svg_texture(source):
+    """Decode SVG in memory without making Kivy's raster loader open an SVG."""
+    try:
+        import cairosvg
+    except ImportError as exc:
+        raise RendererCapabilityError(
+            "SVG images on Kivy require CairoSVG (install velto-core[kivy])."
+        ) from exc
+    try:
+        png = cairosvg.svg2png(url=source)
+        return CoreImage(BytesIO(png), ext="png").texture
+    except Exception as exc:
+        raise RendererCapabilityError(f"Unable to decode SVG image {source!r}.") from exc
+
+
+def _apply_image_source(widget, source):
+    if source and Path(source).suffix.lower() == ".svg":
+        # A blank Kivy source prevents its built-in loader from rejecting SVG.
+        widget.source = ""
+        widget.texture = _svg_texture(source)
+    else:
+        widget.source = source
+
+
 class KivyImageAdapter:
     def create(self, renderer, node, parent):
         from psx.renderers.kivy.kivy import KivyHandle
         props = image_props({**IMAGE_DEFAULTS, **node.props})
 
-        widget = KivyImage(source=props["source"])
+        widget = KivyImage(source="")
+        _apply_image_source(widget, props["source"])
         widget.fit_mode = _FIT_MODE[props["fit"]]
         widget.size_hint = (None, None)
         widget.disabled = not props["enabled"]
@@ -75,7 +105,7 @@ class KivyImageAdapter:
         widget = handle.widget
         widget._psx_props = props
         if "source" in changed:
-            widget.source = props["source"]
+            _apply_image_source(widget, props["source"])
         widget.fit_mode = _FIT_MODE[props["fit"]]
         widget.disabled = not props["enabled"]
         if widget.texture is not None:
