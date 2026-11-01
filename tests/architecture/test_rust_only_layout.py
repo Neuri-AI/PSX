@@ -566,3 +566,52 @@ def test_rust_only_historical_measurement_and_css_planning_without_fallback():
     assert not [name for name in sys.modules
                 if name.startswith("psx.layout.fallback")]
 
+
+def test_rust_only_historical_used_size_tree_propagates_percentages():
+    """The removed Python engine must not be required to resolve CSS sizes."""
+    from psx.layout.projection.used_size_tree import (
+        NodeUsedSizing, propagate_definite_used_sizes,
+    )
+    from psx.layout.projection.box_sizing import BoxSizing
+    from psx.layout.runtime.constraint_propagation import ChildSizing
+    from psx.layout.contracts.used_size import UsedSizeTree
+    from psx.layout.contracts.lengths import Length
+    from psx.layout.contracts.model import (
+        AvailableSize, LayoutConstraints, LayoutInput, LayoutNode,
+        WritingDirection,
+    )
+
+    def constraints(width, height):
+        return LayoutConstraints(
+            AvailableSize(width, width is not None),
+            AvailableSize(height, height is not None),
+        )
+
+    snapshot = LayoutInput(
+        1, 12, WritingDirection.LTR, constraints(300, 90),
+        (
+            LayoutNode("root", None, "Flex", ()),
+            LayoutNode("child", "root", "Flex", ()),
+            LayoutNode("leaf", "child", "Text", ()),
+        ), (),
+    )
+    used = propagate_definite_used_sizes(
+        snapshot, root_content=constraints(200, 80),
+        children=(
+            NodeUsedSizing(
+                "child", ChildSizing(Length.percent(0.5), Length.percent(0.5)),
+                BoxSizing.BORDER_BOX, 20, 20,
+            ),
+            NodeUsedSizing(
+                "leaf", ChildSizing(Length.percent(0.5), Length.px(10)),
+            ),
+        ),
+    )
+    assert isinstance(used, UsedSizeTree)
+    assert used.generation == 12
+    assert dict(used.content)["child"] == constraints(80, 20)
+    assert dict(used.content)["leaf"] == constraints(40, 10)
+    assert used.deferred == ()
+    assert not [name for name in sys.modules
+                if name.startswith("psx.layout.fallback")]
+
