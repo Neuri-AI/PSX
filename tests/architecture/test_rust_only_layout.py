@@ -322,3 +322,41 @@ def test_rust_only_grid_inside_scroll_flex_preserves_identity():
         assert not [k for k in sys.modules if k.startswith("psx.layout.fallback")]
     finally:
         reconciler.unmount()
+
+def test_rust_only_public_manifests_and_default_inline_dispatch():
+    """Calling inline layout without an explicit engine must use the Rust ABI."""
+    from psx.layout.engine.backend import RustLayoutEngine, load_layout_engine
+    from psx.layout.inline.semantic_inline_text import (
+        InlineTextSource, InlineTextMetrics, layout_inline_text,
+    )
+    engine = load_layout_engine()
+    assert isinstance(engine, RustLayoutEngine)
+    assert engine.capabilities.engine_name == "rust"
+    assert engine.capabilities.status("block_flow_measured") == "certified"
+    assert engine.capabilities.status("grid_12_columns") == "certified"
+    assert engine.capabilities.status("inline_text_ltr_normal") == "certified"
+
+    def metrics(_id, txt):
+        return InlineTextMetrics(6.0 * len(txt), 14.0, 10.0)
+
+    result = layout_inline_text(
+        (InlineTextSource("source", "hello world"),),
+        120.0, metrics,
+    )
+    assert result.line_count == 1
+    assert [fragment.text for fragment in result.fragments if fragment.text.strip()] == [
+        "hello", "world",
+    ]
+    assert not [module for module in sys.modules
+                if module.startswith("psx.layout.fallback")]
+
+
+def test_rust_only_public_contract_imports_do_not_load_fallback():
+    import psx.layout as layout
+    assert layout.LayoutEngine is not None
+    assert layout.UnsupportedLayoutFeature is not None
+    assert "LayoutEngine" in layout.__all__
+    assert "UnsupportedLayoutFeature" in layout.__all__
+    assert not [module for module in sys.modules
+                if module.startswith("psx.layout.fallback")]
+

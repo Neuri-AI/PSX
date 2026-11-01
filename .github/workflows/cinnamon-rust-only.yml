@@ -32,6 +32,10 @@ jobs:
           python-version: '3.12'
       - name: No eager Python solver imports outside fallback
         run: python scripts/check_cinnamon_fallback_edges.py
+      - name: Public API and bounded capability manifest
+        run: |
+          python -m pip install -e . pytest
+          python -m pytest -q tests/architecture/test_layout_api_contract.py
 
   rust-without-fallback:
     runs-on: ubuntu-24.04
