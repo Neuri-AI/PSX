@@ -326,59 +326,23 @@ def _formatting_host(
     on_submit = props.pop("on_submit", None) if tag == "form" else None
     if on_submit is not None and not callable(on_submit):
         raise TypeError("form on_submit must be callable.")
-    # Text, inline spans, and trailing text are a single inline formatting
-    # run inside a block. Split only these mixed runs at word boundaries so
-    # Cinnamon can wrap at available inline width rather than treating the
-    # entire trailing text (or each separate child) as an independent line.
-    #
-    # Preserve each span VNode, key and CSS inheritance; flattening it to
-    # plain text would silently discard authored colors, selectors and refs.
-    # Ordinary single-text paragraphs remain one native measured Text leaf.
-    mixed_inline = (
-        tag in _BLOCK_TAGS
-        and any(isinstance(child, VNode) and child.type in _INLINE_TAGS
-                for child in children)
-        and all(isinstance(child, VNode) and
-                (child.type == "Text" or child.type in _INLINE_TAGS)
-                for child in children)
-    )
+    # A Text VNode belongs to the source-level semantic tree, not to a
+    # computed line. Do NOT turn every word/space in a mixed paragraph into
+    # a native Text host. The native semantic inline compositor owns line
+    # fragmenting and layout; CSS spans retain their own refs and keys.
     normalized = []
     for child in children:
-        if (mixed_inline and isinstance(child, VNode) and child.type == "Text"
-                and child.key is None and child.props.get("ref") is None):
-            raw = child.props["value"]
-            if not isinstance(raw, str):
-                raise TypeError("Inline text must have a string value.")
-            # Keep leading and trailing whitespace around inline tags. Losing
-            # the leading space in ' and save...' concatenates it with </span>.
-            preserved = {
-                name: value for name, value in child.props.items()
-                if name not in ("value", "ref")
-            }
-            if tag in _HEADING_FONT_SIZES:
-                # Mixed-content headings retain their heading font contract.
-                # Native span descendants still have their own CSS cascade.
-                preserved.pop("font_size", None)
-                preserved.pop("bold", None)
-                preserved["font_size"] = _HEADING_FONT_SIZES[tag]
-                preserved["bold"] = True
-            for token in re.findall(r"\S+|\s+", re.sub(r"\s+", " ", raw)):
-                # CSS text-content nodes inherit their parent style instead
-                # of independently matching a global 'text' selector.
-                normalized.append(replace(
-                    Text(token, **preserved),
-                    css_source=child.css_source,
-                ))
-        elif tag in ("span", "label", "li") and isinstance(child, VNode) and child.type == "Text":
+        if tag in ("span", "label", "li") and isinstance(child, VNode) and child.type == "Text":
             normalized.extend(_inline_text_fragments(child))
         elif tag in _HEADING_FONT_SIZES and isinstance(child, VNode) and child.type == "Text":
             options = {
                 name: value for name, value in child.props.items()
                 if name not in ("value", "font_size", "bold", "ref")
             }
-            normalized.append(Text(
-                child.props["value"], font_size=_HEADING_FONT_SIZES[tag],
-                bold=True, **options,
+            normalized.append(replace(
+                Text(child.props["value"], font_size=_HEADING_FONT_SIZES[tag],
+                     bold=True, **options),
+                css_source=child.css_source,
             ))
         else:
             normalized.append(child)
