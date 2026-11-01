@@ -13,8 +13,8 @@ from psx.renderers.headless import HeadlessRenderer
 
 
 def test_public_python_and_markup_paths_preserve_identity_events_keys_and_refs() -> None:
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
     renderer = HeadlessRenderer(
         sfle_constraints=LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True)),
         engine=PythonLayoutEngine(),

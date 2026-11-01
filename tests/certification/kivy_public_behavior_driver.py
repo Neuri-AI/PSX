@@ -13,8 +13,8 @@ from kivy.clock import Clock
 import psx
 from psx.core.reconcile import Reconciler
 from psx.renderers.kivy.kivy import KivyRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
 
 def renderer():

@@ -2,8 +2,8 @@
 from types import SimpleNamespace
 
 from psx.core.vnode import NodeKind
-from psx.sfle.grid_intrinsic_reuse import GridIntrinsicReuse
-from psx.sfle.model import IntrinsicSizes
+from psx.layout.grid.grid_intrinsic_reuse import GridIntrinsicReuse
+from psx.layout.contracts.model import IntrinsicSizes
 
 
 class Widget:

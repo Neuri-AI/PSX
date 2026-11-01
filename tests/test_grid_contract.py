@@ -216,7 +216,7 @@ def test_public_grid_declaration_entry_points_are_executed(component, scenario, 
 
 @pytest.mark.parametrize("gap", ("0px", ".5px", "2.px", " 4PX ", 2.5))
 def test_grid_gap_uses_cinnamon_pixel_grammar(gap):
-    from psx.sfle.lengths import LengthKind, parse_length
+    from psx.layout.contracts.lengths import LengthKind, parse_length
     normalized = normalize_grid_props({"gap": gap})
     assert parse_length(normalized["gap"]).kind is LengthKind.PX
     assert normalized["row_gap"] == gap
@@ -268,7 +268,7 @@ def test_grid_item_accepts_independently_inherited_responsive_values():
 def test_grid_cross_property_contract_receipts(component, feature, scenario, request):
     from tests.certification.public_behavior_census import CONTRACT, Feature, assert_feature
     if scenario == "canonical_pixel_grammar":
-        from psx.sfle.lengths import parse_length, LengthKind
+        from psx.layout.contracts.lengths import parse_length, LengthKind
         for value in ("0px", ".5px", " 4PX ", 2.5):
             assert parse_length(normalize_grid_props({"gap": value})["gap"]).kind is LengthKind.PX
     elif scenario == "axis_gap_inheritance":
@@ -379,7 +379,7 @@ def test_grid_responsive_resolution_receipts(scenario, request):
 def test_headless_rejects_unsupported_grid_mount_before_side_effects(component, sfle_enabled):
     from psx import Grid, GridItem, Text
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.model import LayoutConstraints, AvailableSize
+    from psx.layout.contracts.model import LayoutConstraints, AvailableSize
     node = Grid(GridItem(Text("x"))) if component == "Grid" else GridItem(Text("x"))
     renderer = (HeadlessRenderer(sfle_constraints=LayoutConstraints(AvailableSize(800, True), AvailableSize(600, True)))
                 if sfle_enabled else HeadlessRenderer())

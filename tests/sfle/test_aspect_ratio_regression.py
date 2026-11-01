@@ -1,8 +1,8 @@
 """RED cases for aspect-ratio transfer in the normalized F2 snapshot path."""
 import pytest
 
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection
 
 
 def snapshot(nodes):

@@ -1,7 +1,7 @@
 import pytest
 
 from psx.css.visual_values import CssColor, VISUAL_EFFECTS, normalize_visual_value
-from psx.sfle.lengths import Length
+from psx.layout.contracts.lengths import Length
 
 
 def test_background_and_text_colors():

@@ -16,11 +16,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from psx import Button, Checkbox, Flex, Input, Native, ProgressBar, Text, TextArea, component, psx, use_state
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.external_native_geometry_ports import SFLEExternalPort
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints, Rect, LayoutResult
-from psx.sfle.native_pixel_space import DevicePixelSpace
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.adapters.external_native_geometry_ports import SFLEExternalPort
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints, Rect, LayoutResult
+from psx.layout.adapters.native_pixel_space import DevicePixelSpace
 
 BINDING = os.environ.get("PSX_QT_BINDING")
 VALID = {"pyside6", "pyqt6", "pyqt5", "pyside2"}
@@ -136,8 +136,8 @@ class QtFamilySFLEParityTests(unittest.TestCase):
     def test_live_qt_flex_consumes_canonical_item_lengths(self):
         from unittest.mock import patch
 
-        from psx.sfle.lengths import Length
-        from psx.sfle.native_layout_snapshot import PreparedNativeLayoutSnapshot
+        from psx.layout.contracts.lengths import Length
+        from psx.layout.projection.native_layout_snapshot import PreparedNativeLayoutSnapshot
 
         original = PreparedNativeLayoutSnapshot.canonical_snapshot
         observed = []
@@ -1042,7 +1042,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         self.assertEqual(errors[0].code, DiagnosticCode.UNSUPPORTED_MEASUREMENT)
 
     def test_button_native_lifecycle_is_observed_through_reconciliation(self):
-        from psx.sfle.native_operation_oracles import Observation, ORACLES
+        from psx.layout.compat.native_operation_oracles import Observation, ORACLES
 
         calls = []
         original = lambda: calls.append("old")
@@ -1109,8 +1109,8 @@ class QtFamilySFLEParityTests(unittest.TestCase):
                          Scroll)
         from psx.core.vnode import Box
         from psx.core.vnode import create_element
-        from psx.sfle.native_operation_oracles import Observation, ORACLES
-        from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
+        from psx.layout.compat.native_operation_oracles import Observation, ORACLES
+        from psx.layout.projection.native_component_capabilities import NATIVE_LEAF_TYPES
         from pathlib import Path
         from tempfile import TemporaryDirectory
         import base64
@@ -1303,7 +1303,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         from psx import (Button, Input, TextArea, Checkbox, Slider, RadioGroup,
                          Radio, Select, Switch, Link, SpinBox)
         from psx.core.vnode import create_element
-        from psx.sfle.native_operation_contracts import EVENTLESS
+        from psx.layout.compat.native_operation_contracts import EVENTLESS
 
         factories = {
             "Button": (Button("Action"), "on_click", ()),
@@ -1319,7 +1319,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
             "Link": (Link(label="Action"), "on_click", ()),
             "SpinBox": (SpinBox(value=2), "on_change", (3,)),
         }
-        from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
+        from psx.layout.projection.native_component_capabilities import NATIVE_LEAF_TYPES
         native = set(NATIVE_LEAF_TYPES["qt"]) | {"Flex"}
         self.assertEqual(set(factories), native - set(EVENTLESS))
         for name, (base, event, args) in factories.items():
@@ -1360,7 +1360,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
         from psx.core.native import NativeWidget, NativeOwnership
         from psx.core.vnode import native_widget, create_element
         from psx.renderers.qt.pyqt import QtHandle
-        from psx.sfle.native_operation_oracles import Observation, ORACLES
+        from psx.layout.compat.native_operation_oracles import Observation, ORACLES
 
         def port():
             def measure(widget, limits):
@@ -1570,7 +1570,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
 
     def test_readback_race_restores_native_geometry_and_preserves_identity(self):
         from unittest.mock import patch
-        import psx.sfle.qt_layout_bridge as bridge
+        import psx.renderers.qt.cinnamon_qt_layout_bridge as bridge
 
         root = self.reconciler.render(Flex(
             button("First", "first", 40), button("Second", "second", 30),
@@ -1600,7 +1600,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
 
     def test_native_qt_geometry_application_failure_restores_previous_rectangles(self):
         from unittest.mock import patch
-        import psx.sfle.qt_layout_bridge as bridge
+        import psx.renderers.qt.cinnamon_qt_layout_bridge as bridge
 
         root = self.reconciler.render(Flex(
             button("First", "first", 40), button("Second", "second", 30),
@@ -1629,7 +1629,7 @@ class QtFamilySFLEParityTests(unittest.TestCase):
 
     def test_native_qt_geometry_invalidation_during_application_rolls_back(self):
         from unittest.mock import patch
-        import psx.sfle.qt_layout_bridge as bridge
+        import psx.renderers.qt.cinnamon_qt_layout_bridge as bridge
 
         root = self.reconciler.render(Flex(
             button("First", "first", 40), button("Second", "second", 30),

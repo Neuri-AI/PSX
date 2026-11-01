@@ -12,9 +12,9 @@ from psx import Button, Flex, Text, component, use_state, psx
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.renderers.qt.pyside import PySide6Renderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutResult
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints, LayoutResult
 
 
 def constraints(width=160, height=80):
@@ -168,7 +168,12 @@ class QtSFLEGeometryTests(unittest.TestCase):
             '<button>Count is 0</button></div>'
         ))
         paragraph, button = root.children
-        # Inline formatting now tokenizes whitespace/words into independent
+        assert [item.node.type for item in paragraph.children] == [
+            "Text", "span", "Text",
+        ]
+        # The semantic Text leaves are painted from native inline glyph
+        # fragment plans; no extra QLabel is mounted for a space or word.
+        # Locate the source span without relying on sibling indexes.
         # Text nodes so Cinnamon can wrap at word boundaries. Never assume
         # that the span is the second paragraph child.
         children = paragraph.children
@@ -191,6 +196,11 @@ class QtSFLEGeometryTests(unittest.TestCase):
             if child.node.type == "Text"
             and child.node.props["value"] == "src/App.tsx"
         )
+        # The same QLabel paints all suffix words with a fragment plan.
+        assert suffix.text() == " and save to test HMR"
+        assert hasattr(suffix, "_psx_semantic_inline_filter")
+        assert len([f for f in suffix._psx_semantic_inline_filter.fragments
+                    if f.text.strip()]) == 5
         assert paragraph.handle.widget.width() == 800
         assert prefix.y() == span.y() == suffix.y()
         assert prefix.x() < span.x() < suffix.x()
@@ -347,9 +357,9 @@ class QtSFLEGeometryTests(unittest.TestCase):
 
     def test_scroll_disabled_axes_reset_existing_offsets(self):
         from psx import Scroll
-        from psx.sfle.model import Rect
-        from psx.sfle.native_scroll_hosts import apply_qt_scroll, binding_from_host
-        from psx.sfle.scroll_offsets import ScrollOffset
+        from psx.layout.contracts.model import Rect
+        from psx.layout.adapters.native_scroll_hosts import apply_qt_scroll, binding_from_host
+        from psx.layout.scroll.scroll_offsets import ScrollOffset
         self.renderer.set_sfle_constraints(constraints(300, 200))
         root = self.r.render(Flex(
             Scroll(Flex(item("Inside", "inside", 40),
@@ -376,9 +386,9 @@ class QtSFLEGeometryTests(unittest.TestCase):
 
     def test_native_scroll_overflow_offsets_and_viewport_clipping(self):
         from psx import Scroll
-        from psx.sfle.native_scroll_hosts import apply_qt_scroll, binding_from_host
-        from psx.sfle.scroll_offsets import ScrollOffset
-        from psx.sfle.model import Rect
+        from psx.layout.adapters.native_scroll_hosts import apply_qt_scroll, binding_from_host
+        from psx.layout.scroll.scroll_offsets import ScrollOffset
+        from psx.layout.contracts.model import Rect
 
         self.renderer.set_sfle_constraints(constraints(300, 200))
         root = self.r.render(Flex(
@@ -456,7 +466,7 @@ class QtSFLEGeometryTests(unittest.TestCase):
     def test_scroll_failed_native_commit_restores_offsets_and_extent(self):
         from unittest.mock import patch
         from psx import Scroll
-        from psx.sfle import native_scroll_hosts
+        from psx.layout.adapters import native_scroll_hosts
 
         self.renderer.set_sfle_constraints(constraints(300, 200))
         root = self.r.render(Flex(

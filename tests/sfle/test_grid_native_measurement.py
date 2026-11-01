@@ -7,13 +7,13 @@ import pytest
 
 from psx import Grid, GridItem, Text
 from psx.core.layout_tree import normalize_flex_tree
-from psx.sfle.grid_math import GridPackingError
-from psx.sfle.grid_native_measurement import (
+from psx.layout.fallback.grid_math import GridPackingError
+from psx.layout.grid.grid_native_measurement import (
     HeadlessGridMeasurementSource, measure_grid_native,
 )
-from psx.sfle.model import IntrinsicSizes
-from psx.sfle.native_layout_snapshot import path_identity
-from psx.sfle.errors import SFLEError
+from psx.layout.contracts.model import IntrinsicSizes
+from psx.layout.projection.native_layout_snapshot import path_identity
+from psx.layout.contracts.errors import SFLEError
 
 
 def tree():
@@ -131,7 +131,7 @@ def test_headless_native_source_never_fabricates_missing_intrinsic_metrics():
 def test_qt_measurement_uses_actual_qwidget_intrinsics():
     qtwidgets = pytest.importorskip("PySide6.QtWidgets")
     qtcore = pytest.importorskip("PySide6.QtCore")
-    from psx.sfle.qt_measurement import QtMeasurementSource
+    from psx.renderers.qt.cinnamon_qt_measurement import QtMeasurementSource
 
     app = qtwidgets.QApplication.instance() or qtwidgets.QApplication([])
     grid, ids, _, _ = setup()
@@ -153,7 +153,7 @@ def test_tk_measurement_uses_actual_tcl_widget_requested_size():
     if not os.environ.get("DISPLAY"):
         pytest.skip("Native Tk widget requires X11 display")
     import tkinter as tk
-    from psx.sfle.tk_measurement import TkMeasurementSource
+    from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
 
     root = tk.Tk()
     root.withdraw()
@@ -171,7 +171,7 @@ def test_tk_measurement_uses_actual_tcl_widget_requested_size():
 def test_kivy_measurement_uses_real_label_texture():
     pytest.importorskip("kivy")
     from kivy.uix.label import Label
-    from psx.sfle.kivy_measurement import KivyMeasurementSource
+    from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
 
     grid, ids, _, _ = setup()
     widgets = {identifier: Label(text="Native Kivy label " + str(index))

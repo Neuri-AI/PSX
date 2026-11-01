@@ -1,9 +1,9 @@
 """Bounded sizing passes must never substitute oscillation for CSS sizing."""
 import pytest
-from psx.sfle.errors import SFLEError
-from psx.sfle.convergence import RoundStatus, begin_convergence, advance_convergence
-from psx.sfle.model import AvailableSize, LayoutConstraints
-from psx.sfle.used_size_tree import UsedSizeTree
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.fallback.convergence import RoundStatus, begin_convergence, advance_convergence
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.used_size_tree import UsedSizeTree
 
 def tree(generation=8, width=100):
     return UsedSizeTree(generation, (("root", LayoutConstraints(

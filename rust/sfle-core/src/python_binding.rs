@@ -3,7 +3,7 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use serde_json::{json,Value};
-use crate::compute::{compute,compute_provisional,compute_incremental,LayoutInput,LayoutResult};
+use crate::compute::{compute,compute_provisional,compute_incremental_with_reuse,LayoutInput,LayoutResult};
 
 #[pyfunction]
 fn schema_version() -> u32 { 1 }
@@ -27,6 +27,71 @@ fn compute_impl(input: &str, provisional: bool) -> PyResult<String> {
         .map_err(|error| PyValueError::new_err(format!("SFLE_INVALID_WIRE: {error}")))
 }
 
+/// Layout measured inline fragments in the native Rust engine.
+#[pyfunction]
+fn compute_inline_text_json(input: &str) -> PyResult<String> {
+    use crate::semantic_inline_text::{layout_inline, InlineRequest};
+    let request: InlineRequest = serde_json::from_str(input)
+        .map_err(|error| PyValueError::new_err(
+            format!("SFLE_INVALID_INLINE_WIRE: {error}")
+        ))?;
+    let result = layout_inline(&request).map_err(PyValueError::new_err)?;
+    serde_json::to_string(&result)
+        .map_err(|error| PyValueError::new_err(
+            format!("SFLE_INVALID_INLINE_WIRE: {error}")
+        ))
+}
+
+#[pyfunction]
+fn compute_measured_flow_json(input: &str) -> PyResult<String> {
+    use crate::flow_layout::{self, BlockItem, InlineAtom};
+    let data: Value = serde_json::from_str(input)
+        .map_err(|err| PyValueError::new_err(format!("Invalid measured-flow wire: {err}")))?;
+    let bad = || PyValueError::new_err("Invalid measured-flow input.");
+    let mode = data["mode"].as_str().ok_or_else(bad)?;
+    let width = data["available_width"].as_f64().ok_or_else(bad)?;
+    let items = data["items"].as_array().ok_or_else(bad)?;
+    let number = |v: &Value, key: &str| -> PyResult<f64> {
+        v.get(key).and_then(Value::as_f64).ok_or_else(bad)
+    };
+    let placements = if mode == "block" {
+        let blocks: Vec<BlockItem> = items.iter().map(|item| {
+            Ok(BlockItem {
+                width: number(item, "width")?,
+                height: number(item, "height")?,
+                margin_top: number(item, "margin_top")?,
+                margin_right: number(item, "margin_right")?,
+                margin_bottom: number(item, "margin_bottom")?,
+                margin_left: number(item, "margin_left")?,
+            })
+        }).collect::<PyResult<_>>()?;
+        flow_layout::layout_blocks(width, &blocks)
+    } else if mode == "inline" {
+        let atoms: Vec<InlineAtom> = items.iter().map(|item| {
+            Ok(InlineAtom {
+                width: number(item, "width")?,
+                height: number(item, "height")?,
+                baseline: number(item, "baseline")?,
+            })
+        }).collect::<PyResult<_>>()?;
+        flow_layout::layout_inline_atoms(width, &atoms)
+    } else {
+        return Err(bad());
+    };
+    let placements = placements.map_err(PyValueError::new_err)?;
+    let records: Vec<Value> = placements.iter().map(|p| json!({
+        "x": p.x, "y": p.y, "width": p.width, "height": p.height,
+    })).collect();
+    serde_json::to_string(&records).map_err(|err|
+        PyValueError::new_err(format!("Invalid measured-flow result: {err}"))
+    )
+}
+
+#[pyfunction]
+fn compute_recursive_tree_json(input: &str) -> PyResult<String> {
+    crate::recursive_wire::calculate(input).map_err(PyValueError::new_err)
+}
+
 #[pyfunction]
 fn compute_json(input: &str) -> PyResult<String> {
     compute_impl(input, false)
@@ -46,8 +111,9 @@ fn compute_incremental_json(
     let request:LayoutInput=serde_json::from_str(input).map_err(parse_error)?;
     let old_request:LayoutInput=serde_json::from_str(previous_input).map_err(parse_error)?;
     let old_result:LayoutResult=serde_json::from_str(previous_result).map_err(parse_error)?;
-    let answer:Value=match compute_incremental(&request,&old_request,&old_result) {
-        Ok(layout)=>json!({"ok":true,"result":layout}),
+    let mut reused_contexts=Vec::new();
+    let answer:Value=match compute_incremental_with_reuse(&request,&old_request,&old_result,&mut reused_contexts) {
+        Ok(layout)=>json!({"ok":true,"result":layout,"reused_contexts":reused_contexts}),
         Err(failure)=>json!({"ok":false,"error":{
             "code":failure.code,"message":failure.message,"node_id":failure.node_id,
         }}),
@@ -63,6 +129,9 @@ fn _sfle_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(compute_incremental_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_provisional_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_grid_json,module)?)?;
+    module.add_function(wrap_pyfunction!(compute_inline_text_json,module)?)?;
+    module.add_function(wrap_pyfunction!(compute_measured_flow_json,module)?)?;
+    module.add_function(wrap_pyfunction!(compute_recursive_tree_json,module)?)?;
     Ok(())
 }
 

@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from threading import RLock, get_ident
 
-from psx.sfle.model import IntrinsicSizes, LayoutConstraints, LayoutResult, Rect
+from psx.layout.contracts.model import IntrinsicSizes, LayoutConstraints, LayoutResult, Rect
 
 from psx.core.errors import RendererCapabilityError
 from psx.core.events import EventSlot
@@ -74,12 +74,12 @@ class HeadlessRenderer:
             raise TypeError("Headless SFLE constraints must be LayoutConstraints.")
         if sfle_constraints is None and (measure_intrinsic is not None or engine is not None):
             raise ValueError("Headless SFLE measurements/engine require viewport constraints.")
-        from psx.sfle.backend import load_layout_engine
+        from psx.layout.engine.backend import load_layout_engine
         self._sfle_constraints = sfle_constraints
         self._sfle_measure = measure_intrinsic
         self._sfle_engine = (engine if engine is not None else load_layout_engine()) if sfle_constraints else None
         self._sfle_generation = 0
-        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+        from psx.layout.runtime.native_measurement_invalidation import MeasurementInvalidations
         self._sfle_measurement_invalidations = MeasurementInvalidations()
         self._sfle_invalidation_scheduled = False
         self._sfle_invalidation_lifetime = 0
@@ -118,7 +118,7 @@ class HeadlessRenderer:
         The mounted instance is reused; the existing SFLE transaction remains
         the only writer. Teardown invalidates queued work by epoch.
         """
-        from psx.sfle.native_measurement_invalidation import MeasurementInvalidations
+        from psx.layout.runtime.native_measurement_invalidation import MeasurementInvalidations
 
         if self._sfle_constraints is None:
             raise RendererCapabilityError("SFLE measurement invalidation requires enabled SFLE.")
@@ -162,16 +162,22 @@ class HeadlessRenderer:
     def commit_layout(self, root: object) -> None:
         """Commit actual SFLE geometry for the mounted root (if enabled)."""
         if self._sfle_constraints is not None:
-            from psx.sfle.headless_grid_bridge import is_mounted_grid_root, commit_headless_grid
-            from psx.sfle.headless_block_bridge import (
-                commit_headless_block, is_mounted_block_root,
-            )
-            if is_mounted_grid_root(root):
+            # Dispatch by the mounted semantic root BEFORE importing a
+            # specialized adapter. Otherwise a simple Rust Flex layout
+            # eagerly imports Grid's optional Python numerical solver.
+            from psx.markup.html_aliases import FORMATTING_TAGS
+            mounted = root
+            while mounted.node.kind is NodeKind.COMPONENT and len(mounted.children) == 1:
+                mounted = mounted.children[0]
+            kind = mounted.node.type
+            if kind == "Grid":
+                from psx.layout.adapters.headless_grid_bridge import commit_headless_grid
                 commit_headless_grid(self, root)
-            elif is_mounted_block_root(root):
+            elif kind in FORMATTING_TAGS:
+                from psx.layout.adapters.headless_block_bridge import commit_headless_block
                 commit_headless_block(self, root)
             else:
-                from psx.sfle.headless_layout_bridge import commit_headless_sfle
+                from psx.layout.adapters.headless_layout_bridge import commit_headless_sfle
                 commit_headless_sfle(self, root)
             self._sfle_mounted_root = root
             self._sfle_measurement_invalidations.acknowledge(

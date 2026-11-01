@@ -8,9 +8,9 @@ from dataclasses import replace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'sfle'))
 
-from psx.sfle.model import BoxRect, IntrinsicSizes, LayoutResult, Rect
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.remeasure_session import compute_with_width_measurements
+from psx.layout.contracts.model import BoxRect, IntrinsicSizes, LayoutResult, Rect
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.runtime.remeasure_session import compute_with_width_measurements
 from test_acceptance_contract_regression import case_snapshot
 from test_sfle_differential import _rust_compute
 

@@ -9,10 +9,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.fixed_point import I32_MAX, I32_MIN, LayoutUnit, SCALE
-from psx.sfle.model import BoxRect, LayoutResult, Rect
-from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.contracts.fixed_point import I32_MAX, I32_MIN, LayoutUnit, SCALE
+from psx.layout.contracts.model import BoxRect, LayoutResult, Rect
+from psx.layout.adapters.native_geometry import GeometryBackend, NativeGeometryCommitter
 
 
 MAX=I32_MAX/SCALE

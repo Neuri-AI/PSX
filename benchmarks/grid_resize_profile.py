@@ -19,9 +19,9 @@ import pstats
 from psx import Grid, GridItem, Text, Flex, psx
 from psx.core.reconcile import Reconciler
 from psx.renderers.tkinter.tkinter import TkinterRenderer
-from psx.sfle.backend import load_layout_engine
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.engine.backend import load_layout_engine
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
 
 def viewport(width):

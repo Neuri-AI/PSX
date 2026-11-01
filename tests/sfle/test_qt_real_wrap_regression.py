@@ -3,9 +3,9 @@ import pytest
 QtWidgets=pytest.importorskip("PySide6.QtWidgets")
 QtCore=pytest.importorskip("PySide6.QtCore")
 from dataclasses import replace
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.live_lifecycle import layout_measure_and_commit
-from psx.sfle.model import IntrinsicSizes
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.runtime.live_lifecycle import layout_measure_and_commit
+from psx.layout.contracts.model import IntrinsicSizes
 from test_acceptance_contract_regression import case_snapshot
 
 

@@ -11,7 +11,7 @@ from dataclasses import replace
 
 import pytest
 
-from psx.sfle.model import (
+from psx.layout.contracts.model import (
     AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
 )
 from test_sfle_differential import _python_compute, _rects, _rust_compute, rust_binary

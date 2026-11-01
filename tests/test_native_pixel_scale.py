@@ -6,9 +6,9 @@ import math
 
 import pytest
 
-from psx.sfle.errors import SFLEError
-from psx.sfle.model import Rect
-from psx.sfle.native_pixel_space import DevicePixelSpace
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.contracts.model import Rect
+from psx.layout.adapters.native_pixel_space import DevicePixelSpace
 
 
 @pytest.mark.parametrize("backend", ("qt", "kivy", "tk"))

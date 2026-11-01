@@ -5,11 +5,11 @@ generation-scoped live lifecycle, with an adversarial width-dependent Text
 measurement provided by the native port.
 """
 import pytest
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.live_lifecycle import layout_measure_and_commit
-from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, IntrinsicSizes, WritingDirection
-from psx.sfle.lengths import parse_length
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.runtime.live_lifecycle import layout_measure_and_commit
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, IntrinsicSizes, WritingDirection
+from psx.layout.contracts.lengths import parse_length
 
 
 def test_a07_real_remeasurement_oscillates_without_native_commit():

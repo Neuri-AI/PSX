@@ -4,9 +4,9 @@ from psx.core.layout_tree import normalize_flex_tree
 from psx.css.geometry import css_layout_overrides
 from psx.css.cascade import StyleTarget, resolve_style
 from psx.css.parser import parse_stylesheet
-from psx.sfle.lengths import Length
-from psx.sfle.model import AvailableSize, LayoutConstraints
-from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+from psx.layout.contracts.lengths import Length
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
 
 
 def _prepared(markup: str, rules: str):
@@ -73,8 +73,8 @@ def test_css_edge_specific_value_overrides_shorthand():
 def test_mounted_headless_applies_css_width_through_cinnamon():
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import IntrinsicSizes
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import IntrinsicSizes
 
     source = '<div class="panel" style="width: 140px; height: 60px"><button style="width: 45px; height: 15px">Text</button></div>'
     from psx import psx
@@ -131,8 +131,8 @@ def test_explicit_default_geometry_differs_from_implicit_default():
 def test_mounted_headless_respects_css_margin_padding_border_geometry():
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import IntrinsicSizes
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import IntrinsicSizes
 
     root = psx(
         '<div><button style="width: 40px; height: 15px; '
@@ -158,8 +158,8 @@ def test_mounted_headless_respects_css_margin_padding_border_geometry():
 def test_dynamic_css_geometry_updates_preserve_mounted_widget_identity():
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import IntrinsicSizes
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import IntrinsicSizes
 
     renderer = HeadlessRenderer(
         sfle_constraints=LayoutConstraints(AvailableSize(230, True), AvailableSize(150, True)),

@@ -68,7 +68,7 @@ def foreground_hex(computed: ComputedStyle | None) -> str | None:
 
 def native_side_border_styles(computed: ComputedStyle | None) -> tuple[str, ...]:
     """Validated per-side solid borders for native Qt widget-local QSS."""
-    from psx.sfle.lengths import Length, LengthKind
+    from psx.layout.contracts.lengths import Length, LengthKind
     if computed is None:
         return ()
     result = []
@@ -102,7 +102,7 @@ def native_side_border_paint(
     strokes on the other edges. Resolve fallback width/color from CSS's
     computed values, but include only explicitly specified sides.
     """
-    from psx.sfle.lengths import Length, LengthKind
+    from psx.layout.contracts.lengths import Length, LengthKind
 
     if computed is None:
         return ()
@@ -205,7 +205,7 @@ def rounded_side_stroke_points(
 
 def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
     """Compose bounded authored paint into a local Qt stylesheet."""
-    from psx.sfle.lengths import Length, LengthKind
+    from psx.layout.contracts.lengths import Length, LengthKind
 
     declarations: list[str] = []
     background = background_hex(computed)
@@ -217,7 +217,7 @@ def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
     if foreground is not None:
         declarations.append(f"color: {foreground};")
     if computed is not None and "border-color" in computed.specified:
-        from psx.sfle.lengths import LengthKind
+        from psx.layout.contracts.lengths import LengthKind
         width = computed.properties["border-width"]
         if width.kind != LengthKind.PX:
             raise ValueError("Qt border paint requires a pixel border-width.")
@@ -243,7 +243,7 @@ def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
             raise ValueError("Qt semantic border-radius currently requires px units.")
         declarations.append(f"border-radius: {radius.value:g}px;")
     if computed is not None:
-        from psx.sfle.lengths import Length, LengthKind
+        from psx.layout.contracts.lengths import Length, LengthKind
         for css_name, qss_name in (("font-family", "font-family"), ("font-size", "font-size")):
             if css_name not in computed.specified:
                 continue
@@ -290,7 +290,7 @@ def border_rgba(computed: ComputedStyle | None) -> tuple[float, float, float, fl
 
 def native_text_typography(computed: ComputedStyle | None, *, alpha: bool = False, line_height: bool = False) -> dict[str, object]:
     """Project explicitly authored native Text values without altering component props."""
-    from psx.sfle.lengths import Length, LengthKind
+    from psx.layout.contracts.lengths import Length, LengthKind
 
     if computed is None:
         return {}
@@ -336,7 +336,7 @@ def native_text_typography(computed: ComputedStyle | None, *, alpha: bool = Fals
 
 def native_border_paint(computed: ComputedStyle | None, *, alpha: bool = False):
     """An explicitly colored positive pixel stroke; no invented native defaults."""
-    from psx.sfle.lengths import Length, LengthKind
+    from psx.layout.contracts.lengths import Length, LengthKind
     if computed is None or "border-color" not in computed.specified:
         return None
     width = computed.properties["border-width"]
@@ -355,7 +355,7 @@ def native_border_paint(computed: ComputedStyle | None, *, alpha: bool = False):
 
 def native_border_radius(computed: ComputedStyle | None) -> float:
     """Bounded single-value CSS radius, in device-independent px."""
-    from psx.sfle.lengths import Length, LengthKind
+    from psx.layout.contracts.lengths import Length, LengthKind
     if computed is None or "border-radius" not in computed.specified:
         return 0.0
     value = computed.properties["border-radius"]

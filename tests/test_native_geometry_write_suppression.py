@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.margin_tree import MarginTreeNode
-from psx.sfle.model import BoxRect, LayoutResult, Rect
-from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
+from psx.layout.fallback.margin_tree import MarginTreeNode
+from psx.layout.contracts.model import BoxRect, LayoutResult, Rect
+from psx.layout.adapters.native_geometry import GeometryBackend, NativeGeometryCommitter
 
 
 def snapshot(width: float) -> LayoutResult:

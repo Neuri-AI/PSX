@@ -169,8 +169,8 @@ def make_backend(backend: str, *, skip_kivy_layout_commit: bool = False) -> tupl
     if backend == "kivy":
         from kivy.clock import Clock
         from psx.renderers.kivy.kivy import KivyRenderer
-        from psx.sfle.engine import PythonLayoutEngine
-        from psx.sfle.model import AvailableSize, LayoutConstraints
+        from psx.layout.fallback.engine import PythonLayoutEngine
+        from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
         renderer = KivyRenderer(
             sfle_constraints=LayoutConstraints(

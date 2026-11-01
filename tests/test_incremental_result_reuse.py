@@ -3,10 +3,10 @@ from dataclasses import replace
 
 from psx import Flex, psx
 from psx.core.layout_tree import normalize_flex_tree
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.incremental_result_reuse import reuse_unchanged_layout
-from psx.sfle.model import AvailableSize, LayoutConstraints
-from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.runtime.incremental_result_reuse import reuse_unchanged_layout
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
 
 
 def _input(*, width=160, generation=1, gap="8px"):
@@ -62,7 +62,7 @@ def test_layout_and_environment_mutations_force_full_compute():
 
 
 def test_changed_measurement_revision_and_structure_disable_reuse():
-    from psx.sfle.model import IntrinsicSizes, MeasuredBox
+    from psx.layout.contracts.model import IntrinsicSizes, MeasuredBox
     engine = PythonLayoutEngine()
     original = _input()
     prior = engine.compute(original)
@@ -77,8 +77,8 @@ def test_changed_measurement_revision_and_structure_disable_reuse():
 
 
 def test_context_plan_scopes_changed_flex_sibling_without_partial_solver_claim():
-    from psx.sfle.context_invalidation_plan import plan_context_invalidation
-    from psx.sfle.model import LayoutNode
+    from psx.layout.runtime.context_invalidation_plan import plan_context_invalidation
+    from psx.layout.contracts.model import LayoutNode
     initial = _input()
     nodes = list(initial.nodes)
     # Modify the first child, leaving the second independent child untouched.
@@ -102,7 +102,7 @@ def test_context_plan_scopes_changed_flex_sibling_without_partial_solver_claim()
 
 
 def test_incremental_solver_skips_unchanged_sibling_flex_sizing():
-    from psx.sfle.model import LayoutNode
+    from psx.layout.contracts.model import LayoutNode
 
     def snapshot(left_width: int, generation: int):
         markup = psx(
@@ -184,8 +184,8 @@ def test_repeated_context_updates_reuse_independent_subtree_across_1000_cycles()
 
 
 def test_changed_measurements_invalidate_only_changed_context_when_structure_stable():
-    from psx.sfle.context_invalidation_plan import plan_context_invalidation
-    from psx.sfle.model import IntrinsicSizes, MeasuredBox
+    from psx.layout.runtime.context_invalidation_plan import plan_context_invalidation
+    from psx.layout.contracts.model import IntrinsicSizes, MeasuredBox
     base = _input()
     leaf = base.nodes[-1].node_id
     size = IntrinsicSizes(16, 16, 12, 12, 16, 12)

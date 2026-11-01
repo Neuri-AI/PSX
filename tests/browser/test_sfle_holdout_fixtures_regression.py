@@ -13,8 +13,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests" / "interop"))
 from test_sfle_differential import rust_binary  # noqa: E402
 from test_sfle_holdout_regression import _snapshot, _dom  # noqa: E402
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.native_wire import serialize_snapshot
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.native_wire import serialize_snapshot
 import subprocess
 
 DIR = ROOT / "tests/sfle/fixtures/holdout_red"

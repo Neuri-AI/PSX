@@ -1,8 +1,8 @@
 """Native Grid root commit must avoid unchanged writes without skipping placement."""
 import pytest
 
-from psx.sfle.grid_native_commit import GridCommitBackend
-from psx.sfle.native_grid_bridge import root_geometry_changed
+from psx.layout.adapters.grid_native_commit import GridCommitBackend
+from psx.layout.adapters.native_grid_bridge import root_geometry_changed
 
 
 @pytest.mark.parametrize("backend", (GridCommitBackend.QT, GridCommitBackend.KIVY))

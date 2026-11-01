@@ -111,9 +111,9 @@ def test_html_img_layout_metadata_is_accepted_by_shared_renderer():
 def test_img_viewport_dimensions_recompute_with_cinnamon():
     from psx.core.layout_tree import normalize_flex_tree
     from psx.core.vnode import Flex
-    from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
-    from psx.sfle.lengths import Length
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
+    from psx.layout.contracts.lengths import Length
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
     root = Flex(psx('<img src="logo.png" width="25vw" height="50vh" />'))
     values = []
@@ -265,8 +265,8 @@ def test_block_normalization_rejects_unsupported_direct_vnode_properties():
 def test_measured_div_commits_actual_headless_block_rectangles():
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
     measured = []
     def measure(node):
@@ -300,9 +300,9 @@ def test_measured_div_commits_actual_headless_block_rectangles():
 def test_block_mount_does_not_assume_unmeasured_leaf_height():
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.errors import SFLEError
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.errors import SFLEError
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
     renderer = HeadlessRenderer(
         sfle_constraints=LayoutConstraints(
@@ -323,8 +323,8 @@ def test_block_mount_does_not_assume_unmeasured_leaf_height():
 def test_display_change_reflows_without_replacing_keyed_headless_handles():
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
     def measure(node):
         return IntrinsicSizes(30, 30, 12, 12, 30, 12, baseline=9)
@@ -359,7 +359,7 @@ def test_display_change_reflows_without_replacing_keyed_headless_handles():
 def test_headless_cinnamon_commits_nested_block_and_inline_rectangles(request):
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
     renderer = HeadlessRenderer(
         sfle_constraints=LayoutConstraints(
@@ -420,7 +420,7 @@ def test_semantic_markup_carries_public_census_assertions(request, tag):
 def test_headless_display_change_reflows_without_replacing_keyed_handles(request):
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
     from tests.certification.public_behavior_census import Feature, assert_feature
 
     renderer = HeadlessRenderer(
@@ -479,7 +479,7 @@ def test_headless_display_change_reflows_without_replacing_keyed_handles(request
 def test_headless_semantic_flow_native_geometry_receipt(request, tag):
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
     from tests.certification.public_behavior_census import Feature, assert_feature
 
     renderer = HeadlessRenderer(

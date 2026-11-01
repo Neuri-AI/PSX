@@ -5,12 +5,12 @@ time, which varies across GitHub CI operating systems and hardware.
 """
 from __future__ import annotations
 
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.grid_native_composition import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.grid.grid_native_composition import (
     _FlowContainingWidths, nested_flow_grid_width,
 )
-from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
-from psx.sfle.model import (
+from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, MeasuredBox, WritingDirection,
 )
@@ -67,7 +67,7 @@ def test_sibling_flex_subtrees_do_not_rescan_every_flow_node():
 
 
 def test_nested_grid_parent_widths_are_memoized_across_many_siblings(monkeypatch):
-    from psx.sfle import lengths
+    from psx.layout import lengths
 
     depth = 100
     siblings = 90
@@ -146,7 +146,7 @@ def test_nonpreorder_flow_input_retains_layout_order_fallback():
 
 
 def test_many_constrained_grid_items_use_one_membership_index():
-    from psx.sfle.grid_math import (
+    from psx.layout.fallback.grid_math import (
         GridSlot, GridItemConstraints, compute_grid, GridPackingError,
     )
     import pytest

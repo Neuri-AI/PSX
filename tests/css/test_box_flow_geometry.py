@@ -1,7 +1,7 @@
 """Cinnamon flow must compute distinct boxes and account for outer flow dimensions."""
-from psx.sfle.lengths import Length, LengthKind
-from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
-from psx.sfle.model import (
+from psx.layout.contracts.lengths import Length, LengthKind
+from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, MeasuredBox, WritingDirection,
 )
@@ -106,7 +106,7 @@ def test_percentage_width_uses_parent_resolved_width():
 
 def test_inline_formatting_owner_edges_fail_closed():
     import pytest
-    from psx.sfle.errors import SFLECapabilityError
+    from psx.layout.contracts.errors import SFLECapabilityError
     root = _node("root", None, "div", display="block")
     owner = _node("owner", "root", "span", display="inline",
                   layout_padding_left=Length.px(4))
@@ -117,7 +117,7 @@ def test_inline_formatting_owner_edges_fail_closed():
 
 def test_auto_margin_does_not_silently_center():
     import pytest
-    from psx.sfle.errors import SFLECapabilityError
+    from psx.layout.contracts.errors import SFLECapabilityError
     root = _node("root", None, "div", display="block")
     child = _node("child", "root", "Button",
                   layout_margin_left=Length(LengthKind.AUTO))
@@ -126,7 +126,7 @@ def test_auto_margin_does_not_silently_center():
 
 
 def test_nested_flex_space_between_respects_horizontal_padding():
-    from psx.sfle.engine import PythonLayoutEngine
+    from psx.layout.fallback.engine import PythonLayoutEngine
     root = _node("root", None, "div", display="block")
     flex = _node(
         "flex", "root", "Flex",

@@ -8,13 +8,13 @@ from dataclasses import replace
 
 import pytest
 
-from psx.sfle.adapter_contract import (
+from psx.layout.runtime.adapter_contract import (
     SFLEAdapterPorts, ScrollViewport, derive_scroll_content_metrics,
     validate_adapter_commit,
 )
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.model import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.contracts.model import (
     AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
 )
 

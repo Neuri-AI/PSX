@@ -17,14 +17,14 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/"tests"/"sfle"))
 from test_acceptance_contract_regression import case_snapshot  # noqa: E402
 
-from psx.sfle.engine import PythonLayoutEngine  # noqa: E402
-from psx.sfle.native_geometry import NativeGeometryCommitter, GeometryBackend  # noqa: E402
-from psx.sfle.model import (  # noqa: E402
+from psx.layout.fallback.engine import PythonLayoutEngine  # noqa: E402
+from psx.layout.adapters.native_geometry import NativeGeometryCommitter, GeometryBackend  # noqa: E402
+from psx.layout.contracts.model import (  # noqa: E402
     AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection,
 )
-from psx.sfle.measurement_plan import MeasurementRequest  # noqa: E402
-from psx.sfle.kivy_measurement import KivyMeasurementSource  # noqa: E402
-from psx.sfle.tk_measurement import TkMeasurementSource  # noqa: E402
+from psx.layout.fallback.measurement_plan import MeasurementRequest  # noqa: E402
+from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource  # noqa: E402
+from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource  # noqa: E402
 
 
 def sfle_case(case_id):

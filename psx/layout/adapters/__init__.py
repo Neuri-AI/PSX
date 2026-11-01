@@ -1,0 +1,1 @@
+"""layout adapters module package."""

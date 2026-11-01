@@ -6,9 +6,9 @@ import pytest
 def test_tk_native_baselines():
     import tkinter as tk
     from tkinter import ttk
-    from psx.sfle.tk_measurement import TkMeasurementSource
-    from psx.sfle.measurement_plan import MeasurementRequest
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
+    from psx.layout.fallback.measurement_plan import MeasurementRequest
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
     try:
         root = tk.Tk()
@@ -35,7 +35,7 @@ def test_tk_native_baselines():
 
 
 def test_tk_image_bottom_edge_baseline():
-    from psx.sfle.tk_measurement import TkMeasurementSource
+    from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
 
     class FakeImage:
         size = (80, 40)

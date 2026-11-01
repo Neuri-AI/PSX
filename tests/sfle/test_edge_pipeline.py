@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.box_geometry import UsedBoxEdges, UsedEdges
-from psx.sfle.edge_pipeline import ResolvedEdgeItem, compute_edge_layout
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.line_layout import FlexDirection, FlexWrap
-from psx.sfle.model import WritingDirection
+from psx.layout.fallback.box_geometry import UsedBoxEdges, UsedEdges
+from psx.layout.fallback.edge_pipeline import ResolvedEdgeItem, compute_edge_layout
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.line_layout import FlexDirection, FlexWrap
+from psx.layout.contracts.model import WritingDirection
 
 
 def item(name: str, size: float, *, grow: float = 0, edges: UsedBoxEdges = UsedBoxEdges()):

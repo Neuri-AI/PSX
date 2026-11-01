@@ -10,13 +10,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 import pytest
 
-from psx.sfle.align_content import AlignContent
-from psx.sfle.cross_alignment import CrossAlign
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.line_layout import FlexDirection, FlexWrap
-from psx.sfle.main_alignment import JustifyContent
-from psx.sfle.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
-from psx.sfle.model import WritingDirection
+from psx.layout.fallback.align_content import AlignContent
+from psx.layout.fallback.cross_alignment import CrossAlign
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.line_layout import FlexDirection, FlexWrap
+from psx.layout.fallback.main_alignment import JustifyContent
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
+from psx.layout.contracts.model import WritingDirection
 
 
 @dataclass(frozen=True)
@@ -153,7 +153,7 @@ def test_resolved_border_rectangles_match_chromium(case: Case, chromium_page):
 
 def test_nested_resolved_flex_boxes_match_chromium(chromium_page):
     """First true nested reference geometry check, limited to zero-edge boxes."""
-    from psx.sfle.resolved_tree import ResolvedTreeNode, compute_resolved_tree
+    from psx.layout.fallback.resolved_tree import ResolvedTreeNode, compute_resolved_tree
 
     def basis(value: float) -> FlexBasis:
         return FlexBasis(value, value, grow=0, shrink=0, min_size=0)
@@ -192,8 +192,8 @@ def test_nested_resolved_flex_boxes_match_chromium(chromium_page):
 
 def test_nested_padding_border_content_origins_match_chromium(chromium_page):
     """F2.2.4.6 nested content-box placement with actual padding/borders."""
-    from psx.sfle.box_geometry import UsedBoxEdges, UsedEdges
-    from psx.sfle.edge_tree import EdgeTreeNode, compute_edge_tree
+    from psx.layout.fallback.box_geometry import UsedBoxEdges, UsedEdges
+    from psx.layout.fallback.edge_tree import EdgeTreeNode, compute_edge_tree
     def flex(n):
         return FlexBasis(n, n, grow=0, shrink=0, min_size=0)
     root_edges=UsedBoxEdges(padding=UsedEdges(top=3,left=5),
@@ -233,8 +233,8 @@ def test_nested_padding_border_content_origins_match_chromium(chromium_page):
 
 def test_nested_justify_and_padding_match_chromium(chromium_page):
     """Browser parity for nested resolved CSS alignment and content-box offsets."""
-    from psx.sfle.box_geometry import UsedBoxEdges, UsedEdges
-    from psx.sfle.margin_tree import MarginTreeNode, compute_margin_tree
+    from psx.layout.fallback.box_geometry import UsedBoxEdges, UsedEdges
+    from psx.layout.fallback.margin_tree import MarginTreeNode, compute_margin_tree
 
     root = MarginTreeNode(
         "root", None, 200, 80,
@@ -284,10 +284,10 @@ def test_nested_justify_and_padding_match_chromium(chromium_page):
 
 def test_measured_auto_flex_leaf_matches_chromium(chromium_page):
     """A leaf's intrinsic basis is flex-distributed, not mistaken for its used width."""
-    from psx.sfle.intrinsic_tree import IntrinsicLeafStyle, compute_measured_leaf_tree
-    from psx.sfle.lengths import Length, LengthKind
-    from psx.sfle.margin_tree import MarginTreeNode
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox
+    from psx.layout.fallback.intrinsic_tree import IntrinsicLeafStyle, compute_measured_leaf_tree
+    from psx.layout.contracts.lengths import Length, LengthKind
+    from psx.layout.fallback.margin_tree import MarginTreeNode
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox
 
     chromium_page.set_content(
         '<!doctype html><html><body style="margin:0">'

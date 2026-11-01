@@ -14,10 +14,10 @@ from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.renderers.qt.pyqt import QtHandle
 from psx.renderers.qt.pyside import PySide6Renderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.external_native_geometry_ports import SFLEExternalPort
-from psx.sfle.model import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.adapters.external_native_geometry_ports import SFLEExternalPort
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, Rect,
 )
 
@@ -159,7 +159,7 @@ class QtExternalPortTests(unittest.TestCase):
     def test_borrowed_native_qwidget_preserves_caller_ownership_and_parent(self):
         from psx.core.native import NativeWidget, NativeOwnership
         from psx.core.vnode import native_widget
-        from psx.sfle.native_operation_oracles import Observation, ORACLES
+        from psx.layout.compat.native_operation_oracles import Observation, ORACLES
 
         parent = QLabel()
         widget = QLabel(parent)

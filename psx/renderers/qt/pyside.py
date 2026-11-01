@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .pyqt import QtRenderer
-from psx.sfle.model import LayoutConstraints
+from psx.layout.contracts.model import LayoutConstraints
 
 
 class PySide6Renderer(QtRenderer):

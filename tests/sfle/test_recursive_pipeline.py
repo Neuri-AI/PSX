@@ -1,17 +1,17 @@
 """End-to-end intrinsic measurement, Flex sizing and constrained remeasurement."""
-from psx.sfle.constraint_propagation import ChildSizing
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.intrinsic_tree import IntrinsicLeafStyle
-from psx.sfle.lengths import Length, LengthKind
-from psx.sfle.margin_flex_pipeline import MarginFlexItem
-from psx.sfle.margin_tree import MarginTreeNode
-from psx.sfle.measurement_plan import MeasurementRequest
-from psx.sfle.model import (
+from psx.layout.fallback.constraint_propagation import ChildSizing
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.intrinsic_tree import IntrinsicLeafStyle
+from psx.layout.contracts.lengths import Length, LengthKind
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem
+from psx.layout.fallback.margin_tree import MarginTreeNode
+from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput, LayoutNode,
     MeasuredBox, WritingDirection,
 )
-from psx.sfle.native_measurement import NativeMeasurementPort
-from psx.sfle.recursive_pipeline import compute_recursive_pipeline
+from psx.layout.runtime.native_measurement import NativeMeasurementPort
+from psx.layout.runtime.recursive_pipeline import compute_recursive_pipeline
 
 
 def test_intrinsic_leaf_growth_remeasures_at_allocated_width():
@@ -50,7 +50,7 @@ def test_intrinsic_leaf_growth_remeasures_at_allocated_width():
 
 
 def test_native_lifecycle_commits_converged_intrinsic_geometry():
-    from psx.sfle.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
+    from psx.layout.runtime.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
 
     constraints = LayoutConstraints(AvailableSize(150, True), AvailableSize(80, True))
     snapshot = LayoutInput(
@@ -90,7 +90,7 @@ def test_native_lifecycle_commits_converged_intrinsic_geometry():
 
 def test_indefinite_root_reference_fails_closed():
     import pytest
-    from psx.sfle.errors import SFLEError
+    from psx.layout.contracts.errors import SFLEError
 
     constraints = LayoutConstraints(AvailableSize(150, True), AvailableSize(None, False))
     snapshot = LayoutInput(
@@ -121,8 +121,8 @@ def test_indefinite_root_reference_fails_closed():
 
 
 def test_auto_cross_container_resolves_before_final_commit():
-    from psx.sfle.auto_cross_tree import AutoCrossSize
-    from psx.sfle.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
+    from psx.layout.fallback.auto_cross_tree import AutoCrossSize
+    from psx.layout.runtime.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
     constraints = LayoutConstraints(AvailableSize(150, True), AvailableSize(80, True))
     snapshot = LayoutInput(
         1, 11, WritingDirection.LTR, constraints,

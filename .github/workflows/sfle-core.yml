@@ -2,7 +2,7 @@ name: SFLE core checks
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, fixes/psx-issues]
     paths-ignore:
       - "docs/**"
       - "README.md"
@@ -11,8 +11,12 @@ on:
   push:
     branches:
       - main
+      - feature/semantic-inline-fragments
     paths:
-      - "psx/sfle/**"
+      - "psx/layout/**"
+      - "psx/renderers/**"
+      - "tests/architecture/**"
+      - "tests/interop/**"
       - "rust/sfle-core/**"
       - "tests/sfle/**"
       - ".github/workflows/sfle-core.yml"
@@ -20,7 +24,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -96,14 +100,14 @@ jobs:
           sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 xvfb xauth python3-tk libmtdev1 libgl1 libx11-6
       - name: Install SFLE and Qt test dependencies
         run: python -m pip install -e '.[pyside6,kivy]' pytest
-      - name: Compile SFLE Python
-        run: python -m compileall -q psx/sfle
+      - name: Compile Cinnamon Python and integration
+        run: python -m compileall -q psx/layout
       - name: SFLE focused tests (zero skip policy)
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
           set -o pipefail
-          xvfb-run -a python -m pytest -q -rs tests/sfle | tee /tmp/sfle-python-tests.txt
+          xvfb-run -a python -m pytest -q -rs tests/sfle tests/architecture/test_layout_api_contract.py tests/architecture/test_cinnamon_migration_manifest.py tests/architecture/test_cinnamon_engine_dispatch.py | tee /tmp/sfle-python-tests.txt
           if grep -Eq '([0-9]+ skipped|SKIPPED \[)' /tmp/sfle-python-tests.txt; then
             echo 'SFLE Core must execute every collected test, including Qt lifecycle'; exit 1
           fi
@@ -151,12 +155,12 @@ jobs:
         with:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install Qt offscreen system libraries for installed PyO3 GUI integration
+      - name: Install native renderer dependencies for PyO3 worker integration
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
-      - name: Install SFLE source with real Qt and maturin
-        run: python -m pip install -e '.[pyside6]' pytest 'maturin>=1.8,<2'
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0 libmtdev1 libgl1 xvfb xauth
+      - name: Install SFLE source with Qt, Kivy and maturin
+        run: python -m pip install -e '.[pyside6,kivy]' pytest 'maturin>=1.8,<2'
       - name: Build Rust PyO3 wheel
         run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out /tmp/sfle-native-wheels
       - name: Install native wheel and inspect actual import locations
@@ -170,7 +174,13 @@ jobs:
         run: |
           cd /tmp
           python -c "import _sfle_native as n; assert n.schema_version() == 1"
-          python -m pytest -q "$GITHUB_WORKSPACE/tests/interop/test_sfle_native_wheel.py"
+          xvfb-run -a python -m pytest -q "$GITHUB_WORKSPACE/tests/interop/test_sfle_native_wheel.py"
+      - name: Certify recursive historical APIs with Rust/Python real wheel
+        run: python -m pytest -q tests/interop/test_cinnamon_recursive_legacy_parity.py
+      - name: Certify full public Cinnamon Rust/Python engine parity on installed wheel
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q tests/interop/test_cinnamon_engine_wide_parity.py
 
   f2-migration-inventory:
     needs: changes

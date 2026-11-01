@@ -148,8 +148,8 @@ def _scroll_area_class(binding: str):
                 event.accept()
 
         def keyPressEvent(self, event):
-            from psx.sfle.scroll_events import scroll_key_delta
-            from psx.sfle.scroll_offsets import ScrollOffset
+            from psx.layout.scroll.scroll_events import scroll_key_delta
+            from psx.layout.scroll.scroll_offsets import ScrollOffset
             props = self._psx_props
             if props is None or not props["enabled"]:
                 event.ignore()

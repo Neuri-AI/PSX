@@ -91,8 +91,8 @@ Config.set("graphics", "window_state", "hidden")
 from psx import psx
 from psx.core.reconcile import Reconciler
 from psx.renderers.kivy.kivy import KivyRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
 renderer = KivyRenderer(
     sfle_constraints=LayoutConstraints(
@@ -177,8 +177,8 @@ Config.set("graphics", "window_state", "hidden")
 from psx import psx
 from psx.core.reconcile import Reconciler
 from psx.renderers.kivy.kivy import KivyRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
 tags = (
     "span", "p", "h1", "h2", "h3", "h4", "h5", "h6",
@@ -258,8 +258,8 @@ from psx.core.vnode import Button
 from psx.core.reconcile import Reconciler
 from psx.markup.html_aliases import _formatting_host
 from psx.renderers.kivy.kivy import KivyRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
 renderer = KivyRenderer(
     sfle_constraints=LayoutConstraints(
@@ -305,8 +305,8 @@ Config.set("graphics", "window_state", "hidden")
 from psx import psx
 from psx.core.reconcile import Reconciler
 from psx.renderers.kivy.kivy import KivyRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
 renderer = KivyRenderer(
     sfle_constraints=LayoutConstraints(

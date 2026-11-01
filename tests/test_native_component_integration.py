@@ -12,11 +12,11 @@ from pathlib import Path
 import pytest
 
 from psx.core.registry import builtin_component_registry
-from psx.sfle.native_component_matrix import (
+from psx.layout.compat.native_component_matrix import (
     BACKENDS, HEADLESS_PORTED, LEGACY, EXTERNAL, STRUCTURAL, TRANSPARENT,
     native_certification_matrix,
 )
-from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
+from psx.layout.projection.native_component_capabilities import NATIVE_LEAF_TYPES
 from tests.certification.native_external_ownership_cases import EXTERNAL_OWNERSHIP_CASES_BY_BACKEND
 from tests.certification.native_operation_evidence import COMPONENT_OPERATION_TESTS, SUITES
 

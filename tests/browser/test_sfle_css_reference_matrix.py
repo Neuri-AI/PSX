@@ -90,8 +90,8 @@ def test_numeric_css_reference_in_real_chromium(case_id,page):
 @pytest.mark.parametrize("mode", ("main", "cross"))
 def test_fractional_space_evenly_matches_chromium_layout_units(page, mode):
     """Chromium 153 is the external oracle, not the helper's own expected data."""
-    from psx.sfle.align_content import AlignContent, distribute_cross_lines
-    from psx.sfle.main_alignment import JustifyContent, resolve_main_alignment
+    from psx.layout.fallback.align_content import AlignContent, distribute_cross_lines
+    from psx.layout.fallback.main_alignment import JustifyContent, resolve_main_alignment
 
     if mode == "main":
         page.set_content(

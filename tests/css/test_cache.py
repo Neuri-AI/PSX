@@ -1,6 +1,6 @@
 from psx.css.cache import StyleResolver
 from psx.css.cascade import StyleTarget
-from psx.sfle.lengths import Length
+from psx.layout.contracts.lengths import Length
 
 
 def test_repeated_resolution_skips_reparse_and_cascade():

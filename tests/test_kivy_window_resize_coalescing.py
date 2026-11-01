@@ -107,7 +107,7 @@ def test_window_resize_never_writes_when_root_unmounted(monkeypatch):
 def test_window_resize_commits_in_same_clock_frame_as_root_sizing(monkeypatch):
     """No second UI tick may leave an old-height Grid/Scroll layout visible."""
     from types import SimpleNamespace
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
     monkeypatch.setattr(kivy_module, "Clock", _Clock)
     _Clock.scheduled = []
@@ -156,7 +156,7 @@ def test_window_resize_commits_in_same_clock_frame_as_root_sizing(monkeypatch):
 def test_root_only_resize_still_uses_observer_clock(monkeypatch):
     """Standalone native root changes retain the existing deferred route."""
     from types import SimpleNamespace
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
     monkeypatch.setattr(kivy_module, "Clock", _Clock)
     _Clock.scheduled = []
@@ -189,7 +189,7 @@ def test_initial_retina_attachment_commits_drawable_viewport_in_one_frame(
 ):
     """An SDL resize emitted before attachment must not strand the CSS root."""
     from types import SimpleNamespace
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
     monkeypatch.setattr(kivy_module, "Clock", _Clock)
     _Clock.scheduled = []

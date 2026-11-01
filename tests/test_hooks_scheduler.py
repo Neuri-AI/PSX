@@ -134,7 +134,7 @@ class HooksAndSchedulerTests(unittest.TestCase):
 
 def test_state_driven_css_paint_burst_skips_layout_but_reflows_dimensions():
     from psx import psx
-    from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints, IntrinsicSizes
 
     renderer = HeadlessRenderer(
         sfle_constraints=LayoutConstraints(

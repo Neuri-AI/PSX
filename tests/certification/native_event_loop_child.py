@@ -9,7 +9,7 @@ from pathlib import Path
 import sys
 
 from psx import App, Flex, Text
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 viewport = LayoutConstraints(AvailableSize(640, True), AvailableSize(480, True))
 
 backend = sys.argv[1]

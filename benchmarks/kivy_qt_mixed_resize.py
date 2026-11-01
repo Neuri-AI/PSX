@@ -73,7 +73,7 @@ def scene(image):
 
 
 def viewport(width):
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
     return LayoutConstraints(AvailableSize(width, True),
                              AvailableSize(HEIGHT, True))
 
@@ -108,8 +108,8 @@ def rectangles(renderer):
 
 def run_cell(adapter, engine_name, warmup, cycles, output, widths):
     from psx.core.reconcile import Reconciler
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.backend import load_layout_engine
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.engine.backend import load_layout_engine
     engine = (PythonLayoutEngine() if engine_name == "python"
               else load_layout_engine())
     if engine.backend_name != engine_name:

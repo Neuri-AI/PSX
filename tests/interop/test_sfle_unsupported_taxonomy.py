@@ -11,7 +11,7 @@ import pytest
 from test_sfle_differential import (
     _python_compute, _rust_compute, case_snapshot, rust_binary,
 )
-from psx.sfle.model import LayoutNode
+from psx.layout.contracts.model import LayoutNode
 
 UNSUPPORTED_PROPERTY_FAMILIES = (
     ("grid", "grid_template_columns", "repeat(2,1fr)"),

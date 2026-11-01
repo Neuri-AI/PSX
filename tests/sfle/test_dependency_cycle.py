@@ -1,14 +1,14 @@
 """F2.2.4.5 end-to-end bounded dependency remeasurement tests."""
 import pytest
 
-from psx.sfle.dependency_cycle import resolve_measurement_dependencies
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.model import (
+from psx.layout.runtime.dependency_cycle import resolve_measurement_dependencies
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput, LayoutNode,
     MeasuredBox, WritingDirection,
 )
-from psx.sfle.native_measurement import NativeMeasurementPort
-from psx.sfle.used_size_tree import UsedSizeTree
+from psx.layout.runtime.native_measurement import NativeMeasurementPort
+from psx.layout.fallback.used_size_tree import UsedSizeTree
 
 
 def box(width, height=20):

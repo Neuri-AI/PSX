@@ -1,9 +1,9 @@
 import pytest
-from psx.sfle.errors import SFLECapabilityError, SFLEError
-from psx.sfle.intrinsic_dependencies import LeafAutoSizing, collect_leaf_intrinsic_suggestions
-from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection, IntrinsicSizes, MeasuredBox
-from psx.sfle.sizing import ResolutionKind
-from psx.sfle.used_size_tree import UsedSizeTree
+from psx.layout.contracts.errors import SFLECapabilityError, SFLEError
+from psx.layout.fallback.intrinsic_dependencies import LeafAutoSizing, collect_leaf_intrinsic_suggestions
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection, IntrinsicSizes, MeasuredBox
+from psx.layout.fallback.sizing import ResolutionKind
+from psx.layout.fallback.used_size_tree import UsedSizeTree
 
 def size(w, h):
     return LayoutConstraints(AvailableSize(w, w is not None), AvailableSize(h, h is not None))

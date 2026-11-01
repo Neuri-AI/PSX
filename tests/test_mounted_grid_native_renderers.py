@@ -8,8 +8,8 @@ import pytest
 
 from psx import Grid, GridItem, Text
 from psx.core.reconcile import Reconciler
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 from tests.certification.public_behavior_census import Feature, assert_feature
 
 
@@ -221,8 +221,8 @@ def test_nested_grid_survives_a_tiny_viewport():
 
 def test_grid_root_geometry_is_restored_when_native_batch_fails(request, monkeypatch):
     """A rejected native commit must not leave the resized root behind."""
-    from psx.sfle import native_grid_bridge
-    from psx.sfle.errors import SFLEError
+    from psx.layout import native_grid_bridge
+    from psx.layout.contracts.errors import SFLEError
 
     backend = os.environ["PSX_GRID_BACKEND"]
     binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
@@ -331,7 +331,7 @@ def test_component_boundaries_participate_in_native_grid(request):
 def test_composite_grid_item_fails_closed_without_false_native_receipt(request):
     """G4 composite measurement must not be guessed or delegated to toolkits."""
     from psx import Flex
-    from psx.sfle.grid_math import GridPackingError
+    from psx.layout.fallback.grid_math import GridPackingError
     backend = os.environ["PSX_GRID_BACKEND"]
     binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
         "tkinter" if backend == "tk" else "kivy")
@@ -599,7 +599,7 @@ def test_grid_inside_scroll_flex_preserves_native_offsets_and_reflows(request):
 def test_mixed_flex_grid_transaction_failure_restores_all_native_geometry(request, monkeypatch):
     """A failed Grid batch cannot leave an already committed Flex rectangle."""
     from psx import Flex
-    from psx.sfle import mixed_grid_native
+    from psx.layout import mixed_grid_native
     backend = os.environ["PSX_GRID_BACKEND"]
     binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
         "tkinter" if backend == "tk" else "kivy")
@@ -780,8 +780,8 @@ def test_keyed_flex_grid_siblings_reorder_without_native_remount(request):
 @pytest.mark.parametrize("reason", ("resource", "dpi"))
 def test_native_grid_root_late_resource_invalidation_is_atomic(request, monkeypatch, reason):
     """A new resource epoch after child readback rolls the whole Grid back."""
-    from psx.sfle import native_grid_bridge
-    from psx.sfle.errors import SFLEError
+    from psx.layout import native_grid_bridge
+    from psx.layout.contracts.errors import SFLEError
     backend = os.environ["PSX_GRID_BACKEND"]
     binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
         "tkinter" if backend == "tk" else "kivy")
@@ -824,7 +824,7 @@ def test_native_grid_root_late_resource_invalidation_is_atomic(request, monkeypa
 def test_multiple_mixed_grids_rollback_all_committed_siblings(request, monkeypatch):
     """A failure in the second Grid batch rolls back the first and Flex."""
     from psx import Flex
-    from psx.sfle import mixed_grid_native
+    from psx.layout import mixed_grid_native
     backend = os.environ["PSX_GRID_BACKEND"]
     binding = os.environ["PSX_QT_BINDING"] if backend == "qt" else (
         "tkinter" if backend == "tk" else "kivy")
@@ -977,7 +977,7 @@ def test_native_multiline_css_line_height_follows_cinnamon_measurement():
             assert widget._psx_css_line_height == 32
             assert widget.heightForWidth(60) >= 64
         else:
-            from psx.sfle.tk_measurement import TkMeasurementSource
+            from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
             assert widget._psx_css_line_height == 32
             assert str(widget.cget("text")) == "Several words here should wrap over multiple lines"
             assert TkMeasurementSource._css_text_metrics(widget, 60).preferred_height >= 64
@@ -3237,10 +3237,10 @@ def test_grid_composition_reused_for_same_width_within_transaction(monkeypatch):
     """Repeated intrinsic requests must not repeat native Grid measurement."""
     from threading import get_ident
     from types import SimpleNamespace
-    from psx.sfle.grid_native_commit import GridCommitBackend
-    from psx.sfle.grid_native_commit import GridCommitBackend
-    from psx.sfle import mixed_grid_native
-    from psx.sfle.mixed_grid_native import MountedMixedGrid
+    from psx.layout.adapters.grid_native_commit import GridCommitBackend
+    from psx.layout.adapters.grid_native_commit import GridCommitBackend
+    from psx.layout import mixed_grid_native
+    from psx.layout.grid.mixed_grid_native import MountedMixedGrid
 
     calls = []
     composition = SimpleNamespace(content_height=75)
@@ -3275,10 +3275,10 @@ def test_tk_mixed_grid_syncs_native_idle_once_per_composition(monkeypatch):
     """A composed Grid cannot drain the entire Tcl idle queue per leaf."""
     from threading import get_ident
     from types import SimpleNamespace
-    from psx.sfle import mixed_grid_native, tk_measurement
-    from psx.sfle.mixed_grid_native import MountedMixedGrid
-    from psx.sfle.grid_native_commit import GridCommitBackend
-    from psx.sfle.model import IntrinsicSizes
+    from psx.layout import mixed_grid_native, tk_measurement
+    from psx.layout.grid.mixed_grid_native import MountedMixedGrid
+    from psx.layout.adapters.grid_native_commit import GridCommitBackend
+    from psx.layout.contracts.model import IntrinsicSizes
 
     drains, measured, synced = [], [], []
     source = object()
@@ -3326,9 +3326,9 @@ def test_tk_mixed_grid_syncs_native_idle_once_per_composition(monkeypatch):
 def test_grid_composition_failure_is_not_cached(monkeypatch):
     from threading import get_ident
     from types import SimpleNamespace
-    from psx.sfle.grid_native_commit import GridCommitBackend
-    from psx.sfle import mixed_grid_native
-    from psx.sfle.mixed_grid_native import MountedMixedGrid
+    from psx.layout.adapters.grid_native_commit import GridCommitBackend
+    from psx.layout import mixed_grid_native
+    from psx.layout.grid.mixed_grid_native import MountedMixedGrid
 
     count = [0]
     def measure(grid, **kwargs):

@@ -9,10 +9,12 @@ def test_spaces_survive_mixed_span_boundaries():
     paragraph = _formatting_host(
         "p", Text("Edit "), span, Text(" and save to test HMR")
     )
-    before = [child.props["value"] for child in paragraph.children
-              if child.type == "Text"]
-    assert before == ["Edit", " ", " ", "and", " ", "save", " ", "to",
-                      " ", "test", " ", "HMR"]
+    assert [child.type for child in paragraph.children] == [
+        "Text", "span", "Text",
+    ]
+    assert paragraph.children[0].props["value"] == "Edit "
+    assert paragraph.children[2].props["value"] == " and save to test HMR"
+    assert paragraph.children[1].children[0].props["value"] == "main.py"
 
 
 def test_inline_fragment_preserves_separating_space():

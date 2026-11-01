@@ -119,7 +119,7 @@ def normalize_flex_tree(
                 if node.type in FORMATTING_TAGS:
                     # Formatting hosts have a distinct Block/Inline model.
                     # Do not pass its display value to legacy Flex metadata.
-                    from psx.sfle.display_context import (
+                    from psx.layout.projection.display_context import (
                         InnerDisplay, OuterDisplay, resolve_display,
                     )
                     mode = resolve_display(node.type, node.props.get("display"))

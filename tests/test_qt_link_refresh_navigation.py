@@ -5,8 +5,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from psx.core.vnode import Flex, Link
 from psx.core.reconcile import Reconciler
 from psx.renderers.qt.pyside import PySide6Renderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
 
 def test_removed_click_handler_restores_href(monkeypatch):

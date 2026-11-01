@@ -6,11 +6,11 @@ from threading import Thread
 
 import pytest
 
-from psx.sfle.errors import SFLEError
-from psx.sfle.grid_math import GridPackingError
-from psx.sfle.grid_native_plan import GridNativePlacement
-from psx.sfle.grid_native_commit import GridCommitBackend, commit_grid_native_geometry
-from psx.sfle.model import Rect
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.fallback.grid_math import GridPackingError
+from psx.layout.grid.grid_native_plan import GridNativePlacement
+from psx.layout.adapters.grid_native_commit import GridCommitBackend, commit_grid_native_geometry
+from psx.layout.contracts.model import Rect
 
 
 def placement(node_id, x, y, width=40, height=20):
@@ -465,10 +465,10 @@ def test_kivy_real_widget_renders_overflow_outside_parent_box():
 def test_kivy_scrolled_grid_item_content_starts_at_content_origin():
     """A viewport shorter than its content must not offset the GridItem."""
     from types import SimpleNamespace
-    from psx.sfle.grid_native_composition import (
+    from psx.layout.grid.grid_native_composition import (
         ComposedGrid, compose_geometry_batch,
     )
-    from psx.sfle.native_layout_snapshot import path_identity
+    from psx.layout.projection.native_layout_snapshot import path_identity
 
     item_source, scroll_source, root_source = object(), object(), object()
     identifier = path_identity(("dashboard", "main"))

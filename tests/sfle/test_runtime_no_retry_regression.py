@@ -2,8 +2,8 @@
 import sys
 from types import SimpleNamespace
 import pytest
-from psx.sfle.backend import load_layout_engine
-from psx.sfle.engine import PythonLayoutEngine
+from psx.layout.engine.backend import load_layout_engine
+from psx.layout.fallback.engine import PythonLayoutEngine
 from test_acceptance_contract_regression import case_snapshot
 
 def test_A08_rust_runtime_failure_never_calls_python(monkeypatch):

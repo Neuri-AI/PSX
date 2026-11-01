@@ -15,10 +15,10 @@ sys.path.insert(0, str(ROOT / "tests" / "sfle"))
 from test_sfle_differential import rust_binary
 from test_acceptance_contract_regression import case_snapshot
 from width_measurement_helpers import rust_compute
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import IntrinsicSizes
-from psx.sfle.remeasure_session import compute_with_width_measurements
-from psx.sfle.calibration import attach_calibration_errors
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import IntrinsicSizes
+from psx.layout.runtime.remeasure_session import compute_with_width_measurements
+from psx.layout.runtime.calibration import attach_calibration_errors
 from dataclasses import replace
 
 DATA = json.loads((ROOT / "tests/sfle/fixtures/f2_alpha_acceptance.json").read_text())

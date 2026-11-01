@@ -1,12 +1,12 @@
 """F2.2.4 used content propagation remains CSS-definiteness aware."""
 import pytest
 
-from psx.sfle.constraint_propagation import ChildSizing
-from psx.sfle.errors import SFLEError
-from psx.sfle.lengths import Length, LengthKind
-from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection
-from psx.sfle.percentage_box_sizing import BoxSizing
-from psx.sfle.used_size_tree import NodeUsedSizing, propagate_definite_used_sizes
+from psx.layout.fallback.constraint_propagation import ChildSizing
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.contracts.lengths import Length, LengthKind
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection
+from psx.layout.fallback.percentage_box_sizing import BoxSizing
+from psx.layout.fallback.used_size_tree import NodeUsedSizing, propagate_definite_used_sizes
 
 
 def pair(w, h):

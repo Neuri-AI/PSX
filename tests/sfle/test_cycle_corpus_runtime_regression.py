@@ -1,6 +1,6 @@
 """Every C01-C06 canonical tree must execute real Python compute, not JSON schema checks."""
 import pytest
-from psx.sfle.engine import PythonLayoutEngine
+from psx.layout.fallback.engine import PythonLayoutEngine
 from test_acceptance_contract_regression import case_snapshot, _ACCEPTANCE
 
 @pytest.mark.parametrize("case_id", [f"C{i:02d}" for i in range(1,7)])

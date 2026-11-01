@@ -35,7 +35,7 @@ def test_paint_only_marked_tree_preserves_cinnamon_geometry_without_commit():
     """Paint-only changes reuse existing layout but still update mounted CSS."""
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints, IntrinsicSizes
 
     renderer = HeadlessRenderer(
         sfle_constraints=LayoutConstraints(
@@ -83,7 +83,7 @@ def test_unstyled_independent_host_does_not_force_layout_on_sibling_repaint():
     from psx.renderers.headless import HeadlessRenderer
     from psx import psx
 
-    from psx.sfle.model import AvailableSize, LayoutConstraints, IntrinsicSizes
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints, IntrinsicSizes
     renderer = HeadlessRenderer(
         sfle_constraints=LayoutConstraints(
             AvailableSize(240, True), AvailableSize(120, True)),

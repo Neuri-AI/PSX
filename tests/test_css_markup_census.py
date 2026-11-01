@@ -4,7 +4,7 @@ import pytest
 from psx.markup.compile import psx
 from psx.markup.html_aliases import PORTABLE_HTML_ALIASES
 from psx.css.visual_values import CssColor
-from psx.sfle.lengths import Length
+from psx.layout.contracts.lengths import Length
 from tests.certification.public_behavior_census import CONTRACT, Feature, assert_feature
 
 
@@ -100,8 +100,8 @@ def test_link_creates_no_native_widget_public_behavior_receipt(request):
 def test_public_css_box_geometry_updates_native_headless_receipts(request):
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
     renderer = HeadlessRenderer(
         sfle_constraints=LayoutConstraints(AvailableSize(200, True), AvailableSize(100, True)),
@@ -146,8 +146,8 @@ def test_public_css_box_geometry_updates_native_headless_receipts(request):
 def test_div_css_flex_public_formatting_receipts(request):
     from psx.css.markup import compute_markup_styles
     from psx.core.layout_tree import normalize_flex_tree
-    from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
     tree = psx("<div><p>First</p><p>Second</p></div>")
     flexed = compute_markup_styles(
         tree, "div { display: flex; gap: 10px; flex-direction: row; }")

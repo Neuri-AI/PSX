@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.cross_margins import position_cross_margins
-from psx.sfle.main_margins import UsedMargin
+from psx.layout.fallback.cross_margins import position_cross_margins
+from psx.layout.fallback.main_margins import UsedMargin
 
 
 def test_two_auto_cross_margins_center_with_positive_space():

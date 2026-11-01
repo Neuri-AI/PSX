@@ -114,8 +114,8 @@ def test_real_headless_component_refresh_preserves_native_handle_and_hook_state(
 ):
     from psx import App, Flex, Text, component, use_state
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
     entry = tmp_path / "main.py"
     entry.write_text("class Example: pass", encoding="utf-8")
@@ -169,8 +169,8 @@ class ExternalExample:
 def test_real_python_source_rebinds_mounted_component(tmp_path, monkeypatch):
     from psx import App, Flex, Text, component
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
     source = tmp_path / "main.py"
     source.write_text(
@@ -248,8 +248,8 @@ def test_stylesheet_edit_recomputes_css_without_remounting_headless_component(
     from psx.css.visual_values import CssColor
     from psx.markup.compile import psx
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
     source = tmp_path / "main.py"
     source.write_text("class Example: pass", encoding="utf-8")
@@ -292,8 +292,8 @@ def test_local_from_import_rebinds_after_dependency_edit(tmp_path, monkeypatch):
     import sys
     from psx import App, Flex, Text, component
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
     monkeypatch.syspath_prepend(str(tmp_path))
     helper = tmp_path / "refresh_helper.py"
@@ -372,8 +372,8 @@ def test_root_host_switch_requests_restart_before_native_teardown():
     from psx.core.errors import RootHostTransitionRequiresRestart
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
     current = [psx("<div><p>Before</p></div>")]
 
@@ -406,8 +406,8 @@ def test_fast_refresh_swaps_div_and_flex_hosts_without_disposing_component():
     from psx import Flex, Text, component, psx, use_state
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
     use_flex = [False]
 
@@ -449,8 +449,8 @@ def test_root_fragment_mounts_multiple_siblings_and_updates_state_without_native
     from psx import component, psx, use_state
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
     from psx.core.vnode import NodeKind
 
     set_count = []
@@ -488,8 +488,8 @@ def test_direct_fragment_is_accepted_as_layout_root():
     from psx import psx
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
     renderer = HeadlessRenderer(
         sfle_constraints=LayoutConstraints(AvailableSize(360, True),
                                            AvailableSize(240, True)),
@@ -556,8 +556,8 @@ def test_refresh_candidate_omits_unrelated_bootstrap_but_keeps_components():
 def test_mounted_fast_refresh_adds_new_component_without_restart(tmp_path, monkeypatch):
     from psx import App, component, psx
     from psx.renderers.headless import HeadlessRenderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
 
     source = tmp_path / "main.py"
     source.write_text(

@@ -1,0 +1,118 @@
+name: Cinnamon engine-wide parity (Rust/Python)
+
+on:
+  push:
+    branches: [feature/semantic-inline-fragments]
+    paths:
+      - 'psx/layout/**'
+      - 'psx/layout/fallback/semantic_inline_text.py'
+      - 'psx/renderers/**/inline_paint.py'
+      - 'psx/renderers/**/inline_measurement.py'
+      - 'rust/sfle-core/**'
+      - 'rust/sfle-core/src/python_binding.rs'
+      - 'rust/sfle-core/src/lib.rs'
+      - 'psx/markup/html_aliases.py'
+      - 'psx/renderers/**/cinnamon_*layout_bridge.py'
+      - 'tests/sfle/test_semantic_inline_text.py'
+      - 'tests/interop/**'
+      - 'tests/interop/test_cinnamon_block_rust_python_parity.py'
+      - 'tests/interop/test_cinnamon_grid_rust_python_parity.py'
+      - 'psx/layout/grid/solver.py'
+      - 'rust/sfle-core/src/flow_snapshot.rs'
+      - 'tests/architecture/**'
+      - 'tests/sfle/**'
+      - 'tests/test_kivy_button_default_padding.py'
+      - 'tests/test_kivy_native_layout.py'
+      - '.github/workflows/semantic-inline-fragments.yml'
+  pull_request:
+    paths:
+      - 'psx/layout/inline/**'
+      - 'psx/layout/fallback/semantic_inline_text.py'
+      - 'psx/renderers/**/inline_paint.py'
+      - 'psx/renderers/**/inline_measurement.py'
+      - 'rust/sfle-core/src/semantic_inline_text.rs'
+      - 'rust/sfle-core/src/python_binding.rs'
+      - 'rust/sfle-core/src/lib.rs'
+      - 'psx/markup/html_aliases.py'
+      - 'psx/renderers/**/cinnamon_*layout_bridge.py'
+      - 'tests/sfle/test_semantic_inline_text.py'
+      - 'tests/interop/test_semantic_inline_rust_python_parity.py'
+      - 'tests/interop/test_cinnamon_block_rust_python_parity.py'
+      - 'tests/interop/test_cinnamon_grid_rust_python_parity.py'
+      - 'psx/layout/grid/solver.py'
+      - 'rust/sfle-core/src/flow_snapshot.rs'
+      - '.github/workflows/semantic-inline-fragments.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pure:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python -m pip install -e . pytest
+      - run: python -m pytest -q tests/sfle/test_semantic_inline_text.py tests/sfle/test_semantic_inline_native_layout.py tests/test_markup_css_binding.py tests/sfle/test_mixed_inline_span.py
+
+  native:
+    runs-on: ubuntu-24.04
+    env:
+      QT_QPA_PLATFORM: offscreen
+      KIVY_NO_ARGS: '1'
+      KIVY_NO_FILELOG: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth python3-tk libmtdev1 libgl1 libegl1 libopengl0 libxkbcommon-x11-0 libxcb-cursor0
+          python -m pip install -e '.[pyside6,kivy]' pytest
+      - run: python -m pytest -q tests/test_pyside6_native_layout.py -k 'mixed_inline_span_remains_in_paragraph_text_line or inline_span_padding_keeps_native_text_baselines'
+      - run: xvfb-run -a python -m pytest -q tests/test_tkinter_native_layout.py -k 'inline_span_stays_on_paragraph_line_in_tk or inline_span_padding_does_not_shift_tk_glyph_baseline'
+      - run: xvfb-run -a python -m pytest -q tests/test_kivy_button_default_padding.py tests/test_kivy_button_intrinsic_skin.py
+      - run: xvfb-run -a python -m pytest -q tests/test_kivy_native_layout.py -k 'mixed_inline_span_keeps_one_line_when_available or inline_span_padding_keeps_native_text_baseline'
+
+  rust-core:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run actual independent Rust inline kernel tests
+        run: cargo test --manifest-path rust/sfle-core/Cargo.toml semantic_inline_text -- --nocapture
+
+  native-rust-python-parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install PSX and native wheel toolchain
+        run: python -m pip install -e . pytest 'maturin>=1.8,<2'
+      - name: Compile Rust Cinnamon engine into the actual PyO3 wheel
+        run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out /tmp/sfle-inline-wheels
+      - name: Install and verify native ABI, without Python fallback
+        run: |
+          python -m pip install --no-deps /tmp/sfle-inline-wheels/*.whl
+          python -c "import _sfle_native as x; assert x.schema_version()==1 and callable(x.compute_inline_text_json)"
+      - name: Compare exact fragment, line, baseline and fixed-point positions
+        run: python -m pytest -q tests/interop/test_semantic_inline_rust_python_parity.py
+      - name: Certify independent Block/Inline kernels (exact geometry)
+        run: python -m pytest -q tests/interop/test_cinnamon_block_rust_python_parity.py
+      - name: Certify independent native Grid math with exact 1/64 px geometry
+        run: python -m pytest -q tests/interop/test_cinnamon_grid_rust_python_parity.py
+      - name: Certify historical recursive measurement, convergence and lifecycle parity
+        run: python -m pytest -q tests/interop/test_cinnamon_recursive_legacy_parity.py
+      - name: Certify engine-wide full, provisional, incremental, Grid and text parity
+        run: python -m pytest -q tests/interop/test_cinnamon_engine_wide_parity.py

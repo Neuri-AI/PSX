@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from types import MappingProxyType
 import math
 
-from psx.sfle.lengths import LengthKind, parse_length
+from psx.layout.contracts.lengths import LengthKind, parse_length
 
 from .errors import RendererCapabilityError
 

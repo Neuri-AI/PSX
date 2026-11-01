@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from psx.sfle.line_layout import FlexDirection
-from psx.sfle.main_margins import (
+from psx.layout.fallback.line_layout import FlexDirection
+from psx.layout.fallback.main_margins import (
     MarginItem, UsedMargin, position_main_margins,
 )
-from psx.sfle.model import WritingDirection
+from psx.layout.contracts.model import WritingDirection
 
 
 def item(name: str, start: float | None = 0, end: float | None = 0):

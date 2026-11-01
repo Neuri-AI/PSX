@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from psx.sfle.backend import load_layout_engine
-from psx.sfle.errors import DiagnosticCode, SFLEError
+from psx.layout.engine.backend import load_layout_engine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 
 
 @pytest.mark.parametrize("reported", [True, 1.0, "1", None, 0, 2])

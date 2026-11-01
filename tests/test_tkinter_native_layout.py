@@ -16,9 +16,9 @@ from psx import Button, Checkbox, Flex, Text, TextArea, component, psx, use_stat
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.renderers.tkinter.tkinter import TkinterRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutResult
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints, LayoutResult
 
 
 def write_png(path, width, height):
@@ -72,7 +72,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
 
     def test_nested_grid_uses_one_rollback_snapshot_per_tk_transaction(self):
         from unittest.mock import patch
-        from psx.sfle.mixed_grid_native import MountedMixedGrid
+        from psx.layout.grid.mixed_grid_native import MountedMixedGrid
 
         root = self.reconciler.render(psx(
             '<div><Grid gap="8px"><GridItem span="6">'
@@ -173,7 +173,11 @@ class TkSFLEGeometryTests(unittest.TestCase):
             '<button>Count is 0</button></div>'
         ))
         paragraph, button = root.children
-        # Mixed paragraph text is split into measured words and whitespace.
+        assert [item.node.type for item in paragraph.children] == [
+            "Text", "span", "Text",
+        ]
+        # Tk paints fragment glyphs in the source Label's own canvas.
+        # Keep semantic source nodes intact.
         # The span's sibling index changes when the tokenizer changes.
         children = paragraph.children
         span_index = next(
@@ -195,6 +199,9 @@ class TkSFLEGeometryTests(unittest.TestCase):
             if child.node.type == "Text"
             and child.node.props["value"] == "src/App.tsx"
         )
+        assert suffix.cget("text") == " and save to test HMR"
+        assert hasattr(suffix, "_psx_semantic_inline_canvas")
+        assert len(suffix._psx_semantic_inline_canvas.find_all()) == 5
         assert rect(prefix)[1] == rect(span)[1] == rect(suffix)[1]
         assert rect(prefix)[0] < rect(span)[0] < rect(suffix)[0]
         assert nested.cget("text") == "src/App.tsx"
@@ -423,8 +430,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
     def test_mounted_tk_flex_consumes_canonical_item_lengths(self):
         from unittest.mock import patch
 
-        from psx.sfle.lengths import Length
-        from psx.sfle.native_layout_snapshot import PreparedNativeLayoutSnapshot
+        from psx.layout.contracts.lengths import Length
+        from psx.layout.projection.native_layout_snapshot import PreparedNativeLayoutSnapshot
 
         original = PreparedNativeLayoutSnapshot.canonical_snapshot
         snapshots = []
@@ -757,7 +764,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         self.assertEqual(rect(editor)[3], 36)
 
     def test_tk_scaling_does_not_multiply_native_place_rectangles(self):
-        from psx.sfle.native_pixel_space import DevicePixelSpace
+        from psx.layout.adapters.native_pixel_space import DevicePixelSpace
         root = self.reconciler.render(Flex(
             item("B", "b", 36),
             width=160, height=80,
@@ -1240,7 +1247,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
     def test_scroll_failed_commit_restores_tk_scrollregion_and_offsets(self):
         from unittest.mock import patch
         from psx import Scroll
-        from psx.sfle import native_scroll_hosts
+        from psx.layout import native_scroll_hosts
         self.renderer.set_sfle_constraints(constraints(300, 200))
         root = self.reconciler.render(Flex(
             Scroll(Flex(item("Inside", "inside", 40),
@@ -1325,9 +1332,9 @@ class TkSFLEGeometryTests(unittest.TestCase):
 
     def test_scroll_disabled_axes_reset_existing_tk_offsets(self):
         from psx import Scroll
-        from psx.sfle.model import Rect
-        from psx.sfle.native_scroll_hosts import apply_tk_scroll, binding_from_host
-        from psx.sfle.scroll_offsets import ScrollOffset
+        from psx.layout.contracts.model import Rect
+        from psx.layout.adapters.native_scroll_hosts import apply_tk_scroll, binding_from_host
+        from psx.layout.scroll.scroll_offsets import ScrollOffset
         self.renderer.set_sfle_constraints(constraints(300, 200))
         root = self.reconciler.render(Flex(
             Scroll(Flex(item("Inside", "inside", 40),
@@ -1392,9 +1399,9 @@ class TkSFLEGeometryTests(unittest.TestCase):
 
     def test_native_scroll_overflow_offsets_and_canvas_clipping(self):
         from psx import Scroll
-        from psx.sfle.native_scroll_hosts import apply_tk_scroll, binding_from_host
-        from psx.sfle.scroll_offsets import ScrollOffset
-        from psx.sfle.model import Rect
+        from psx.layout.adapters.native_scroll_hosts import apply_tk_scroll, binding_from_host
+        from psx.layout.scroll.scroll_offsets import ScrollOffset
+        from psx.layout.contracts.model import Rect
 
         self.renderer.set_sfle_constraints(constraints(300, 200))
         root = self.reconciler.render(Flex(
@@ -1575,7 +1582,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
             regular.close()
 
     def test_button_native_lifecycle_is_observed_through_reconciliation(self):
-        from psx.sfle.native_operation_oracles import Observation, ORACLES
+        from psx.layout.compat.native_operation_oracles import Observation, ORACLES
 
         calls = []
         def original(): return calls.append("old")
@@ -1637,8 +1644,8 @@ class TkSFLEGeometryTests(unittest.TestCase):
                          Scroll)
         from psx.core.vnode import Box
         from psx.core.vnode import create_element
-        from psx.sfle.native_operation_oracles import Observation, ORACLES
-        from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
+        from psx.layout.compat.native_operation_oracles import Observation, ORACLES
+        from psx.layout.projection.native_component_capabilities import NATIVE_LEAF_TYPES
         from pathlib import Path
         from tempfile import TemporaryDirectory
         import base64
@@ -1824,7 +1831,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
         from psx import (Button, Input, TextArea, Checkbox, Slider, RadioGroup,
                          Radio, Select, Switch, Link, SpinBox)
         from psx.core.vnode import create_element
-        from psx.sfle.native_operation_contracts import EVENTLESS
+        from psx.layout.compat.native_operation_contracts import EVENTLESS
 
         factories = {
             "Button": (Button("Action"), "on_click", ()),
@@ -1840,7 +1847,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
             "Link": (Link(label="Action"), "on_click", ()),
             "SpinBox": (SpinBox(value=2), "on_change", (3,)),
         }
-        from psx.sfle.native_component_capabilities import NATIVE_LEAF_TYPES
+        from psx.layout.projection.native_component_capabilities import NATIVE_LEAF_TYPES
         native = set(NATIVE_LEAF_TYPES["tk"]) | {"Flex"}
         self.assertEqual(set(factories), native - set(EVENTLESS))
         for name, (base, event, args) in factories.items():
@@ -1915,7 +1922,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
 
     def test_readback_race_restores_tk_placement_and_preserves_identity(self):
         from unittest.mock import patch
-        import psx.sfle.tkinter_layout_bridge as bridge
+        import psx.renderers.tkinter.cinnamon_tkinter_layout_bridge as bridge
 
         root = self.reconciler.render(Flex(
             item("First", "first", 40), item("Second", "second", 30),
@@ -1949,7 +1956,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
 
     def test_native_tk_geometry_application_failure_restores_previous_placement(self):
         from unittest.mock import patch
-        import psx.sfle.tkinter_layout_bridge as bridge
+        import psx.renderers.tkinter.cinnamon_tkinter_layout_bridge as bridge
 
         root = self.reconciler.render(Flex(
             item("First", "first", 40), item("Second", "second", 30),
@@ -1980,7 +1987,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
 
     def test_native_tk_geometry_invalidation_during_application_rolls_back(self):
         from unittest.mock import patch
-        import psx.sfle.tkinter_layout_bridge as bridge
+        import psx.renderers.tkinter.cinnamon_tkinter_layout_bridge as bridge
 
         root = self.reconciler.render(Flex(
             item("First", "first", 40), item("Second", "second", 30),
@@ -2096,7 +2103,7 @@ def test_html_flow_public_native_geometry_receipt_tkinter(request):
 
 def test_tk_width_measurement_preserves_empty_wraplength_and_skips_unchanged_write():
     """Tcl's empty wraplength is valid and must survive temporary measurements."""
-    from psx.sfle.tk_measurement import TkMeasurementSource
+    from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
 
     class Widget:
         def __init__(self, wraplength):
@@ -2141,7 +2148,7 @@ def test_tk_width_measurement_preserves_empty_wraplength_and_skips_unchanged_wri
 
 def test_tk_wrapping_measurements_restore_widget_state_without_extra_idle_drain():
     """Width probes must preserve mounted label wrapping and native hints."""
-    from psx.sfle.tk_measurement import TkMeasurementSource
+    from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
     import tkinter as tk
 
     root = tk.Tk()
@@ -2165,7 +2172,7 @@ def test_tk_wrapping_measurements_restore_widget_state_without_extra_idle_drain(
 
 def test_tk_grid_transaction_avoids_repeated_idle_drains_for_unchanged_wrap():
     """The Grid bridge drains once; only a changed wrap requires a new drain."""
-    from psx.sfle.tk_measurement import TkMeasurementSource
+    from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
 
     class Widget:
         def __init__(self, initial=None):
@@ -2215,7 +2222,7 @@ def test_tk_native_empty_wraplength_is_unwrapped_and_fits_without_probe():
     """An empty Tcl wrap option is unwrapped, not a reason to relayout."""
     import tkinter as tk
     from tkinter import ttk
-    from psx.sfle.tk_measurement import TkMeasurementSource
+    from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
 
     root = tk.Tk()
     root.withdraw()
@@ -2236,7 +2243,7 @@ def test_tk_native_empty_wraplength_is_unwrapped_and_fits_without_probe():
 
 def test_tk_grid_fit_short_circuits_width_probe_only_for_unwrapped_text():
     """A fitted natural label needs no wrap mutation or Tcl idle drain."""
-    from psx.sfle.tk_measurement import TkMeasurementSource
+    from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
 
     class Label:
         def __init__(self, natural):

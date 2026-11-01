@@ -1,7 +1,7 @@
 """Explicit CSS outer/inner display semantics and fail-closed defaults."""
 import pytest
 
-from psx.sfle.display_context import (
+from psx.layout.projection.display_context import (
     DisplayMode, InnerDisplay, OuterDisplay, display_change_requires_reflow,
     resolve_display, layout_measured_children,
 )
@@ -69,7 +69,7 @@ def test_legacy_components_do_not_inherit_html_defaults():
 
 
 def test_block_context_dispatches_real_geometry():
-    from psx.sfle.flow_layout import BlockItem
+    from psx.layout.fallback.flow_layout import BlockItem
     boxes = layout_measured_children(resolve_display("div"), 300, (
         BlockItem(300, 20),
         BlockItem(100, 10, margin_top=5),
@@ -78,7 +78,7 @@ def test_block_context_dispatches_real_geometry():
 
 
 def test_inline_context_dispatches_atomic_line_wrapping():
-    from psx.sfle.flow_layout import InlineAtom
+    from psx.layout.fallback.flow_layout import InlineAtom
     boxes = layout_measured_children(resolve_display("span"), 100, (
         InlineAtom(70, 20, 15),
         InlineAtom(50, 10, 8),

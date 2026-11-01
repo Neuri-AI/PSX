@@ -5,7 +5,7 @@ from psx.core.errors import MarkupSyntaxError
 from psx.core.vnode import NodeKind
 from psx.markup.compile import compile_template, psx
 from psx.css.visual_values import CssColor
-from psx.sfle.lengths import Length
+from psx.layout.contracts.lengths import Length
 
 
 def styled(markup: str, css: str, scope=None):
@@ -327,22 +327,15 @@ def test_mixed_inline_paragraph_preserves_source_order_and_whitespace():
         '<p>Edit <span>src/App.tsx</span> and save to test HMR</p>'
     )
     assert paragraph.type == "p"
-    # A mixed paragraph's first literal is word-tokenized: "Edit" then
-    # " " then <span>. This keeps HTML whitespace intact and enables
-    # Cinnamon to wrap at word boundaries without splitting a span token.
-    assert [child.type for child in paragraph.children][:3] == [
-        "Text", "Text", "span",
+    # PSX keeps precisely the three authored semantic children. Wrapping
+    # belongs to Cinnamon's source-owned inline fragment layout.
+    assert [child.type for child in paragraph.children] == [
+        "Text", "span", "Text",
     ]
-    assert [child.props["value"] for child in paragraph.children[:2]] == [
-        "Edit", " ",
-    ]
-    spans = [child for child in paragraph.children if child.type == "span"]
-    assert len(spans) == 1
-    span = spans[0]
+    before, span, after = paragraph.children
+    assert before.props["value"] == "Edit "
+    assert after.props["value"] == " and save to test HMR"
     assert [child.props["value"] for child in span.children] == ["src/App.tsx"]
-    span_index = next(index for index, child in enumerate(paragraph.children)
-                      if child.type == "span")
-    assert paragraph.children[span_index + 1].props["value"] == " "
     def text_content(node):
         if node.type == "Text":
             return node.props["value"]
@@ -383,8 +376,8 @@ def test_mixed_inline_heading_preserves_native_title_size():
 
 def test_html_img_css_width_reaches_cinnamon_without_rewriting_native_source():
     from psx.core.layout_tree import normalize_flex_tree
-    from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
     root = styled(
         '<div class="root"><img src="images/logo.svg" />'

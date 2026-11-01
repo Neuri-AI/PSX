@@ -11,9 +11,9 @@ import random
 import subprocess
 import pytest
 from fuzz_dimension_helpers import _typed, rust_binary
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize,LayoutConstraints,LayoutInput,LayoutNode,WritingDirection
-from psx.sfle.native_wire import serialize_snapshot
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize,LayoutConstraints,LayoutInput,LayoutNode,WritingDirection
+from psx.layout.contracts.native_wire import serialize_snapshot
 
 SEEDS=(0xA1B001,0xA1B002,0xA1B003,0xA1B004,0xA1B005)
 

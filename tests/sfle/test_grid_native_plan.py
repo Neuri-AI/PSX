@@ -4,10 +4,10 @@ from __future__ import annotations
 from dataclasses import replace
 import pytest
 
-from psx.sfle.grid_math import (
+from psx.layout.fallback.grid_math import (
     GridSlot, GridItemConstraints, GridPackingError, compute_grid,
 )
-from psx.sfle.grid_native_plan import plan_grid_native_geometry
+from psx.layout.grid.grid_native_plan import plan_grid_native_geometry
 
 
 def batch(rows, *, ids=("a", "b"), measured=None, mounted=None, generation=4, current=4):

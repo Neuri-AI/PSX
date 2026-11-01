@@ -9,9 +9,9 @@ from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'sfle'))
 
 import pytest
-from psx.sfle.backend import load_layout_engine
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import SFLEError, DiagnosticCode
+from psx.layout.engine.backend import load_layout_engine
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import SFLEError, DiagnosticCode
 from test_acceptance_contract_regression import case_snapshot
 
 
@@ -63,9 +63,9 @@ def test_A08_rust_worker_headless_ui_measuring_and_observed_commit():
     """Installed PyO3 executes on a real worker; native port stays UI-owned."""
     import threading
     from dataclasses import replace
-    from psx.sfle.worker_lifecycle import start_native_worker_layout
-    from psx.sfle.measurement_plan import MeasurementRequest
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.layout.runtime.worker_lifecycle import start_native_worker_layout
+    from psx.layout.fallback.measurement_plan import MeasurementRequest
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sfle"))
     from test_native_worker_portable_regression import _UIQueue, _source
 
@@ -144,7 +144,7 @@ def test_A08_installed_rust_wheel_real_qt_geometry_commit():
 
 def test_installed_rust_wheel_matches_python_for_measured_block_and_inline():
     """The actual PyO3 wheel must route semantic flow through Rust."""
-    from psx.sfle.model import (
+    from psx.layout.contracts.model import (
         AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
         LayoutNode, MeasuredBox, WritingDirection,
     )

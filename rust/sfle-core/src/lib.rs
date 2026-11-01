@@ -10,6 +10,7 @@ pub mod grid_math;
 pub mod flow_layout;
 mod flow_snapshot;
 pub mod layout_unit;
+pub mod semantic_inline_text;
 #[cfg(feature = "python")]
 mod python_binding;
 mod compute_layout;
@@ -31,6 +32,8 @@ pub mod intrinsic_dependencies;
 pub mod dependency_cycle;
 pub mod edge_tree;
 pub mod margin_tree;
+#[cfg(feature = "python")]
+mod recursive_wire;
 pub mod auto_cross_tree;
 pub mod edge_pipeline;
 pub mod intrinsic;

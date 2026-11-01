@@ -9,12 +9,12 @@ import math
 
 import pytest
 
-from psx.sfle.errors import SFLEError
-from psx.sfle.fixed_point import I32_MAX, I32_MIN, LayoutUnit
-from psx.sfle.margin_tree import MarginTreeNode
-from psx.sfle.model import BoxRect, LayoutResult, Rect
-from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
-from psx.sfle.native_pixel_space import DevicePixelSpace
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.contracts.fixed_point import I32_MAX, I32_MIN, LayoutUnit
+from psx.layout.fallback.margin_tree import MarginTreeNode
+from psx.layout.contracts.model import BoxRect, LayoutResult, Rect
+from psx.layout.adapters.native_geometry import GeometryBackend, NativeGeometryCommitter
+from psx.layout.adapters.native_pixel_space import DevicePixelSpace
 
 
 def box(x: float, y: float, width: float, height: float) -> BoxRect:

@@ -6,11 +6,11 @@ from types import MappingProxyType
 import pytest
 
 from psx.core.errors import RendererCapabilityError
-from psx.sfle.canonical_box_style import (
+from psx.layout.projection.canonical_box_style import (
     normalize_item_box_style,
     partition_item_box_style,
 )
-from psx.sfle.lengths import LengthKind
+from psx.layout.contracts.lengths import LengthKind
 
 
 def test_defaults_are_immutable_unresolved_content_box_fields() -> None:
@@ -62,7 +62,7 @@ def test_namespaced_validation_does_not_accept_unknown_component_props() -> None
 
 
 def test_literal_box_cache_keeps_native_fields_private_and_revalidates_changes() -> None:
-    from psx.sfle.canonical_box_style import _normalize_literal_fields
+    from psx.layout.projection.canonical_box_style import _normalize_literal_fields
 
     _normalize_literal_fields.cache_clear()
     first = normalize_item_box_style({

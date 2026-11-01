@@ -1,7 +1,7 @@
 """RED N03: do not silently resolve an unlisted indefinite percentage cycle."""
 import pytest
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 from test_acceptance_contract_regression import case_snapshot, _ACCEPTANCE
 
 

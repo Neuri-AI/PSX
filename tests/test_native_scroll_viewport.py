@@ -4,10 +4,10 @@ import pytest
 from psx import Flex, Scroll, Text
 from psx.core.errors import RendererCapabilityError
 from psx.core.layout_tree import normalize_flex_tree
-from psx.sfle.native_scroll_viewport import (
+from psx.layout.scroll.native_scroll_viewport import (
     bind_scroll_viewport, require_scroll_content_root,
 )
-from psx.sfle.model import Rect
+from psx.layout.contracts.model import Rect
 
 
 def test_scroll_explicit_flex_root_and_engine_rectangles_are_preserved():

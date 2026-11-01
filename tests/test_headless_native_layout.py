@@ -7,9 +7,9 @@ from psx import Button, Flex, Text, component, use_state
 from psx.core.errors import RendererCapabilityError
 from psx.core.reconcile import Reconciler
 from psx.renderers.headless import HeadlessRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.model import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutResult,
 )
 
@@ -29,8 +29,8 @@ def new_renderer(**options) -> HeadlessRenderer:
 
 
 def test_mounted_headless_flex_consumes_canonical_item_lengths(monkeypatch) -> None:
-    from psx.sfle.lengths import Length
-    from psx.sfle.native_layout_snapshot import PreparedNativeLayoutSnapshot
+    from psx.layout.contracts.lengths import Length
+    from psx.layout.projection.native_layout_snapshot import PreparedNativeLayoutSnapshot
 
     observed = []
     original = PreparedNativeLayoutSnapshot.canonical_snapshot
@@ -366,7 +366,7 @@ def test_owner_thread_is_required_for_headless_commit() -> None:
 
 def test_button_lifecycle_operations_use_real_headless_observations() -> None:
     """Exercise Button operations through the reconciler, not fabricated oracle data."""
-    from psx.sfle.native_operation_oracles import Observation, ORACLES
+    from psx.layout.compat.native_operation_oracles import Observation, ORACLES
 
     calls: list[str] = []
 
@@ -452,8 +452,8 @@ def test_button_lifecycle_operations_use_real_headless_observations() -> None:
 
 def test_all_supported_headless_components_reconcile_without_remount() -> None:
     """Exercise Flex, Text and Button independently across all lifecycle stages."""
-    from psx.sfle.native_operation_oracles import Observation, ORACLES
-    from psx.sfle.native_component_matrix import HEADLESS_PORTED
+    from psx.layout.compat.native_operation_oracles import Observation, ORACLES
+    from psx.layout.compat.native_component_matrix import HEADLESS_PORTED
 
     def measure(node):
         if node.type == "Text":
@@ -584,7 +584,7 @@ def test_failed_headless_component_update_keeps_last_committed_node() -> None:
 @pytest.mark.parametrize("reason", ("content", "font", "theme", "resource", "dpi", "viewport"))
 def test_native_invalidation_explicit_invalidation_remeasures_without_remount(reason: str) -> None:
     """C5 observable Headless remeasurement, not merely a queued callback."""
-    from psx.sfle.native_operation_oracles import Observation, ORACLES
+    from psx.layout.compat.native_operation_oracles import Observation, ORACLES
 
     calls = []
     measurement = {"width": 20}
@@ -701,7 +701,7 @@ def test_native_invalidation_headless_intrinsic_cache_skips_unaffected_siblings(
 
 def test_native_invalidation_invalidated_during_measurement_rejects_stale_geometry_and_recovers() -> None:
     """A semantic event raised by a host measurement cannot commit old boxes."""
-    from psx.sfle.errors import SFLEError
+    from psx.layout.contracts.errors import SFLEError
 
     source = {"width": 20, "mutate": False}
     renderer_holder = {}
@@ -742,7 +742,7 @@ def test_native_invalidation_invalidated_during_measurement_rejects_stale_geomet
 
 
 def test_native_invalidation_failed_queued_measurement_retains_request_until_successful_retry() -> None:
-    from psx.sfle.errors import SFLEError
+    from psx.layout.contracts.errors import SFLEError
 
     fail = {"active": False}
     def measure(node):
@@ -885,7 +885,7 @@ def test_native_invalidation_multi_trigger_invalidation_during_measurement_prese
 
 def test_native_invalidation_invalidation_during_native_readback_rolls_back_and_recovers(monkeypatch) -> None:
     """A resource event during readback must not publish stale geometry."""
-    import psx.sfle.headless_layout_bridge as bridge
+    import psx.layout.adapters.headless_layout_bridge as bridge
 
     renderer = new_renderer()
     reconciler = Reconciler(renderer)

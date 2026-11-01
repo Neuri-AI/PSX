@@ -27,8 +27,8 @@ class PyQtRendererSubprocessTests(unittest.TestCase):
                 return Flex(Text(str(value), key="text"), Button("+", key="button", on_click=lambda: set_value(value + 1)), direction="column")
 
             from psx.renderers.qt.pyqt import PyQt5Renderer, PyQt6Renderer
-            from psx.sfle.engine import PythonLayoutEngine
-            from psx.sfle.model import AvailableSize, LayoutConstraints
+            from psx.layout.fallback.engine import PythonLayoutEngine
+            from psx.layout.contracts.model import AvailableSize, LayoutConstraints
             renderer_class = PyQt5Renderer if "{binding}" == "pyqt5" else PyQt6Renderer
             renderer = renderer_class(
                 sfle_constraints=LayoutConstraints(

@@ -1,10 +1,10 @@
 """Independent tests for scroll input normalization and nested residual routing."""
 import pytest
 
-from psx.sfle.model import Rect
-from psx.sfle.native_scroll_viewport import ScrollViewportBinding
-from psx.sfle.scroll_offsets import ScrollOffset
-from psx.sfle.scroll_events import (
+from psx.layout.contracts.model import Rect
+from psx.layout.scroll.native_scroll_viewport import ScrollViewportBinding
+from psx.layout.scroll.scroll_offsets import ScrollOffset
+from psx.layout.scroll.scroll_events import (
     ScrollEventTarget, dispatch_scroll_delta, scroll_key_delta,
 )
 

@@ -1,7 +1,7 @@
 """Nested Grid widths follow the content box of surrounding HTML-like blocks."""
-from psx.sfle.grid_native_composition import nested_flow_grid_width
-from psx.sfle.lengths import Length
-from psx.sfle.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection
+from psx.layout.grid.grid_native_composition import nested_flow_grid_width
+from psx.layout.contracts.lengths import Length
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints, LayoutInput, LayoutNode, WritingDirection
 
 
 def _snapshot(*nodes):

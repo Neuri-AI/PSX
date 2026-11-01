@@ -1,11 +1,11 @@
 """Native geometry commit guards and generation invalidation."""
 import pytest
 
-from psx.sfle.errors import SFLEError
-from psx.sfle.headless_measurement import HeadlessMeasurementSource
-from psx.sfle.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
-from psx.sfle.measurement_plan import MeasurementRequest
-from psx.sfle.model import IntrinsicSizes
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.adapters.headless_measurement import HeadlessMeasurementSource
+from psx.layout.runtime.native_lifecycle import NativeLayoutLifecycle, layout_and_commit
+from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.layout.contracts.model import IntrinsicSizes
 from test_recursive_measurement import NODES, SIZING, METRICS, snapshot
 
 
@@ -26,7 +26,7 @@ def test_stale_generation_blocks_commit_after_measurement():
         generation[0] = 6
         return HeadlessMeasurementSource(((request.node_id, METRICS),)).measure(request)
 
-    from psx.sfle.native_measurement import NativeMeasurementPort
+    from psx.layout.runtime.native_measurement import NativeMeasurementPort
     lifecycle = NativeLayoutLifecycle(
         lambda: generation[0], NativeMeasurementPort(lambda: True, measure),
         commits.append,
@@ -37,8 +37,8 @@ def test_stale_generation_blocks_commit_after_measurement():
 
 
 def test_deferred_axis_is_not_committed_as_complete_geometry():
-    from psx.sfle.lengths import Length, LengthKind
-    from psx.sfle.constraint_propagation import ChildSizing
+    from psx.layout.contracts.lengths import Length, LengthKind
+    from psx.layout.fallback.constraint_propagation import ChildSizing
     commits = []
     source = HeadlessMeasurementSource((("root", METRICS), ("child", METRICS)))
     lifecycle = NativeLayoutLifecycle(lambda: 5, source.port(), commits.append)
@@ -50,7 +50,7 @@ def test_deferred_axis_is_not_committed_as_complete_geometry():
 
 
 def test_wrong_ui_thread_blocks_all_native_measurement():
-    from psx.sfle.native_measurement import NativeMeasurementPort
+    from psx.layout.runtime.native_measurement import NativeMeasurementPort
     lifecycle = NativeLayoutLifecycle(
         lambda: 5,
         NativeMeasurementPort(lambda: False, lambda _: (_ for _ in ()).throw(AssertionError())),

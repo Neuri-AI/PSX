@@ -14,8 +14,8 @@ def test_reloaded_pyqtgraph_native_widget_mounts_inside_css_grid(tmp_path):
     from psx.devtools.qyro_reload import _load_updated_class
     from psx.core.reconcile import Reconciler
     from psx.renderers.qt.pyside import PySide6Renderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
     renderer = PySide6Renderer(
         sfle_constraints=LayoutConstraints(
@@ -87,8 +87,8 @@ def test_activity_paragraphs_are_not_clipped_inside_css_flex_rows():
     from psx import psx
     from psx.core.reconcile import Reconciler
     from psx.renderers.qt.pyside import PySide6Renderer
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 
     renderer = PySide6Renderer(
         sfle_constraints=LayoutConstraints(

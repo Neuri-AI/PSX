@@ -21,8 +21,8 @@ def test_spacer_is_a_builtin_markup_tag() -> None:
 
 
 def native_headless_renderer():
-    from psx.sfle.engine import PythonLayoutEngine
-    from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
     return HeadlessRenderer(
         sfle_constraints=LayoutConstraints(
             AvailableSize(640, True), AvailableSize(480, True)),

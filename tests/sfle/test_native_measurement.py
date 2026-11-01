@@ -1,10 +1,10 @@
 """Native protocol test double verifies UI-thread and batch contracts."""
 import pytest
-from psx.sfle.errors import SFLEError
-from psx.sfle.measurement_round import MeasurementRound
-from psx.sfle.measurement_plan import MeasurementRequest
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox
-from psx.sfle.native_measurement import NativeMeasurementPort, fulfill_native_round
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.fallback.measurement_round import MeasurementRound
+from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox
+from psx.layout.runtime.native_measurement import NativeMeasurementPort, fulfill_native_round
 
 C = LayoutConstraints(AvailableSize(100, True), AvailableSize(None, False))
 R = MeasurementRound(8, (MeasurementRequest("leaf", C, 8, 2),), (), ("leaf",))

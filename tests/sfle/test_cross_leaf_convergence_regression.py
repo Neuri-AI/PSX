@@ -4,11 +4,11 @@ The initial first-pass flex result shifts A. A's remeasurement then shifts B.
 A coordinator must not falsely report convergence before remeasuring B.
 """
 
-from psx.sfle.model import (
+from psx.layout.contracts.model import (
     AvailableSize, BoxRect, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, LayoutResult, Rect, WritingDirection,
 )
-from psx.sfle.remeasure_session import compute_with_width_measurements
+from psx.layout.runtime.remeasure_session import compute_with_width_measurements
 
 
 def test_a_change_that_reallocates_b_requires_a_third_ui_measurement():

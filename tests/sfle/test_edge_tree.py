@@ -1,9 +1,9 @@
 """Nested padding and border boxes must compose through content origins."""
 import pytest
-from psx.sfle.box_geometry import UsedBoxEdges, UsedEdges
-from psx.sfle.edge_tree import EdgeTreeNode, compute_edge_tree
-from psx.sfle.errors import SFLEError
-from psx.sfle.flex_math import FlexBasis
+from psx.layout.fallback.box_geometry import UsedBoxEdges, UsedEdges
+from psx.layout.fallback.edge_tree import EdgeTreeNode, compute_edge_tree
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.fallback.flex_math import FlexBasis
 
 def basis(n, grow=0):
     return FlexBasis(n,n,grow=grow,shrink=1,min_size=0)

@@ -7,9 +7,9 @@ import pytest
 
 from psx.markup.compile import psx
 from psx.core.layout_tree import normalize_flex_tree
-from psx.sfle.native_layout_snapshot import prepare_native_layout_snapshot
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import (
+from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
     MeasuredBox,
 )
@@ -113,7 +113,7 @@ def test_authored_css_width_and_native_layout_width_are_not_overridden():
         '<p style="width: 120px">Fixed</p>'
         '<h1 layout_width="50%">Half width</h1></div>'
     )
-    from psx.sfle.lengths import Length
+    from psx.layout.contracts.lengths import Length
     assert records["p"][1]["layout_width"] == Length.px(120)
     assert records["h1"][1]["layout_width"] == Length.percent(0.5)
 

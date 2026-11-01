@@ -8,8 +8,8 @@ import pytest
 from psx import Button, Checkbox, Flex, Input
 from psx.core.reconcile import Reconciler
 from psx.renderers.tkinter.tkinter import TkinterRenderer
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
 from tests.certification.public_behavior_census import Feature, assert_feature
 
 
@@ -300,7 +300,7 @@ def test_html_block_native_geometry_and_reconciliation(tk_tree, request):
         and float(alpha_inline["x"]) == float(beta_inline["width"])
         and float(alpha_inline["width"]) < 400,
     )
-    from psx.sfle.model import LayoutConstraints, AvailableSize
+    from psx.layout.contracts.model import LayoutConstraints, AvailableSize
     renderer = tk_tree[1]
     before_generation = renderer.sfle_result.generation
     renderer.set_sfle_constraints(LayoutConstraints(

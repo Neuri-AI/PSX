@@ -1,11 +1,11 @@
 """Measured block snapshot must retain real intrinsic dimensions and fail closed."""
 import pytest
 
-from psx.sfle.errors import SFLECapabilityError
-from psx.sfle.fixed_point import LayoutUnit, nearest_layout_px
-from psx.sfle.lengths import Length
-from psx.sfle.measured_block_snapshot import compute_measured_block_snapshot
-from psx.sfle.model import (
+from psx.layout.contracts.errors import SFLECapabilityError
+from psx.layout.contracts.fixed_point import LayoutUnit, nearest_layout_px
+from psx.layout.contracts.lengths import Length
+from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput,
     LayoutNode, MeasuredBox, WritingDirection,
 )
@@ -183,7 +183,7 @@ def test_native_input_and_button_keep_intrinsic_width_under_block_parent():
 
 
 def test_auto_height_native_fits_padded_max_height_content_box():
-    from psx.sfle.lengths import Length
+    from psx.layout.contracts.lengths import Length
     initial = snapshot()
     nodes = (
         LayoutNode("card", None, "div", (
@@ -214,7 +214,7 @@ def test_auto_height_native_fits_padded_max_height_content_box():
 
 
 def test_explicit_native_height_remains_authoritative_even_with_parent_max():
-    from psx.sfle.lengths import Length
+    from psx.layout.contracts.lengths import Length
     initial = snapshot()
     nodes = (
         LayoutNode("card", None, "div", (("layout_max_height", Length.px(250)),)),

@@ -9,7 +9,7 @@ def test_svg_texture_rasterization_and_measurement(tmp_path):
     pytest.importorskip("kivy")
     pytest.importorskip("resvg_py")
     from psx.renderers.kivy.image import _apply_image_source, _VeltoKivyImage
-    from psx.sfle.kivy_measurement import KivyMeasurementSource
+    from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
     
     source = tmp_path / "logo.svg"
     source.write_text(

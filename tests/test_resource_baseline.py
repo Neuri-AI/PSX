@@ -3,7 +3,7 @@ import unittest
 
 from benchmarks.resource_baseline import run, sample, make_renderer
 from unittest.mock import patch
-from psx.sfle.engine import PythonLayoutEngine
+from psx.layout.fallback.engine import PythonLayoutEngine
 
 
 class ResourceBaselineTests(unittest.TestCase):

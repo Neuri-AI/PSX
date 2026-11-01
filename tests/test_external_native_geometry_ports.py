@@ -8,16 +8,16 @@ from psx.core.errors import RendererCapabilityError
 from psx.core.native import Native, NativeWidget
 from psx.core.vnode import create_element, native_widget
 from psx.renderers.adapters import DelegatingAdapter, RendererAdapterRegistry
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.external_native_geometry_ports import (
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.adapters.external_native_geometry_ports import (
     SFLEExternalPort, external_port_for, measure_external, read_external,
 )
-from psx.sfle.margin_tree import MarginTreeNode
-from psx.sfle.model import (
+from psx.layout.fallback.margin_tree import MarginTreeNode
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox, Rect,
     LayoutResult, BoxRect,
 )
-from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
+from psx.layout.adapters.native_geometry import GeometryBackend, NativeGeometryCommitter
 
 
 def constraints():
@@ -143,7 +143,7 @@ def test_native_geometry_projection_calls_external_port_only_for_its_node():
         MarginTreeNode("external", "root", 0, 0),
         MarginTreeNode("builtin", "root", 0, 0),
     )
-    from psx.sfle.model import BoxRect
+    from psx.layout.contracts.model import BoxRect
     def box(x, y, w, h):
         r = Rect(x, y, w, h)
         return BoxRect(r, r, r, r)
@@ -191,7 +191,7 @@ def test_native_declaration_rejects_invalid_ownership_and_ports_before_mount():
 
 def test_external_port_never_changes_widget_ownership_during_measure_and_read():
     from psx.core.native import NativeOwnership
-    from psx.sfle.native_operation_oracles import Observation, ORACLES
+    from psx.layout.compat.native_operation_oracles import Observation, ORACLES
 
     host = SimpleNamespace(rect=Rect(2, 3, 15, 10), destroyed=False)
     decl = NativeWidget(renderer="pyside6", widget=host,

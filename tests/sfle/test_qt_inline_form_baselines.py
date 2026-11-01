@@ -6,9 +6,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import QApplication, QLineEdit, QPushButton
 
-from psx.sfle.model import AvailableSize, LayoutConstraints
-from psx.sfle.measurement_plan import MeasurementRequest
-from psx.sfle.qt_measurement import QtMeasurementSource
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.renderers.qt.cinnamon_qt_measurement import QtMeasurementSource
 
 
 def test_input_and_buttons_share_text_baseline_in_inline_flow():
@@ -33,7 +33,7 @@ def test_input_and_buttons_share_text_baseline_in_inline_flow():
         assert abs(intrinsic.baseline - expected) <= 1.0
     # All inline atoms should sit on the same textual baseline, without
     # requiring display:flex / align-items:center on the parent div.
-    from psx.sfle.flow_layout import InlineAtom, layout_inline_atoms
+    from psx.layout.fallback.flow_layout import InlineAtom, layout_inline_atoms
     atoms = tuple(InlineAtom(m.preferred_width, m.preferred_height, m.baseline)
                   for m in metrics.values())
     places = layout_inline_atoms(500, atoms)

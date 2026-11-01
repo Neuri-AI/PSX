@@ -3,7 +3,7 @@ import pytest
 from psx.css.parser import CssSyntaxError, parse_selector, parse_stylesheet
 from psx.css.cascade import StyleTarget, resolve_style
 from psx.css.properties import foundation_registry
-from psx.sfle.lengths import Length
+from psx.layout.contracts.lengths import Length
 
 
 def test_selector_specificity_and_matching():

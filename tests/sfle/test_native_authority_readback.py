@@ -10,12 +10,12 @@ import threading
 
 import pytest
 
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import DiagnosticCode, SFLEError
-from psx.sfle.native_geometry import GeometryBackend, NativeGeometryCommitter
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
-from psx.sfle.measurement_plan import MeasurementRequest
-from psx.sfle.worker_lifecycle import start_native_worker_layout
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import DiagnosticCode, SFLEError
+from psx.layout.adapters.native_geometry import GeometryBackend, NativeGeometryCommitter
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.layout.runtime.worker_lifecycle import start_native_worker_layout
 from test_acceptance_contract_regression import case_snapshot
 from test_native_worker_portable_regression import _UIQueue, _source
 

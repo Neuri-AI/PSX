@@ -1,12 +1,12 @@
 """Coordinator must validate native results before any convergence transition."""
 import pytest
-from psx.sfle.convergence import RoundStatus, begin_convergence
-from psx.sfle.errors import SFLEError
-from psx.sfle.measurement_coordinator import complete_measurement_pass
-from psx.sfle.measurement_round import MeasurementRound
-from psx.sfle.measurement_plan import MeasurementRequest
-from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox
-from psx.sfle.used_size_tree import UsedSizeTree
+from psx.layout.fallback.convergence import RoundStatus, begin_convergence
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.fallback.measurement_coordinator import complete_measurement_pass
+from psx.layout.fallback.measurement_round import MeasurementRound
+from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox
+from psx.layout.fallback.used_size_tree import UsedSizeTree
 
 CONSTRAINT = LayoutConstraints(AvailableSize(100, True), AvailableSize(20, True))
 TREE = UsedSizeTree(8, (("root", CONSTRAINT),), ())

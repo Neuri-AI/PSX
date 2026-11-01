@@ -5,13 +5,13 @@ available width. The second round reallocates BOTH siblings. It is unsafe
 to invoke strict final computation before the third UI measurement round.
 """
 
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.lengths import parse_length
-from psx.sfle.model import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.lengths import parse_length
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput, LayoutNode,
     WritingDirection,
 )
-from psx.sfle.remeasure_session import compute_with_width_measurements
+from psx.layout.runtime.remeasure_session import compute_with_width_measurements
 
 
 def _style(props):

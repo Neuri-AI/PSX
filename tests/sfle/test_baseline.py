@@ -2,13 +2,13 @@
 from __future__ import annotations
 from dataclasses import replace
 import pytest
-from psx.sfle.baseline import BaselineItem, measure_baseline_group, position_baseline_item
-from psx.sfle.cross_alignment import CrossAlign
-from psx.sfle.errors import SFLECapabilityError
-from psx.sfle.flex_math import FlexBasis
-from psx.sfle.line_layout import FlexDirection, FlexWrap
-from psx.sfle.main_margins import UsedMargin
-from psx.sfle.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
+from psx.layout.fallback.baseline import BaselineItem, measure_baseline_group, position_baseline_item
+from psx.layout.fallback.cross_alignment import CrossAlign
+from psx.layout.contracts.errors import SFLECapabilityError
+from psx.layout.fallback.flex_math import FlexBasis
+from psx.layout.fallback.line_layout import FlexDirection, FlexWrap
+from psx.layout.fallback.main_margins import UsedMargin
+from psx.layout.fallback.margin_flex_pipeline import MarginFlexItem, compute_margin_flex_layout
 
 def item(name: str, size: float, baseline: float | None) -> MarginFlexItem:
     return MarginFlexItem(

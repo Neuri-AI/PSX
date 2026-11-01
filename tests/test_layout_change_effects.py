@@ -1,5 +1,5 @@
 """Internal change-effect classification and detached signature regression tests."""
-from psx.sfle.layout_change_effects import (
+from psx.layout.runtime.layout_change_effects import (
     ChangeEffect, classify_change, detached_literal,
     partition_dependency_signature,
 )
@@ -54,7 +54,7 @@ def test_callbacks_mutable_owners_and_unrecognized_props_disable_reuse():
 
 
 def test_dirty_layout_nodes_ignores_paint_but_detects_measurement_and_geometry():
-    from psx.sfle.layout_change_effects import dirty_layout_nodes
+    from psx.layout.runtime.layout_change_effects import dirty_layout_nodes
     before = (
         ("root", "Flex", 1, {"gap": "10px"}),
         ("a", "Text", 2, {"value": "one", "color": "#111"}),
@@ -79,7 +79,7 @@ def test_dirty_layout_nodes_ignores_paint_but_detects_measurement_and_geometry()
 
 
 def test_dirty_layout_nodes_fails_closed_on_structure_or_unsafe_values():
-    from psx.sfle.layout_change_effects import dirty_layout_nodes
+    from psx.layout.runtime.layout_change_effects import dirty_layout_nodes
     before = (("a", "Text", 1, {"value": "ok"}),)
     assert dirty_layout_nodes(before, ()) is None
     assert dirty_layout_nodes(before, (("a", "Text", 2, {"value": "ok"}),)) is None
@@ -90,7 +90,7 @@ def test_dirty_layout_nodes_fails_closed_on_structure_or_unsafe_values():
 
 
 def test_flex_context_planner_preserves_independent_sibling_context():
-    from psx.sfle.layout_change_effects import affected_flex_contexts
+    from psx.layout.runtime.layout_change_effects import affected_flex_contexts
     parents = {
         "root": None, "left": "root", "left_text": "left",
         "right": "root", "right_text": "right",
@@ -115,7 +115,7 @@ def test_flex_context_planner_preserves_independent_sibling_context():
 
 
 def test_flex_planner_rejects_invalid_parent_graph():
-    from psx.sfle.layout_change_effects import affected_flex_contexts
+    from psx.layout.runtime.layout_change_effects import affected_flex_contexts
     assert affected_flex_contexts(
         frozenset({"x"}), parent_by_id={"x": "missing"},
         flex_node_ids=frozenset({"x"}),
@@ -127,7 +127,7 @@ def test_flex_planner_rejects_invalid_parent_graph():
 
 
 def test_flex_planner_rejects_cycle_in_unrelated_branch():
-    from psx.sfle.layout_change_effects import affected_flex_contexts
+    from psx.layout.runtime.layout_change_effects import affected_flex_contexts
     parents = {"root": None, "left": "root", "text": "left",
                "unrelated_a": "unrelated_b", "unrelated_b": "unrelated_a"}
     assert affected_flex_contexts(
@@ -141,7 +141,7 @@ def test_flex_planner_rejects_cycle_in_unrelated_branch():
 
 
 def test_direct_flex_change_invalidates_descendants_but_not_siblings():
-    from psx.sfle.layout_change_effects import affected_flex_contexts
+    from psx.layout.runtime.layout_change_effects import affected_flex_contexts
     parents = {
         "root": None,
         "left": "root",

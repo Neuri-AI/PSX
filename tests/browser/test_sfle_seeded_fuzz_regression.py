@@ -14,12 +14,12 @@ import pytest
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/"tests"/"interop"))
 from test_sfle_differential import rust_binary,_rust_compute
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.model import (
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.model import (
     AvailableSize,LayoutConstraints,LayoutInput,LayoutNode,WritingDirection,
 )
-from psx.sfle.lengths import parse_length
-from psx.sfle.errors import SFLEError,DiagnosticCode
+from psx.layout.contracts.lengths import parse_length
+from psx.layout.contracts.errors import SFLEError,DiagnosticCode
 
 SEED=0x5F1E2026
 COUNT=100
@@ -108,7 +108,7 @@ def test_seeded_flex_differential_against_chromium(case,browser,rust_binary):
     except SFLEError as error:
         py={"ok":False,"code":error.code.value,"node":error.node_id,"kind":str(error)}
     # Use exactly the production-normalized serializer, not a hand-built Rust tree.
-    from psx.sfle.native_wire import serialize_snapshot
+    from psx.layout.contracts.native_wire import serialize_snapshot
     import json,subprocess
     run=subprocess.run([str(rust_binary)],input=serialize_snapshot(snapshot),
         text=True,capture_output=True,check=True,timeout=30)

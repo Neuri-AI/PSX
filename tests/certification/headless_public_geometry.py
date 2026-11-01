@@ -1,7 +1,7 @@
 """Hand-calculated geometry witnesses for the admitted Headless surface."""
 from dataclasses import dataclass
 
-from psx.sfle.model import Rect
+from psx.layout.contracts.model import Rect
 
 
 @dataclass(frozen=True)

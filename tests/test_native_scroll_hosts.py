@@ -5,10 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from psx.sfle.model import Rect
-from psx.sfle.native_scroll_viewport import ScrollViewportBinding
-from psx.sfle.scroll_offsets import ScrollOffset
-from psx.sfle.native_scroll_hosts import (
+from psx.layout.contracts.model import Rect
+from psx.layout.scroll.native_scroll_viewport import ScrollViewportBinding
+from psx.layout.scroll.scroll_offsets import ScrollOffset
+from psx.layout.adapters.native_scroll_hosts import (
     apply_headless_scroll, apply_kivy_scroll, apply_qt_scroll,
     apply_tk_scroll, host_geometry,
 )

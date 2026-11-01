@@ -7,14 +7,14 @@ from dataclasses import replace
 
 import pytest
 
-from psx.sfle.backend import load_layout_engine
-from psx.sfle.engine import PythonLayoutEngine
-from psx.sfle.errors import SFLEError
-from psx.sfle.model import (
+from psx.layout.engine.backend import load_layout_engine
+from psx.layout.fallback.engine import PythonLayoutEngine
+from psx.layout.contracts.errors import SFLEError
+from psx.layout.contracts.model import (
     AvailableSize, IntrinsicSizes, LayoutConstraints, LayoutInput, LayoutNode,
     MeasuredBox, WritingDirection,
 )
-from psx.sfle.width_dependent_intrinsic_measurement import (
+from psx.layout.runtime.width_dependent_intrinsic_measurement import (
     compute_width_dependent, seed_unconstrained_width_measurements,
 )
 

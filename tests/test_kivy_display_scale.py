@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from psx.sfle.kivy_display_scale import KivyDisplayScale
+from psx.renderers.kivy.cinnamon_kivy_display_scale import KivyDisplayScale
 
 
 @pytest.mark.parametrize("factor", (1, 1.25, 1.5, 2, 2.5, 3))

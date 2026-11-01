@@ -54,8 +54,8 @@ class ArrowCallbacksTests(unittest.TestCase):
     def test_headless_event_dispatch_and_rebind(self):
         calls = []
         view, _ = compiled('<Flex><Button label="Save" on_click={() => handler()} /></Flex>')
-        from psx.sfle.engine import PythonLayoutEngine
-        from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+        from psx.layout.fallback.engine import PythonLayoutEngine
+        from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
         renderer = HeadlessRenderer(
             sfle_constraints=LayoutConstraints(
                 AvailableSize(640, True), AvailableSize(480, True)),
@@ -73,8 +73,8 @@ class ArrowCallbacksTests(unittest.TestCase):
     def test_unmount_disposes_arrow_event_slot(self):
         calls = []
         view, _ = compiled('<Flex><Button label="Save" on_click={() => handler()} /></Flex>')
-        from psx.sfle.engine import PythonLayoutEngine
-        from psx.sfle.model import AvailableSize, IntrinsicSizes, LayoutConstraints
+        from psx.layout.fallback.engine import PythonLayoutEngine
+        from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints
         renderer = HeadlessRenderer(
             sfle_constraints=LayoutConstraints(
                 AvailableSize(640, True), AvailableSize(480, True)),
