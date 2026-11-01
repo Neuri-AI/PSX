@@ -88,11 +88,27 @@ def compute_margin_tree(
         )
     def rect(data):
         return Rect(data["x"], data["y"], data["width"], data["height"])
+
+    # Fixed (non-auto) CSS margins are *inputs*, not computed layout sizes.
+    # A serde_json float roundtrip can change the shortest binary rendering by
+    # one ULP; the historical Python API preserves the exact supplied value.
+    # Leave auto margins and every coordinate to the real native Rust solver.
+    source_items = {
+        node.node_id: node.item for node in nodes if node.item is not None
+    }
+    def used_margin(box, side):
+        item = source_items.get(box["node_id"])
+        if item is not None:
+            declared = getattr(item, side).value
+            if declared is not None:
+                return declared
+        return box["used_" + side + "_margin"]
+
     try:
         boxes = tuple(MarginFlexBox(
             box["node_id"], rect(box["content"]), rect(box["padding"]),
-            rect(box["border"]), box["used_main_start_margin"],
-            box["used_main_end_margin"], box["line_index"],
+            rect(box["border"]), used_margin(box, "main_start"),
+            used_margin(box, "main_end"), box["line_index"],
             box["used_cross_start_margin"], box["used_cross_end_margin"],
         ) for box in result["boxes"])
     except (TypeError, KeyError, ValueError) as exc:
