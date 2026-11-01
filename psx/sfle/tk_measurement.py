@@ -60,9 +60,17 @@ class TkMeasurementSource:
             from tkinter import font as tkfont
             font = getattr(widget, "_psx_text_font", None)
             if font is None:
-                if "font" not in widget.keys():
-                    return None
-                font = tkfont.Font(root=widget, font=widget.cget("font"))
+                if "font" in widget.keys():
+                    family = widget.cget("font")
+                else:
+                    # ttk.Button delegates typography to its theme style.
+                    from tkinter import ttk
+                    style = ttk.Style(widget)
+                    style_name = widget.cget("style") if "style" in widget.keys() else ""
+                    family = style.lookup(style_name or widget.winfo_class(), "font")
+                    if not family:
+                        family = "TkDefaultFont"
+                font = tkfont.Font(root=widget, font=family)
             ascent = float(font.metrics("ascent"))
             linespace = float(font.metrics("linespace"))
             # Tk's requested size includes padding and decoration. Center
