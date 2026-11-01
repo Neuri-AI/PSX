@@ -5,9 +5,14 @@ on:
     branches: [feature/semantic-inline-fragments]
     paths:
       - 'psx/sfle/semantic_inline_*.py'
+      - 'rust/sfle-core/src/semantic_inline_text.rs'
+      - 'rust/sfle-core/src/python_binding.rs'
+      - 'rust/sfle-core/src/lib.rs'
+      - 'psx/sfle/backend.py'
       - 'psx/markup/html_aliases.py'
       - 'psx/sfle/*layout_bridge.py'
       - 'tests/sfle/test_semantic_inline_text.py'
+      - 'tests/interop/test_semantic_inline_rust_python_parity.py'
       - 'tests/sfle/test_semantic_inline_native_layout.py'
       - 'tests/test_kivy_button_default_padding.py'
       - 'tests/test_kivy_native_layout.py'
@@ -15,9 +20,14 @@ on:
   pull_request:
     paths:
       - 'psx/sfle/semantic_inline_*.py'
+      - 'rust/sfle-core/src/semantic_inline_text.rs'
+      - 'rust/sfle-core/src/python_binding.rs'
+      - 'rust/sfle-core/src/lib.rs'
+      - 'psx/sfle/backend.py'
       - 'psx/markup/html_aliases.py'
       - 'psx/sfle/*layout_bridge.py'
       - 'tests/sfle/test_semantic_inline_text.py'
+      - 'tests/interop/test_semantic_inline_rust_python_parity.py'
       - '.github/workflows/semantic-inline-fragments.yml'
 
 permissions:
@@ -57,3 +67,31 @@ jobs:
       - run: xvfb-run -a python -m pytest -q tests/test_tkinter_native_layout.py -k 'inline_span_stays_on_paragraph_line_in_tk or inline_span_padding_does_not_shift_tk_glyph_baseline'
       - run: xvfb-run -a python -m pytest -q tests/test_kivy_button_default_padding.py tests/test_kivy_button_intrinsic_skin.py
       - run: xvfb-run -a python -m pytest -q tests/test_kivy_native_layout.py -k 'mixed_inline_span_keeps_one_line_when_available or inline_span_padding_keeps_native_text_baseline'
+
+  rust-core:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run actual independent Rust inline kernel tests
+        run: cargo test --manifest-path rust/sfle-core/Cargo.toml semantic_inline_text -- --nocapture
+
+  native-rust-python-parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install PSX and native wheel toolchain
+        run: python -m pip install -e . pytest 'maturin>=1.8,<2'
+      - name: Compile Rust Cinnamon engine into the actual PyO3 wheel
+        run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out /tmp/sfle-inline-wheels
+      - name: Install and verify native ABI, without Python fallback
+        run: |
+          python -m pip install --no-deps /tmp/sfle-inline-wheels/*.whl
+          python -c "import _sfle_native as x; assert x.schema_version()==1 and callable(x.compute_inline_text_json)"
+      - name: Compare exact fragment, line, baseline and fixed-point positions
+        run: python -m pytest -q tests/interop/test_semantic_inline_rust_python_parity.py
