@@ -2005,8 +2005,20 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 assert abs(gap - 20) <= 1, (gap, first.pos, second.pos)
             assert all(abs(item.x - (sidebar.handle.widget.x + 24)) <= 1
                        for item in buttons), [item.pos for item in buttons]
-            assert buttons[1].background_normal == ""
-            assert buttons[1]._psx_css_button_background[2].rgba[3] == 0
+            # The selected button uses authored CSS paint. Color-only
+            # buttons retain the native Kivy theme (not transparency).
+            assert buttons[0].background_normal == ""
+            assert hasattr(buttons[0], "_psx_css_button_background")
+            for item in buttons[1:]:
+                assert item.background_normal
+                assert item.background_down
+                assert not hasattr(item, "_psx_css_button_background")
+            # These buttons have explicit padding:0px 10px, so at the
+            # simulated 2x pixel scale they must use 20px horizontal
+            # and 0px vertical padding (not the default 6px).
+            for item in buttons:
+                assert all(abs(actual - expected) <= 1
+                           for actual, expected in zip(item.padding, (20, 0, 20, 0)))
             tree.unmount()
         ''')
         environment = dict(os.environ, KIVY_NO_FILELOG="1", KIVY_NO_ARGS="1")
