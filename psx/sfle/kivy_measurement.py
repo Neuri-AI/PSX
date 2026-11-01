@@ -304,10 +304,24 @@ class KivyMeasurementSource:
             return MeasuredBox(
                 request.node_id, metrics, request.constraints, request.revision,
             )
-        # texture_size is the measured pixel content for Kivy Label.
-        # minimum_size is available on some Kivy layouts. A generic Widget's
-        # size is a negotiated allocation, not a valid intrinsic measurement.
-        if hasattr(widget, "texture_size"):
+        # A Kivy Button is also a Label. CSS text-align can bind its
+        # text_size to the previous allocated width; that texture is already
+        # word-wrapped and must NOT become the Button's intrinsic width.
+        # Read the actual native glyph texture with no width constraint,
+        # then restore its paint state. SFLE will reserve the unwrapped
+        # text width plus default UA padding (or authored CSS box padding).
+        from kivy.uix.button import Button as KivyButton
+        if isinstance(widget, KivyButton):
+            previous_text_size = tuple(widget.text_size)
+            try:
+                widget.text_size = (None, None)
+                widget.texture_update()
+                pair = tuple(widget.texture_size)
+            finally:
+                widget.text_size = previous_text_size
+                widget.texture_update()
+        # Other text leaves retain their existing width-sensitive rules.
+        elif hasattr(widget, "texture_size"):
             pair = widget.texture_size
         elif hasattr(widget, "minimum_size"):
             pair = widget.minimum_size
