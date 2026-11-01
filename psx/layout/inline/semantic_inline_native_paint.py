@@ -7,9 +7,17 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from psx.layout.inline.semantic_inline_text import InlineTextFragment
-from psx.renderers.qt.inline_paint import paint as _qt_paint, clear as _qt_clear
-from psx.renderers.tkinter.inline_paint import paint as _tk_paint, clear as _tk_clear
-from psx.renderers.kivy.inline_paint import paint as _kivy_paint, clear as _kivy_clear
+def _painter(backend: str):
+    """Import only the selected native painter; no cross-toolkit imports."""
+    from importlib import import_module
+    path = {
+        "qt": "psx.renderers.qt.inline_paint",
+        "tk": "psx.renderers.tkinter.inline_paint",
+        "kivy": "psx.renderers.kivy.inline_paint",
+    }[backend]
+    module = import_module(path)
+    return module.paint, module.clear
+
 
 def project_native_inline_paint(
     renderer,
@@ -22,7 +30,7 @@ def project_native_inline_paint(
 
     Called on each backend's owning UI thread, never from a worker.
     """
-    clear = {"qt": _qt_clear, "tk": _tk_clear, "kivy": _kivy_clear}[backend]
+    paint, clear = _painter(backend)
     previous = getattr(renderer, "_sfle_semantic_inline_widgets", {})
     next_widgets = {node_id: widgets[node_id] for node_id in fragment_plan}
     for node_id, widget in previous.items():
@@ -36,11 +44,9 @@ def project_native_inline_paint(
         widget = widgets[node_id]
         box = boxes[node_id].content
         if backend == "qt":
-            _qt_paint(widget, fragments, box, renderer._binding_package)
-        elif backend == "tk":
-            _tk_paint(widget, fragments, box)
+            paint(widget, fragments, box, renderer._binding_package)
         else:
-            _kivy_paint(widget, fragments, box)
+            paint(widget, fragments, box)
     renderer._sfle_semantic_inline_widgets = next_widgets
 
 
