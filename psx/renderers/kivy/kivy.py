@@ -766,6 +766,8 @@ class KivyRenderer:
         self._sfle_schedule_image_poll()
 
     def invalidate_layout(self) -> None:
+        from psx.sfle.semantic_inline_native_paint import release_native_inline_paint
+        release_native_inline_paint(self, "kivy")
         self._sfle_invalidation_lifetime += 1
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
