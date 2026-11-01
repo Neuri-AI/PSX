@@ -130,3 +130,27 @@ def test_legacy_css_and_used_size_imports_are_identical_shared_types():
     assert OldPropagate is propagate_definite_used_sizes
     assert old_size is shared_size
 
+
+@pytest.mark.parametrize("module,names", (
+    ("flex_math", ("FlexBasis",)),
+    ("line_layout", ("FlexDirection", "FlexWrap")),
+    ("box_geometry", ("UsedEdges", "UsedBoxEdges")),
+    ("main_margins", ("UsedMargin",)),
+    ("cross_alignment", ("CrossAlign",)),
+    ("main_alignment", ("JustifyContent",)),
+    ("align_content", ("AlignContent",)),
+    ("margin_flex_pipeline", ("MarginFlexItem", "MarginFlexBox", "MarginFlexLayout")),
+    ("margin_tree", ("MarginTreeNode", "MarginTreeLayout")),
+    ("intrinsic", ("MainAxis", "OverflowMode", "IntrinsicFlexInput")),
+    ("intrinsic_tree", ("IntrinsicLeafStyle",)),
+    ("auto_cross_tree", ("AutoCrossSize",)),
+))
+def test_all_historical_recursive_type_identities_are_preserved(module, names):
+    from importlib import import_module
+    from psx.layout.contracts import recursive_tree
+    legacy = import_module("psx.layout.fallback." + module)
+    for name in names:
+        assert getattr(legacy, name) is getattr(recursive_tree, name), (
+            module, name,
+        )
+
