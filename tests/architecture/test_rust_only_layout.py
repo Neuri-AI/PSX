@@ -197,10 +197,13 @@ def _rust_only_grid_renderer(width=800):
     from psx.layout.contracts.model import IntrinsicSizes, AvailableSize, LayoutConstraints
 
     def measure(node, allocated_width=None):
-        assert node.type == "Text"
-        width = 20 if allocated_width is None else allocated_width
-        height = 30 if width < 390 else 10
-        return IntrinsicSizes(0, width, 0, height, width, height)
+        if node.type == "Text":
+            width = 20 if allocated_width is None else allocated_width
+            height = 30 if width < 390 else 10
+            return IntrinsicSizes(0, width, 0, height, width, height)
+        # The toolkit may request a content-independent initial hint for
+        # Scroll or other containers. Their *used* geometry comes from Rust.
+        return IntrinsicSizes(0, 0, 0, 0, 0, 0)
     return HeadlessRenderer(
         sfle_constraints=LayoutConstraints(
             AvailableSize(width, True), AvailableSize(100, True),
