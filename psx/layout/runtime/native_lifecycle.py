@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 from psx.layout.contracts.model import LayoutInput, MeasuredBox
 from psx.layout.runtime.native_measurement import NativeMeasurementPort
+from psx.layout.contracts.recursive_tree import MarginTreeNode, IntrinsicLeafStyle, AutoCrossSize
+from psx.layout.runtime.constraint_propagation import ChildSizing
 from psx.layout.runtime.recursive_measurement import RecursiveMeasurementResult, measure_resolved_margin_tree
 from psx.layout.runtime.recursive_pipeline import compute_recursive_pipeline
 
@@ -40,6 +42,7 @@ def layout_and_commit(
     revisions: tuple[tuple[str, int], ...] = (),
     intrinsic_leaves: tuple[IntrinsicLeafStyle, ...] = (),
     auto_cross: tuple[AutoCrossSize, ...] = (),
+    engine: object | None = None,
 ) -> RecursiveMeasurementResult:
     """Compute, measure and atomically guard a renderer geometry commit.
 
@@ -47,8 +50,6 @@ def layout_and_commit(
     before geometry commit. No framework event loop or worker scheduling is
     performed here. Renderers must call this function from their UI scheduler.
     """
-    # Compatibility pipeline for explicitly selected Python recursive solver.
-    # The native Rust path never imports these numerical implementation modules.
     if not isinstance(snapshot, LayoutInput) or not isinstance(lifecycle, NativeLayoutLifecycle):
         raise TypeError("Expected LayoutInput and NativeLayoutLifecycle.")
     generation = lifecycle.generation()
@@ -61,11 +62,13 @@ def layout_and_commit(
             snapshot, nodes, child_sizing=child_sizing, revisions=revisions,
             native_port=lifecycle.measurement, current_generation=generation,
             intrinsic_leaves=intrinsic_leaves, auto_cross=auto_cross,
+            engine=engine,
         )
     else:
         result = measure_resolved_margin_tree(
             snapshot, nodes, child_sizing=child_sizing, revisions=revisions,
             port=lifecycle.measurement, current_generation=generation,
+            engine=engine,
         )
     if lifecycle.generation() != generation:
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Layout generation became stale before commit.")

@@ -13,6 +13,10 @@ from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 from psx.layout.contracts.lengths import LengthKind
 from psx.layout.contracts.model import LayoutInput, AvailableSize, LayoutConstraints
 from psx.layout.runtime.native_measurement import NativeMeasurementPort
+from psx.layout.contracts.recursive_tree import MarginTreeNode, IntrinsicLeafStyle, AutoCrossSize
+from psx.layout.runtime.constraint_propagation import ChildSizing
+from psx.layout.runtime.recursive_preparation import prepare_measured_leaf_nodes
+from psx.layout.runtime.recursive_geometry import compute_margin_tree
 from psx.layout.runtime.recursive_measurement import RecursiveMeasurementResult, measure_resolved_margin_tree
 
 
@@ -37,6 +41,7 @@ def compute_recursive_pipeline(
     revisions: tuple[tuple[str, int], ...] = (),
     current_generation: int,
     max_iterations: int = 8,
+    engine: object | None = None,
 ) -> RecursiveMeasurementResult:
     """Run measurement, intrinsic Flex distribution and final remeasurement.
 
@@ -45,15 +50,10 @@ def compute_recursive_pipeline(
     height-for-width text measurement without treating preferred sizes as
     final used dimensions. The returned geometry remains generation-scoped.
     """
-    # Numeric calculations are imported only when explicitly invoking the
-    # optional Python recursive compatibility pipeline.
-    from psx.layout.fallback.auto_cross_tree import compute_auto_cross_tree
-    from psx.layout.fallback.intrinsic_tree import prepare_measured_leaf_nodes
-    from psx.layout.fallback.margin_tree import compute_margin_tree
-    from psx.layout.runtime.constraint_propagation import ChildSizing
     first = measure_resolved_margin_tree(
         snapshot, nodes, child_sizing=child_sizing, revisions=revisions,
         port=native_port, current_generation=current_generation,
+        engine=engine,
     )
     # A definite final box must not be fabricated from an unresolved CSS
     # percentage or an unrelated auto dimension. Only explicit intrinsic
@@ -90,13 +90,14 @@ def compute_recursive_pipeline(
         else:
             sized = compute_margin_tree(
                 prepared, generation=current_generation, writing=snapshot.direction,
+                engine=engine,
             )
         provisional = RecursiveMeasurementResult(sized, current.measurements, ())
         next_round = measure_resolved_margin_tree(
             replace(snapshot, measurements=current.measurements),
             prepared, child_sizing=_used_sizing(provisional, nodes),
             revisions=revisions, port=native_port,
-            current_generation=current_generation,
+            current_generation=current_generation, engine=engine,
         )
         previous_metrics = {m.node_id: m.intrinsic for m in current.measurements}
         new_metrics = {m.node_id: m.intrinsic for m in next_round.measurements}
