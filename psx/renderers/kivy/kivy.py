@@ -663,7 +663,8 @@ class KivyRenderer:
             return
         if tuple(root.size) != drawable:
             root.size = drawable
-        stale = (constraints.width.value, constraints.height.value) != drawable
+        previous = (constraints.width.value, constraints.height.value)
+        stale = previous != drawable
         if not stale:
             return
         # Updating root.size can enqueue the ordinary root-size observer.
@@ -679,6 +680,11 @@ class KivyRenderer:
             AvailableSize(drawable[1], True),
         ))
         self.commit_layout(mounted)
+        from kivy.logger import Logger
+        Logger.info(
+            "PSX Kivy viewport: synchronized Cinnamon "
+            f"{previous} -> {drawable} drawable pixels"
+        )
 
     def _sfle_on_textarea_changed(self, widget: Widget, _text: str) -> None:
         if (self._sfle_constraints is None or self._sfle_mounted_root is None
