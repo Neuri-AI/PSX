@@ -28,3 +28,10 @@ def test_svg_texture_rasterization_and_measurement(tmp_path):
     sizes = KivyMeasurementSource._image_metrics(widget)
     assert sizes.preferred_width == 160
     assert sizes.preferred_height == 80
+
+    # A delayed Kivy reload may clear the empty-source texture. Cinnamon
+    # must measure the retained SVG rather than trying to open source="".
+    widget.texture = None
+    restored = KivyMeasurementSource._image_metrics(widget)
+    assert restored == sizes
+    assert widget.texture is not None
