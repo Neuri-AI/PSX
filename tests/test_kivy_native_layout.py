@@ -184,6 +184,9 @@ class KivySFLEGeometrySubprocessTests(unittest.TestCase):
                 if child.node.type == "Text"
                 and child.node.props["value"] == "src/App.tsx"
             )
+            assert suffix.text == " and save to test HMR"
+            assert hasattr(suffix, "_psx_semantic_inline_paint")
+            assert suffix._psx_semantic_inline_paint[0].children
             assert abs(prefix.y - span.y) <= 1, (prefix.y, span.y)
             assert abs(suffix.y - span.y) <= 1, (suffix.y, span.y)
             assert prefix.x < span.x < suffix.x, (prefix.x, span.x, suffix.x)
