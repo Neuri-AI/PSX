@@ -10,50 +10,13 @@ box-sizing normalization and percentage reference rules are outside its scope.
 
 from __future__ import annotations
 
+from psx.layout.contracts.recursive_tree import UsedEdges, UsedBoxEdges
+
 from dataclasses import dataclass
 
 from psx.layout.fallback.flex_math import _number
 from psx.layout.contracts.fixed_point import LayoutUnit
 from psx.layout.contracts.model import BoxRect, Rect
-
-
-@dataclass(frozen=True, slots=True)
-class UsedEdges:
-    """Physical edges in top/right/bottom/left order, in logical CSS px."""
-
-    top: float = 0.0
-    right: float = 0.0
-    bottom: float = 0.0
-    left: float = 0.0
-
-    def __post_init__(self) -> None:
-        for name in ("top", "right", "bottom", "left"):
-            object.__setattr__(self, name, _number(getattr(self, name), name))
-
-    @property
-    def horizontal(self) -> float:
-        return (LayoutUnit.from_nearest(self.left) + LayoutUnit.from_nearest(self.right)).to_px()
-
-    @property
-    def vertical(self) -> float:
-        return (LayoutUnit.from_nearest(self.top) + LayoutUnit.from_nearest(self.bottom)).to_px()
-
-
-@dataclass(frozen=True, slots=True)
-class UsedBoxEdges:
-    """Resolved margin/padding/border widths; margin may be signed."""
-
-    margin: UsedEdges = UsedEdges()
-    border: UsedEdges = UsedEdges()
-    padding: UsedEdges = UsedEdges()
-
-    def __post_init__(self) -> None:
-        if not all(isinstance(edges, UsedEdges) for edges in
-                   (self.margin, self.border, self.padding)):
-            raise TypeError("UsedBoxEdges requires UsedEdges instances.")
-        if any(edge < 0 for edges in (self.border, self.padding)
-               for edge in (edges.top, edges.right, edges.bottom, edges.left)):
-            raise ValueError("Used padding and border widths cannot be negative.")
 
 
 def _inset(rect: Rect, edges: UsedEdges, name: str) -> Rect:

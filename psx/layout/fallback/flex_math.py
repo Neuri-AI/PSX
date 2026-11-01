@@ -12,6 +12,8 @@ checked against shared fixtures before exposing its capabilities.
 
 from __future__ import annotations
 
+from psx.layout.contracts.recursive_tree import FlexBasis
+
 import math
 from dataclasses import dataclass
 
@@ -22,41 +24,6 @@ def _number(value: float, name: str) -> float:
     if not math.isfinite(value):
         raise ValueError(f"{name} must be finite.")
     return float(value)
-
-
-@dataclass(frozen=True, slots=True)
-class FlexBasis:
-    """Already-resolved main-axis sizes for one item in a single line.
-
-    `basis` is the flex base size. `hypothetical` is the precomputed
-    hypothetical main size after min/max clamps. Min/max must be used
-    content-box lengths, not unresolved CSS expressions.
-    """
-
-    basis: float
-    hypothetical: float
-    grow: float = 0.0
-    shrink: float = 1.0
-    min_size: float = 0.0
-    max_size: float | None = None
-
-    def __post_init__(self) -> None:
-        for name in ("basis", "hypothetical", "grow", "shrink", "min_size"):
-            value = _number(getattr(self, name), f"FlexBasis.{name}")
-            if value < 0:
-                raise ValueError(f"FlexBasis.{name} cannot be negative.")
-            object.__setattr__(self, name, value)
-        if self.max_size is not None:
-            limit = _number(self.max_size, "FlexBasis.max_size")
-            if limit < self.min_size:
-                raise ValueError("FlexBasis.max_size cannot be below min_size.")
-            object.__setattr__(self, "max_size", limit)
-        expected = _clamp(self.basis, self.min_size, self.max_size)
-        if not math.isclose(self.hypothetical, expected, rel_tol=0, abs_tol=1e-9):
-            raise ValueError(
-                "FlexBasis.hypothetical must be the min/max-clamped basis. "
-                "Resolve CSS intrinsic/auto constraints before invoking this kernel."
-            )
 
 
 def _clamp(value: float, minimum: float, maximum: float | None) -> float:

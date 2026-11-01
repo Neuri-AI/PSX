@@ -7,6 +7,8 @@ measurement contracts; this slice explicitly rejects those values.
 
 from __future__ import annotations
 
+from psx.layout.contracts.recursive_tree import CrossAlign
+
 from enum import Enum
 
 from psx.layout.contracts.errors import DiagnosticCode, SFLECapabilityError
@@ -16,15 +18,6 @@ from psx.layout.contracts.fixed_point import LayoutUnit
 
 def _lu(value: float) -> LayoutUnit:
     return LayoutUnit.from_nearest(value)
-
-
-class CrossAlign(str, Enum):
-    AUTO = "auto"
-    FLEX_START = "flex-start"
-    FLEX_END = "flex-end"
-    CENTER = "center"
-    STRETCH = "stretch"
-    BASELINE = "baseline"
 
 
 def resolve_cross_alignment(

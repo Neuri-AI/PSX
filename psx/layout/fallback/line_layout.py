@@ -8,6 +8,8 @@ construct a LayoutResult. It is safe to test independently of any GUI.
 
 from __future__ import annotations
 
+from psx.layout.contracts.recursive_tree import FlexDirection, FlexWrap
+
 from dataclasses import dataclass
 from enum import Enum
 
@@ -17,19 +19,6 @@ from psx.layout.contracts.fixed_point import LayoutUnit
 
 def _lu(value: float) -> LayoutUnit:
     return LayoutUnit.from_nearest(value)
-
-
-class FlexDirection(str, Enum):
-    ROW = "row"
-    ROW_REVERSE = "row-reverse"
-    COLUMN = "column"
-    COLUMN_REVERSE = "column-reverse"
-
-
-class FlexWrap(str, Enum):
-    NOWRAP = "nowrap"
-    WRAP = "wrap"
-    WRAP_REVERSE = "wrap-reverse"
 
 
 @dataclass(frozen=True, slots=True)

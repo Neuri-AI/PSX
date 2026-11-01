@@ -12,6 +12,8 @@ wrapping, or CSS line breaking. It is deliberately not a complete layout.
 
 from __future__ import annotations
 
+from psx.layout.contracts.recursive_tree import UsedMargin
+
 from dataclasses import dataclass
 
 from psx.layout.contracts.fixed_point import LayoutUnit
@@ -38,17 +40,6 @@ from psx.layout.fallback.flex_math import _number
 from psx.layout.fallback.main_alignment import JustifyContent, resolve_main_alignment
 from psx.layout.fallback.line_layout import FlexDirection
 from psx.layout.contracts.model import WritingDirection
-
-
-@dataclass(frozen=True, slots=True)
-class UsedMargin:
-    """A signed fixed CSS margin, or None for an auto margin."""
-
-    value: float | None = 0.0
-
-    def __post_init__(self) -> None:
-        if self.value is not None:
-            object.__setattr__(self, "value", _number(self.value, "margin"))
 
 
 @dataclass(frozen=True, slots=True)

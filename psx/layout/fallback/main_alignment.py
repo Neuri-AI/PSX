@@ -7,6 +7,8 @@ main-margin stage before calling this function. No browser/native dependency.
 
 from __future__ import annotations
 
+from psx.layout.contracts.recursive_tree import JustifyContent
+
 from dataclasses import dataclass
 from enum import Enum
 
@@ -21,15 +23,6 @@ def _sum(values: tuple[float, ...]) -> LayoutUnit:
     for value in values:
         total += _lu(value)
     return total
-
-
-class JustifyContent(str, Enum):
-    FLEX_START = "flex-start"
-    FLEX_END = "flex-end"
-    CENTER = "center"
-    SPACE_BETWEEN = "space-between"
-    SPACE_AROUND = "space-around"
-    SPACE_EVENLY = "space-evenly"
 
 
 @dataclass(frozen=True, slots=True)
