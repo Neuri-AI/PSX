@@ -42,7 +42,7 @@ jobs:
           python -m pip install -e '.[pyside6,kivy]' 'maturin>=1.8,<2' pytest
           maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
           python -m pip install --no-deps --find-links wheelhouse 'psx-sfle-native==0.1.0'
-          python -c "from psx.sfle.backend import load_layout_engine; assert load_layout_engine().backend_name == 'rust'"
+          python -c "from psx.layout.engine.backend import load_layout_engine; assert load_layout_engine().backend_name == 'rust'"
       - name: Verify native Grid paragraph positions with Rust Cinnamon
         env:
           KIVY_NO_ARGS: "1"
@@ -223,7 +223,7 @@ jobs:
           python -m pip install -e '.[pyside6]' 'maturin>=1.8,<2'
           maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
           python -m pip install --no-deps --find-links wheelhouse 'psx-sfle-native==0.1.0'
-          python -c "from psx.sfle.backend import load_layout_engine; assert load_layout_engine().backend_name == 'rust'"
+          python -c "from psx.layout.engine.backend import load_layout_engine; assert load_layout_engine().backend_name == 'rust'"
       - name: Measure Qt native resize with Rust (plain and styled)
         shell: bash
         run: |
