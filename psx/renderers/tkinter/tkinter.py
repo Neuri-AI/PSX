@@ -1015,11 +1015,10 @@ class TkinterRenderer:
         spec = _PRIMITIVES.get(node.type)
         if spec is None:
             raise RendererCapabilityError(f"Tkinter does not support host primitive {node.type!r}.")
-        if node.type == "Button" and sys.platform == "darwin":
-            # Aqua's ttk Button theme ignores instance CSS colors.
-            widget = tk.Button(master, relief="flat", borderwidth=0, highlightthickness=0)
-        else:
-            widget = spec.factory(master)
+        # Keep the platform's native button appearance by default. Explicit
+        # CSS paint is handled by the ttk button surface in apply_css; do not
+        # replace every macOS button with a borderless classic tk.Button.
+        widget = spec.factory(master)
         spec.apply(widget, node.props)
         if self._sfle_constraints is not None and node.type == "TextArea":
             # Preserve the native editor's selection/cursor; only observe
