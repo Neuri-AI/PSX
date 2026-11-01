@@ -121,18 +121,34 @@ def _kivy_paint(widget, fragments, box):
     else:
         tint = previous_tint
 
+    from collections import OrderedDict
+    cache = getattr(widget, "_psx_semantic_inline_texture_cache", None)
+    if cache is None:
+        cache = OrderedDict()
+        widget._psx_semantic_inline_texture_cache = cache
+
     group = InstructionGroup()
     group.add(Color(*tint))
     rectangles = []
     for f in fragments:
         if f.text.isspace():
             continue
-        label = CoreLabel(
-            text=f.text, font_name=widget.font_name,
-            font_size=widget.font_size, bold=widget.bold, italic=widget.italic,
-        )
-        label.refresh()
-        rect = Rectangle(texture=label.texture, size=label.texture.size)
+        key = (f.text, widget.font_name, float(widget.font_size),
+               bool(widget.bold), bool(widget.italic))
+        texture = cache.get(key)
+        if texture is None:
+            label = CoreLabel(
+                text=f.text, font_name=widget.font_name,
+                font_size=widget.font_size, bold=widget.bold, italic=widget.italic,
+            )
+            label.refresh()
+            texture = label.texture
+            cache[key] = texture
+            if len(cache) > 128:
+                cache.popitem(last=False)
+        else:
+            cache.move_to_end(key)
+        rect = Rectangle(texture=texture, size=texture.size)
         group.add(rect)
         rectangles.append((f, rect))
 
@@ -157,6 +173,8 @@ def _kivy_clear(widget):
         widget.canvas.after.remove(group)
         widget.color = original
         del widget._psx_semantic_inline_paint
+        if hasattr(widget, "_psx_semantic_inline_texture_cache"):
+            del widget._psx_semantic_inline_texture_cache
 
 
 def project_native_inline_paint(
