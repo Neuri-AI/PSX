@@ -1318,7 +1318,7 @@ class KivyRenderer:
                 if not hasattr(widget, "halign"):
                     raise ValueError(f"Kivy {target.node_type} does not support text-align.")
                 widget.halign = styles["text-align"]
-                if target.node_type == "Select":
+                if target.node_type in ("Button", "Select"):
                     # Kivy Label.halign has no visible effect when text_size
                     # follows the glyph texture instead of the native box.
                     # Bind only while CSS owns alignment; Cinnamon continues
@@ -1336,16 +1336,6 @@ class KivyRenderer:
                         widget._psx_css_text_align_resize = align_resize
                         widget.bind(size=align_resize)
                     widget._psx_css_text_align_resize(widget, None)
-            if target.node_type == "Button":
-                # The native Button has an intrinsic one-line caption.
-                # CSS text-align affects alignment, not word wrapping.
-                resize = getattr(widget, "_psx_css_text_align_resize", None)
-                if resize is not None:
-                    widget.unbind(size=resize)
-                    del widget._psx_css_text_align_resize
-                    del widget._psx_css_original_text_size
-                widget.text_size = (None, None)
-                widget.texture_update()
             if target.node_type == "Link":
                 # Links are intrinsically-sized inline controls, even when
                 # text-align is inherited from a centered Flex parent.
