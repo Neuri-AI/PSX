@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "psx/sfle/**"
+      - "psx/layout/**"
       - "rust/sfle-core/**"
       - "tests/interop/sfle_frozen_probe.py"
       - "tests/interop/test_sfle_native_wheel.py"
@@ -13,7 +13,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "psx/sfle/**"
+      - "psx/layout/**"
       - "rust/sfle-core/**"
       - "tests/interop/sfle_frozen_probe.py"
       - "tests/interop/test_sfle_native_wheel.py"
@@ -55,7 +55,7 @@ jobs:
           python -c "import sys,platform,sysconfig; print('SFLE_RUNNER', platform.platform(),platform.machine(),sysconfig.get_platform(),sys.version)"
           rustc -vV
       - name: Install Python fallback, build, test and freeze dependencies
-        run: python -m pip install -e . pytest "maturin>=1.8,<2" "pyinstaller>=6.9"
+        run: python -m pip install -e '.[kivy]' pytest "maturin>=1.8,<2" "pyinstaller>=6.9"
       - name: Build real native PyO3 wheel on this runner
         run: maturin build --release --manifest-path rust/sfle-core/Cargo.toml --out wheelhouse
       - name: Install and inspect native wheel
@@ -76,7 +76,7 @@ jobs:
         run: |
           python -m pip uninstall -y psx-sfle-native
           python -c "import importlib.util; assert importlib.util.find_spec('_sfle_native') is None"
-          python -c "from psx.sfle.backend import load_layout_engine; assert load_layout_engine().backend_name=='python'"
+          python -c "from psx.layout.engine.backend import load_layout_engine; assert load_layout_engine().backend_name=='python'"
       - name: Source install with Rust compiler explicitly disabled uses Python fallback
         run: |
           python - <<'PYTEST'
@@ -96,7 +96,7 @@ jobs:
               subprocess.run([str(executable), "-m", "pip", "install", "--no-deps", "."],
                              env=environment, check=True)
               subprocess.run([str(executable), "-c",
-                  "import importlib.util, psx; from psx.sfle.backend import load_layout_engine; "
+                  "import importlib.util, psx; from psx.layout.engine.backend import load_layout_engine; "
                   "assert importlib.util.find_spec('_sfle_native') is None; "
                   "assert load_layout_engine().backend_name == 'python'"],
                   env=environment, check=True, cwd=base)
