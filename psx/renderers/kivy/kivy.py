@@ -1228,15 +1228,11 @@ class KivyRenderer:
             from kivy.graphics import RoundedRectangle
             widget = target.widget
             rgba = background_rgba(computed)
-            # HTML/CSS buttons default to a transparent background when
-            # no background is authored. Kivy's bundled normal texture is a
-            # solid gray skin; leaving it in place creates phantom backgrounds
-            # on unselected navigation buttons.
+            # Button keeps its native themed skin when no background is
+            # authored, even when color, border, size or padding CSS exists.
+            # Select/Link retain their established transparent CSS default.
             if (rgba is None and computed is not None
-                    and target.node_type in ("Button", "Select", "Link")):
-                # Any CSS-styled button without an authored background
-                # must not accidentally paint Kivy's opaque native skin.
-                # No-CSS widgets still retain their original themed skin.
+                    and target.node_type in ("Select", "Link")):
                 rgba = (0.0, 0.0, 0.0, 0.0)
             painted = getattr(widget, "_psx_css_button_background", None)
             if rgba is None:
