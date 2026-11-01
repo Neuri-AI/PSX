@@ -68,11 +68,20 @@ def test_rust_only_actual_headless_flex_commit():
     from psx import Flex, Text
     from psx.core.reconcile import Reconciler
     from psx.renderers.headless import HeadlessRenderer
-    from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+    from psx.layout.contracts.model import (
+        AvailableSize, LayoutConstraints, IntrinsicSizes,
+    )
+    # The HEADLESS toolkit is responsible for supplying real/host-known
+    # intrinsic metrics. Rust is responsible for computing used geometry.
+    def intrinsic(node):
+        if node.type == "Text":
+            return IntrinsicSizes(140, 140, 20, 20, 140, 20, baseline=15)
+        return None
     renderer = HeadlessRenderer(
         sfle_constraints=LayoutConstraints(
             AvailableSize(400, True), AvailableSize(300, True),
         ),
+        measure_intrinsic=intrinsic,
     )
     root = Reconciler(renderer).render(
         Flex(Text("Hello, Rust only"), direction="row", width=320, height=50)
