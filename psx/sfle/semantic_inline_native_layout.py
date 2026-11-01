@@ -65,7 +65,12 @@ def _paragraphs(snapshot: LayoutInput, origins: dict[str, object]):
 
     for node in snapshot.nodes:
         origin = origins[node.node_id]
-        if origin.type not in _PARAGRAPH_TAGS or node.component != "Flex":
+        # Semantic root paragraphs use Cinnamon's Block/Inline compositor;
+        # a paragraph inside a CSS Flex column is projected as Flex. Both
+        # must share the same source-preserving glyph fragmentation.
+        if origin.type not in _PARAGRAPH_TAGS or node.component not in (
+            "Flex", *_PARAGRAPH_TAGS,
+        ):
             continue
         children = direct[node.node_id]
         if not children or not any(origins[c].type in _INLINE_TAGS for c in children):
