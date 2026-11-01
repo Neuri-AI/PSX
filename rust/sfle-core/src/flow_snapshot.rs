@@ -320,6 +320,87 @@ impl Flow<'_> {
         Ok(line_height)
     }
 
+    /// Solve an embedded Flex formatting context through the *native* Rust
+    /// Flex solver. This is deliberately not the Python measured_block_snapshot
+    /// compositor. Local node/measurement identity and ordering are preserved.
+    fn flex_node(
+        &mut self, index: usize, x: f64, y: f64, available: f64,
+    ) -> Result<f64, ComputeError> {
+        let mut indices = Vec::new();
+        let mut stack = vec![index];
+        while let Some(current) = stack.pop() {
+            indices.push(current);
+            for &child in self.children[current].iter().rev() {
+                stack.push(child);
+            }
+        }
+        let root = &self.input.nodes[index];
+        let mut nodes = Vec::with_capacity(indices.len());
+        for &original in &indices {
+            let mut node = self.input.nodes[original].clone();
+            if original == index {
+                node.parent_id = None;
+                if !node.style.contains_key("layout_width") &&
+                   !node.style.contains_key("width") {
+                    let mut horizontal = 0.0;
+                    for group in ["padding", "border", "margin"] {
+                        for side in ["left", "right"] {
+                            horizontal += self.edge(index, group, side, available)?;
+                        }
+                    }
+                    node.style.insert(
+                        "layout_width".into(),
+                        serde_json::Value::String(
+                            format!("{}px", (available - horizontal).max(0.0))
+                        ),
+                    );
+                }
+            }
+            nodes.push(node);
+        }
+        let ids: std::collections::HashSet<&str> =
+            nodes.iter().map(|node| node.node_id.as_str()).collect();
+        let local = crate::compute::LayoutInput {
+            schema_version: self.input.schema_version,
+            generation: self.input.generation,
+            direction: self.input.direction.clone(),
+            constraints: crate::compute::LayoutConstraints {
+                width: crate::compute::AvailableSize {
+                    value: Some(available), definite: true,
+                },
+                height: crate::compute::AvailableSize {
+                    value: None, definite: false,
+                },
+            },
+            nodes,
+            measurements: self.input.measurements.iter()
+                .filter(|item| ids.contains(item.node_id.as_str()))
+                .cloned().collect(),
+        };
+        let solved = crate::compute_layout::compute_normalized(&local, false)?;
+        let root_box = solved.boxes.iter()
+            .find(|item| item.node_id == root.node_id)
+            .ok_or_else(|| error(
+                "SFLE_INVALID_TREE", "Native Flex root missing geometry.",
+                Some(&root.node_id),
+            ))?;
+        let delta_x = x - root_box.border.x;
+        let delta_y = y - root_box.border.y;
+        let used_height = root_box.margin.height;
+        for (original, geometry) in indices.into_iter().zip(solved.boxes.iter()) {
+            let id = &self.input.nodes[original].node_id;
+            self.containing_width[original] = available;
+            self.boxes[original] = Some(rect(
+                geometry.content.x + delta_x,
+                geometry.content.y + delta_y,
+                geometry.content.width,
+                geometry.content.height,
+                id,
+            )?);
+        }
+        Ok(used_height)
+    }
+
     fn block(
         &mut self, index: usize, x: f64, y: f64, available: f64,
     ) -> Result<f64, ComputeError> {
@@ -397,7 +478,15 @@ impl Flow<'_> {
                     cursor += self.inline_run(&pending, content_x, content_y + cursor, parent_content_width)?;
                     pending.clear();
                 }
-                cursor += self.block(child, content_x, content_y + cursor, parent_content_width)?;
+                if self.input.nodes[child].component == "Flex" {
+                    cursor += self.flex_node(
+                        child, content_x, content_y + cursor, parent_content_width,
+                    )?;
+                } else {
+                    cursor += self.block(
+                        child, content_x, content_y + cursor, parent_content_width,
+                    )?;
+                }
             }
         }
         if !pending.is_empty() {
