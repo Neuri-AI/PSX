@@ -230,3 +230,86 @@ def test_text_fragments_share_public_engine_protocol(backends):
             ) == python.layout_inline_text(
                 sources, width, measure, text_align=align,
             ), (width, align)
+
+
+def test_multileaf_width_dependent_convergence_is_identical(backends):
+    """Both real solvers must request the same UI metrics in the same rounds."""
+    from psx.layout.runtime.remeasure_session import compute_with_width_measurements
+    from test_real_multi_leaf_convergence_regression import test_snapshot
+
+    def run(engine):
+        calls = []
+
+        def measure(node_id, allocated_width):
+            calls.append((node_id, allocated_width))
+            preferred = (50 if allocated_width >= 100 else 90) if node_id == "a" else 100
+            from psx.layout.contracts.model import IntrinsicSizes
+            return IntrinsicSizes(0, preferred, 20, 20, preferred, 20)
+
+        result = compute_with_width_measurements(
+            test_snapshot(), engine.compute, measure,
+            compute_provisional=engine.compute_provisional,
+            initial_widths={"a": 100, "b": 100},
+        )
+        return result, calls
+
+    native, python = (run(engine) for engine in backends)
+    assert native == python
+    assert native[1] == [
+        ("a", 100), ("b", 100),
+        ("a", 75), ("b", 125),
+        ("a", 95), ("b", 105),
+    ]
+
+
+def test_seeded_flex_geometry_and_provisional_parity_across_css_axes(backends):
+    """Real Rust and Python solve identical nested CSS Flex configurations.
+
+    Reproducible property combinations include direction, wrap, grow/shrink,
+    margins, min-width, padding, order, alignment, gap, and RTL.
+    """
+    from psx.layout.contracts.model import (
+        AvailableSize, LayoutConstraints, LayoutInput, LayoutNode,
+        WritingDirection,
+    )
+    rng = random.Random(61218026)
+    for trial in range(100):
+        width, height = rng.randint(180, 640), rng.randint(120, 460)
+        direction = rng.choice(("row", "column", "row-reverse", "column-reverse"))
+        wrap = rng.choice(("nowrap", "wrap", "wrap-reverse"))
+        nodes = [LayoutNode("root", None, "Flex", tuple(sorted({
+            "direction": direction,
+            "wrap": wrap,
+            "width": f"{width}px",
+            "height": f"{height}px",
+            "column_gap": f"{rng.randint(0, 12)}px",
+            "row_gap": f"{rng.randint(0, 12)}px",
+            "align_items": rng.choice(("flex-start", "center", "stretch")),
+            "justify_content": rng.choice(("flex-start", "center", "space-between")),
+        }.items())))]
+        for i in range(rng.randint(1, 5)):
+            child = {
+                "width": f"{rng.randint(12, 120)}px",
+                "height": f"{rng.randint(12, 90)}px",
+                "flex_basis": "auto",
+                "flex_grow": float(rng.choice((0, 1, 2))),
+                "flex_shrink": float(rng.choice((0, 1, 2))),
+                "min_width": "0px",
+                "order": rng.randint(-2, 2),
+                "layout_margin_left": f"{rng.randint(0, 12)}px",
+                "layout_margin_top": f"{rng.randint(0, 8)}px",
+                "layout_padding_left": f"{rng.randint(0, 8)}px",
+            }
+            nodes.append(LayoutNode(f"item{i}", "root", "Box",
+                                    tuple(sorted(child.items()))))
+        snapshot = LayoutInput(
+            1, trial + 1000, rng.choice((WritingDirection.LTR, WritingDirection.RTL)),
+            LayoutConstraints(AvailableSize(width, True),
+                              AvailableSize(height, True)),
+            tuple(nodes), (),
+        )
+        for mode in ("compute", "compute_provisional"):
+            left = _outcome(lambda: getattr(backends[0], mode)(snapshot))
+            right = _outcome(lambda: getattr(backends[1], mode)(snapshot))
+            assert left == right, (trial, mode, snapshot, left, right)
+            assert left[0] == "ok", (trial, mode, snapshot, left)
