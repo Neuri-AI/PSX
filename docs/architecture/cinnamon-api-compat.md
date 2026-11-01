@@ -12,19 +12,33 @@ have neutral entry points in `psx.layout.grid.solver` and
 `psx.layout.inline.semantic_inline_text`. If an engine is omitted, these
 entry points negotiate Rust first.
 
-## Python-only historical APIs
+## Historical recursive APIs with engine selection
 
-The remaining functions below accept legacy Python numerical tree types.
-They are not yet native Rust-compatible and require the optional fallback:
+The three historical runtime functions `measure_resolved_margin_tree`,
+`compute_recursive_pipeline`, and `layout_and_commit` now accept an
+optional `engine` argument. They use the selected native Rust or independent
+Python numerical kernel while sharing UI-thread measurements, typed tree
+contracts and convergence/commit policy. With `engine=None`, the runtime
+selects Rust when the native wheel is available.
 
-- `runtime.recursive_measurement.measure_resolved_margin_tree`
-- `runtime.recursive_pipeline.compute_recursive_pipeline`
-- `runtime.native_lifecycle.layout_and_commit`
+All 19 historical tree, margin, alignment and intrinsic dataclasses/enums
+have one stable identity under `contracts.recursive_tree`; old imports from
+`fallback` still reference those same objects.
 
-These are not called by the modern Rust engine. They are retained for explicit
-legacy Python consumers, not advertised as cross-engine APIs. A Rust-only
-consumer that needs their behavior must build the shared immutable layout
-snapshot and call the native engine. The seven `psx.layout.compat.native_*`
+`runtime.recursive_geometry.compute_margin_tree` dispatches to the Rust
+`margin_tree.rs`/`auto_cross_tree.rs` kernels through
+`_sfle_native.compute_recursive_tree_json`, or to the Python
+`fallback.margin_tree`/`fallback.auto_cross_tree` algorithms.
+`runtime.recursive_preparation` handles only pure intrinsic metadata
+adaptation. Native/widget measurement and committing geometry remain owned
+by the shared coordinator, not the Rust numerical engine.
+
+The `recursive_resolved_flex` capability is advertised for Rust only when
+that native ABI is present. Real-wheel differential tests cover exact
+geometry, UI measurement requests and iterative convergence; a separate
+Rust-only test physically removes the Python fallback and exercises all
+three historical functions. Certification applies to the bounded tested
+grammar, not every possible CSS tree. The seven `psx.layout.compat.native_*`
 modules are deprecated development/test aliases into `tests.certification`.
 That test package is intentionally absent from installed PSX wheels; these
 aliases are **not application runtime APIs**.

@@ -21,7 +21,7 @@ KNOWN_FEATURES = frozenset({
     "grid_12_columns", "inline_text_ltr_normal",
     "full_layout_compute", "provisional_layout_compute",
     "incremental_layout_compute", "width_dependent_remeasurement",
-    "measured_flow_primitives",
+    "measured_flow_primitives", "recursive_resolved_flex",
 })
 
 FEATURE_SCOPES = {
@@ -34,6 +34,7 @@ FEATURE_SCOPES = {
     "incremental_layout_compute": "Safe recomputation/reuse with prior snapshot",
     "width_dependent_remeasurement": "Finite width-dependent UI measurement rounds",
     "measured_flow_primitives": "Measured atomic Block/Inline placements without text shaping",
+    "recursive_resolved_flex": "Typed recursive Flex, intrinsic remeasurement and auto-cross with bounded CSS",
 }
 
 
@@ -98,7 +99,7 @@ _COMMON_CERTIFIED = frozenset({
     "full_layout_compute", "provisional_layout_compute",
     "incremental_layout_compute", "width_dependent_remeasurement",
 })
-_OPTIONAL = frozenset({"grid_12_columns", "inline_text_ltr_normal", "measured_flow_primitives"})
+_OPTIONAL = frozenset({"grid_12_columns", "inline_text_ltr_normal", "measured_flow_primitives", "recursive_resolved_flex"})
 
 PYTHON_CAPABILITIES = EngineCapabilities(
     engine_name="python", schema_version=SCHEMA_VERSION,
@@ -107,13 +108,14 @@ PYTHON_CAPABILITIES = EngineCapabilities(
 )
 
 
-def rust_engine_capabilities(*, has_grid: bool, has_inline: bool, has_flow: bool = False) -> EngineCapabilities:
+def rust_engine_capabilities(*, has_grid: bool, has_inline: bool, has_flow: bool = False, has_recursive: bool = False) -> EngineCapabilities:
     """Expose optional numerical kernels only if the Rust wheel has their ABI."""
     optional = frozenset(
         name for name, present in (
             ("grid_12_columns", has_grid),
             ("inline_text_ltr_normal", has_inline),
             ("measured_flow_primitives", has_flow),
+            ("recursive_resolved_flex", has_recursive),
         ) if present
     )
     return EngineCapabilities(

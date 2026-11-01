@@ -29,6 +29,7 @@ class RustLayoutEngine:
             has_grid=callable(getattr(self._module, "compute_grid_json", None)),
             has_inline=callable(getattr(self._module, "compute_inline_text_json", None)),
             has_flow=callable(getattr(self._module, "compute_measured_flow_json", None)),
+            has_recursive=callable(getattr(self._module, "compute_recursive_tree_json", None)),
         )
 
     def compute_inline_text(self, payload: dict[str, object]) -> dict[str, object]:

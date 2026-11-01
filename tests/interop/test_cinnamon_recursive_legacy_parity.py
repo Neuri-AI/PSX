@@ -31,6 +31,8 @@ def engines():
     rust = load_layout_engine()
     assert isinstance(rust, RustLayoutEngine)
     assert callable(getattr(rust._module, "compute_recursive_tree_json", None))
+    assert rust.capabilities.status("recursive_resolved_flex") == "certified"
+    assert PythonLayoutEngine().capabilities.status("recursive_resolved_flex") == "certified"
     return rust, PythonLayoutEngine()
 
 
