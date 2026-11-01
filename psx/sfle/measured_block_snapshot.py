@@ -321,7 +321,25 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
             else:
                 result = selected_engine.compute(local)
         else:
-            result = selected_engine.compute(local)
+            try:
+                result = selected_engine.compute(local)
+            except SFLECapabilityError:
+                raise
+            except Exception as exc:
+                if "missing measured baseline" not in str(exc):
+                    raise
+                missing = tuple(
+                    (item.node_id, item.component, item.parent_id)
+                    for item in local.nodes
+                    if item.node_id in measurements_by_id
+                    and measurements_by_id[item.node_id].intrinsic.baseline is None
+                )
+                raise SFLECapabilityError(
+                    DiagnosticCode.UNSUPPORTED_MEASUREMENT,
+                    f"Nested Flex baseline failure in {node.node_id!r}; "
+                    f"measured descendants without a baseline: {missing!r}",
+                    node.node_id,
+                ) from exc
         solved = dict(result.boxes)
         root_border = solved[node.node_id].border
         dx, dy = x - root_border.x, y - root_border.y
