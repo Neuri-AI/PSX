@@ -10,6 +10,7 @@ pub mod grid_math;
 pub mod flow_layout;
 mod flow_snapshot;
 pub mod layout_unit;
+pub mod semantic_inline_text;
 #[cfg(feature = "python")]
 mod python_binding;
 mod compute_layout;
