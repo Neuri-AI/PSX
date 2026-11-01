@@ -9,30 +9,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
-
-
-@dataclass(frozen=True, slots=True)
-class GridSlot:
-    id: str
-    span: int | str = "auto"
-    offset: int = 0
-    order: int = 0
-
-
-@dataclass(frozen=True, slots=True)
-class PackedGridItem:
-    id: str
-    start: float
-    span: float
-
-
-@dataclass(frozen=True, slots=True)
-class PackedGridRow:
-    items: tuple[PackedGridItem, ...]
-
-
-class GridPackingError(ValueError):
-    """Grid declaration cannot be placed within twelve logical columns."""
+from psx.layout.grid.contracts import (
+    GridSlot, PackedGridItem, PackedGridRow, GridPackingError,
+    GridPixelItem, GridPixelRow, GridRect,
+    GridItemConstraints, GridConstrainedRect,
+)
 
 
 def _validate(items: tuple[GridSlot, ...]) -> None:
@@ -113,19 +94,6 @@ def pack_grid_rows(items: tuple[GridSlot, ...] | list[GridSlot]) -> tuple[Packed
     return tuple(rows)
 
 
-@dataclass(frozen=True, slots=True)
-class GridPixelItem:
-    """Projected horizontal box; coordinates are exact signed 1/64px units."""
-    id: str
-    x_raw: int
-    width_raw: int
-
-
-@dataclass(frozen=True, slots=True)
-class GridPixelRow:
-    items: tuple[GridPixelItem, ...]
-
-
 def _nearest_positive_fraction(numerator: int, denominator: int) -> int:
     return (numerator * 2 + denominator) // (2 * denominator)
 
@@ -192,16 +160,6 @@ def project_grid_rows(
     return tuple(result)
 
 
-@dataclass(frozen=True, slots=True)
-class GridRect:
-    """Projected Grid item geometry in 1/64px units."""
-    id: str
-    x_raw: int
-    y_raw: int
-    width_raw: int
-    height_raw: int
-
-
 def layout_grid_rects(
     rows: tuple[PackedGridRow, ...] | list[PackedGridRow],
     content_width: int | float,
@@ -261,29 +219,6 @@ def layout_grid_rects(
         if row.items:
             y += max(heights[item.id] for item in row.items) + gap
     return tuple(result)
-
-
-@dataclass(frozen=True, slots=True)
-class GridItemConstraints:
-    """Resolved nonnegative content-box min/max limits; None means unbounded."""
-    min_width: float = 0
-    max_width: float | None = None
-    min_height: float = 0
-    max_height: float | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class GridConstrainedRect:
-    """Immutable allocated rectangle and independently constrained used size."""
-    id: str
-    x_raw: int
-    y_raw: int
-    width_raw: int
-    height_raw: int
-    used_width_raw: int
-    used_height_raw: int
-    overflow_x: bool
-    overflow_y: bool
 
 
 def compute_grid(
