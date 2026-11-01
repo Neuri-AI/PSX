@@ -3,14 +3,14 @@ on:
   push:
     branches: [fixes/psx-issues]
     paths:
-      - "psx/sfle/**"
+      - "psx/layout/**"
       - "tests/test_flow_linear_complexity.py tests/test_native_structural_snapshot_reuse.py tests/test_native_geometry_write_suppression.py"
       - ".github/workflows/grid-resize-performance.yml"
       - "tests/sfle/test_grid_native_commit.py"
   pull_request:
     branches: [develop]
     paths:
-      - "psx/sfle/**"
+      - "psx/layout/**"
       - "psx/renderers/**"
       - "benchmarks/grid_resize_profile.py"
       - "benchmarks/grid_resize_interactive.py"
