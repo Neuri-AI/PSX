@@ -193,12 +193,6 @@ impl Flow<'_> {
 
     fn leaf(&self, index: usize) -> Result<&crate::compute::IntrinsicSizes, ComputeError> {
         let node = &self.input.nodes[index];
-        if !self.children[index].is_empty() {
-            return Err(unsupported(
-                format!("Nested Block/Inline formatting for native child {:?} requires an explicit nested format adapter.", node.node_id),
-                &node.node_id,
-            ));
-        }
         if node.style.keys().any(|name| !valid_flow_style(name)) {
             return Err(unsupported("Native flow leaf has unresolved layout styles.", &node.node_id));
         }
@@ -209,6 +203,25 @@ impl Flow<'_> {
                 Some(&node.node_id),
             )
         })
+    }
+
+    /// Position descendants of an intrinsically measured native host in its
+    /// content box. The native host retains its measured outer dimensions;
+    /// descendants do not inflate a replaced element's intrinsic size.
+    fn native_descendants(&mut self, index: usize) -> Result<(), ComputeError> {
+        let Some(parent) = self.boxes[index].clone() else {
+            return Err(error("SFLE_INVALID_TREE", "Native host has no geometry.", Some(&self.input.nodes[index].node_id)));
+        };
+        let mut cursor = 0.0;
+        for child in self.children[index].clone() {
+            self.containing_height[child] = Some(parent.height);
+            if self.input.nodes[child].component == "Flex" {
+                cursor += self.flex_node(child, parent.x, parent.y + cursor, parent.width)?;
+            } else {
+                cursor += self.block(child, parent.x, parent.y + cursor, parent.width)?;
+            }
+        }
+        Ok(())
     }
 
     fn collect_inline(
@@ -301,6 +314,7 @@ impl Flow<'_> {
                 (placed.width - horizontal).max(0.0),
                 (placed.height - vertical).max(0.0), id,
             )?);
+            self.native_descendants(index)?;
             line_height = line_height.max(placed.y + placed.height);
         }
         for &owner in owners.iter().rev() {
@@ -452,6 +466,7 @@ impl Flow<'_> {
                 let used_width = self.constrained_dimension(index, "width", available, content_available)?;
                 let used_height = self.constrained_dimension(index, "height", available, preferred_height)?;
                 self.boxes[index] = Some(rect(content_x, content_y, used_width, used_height, &id)?);
+                self.native_descendants(index)?;
                 return Ok(top + used_height + bottom);
             }
             Some(true) => {
