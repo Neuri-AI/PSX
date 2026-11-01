@@ -7,6 +7,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from psx.layout.inline.semantic_inline_text import InlineTextFragment
+
+
 def _painter(backend: str):
     """Import only the selected native painter; no cross-toolkit imports."""
     from importlib import import_module
@@ -53,7 +55,7 @@ def project_native_inline_paint(
 def release_native_inline_paint(renderer, backend: str) -> None:
     """Remove painter hooks on remount/unmount and release native references."""
     previous = getattr(renderer, "_sfle_semantic_inline_widgets", {})
-    clear = {"qt": _qt_clear, "tk": _tk_clear, "kivy": _kivy_clear}[backend]
+    _paint, clear = _painter(backend)
     renderer._sfle_semantic_inline_widgets = {}
     for widget in previous.values():
         try:
