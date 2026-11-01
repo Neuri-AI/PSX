@@ -113,11 +113,13 @@ def test_style_mutation_incremental_equals_full_reflow(case_id, new_width, backe
                       nodes=tuple(nodes))
     previous = (rust.compute(initial), python.compute(initial))
     for invalidated in (False, True):
-        incremental = tuple(engine.compute_incremental(
-            changed, previous_input=initial, previous_result=old,
-            native_measurement_invalidated=invalidated,
-        ) for engine, old in zip((rust, python), previous))
-        complete = tuple(engine.compute(changed) for engine in (rust, python))
+        incremental = tuple(_outcome(lambda engine=engine, old=old:
+            engine.compute_incremental(
+                changed, previous_input=initial, previous_result=old,
+                native_measurement_invalidated=invalidated,
+            )) for engine, old in zip((rust, python), previous))
+        complete = tuple(_outcome(lambda engine=engine:
+            engine.compute(changed)) for engine in (rust, python))
         assert incremental[0] == incremental[1] == complete[0] == complete[1], (
             case_id, invalidated, incremental, complete,
         )
