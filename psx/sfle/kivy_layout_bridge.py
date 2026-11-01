@@ -177,6 +177,15 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             if vnode.kind is NodeKind.HOST and vnode.type == "Divider"
             and not vnode.children
         }
+        from psx.sfle.native_layout_snapshot import inline_atomic_text_ids
+        atomic_text = inline_atomic_text_ids(prepared)
+        for node_id in text_ids:
+            widget = bindings[node_id].widget
+            is_atomic = node_id in atomic_text
+            widget._psx_sfle_inline_atomic = is_atomic
+            if is_atomic:
+                widget.text_size = (None, None)
+                widget.texture_update()
         source = KivyMeasurementSource(
             leaf_widgets, textarea_ids=textarea_ids, image_ids=image_ids,
             spacer_ids=spacer_ids, divider_nodes=divider_nodes,
@@ -452,7 +461,10 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     KivyDividerAdapter._redraw(widget, widget._psx_props)
             for node_id in previous_text_sizes:
                 widget = bindings[node_id].widget
-                widget.text_size = (boxes[node_id].content.width, None)
+                if node_id in atomic_text:
+                    widget.text_size = (None, None)
+                else:
+                    widget.text_size = (boxes[node_id].content.width, None)
                 widget.texture_update()
             if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
