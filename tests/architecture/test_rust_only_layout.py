@@ -360,3 +360,27 @@ def test_rust_only_public_contract_imports_do_not_load_fallback():
     assert not [module for module in sys.modules
                 if module.startswith("psx.layout.fallback")]
 
+def test_all_shared_migration_modules_import_without_python_fallback():
+    """Every migrated non-solver module must import with the fallback deleted."""
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    mapping = json.loads(
+        (root / "scripts/layout_migration_manifest.json").read_text()
+    )["sourceToTarget"]
+    module_paths = sorted({
+        target.removesuffix(".py").replace("/", ".")
+        for target in mapping.values()
+        if target.startswith("psx/layout/")
+        and not target.startswith((
+            "psx/layout/fallback/", "psx/layout/compat/",
+        ))
+        and not target.endswith("/__init__.py")
+    })
+    assert module_paths
+    for name in module_paths:
+        importlib.import_module(name)
+    assert not [module for module in sys.modules
+                if module.startswith("psx.layout.fallback")]
+

@@ -91,7 +91,16 @@ def load_layout_engine() -> RustLayoutEngine | object:
     except (ImportError, OSError):
         # The Python solver is load-time optional. Never import it in a
         # process that successfully selected the native Rust engine.
-        from psx.layout.fallback.engine import PythonLayoutEngine
+        try:
+            from psx.layout.fallback.engine import PythonLayoutEngine
+        except ModuleNotFoundError as exc:
+            if exc.name in ("psx.layout.fallback", "psx.layout.fallback.engine"):
+                raise SFLEError(
+                    DiagnosticCode.BACKEND_MISMATCH,
+                    "No Cinnamon engine available: _sfle_native is absent and "
+                    "the optional Python fallback is not installed.",
+                ) from exc
+            raise
         return PythonLayoutEngine()
     required = ("schema_version", "compute_json", "compute_provisional_json")
     if any(not callable(getattr(native, name, None)) for name in required):
