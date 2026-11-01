@@ -63,6 +63,18 @@ def _case(name):
             LayoutNode("root", None, "div", (("display", "inline"),)),
             *basic[1:],
         )
+    elif name == "nested_native":
+        nodes = (
+            LayoutNode("root", None, "div", ()),
+            LayoutNode("button", "root", "Button", ()),
+            LayoutNode("text", "button", "Text", ()),
+        )
+    elif name == "nested_native_inline":
+        nodes = (
+            LayoutNode("root", None, "div", (("display", "inline"),)),
+            LayoutNode("button", "root", "Button", ()),
+            LayoutNode("text", "button", "Text", ()),
+        )
     elif name == "nested_flex":
         nodes = (
             LayoutNode("root", None, "div", ()),
@@ -99,7 +111,7 @@ def _case(name):
 
 @pytest.mark.parametrize("case", [
     "basic", "padded", "fractional", "inline", "wrap",
-    "nested_flex", "explicit_dimensions", "centering",
+    "nested_flex", "nested_native", "nested_native_inline", "explicit_dimensions", "centering",
 ])
 def test_rust_python_block_inline_exact_geometry(case):
     import _sfle_native
