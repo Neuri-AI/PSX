@@ -95,3 +95,12 @@ class PythonLayoutEngine:
             slots, content_width, column_gap, row_gap, item_heights,
             constraints, rtl=rtl,
         )
+
+    def layout_inline_text(
+        self, sources, available_width, measure, *, text_align="left",
+    ):
+        """Compute fragments with the independent Python numerical kernel."""
+        from psx.layout.fallback.semantic_inline_text import python_layout_inline_text
+        return python_layout_inline_text(
+            sources, available_width, measure, text_align=text_align,
+        )

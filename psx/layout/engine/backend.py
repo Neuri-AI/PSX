@@ -64,6 +64,7 @@ class RustLayoutEngine:
         previous_input: LayoutInput | None = None,
         previous_result: LayoutResult | None = None,
         native_measurement_invalidated: bool = False,
+        reused_contexts: list[str] | None = None,
     ) -> LayoutResult:
         """Use native optional incremental ABI when a safe prior result exists."""
         native = getattr(self._module, "compute_incremental_json", None)
@@ -81,6 +82,27 @@ class RustLayoutEngine:
     def compute_provisional(self, request: LayoutInput) -> LayoutResult:
         return deserialize_response(
             self._module.compute_provisional_json(serialize_snapshot(request)), request
+        )
+
+    def compute_grid(
+        self, slots, content_width, column_gap=0, row_gap=0,
+        item_heights=None, constraints=None, *, rtl=False,
+    ):
+        """Compute Grid using this engine's actual native PyO3 ABI."""
+        from psx.layout.grid.solver import compute_grid
+        return compute_grid(
+            slots, content_width, column_gap, row_gap, item_heights,
+            constraints, rtl=rtl, engine=self,
+        )
+
+    def layout_inline_text(
+        self, sources, available_width, measure, *, text_align="left",
+    ):
+        """Compute text geometry with Rust's independent numerical kernel."""
+        from psx.layout.inline.semantic_inline_text import layout_inline_text
+        return layout_inline_text(
+            sources, available_width, measure,
+            text_align=text_align, engine=self,
         )
 
 

@@ -19,6 +19,8 @@ KNOWN_FEATURES = frozenset({
     "min_max_constraints", "overflow",
     "block_flow_measured", "inline_flow_measured",
     "grid_12_columns", "inline_text_ltr_normal",
+    "full_layout_compute", "provisional_layout_compute",
+    "incremental_layout_compute", "width_dependent_remeasurement",
 })
 
 FEATURE_SCOPES = {
@@ -26,6 +28,10 @@ FEATURE_SCOPES = {
     "inline_flow_measured": "Measured atomic inline boxes (not full text shaping)",
     "grid_12_columns": "PSX 12-column Grid packing and allocation",
     "inline_text_ltr_normal": "Source-preserving LTR white-space:normal fragments",
+    "full_layout_compute": "Immutable snapshot computation and failure diagnostics",
+    "provisional_layout_compute": "Provisional geometry for intrinsic measurement",
+    "incremental_layout_compute": "Safe recomputation/reuse with prior snapshot",
+    "width_dependent_remeasurement": "Finite width-dependent UI measurement rounds",
 }
 
 
@@ -80,6 +86,8 @@ _COMMON_IMPLEMENTED = frozenset({
     "writing_ltr", "gap", "grow_shrink", "wrapping",
     "intrinsic_sizing", "percentage_sizing", "min_max_constraints",
     "block_flow_measured", "inline_flow_measured",
+    "full_layout_compute", "provisional_layout_compute",
+    "incremental_layout_compute", "width_dependent_remeasurement",
 })
 _COMMON_CERTIFIED = frozenset({
     "direction_row", "direction_column", "direction_reverse",
