@@ -577,6 +577,18 @@ class KivyRenderer:
             lambda _dt: self._sfle_flush_window_resize(window, epoch), 0,
         )
 
+    def _sfle_sync_attached_viewport(self, window) -> None:
+        """Reconcile the actual SDL drawable on the first mounted UI frame.
+
+        The initial Window.size may settle only after runTouchApp attaches
+        the root. Do not wait for an on_resize event: it may have been emitted
+        before the root was attached. Reuse the same atomic viewport commit as
+        a normal resize, without modifying Window or its pixel density.
+        """
+        root = self._sfle_watched_widget
+        if root is not None and root.parent is window:
+            self._sfle_flush_window_resize(window, self._sfle_resize_epoch)
+
     def _sfle_flush_window_resize(self, window, epoch: int) -> None:
         self._sfle_window_resize_event = None
         root = self._sfle_watched_widget
@@ -1779,18 +1791,12 @@ class KivyRenderer:
         if self._root is None:
             raise RuntimeError(
                 "KivyRenderer.run() requires a mounted PSX root.")
-        # A root with Cinnamon-owned geometry has size_hint=None. Kivy will
-        # not automatically expand it to the SDL2 window when runTouchApp
-        # attaches it, so reconcile the viewport once the root is mounted.
-        # The existing size observer schedules the corresponding layout.
+        # The first SDL frame may report a drawable size different from the
+        # base.json window-coordinate size. Reconcile root + Cinnamon in one
+        # frame, without relying on an already-missed on_resize notification.
         def sync_attached_viewport(_dt):
             from kivy.core.window import Window
-            root = self._sfle_watched_widget
-            if root is not None and root.parent is Window:
-                width, height = Window.size
-                if width > 0 and height > 0:
-                    if tuple(root.size) != (width, height):
-                        root.size = (width, height)
+            self._sfle_sync_attached_viewport(Window)
 
         Clock.schedule_once(sync_attached_viewport, 0)
         try:
