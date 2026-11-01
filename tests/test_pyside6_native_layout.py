@@ -168,10 +168,29 @@ class QtSFLEGeometryTests(unittest.TestCase):
             '<button>Count is 0</button></div>'
         ))
         paragraph, button = root.children
-        prefix = paragraph.children[0].handle.widget
-        span = paragraph.children[1].handle.widget
-        suffix = paragraph.children[2].handle.widget
-        nested = paragraph.children[1].children[0].handle.widget
+        # Inline formatting now tokenizes whitespace/words into independent
+        # Text nodes so Cinnamon can wrap at word boundaries. Never assume
+        # that the span is the second paragraph child.
+        children = paragraph.children
+        span_index = next(
+            index for index, child in enumerate(children)
+            if child.node.type == "span"
+        )
+        span_node = children[span_index]
+        prefix = next(
+            child.handle.widget for child in reversed(children[:span_index])
+            if child.node.type == "Text" and child.node.props["value"].strip()
+        )
+        suffix = next(
+            child.handle.widget for child in children[span_index + 1:]
+            if child.node.type == "Text" and child.node.props["value"].strip()
+        )
+        span = span_node.handle.widget
+        nested = next(
+            child.handle.widget for child in span_node.children
+            if child.node.type == "Text"
+            and child.node.props["value"] == "src/App.tsx"
+        )
         assert paragraph.handle.widget.width() == 800
         assert prefix.y() == span.y() == suffix.y()
         assert prefix.x() < span.x() < suffix.x()
