@@ -1,0 +1,142 @@
+"""Apply immutable SFLE Scroll geometry to native viewport hosts.
+
+The caller owns the UI thread and must validate its layout generation before
+calling a host port. Scroll offsets never mutate SFLE Rect values.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from psx.layout.scroll.native_scroll_viewport import ScrollViewportBinding
+from psx.layout.scroll.scroll_offsets import ScrollOffset, clamp_scroll_offset
+
+
+@dataclass(frozen=True, slots=True)
+class ScrollHostGeometry:
+    offset: ScrollOffset
+    viewport_size: tuple[float, float]
+    content_size: tuple[float, float]
+
+
+def binding_from_host(props: dict, viewport: object, content: object) -> ScrollViewportBinding:
+    """Adapt SFLE boxes and validated Scroll props without layout recomputation."""
+    from psx.layout.contracts.model import Rect
+
+    axes = props["direction"]
+    enabled = bool(props["enabled"])
+    return ScrollViewportBinding(
+        axes, enabled,
+        Rect(viewport.x, viewport.y, viewport.width, viewport.height),
+        Rect(content.x, content.y, content.width, content.height),
+        enabled and axes in ("horizontal", "both"),
+        enabled and axes in ("vertical", "both"),
+    )
+
+
+def host_geometry(binding: ScrollViewportBinding, offset: ScrollOffset) -> ScrollHostGeometry:
+    """Resolve axes and overflow once, independently of native coordinates."""
+    position = clamp_scroll_offset(binding, offset)
+    return ScrollHostGeometry(
+        position,
+        (binding.viewport.width, binding.viewport.height),
+        (binding.content.width, binding.content.height),
+    )
+
+
+def apply_qt_scroll(area: object, binding: ScrollViewportBinding,
+                    offset: ScrollOffset) -> ScrollHostGeometry:
+    """Bind SFLE content extent and logical top-left offsets to QScrollArea."""
+    geometry = host_geometry(binding, offset)
+    content = area._psx_content
+    content.resize(round(geometry.content_size[0]), round(geometry.content_size[1]))
+    horizontal = area.horizontalScrollBar()
+    vertical = area.verticalScrollBar()
+    # Hidden/offscreen QScrollArea widgets may not have calculated scroll
+    # ranges yet. SFLE's viewport and content extents are authoritative.
+    if hasattr(horizontal, "setRange"):
+        horizontal.setRange(0, round(binding.overflow_x) if binding.clip_x else 0)
+    if hasattr(vertical, "setRange"):
+        vertical.setRange(0, round(binding.overflow_y) if binding.clip_y else 0)
+    horizontal.setValue(round(geometry.offset.x))
+    vertical.setValue(round(geometry.offset.y))
+    area._psx_scroll_logical_offset = geometry.offset
+    return geometry
+
+
+def apply_tk_scroll(outer: object, binding: ScrollViewportBinding,
+                    offset: ScrollOffset) -> ScrollHostGeometry:
+    """Use Canvas clipping and scrollregion, never requested native child size."""
+    geometry = host_geometry(binding, offset)
+    canvas = outer._psx_canvas
+    content_width, content_height = geometry.content_size
+    canvas.itemconfigure(outer._psx_window, width=round(content_width),
+                         height=round(content_height))
+    region = (0, 0, round(content_width), round(content_height))
+    canvas.configure(scrollregion=region)
+    # The native Canvas fills the viewport outside its child window. Its
+    # default theme color must not leak through an explicitly painted CSS
+    # content root when the viewport is taller than its content.
+    background = None
+    native_content = getattr(outer, "_psx_content", None)
+    # GridItem may sit between Scroll's content frame and the CSS-painted
+    # formatting root. The viewport must not show a theme color in the
+    # space outside that root or while its native children are repositioned.
+    # Walk only the single-content chain; do not borrow a card's background.
+    candidate = native_content
+    while candidate is not None:
+        background = getattr(candidate, "_psx_css_background", None)
+        if background is not None:
+            break
+        get_children = getattr(candidate, "winfo_children", None)
+        children = get_children() if callable(get_children) else ()
+        children = [child for child in children
+                    if child is not getattr(candidate, "_psx_css_fill_canvas", None)]
+        candidate = children[0] if len(children) == 1 else None
+    if background is not None:
+        canvas.configure(background=background)
+        if native_content is not None and hasattr(native_content, "configure"):
+            try:
+                native_content.configure(style=(
+                    f"PsxScrollContent{id(native_content)}.TFrame"))
+                from tkinter import ttk
+                ttk.Style(native_content).configure(
+                    native_content.cget("style"), background=background)
+            except (AttributeError, TypeError):
+                pass
+    outer._psx_scroll_region = region
+    # Tk fractions address the entire content extent, not the overflow extent.
+    canvas.xview_moveto(geometry.offset.x / content_width if content_width else 0.0)
+    canvas.yview_moveto(geometry.offset.y / content_height if content_height else 0.0)
+    outer._psx_scroll_logical_offset = geometry.offset
+    return geometry
+
+
+def apply_kivy_scroll(view: object, binding: ScrollViewportBinding,
+                      offset: ScrollOffset) -> ScrollHostGeometry:
+    """Translate SFLE top-left Y offsets to Kivy's bottom-left scroll fraction."""
+    geometry = host_geometry(binding, offset)
+    content = view._psx_content
+    # Kivy dispatches size/scroll property changes synchronously. Repeating
+    # unchanged writes while Cinnamon commits can re-enter native ScrollView
+    # positioning callbacks during viewport resizing or sidebar updates.
+    if tuple(getattr(content, "size_hint", ())) != (None, None):
+        content.size_hint = (None, None)
+    if tuple(getattr(content, "size", ())) != geometry.content_size:
+        content.size = geometry.content_size
+    scroll_x = (geometry.offset.x / binding.overflow_x
+                if binding.clip_x and binding.overflow_x else 0.0)
+    scroll_y = (1.0 - geometry.offset.y / binding.overflow_y
+                if binding.clip_y and binding.overflow_y else 1.0)
+    if getattr(view, "scroll_x", None) != scroll_x:
+        view.scroll_x = scroll_x
+    if getattr(view, "scroll_y", None) != scroll_y:
+        view.scroll_y = scroll_y
+    view._psx_scroll_logical_offset = geometry.offset
+    view._psx_scroll_previous_overflow = (binding.overflow_x, binding.overflow_y)
+    return geometry
+
+
+def apply_headless_scroll(binding: ScrollViewportBinding,
+                          offset: ScrollOffset) -> ScrollHostGeometry:
+    """Return a deterministic projection without touching a native widget."""
+    return host_geometry(binding, offset)
