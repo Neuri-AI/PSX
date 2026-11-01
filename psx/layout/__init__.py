@@ -31,3 +31,25 @@ __all__ = [
     "layout_result_to_wire", "length_from_wire", "length_to_wire",
     "loads_input", "parse_length",
 ]
+
+# Backward-compatible *explicit* symbols are resolved lazily. A mere
+# import of psx.layout, markup or a Rust engine never loads the fallback.
+_OPTIONAL_FALLBACK = frozenset({
+    "LayoutEngine", "PythonLayoutEngine", "UnsupportedLayoutFeature",
+})
+_OPTIONAL_WORKERS = frozenset({
+    "ToolkitWorkerAdapter", "start_kivy_worker_layout", "start_tk_worker_layout",
+})
+
+
+def __getattr__(name: str):
+    if name in _OPTIONAL_FALLBACK:
+        from importlib import import_module
+        return getattr(import_module("psx.layout.fallback.engine"), name)
+    if name in _OPTIONAL_WORKERS:
+        from importlib import import_module
+        return getattr(import_module("psx.layout.runtime.toolkit_worker"), name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ += sorted(_OPTIONAL_FALLBACK | _OPTIONAL_WORKERS)
