@@ -468,3 +468,47 @@ def test_measured_atomic_flow_kernels_have_exact_rust_python_parity(kind, backen
     assert backends[0].capabilities.status("measured_flow_primitives") == "certified"
     assert backends[1].capabilities.status("measured_flow_primitives") == "certified"
 
+@pytest.mark.parametrize("kind,invalid", (
+    ("block", "negative-width"), ("block", "nan-width"),
+    ("block", "negative-item-width"), ("block", "negative-item-height"),
+    ("block", "nan-item-margin"), ("block", "wrong-item-type"),
+    ("block", "wrong-collection"), ("inline", "negative-width"),
+    ("inline", "nan-width"), ("inline", "negative-item-width"),
+    ("inline", "negative-item-height"), ("inline", "negative-baseline"),
+    ("inline", "baseline-above-height"), ("inline", "nan-baseline"),
+    ("inline", "wrong-item-type"), ("inline", "wrong-collection"),
+))
+def test_measured_flow_invalid_input_parity(kind, invalid, backends):
+    """Identical error type and message for unsupported measured flow inputs."""
+    from psx.layout.contracts.flow import BlockItem, InlineAtom
+    from psx.layout.flow.solver import layout_block_children, layout_inline_atoms
+    width = 120.0
+    items = (BlockItem(60, 20),) if kind == "block" else (InlineAtom(60, 20, 15),)
+    if invalid == "negative-width":
+        width = -1
+    elif invalid == "nan-width":
+        width = float("nan")
+    elif invalid == "negative-item-width":
+        items = (BlockItem(-1, 20),) if kind == "block" else (InlineAtom(-1, 20, 15),)
+    elif invalid == "negative-item-height":
+        items = (BlockItem(60, -1),) if kind == "block" else (InlineAtom(60, -1, 0),)
+    elif invalid == "nan-item-margin":
+        items = (BlockItem(60, 20, margin_top=float("nan")),)
+    elif invalid == "negative-baseline":
+        items = (InlineAtom(60, 20, -1),)
+    elif invalid == "baseline-above-height":
+        items = (InlineAtom(60, 20, 25),)
+    elif invalid == "nan-baseline":
+        items = (InlineAtom(60, 20, float("nan")),)
+    elif invalid == "wrong-item-type":
+        items = ("not measured",)
+    elif invalid == "wrong-collection":
+        items = list(items)
+    call = layout_block_children if kind == "block" else layout_inline_atoms
+    captured = []
+    for engine in backends:
+        with pytest.raises((TypeError, ValueError)) as error:
+            call(width, items, engine=engine)
+        captured.append((type(error.value), str(error.value)))
+    assert captured[0] == captured[1], (kind, invalid, captured)
+
