@@ -35,7 +35,7 @@ jobs:
       - name: Public API and bounded capability manifest
         run: |
           python -m pip install -e . pytest
-          python -m pytest -q tests/architecture/test_layout_api_contract.py tests/architecture/test_cinnamon_migration_manifest.py
+          python -m pytest -q tests/architecture/test_layout_api_contract.py tests/architecture/test_cinnamon_migration_manifest.py tests/architecture/test_cinnamon_engine_dispatch.py
 
   rust-without-fallback:
     runs-on: ubuntu-24.04

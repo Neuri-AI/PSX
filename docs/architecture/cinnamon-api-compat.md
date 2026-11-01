@@ -12,6 +12,28 @@ have neutral entry points in `psx.layout.grid.solver` and
 `psx.layout.inline.semantic_inline_text`. If an engine is omitted, these
 entry points negotiate Rust first.
 
+## Numerical engine ownership and strict dispatch
+
+The shared Grid, Inline and recursive entry points know only the
+`LayoutEngine` methods `compute_grid`, `layout_inline_text` and
+`compute_recursive_tree`. They perform backend-neutral input validation and
+native glyph metric preparation, but do **not** inspect `backend_name`,
+import `psx.layout.fallback` or reach into `_sfle_native`.
+
+Concrete implementation ownership is explicit:
+
+- `engine.backend.RustLayoutEngine`: marshals validated requests into the
+  independent compiled Rust ABIs, checks responses, and decodes results.
+- `fallback.engine.PythonLayoutEngine`: imports and calls optional Python
+  numerical kernels directly, without re-entering shared dispatchers.
+
+`scripts/check_cinnamon_fallback_edges.py` forbids both eager and lazy
+fallback imports and backend-name selection inside the three shared façades.
+`tests/architecture/test_cinnamon_engine_dispatch.py` exercises an
+engine with no `backend_name`, missing methods, invalid inputs, and
+both concrete engines. Real-wheel differential and physical-fallback-removal
+workflows independently certify results and Rust-only operation.
+
 ## Historical recursive APIs with engine selection
 
 The three historical runtime functions `measure_resolved_margin_tree`,
