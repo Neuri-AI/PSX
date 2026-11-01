@@ -54,6 +54,25 @@ class TkMeasurementSource:
         )
 
     @staticmethod
+    def _text_baseline(widget: object, height: float) -> float | None:
+        """Read the actual Tk font ascent, including vertical widget chrome."""
+        try:
+            from tkinter import font as tkfont
+            font = getattr(widget, "_psx_text_font", None)
+            if font is None:
+                if "font" not in widget.keys():
+                    return None
+                font = tkfont.Font(root=widget, font=widget.cget("font"))
+            ascent = float(font.metrics("ascent"))
+            linespace = float(font.metrics("linespace"))
+            # Tk's requested size includes padding and decoration. Center
+            # its measured line box instead of treating a font ascent as
+            # already relative to the outer widget box.
+            return min(height, max(0.0, (height - linespace) / 2) + ascent)
+        except (AttributeError, KeyError, ValueError):
+            return None
+
+    @staticmethod
     def _image_metrics(widget: object) -> IntrinsicSizes:
         from psx.renderers.components.image import compute_target_size
         source = getattr(widget, "_psx_image_cache", None)
@@ -70,7 +89,7 @@ class TkMeasurementSource:
         width, height = compute_target_size(sw, sh, props["width"], props["height"])
         return IntrinsicSizes(
             float(width), float(width), float(height), float(height),
-            float(width), float(height),
+            float(width), float(height), baseline=float(height),
         )
 
     @staticmethod
@@ -156,8 +175,9 @@ class TkMeasurementSource:
             lines = max(1, (int(count[0]) if count else 0) + 1)
             height = float(lines) * leading
             measured_width = float(natural if width is None else min(natural, width))
+            baseline = TkMeasurementSource._text_baseline(widget, height)
             return IntrinsicSizes(measured_width, float(natural), height, height,
-                                  measured_width, height)
+                                  measured_width, height, baseline=baseline)
         finally:
             probe.destroy()
 
@@ -222,13 +242,12 @@ class TkMeasurementSource:
                 widget.configure(wraplength=old_wrap)
         if width < 0 or height < 0:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Invalid Tk requested widget size.")
-        font = getattr(widget, "_psx_text_font", None)
-        ascent = float(font.metrics("ascent")) if font is not None else None
+        baseline = self._text_baseline(widget, height)
         metrics = IntrinsicSizes(
             min_content_width=width, max_content_width=width,
             min_content_height=height, max_content_height=height,
             preferred_width=width, preferred_height=height,
-            baseline=min(height, ascent) if ascent is not None else None,
+            baseline=baseline,
         )
         return MeasuredBox(request.node_id, metrics, request.constraints, request.revision)
 
@@ -264,6 +283,7 @@ class TkMeasurementSource:
                     return IntrinsicSizes(
                         natural_width, natural_width, natural_height,
                         natural_height, natural_width, natural_height,
+                        baseline=self._text_baseline(widget, natural_height),
                     )
                 if previous != requested and str(previous) != str(requested):
                     widget.configure(wraplength=requested)
@@ -276,7 +296,8 @@ class TkMeasurementSource:
             measured_width = min(float(width), float(widget.winfo_reqwidth()))
             height = float(widget.winfo_reqheight())
             return IntrinsicSizes(measured_width, measured_width, height, height,
-                                  measured_width, height)
+                                  measured_width, height,
+                                  baseline=self._text_baseline(widget, height))
         finally:
             if changed_wrap:
                 # Restoring the option does not need another synchronous Tk
