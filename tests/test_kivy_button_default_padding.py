@@ -12,7 +12,7 @@ def test_button_default_padding_contributes_to_intrinsic_size():
 
     widget = _kivy_button_factory()
     widget.text = "Count is 0"
-    widget.padding = (12, 6, 12, 6)
+    widget.padding = (6, 6, 6, 6)
     widget.text_size = (None, None)
     widget.texture_update()
     source = KivyMeasurementSource({"button": widget})
@@ -22,7 +22,7 @@ def test_button_default_padding_contributes_to_intrinsic_size():
         1, 1,
     )
     intrinsic = source.measure(request).intrinsic
-    assert intrinsic.preferred_width == widget.texture_size[0] + 24
+    assert intrinsic.preferred_width == widget.texture_size[0] + 12
     assert intrinsic.preferred_height == widget.texture_size[1] + 12
 
     # Explicit CSS padding belongs to Cinnamon, not native intrinsic size.
