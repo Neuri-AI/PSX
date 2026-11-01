@@ -32,6 +32,9 @@ def background_hex(computed: ComputedStyle | None) -> str | None:
     rgba = background_rgba(computed)
     if rgba is None:
         return None
+    if rgba[3] == 0.0:
+        # Transparent paint has no opaque background for Tk or native themes.
+        return None
     if rgba[3] != 1.0:
         raise ValueError("Native CSS background paint currently requires opaque colors.")
     return "#" + "".join(f"{round(v * 255):02x}" for v in rgba[:3])
@@ -209,6 +212,8 @@ def qt_semantic_stylesheet(computed: ComputedStyle | None) -> str:
     foreground = foreground_hex(computed)
     if background is not None:
         declarations.append(f"background-color: {background};")
+    elif (rgba := background_rgba(computed)) is not None and rgba[3] == 0.0:
+        declarations.append("background-color: transparent;")
     if foreground is not None:
         declarations.append(f"color: {foreground};")
     if computed is not None and "border-color" in computed.specified:
