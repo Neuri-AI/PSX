@@ -226,13 +226,6 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
                 f"Flow child {node.node_id!r} has unresolved layout styles.",
                 node.node_id,
             )
-        if children[node.node_id]:
-            raise SFLECapabilityError(
-                DiagnosticCode.UNSUPPORTED_FEATURE,
-                f"Nested Block/Inline formatting for native child {node.node_id!r} "
-                "requires an explicit nested format adapter.",
-                node.node_id,
-            )
         return metrics[node.node_id]
 
     def flex_node(node, x: float, y: float, available: float) -> float:
@@ -353,6 +346,21 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
             geometry[identifier] = translated.content
         return solved[node.node_id].margin.height
 
+    def native_descendants(node) -> None:
+        """Layout children inside a measured native host without resizing it.
+
+        The host is a replaced element: descendants receive their own geometry
+        but cannot change the measured outer rectangle or sibling flow.
+        """
+        parent = geometry[node.node_id]
+        cursor = 0.0
+        for child in children[node.node_id]:
+            containing_height[child.node_id] = parent.height
+            if child.component == "Flex":
+                cursor += flex_node(child, parent.x, parent.y + cursor, parent.width)
+            else:
+                cursor += block_node(child, parent.x, parent.y + cursor, parent.width)
+
     def inline_run(nodes, x: float, y: float, available: float) -> float:
         atoms = []
         owners = []
@@ -413,6 +421,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
                 max(0.0, place.width - horizontal),
                 max(0.0, place.height - vertical),
             )
+            native_descendants(node)
         for owner in reversed(owners):
             descendants = [geometry[child.node_id]
                            for child in children[owner.node_id]
@@ -482,6 +491,7 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
             used_width = constrained_dimension(node, "width", available, content_available)
             used_height = constrained_dimension(node, "height", available, intrinsic.preferred_height)
             geometry[node.node_id] = quantized_rect(content_x, content_y, used_width, used_height)
+            native_descendants(node)
             return top + used_height + bottom
         if mode == "inline":
             if any(edges(node, part) != (0.0, 0.0, 0.0, 0.0)
