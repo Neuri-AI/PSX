@@ -639,6 +639,47 @@ class KivyRenderer:
             import logging
             logging.getLogger(__name__).exception("Kivy SFLE viewport resize failed")
 
+    def _sfle_sync_attached_viewport(self) -> None:
+        """Reconcile a mounted viewport after SDL attaches the native window.
+
+        A window may already have resized the root before the initial
+        observer is installed. In that case no further size event fires,
+        leaving Cinnamon's constraints at the pre-window dimensions even
+        though the widget is full-size. Compare BOTH geometry and constraints.
+        """
+        from kivy.core.window import Window
+        from psx.sfle.model import AvailableSize
+
+        root = self._sfle_watched_widget
+        mounted = self._sfle_mounted_root
+        constraints = self._sfle_constraints
+        if (root is None or root.parent is not Window or mounted is None
+                or mounted.disposed or constraints is None):
+            return
+        drawable = tuple(Window.size)
+        if len(drawable) != 2 or any(
+                not isinstance(axis, (int, float)) or axis <= 0
+                for axis in drawable):
+            return
+        if tuple(root.size) != drawable:
+            root.size = drawable
+        stale = (constraints.width.value, constraints.height.value) != drawable
+        if not stale:
+            return
+        # Updating root.size can enqueue the ordinary root-size observer.
+        # Consume that pending event in THIS single startup transaction.
+        for event_name in ("_sfle_resize_event", "_sfle_window_resize_event"):
+            event = getattr(self, event_name, None)
+            if event is not None:
+                event.cancel()
+                setattr(self, event_name, None)
+        self._sfle_resize_pending = None
+        self.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(drawable[0], True),
+            AvailableSize(drawable[1], True),
+        ))
+        self.commit_layout(mounted)
+
     def _sfle_on_textarea_changed(self, widget: Widget, _text: str) -> None:
         if (self._sfle_constraints is None or self._sfle_mounted_root is None
                 or self._sfle_in_commit or getattr(widget, "_psx_updating", False)
@@ -1789,6 +1830,10 @@ class KivyRenderer:
         original_size_hint = tuple(self._root.size_hint)
         if viewport_root:
             self._root.size_hint = (1.0, 1.0)
+            # An initial native Window resize is not guaranteed to produce
+            # another root.size event after the observer is installed.
+            # Check the actual Window.size once after runTouchApp attaches it.
+            Clock.schedule_once(lambda _dt: self._sfle_sync_attached_viewport(), 0)
         try:
             runTouchApp(self._root)
         finally:
