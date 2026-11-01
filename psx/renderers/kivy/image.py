@@ -61,12 +61,28 @@ def _apply_image_source(widget, source):
         widget.source = source
 
 
+
+class _VeltoKivyImage(KivyImage):
+    """Prevent Kivy's empty-source refresh from deleting a decoded SVG."""
+
+    def texture_update(self, *args):
+        if (getattr(self, "_psx_svg_texture", None) is not None
+                and not self.source):
+            # SVG pixels are supplied by resvg rather than Kivy's file loader.
+            # The standard Image.texture_update would clear the texture here.
+            texture = self._psx_svg_texture
+            if self.texture is not texture:
+                self.texture = texture
+            return
+        return super().texture_update(*args)
+
+
 class KivyImageAdapter:
     def create(self, renderer, node, parent):
         from psx.renderers.kivy.kivy import KivyHandle
         props = image_props({**IMAGE_DEFAULTS, **node.props})
 
-        widget = KivyImage(source="")
+        widget = _VeltoKivyImage(source="")
         widget._psx_svg_texture = None
         _apply_image_source(widget, props["source"])
         widget.fit_mode = _FIT_MODE[props["fit"]]
