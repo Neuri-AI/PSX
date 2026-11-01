@@ -9,6 +9,8 @@ on:
       - 'psx/sfle/*layout_bridge.py'
       - 'tests/sfle/test_semantic_inline_text.py'
       - 'tests/sfle/test_semantic_inline_native_layout.py'
+      - 'tests/test_kivy_button_default_padding.py'
+      - 'tests/test_kivy_native_layout.py'
       - '.github/workflows/semantic-inline-fragments.yml'
   pull_request:
     paths:
@@ -53,4 +55,5 @@ jobs:
           python -m pip install -e '.[pyside6,kivy]' pytest
       - run: python -m pytest -q tests/test_pyside6_native_layout.py -k 'mixed_inline_span_remains_in_paragraph_text_line or inline_span_padding_keeps_native_text_baselines'
       - run: xvfb-run -a python -m pytest -q tests/test_tkinter_native_layout.py -k 'inline_span_stays_on_paragraph_line_in_tk or inline_span_padding_does_not_shift_tk_glyph_baseline'
+      - run: xvfb-run -a python -m pytest -q tests/test_kivy_button_default_padding.py tests/test_kivy_button_intrinsic_skin.py
       - run: xvfb-run -a python -m pytest -q tests/test_kivy_native_layout.py -k 'mixed_inline_span_keeps_one_line_when_available or inline_span_padding_keeps_native_text_baseline'
