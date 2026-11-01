@@ -173,7 +173,11 @@ class TkSFLEGeometryTests(unittest.TestCase):
             '<button>Count is 0</button></div>'
         ))
         paragraph, button = root.children
-        # Mixed paragraph text is split into measured words and whitespace.
+        assert [item.node.type for item in paragraph.children] == [
+            "Text", "span", "Text",
+        ]
+        # Tk paints fragment glyphs in the source Label's own canvas.
+        # Keep semantic source nodes intact.
         # The span's sibling index changes when the tokenizer changes.
         children = paragraph.children
         span_index = next(
