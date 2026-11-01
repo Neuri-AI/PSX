@@ -459,7 +459,7 @@ class KivyRenderer:
             try:
                 self.update(instance.handle, {"source": source}, frozenset())
                 reload_image = getattr(widget, "reload", None)
-                if callable(reload_image):
+                if callable(reload_image) and not str(source).lower().endswith(".svg"):
                     reload_image()
                 self._sfle_resource_error = None
                 self.request_sfle_invalidation("resource", widget_id=id(widget))
