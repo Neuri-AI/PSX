@@ -302,7 +302,7 @@ def _kivy_button_factory():
     widget = KivyButton()
     # Browser-like UA padding, in logical CSS pixels before Retina scaling.
     # Authored CSS padding supersedes these defaults.
-    widget._psx_ua_button_padding = (12.0, 6.0, 12.0, 6.0)
+    widget._psx_ua_button_padding = (6.0, 6.0, 6.0, 6.0)
     widget._psx_ua_button_padding_active = True
     return widget
 
