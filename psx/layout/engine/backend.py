@@ -10,7 +10,6 @@ import importlib
 from types import ModuleType
 
 from psx.layout.contracts.capabilities import CONTRACT_ONLY_CAPABILITIES
-from psx.layout.fallback.engine import PythonLayoutEngine
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 from psx.layout.contracts.model import LayoutInput, LayoutResult
 from psx.layout.contracts.native_wire import serialize_snapshot, serialize_result, deserialize_response
@@ -48,14 +47,9 @@ class RustLayoutEngine:
         return response
 
     def compute(self, request: LayoutInput) -> LayoutResult:
-        # Every semantic Block root needs the same CSS flow compositor as
-        # the Python engine. A nested Flex remains solved by this Rust engine;
-        # routing only Flex-containing blocks through the compositor causes
-        # Grid/paragraph-only trees to use incompatible native geometry.
-        from psx.markup.html_aliases import FORMATTING_TAGS
-        if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
-            from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
-            return compute_measured_block_snapshot(request, flex_engine=self)
+        # Rust owns the entire layout computation, including semantic
+        # Block/Inline roots via flow_snapshot.rs. Never call the Python
+        # measured-block compositor from the Rust engine facade.
         return deserialize_response(
             self._module.compute_json(serialize_snapshot(request)), request
         )
@@ -69,9 +63,6 @@ class RustLayoutEngine:
         native_measurement_invalidated: bool = False,
     ) -> LayoutResult:
         """Use native optional incremental ABI when a safe prior result exists."""
-        from psx.markup.html_aliases import FORMATTING_TAGS
-        if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
-            return self.compute(request)
         native = getattr(self._module, "compute_incremental_json", None)
         if (native_measurement_invalidated or previous_input is None
                 or previous_result is None or not callable(native)):
@@ -85,19 +76,19 @@ class RustLayoutEngine:
         )
 
     def compute_provisional(self, request: LayoutInput) -> LayoutResult:
-        from psx.markup.html_aliases import FORMATTING_TAGS
-        if request.nodes and request.nodes[0].component in FORMATTING_TAGS:
-            return self.compute(request)
         return deserialize_response(
             self._module.compute_provisional_json(serialize_snapshot(request)), request
         )
 
 
-def load_layout_engine() -> RustLayoutEngine | PythonLayoutEngine:
+def load_layout_engine() -> RustLayoutEngine | object:
     """Select once before computation; runtime errors propagate unchanged."""
     try:
         native = importlib.import_module("_sfle_native")
     except (ImportError, OSError):
+        # The Python solver is load-time optional. Never import it in a
+        # process that successfully selected the native Rust engine.
+        from psx.layout.fallback.engine import PythonLayoutEngine
         return PythonLayoutEngine()
     required = ("schema_version", "compute_json", "compute_provisional_json")
     if any(not callable(getattr(native, name, None)) for name in required):
