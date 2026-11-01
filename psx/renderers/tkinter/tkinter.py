@@ -824,6 +824,8 @@ class TkinterRenderer:
         walk(self.root)
 
     def invalidate_layout(self) -> None:
+        from psx.sfle.semantic_inline_native_paint import release_native_inline_paint
+        release_native_inline_paint(self, "tk")
         self._sfle_invalidation_lifetime += 1
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
