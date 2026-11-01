@@ -9,8 +9,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.fallback.measurement_round import MeasurementRound, accept_round
-from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.layout.runtime.measurement_round import MeasurementRound, accept_round
+from psx.layout.runtime.measurement_plan import MeasurementRequest
 from psx.layout.contracts.model import MeasuredBox
 
 @dataclass(frozen=True, slots=True)

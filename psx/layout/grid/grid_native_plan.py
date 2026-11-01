@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from collections.abc import Sequence
 
 from psx.layout.contracts.fixed_point import I32_MAX
-from psx.layout.fallback.grid_math import GridConstrainedRect, GridPackingError
+from psx.layout.grid.contracts import GridConstrainedRect, GridPackingError
 
 
 @dataclass(frozen=True, slots=True)

@@ -14,7 +14,7 @@ from psx.core.grid_contract import GRID_BREAKPOINTS
 from psx.core.vnode import NodeKind
 
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.fallback.grid_math import GridPackingError
+from psx.layout.grid.contracts import GridPackingError
 from psx.layout.adapters.grid_native_commit import GridCommitBackend, commit_grid_native_geometry
 from psx.layout.grid.grid_native_measurement import measure_grid_native
 from psx.layout.grid.grid_native_plan import GridNativePlacement
@@ -210,6 +210,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 grid, content_width=float(width), source=source, mounted_ids=ids,
                 revisions={identifier: generation for identifier in ids},
                 generation=generation, current_generation=renderer._sfle_generation,
+                engine=renderer._sfle_engine,
                 breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
                 pixel_scale=(getattr(renderer, "_psx_css_pixel_scale", 1.0)
                              if backend is GridCommitBackend.KIVY else 1.0),

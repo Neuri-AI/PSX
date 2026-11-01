@@ -11,7 +11,7 @@ from psx.core.layout_tree import normalize_flex_tree
 from psx.core.grid_contract import GRID_BREAKPOINTS
 from psx.core.vnode import NodeKind
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.fallback.grid_math import GridPackingError
+from psx.layout.grid.contracts import GridPackingError
 from psx.layout.adapters.grid_native_commit import GridCommitBackend, commit_grid_native_geometry
 from psx.layout.grid.grid_native_measurement import HeadlessGridMeasurementSource, measure_grid_native
 from psx.layout.grid.grid_native_plan import GridNativePlacement
@@ -88,6 +88,7 @@ def commit_headless_grid(renderer: object, root: object) -> None:
                 measure_leaf=measure_leaf,
                 is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
                 breakpoints=getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS),
+                engine=renderer._sfle_engine,
                 engine=renderer._sfle_engine,
                 viewport_constraints=renderer._sfle_constraints,
             )

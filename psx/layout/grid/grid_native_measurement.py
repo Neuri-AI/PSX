@@ -16,10 +16,11 @@ from psx.core.grid_contract import GRID_BREAKPOINTS, normalize_grid_props, norma
 from psx.core.layout_tree import NormalizedLayoutNode
 from psx.core.vnode import NodeKind
 
-from psx.layout.fallback.grid_math import GridSlot, GridPackingError, pack_grid_rows, project_grid_rows
+from psx.layout.grid.contracts import GridSlot, GridPackingError
+from psx.layout.grid.solver import grid_widths
 from psx.layout.grid.grid_tree_measurement import PreparedGridMeasurement, _pixel, prepare_grid_measurement
-from psx.layout.fallback.measurement_plan import MeasurementRequest
-from psx.layout.fallback.measurement_round import MeasurementRound
+from psx.layout.runtime.measurement_plan import MeasurementRequest
+from psx.layout.runtime.measurement_round import MeasurementRound
 from psx.layout.contracts.model import AvailableSize, IntrinsicSizes, LayoutConstraints, MeasuredBox
 from psx.layout.projection.native_layout_snapshot import path_identity
 from psx.layout.runtime.native_measurement import NativeMeasurementPort, fulfill_native_round
@@ -45,6 +46,7 @@ def measure_grid_native(
     allow_nested: bool = False,
     breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
     pixel_scale: float = 1.0,
+    engine: object | None = None,
 ) -> PreparedGridMeasurement:
     """Perform real width-aware native measurement, then run Cinnamon Grid.
 
@@ -104,9 +106,11 @@ def measure_grid_native(
 
     # Project without fabricating heights: row membership and horizontal
     # allocation are independent of vertical intrinsic measurements.
-    packed = pack_grid_rows(slots)
-    projected = project_grid_rows(packed, content_width, _pixel(props["column_gap"], "Grid.column_gap") * pixel_scale)
-    widths = {item.id: item.width_raw / 64 for row in projected for item in row.items}
+    widths = grid_widths(
+        slots, content_width,
+        _pixel(props["column_gap"], "Grid.column_gap") * pixel_scale,
+        engine=engine,
+    )
     requests = tuple(MeasurementRequest(
         identifier,
         LayoutConstraints(AvailableSize(widths[identifier], True), AvailableSize(None, False)),
@@ -127,7 +131,7 @@ def measure_grid_native(
         mounted_ids=mounted_ids, generation=generation,
         current_generation=current_generation, constraints=constraints, rtl=rtl,
         breakpoints=breakpoints,
-        pixel_scale=pixel_scale,
+        pixel_scale=pixel_scale, engine=engine,
     )
 
 

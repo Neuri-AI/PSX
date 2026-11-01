@@ -11,7 +11,7 @@ from threading import get_ident
 from psx.core.grid_contract import GRID_BREAKPOINTS
 from psx.core.vnode import NodeKind
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.fallback.grid_math import GridPackingError
+from psx.layout.grid.contracts import GridPackingError
 from psx.layout.adapters.grid_native_commit import GridCommitBackend, commit_grid_native_geometry
 from psx.layout.grid.grid_native_composition import prepare_composed_grid, compose_geometry_batch
 from psx.layout.contracts.model import IntrinsicSizes, MeasuredBox, LayoutConstraints, AvailableSize

@@ -12,7 +12,7 @@ from enum import Enum
 from math import isfinite
 
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.fallback.grid_math import GridPackingError
+from psx.layout.grid.contracts import GridPackingError
 from psx.layout.grid.grid_native_plan import GridNativePlacement
 from psx.layout.contracts.model import Rect
 

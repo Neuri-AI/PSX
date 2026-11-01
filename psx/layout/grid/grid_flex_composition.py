@@ -11,7 +11,7 @@ from collections.abc import Callable
 from psx.core.layout_tree import NormalizedLayoutNode
 from psx.core.vnode import NodeKind
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.fallback.grid_math import GridPackingError
+from psx.layout.grid.contracts import GridPackingError
 from psx.layout.contracts.lengths import LengthKind, parse_length
 from psx.layout.contracts.model import IntrinsicSizes, MeasuredBox, AvailableSize, LayoutConstraints
 from psx.layout.projection.native_layout_snapshot import path_identity, prepare_native_layout_snapshot

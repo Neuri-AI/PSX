@@ -15,7 +15,7 @@ from typing import Protocol
 from psx.core.layout_tree import NormalizedLayoutNode
 from psx.core.vnode import NodeKind
 
-from psx.layout.fallback.grid_math import GridPackingError
+from psx.layout.grid.contracts import GridPackingError
 from psx.layout.grid.grid_native_measurement import measure_grid_native
 from psx.layout.grid.grid_flex_composition import ComposedFlex, prepare_composed_flex
 from psx.layout.grid.grid_tree_measurement import PreparedGridMeasurement
@@ -23,7 +23,6 @@ from psx.layout.grid.grid_native_plan import GridNativePlacement
 from psx.layout.contracts.model import IntrinsicSizes, MeasuredBox, LayoutConstraints, AvailableSize
 from psx.layout.runtime.native_measurement import NativeMeasurementPort
 from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
-from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
 from psx.markup.html_aliases import FORMATTING_TAGS
 from psx.layout.projection.native_layout_snapshot import path_identity
 
@@ -428,12 +427,16 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
             current_generation=lambda: generation,
         )
     else:
-        solved = compute_measured_block_snapshot(
-            snapshot, flex_engine=engine,
-            measure_width=lambda identifier, assigned_width: measure_flow_leaf(
-                identifier, identities[identifier], assigned_width,
-            ),
-        )
+        if getattr(engine, "backend_name", None) == "rust":
+            solved = engine.compute(snapshot)
+        else:
+            from psx.layout.fallback.measured_block_snapshot import compute_measured_block_snapshot
+            solved = compute_measured_block_snapshot(
+                snapshot, flex_engine=engine,
+                measure_width=lambda identifier, assigned_width: measure_flow_leaf(
+                    identifier, identities[identifier], assigned_width,
+                ),
+            )
     root_id = normalized.nodes[0].node_id
     return ComposedFlow(prepared, solved, dict(solved.boxes)[root_id].border.height,
                         nested_grids)
@@ -654,6 +657,7 @@ def prepare_composed_grid(
         mounted_ids=ids, revisions={identifier: generation for identifier in ids},
         generation=generation, current_generation=current_generation,
         allow_nested=True, breakpoints=breakpoints, pixel_scale=pixel_scale,
+        engine=engine,
     )
     height = max((placement.y + placement.height for placement in prepared.placements),
                  default=0.0)

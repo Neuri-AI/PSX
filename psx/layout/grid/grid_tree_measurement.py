@@ -16,7 +16,8 @@ from psx.core.layout_tree import NormalizedLayoutNode
 from psx.core.vnode import NodeKind
 
 from psx.layout.contracts.fixed_point import LayoutUnit
-from psx.layout.fallback.grid_math import GridConstrainedRect, GridItemConstraints, GridPackingError, GridSlot, compute_grid
+from psx.layout.grid.contracts import GridConstrainedRect, GridItemConstraints, GridPackingError, GridSlot
+from psx.layout.grid.solver import compute_grid
 from psx.layout.grid.grid_native_plan import GridNativePlacement, plan_grid_native_geometry
 from psx.layout.contracts.lengths import parse_length, LengthKind
 from psx.layout.contracts.model import MeasuredBox
@@ -56,6 +57,7 @@ def prepare_grid_measurement(
     rtl: bool = False,
     breakpoints: Mapping[str, object] = GRID_BREAKPOINTS,
     pixel_scale: float = 1.0,
+    engine: object | None = None,
 ) -> PreparedGridMeasurement:
     """Resolve responsive Grid items against the Grid content box.
 
@@ -114,7 +116,7 @@ def prepare_grid_measurement(
     rows = compute_grid(
         slots, content_width, _pixel(props["column_gap"], "Grid.column_gap") * pixel_scale,
         _pixel(props["row_gap"], "Grid.row_gap") * pixel_scale,
-        heights, limits, rtl=rtl,
+        heights, limits, rtl=rtl, engine=engine,
     )
     placements = plan_grid_native_geometry(
         rows, expected_ids=ids, measured_ids=tuple(measured),

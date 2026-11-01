@@ -12,7 +12,7 @@ from importlib import import_module
 import math
 
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.fallback.measurement_plan import MeasurementRequest
+from psx.layout.runtime.measurement_plan import MeasurementRequest
 from psx.layout.contracts.model import IntrinsicSizes, MeasuredBox
 from psx.layout.runtime.native_measurement import NativeMeasurementPort
 
