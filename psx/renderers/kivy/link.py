@@ -36,6 +36,9 @@ class KivyLinkAdapter:
         widget.color = (*rgb, 1)
         text = _escape_markup(props["label"])
         widget.text = f"[u]{text}[/u]" if props["underline"] else text
+        # Qt Link uses the unwrapped intrinsic text width; Kivy must not
+        # reflow links according to a previous frame allocation.
+        widget.text_size = (None, None)
         widget.disabled = not props["enabled"]
         widget.texture_update()
         if not widget._psx_sfle_link:
