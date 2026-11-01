@@ -359,6 +359,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 if vnode.type == "Text" and node_id in leaf_widgets
             }),
             _resolve_semantic_inline,
+            engine=renderer._sfle_engine,
         )
 
         mixed_plans = mixed_grid.plan(dict(result.boxes))
