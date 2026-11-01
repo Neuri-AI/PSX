@@ -34,18 +34,20 @@ _FIT_MODE = {
 
 
 def _svg_texture(source):
-    """Decode SVG in memory without making Kivy's raster loader open an SVG."""
+    """Decode SVG using bundled Rust wheels, without a system Cairo install."""
     try:
-        import cairosvg
+        import resvg_py
     except ImportError as exc:
         raise RendererCapabilityError(
-            "SVG images on Kivy require CairoSVG (install velto-core[kivy])."
+            "The Kivy SVG renderer is unavailable; reinstall velto-core[kivy]."
         ) from exc
     try:
-        png = cairosvg.svg2png(url=source)
+        png = resvg_py.svg_to_bytes(svg_path=str(source))
         return CoreImage(BytesIO(png), ext="png").texture
     except Exception as exc:
-        raise RendererCapabilityError(f"Unable to decode SVG image {source!r}.") from exc
+        raise RendererCapabilityError(
+            f"Unable to decode SVG image {source!r}."
+        ) from exc
 
 
 def _apply_image_source(widget, source):
