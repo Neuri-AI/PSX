@@ -94,4 +94,10 @@ def apply_kivy_text(widget: object, props: Mapping[str, object]) -> None:
 
 def size_kivy_text(widget: object, size: object) -> None:
     """Keep alignment relative to label bounds when its layout resizes."""
+    if getattr(widget, "_psx_sfle_inline_atomic", False):
+        # Cinnamon composes these words into a shared inline line. Kivy must
+        # not independently wrap a word to its allocated rectangle.
+        if tuple(widget.text_size) != (None, None):
+            widget.text_size = (None, None)
+        return
     widget.text_size = size
