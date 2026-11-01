@@ -753,7 +753,7 @@ class KivyRenderer:
         # once on the UI Clock; never keep an obsolete 800x600 CSS layout
         # inside a larger native window.
         window_size = tuple(Window.size)
-        if (widget.parent is Window and all(value > 0 for value in window_size)
+        if (all(value > 0 for value in window_size)
                 and (self._sfle_constraints.width.value,
                      self._sfle_constraints.height.value) != window_size
                 and self._sfle_window_resize_event is None):
