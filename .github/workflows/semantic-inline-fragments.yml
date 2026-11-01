@@ -112,5 +112,7 @@ jobs:
         run: python -m pytest -q tests/interop/test_cinnamon_block_rust_python_parity.py
       - name: Certify independent native Grid math with exact 1/64 px geometry
         run: python -m pytest -q tests/interop/test_cinnamon_grid_rust_python_parity.py
+      - name: Certify historical recursive measurement, convergence and lifecycle parity
+        run: python -m pytest -q tests/interop/test_cinnamon_recursive_legacy_parity.py
       - name: Certify engine-wide full, provisional, incremental, Grid and text parity
         run: python -m pytest -q tests/interop/test_cinnamon_engine_wide_parity.py
