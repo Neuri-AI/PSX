@@ -12,7 +12,10 @@ def test_button_default_padding_contributes_to_intrinsic_size():
 
     widget = _kivy_button_factory()
     widget.text = "Count is 0"
-    widget.padding = (6, 6, 6, 6)
+    # This must be true immediately after construction, not because the
+    # test injected its own padding into a widget with missing defaults.
+    assert tuple(widget.padding) == (6, 6, 6, 6)
+    assert widget._psx_ua_button_padding_active
     widget.text_size = (None, None)
     widget.texture_update()
     source = KivyMeasurementSource({"button": widget})
