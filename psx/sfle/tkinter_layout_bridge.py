@@ -345,6 +345,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                                for node_id in leaf_widgets if node_id in widgets
                                and dict(prepared.identities)[node_id].type == "Text"}),
             _resolve_semantic_inline,
+            engine=renderer._sfle_engine,
         )
 
         mixed_plans = mixed_grid.plan(dict(result.boxes))
