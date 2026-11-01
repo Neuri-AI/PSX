@@ -362,6 +362,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             snapshot, prepared.identities, result,
             qt_inline_measure({node_id: leaf_widgets[node_id] for node_id in text_ids}),
             _resolve_semantic_inline,
+            engine=renderer._sfle_engine,
         )
 
         mixed_plans = mixed_grid.plan(dict(result.boxes))
