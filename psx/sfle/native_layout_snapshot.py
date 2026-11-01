@@ -374,6 +374,27 @@ class PreparedNativeLayoutSnapshot:
                             style.setdefault("justify_content", "flex-end")
                     node = replace(node, component="Flex",
                                    style=tuple(sorted(style.items())))
+            # Normalize mixed-content paragraphs by their own semantics, not
+            # by whether the surrounding parent happened to lower to Flex.
+            # Native Kivy originally retained a column layout for these
+            # internal Text/span/Text children, stacking every word.
+            if (origin.kind is NodeKind.HOST
+                    and origin.type in ("p", "h1", "h2", "h3", "h4", "h5", "h6", "li")
+                    and mixed_text_inline_run(node.node_id)):
+                style = dict(node.style)
+                style["direction"] = "row"
+                style["wrap"] = "wrap"
+                style["align_items"] = "baseline"
+                text_align = (
+                    origin.css_computed.properties.get("text-align", "left")
+                    if origin.css_computed is not None else "left"
+                )
+                if text_align == "center":
+                    style["justify_content"] = "center"
+                elif text_align in ("right", "end"):
+                    style["justify_content"] = "flex-end"
+                node = replace(node, component="Flex",
+                               style=tuple(sorted(style.items())))
             # The item may be a Text leaf rather than a semantic formatting
             # host. Persist its inline sizing metadata into the immutable
             # Cinnamon snapshot too; previously only <span> received it.
