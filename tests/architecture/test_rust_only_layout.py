@@ -433,3 +433,52 @@ def test_rust_only_entire_public_numerical_contract_without_python():
     assert not [name for name in sys.modules
                 if name.startswith("psx.layout.fallback")]
 
+def test_rust_only_incremental_reports_actual_reused_subtrees():
+    """Rust's incremental receipt must originate in the native solver."""
+    from dataclasses import replace
+    from psx.layout.contracts.model import (
+        AvailableSize, LayoutConstraints, LayoutInput,
+        LayoutNode, WritingDirection,
+    )
+    from psx.layout.engine.backend import load_layout_engine, RustLayoutEngine
+
+    snapshot = LayoutInput(
+        1, 41, WritingDirection.LTR,
+        LayoutConstraints(AvailableSize(300, True),
+                          AvailableSize(100, True)),
+        (
+            LayoutNode("root", None, "Flex", (
+                ("direction", "row"), ("width", "300px"), ("height", "100px"),
+            )),
+            LayoutNode("left", "root", "Flex", (
+                ("width", "40px"), ("height", "25px"), ("flex_shrink", 0),
+            )),
+            LayoutNode("left_leaf", "left", "Flex", (
+                ("width", "20px"), ("height", "10px"),
+            )),
+            LayoutNode("right", "root", "Flex", (
+                ("width", "50px"), ("height", "25px"), ("flex_shrink", 0),
+            )),
+            LayoutNode("right_leaf", "right", "Flex", (
+                ("width", "20px"), ("height", "10px"),
+            )),
+        ), (),
+    )
+    engine = load_layout_engine()
+    assert isinstance(engine, RustLayoutEngine)
+    before = engine.compute(snapshot)
+    nodes = list(snapshot.nodes)
+    nodes[1] = replace(nodes[1], style=(
+        ("width", "60px"), ("height", "25px"), ("flex_shrink", 0),
+    ))
+    changed = replace(snapshot, generation=42, nodes=tuple(nodes))
+    reused = []
+    incremental = engine.compute_incremental(
+        changed, previous_input=snapshot,
+        previous_result=before, reused_contexts=reused,
+    )
+    assert incremental == engine.compute(changed)
+    assert "right" in reused, reused
+    assert not [name for name in sys.modules
+                if name.startswith("psx.layout.fallback")]
+

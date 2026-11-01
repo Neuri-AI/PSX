@@ -75,8 +75,10 @@ Flex property corpus covering direction/wrapping/alignment/margins/gaps.
 operation after physically deleting the fallback directory.
 
 The declared certification scope is this bounded protocol and the tested
-input families. Python's historical `reused_contexts` list is diagnostic
-instrumentation, not an engine output or guaranteed Rust reuse trace.
+input families. `reused_contexts` is implemented by both engines and reports their actual
+incremental subtree reuse. Rust's PyO3 boundary emits a real native reuse
+receipt; the differential suite asserts identical receipts on 100 successive
+updates and Rust-only tests verify the receipt with Python absent.
 Privately-owned legacy Python recursive solver APIs are still outside the
 shared numerical protocol. The manifest does **not** promise CSS/browser
 conformance or equivalence on unsupported features.
