@@ -13,6 +13,8 @@ source will raise a capability error because Tk cannot load those formats.
 from __future__ import annotations
 
 import tkinter as tk
+from io import BytesIO
+from pathlib import Path
 from tkinter import ttk
 
 from psx.core.contracts import IMAGE_DEFAULTS
@@ -96,8 +98,14 @@ class TkImageAdapter:
         # Full path with Pillow.
         if widget._psx_source != source:
             try:
-                with PILImage.open(source) as decoded:
-                    widget._psx_image_cache = decoded.convert("RGBA")
+                if Path(source).suffix.lower() == ".svg":
+                    import resvg_py
+                    png = resvg_py.svg_to_bytes(svg_path=str(source))
+                    with PILImage.open(BytesIO(png)) as decoded:
+                        widget._psx_image_cache = decoded.convert("RGBA")
+                else:
+                    with PILImage.open(source) as decoded:
+                        widget._psx_image_cache = decoded.convert("RGBA")
             except (OSError, PILImage.UnidentifiedImageError):
                 widget._psx_image_cache = None
             widget._psx_source = source
