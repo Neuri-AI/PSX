@@ -178,3 +178,83 @@ def test_default_recursive_backend_is_rust_and_does_not_import_fallback(engines)
     nodes = tree()
     expected = compute_margin_tree(nodes, generation=7, engine=engines[0])
     assert compute_margin_tree(nodes, generation=7) == expected
+
+
+def test_seeded_recursive_tree_css_margins_alignment_and_rtl(engines):
+    """Exact 1/64px geometry across nested and wrapped historical Flex inputs."""
+    from psx.layout.contracts.recursive_tree import (
+        UsedEdges, UsedBoxEdges, UsedMargin, CrossAlign,
+        FlexDirection, FlexWrap, JustifyContent, AlignContent,
+    )
+    rng = random.Random(194911)
+    for case in range(256):
+        direction = rng.choice(tuple(FlexDirection))
+        wrapping = rng.choice(tuple(FlexWrap))
+        justify = rng.choice(tuple(JustifyContent))
+        align_items = rng.choice((
+            CrossAlign.FLEX_START, CrossAlign.FLEX_END, CrossAlign.CENTER,
+        ))
+        content_width = rng.uniform(65, 430)
+        content_height = rng.uniform(50, 300)
+        root = MarginTreeNode(
+            "root", None, content_width, content_height,
+            edges=UsedBoxEdges(
+                border=UsedEdges(
+                    rng.uniform(0, 4), rng.uniform(0, 4),
+                    rng.uniform(0, 4), rng.uniform(0, 4),
+                ),
+                padding=UsedEdges(
+                    rng.uniform(0, 6), rng.uniform(0, 6),
+                    rng.uniform(0, 6), rng.uniform(0, 6),
+                ),
+            ),
+            direction=direction, wrap=wrapping,
+            main_gap=rng.uniform(0, 12), cross_gap=rng.uniform(0, 12),
+            justify=justify, align_items=align_items,
+            align_content=rng.choice(tuple(AlignContent)),
+        )
+        nodes = [root]
+        for i in range(rng.randint(1, 7)):
+            basis = rng.uniform(15, 90)
+            margin = lambda: UsedMargin(
+                None if rng.random() < 0.12 else rng.uniform(-3, 10)
+            )
+            child = MarginFlexItem(
+                f"item{i}", FlexBasis(
+                    basis, basis, grow=rng.choice((0, 0, 1, 2)),
+                    shrink=rng.choice((0, 1, 2)),
+                ),
+                rng.uniform(8, 55),
+                edges=UsedBoxEdges(
+                    border=UsedEdges(
+                        rng.uniform(0, 3), rng.uniform(0, 3),
+                        rng.uniform(0, 3), rng.uniform(0, 3),
+                    ),
+                    padding=UsedEdges(
+                        rng.uniform(0, 4), rng.uniform(0, 4),
+                        rng.uniform(0, 4), rng.uniform(0, 4),
+                    ),
+                ),
+                main_start=margin(), main_end=margin(),
+                cross_start=margin(), cross_end=margin(),
+                align_self=rng.choice((
+                    CrossAlign.AUTO, CrossAlign.FLEX_START,
+                    CrossAlign.FLEX_END, CrossAlign.CENTER,
+                )),
+                order=rng.randint(-2, 2),
+            )
+            nodes.append(MarginTreeNode(
+                f"item{i}", "root", 20, 15, item=child,
+            ))
+        nodes = tuple(nodes)
+        writing = rng.choice(tuple(WritingDirection))
+        results = []
+        for engine in engines:
+            results.append(compute_margin_tree(
+                nodes, generation=case + 1000, writing=writing,
+                engine=engine,
+            ))
+        assert results[0] == results[1], (
+            case, direction, wrapping, writing, nodes, results,
+        )
+
