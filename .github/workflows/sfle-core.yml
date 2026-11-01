@@ -175,6 +175,10 @@ jobs:
           cd /tmp
           python -c "import _sfle_native as n; assert n.schema_version() == 1"
           xvfb-run -a python -m pytest -q "$GITHUB_WORKSPACE/tests/interop/test_sfle_native_wheel.py"
+      - name: Certify full public Cinnamon Rust/Python engine parity on installed wheel
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q tests/interop/test_cinnamon_engine_wide_parity.py
 
   f2-migration-inventory:
     needs: changes

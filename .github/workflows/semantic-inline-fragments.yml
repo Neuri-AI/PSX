@@ -1,27 +1,26 @@
-name: Semantic inline fragments (experimental)
+name: Cinnamon engine-wide parity (Rust/Python)
 
 on:
   push:
     branches: [feature/semantic-inline-fragments]
     paths:
-      - 'psx/layout/inline/**'
+      - 'psx/layout/**'
       - 'psx/layout/fallback/semantic_inline_text.py'
       - 'psx/renderers/**/inline_paint.py'
       - 'psx/renderers/**/inline_measurement.py'
-      - 'rust/sfle-core/src/semantic_inline_text.rs'
+      - 'rust/sfle-core/**'
       - 'rust/sfle-core/src/python_binding.rs'
       - 'rust/sfle-core/src/lib.rs'
-      - 'psx/layout/engine/backend.py'
       - 'psx/markup/html_aliases.py'
       - 'psx/renderers/**/cinnamon_*layout_bridge.py'
       - 'tests/sfle/test_semantic_inline_text.py'
-      - 'tests/interop/test_semantic_inline_rust_python_parity.py'
+      - 'tests/interop/**'
       - 'tests/interop/test_cinnamon_block_rust_python_parity.py'
       - 'tests/interop/test_cinnamon_grid_rust_python_parity.py'
       - 'psx/layout/grid/solver.py'
       - 'rust/sfle-core/src/flow_snapshot.rs'
-      - 'psx/layout/engine/backend.py'
-      - 'tests/sfle/test_semantic_inline_native_layout.py'
+      - 'tests/architecture/**'
+      - 'tests/sfle/**'
       - 'tests/test_kivy_button_default_padding.py'
       - 'tests/test_kivy_native_layout.py'
       - '.github/workflows/semantic-inline-fragments.yml'
@@ -34,7 +33,6 @@ on:
       - 'rust/sfle-core/src/semantic_inline_text.rs'
       - 'rust/sfle-core/src/python_binding.rs'
       - 'rust/sfle-core/src/lib.rs'
-      - 'psx/layout/engine/backend.py'
       - 'psx/markup/html_aliases.py'
       - 'psx/renderers/**/cinnamon_*layout_bridge.py'
       - 'tests/sfle/test_semantic_inline_text.py'
@@ -43,7 +41,6 @@ on:
       - 'tests/interop/test_cinnamon_grid_rust_python_parity.py'
       - 'psx/layout/grid/solver.py'
       - 'rust/sfle-core/src/flow_snapshot.rs'
-      - 'psx/layout/engine/backend.py'
       - '.github/workflows/semantic-inline-fragments.yml'
 
 permissions:
@@ -115,3 +112,5 @@ jobs:
         run: python -m pytest -q tests/interop/test_cinnamon_block_rust_python_parity.py
       - name: Certify independent native Grid math with exact 1/64 px geometry
         run: python -m pytest -q tests/interop/test_cinnamon_grid_rust_python_parity.py
+      - name: Certify engine-wide full, provisional, incremental, Grid and text parity
+        run: python -m pytest -q tests/interop/test_cinnamon_engine_wide_parity.py
