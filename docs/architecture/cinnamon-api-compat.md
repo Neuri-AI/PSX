@@ -21,7 +21,6 @@ remain available **only with the Python numerical fallback present**:
 - `runtime.recursive_pipeline.compute_recursive_pipeline`
 - `runtime.native_lifecycle.layout_and_commit`
 - `runtime.remeasurement.plan_remeasurement` (uses Python `UsedSizeTree`)
-- `projection.display_context.layout_measured_children` (uses `BlockItem`/`InlineAtom`)
 
 These are not called by the modern Rust engine. They are retained for explicit
 legacy Python consumers, not advertised as cross-engine APIs. A Rust-only
@@ -82,4 +81,18 @@ updates and Rust-only tests verify the receipt with Python absent.
 Privately-owned legacy Python recursive solver APIs are still outside the
 shared numerical protocol. The manifest does **not** promise CSS/browser
 conformance or equivalence on unsupported features.
+
+## Backend-neutral measured Block / Inline atom placement
+
+`layout_measured_children` now dispatches through
+`psx.layout.flow.solver`, taking `BlockItem` and `InlineAtom` from
+`psx.layout.contracts.flow` rather than the numerical fallback.
+The historical `psx.layout.fallback.flow_layout` names are re-exports
+of those same immutable data records for existing Python consumers.
+Rust invokes independent compiled `flow_layout.rs` functions using
+`compute_measured_flow_json`; Python calls its own numerical implementation.
+The native wheel's ABI is exposed as `measured_flow_primitives` only when
+actually installed. Differential tests compare 256 seeded block and 256
+seeded inline atomic cases with source identity and exact geometry;
+Rust-only tests exercise the historical entry point after fallback removal.
 

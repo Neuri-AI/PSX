@@ -28,6 +28,7 @@ class RustLayoutEngine:
         return rust_engine_capabilities(
             has_grid=callable(getattr(self._module, "compute_grid_json", None)),
             has_inline=callable(getattr(self._module, "compute_inline_text_json", None)),
+            has_flow=callable(getattr(self._module, "compute_measured_flow_json", None)),
         )
 
     def compute_inline_text(self, payload: dict[str, object]) -> dict[str, object]:

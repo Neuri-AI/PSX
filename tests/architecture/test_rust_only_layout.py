@@ -482,3 +482,30 @@ def test_rust_only_incremental_reports_actual_reused_subtrees():
     assert not [name for name in sys.modules
                 if name.startswith("psx.layout.fallback")]
 
+def test_rust_only_legacy_measured_flow_dispatch_uses_real_native_kernel():
+    """The historical projection entry point is usable without fallback."""
+    from psx.layout.contracts.flow import BlockItem, InlineAtom
+    from psx.layout.projection.display_context import (
+        resolve_display, layout_measured_children,
+    )
+    from psx.layout.engine.backend import load_layout_engine
+    engine = load_layout_engine()
+    assert engine.capabilities.status("measured_flow_primitives") == "certified"
+    children = (
+        BlockItem(60, 20, margin_top=5),
+        BlockItem(40, 10, margin_top=3),
+    )
+    block = layout_measured_children(
+        resolve_display("div"), 200, children,
+    )
+    assert len(block) == 2
+    assert block[0].y == 5
+    assert block[1].y == 28
+    atoms = (InlineAtom(70, 20, 15), InlineAtom(50, 10, 8))
+    inline = layout_measured_children(
+        resolve_display("span"), 100, atoms,
+    )
+    assert [(p.x, p.y) for p in inline] == [(0, 0), (0, 20)]
+    assert not [name for name in sys.modules
+                if name.startswith("psx.layout.fallback")]
+

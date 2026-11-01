@@ -42,6 +42,7 @@ def backends():
         for method in (
             "compute", "compute_incremental", "compute_provisional",
             "compute_grid", "layout_inline_text",
+            "layout_block_children", "layout_inline_atoms",
         ):
             assert callable(getattr(engine, method)), (engine.backend_name, method)
     return native, python
@@ -146,7 +147,8 @@ def test_public_protocol_matches_for_every_engine(backends):
     import inspect
     rust, python = backends
     methods = ("compute", "compute_provisional", "compute_incremental",
-               "compute_grid", "layout_inline_text")
+               "compute_grid", "layout_inline_text",
+               "layout_block_children", "layout_inline_atoms")
     for name in methods:
         expected = inspect.signature(getattr(LayoutEngine, name))
         left = inspect.signature(getattr(type(rust), name))
@@ -421,3 +423,48 @@ def test_invalid_grid_declarations_have_identical_public_diagnostics(invalid, ba
             )
         observed.append(str(caught.value))
     assert observed[0] == observed[1], (invalid, observed)
+
+@pytest.mark.parametrize("kind", ("block", "inline"))
+def test_measured_atomic_flow_kernels_have_exact_rust_python_parity(kind, backends):
+    """Independent Rust flow_layout.rs vs standalone Python flow_layout.py."""
+    from psx.layout.contracts.flow import BlockItem, InlineAtom
+    from psx.layout.projection.display_context import (
+        resolve_display, layout_measured_children,
+    )
+    rng = random.Random(913172)
+    for iteration in range(256):
+        width = rng.uniform(0, 500)
+        if kind == "block":
+            items = tuple(BlockItem(
+                width=rng.uniform(0, 250),
+                height=rng.uniform(0, 65),
+                margin_top=rng.uniform(-15, 15),
+                margin_right=rng.uniform(-10, 10),
+                margin_bottom=rng.uniform(-15, 15),
+                margin_left=rng.uniform(-10, 10),
+            ) for _ in range(rng.randrange(0, 12)))
+            method = "layout_block_children"
+            display = resolve_display("div")
+        else:
+            items = []
+            for _ in range(rng.randrange(0, 12)):
+                height = rng.uniform(0, 55)
+                items.append(InlineAtom(
+                    width=rng.uniform(0, 160), height=height,
+                    baseline=rng.uniform(0, height),
+                ))
+            items = tuple(items)
+            method = "layout_inline_atoms"
+            display = resolve_display("span")
+        native = getattr(backends[0], method)(width, items)
+        python = getattr(backends[1], method)(width, items)
+        assert native == python, (kind, iteration, width, items, native, python)
+        assert native == layout_measured_children(
+            display, width, items, engine=backends[0],
+        ), (kind, iteration, native)
+        assert python == layout_measured_children(
+            display, width, items, engine=backends[1],
+        ), (kind, iteration, python)
+    assert backends[0].capabilities.status("measured_flow_primitives") == "certified"
+    assert backends[1].capabilities.status("measured_flow_primitives") == "certified"
+

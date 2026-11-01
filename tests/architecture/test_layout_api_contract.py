@@ -88,3 +88,14 @@ def test_full_engine_modes_are_certified_for_the_bounded_contract():
             has_grid=True, has_inline=True,
         ).status(feature) == "certified"
 
+def test_native_measured_flow_abi_is_negotiated_explicitly():
+    from types import SimpleNamespace
+    from psx.layout.engine.backend import RustLayoutEngine
+    missing = RustLayoutEngine(SimpleNamespace()).capabilities
+    present = RustLayoutEngine(SimpleNamespace(
+        compute_measured_flow_json=lambda x: x,
+    )).capabilities
+    assert missing.status("measured_flow_primitives") == "unsupported"
+    assert present.status("measured_flow_primitives") == "certified"
+    assert PYTHON_CAPABILITIES.status("measured_flow_primitives") == "certified"
+
