@@ -189,7 +189,12 @@ def compute_measured_block_snapshot(snapshot: LayoutInput, *, flex_engine=None,
         return BoxRect(content, padded, bordered, margin)
 
     def valid_style(node) -> bool:
-        return style_by_id[node.node_id].keys() <= _FLOW_ALLOWED_STYLES
+        # Flex-item properties are inert unless the parent establishes a Flex
+        # formatting context. The native snapshot may retain them on normal
+        # Block/Inline descendants (including intrinsic form controls), but
+        # they do not represent unresolved flow geometry.
+        flex_item_only = {"flex_grow", "flex_shrink", "flex_basis", "align_self", "order"}
+        return (style_by_id[node.node_id].keys() - flex_item_only) <= _FLOW_ALLOWED_STYLES
 
     def display(node) -> str | None:
         if node.component not in FORMATTING_TAGS:
