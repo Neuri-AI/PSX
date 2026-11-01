@@ -182,3 +182,66 @@ def test_root_only_resize_still_uses_observer_clock(monkeypatch):
     root._size = (1600, 900)
     _Clock.scheduled.pop().callback(0)
     assert commits == [mounted]
+
+
+def test_initial_retina_attachment_commits_drawable_viewport_in_one_frame(
+    monkeypatch,
+):
+    """An SDL resize emitted before attachment must not strand the CSS root."""
+    from types import SimpleNamespace
+    from psx.sfle.model import AvailableSize, LayoutConstraints
+
+    monkeypatch.setattr(kivy_module, "Clock", _Clock)
+    _Clock.scheduled = []
+    # base.json specifies 800x600 *window* points; the actual native
+    # widget and drawable space are 1600x1200 Retina pixels.
+    window = type(
+        "Window", (), {"system_size": (800, 600), "size": (1600, 1200)}
+    )()
+    renderer = _renderer(window, size=(800, 600))
+    root = renderer._sfle_watched_widget
+    renderer._sfle_resize_event = None
+    renderer._sfle_resize_pending = None
+    renderer._sfle_constraints = LayoutConstraints(
+        AvailableSize(800, True), AvailableSize(600, True),
+    )
+    mounted = SimpleNamespace(
+        disposed=False,
+        native_handle=lambda: SimpleNamespace(widget=root),
+    )
+    renderer._sfle_mounted_root = mounted
+    commits = []
+    renderer.set_sfle_constraints = lambda constraints: setattr(
+        renderer, "_sfle_constraints", constraints
+    )
+    renderer.commit_layout = lambda current: commits.append(current)
+    root.on_write = lambda: renderer._sfle_on_root_size(root, root.size)
+
+    renderer._sfle_sync_attached_viewport(window)
+
+    assert root.size == (1600, 1200)
+    assert renderer._sfle_constraints.width.value == 1600
+    assert renderer._sfle_constraints.height.value == 1200
+    assert commits == [mounted]
+    assert not any(not event.cancelled for event in _Clock.scheduled)
+
+    # No mutation or extra layout if the dimensions already agree.
+    renderer._sfle_sync_attached_viewport(window)
+    assert commits == [mounted]
+
+
+def test_initial_viewport_sync_ignores_root_not_attached_to_window(
+    monkeypatch,
+):
+    monkeypatch.setattr(kivy_module, "Clock", _Clock)
+    _Clock.scheduled = []
+    window = type("Window", (), {"size": (1600, 1200)})()
+    renderer = _renderer(window, size=(800, 600))
+    root = renderer._sfle_watched_widget
+    root.parent = None
+
+    renderer._sfle_sync_attached_viewport(window)
+
+    assert root.size == (800, 600)
+    assert root.writes == 0
+    assert not _Clock.scheduled
