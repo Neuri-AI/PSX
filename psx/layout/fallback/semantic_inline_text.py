@@ -102,4 +102,27 @@ def python_layout_inline_text(
 
 # Historical Python-only entry point: importing this module explicitly must
 # continue to choose the Python numerical solver even if Rust is installed.
-layout_inline_text = python_layout_inline_text
+def layout_inline_text(
+    sources: Sequence[InlineTextSource],
+    available_width: float,
+    measure: Callable[[str, str], InlineTextMetrics],
+    *,
+    text_align: str = "left",
+    engine: object | None = None,
+) -> InlineTextLayout:
+    """Historical fallback entry point; preserve explicit Rust differential use.
+
+    Omitted engine selects Python only because the caller explicitly imported
+    the optional Python fallback module. Calls with an engine keep dispatching
+    through the shared engine-neutral entry point.
+    """
+    if engine is None:
+        return python_layout_inline_text(
+            sources, available_width, measure, text_align=text_align,
+        )
+    from psx.layout.inline.semantic_inline_text import (
+        layout_inline_text as selected_layout_inline_text,
+    )
+    return selected_layout_inline_text(
+        sources, available_width, measure, text_align=text_align, engine=engine,
+    )
