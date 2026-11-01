@@ -53,9 +53,11 @@ def _svg_texture(source):
 def _apply_image_source(widget, source):
     if source and Path(source).suffix.lower() == ".svg":
         # A blank Kivy source prevents its built-in loader from rejecting SVG.
-        widget.source = ""
-        widget.texture = _svg_texture(source)
+        texture = _svg_texture(source)
+        widget._psx_svg_texture = texture
+        widget.texture = texture
     else:
+        widget._psx_svg_texture = None
         widget.source = source
 
 
@@ -65,6 +67,7 @@ class KivyImageAdapter:
         props = image_props({**IMAGE_DEFAULTS, **node.props})
 
         widget = KivyImage(source="")
+        widget._psx_svg_texture = None
         _apply_image_source(widget, props["source"])
         widget.fit_mode = _FIT_MODE[props["fit"]]
         widget.size_hint = (None, None)
@@ -87,6 +90,12 @@ class KivyImageAdapter:
     @staticmethod
     def _on_texture(widget, texture):
         if texture is None:
+            # Kivy can flush an empty-source Image texture on a later Clock
+            # tick. Keep the already-decoded SVG available to Cinnamon and
+            # restore it for painting without re-decoding.
+            cached = getattr(widget, "_psx_svg_texture", None)
+            if cached is not None:
+                widget.texture = cached
             return
         props = widget._psx_props
         src_w, src_h = texture.size
@@ -128,6 +137,7 @@ class KivyImageAdapter:
             widget.parent.remove_widget(widget)
         # Drop our owner-side references; Kivy's global texture cache is
         # managed separately by Kivy and is not owned by this Image widget.
+        widget._psx_svg_texture = None
         widget.source = ""
         widget._psx_props = None
         handle.props = {}
