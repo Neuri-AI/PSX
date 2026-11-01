@@ -115,7 +115,9 @@ impl Flow<'_> {
         } else if let Some(number) = value.as_f64() {
             ("px", Some(number))
         } else if let Some(text) = value.as_str() {
-            if text.trim().parse::<f64>().ok().is_some_and(|n| n == 0.0) {
+            if group == "margin" && text == "auto" {
+                ("auto", None)
+            } else if text.trim().parse::<f64>().ok().is_some_and(|n| n == 0.0) {
                 ("px", Some(0.0))
             } else if let Some(n) = text.strip_suffix("px").and_then(|s| s.parse::<f64>().ok()) {
                 ("px", Some(n))
@@ -471,7 +473,22 @@ impl Flow<'_> {
         let mut pending = Vec::new();
         let children = self.children[index].clone();
         for child in children {
-            if self.display(child)? == Some(true) || (self.display(child)?.is_none() && self.input.nodes[child].component != "Text") {
+            let child_component = self.input.nodes[child].component.as_str();
+            if child_component == "Flex" {
+                if !pending.is_empty() {
+                    cursor += self.inline_run(
+                        &pending, content_x, content_y + cursor, parent_content_width,
+                    )?;
+                    pending.clear();
+                }
+                cursor += self.flex_node(
+                    child, content_x, content_y + cursor, parent_content_width,
+                )?;
+                continue;
+            }
+            if self.display(child)? == Some(true) ||
+                (self.display(child)?.is_none() &&
+                 !matches!(child_component, "Text" | "Grid" | "Native")) {
                 pending.push(child);
             } else {
                 if !pending.is_empty() {

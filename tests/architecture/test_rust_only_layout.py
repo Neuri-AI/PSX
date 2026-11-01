@@ -184,7 +184,7 @@ def test_rust_only_headless_grid_reconciliation_and_resize():
         renderer.set_sfle_constraints(viewport(767))
         renderer.commit_layout(root)
         assert root.children[0].handle.geometry.width == 767
-        assert root.children[1].handle.geometry.y == 34
+        assert root.children[1].handle.geometry.y == 14
         assert renderer.grid_result[1].max_readback_error == 0
         assert not [key for key in sys.modules
                     if key.startswith("psx.layout.fallback")]
