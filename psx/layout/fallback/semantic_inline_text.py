@@ -11,7 +11,7 @@ from collections.abc import Callable, Sequence
 from psx.layout.contracts.fixed_point import nearest_layout_px
 from psx.layout.inline.semantic_inline_text import (
     InlineTextSource, InlineTextMetrics, InlineTextFragment,
-    InlineTextLayout, layout_inline_text,
+    InlineTextLayout,
 )
 
 
@@ -99,3 +99,7 @@ def python_layout_inline_text(
             x = px(x + intrinsic.width)
         y = px(y + ascent + descent)
     return InlineTextLayout(tuple(fragments), max_used, y, len(lines))
+
+# Historical Python-only entry point: importing this module explicitly must
+# continue to choose the Python numerical solver even if Rust is installed.
+layout_inline_text = python_layout_inline_text

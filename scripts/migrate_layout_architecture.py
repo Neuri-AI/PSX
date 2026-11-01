@@ -43,7 +43,7 @@ def migrate() -> dict[str, int]:
                     continue
             before = path.read_text(encoding="utf-8")
             def replace(match: re.Match[str]) -> str:
-                key = "psx.layout." + match.group(1)
+                key = "psx.sfle." + match.group(1)
                 if key not in MODULES:
                     raise RuntimeError(
                         f"Unmapped old module {key} referenced from {path}"

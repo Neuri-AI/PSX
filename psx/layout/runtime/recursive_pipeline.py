@@ -18,6 +18,7 @@ from psx.layout.runtime.recursive_measurement import RecursiveMeasurementResult,
 
 def _used_sizing(result: RecursiveMeasurementResult, nodes: tuple[MarginTreeNode, ...]) -> tuple[tuple[str, ChildSizing], ...]:
     from psx.layout.contracts.lengths import Length
+    from psx.layout.fallback.constraint_propagation import ChildSizing
     boxes = {box.node_id: box.content for box in result.geometry.boxes}
     return tuple((node.node_id, ChildSizing(
         Length.px(boxes[node.node_id].width),
