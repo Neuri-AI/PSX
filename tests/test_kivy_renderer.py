@@ -549,8 +549,8 @@ class KivyRendererSubprocessTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout + "\\n" + result.stderr)
 
-    def test_css_button_without_background_removes_native_gray_skin(self) -> None:
-        """Unstyled navigation buttons must stay transparent under CSS."""
+    def test_css_button_without_background_retains_native_theme_and_padding(self) -> None:
+        """CSS color/height/border cannot erase the native Button's theme or padding."""
         environment = dict(os.environ)
         environment.update({"KIVY_NO_FILELOG": "1", "KIVY_NO_ARGS": "1"})
         script = textwrap.dedent("""
@@ -568,9 +568,13 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                 StyleTarget("button"))
             handle = KivyHandle("Button", widget, {})
             renderer.apply_css(handle, style)
-            assert widget.background_normal == ""
-            assert widget.background_down == ""
-            assert widget._psx_css_button_background[2].rgba[3] == 0
+            assert (widget.background_normal, widget.background_down,
+                    tuple(widget.background_color)) == original
+            assert not hasattr(widget, "_psx_css_button_background")
+            assert tuple(widget._psx_ua_button_padding) == (6.0, 6.0, 6.0, 6.0)
+            assert widget._psx_ua_button_padding_active
+            assert all(abs(value - 6 * renderer._psx_css_pixel_scale) < 0.01
+                       for value in widget.padding)
             renderer.apply_css(handle, None)
             assert (widget.background_normal, widget.background_down,
                     tuple(widget.background_color)) == original
@@ -606,8 +610,11 @@ class KivyRendererSubprocessTests(unittest.TestCase):
                 round(59/255, 4), round(110/255, 4), round(245/255, 4), 1)
             renderer.apply_css(instance.handle, resolve_style(
                 parse_stylesheet("button {color: #ffffff}"), StyleTarget("button")))
-            assert widget.background_normal == "" and widget.background_down == ""
-            assert widget._psx_css_button_background[2].rgba[3] == 0
+            assert (widget.background_normal, widget.background_down) == original
+            assert not hasattr(widget, "_psx_css_button_background")
+            assert widget._psx_ua_button_padding_active
+            assert all(abs(value - 6 * renderer._psx_css_pixel_scale) < 0.01
+                       for value in widget.padding)
             renderer.apply_css(instance.handle, None)
             assert not hasattr(widget, "_psx_css_button_background")
             assert (widget.background_normal, widget.background_down) == original
