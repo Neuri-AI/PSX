@@ -196,11 +196,11 @@ def _rust_only_grid_renderer(width=800):
     from psx.renderers.headless import HeadlessRenderer
     from psx.layout.contracts.model import IntrinsicSizes, AvailableSize, LayoutConstraints
 
-    def measure(node, allocated_width):
+    def measure(node, allocated_width=None):
         assert node.type == "Text"
-        height = 30 if allocated_width < 390 else 10
-        return IntrinsicSizes(0, allocated_width, 0, height,
-                              allocated_width, height)
+        width = 20 if allocated_width is None else allocated_width
+        height = 30 if width < 390 else 10
+        return IntrinsicSizes(0, width, 0, height, width, height)
     return HeadlessRenderer(
         sfle_constraints=LayoutConstraints(
             AvailableSize(width, True), AvailableSize(100, True),
