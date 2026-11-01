@@ -298,8 +298,17 @@ register_primitive(
     validate=validate_text_props, apply=apply_kivy_text, updated_props=updated_text_props,
     on_create=_text_created, on_destroy=_text_destroyed,
 )
+def _kivy_button_factory():
+    widget = KivyButton()
+    # Browser-like UA padding, in logical CSS pixels before Retina scaling.
+    # Authored CSS padding supersedes these defaults.
+    widget._psx_ua_button_padding = (12.0, 6.0, 12.0, 6.0)
+    widget._psx_ua_button_padding_active = True
+    return widget
+
+
 register_primitive(
-    "Button", factory=KivyButton,
+    "Button", factory=_kivy_button_factory,
     validate=validate_button_props, apply=apply_kivy_button, updated_props=updated_button_props,
     events={"on_click": ("on_release", emit_call)},
 )
@@ -1274,6 +1283,19 @@ class KivyRenderer:
                 if not hasattr(widget, "bold"):
                     raise ValueError(f"Kivy {target.node_type} does not expose native font-weight.")
                 widget.bold = styles["font-weight"] >= 600
+            if target.node_type == "Button":
+                authored_padding = computed is not None and (
+                    "padding" in computed.specified or any(
+                        f"padding-{side}" in computed.specified
+                        for side in ("top", "right", "bottom", "left")
+                    )
+                )
+                widget._psx_ua_button_padding_active = not authored_padding
+                if not authored_padding:
+                    widget.padding = tuple(
+                        value * pixel_scale
+                        for value in widget._psx_ua_button_padding
+                    )
             if target.node_type == "Button" and computed is not None and (
                 "padding" in computed.specified or any(
                     f"padding-{side}" in computed.specified
