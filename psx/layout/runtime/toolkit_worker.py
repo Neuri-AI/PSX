@@ -6,11 +6,9 @@ from collections.abc import Callable, Mapping
 from psx.layout.runtime.adapter_contract import ScrollViewport
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 from psx.layout.contracts.fixed_point import LayoutUnit
-from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
 from psx.layout.contracts.tree_identity import LayoutTreeIdentity as MarginTreeNode
 from psx.layout.contracts.model import IntrinsicSizes, LayoutInput, LayoutResult
 from psx.layout.adapters.native_geometry import GeometryBackend, NativeGeometryCommitter
-from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
 from psx.layout.runtime.worker_lifecycle import NativeWorkerLayoutHandle, start_native_worker_layout
 
 
@@ -44,8 +42,14 @@ class ToolkitWorkerAdapter:
         self.managed_roots = {
             node_id for node_id in content_roots if self.parents[node_id] is None
         }
-        self.measurement = (KivyMeasurementSource(self.widgets) if backend == GeometryBackend.KIVY
-                            else TkMeasurementSource(self.widgets))
+        # Load only the explicitly selected host adapter: installing Tk does
+        # not require importing Kivy, and installing Kivy does not require Tk.
+        if backend == GeometryBackend.KIVY:
+            from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
+            self.measurement = KivyMeasurementSource(self.widgets)
+        else:
+            from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
+            self.measurement = TkMeasurementSource(self.widgets)
 
     def apply_geometry(self, result: LayoutResult) -> None:
         self.commit(result)
