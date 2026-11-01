@@ -267,6 +267,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             for node_id, vnode in prepared.identities
             if node_id in automatic and vnode.kind is NodeKind.HOST
             and vnode.type in ("Text", "TextArea", "Input", "Checkbox", "ProgressBar")
+            and node_id not in atomic_text
         }
         for node_id, port in external.items():
             if node_id in automatic:
