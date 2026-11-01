@@ -196,6 +196,11 @@ class QtSFLEGeometryTests(unittest.TestCase):
             if child.node.type == "Text"
             and child.node.props["value"] == "src/App.tsx"
         )
+        # The same QLabel paints all suffix words with a fragment plan.
+        assert suffix.text() == " and save to test HMR"
+        assert hasattr(suffix, "_psx_semantic_inline_filter")
+        assert len([f for f in suffix._psx_semantic_inline_filter.fragments
+                    if f.text.strip()]) == 5
         assert paragraph.handle.widget.width() == 800
         assert prefix.y() == span.y() == suffix.y()
         assert prefix.x() < span.x() < suffix.x()
