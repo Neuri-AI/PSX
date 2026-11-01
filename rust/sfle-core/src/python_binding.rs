@@ -27,6 +27,21 @@ fn compute_impl(input: &str, provisional: bool) -> PyResult<String> {
         .map_err(|error| PyValueError::new_err(format!("SFLE_INVALID_WIRE: {error}")))
 }
 
+/// Layout measured inline fragments in the native Rust engine.
+#[pyfunction]
+fn compute_inline_text_json(input: &str) -> PyResult<String> {
+    use crate::semantic_inline_text::{layout_inline, InlineRequest};
+    let request: InlineRequest = serde_json::from_str(input)
+        .map_err(|error| PyValueError::new_err(
+            format!("SFLE_INVALID_INLINE_WIRE: {error}")
+        ))?;
+    let result = layout_inline(&request).map_err(PyValueError::new_err)?;
+    serde_json::to_string(&result)
+        .map_err(|error| PyValueError::new_err(
+            format!("SFLE_INVALID_INLINE_WIRE: {error}")
+        ))
+}
+
 #[pyfunction]
 fn compute_json(input: &str) -> PyResult<String> {
     compute_impl(input, false)
@@ -63,6 +78,7 @@ fn _sfle_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(compute_incremental_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_provisional_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_grid_json,module)?)?;
+    module.add_function(wrap_pyfunction!(compute_inline_text_json,module)?)?;
     Ok(())
 }
 
