@@ -8,7 +8,7 @@ after a conformant Rust or Python implementation exists.
 from __future__ import annotations
 
 
-from psx.layout.contracts.capabilities import CONTRACT_ONLY_CAPABILITIES, EngineCapabilities
+from psx.layout.contracts.capabilities import PYTHON_CAPABILITIES, EngineCapabilities
 from psx.layout.contracts.engine import LayoutEngine, UnsupportedLayoutFeature
 from psx.layout.contracts.errors import DiagnosticCode, SFLECapabilityError
 from psx.layout.contracts.model import LayoutInput, LayoutResult
@@ -21,7 +21,7 @@ class PythonLayoutEngine:
 
     @property
     def capabilities(self) -> EngineCapabilities:
-        return CONTRACT_ONLY_CAPABILITIES
+        return PYTHON_CAPABILITIES
 
     def compute(self, request: LayoutInput) -> LayoutResult:
         if not isinstance(request, LayoutInput):

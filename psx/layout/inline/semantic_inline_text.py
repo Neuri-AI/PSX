@@ -125,10 +125,19 @@ def layout_inline_text(
     if text_align not in ("left", "right", "center"):
         raise ValueError("Unsupported inline text alignment.")
 
+    # Select the numerical backend before computing; never fall through to
+    # Python because callers omitted the optional engine argument.
+    if engine is None:
+        from psx.layout.engine.backend import load_layout_engine
+        engine = load_layout_engine()
+    backend = getattr(engine, "backend_name", None)
+    if backend not in ("python", "rust"):
+        raise TypeError("Inline layout requires a Cinnamon Rust or Python engine.")
+
     # Fail closed for a selected Rust engine: no Python calculations may
     # masquerade as native Rust output. The extension must provide the
     # explicit inline ABI, otherwise this layout transaction fails.
-    if getattr(engine, "backend_name", None) == "rust":
+    if backend == "rust":
         payload = {
             "width": available_width,
             "text_align": text_align,

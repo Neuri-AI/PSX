@@ -24,9 +24,9 @@ from psx.layout.contracts.wire import (
 __all__ = [
     "AvailableSize", "BoxEdges", "BoxRect", "DiagnosticCode",
     "EngineCapabilities", "IntrinsicSizes", "LayoutConstraints",
-    "LayoutInput", "LayoutNode", "LayoutResult", "Length",
+    "LayoutInput", "LayoutNode", "LayoutResult", "LayoutEngine", "Length",
     "LengthKind", "MeasuredBox", "Rect", "SCHEMA_VERSION",
-    "SFLECapabilityError", "SFLEError", "SFLEWireError",
+    "SFLECapabilityError", "SFLEError", "SFLEWireError", "UnsupportedLayoutFeature",
     "WritingDirection", "dumps_input", "layout_input_from_wire",
     "layout_input_to_wire", "layout_result_from_wire",
     "layout_result_to_wire", "length_from_wire", "length_to_wire",

@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib
 from types import ModuleType
 
-from psx.layout.contracts.capabilities import CONTRACT_ONLY_CAPABILITIES
+from psx.layout.contracts.capabilities import EngineCapabilities, rust_engine_capabilities
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 from psx.layout.contracts.model import LayoutInput, LayoutResult
 from psx.layout.contracts.native_wire import serialize_snapshot, serialize_result, deserialize_response
@@ -24,8 +24,11 @@ class RustLayoutEngine:
         self._module = module
 
     @property
-    def capabilities(self):
-        return CONTRACT_ONLY_CAPABILITIES
+    def capabilities(self) -> EngineCapabilities:
+        return rust_engine_capabilities(
+            has_grid=callable(getattr(self._module, "compute_grid_json", None)),
+            has_inline=callable(getattr(self._module, "compute_inline_text_json", None)),
+        )
 
     def compute_inline_text(self, payload: dict[str, object]) -> dict[str, object]:
         """Use the Rust numeric inline layout kernel; never silently fall back."""
