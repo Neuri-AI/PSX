@@ -2001,7 +2001,7 @@ class TkinterRenderer:
                 if target.node_type == "Button":
                     # Theme maps can override the configured ordinary-state
                     # color and obscure authored active/selected class rules.
-                    if "background" in config:
+                    if config.get("background"):
                         style.map(style_name, background=[
                             ("disabled", config["background"]),
                             ("active", config["background"]),
@@ -2009,7 +2009,7 @@ class TkinterRenderer:
                         ])
                     else:
                         style.map(style_name, background=[])
-                    if "foreground" in config:
+                    if config.get("foreground"):
                         style.map(style_name, foreground=[
                             ("disabled", config["foreground"]),
                             ("active", config["foreground"]),
