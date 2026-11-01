@@ -112,10 +112,6 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
         # Mixed Flex/Grid uses the existing width-dependent Cinnamon solver.
         # The Grid is one atomic Flex leaf; its own native children are
         # computed independently at the width allocated by Flex.
-        from psx.layout.grid.grid_native_composition import (
-            prepare_composed_grid, compose_geometry_batch,
-        )
-        from psx.layout.adapters.grid_native_commit import GridCommitBackend, commit_grid_native_geometry
         from psx.layout.contracts.model import IntrinsicSizes, AvailableSize, LayoutConstraints
         from psx.layout.runtime.width_dependent_intrinsic_measurement import compute_width_dependent
         from psx.layout.projection.native_layout_snapshot import path_identity
@@ -130,6 +126,16 @@ def commit_headless_sfle(renderer: "HeadlessRenderer", root: "MountedInstance") 
                 gather_grids(child)
 
         gather_grids(normalized)
+        # Import the Grid compositor only for an actual Grid participant.
+        # A Rust-only Flex/Scroll tree must not load optional Python Grid
+        # kernels as a side effect of the generic layout bridge.
+        if grid_nodes:
+            from psx.layout.grid.grid_native_composition import (
+                prepare_composed_grid, compose_geometry_batch,
+            )
+            from psx.layout.adapters.grid_native_commit import (
+                GridCommitBackend, commit_grid_native_geometry,
+            )
         breakpoints = getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS)
 
         def compose_grid(node_id, width):
