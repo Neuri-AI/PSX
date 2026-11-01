@@ -1991,12 +1991,14 @@ class TkinterRenderer:
                 elif "text-align" in styles:
                     raise ValueError(f"Tk {target.node_type} does not support exact text-align.")
                 if target.node_type == "Button":
-                    # ttk styles survive stylesheet refreshes. Omitting a
-                    # formerly authored color from configure() does not remove
-                    # its old value, so explicitly clear stale overrides.
-                    for paint_key in ("foreground", "background"):
-                        if paint_key not in config:
-                            config[paint_key] = ""
+                    # Restore the platform theme's actual colors when CSS
+                    # removes an override. Empty Tcl colors hide button text.
+                    native_style = style.lookup("TButton", "foreground")
+                    native_background = style.lookup("TButton", "background")
+                    if "foreground" not in config:
+                        config["foreground"] = native_style or "black"
+                    if "background" not in config and native_background:
+                        config["background"] = native_background
                 style.configure(style_name, **config)
                 if target.node_type == "Button":
                     # Theme maps can override the configured ordinary-state
