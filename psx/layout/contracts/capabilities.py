@@ -1,10 +1,8 @@
-"""Immutable, versioned SFLE engine capability declaration.
+"""Versioned, bounded Cinnamon layout capability declarations.
 
-The manifest advertises what an engine can actually compute, not the eventual
-target CSS Flexbox feature set. The initial contract-only phase advertises no
-supported layout features.
+These identifiers represent finite numerical kernel contracts, not full CSS or
+browser conformance. Feature maturity and optional Rust ABI presence are explicit.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,16 +17,26 @@ KNOWN_FEATURES = frozenset({
     "wrapping", "multi_line_alignment", "intrinsic_sizing",
     "percentage_sizing", "auto_margins", "baseline_alignment",
     "min_max_constraints", "overflow",
+    "block_flow_measured", "inline_flow_measured",
+    "grid_12_columns", "inline_text_ltr_normal",
 })
+
+FEATURE_SCOPES = {
+    "block_flow_measured": "Normal flow of measured block boxes (bounded grammar)",
+    "inline_flow_measured": "Measured atomic inline boxes (not full text shaping)",
+    "grid_12_columns": "PSX 12-column Grid packing and allocation",
+    "inline_text_ltr_normal": "Source-preserving LTR white-space:normal fragments",
+}
 
 
 @dataclass(frozen=True, slots=True)
 class EngineCapabilities:
-    """Feature manifest compatible with either computation backend."""
+    """Implemented and independently certified features of one engine."""
 
     engine_name: str
     schema_version: int
     features: frozenset[str]
+    certified_features: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if not isinstance(self.engine_name, str) or not self.engine_name:
@@ -37,20 +45,66 @@ class EngineCapabilities:
             raise ValueError("Unsupported SFLE capability schema version.")
         if not isinstance(self.features, frozenset):
             raise TypeError("Capability features must be a frozenset.")
-        if not all(isinstance(feature, str) and feature in KNOWN_FEATURES
-                   for feature in self.features):
+        if not all(isinstance(f, str) and f in KNOWN_FEATURES for f in self.features):
             raise ValueError("Unrecognized SFLE capability feature.")
+        if not isinstance(self.certified_features, frozenset):
+            raise TypeError("Certified capability features must be a frozenset.")
+        if not self.certified_features.issubset(self.features):
+            raise ValueError("Certified features must be implemented features.")
+
+    def status(self, feature: str) -> str:
+        """Report 'certified', 'implemented', or 'unsupported'."""
+        if feature in self.certified_features:
+            return "certified"
+        if feature in self.features:
+            return "implemented"
+        return "unsupported"
 
     def require(self, feature: str) -> None:
-        if feature not in KNOWN_FEATURES or feature not in self.features:
+        if self.status(feature) == "unsupported":
             raise SFLECapabilityError(
                 DiagnosticCode.UNSUPPORTED_FEATURE,
                 f"SFLE engine {self.engine_name!r} does not support {feature!r}.",
             )
 
 
+# Historical constant retained, never returned by a running solver.
 CONTRACT_ONLY_CAPABILITIES = EngineCapabilities(
-    engine_name="python-contract-only",
-    schema_version=SCHEMA_VERSION,
+    engine_name="python-contract-only", schema_version=SCHEMA_VERSION,
     features=frozenset(),
 )
+
+# Advertise only bounded implementations with exercised acceptance fixtures.
+_COMMON_IMPLEMENTED = frozenset({
+    "direction_row", "direction_column", "direction_reverse",
+    "writing_ltr", "gap", "grow_shrink", "wrapping",
+    "intrinsic_sizing", "percentage_sizing", "min_max_constraints",
+    "block_flow_measured", "inline_flow_measured",
+})
+_COMMON_CERTIFIED = frozenset({
+    "direction_row", "direction_column", "direction_reverse",
+    "gap", "wrapping", "min_max_constraints",
+    "block_flow_measured", "inline_flow_measured",
+})
+_OPTIONAL = frozenset({"grid_12_columns", "inline_text_ltr_normal"})
+
+PYTHON_CAPABILITIES = EngineCapabilities(
+    engine_name="python", schema_version=SCHEMA_VERSION,
+    features=_COMMON_IMPLEMENTED | _OPTIONAL,
+    certified_features=_COMMON_CERTIFIED | _OPTIONAL,
+)
+
+
+def rust_engine_capabilities(*, has_grid: bool, has_inline: bool) -> EngineCapabilities:
+    """Expose optional numerical kernels only if the Rust wheel has their ABI."""
+    optional = frozenset(
+        name for name, present in (
+            ("grid_12_columns", has_grid),
+            ("inline_text_ltr_normal", has_inline),
+        ) if present
+    )
+    return EngineCapabilities(
+        engine_name="rust", schema_version=SCHEMA_VERSION,
+        features=_COMMON_IMPLEMENTED | optional,
+        certified_features=_COMMON_CERTIFIED | optional,
+    )
