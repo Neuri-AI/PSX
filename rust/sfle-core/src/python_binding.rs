@@ -3,7 +3,7 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use serde_json::{json,Value};
-use crate::compute::{compute,compute_provisional,compute_incremental,LayoutInput,LayoutResult};
+use crate::compute::{compute,compute_provisional,compute_incremental_with_reuse,LayoutInput,LayoutResult};
 
 #[pyfunction]
 fn schema_version() -> u32 { 1 }
@@ -61,8 +61,9 @@ fn compute_incremental_json(
     let request:LayoutInput=serde_json::from_str(input).map_err(parse_error)?;
     let old_request:LayoutInput=serde_json::from_str(previous_input).map_err(parse_error)?;
     let old_result:LayoutResult=serde_json::from_str(previous_result).map_err(parse_error)?;
-    let answer:Value=match compute_incremental(&request,&old_request,&old_result) {
-        Ok(layout)=>json!({"ok":true,"result":layout}),
+    let mut reused_contexts=Vec::new();
+    let answer:Value=match compute_incremental_with_reuse(&request,&old_request,&old_result,&mut reused_contexts) {
+        Ok(layout)=>json!({"ok":true,"result":layout,"reused_contexts":reused_contexts}),
         Err(failure)=>json!({"ok":false,"error":{
             "code":failure.code,"message":failure.message,"node_id":failure.node_id,
         }}),

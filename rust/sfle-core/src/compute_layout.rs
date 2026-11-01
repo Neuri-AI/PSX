@@ -498,6 +498,7 @@ struct Context<'a>{
     used:Vec<Option<(f64,f64)>>,
     reused_sizes:Vec<Option<(f64,f64)>>,
     reusable_descendants:Vec<Vec<usize>>,
+    reused_contexts:Vec<String>,
 }
 fn bounded_intrinsic(style:Style,h:bool,mut value:f64,reference:Option<f64>)->f64{
     // Minimum precedence wins over a conflicting maximum. Percentage bounds
@@ -605,6 +606,7 @@ impl Context<'_>{
                 for &descendant in &self.reusable_descendants[index] {
                     self.used[descendant]=self.reused_sizes[descendant];
                 }
+                self.reused_contexts.push(id.clone());
                 return Ok((prior_w,prior_h));
             }
         }
@@ -873,6 +875,17 @@ pub fn compute_normalized(input:&LayoutInput,provisional:bool)->Result<LayoutRes
 pub fn compute_normalized_incremental(
     input:&LayoutInput, provisional:bool,
     previous:Option<(&LayoutInput,&LayoutResult)>,
+)->Result<LayoutResult,ComputeError>{
+    let mut discarded=Vec::new();
+    compute_normalized_incremental_report(input,provisional,previous,&mut discarded)
+}
+
+/// The native incremental kernel reports actual context reuse without
+/// fabricating a Python-side approximation of its internal decisions.
+pub fn compute_normalized_incremental_report(
+    input:&LayoutInput, provisional:bool,
+    previous:Option<(&LayoutInput,&LayoutResult)>,
+    reuse_report:&mut Vec<String>,
 )->Result<LayoutResult,ComputeError>{
     if input.nodes.is_empty(){
         return Ok(LayoutResult {schema_version:1,generation:input.generation,
@@ -1367,6 +1380,7 @@ pub fn compute_normalized_incremental(
         measurements:input.measurements.iter().map(|m|(m.node_id.as_str(),m)).collect(),
         used:vec![None;input.nodes.len()],
         reused_sizes,reusable_descendants,
+        reused_contexts:Vec::new(),
     };
     let root_style=context.styles[0];
     let width=resolved(root_style.width,
@@ -1448,6 +1462,7 @@ pub fn compute_normalized_incremental(
     let writing=match input.direction.as_str(){"ltr"=>WritingDirection::Ltr,_=>WritingDirection::Rtl};
     let result=compute_margin_tree(&nodes,writing)
         .map_err(|e|failure("SFLE_LAYOUT_CONSTRAINT_ERROR",format!("Nested placement failed: {e:?}"),None))?;
+    reuse_report.extend(context.reused_contexts);
     Ok(LayoutResult {
         schema_version:1,generation:input.generation,
         boxes:result.boxes.into_iter().map(|b|LayoutBox{

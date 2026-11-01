@@ -71,13 +71,23 @@ class RustLayoutEngine:
         if (native_measurement_invalidated or previous_input is None
                 or previous_result is None or not callable(native)):
             return self.compute(request)
-        return deserialize_response(
-            native(
-                serialize_snapshot(request),
-                serialize_snapshot(previous_input),
-                serialize_result(previous_result),
-            ), request,
+        payload = native(
+            serialize_snapshot(request),
+            serialize_snapshot(previous_input),
+            serialize_result(previous_result),
         )
+        result = deserialize_response(payload, request)
+        if reused_contexts is not None:
+            import json
+            trace = json.loads(payload).get("reused_contexts")
+            if (not isinstance(trace, list) or
+                    any(not isinstance(value, str) for value in trace)):
+                raise SFLEError(
+                    DiagnosticCode.BACKEND_MISMATCH,
+                    "Rust Cinnamon wheel lacks validated incremental-reuse telemetry.",
+                )
+            reused_contexts.extend(trace)
+        return result
 
     def compute_provisional(self, request: LayoutInput) -> LayoutResult:
         return deserialize_response(
