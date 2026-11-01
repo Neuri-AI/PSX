@@ -264,10 +264,10 @@ def _inline_text_fragments(node: VNode) -> tuple[VNode, ...]:
     raw = node.props["value"]
     if not isinstance(raw, str):
         raise TypeError("Inline text must have a string value.")
-    words = re.findall(r"\S+\s*|\s+", re.sub(r"\s+", " ", raw))
+    words = re.findall(r"\S+|\s+", re.sub(r"\s+", " ", raw))
     preserved = {name: value for name, value in node.props.items()
                  if name not in ("value", "ref")}
-    return tuple(Text(word, **preserved) for word in words if word.strip())
+    return tuple(Text(word, **preserved) for word in words if word)
 
 
 def _bind_form_submission(node: VNode, on_submit: object) -> VNode:
@@ -362,7 +362,7 @@ def _formatting_host(
                 preserved.pop("bold", None)
                 preserved["font_size"] = _HEADING_FONT_SIZES[tag]
                 preserved["bold"] = True
-            for token in re.findall(r"\s*\S+\s*|\s+", re.sub(r"\s+", " ", raw)):
+            for token in re.findall(r"\S+|\s+", re.sub(r"\s+", " ", raw)):
                 # CSS text-content nodes inherit their parent style instead
                 # of independently matching a global 'text' selector.
                 normalized.append(replace(
