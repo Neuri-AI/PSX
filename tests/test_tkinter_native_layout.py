@@ -173,10 +173,28 @@ class TkSFLEGeometryTests(unittest.TestCase):
             '<button>Count is 0</button></div>'
         ))
         paragraph, button = root.children
-        prefix = paragraph.children[0].handle.widget
-        span = paragraph.children[1].handle.widget
-        suffix = paragraph.children[2].handle.widget
-        nested = paragraph.children[1].children[0].handle.widget
+        # Mixed paragraph text is split into measured words and whitespace.
+        # The span's sibling index changes when the tokenizer changes.
+        children = paragraph.children
+        span_index = next(
+            index for index, child in enumerate(children)
+            if child.node.type == "span"
+        )
+        span_node = children[span_index]
+        prefix = next(
+            child.handle.widget for child in reversed(children[:span_index])
+            if child.node.type == "Text" and child.node.props["value"].strip()
+        )
+        suffix = next(
+            child.handle.widget for child in children[span_index + 1:]
+            if child.node.type == "Text" and child.node.props["value"].strip()
+        )
+        span = span_node.handle.widget
+        nested = next(
+            child.handle.widget for child in span_node.children
+            if child.node.type == "Text"
+            and child.node.props["value"] == "src/App.tsx"
+        )
         assert rect(prefix)[1] == rect(span)[1] == rect(suffix)[1]
         assert rect(prefix)[0] < rect(span)[0] < rect(suffix)[0]
         assert nested.cget("text") == "src/App.tsx"
