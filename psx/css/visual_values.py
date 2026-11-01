@@ -53,7 +53,7 @@ def normalize_visual_value(name: str, value: str) -> CssColor | Length | int | s
             "fuchsia": "#ff00ff", "gray": "#808080", "grey": "#808080",
             "silver": "#c0c0c0", "maroon": "#800000", "olive": "#808000",
             "purple": "#800080", "teal": "#008080", "navy": "#000080",
-            "lime": "#00ff00",
+            "lime": "#00ff00", "transparent": "#00000000",
         }
         if isinstance(value, str):
             value = named.get(value.strip().lower(), value)
