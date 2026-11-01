@@ -273,7 +273,7 @@ def test_seeded_flex_geometry_and_provisional_parity_across_css_axes(backends):
         WritingDirection,
     )
     rng = random.Random(61218026)
-    for trial in range(100):
+    for trial in range(256):
         width, height = rng.randint(180, 640), rng.randint(120, 460)
         direction = rng.choice(("row", "column", "row-reverse", "column-reverse"))
         wrap = rng.choice(("nowrap", "wrap", "wrap-reverse"))

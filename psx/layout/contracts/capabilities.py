@@ -93,6 +93,8 @@ _COMMON_CERTIFIED = frozenset({
     "direction_row", "direction_column", "direction_reverse",
     "gap", "wrapping", "min_max_constraints",
     "block_flow_measured", "inline_flow_measured",
+    "full_layout_compute", "provisional_layout_compute",
+    "incremental_layout_compute", "width_dependent_remeasurement",
 })
 _OPTIONAL = frozenset({"grid_12_columns", "inline_text_ltr_normal"})
 

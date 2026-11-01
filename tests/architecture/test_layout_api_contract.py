@@ -76,3 +76,15 @@ def test_three_capability_maturity_states():
     assert PYTHON_CAPABILITIES.status("grow_shrink") == "implemented"
     assert PYTHON_CAPABILITIES.status("gap") == "certified"
     assert PYTHON_CAPABILITIES.status("full_css") == "unsupported"
+
+def test_full_engine_modes_are_certified_for_the_bounded_contract():
+    expected = (
+        "full_layout_compute", "provisional_layout_compute",
+        "incremental_layout_compute", "width_dependent_remeasurement",
+    )
+    for feature in expected:
+        assert PYTHON_CAPABILITIES.status(feature) == "certified"
+        assert rust_engine_capabilities(
+            has_grid=True, has_inline=True,
+        ).status(feature) == "certified"
+

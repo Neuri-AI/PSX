@@ -384,3 +384,52 @@ def test_all_shared_migration_modules_import_without_python_fallback():
     assert not [module for module in sys.modules
                 if module.startswith("psx.layout.fallback")]
 
+def test_rust_only_entire_public_numerical_contract_without_python():
+    """Mandatory Rust mode: all common kernel operations run after removal."""
+    from psx.layout.engine.backend import RustLayoutEngine, load_layout_engine
+    from psx.layout.contracts.model import (
+        AvailableSize, LayoutConstraints, LayoutInput, LayoutNode,
+        WritingDirection,
+    )
+    from psx.layout.grid.contracts import GridSlot
+    from psx.layout.inline.semantic_inline_text import (
+        InlineTextMetrics, InlineTextSource,
+    )
+    engine = load_layout_engine()
+    assert isinstance(engine, RustLayoutEngine)
+    width = LayoutConstraints(AvailableSize(200, True),
+                              AvailableSize(80, True))
+    snapshot = LayoutInput(
+        1, 21, WritingDirection.LTR, width, (
+            LayoutNode("root", None, "Flex", (
+                ("direction", "row"), ("width", "200px"), ("height", "80px"),
+            )),
+            LayoutNode("leaf", "root", "Box", (
+                ("width", "40px"), ("height", "20px"),
+            )),
+        ), (),
+    )
+    computed = engine.compute(snapshot)
+    assert engine.compute_provisional(snapshot).boxes == computed.boxes
+    assert engine.compute_incremental(
+        snapshot, previous_input=snapshot,
+        previous_result=computed,
+    ) == computed
+    grid = engine.compute_grid(
+        (GridSlot("a", 6), GridSlot("b", 6)),
+        200.0, column_gap=4.0,
+        item_heights={"a": 20.0, "b": 30.0},
+    )
+    assert grid[0][0].width_raw == 98 * 64
+    inline = engine.layout_inline_text(
+        (InlineTextSource("text", "abc def"),),
+        100.0,
+        lambda _node, text: InlineTextMetrics(8.0 * len(text), 16.0, 12.0),
+    )
+    assert inline.line_count == 1
+    assert engine.capabilities.status("full_layout_compute") == "certified"
+    assert engine.capabilities.status("incremental_layout_compute") == "certified"
+    assert engine.capabilities.status("provisional_layout_compute") == "certified"
+    assert not [name for name in sys.modules
+                if name.startswith("psx.layout.fallback")]
+

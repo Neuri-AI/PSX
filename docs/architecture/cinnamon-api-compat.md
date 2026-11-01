@@ -56,3 +56,28 @@ core tests, and exact Rust/Python differential suite must be triggered by
 the active PR base, not only PRs targeting `main`. An approved test corpus
 proves its declared inputs and contracts; it is not a universal proof for
 every possible CSS combination.
+
+## Engine-wide parity gate
+
+The shared `LayoutEngine` protocol requires all five public numerical
+operations: complete snapshots, provisional snapshots, incremental snapshots,
+12-column Grid, and source-preserving inline text. Differential certification
+runs the **actual installed Rust wheel** against the independent Python solver
+using identical immutable snapshots and metrics. It compares entire
+`LayoutResult` objects, or matched `SFLEError` code and node identity.
+
+The suite `tests/interop/test_cinnamon_engine_wide_parity.py` covers all
+30 historical F2 cases in full/provisional/incremental modes, versioned
+updates, changed dimensions, changed native measurement revisions, multiround
+intrinsic convergence, RTL, offsets and min/max in Grid, plus a fixed-seed
+Flex property corpus covering direction/wrapping/alignment/margins/gaps.
+`tests/architecture/test_rust_only_layout.py` invokes every shared public
+operation after physically deleting the fallback directory.
+
+The declared certification scope is this bounded protocol and the tested
+input families. Python's historical `reused_contexts` list is diagnostic
+instrumentation, not an engine output or guaranteed Rust reuse trace.
+Privately-owned legacy Python recursive solver APIs are still outside the
+shared numerical protocol. The manifest does **not** promise CSS/browser
+conformance or equivalence on unsupported features.
+
