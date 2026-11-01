@@ -103,6 +103,8 @@ def compute_semantic_inline_native(
     initial: LayoutResult,
     measure,
     recompute,
+    *,
+    engine=None,
 ) -> tuple[LayoutResult, dict[str, tuple[InlineTextFragment, ...]]]:
     """Return immutable source-node boxes and per-source native paint fragments.
 
@@ -156,7 +158,9 @@ def compute_semantic_inline_native(
             )
             if text_align not in ("left", "center", "right"):
                 text_align = "left"
-            inline = layout_inline_text(sources, width, decorated, text_align=text_align)
+            inline = layout_inline_text(
+                sources, width, decorated, text_align=text_align, engine=engine,
+            )
             runs.append((para, source_ids, wrappers, padding, inline))
         return runs
 
