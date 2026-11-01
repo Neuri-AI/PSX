@@ -43,6 +43,51 @@ fn compute_inline_text_json(input: &str) -> PyResult<String> {
 }
 
 #[pyfunction]
+fn compute_measured_flow_json(input: &str) -> PyResult<String> {
+    use crate::flow_layout::{self, BlockItem, InlineAtom};
+    let data: Value = serde_json::from_str(input)
+        .map_err(|err| PyValueError::new_err(format!("Invalid measured-flow wire: {err}")))?;
+    let bad = || PyValueError::new_err("Invalid measured-flow input.");
+    let mode = data["mode"].as_str().ok_or_else(bad)?;
+    let width = data["available_width"].as_f64().ok_or_else(bad)?;
+    let items = data["items"].as_array().ok_or_else(bad)?;
+    let number = |v: &Value, key: &str| -> PyResult<f64> {
+        v.get(key).and_then(Value::as_f64).ok_or_else(bad)
+    };
+    let placements = if mode == "block" {
+        let blocks: Vec<BlockItem> = items.iter().map(|item| {
+            Ok(BlockItem {
+                width: number(item, "width")?,
+                height: number(item, "height")?,
+                margin_top: number(item, "margin_top")?,
+                margin_right: number(item, "margin_right")?,
+                margin_bottom: number(item, "margin_bottom")?,
+                margin_left: number(item, "margin_left")?,
+            })
+        }).collect::<PyResult<_>>()?;
+        flow_layout::layout_blocks(width, &blocks)
+    } else if mode == "inline" {
+        let atoms: Vec<InlineAtom> = items.iter().map(|item| {
+            Ok(InlineAtom {
+                width: number(item, "width")?,
+                height: number(item, "height")?,
+                baseline: number(item, "baseline")?,
+            })
+        }).collect::<PyResult<_>>()?;
+        flow_layout::layout_inline_atoms(width, &atoms)
+    } else {
+        return Err(bad());
+    };
+    let placements = placements.map_err(PyValueError::new_err)?;
+    let records: Vec<Value> = placements.iter().map(|p| json!({
+        "x": p.x, "y": p.y, "width": p.width, "height": p.height,
+    })).collect();
+    serde_json::to_string(&records).map_err(|err|
+        PyValueError::new_err(format!("Invalid measured-flow result: {err}"))
+    )
+}
+
+#[pyfunction]
 fn compute_json(input: &str) -> PyResult<String> {
     compute_impl(input, false)
 }
@@ -80,6 +125,7 @@ fn _sfle_native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(compute_provisional_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_grid_json,module)?)?;
     module.add_function(wrap_pyfunction!(compute_inline_text_json,module)?)?;
+    module.add_function(wrap_pyfunction!(compute_measured_flow_json,module)?)?;
     Ok(())
 }
 
