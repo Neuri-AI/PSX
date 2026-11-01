@@ -30,7 +30,9 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-      - name: No eager Python solver imports outside fallback
+      - name: Compile all shared layout Python before running tests
+        run: python -m compileall -q psx/layout
+      - name: No concrete numerical engine imports from shared façades
         run: python scripts/check_cinnamon_fallback_edges.py
       - name: Public API and bounded capability manifest
         run: |
