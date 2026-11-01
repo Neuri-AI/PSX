@@ -64,17 +64,6 @@ are tested both with the fallback present and physically removed. They
 belong to CSS projection and measurement orchestration, not the native
 Cinnamon numerical geometry solver.
 
-## Remaining legacy numerical compatibility boundary
-
-Historical `MarginTreeNode`, `MarginFlexItem`, intrinsic leaf, and
-auto-cross typed-tree computation must not be silently redirected through
-the Python fallback when the Rust engine is selected. The current Rust
-snapshot-native compute API is independent, but exact binary compatibility
-with those old Python-only typed-tree signatures is **not yet proven**.
-Do not label those historical operations as Rust-certified until their
-inputs/types are shared and both implementations pass strict differential
-fixtures.
-
 ## Real capability manifests
 
 `EngineCapabilities.features` means an implemented bounded kernel.
@@ -103,9 +92,9 @@ every possible CSS combination.
 
 ## Engine-wide parity gate
 
-The shared `LayoutEngine` protocol requires all five public numerical
-operations: complete snapshots, provisional snapshots, incremental snapshots,
-12-column Grid, and source-preserving inline text. Differential certification
+The shared `LayoutEngine` protocol includes complete, provisional and
+incremental snapshots; 12-column Grid; source-preserving inline text;
+measured atomic Block/Inline flow; and legacy typed recursive Flex geometry. Differential certification
 runs the **actual installed Rust wheel** against the independent Python solver
 using identical immutable snapshots and metrics. It compares entire
 `LayoutResult` objects, or matched `SFLEError` code and node identity.
@@ -123,9 +112,11 @@ input families. `reused_contexts` is implemented by both engines and reports the
 incremental subtree reuse. Rust's PyO3 boundary emits a real native reuse
 receipt; the differential suite asserts identical receipts on 100 successive
 updates and Rust-only tests verify the receipt with Python absent.
-Privately-owned legacy Python recursive solver APIs are still outside the
-shared numerical protocol. The manifest does **not** promise CSS/browser
-conformance or equivalence on unsupported features.
+The three historical public recursive coordinator APIs are covered by
+real-wheel differential and Rust-only certification. Internal Python-only
+implementation helpers remain intentionally private to the optional fallback.
+The manifest does **not** promise CSS/browser conformance or equivalence on
+unsupported features.
 
 ## Backend-neutral measured Block / Inline atom placement
 
