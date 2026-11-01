@@ -126,6 +126,18 @@ class RustLayoutEngine:
         from psx.layout.flow.solver import layout_inline_atoms
         return layout_inline_atoms(available_width, atoms, engine=self)
 
+    def compute_recursive_tree(
+        self, nodes, *, generation, writing=None, auto_cross=(),
+    ):
+        """Run independent native Rust recursion with the legacy typed-tree ABI."""
+        from psx.layout.contracts.model import WritingDirection
+        from psx.layout.runtime.recursive_geometry import compute_margin_tree
+        return compute_margin_tree(
+            nodes, generation=generation,
+            writing=WritingDirection.LTR if writing is None else writing,
+            auto_cross=auto_cross, engine=self,
+        )
+
 
 def load_layout_engine() -> RustLayoutEngine | object:
     """Select once before computation; runtime errors propagate unchanged."""

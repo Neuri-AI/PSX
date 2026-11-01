@@ -9,7 +9,10 @@ from typing import Protocol
 
 from psx.layout.contracts.capabilities import EngineCapabilities
 from psx.layout.contracts.errors import SFLECapabilityError
-from psx.layout.contracts.model import LayoutInput, LayoutResult
+from psx.layout.contracts.model import LayoutInput, LayoutResult, WritingDirection
+from psx.layout.contracts.recursive_tree import (
+    MarginTreeNode, MarginTreeLayout, AutoCrossSize,
+)
 from psx.layout.contracts.flow import BlockItem, BlockPlacement, InlineAtom
 from psx.layout.grid.contracts import GridConstrainedRect, GridItemConstraints, GridSlot
 from psx.layout.inline.semantic_inline_text import (
@@ -61,3 +64,11 @@ class LayoutEngine(Protocol):
     def layout_inline_atoms(
         self, available_width: float, atoms: tuple[InlineAtom, ...],
     ) -> tuple[BlockPlacement, ...]: ...
+
+    def compute_recursive_tree(
+        self, nodes: tuple[MarginTreeNode, ...], *,
+        generation: int,
+        writing: WritingDirection = WritingDirection.LTR,
+        auto_cross: tuple[AutoCrossSize, ...] = (),
+    ) -> MarginTreeLayout: ...
+

@@ -113,3 +113,16 @@ class PythonLayoutEngine:
     def layout_inline_atoms(self, available_width, atoms):
         from psx.layout.flow.solver import layout_inline_atoms
         return layout_inline_atoms(available_width, atoms, engine=self)
+
+    def compute_recursive_tree(
+        self, nodes, *, generation, writing=None, auto_cross=(),
+    ):
+        """Run independent Python recursive numerical geometry."""
+        from psx.layout.contracts.model import WritingDirection
+        from psx.layout.runtime.recursive_geometry import compute_margin_tree
+        return compute_margin_tree(
+            nodes, generation=generation,
+            writing=WritingDirection.LTR if writing is None else writing,
+            auto_cross=auto_cross, engine=self,
+        )
+
