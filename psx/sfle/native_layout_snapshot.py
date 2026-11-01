@@ -380,7 +380,10 @@ class PreparedNativeLayoutSnapshot:
             # internal Text/span/Text children, stacking every word.
             if (origin.kind is NodeKind.HOST
                     and origin.type in ("p", "h1", "h2", "h3", "h4", "h5", "h6", "li")
-                    and mixed_text_inline_run(node.node_id)):
+                    and mixed_text_inline_run(node.node_id)
+                    and not (origin.css_computed is not None
+                             and "display" in origin.css_computed.specified
+                             and origin.css_computed.properties["display"] in ("flex", "inline-flex"))):
                 style = dict(node.style)
                 style["direction"] = "row"
                 style["wrap"] = "wrap"
