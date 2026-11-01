@@ -747,20 +747,6 @@ class KivyRenderer:
             Window.bind(on_resize=self._sfle_on_window_resize)
             self._sfle_window_bound = True
         self._sfle_mounted_root = root
-        # The startup Window resize can arrive before this observer is
-        # installed (notably on macOS when base.json changes dimensions).
-        # Reconcile the first mounted viewport with the drawable coordinates
-        # once on the UI Clock; never keep an obsolete 800x600 CSS layout
-        # inside a larger native window.
-        window_size = tuple(Window.size)
-        if (all(value > 0 for value in window_size)
-                and (self._sfle_constraints.width.value,
-                     self._sfle_constraints.height.value) != window_size
-                and self._sfle_window_resize_event is None):
-            epoch = self._sfle_resize_epoch
-            self._sfle_window_resize_event = Clock.schedule_once(
-                lambda _dt: self._sfle_flush_window_resize(Window, epoch), 0,
-            )
         self._sfle_schedule_image_poll()
 
     def invalidate_layout(self) -> None:
