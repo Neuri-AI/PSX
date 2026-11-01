@@ -35,11 +35,9 @@ def tk_inline_measure(widgets: dict[str, object]) -> Callable[[str, str], Inline
             selected = ttk.Style(widget).lookup(widget.winfo_class(), "font")
         if not selected:
             selected = "TkDefaultFont"
-        fonts[node_id] = tkfont.Font(root=widget, font=selected, exists=True) if isinstance(selected, str) and selected in tkfont.names(root=widget) else (
-            tkfont.nametofont(selected, root=widget)
-            if isinstance(selected, str) and selected in tkfont.names(root=widget)
-            else tkfont.Font(root=widget, font=selected)
-        )
+        # Copy Tcl's actual font attributes into a transaction-local font.
+        # The constructor accepts both named fonts and Tk font descriptions.
+        fonts[node_id] = tkfont.Font(root=widget, font=selected)
 
     def measure(node_id: str, text: str) -> InlineTextMetrics:
         font = fonts[node_id]
