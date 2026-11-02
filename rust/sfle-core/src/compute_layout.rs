@@ -1325,8 +1325,11 @@ pub fn compute_normalized_incremental_report(
         let safe_environment=old_input.schema_version==input.schema_version
             && old_input.generation==old_result.generation
             && old_input.direction==input.direction
-            && serde_json::to_value(&old_input.constraints).ok()
-                ==serde_json::to_value(&input.constraints).ok()
+            // A root viewport resize must not globally invalidate all
+            // descendants. Each candidate subtree is still reused only if
+            // the solver assigns the *same definite width and height*, and
+            // none of its own CSS dimensions depend on percentages.
+            // The normal placement pass remains authoritative for siblings.
             && old_input.nodes.len()==input.nodes.len()
             && old_result.diagnostics.is_empty()
             && old_result.geometry_commit_error.is_none_or(|v|v==0.0);
@@ -1345,8 +1348,15 @@ pub fn compute_normalized_incremental_report(
                 let new_metric=new_measurements.get(node.node_id.as_str());
                 let measured_equal=match (old_metric,new_metric) {
                     (None,None)=>true,
-                    (Some(a),Some(b))=>serde_json::to_value(a).ok()
-                        ==serde_json::to_value(b).ok(),
+                    // The revision is a transaction generation, not
+                    // an intrinsic-metric identity. Measurements are safe
+                    // to reuse across generations when their constraints
+                    // and actual intrinsic values are unchanged.
+                    (Some(a),Some(b)) => a.node_id==b.node_id
+                        && serde_json::to_value(&a.constraints).ok()
+                            ==serde_json::to_value(&b.constraints).ok()
+                        && serde_json::to_value(&a.intrinsic).ok()
+                            ==serde_json::to_value(&b.intrinsic).ok(),
                     _=>false,
                 };
                 let no_percent=!node.style.values().any(|value| {
