@@ -513,3 +513,51 @@ def test_kivy_scrolled_grid_item_content_starts_at_content_origin():
     assert heights[content_id] - content_placement.y - content_placement.height == 0.0
 
 
+
+
+def test_kivy_grid_width_only_resize_skips_position_notifications():
+    """Keep Kivy property/canvas observers quiet for unchanged axes."""
+    class Observed:
+        def __init__(self):
+            self._pos = (0.0, 0.0)
+            self._size = (0.0, 0.0)
+            self.pos_writes = 0
+            self.size_writes = 0
+
+        @property
+        def pos(self):
+            return self._pos
+
+        @pos.setter
+        def pos(self, value):
+            self._pos = tuple(value)
+            self.pos_writes += 1
+
+        @property
+        def size(self):
+            return self._size
+
+        @size.setter
+        def size(self, value):
+            self._size = tuple(value)
+            self.size_writes += 1
+
+    child = Observed()
+
+    def apply(width, generation):
+        return commit_grid_native_geometry(
+            (placement("child", 10, 5, width, 20),),
+            backend=GridCommitBackend.KIVY, widgets={"child": child},
+            generation=generation,
+            current_generation=lambda: generation,
+            is_ui_thread=lambda: True, parent_height=100,
+        )
+
+    apply(40, 1)
+    assert (child.pos_writes, child.size_writes) == (1, 1)
+    apply(60, 2)
+    assert (child.pos_writes, child.size_writes) == (1, 2)
+    apply(60, 3)
+    assert (child.pos_writes, child.size_writes) == (1, 2)
+    assert tuple(child.pos) == (10, 75)
+    assert tuple(child.size) == (60, 20)
