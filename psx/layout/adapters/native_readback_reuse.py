@@ -26,6 +26,8 @@ def readback_reusing_prior(
     mutated_ids: frozenset[str],
     external_ids: frozenset[str],
     read_widget: Callable[[str, Any], dict[str, float]],
+    *,
+    deferred_ids: frozenset[str] = frozenset(),
 ) -> dict[str, dict[str, float]]:
     if backend not in ("qt", "tk", "kivy"):
         raise ValueError("Unknown native geometry backend")
@@ -33,6 +35,10 @@ def readback_reusing_prior(
     native_scroll_descendants = set()
     for node in nodes:
         identifier = node.node_id
+        if identifier in deferred_ids:
+            # A deferred rectangle is deliberately NOT a fresh native
+            # readback receipt. Its solver box remains authoritative.
+            continue
         parent_id = node.parent_id
         if parent_id is not None and (
             parent_id in native_scroll_descendants

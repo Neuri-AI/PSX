@@ -45,6 +45,7 @@ class NativeGeometryCommitter:
         prior_tk_placements: Mapping[str, Mapping[str, object]] | None = None,
         prior_qt_rectangles: Mapping[str, tuple[int, int, int, int]] | None = None,
         prior_kivy_rectangles: Mapping[str, tuple[tuple[float, float], tuple[float, float]]] | None = None,
+        deferred_ids: frozenset[str] = frozenset(),
     ) -> None:
         if not isinstance(backend, GeometryBackend):
             raise TypeError("Expected GeometryBackend.")
@@ -82,6 +83,12 @@ class NativeGeometryCommitter:
         if len(self._parents) != len(nodes):
             raise SFLEError(DiagnosticCode.INVALID_TREE, "Duplicate geometry node.")
         self._widgets = dict(widgets)
+        if not isinstance(deferred_ids, frozenset) or not deferred_ids <= set(self._parents):
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Invalid deferred native node identities.")
+        # The prior accepted receipt proves these widgets are below the
+        # clipped viewport. Avoid *all* native property reads/writes for
+        # those groups; preserve the full solver geometry in LayoutResult.
+        self.deferred_ids = deferred_ids
         self._external_ports = dict(external_ports or {})
         if not set(self._external_ports) <= set(self._parents):
             raise SFLEError(DiagnosticCode.INVALID_TREE, "External geometry port has no SFLE node.")
@@ -150,7 +157,7 @@ class NativeGeometryCommitter:
                 ):
                     scroll_descendants.add(node_id)
         for node_id, parent_id in self._parents.items():
-            if parent_id is None:
+            if parent_id is None or node_id in self.deferred_ids:
                 continue
             if parent_id not in boxes:
                 raise SFLEError(DiagnosticCode.INVALID_TREE, "Missing geometry parent.")
