@@ -61,6 +61,7 @@ class ViewportResizeCoordinator:
         self._accepted: set[tuple[int, str]] = set()
         self._candidate: set[tuple[int, str]] = set()
         self._remaining = 0
+        self._batch_open = False
 
     def resize(self, size: tuple[float, float]) -> int:
         if size != self.latest_size:
@@ -71,6 +72,7 @@ class ViewportResizeCoordinator:
             self._accepted.clear()
             self._candidate.clear()
             self._remaining = 0
+            self._batch_open = False
         return self.generation
 
     def begin_settlement(self, generation: int) -> bool:
@@ -80,6 +82,7 @@ class ViewportResizeCoordinator:
         self.settling = True
         self._candidate.clear()
         self._remaining = 0
+        self._batch_open = False
         return True
 
     def begin_batch(self, generation: int) -> bool:
@@ -87,11 +90,12 @@ class ViewportResizeCoordinator:
             return False
         self._candidate.clear()
         self._remaining = 0
+        self._batch_open = True
         return True
 
     def promote(self, workset: object, root_id: str) -> bool:
         """Promote at most N certified P2 groups this UI turn."""
-        if not self.settling:
+        if not self.settling or not self._batch_open:
             return False
         key = (id(workset), root_id)
         if key in self._accepted:
@@ -103,8 +107,9 @@ class ViewportResizeCoordinator:
         return False
 
     def finish_batch(self, *, success: bool) -> bool:
-        if not self.settling:
+        if not self.settling or not self._batch_open:
             return False
+        self._batch_open = False
         if not success:
             self._candidate.clear()
             self.settling = False
