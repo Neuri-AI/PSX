@@ -8,6 +8,7 @@ on:
       - "tests/test_grid_viewport*"
       - "tests/test_native_flow_viewport.py"
       - "tests/test_viewport_scroll_reentry.py"
+      - "tests/test_viewport_resize_priority.py"
       - "tests/test_mounted_grid_native_renderers.py"
       - ".github/workflows/viewport-native-certification.yml"
   workflow_dispatch:
@@ -36,6 +37,7 @@ jobs:
             tests/test_grid_viewport_workset.py \
             tests/test_grid_viewport_native_three_backends.py \
             tests/test_viewport_scroll_reentry.py \
+            tests/test_viewport_resize_priority.py \
             tests/test_native_flow_viewport.py
 
   real-native:
