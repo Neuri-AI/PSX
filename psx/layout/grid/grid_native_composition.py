@@ -614,6 +614,7 @@ def prepare_composed_grid(
                         ),
                     is_ui_thread=is_ui_thread, engine=engine,
                     pixel_scale=pixel_scale,
+                    flow_reuse=flow_reuse, invalidation_epoch=invalidation_epoch,
                 )
                 nested_flex[identifier] = flex
                 height = flex.content_height
