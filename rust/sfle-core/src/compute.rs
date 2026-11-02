@@ -169,7 +169,10 @@ pub fn compute_incremental(
         return Ok(cached);
     }
     if input.nodes.first().is_some_and(|node| is_flow_root(&node.component)) {
-        return crate::flow_snapshot::compute(input);
+        let mut ignored=Vec::new();
+        return crate::flow_snapshot::compute_incremental(
+            input,previous,previous_result,&mut ignored,
+        );
     }
     crate::compute_layout::compute_normalized_incremental(
         input,false,Some((previous,previous_result))
@@ -189,7 +192,9 @@ pub fn compute_incremental_with_reuse(
         return Ok(cached);
     }
     if input.nodes.first().is_some_and(|node| is_flow_root(&node.component)) {
-        return crate::flow_snapshot::compute(input);
+        return crate::flow_snapshot::compute_incremental(
+            input,previous,previous_result,reused_contexts,
+        );
     }
     crate::compute_layout::compute_normalized_incremental_report(
         input,false,Some((previous,previous_result)),reused_contexts,
