@@ -640,7 +640,8 @@ fn flow_reuse_plan(
         }
         if node.style.iter().any(|(name,value)|{
             let raw=value.to_string().to_ascii_lowercase();
-            raw.contains('%') || raw.contains("vw") || raw.contains("vh")
+            raw.contains('%') || raw.contains("percent")
+                || raw.contains("vw") || raw.contains("vh")
                 || raw.contains("vmin") || raw.contains("vmax")
                 || (name.starts_with("layout_margin_") && raw.contains("auto"))
         }) {continue;}
