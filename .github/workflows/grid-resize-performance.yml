@@ -11,6 +11,7 @@ on:
       - "tests/test_native_structural_snapshot_reuse.py"
       - "tests/test_native_geometry_write_suppression.py"
       - "tests/test_native_readback_reuse.py"
+      - "tests/test_native_image_paint_reuse.py"
       - "tests/test_grid_flex_blueprint_reuse.py"
       - "tests/test_mounted_grid_native_renderers.py"
       - "tests/test_grid_solved_subtree_reuse.py"
@@ -68,6 +69,10 @@ jobs:
           cargo test --manifest-path rust/sfle-core/Cargo.toml --lib viewport_resize_reuses_still_definite_flex_children
       - name: Verify intrinsic and immutable Flow reuse contracts
         run: python -m pytest -q tests/test_grid_intrinsic_reuse.py tests/test_native_intrinsic_cache.py tests/test_grid_flow_blueprint_reuse.py tests/test_grid_flex_blueprint_reuse.py tests/test_grid_solved_subtree_reuse.py tests/test_cinnamon_exact_context_cache.py tests/test_tk_corner_raster_reuse.py tests/test_flow_linear_complexity.py tests/test_native_geometry_write_suppression.py tests/test_native_readback_reuse.py tests/test_tk_wraplength_write_suppression.py
+      - name: Certify accepted native Qt/Tk image paint reuse
+        run: |
+          python -m pytest -q tests/test_native_image_paint_reuse.py -k "qt_composited_image"
+          xvfb-run -a python -m pytest -q tests/test_native_image_paint_reuse.py -k "tk_composited_image"
       - name: Verify native Grid overflow projection on Qt and Kivy
         env:
           KIVY_NO_ARGS: "1"
