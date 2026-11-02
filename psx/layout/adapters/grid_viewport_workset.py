@@ -140,8 +140,9 @@ class GridViewportWorkset:
             anchor = descendants[0]
             tokens = tuple((p.node_id, id(widgets[p.node_id])) for p in descendants)
             geometry_safe = all(
-                isfinite(p.y) and p.y >= 0 and isfinite(p.height)
-                for p in descendants
+                isfinite(p.x) and isfinite(p.y) and isfinite(p.width)
+                and isfinite(p.height) and p.y >= 0 and p.width >= 0
+                and p.height >= 0 for p in descendants
             )
             # A conservative upper bound on the entire rendered subtree:
             # every descendant starts at a nonnegative local Y, so summing
