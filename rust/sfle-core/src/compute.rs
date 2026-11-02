@@ -117,11 +117,57 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
     crate::compute_layout::compute_normalized(input,false)
 }
 
+/// Reuse a fully certified snapshot when its semantic layout inputs have
+/// not changed (the generation is a transaction marker, not an input).
+/// Works for HTML-like Block/Inline, Flex, components, and Scroll. Native
+/// measurements must still be obtained/validated by the owning renderer.
+fn exact_incremental_hit(
+    input:&LayoutInput, previous:&LayoutInput, previous_result:&LayoutResult,
+)->Option<LayoutResult>{
+    if input.schema_version!=previous.schema_version
+        || input.direction!=previous.direction
+        || serde_json::to_value(&input.constraints).ok()?
+            !=serde_json::to_value(&previous.constraints).ok()?
+        || input.nodes.len()!=previous.nodes.len()
+        || input.measurements.len()!=previous.measurements.len()
+        || previous_result.schema_version!=input.schema_version
+        || previous_result.generation!=previous.generation
+        || !previous_result.diagnostics.is_empty()
+        || previous_result.geometry_commit_error.is_some_and(|v| v!=0.0)
+        || previous_result.boxes.len()!=input.nodes.len()
+    {return None;}
+    if !input.nodes.iter().zip(&previous.nodes).all(|(a,b)|
+        a.node_id==b.node_id && a.parent_id==b.parent_id
+        && a.component==b.component && a.style==b.style) {
+        return None;
+    }
+    if !input.measurements.iter().zip(&previous.measurements).all(|(a,b)|
+        a.node_id==b.node_id
+        && serde_json::to_value(&a.intrinsic).ok()
+            ==serde_json::to_value(&b.intrinsic).ok()
+        && serde_json::to_value(&a.constraints).ok()
+            ==serde_json::to_value(&b.constraints).ok()) {
+        return None;
+    }
+    // Ensure the recorded layout is complete and in exactly the same order.
+    if !input.nodes.iter().zip(&previous_result.boxes)
+        .all(|(node,rect)|node.node_id==rect.node_id){
+        return None;
+    }
+    let mut result=previous_result.clone();
+    result.generation=input.generation;
+    result.geometry_commit_error=None;
+    Some(result)
+}
+
 /// Reuse unchanged, definitely-sized subtrees while preserving full placement.
 pub fn compute_incremental(
     input:&LayoutInput, previous:&LayoutInput, previous_result:&LayoutResult,
 )->Result<LayoutResult,ComputeError>{
     validate_input(input)?;
+    if let Some(cached)=exact_incremental_hit(input,previous,previous_result){
+        return Ok(cached);
+    }
     if input.nodes.first().is_some_and(|node| is_flow_root(&node.component)) {
         return crate::flow_snapshot::compute(input);
     }
@@ -136,6 +182,12 @@ pub fn compute_incremental_with_reuse(
     reused_contexts:&mut Vec<String>,
 )->Result<LayoutResult,ComputeError>{
     validate_input(input)?;
+    if let Some(cached)=exact_incremental_hit(input,previous,previous_result){
+        if let Some(root)=input.nodes.first(){
+            reused_contexts.push(root.node_id.clone());
+        }
+        return Ok(cached);
+    }
     if input.nodes.first().is_some_and(|node| is_flow_root(&node.component)) {
         return crate::flow_snapshot::compute(input);
     }
@@ -191,6 +243,81 @@ mod incremental_sizing_tests {
         let incremental=compute_incremental(&next,&previous,&previous_result).unwrap();
         assert_eq!(incremental.boxes,complete.boxes);
         assert_eq!(incremental.generation,2);
+    }
+
+    #[test]
+    fn full_html_flow_reuses_same_layout_across_generations_only_when_safe(){
+        let raw=json!({
+            "schema_version":1,"generation":1,"direction":"ltr",
+            "constraints":{"width":{"value":300.0,"definite":true},
+                           "height":{"value":180.0,"definite":true}},
+            "nodes":[{"node_id":"root","parent_id":null,"component":"div",
+                      "style":{"display":"block"}},
+                     {"node_id":"label","parent_id":"root","component":"Text",
+                      "style":{}}],
+            "measurements":[{
+                "node_id":"label",
+                "intrinsic":{"min_content_width":60.0,"max_content_width":60.0,
+                             "min_content_height":20.0,"max_content_height":20.0,
+                             "preferred_width":60.0,"preferred_height":20.0,
+                             "baseline":null,"orthogonal_baseline":null},
+                "constraints":{"width":{"value":null,"definite":false},
+                               "height":{"value":null,"definite":false}},
+                "revision":1
+            }]
+        });
+        let prev:LayoutInput=serde_json::from_value(raw.clone()).unwrap();
+        let before=compute(&prev).unwrap();
+        let mut new=raw.clone();
+        new["generation"]=json!(2);
+        new["measurements"][0]["revision"]=json!(2);
+        let same:LayoutInput=serde_json::from_value(new.clone()).unwrap();
+        let mut trace=Vec::new();
+        let hit=compute_incremental_with_reuse(&same,&prev,&before,&mut trace).unwrap();
+        assert_eq!(trace,vec!["root".to_owned()]);
+        assert_eq!(hit.boxes,compute(&same).unwrap().boxes);
+        assert_eq!(hit.generation,2);
+        new["constraints"]["width"]["value"]=json!(150.0);
+        let resized:LayoutInput=serde_json::from_value(new.clone()).unwrap();
+        let mut changed_trace=Vec::new();
+        let resized_result=compute_incremental_with_reuse(
+            &resized,&prev,&before,&mut changed_trace).unwrap();
+        assert!(changed_trace.is_empty());
+        assert_eq!(resized_result.boxes,compute(&resized).unwrap().boxes);
+        new["constraints"]["width"]["value"]=json!(300.0);
+        new["measurements"][0]["intrinsic"]["preferred_height"]=json!(45.0);
+        let remeasured:LayoutInput=serde_json::from_value(new).unwrap();
+        assert_ne!(compute_incremental(&remeasured,&prev,&before).unwrap().boxes,
+                   before.boxes);
+    }
+
+    #[test]
+    fn viewport_resize_reuses_still_definite_flex_children(){
+        let json=json!({
+            "schema_version":1,"generation":1,"direction":"ltr",
+            "constraints":{"width":{"value":340.0,"definite":true},
+                           "height":{"value":240.0,"definite":true}},
+            "nodes":[
+                {"node_id":"root","parent_id":null,"component":"Flex",
+                 "style":{"direction":"column","width":"340px","height":"240px"}},
+                {"node_id":"static","parent_id":"root","component":"Flex",
+                 "style":{"direction":"row","width":"120px","height":"48px","flex_shrink":0}},
+                {"node_id":"leaf","parent_id":"static","component":"Flex",
+                 "style":{"width":"40px","height":"24px"}}
+            ],"measurements":[]
+        });
+        let prev:LayoutInput=serde_json::from_value(json.clone()).unwrap();
+        let previous_result=compute(&prev).unwrap();
+        let mut next=json;
+        next["generation"]=json!(2);
+        next["constraints"]["width"]["value"]=json!(680.0);
+        next["nodes"][0]["style"]["width"]=json!("680px");
+        let new:LayoutInput=serde_json::from_value(next).unwrap();
+        let mut reused=Vec::new();
+        let partial=compute_incremental_with_reuse(&new,&prev,&previous_result,&mut reused).unwrap();
+        assert_eq!(partial.boxes,compute(&new).unwrap().boxes);
+        assert!(reused.iter().any(|id|id=="static"),
+            "Definite unchanged child must remain reusable during viewport resize");
     }
 
     #[test]
