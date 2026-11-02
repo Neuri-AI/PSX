@@ -65,6 +65,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         if flow_reuse is None:
             flow_reuse = FlowBlueprintReuse()
             renderer._psx_grid_flow_blueprints = flow_reuse
+        flow_reuse.solved.begin(generation, invalidation_epoch)
         components, handles = {}, {}
         mounted_stamp = []
 
@@ -318,5 +319,6 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             raise
         renderer.grid_result = (prepared, receipt)
         reuse_transaction.accept(invalidation_epoch)
+        flow_reuse.solved.accept(generation, invalidation_epoch)
     finally:
         renderer._sfle_in_commit = False
