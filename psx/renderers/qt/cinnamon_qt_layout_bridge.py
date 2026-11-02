@@ -489,7 +489,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             from psx.layout.adapters.native_readback_reuse import readback_reusing_prior
             observed = readback_reusing_prior(
                 "qt", nodes, bindings, before,
-                committer.mutated_ids,
+                getattr(committer, "mutated_ids", frozenset(bindings)),
                 frozenset(external) | frozenset(image_ids)
                  ,
                 read_widget,

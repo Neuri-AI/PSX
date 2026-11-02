@@ -510,7 +510,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             from psx.layout.adapters.native_readback_reuse import readback_reusing_prior
             observed = readback_reusing_prior(
                 "tk", nodes, widgets, before,
-                committer.mutated_ids,
+                getattr(committer, "mutated_ids", frozenset(widgets)),
                 frozenset(external) | frozenset(image_ids)
                 | frozenset(previous_wraps),
                 read_widget,

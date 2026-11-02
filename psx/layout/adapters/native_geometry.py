@@ -253,12 +253,18 @@ class NativeGeometryCommitter:
                     self._prior_kivy_rectangles.get(node_id)
                     if self._prior_kivy_rectangles is not None else None
                 )
-                prior_pos, prior_size = (
-                    prior if prior is not None
-                    else (tuple(widget.pos), tuple(widget.size))
-                )
-                if not self._skip_unchanged or prior_pos != (x, y):
+                if not self._skip_unchanged:
+                    # Unconditional commits must support freshly mounted
+                    # native controls without readable pos/size aliases.
                     widget.pos = (x, y)
-                if not self._skip_unchanged or prior_size != (width, height):
                     widget.size = (width, height)
+                else:
+                    prior_pos, prior_size = (
+                        prior if prior is not None
+                        else (tuple(widget.pos), tuple(widget.size))
+                    )
+                    if prior_pos != (x, y):
+                        widget.pos = (x, y)
+                    if prior_size != (width, height):
+                        widget.size = (width, height)
         self.mutated_ids = frozenset(mutated)
