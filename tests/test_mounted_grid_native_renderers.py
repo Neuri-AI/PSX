@@ -3621,3 +3621,45 @@ def test_automatic_grid_viewport_sparse_commit_and_resize_reentry():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_automatic_html_card_flow_deferred_native_resize():
+    """Actual 48-card HTML flow must skip native work, not just Grid roots."""
+    from psx import psx
+    from psx.css.markup import compute_markup_styles
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    document = compute_markup_styles(
+        psx("<div>" + "".join(
+            f'<div class="card"><p>Card {i}</p></div>'
+            for i in range(48)
+        ) + "</div>"),
+        ".card { padding: 5px; }",
+    )
+    try:
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(600, True), AvailableSize(120, True),
+        ))
+        root = reconciler.render(document)
+        assert not getattr(renderer, "_psx_native_flow_deferred_ids", frozenset())
+
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(620, True), AvailableSize(120, True),
+        ))
+        renderer.commit_layout(root)
+        skipped = getattr(renderer, "_psx_native_flow_deferred_ids", frozenset())
+        assert skipped, "HTML cards below the viewport must avoid native commits"
+        assert len(skipped) >= 40
+        assert renderer.sfle_result.geometry_commit_error <= 1.0
+
+        renderer.set_sfle_constraints(LayoutConstraints(
+            AvailableSize(620, True), AvailableSize(8000, True),
+        ))
+        renderer.commit_layout(root)
+        assert not getattr(renderer, "_psx_native_flow_deferred_ids", frozenset())
+        assert renderer.sfle_result.geometry_commit_error <= 1.0
+    finally:
+        reconciler.unmount()
+        close()
