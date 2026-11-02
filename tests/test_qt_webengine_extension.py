@@ -136,6 +136,7 @@ def test_webview_native_src_loads_local_file(tmp_path) -> None:
 
     local = tmp_path / "index.html"
     local.write_text("<html><body>Velto</body></html>", encoding="utf-8")
+    renderer = PySide6Renderer([])
     widget = _create_webview()
     try:
         _update(widget, {"src": str(local)}, frozenset())
