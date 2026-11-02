@@ -131,20 +131,40 @@ def test_webview_src_resolves_absolute_local_paths_and_preserves_urls(tmp_path) 
     assert _source_url(existing_url, QUrl) is existing_url
 
 
-def test_webview_native_src_loads_local_file(tmp_path) -> None:
-    from psx.extensions.qt_webengine import _create_webview, _update
+def test_webview_native_src_passes_local_file_url_to_qt(tmp_path, monkeypatch) -> None:
+    """Test the adapter contract without requiring an active OS browser view.
+
+    QtWebView hosts a platform-native QWindow; in QT_QPA_PLATFORM=offscreen,
+    setUrl() can be called without its url() property reflecting the change.
+    Only a graphical-platform test may assert real navigation/loading.
+    """
+    from psx.extensions import qt_webengine
+
+    class RecordingWebView:
+        def __init__(self) -> None:
+            self.urls: list[QUrl] = []
+            self.html: list[str] = []
+
+        def setUrl(self, url: QUrl) -> None:
+            self.urls.append(url)
+
+        def loadHtml(self, html: str) -> None:
+            self.html.append(html)
 
     local = tmp_path / "index.html"
     local.write_text("<html><body>Velto</body></html>", encoding="utf-8")
-    renderer = PySide6Renderer([])
-    widget = _create_webview()
-    try:
-        _update(widget, {"src": str(local)}, frozenset())
-        assert widget.web_view.url().isLocalFile()
-        assert widget.web_view.url().toLocalFile() == str(local)
+    view = RecordingWebView()
+    host = object()
+    monkeypatch.setattr(qt_webengine, "_native_view", lambda widget: view)
 
-        _update(widget, {"src": "https://example.test/"}, frozenset())
-        assert widget.web_view.url().scheme() == "https"
-    finally:
-        widget.deleteLater()
-        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    qt_webengine._update(host, {"src": str(local)}, frozenset())
+    assert len(view.urls) == 1
+    assert view.urls[0].isLocalFile()
+    assert view.urls[0].toLocalFile() == str(local)
+
+    qt_webengine._update(host, {"src": "https://example.test/"}, frozenset())
+    assert view.urls[-1].scheme() == "https"
+    assert view.urls[-1].toString() == "https://example.test/"
+
+    qt_webengine._update(host, {}, frozenset({"src"}))
+    assert view.html == [""]
