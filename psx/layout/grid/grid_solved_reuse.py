@@ -98,7 +98,7 @@ class SolvedTextSubtreeReuse:
         return (id(node.source), path_identity(node.path),
                 float(width), float(pixel_scale))
 
-    def lookup(self, node, width, generation, epoch, *, pixel_scale=1.0):
+    def lookup(self, node, width, generation, epoch, *, pixel_scale=1.0, prepared=None):
         signature = _signature(node)
         if signature is None or self._epoch != epoch:
             return None
@@ -114,14 +114,16 @@ class SolvedTextSubtreeReuse:
             return None
         self._entries.move_to_end(key)
         self.hits += 1
-        previous = old.prepared
-        # Rebind all public generation contracts; no stale result is ever
-        # returned to an outer current-generation commit.
-        prepared = replace(
-            previous, snapshot=replace(
-                previous.snapshot, generation=generation,
-            ),
-        )
+        # Use the freshly projected immutable blueprint to keep current
+        # viewport constraints, node identities and generation. This is
+        # critical even for a cached text-only solved rectangle.
+        if prepared is None:
+            previous = old.prepared
+            prepared = replace(
+                previous, snapshot=replace(
+                    previous.snapshot, generation=generation,
+                ),
+            )
         computed = replace(old.result, generation=generation,
                            geometry_commit_error=None)
         if hasattr(old, "root"):
