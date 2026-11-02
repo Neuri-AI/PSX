@@ -1247,7 +1247,7 @@ class TkSFLEGeometryTests(unittest.TestCase):
     def test_scroll_failed_commit_restores_tk_scrollregion_and_offsets(self):
         from unittest.mock import patch
         from psx import Scroll
-        from psx.layout import native_scroll_hosts
+        from psx.layout.adapters import native_scroll_hosts
         self.renderer.set_sfle_constraints(constraints(300, 200))
         root = self.reconciler.render(Flex(
             Scroll(Flex(item("Inside", "inside", 40),
