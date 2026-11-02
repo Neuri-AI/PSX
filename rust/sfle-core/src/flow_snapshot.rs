@@ -44,6 +44,13 @@ struct Flow<'a> {
     containing_width: Vec<f64>,
     containing_height: Vec<Option<f64>>,
     resolved_block_margins: HashMap<usize, [f64; 4]>,
+    // An offscreen text-only formatting context can reuse exact prior
+    // boxes when its effective containing width and semantic inputs match.
+    // Non-reusable contexts take the original full computation path.
+    prior_boxes: Option<Vec<LayoutBox>>,
+    reusable: Vec<bool>,
+    viewport_height: Option<f64>,
+    reused_contexts: Vec<String>,
 }
 fn valid_flow_style(name: &str) -> bool {
     matches!(name,
@@ -58,6 +65,55 @@ fn valid_flow_style(name: &str) -> bool {
 }
 
 impl Flow<'_> {
+    fn replay_offscreen(
+        &mut self, index:usize, content_x:f64, content_y:f64, available:f64,
+    )->Result<bool,ComputeError>{
+        let Some(height)=self.viewport_height else {return Ok(false)};
+        if !self.reusable[index] {return Ok(false);}
+        let Some(ref prior)=self.prior_boxes else {return Ok(false)};
+        let old=&prior[index].content;
+        // Reuse is valid only with the *same* containing block width;
+        // never assume that an offscreen item keeps its intrinsic wrap on
+        // a breakpoint or responsive-column change.
+        let parent=self.input.nodes[index].parent_id.as_ref();
+        if let Some(parent_id)=parent {
+            let parent_index=self.input.nodes.iter()
+                .position(|n| &n.node_id==parent_id).unwrap_or(0);
+            if (prior[parent_index].content.width-available).abs()>1.0/64.0 {
+                return Ok(false);
+            }
+        }
+        if content_y <= height+96.0 && content_y+old.height>=-96.0 {
+            return Ok(false);
+        }
+        // The entire subtree has unchanged styles, pure text measurements,
+        // and no percent/viewport/auto-margin dependencies. Translate its
+        // *previous* exact CSS geometry by the new parent placement.
+        // Copies still undergo regular box-edge reconstruction, snapping
+        // and complete native readback; no stale or partial LayoutResult.
+        let dx=content_x-old.x;
+        let dy=content_y-old.y;
+        let mut todo=vec![index];
+        while let Some(current)=todo.pop(){
+            let original=&prior[current].content;
+            self.boxes[current]=Some(rect(
+                original.x+dx,original.y+dy,original.width,original.height,
+                &self.input.nodes[current].node_id,
+            )?);
+            if current!=index {
+                let parent_id=self.input.nodes[current].parent_id.as_ref().unwrap();
+                let parent_index=self.input.nodes.iter()
+                    .position(|n| &n.node_id==parent_id).unwrap_or(0);
+                self.containing_width[current]=prior[parent_index].content.width;
+            }
+            for &child in &self.children[current] {
+                todo.push(child);
+            }
+        }
+        self.reused_contexts.push(self.input.nodes[index].node_id.clone());
+        Ok(true)
+    }
+
     fn dimension(&self, index: usize, axis: &str, available: f64) -> Result<Option<f64>, ComputeError> {
         let node = &self.input.nodes[index];
         let key = format!("layout_{axis}");
@@ -456,6 +512,14 @@ impl Flow<'_> {
         }
         let content_x = x + left;
         let content_y = y + top;
+        // The root's viewport is only a *priority* hint. A node can be
+        // deferred only with a complete previous layout proof, unchanged
+        // containing width, and immutable descendant intrinsic metrics.
+        // We still return all exact rectangles for native readback.
+        if self.replay_offscreen(index, content_x, content_y, available)? {
+            let old = &self.prior_boxes.as_ref().unwrap()[index].content;
+            return Ok(top + old.height + bottom);
+        }
         let parent_height = self.dimension(index, "height", available)?;
         for child in self.children[index].clone() {
             self.containing_height[child] = parent_height;
@@ -532,9 +596,93 @@ impl Flow<'_> {
 
 }
 
+/// Prove that a previous Block/Inline subtree has exactly the same
+/// dependencies. A changed viewport is permitted, but any changed style,
+/// intrinsic metric, percent value, interactive control, Scroll or inline
+/// fragment fails closed to the regular full solve.
+fn flow_reuse_plan(
+    current:&LayoutInput,
+    previous:Option<(&LayoutInput,&LayoutResult)>,
+    children:&[Vec<usize>],
+)->(Option<Vec<LayoutBox>>,Vec<bool>){
+    let empty=vec![false;current.nodes.len()];
+    let Some((old,prior))=previous else {return (None,empty)};
+    if old.schema_version!=current.schema_version
+        || old.generation!=prior.generation
+        || old.direction!=current.direction
+        || old.nodes.len()!=current.nodes.len()
+        || prior.boxes.len()!=current.nodes.len()
+        || !prior.diagnostics.is_empty()
+        || prior.geometry_commit_error.is_some_and(|v|v!=0.0)
+        || !current.constraints.height.definite
+        || current.constraints.height.value.is_none()
+    {return (None,empty);}
+    let old_measured:HashMap<&str,&crate::compute::MeasuredBox>=old
+        .measurements.iter().map(|m|(m.node_id.as_str(),m)).collect();
+    let now_measured:HashMap<&str,&crate::compute::MeasuredBox>=current
+        .measurements.iter().map(|m|(m.node_id.as_str(),m)).collect();
+    let mut safe=vec![false;current.nodes.len()];
+    for i in (0..current.nodes.len()).rev(){
+        let node=&current.nodes[i];
+        let prev=&old.nodes[i];
+        if node.node_id!=prev.node_id || node.parent_id!=prev.parent_id
+            || node.component!=prev.component || node.style!=prev.style
+            || prior.boxes[i].node_id!=node.node_id {continue;}
+        // Only normal-flow blocks with pure native Text leaves. Excluding
+        // Scroll and Flex here prevents clipped/scrolled or interactive
+        // descendants from being silently deferred.
+        if !matches!(node.component.as_str(),
+                     "div"|"p"|"section"|"main"|"header"|"footer"|
+                     "form"|"ul"|"li"|"Text") {continue;}
+        if node.component!="Text" && node.style.get("display")
+            .and_then(|v|v.as_str()).is_some_and(|v|v!="block") {
+            continue;
+        }
+        if node.style.iter().any(|(name,value)|{
+            let raw=value.to_string().to_ascii_lowercase();
+            raw.contains('%') || raw.contains("vw") || raw.contains("vh")
+                || raw.contains("vmin") || raw.contains("vmax")
+                || (name.starts_with("layout_margin_") && raw.contains("auto"))
+        }) {continue;}
+        let equivalent_measure=match (
+            old_measured.get(node.node_id.as_str()),
+            now_measured.get(node.node_id.as_str())
+        ){
+            (None,None)=>true,
+            (Some(a),Some(b))=>a.node_id==b.node_id
+                && serde_json::to_value(&a.intrinsic).ok()
+                   ==serde_json::to_value(&b.intrinsic).ok()
+                && serde_json::to_value(&a.constraints).ok()
+                   ==serde_json::to_value(&b.constraints).ok(),
+            _=>false,
+        };
+        safe[i]=equivalent_measure
+            && children[i].iter().all(|&child|safe[child]);
+    }
+    (Some(prior.boxes.clone()),safe)
+}
+
 /// Generate CSS-like normal-flow geometry for the supported semantic tags.
 /// All output identities and generations match the same v1 Cinnamon wire format.
 pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
+    compute_impl(input,None,None)
+}
+
+/// Native visibility-aware incremental solve. Only previously certified,
+/// fully measured text-only Block contexts beyond the viewport overscan
+/// may skip recursive sizing. All geometry is reconstructed exactly.
+pub fn compute_incremental(
+    input:&LayoutInput, previous:&LayoutInput, previous_result:&LayoutResult,
+    report:&mut Vec<String>,
+)->Result<LayoutResult,ComputeError>{
+    compute_impl(input,Some((previous,previous_result)),Some(report))
+}
+
+fn compute_impl(
+    input:&LayoutInput,
+    previous:Option<(&LayoutInput,&LayoutResult)>,
+    report:Option<&mut Vec<String>>,
+)->Result<LayoutResult,ComputeError>{
     let root = input.nodes.first().ok_or_else(|| {
         error("SFLE_INVALID_TREE", "Flow root is missing.", None)
     })?;
@@ -564,7 +712,21 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
     }
     let measurements = input.measurements.iter()
         .map(|item| (item.node_id.as_str(), &item.intrinsic)).collect();
-    let mut flow = Flow { input, children, measurements, boxes: vec![None; input.nodes.len()], containing_width: vec![width; input.nodes.len()], containing_height: vec![if input.constraints.height.definite { input.constraints.height.value } else { None }; input.nodes.len()], resolved_block_margins: HashMap::new() };
+    let (prior_boxes,reusable)=flow_reuse_plan(input,previous,&children);
+    let mut flow = Flow {
+        input, children, measurements,
+        boxes: vec![None; input.nodes.len()],
+        containing_width: vec![width; input.nodes.len()],
+        containing_height: vec![
+            if input.constraints.height.definite { input.constraints.height.value }
+            else { None }; input.nodes.len()
+        ],
+        resolved_block_margins: HashMap::new(),
+        prior_boxes, reusable,
+        viewport_height:input.constraints.height.value
+            .filter(|_|input.constraints.height.definite),
+        reused_contexts:Vec::new(),
+    };
     let content_height = if flow.display(0)? == Some(true) {
         let roots = flow.children[0].clone();
         flow.inline_run(&roots, 0.0, 0.0, width)?
@@ -590,6 +752,9 @@ pub fn compute(input: &LayoutInput) -> Result<LayoutResult, ComputeError> {
         })?;
         flow.box_rect(index, calculated, flow.containing_width[index])
     }).collect::<Result<Vec<_>, ComputeError>>()?;
+    if let Some(trace)=report {
+        trace.extend(flow.reused_contexts.iter().cloned());
+    }
     Ok(LayoutResult {
         schema_version: input.schema_version,
         generation: input.generation,
