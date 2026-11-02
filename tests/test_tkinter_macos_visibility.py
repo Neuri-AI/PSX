@@ -292,13 +292,23 @@ def test_aqua_button_css_color_and_radius_are_instance_painted():
             </div>
         """))
         button = mounted.children[0].handle.widget
-        assert isinstance(button, tk.Button)
-        assert str(button.cget("background")) == "#3b6ef5"
-        assert str(button.cget("foreground")) == "#ffffff"
-        assert isinstance(button._psx_css_button_paint, tk.Canvas)
-        assert button._psx_css_button_paint.winfo_manager() == "place"
+        # The public accessible control is now ttk.Button, with a
+        # sibling paint-only Canvas. Aqua ignores authored ttk palette
+        # values, so checking tk.Button.cget(background) describes the
+        # superseded implementation rather than actual CSS pixels.
+        assert isinstance(button, ttk.Button)
+        assert button._psx_css_button_authored_background == "#3b6ef5"
+        assert button._psx_css_button_paint_values[:2] == (
+            "#3b6ef5", "#ffffff",
+        )
+        paint = button._psx_css_button_surface
+        assert isinstance(paint, tk.Canvas)
+        assert paint.master is button.master
         root.update()
+        assert paint.winfo_manager() == "place"
         assert button.winfo_ismapped()
+        assert paint.winfo_ismapped()
+        assert paint.find_withtag("psx-css-button-fill")
     finally:
         reconciler.unmount()
         renderer.close()
