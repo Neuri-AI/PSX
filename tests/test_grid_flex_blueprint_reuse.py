@@ -63,3 +63,23 @@ def test_cached_flex_blueprint_keeps_retina_scaling_of_css_geometry():
         expected, _ = _compose(node, 500, gen, pixel_scale=factor)
         assert cached.result.boxes == expected.result.boxes
     assert len(cache._entries) == 3
+
+
+def test_flex_reuse_skips_second_structural_projection(monkeypatch):
+    from psx.layout.grid import grid_native_composition
+    original = grid_native_composition.prepare_native_layout_snapshot
+    attempts = []
+
+    def observed(*args, **kwargs):
+        attempts.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(
+        grid_native_composition, "prepare_native_layout_snapshot", observed,
+    )
+    node = normalize_flex_tree(Flex(Text("Stable"), direction="column"))
+    cache = FlowBlueprintReuse()
+    first, _ = _compose(node, 480, 1, cache)
+    second, _ = _compose(node, 560, 2, cache)
+    assert first.content_height == second.content_height
+    assert len(attempts) == 1, "Reuse must skip a second full VNode projection"
