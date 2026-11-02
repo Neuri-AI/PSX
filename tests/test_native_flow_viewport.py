@@ -173,3 +173,31 @@ def test_moving_parent_invalidates_offscreen_native_receipts():
         renderer, prepared, snapshot, moved_result, handles, "qt", epoch=9
     )
     assert not current.deferred_ids
+
+
+def test_html_flow_scroll_far_down_defer_above_and_below():
+    renderer, prepared, snapshot, result, handles = _world(
+        cards=500, viewport=140, nested_scroll=True,
+    )
+    offset = [0.0]
+    host = SimpleNamespace(
+        _psx_sfle_scroll=True,
+        _psx_canvas=SimpleNamespace(canvasy=lambda _x: offset[0]),
+    )
+    handles["board"] = host
+    result = SimpleNamespace(boxes=tuple(
+        (key, SimpleNamespace(border=Rect(0, 0, 600, 140)))
+        if key == "board" else (key, item)
+        for key, item in result.boxes
+    ))
+    initial = plan_native_flow_viewport(
+        renderer, prepared, snapshot, result, handles, "tk", epoch=5
+    )
+    initial.accept()
+    offset[0] = 10000
+    current = plan_native_flow_viewport(
+        renderer, prepared, snapshot, result, handles, "tk", epoch=5
+    )
+    assert "card-0" in current.deferred_ids
+    assert "card-499" in current.deferred_ids
+    assert "card-250" not in current.deferred_ids

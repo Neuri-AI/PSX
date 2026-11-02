@@ -100,3 +100,23 @@ def test_complex_css_and_native_controls_fail_closed():
         properties={"position": "fixed"}, specified=frozenset({"position"}),
     )
     assert not subtree_is_safe_for_root_culling(computed)
+
+
+def test_scroll_far_down_defers_safely_above_and_below_viewport():
+    roots, batch, widgets = case(500)
+    cache = GridViewportWorkset()
+    args = dict(root_ids=roots, batch=batch, widgets=widgets,
+                viewport_height=200, epoch=7, backend="qt",
+                safe_ids=set(roots))
+    cache.accept(**args, skipped=frozenset())
+    far = cache.plan(**dict(args, viewport_top=10000))
+    # The top 200 rows and bottom rows are outside overscan; only the
+    # small mid-scroll window should stay in the active native workset.
+    assert "item-0" in far and "item-0/leaf" in far
+    assert "item-499" in far
+    assert "item-250" not in far
+    assert len(far) > 900
+    cache.accept(**dict(args, viewport_top=10000), skipped=far)
+    back = cache.plan(**args)
+    assert "item-0" not in back
+    assert "item-250" in back

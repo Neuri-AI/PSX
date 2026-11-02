@@ -96,6 +96,7 @@ class _AcceptedGroup:
     # A moving ancestor changes a widget's effective screen coordinate
     # even when the child was not written.
     context: object = None
+    native_bottom_bound: float = 0.0
 
 class GridViewportWorkset:
     """Keeps only widget identities; no handles or CSS geometry are retained."""
@@ -139,6 +140,15 @@ class GridViewportWorkset:
                 isfinite(p.y) and p.y >= 0 and isfinite(p.height)
                 for p in descendants
             )
+            # A conservative upper bound on the entire rendered subtree:
+            # every descendant starts at a nonnegative local Y, so summing
+            # all local offsets overestimates any one ancestor path. Using
+            # the maximum descendant height also overestimates its bottom.
+            # No CSS occlusion or paint ordering assumptions are made.
+            current_bottom_bound = (
+                anchor.y + sum(p.y for p in descendants[1:])
+                + max((p.height for p in descendants), default=0.0)
+            )
             if (root_id in safe_ids and geometry_safe and prior is not None
                     and prior.epoch == epoch and prior.tokens == tokens
                     and prior.context == (
@@ -148,8 +158,15 @@ class GridViewportWorkset:
                     # Cinnamon's current target against the CURRENT scroll
                     # viewport. A formerly hidden item entering by scroll
                     # becomes active before native readback acceptance.
-                    and prior.native_y >= viewport_top + viewport_height + _OVERSCAN
-                    and anchor.y >= viewport_top + viewport_height + _OVERSCAN):
+                    and (
+                        # Fully below viewport, both before and after.
+                        (prior.native_y >= viewport_top + viewport_height + _OVERSCAN
+                         and anchor.y >= viewport_top + viewport_height + _OVERSCAN)
+                        or
+                        # Fully above viewport, including all descendants.
+                        (prior.native_bottom_bound <= viewport_top - _OVERSCAN
+                         and current_bottom_bound <= viewport_top - _OVERSCAN)
+                    )):
                 skipped.update(p.node_id for p in descendants)
         return frozenset(skipped)
 
@@ -178,6 +195,9 @@ class GridViewportWorkset:
                 accepted[root_id] = _AcceptedGroup(
                     float(descendants[0].y), float(viewport_height), tokens, epoch,
                     contexts.get(root_id) if contexts is not None else None,
+                    (descendants[0].y
+                     + sum(p.y for p in descendants[1:])
+                     + max((p.height for p in descendants), default=0.0)),
                 )
         self._accepted = accepted
         self._backend = backend
