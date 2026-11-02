@@ -467,7 +467,11 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     )
                     if tuple(native_stroke[3].rounded_rectangle) != tuple(desired_stroke):
                         native_stroke[3].rounded_rectangle = desired_stroke
-            mixed_receipts = mixed_grid.commit(mixed_plans)
+            # The outer rollback transaction already captured the exact
+            # Grid descendants. Avoid a second full native geometry walk.
+            mixed_receipts = mixed_grid.commit(
+                mixed_plans, prior_snapshot=mixed_before,
+            )
             for node in snapshot.nodes:
                 if node.parent_id is not None:
                     parent = bindings[node.parent_id].widget
