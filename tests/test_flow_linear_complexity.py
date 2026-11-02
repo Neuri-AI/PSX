@@ -67,7 +67,7 @@ def test_sibling_flex_subtrees_do_not_rescan_every_flow_node():
 
 
 def test_nested_grid_parent_widths_are_memoized_across_many_siblings(monkeypatch):
-    from psx.layout import lengths
+    from psx.layout.contracts import lengths
 
     depth = 100
     siblings = 90
