@@ -92,10 +92,13 @@ def test_geometry_commit_skips_unchanged_native_widget(backend, widget_type):
     committer(snapshot(40))
     first = widget.writes
     assert first > 0
+    assert committer.mutated_ids == frozenset({"child"})
     committer(snapshot(40))
     assert widget.writes == first, "Unchanged geometry must not mutate native widget"
+    assert committer.mutated_ids == frozenset(), "Only actual native writes count"
     committer(snapshot(60))
     assert widget.writes > first, "Changed geometry must still be applied"
+    assert committer.mutated_ids == frozenset({"child"})
 
 
 def test_tk_unchanged_check_uses_same_rollback_snapshot_without_native_reread():
