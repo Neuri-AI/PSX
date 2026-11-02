@@ -54,6 +54,8 @@ class FlowBlueprintReuse:
     def __init__(self, limit: int = 4096):
         self.limit = limit
         self._entries = OrderedDict()
+        from psx.layout.grid.grid_solved_reuse import SolvedTextSubtreeReuse
+        self.solved = SolvedTextSubtreeReuse(limit=limit)
 
     def clear(self):
         self._entries.clear()
@@ -231,6 +233,16 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
             flow, constraints, generation, viewport_constraints,
             invalidation_epoch, pixel_scale=pixel_scale,
         )
+        # Only pure, explicitly immutable text subtrees may skip native
+        # measurements and a Cinnamon solve. Everything with Scroll, Grid,
+        # interactive native controls or viewport-dependent CSS executes
+        # the regular complete measurement pipeline.
+        cached = flow_reuse.solved.lookup(
+            flow, width, generation, invalidation_epoch,
+            pixel_scale=pixel_scale,
+        )
+        if cached is not None:
+            return cached
     if normalized.nodes[0].component == "Flex":
         # Grid allocates a border-box width. An auto-sized CSS Flex host
         # must give Cinnamon its *content* width, excluding its own edges.
@@ -438,8 +450,16 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
                 ),
             )
     root_id = normalized.nodes[0].node_id
-    return ComposedFlow(prepared, solved, dict(solved.boxes)[root_id].border.height,
-                        nested_grids)
+    composition = ComposedFlow(
+        prepared, solved, dict(solved.boxes)[root_id].border.height,
+        nested_grids,
+    )
+    if flow_reuse is not None:
+        flow_reuse.solved.stage(
+            flow, width, invalidation_epoch, composition,
+            pixel_scale=pixel_scale,
+        )
+    return composition
 
 
 @dataclass(frozen=True, slots=True)
