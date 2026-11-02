@@ -484,7 +484,14 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             rects = committed_boxes
             maximum = 0.0
             physical_maximum = 0.0
-            observed = ports.read_rectangles()
+            from psx.layout.adapters.native_readback_reuse import readback_reusing_prior
+            observed = readback_reusing_prior(
+                "qt", nodes, bindings, before,
+                committer.mutated_ids,
+                frozenset(external) | frozenset(image_ids)
+                 ,
+                read_widget,
+            )
             for node in snapshot.nodes:
                 if node.parent_id is None:
                     continue
