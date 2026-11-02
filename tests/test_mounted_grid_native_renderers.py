@@ -24,7 +24,14 @@ def view(order=("a", "b")):
 
 
 def make_renderer(backend, *, sfle=True):
-    layout = {"sfle_constraints": viewport(800), "engine": PythonLayoutEngine()} if sfle else {}
+    if sfle and os.environ.get("PSX_VIEWPORT_ENGINE") == "rust":
+        from psx.layout.engine.backend import load_layout_engine
+        engine = load_layout_engine()
+        if engine.backend_name != "rust":
+            raise RuntimeError("Viewport certification requires actual Rust Cinnamon ABI")
+    else:
+        engine = PythonLayoutEngine()
+    layout = {"sfle_constraints": viewport(800), "engine": engine} if sfle else {}
     if backend == "qt":
         binding = os.environ["PSX_QT_BINDING"]
         package = {"pyside6": "PySide6", "pyside2": "PySide2",
