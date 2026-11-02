@@ -329,7 +329,21 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                     snapshot, measurements=tuple(refreshed[node.node_id]
                     for node in snapshot.nodes if node.node_id in refreshed),
                 )
-            result = renderer._sfle_engine.compute(snapshot)
+            result = compute_width_dependent(
+                renderer._sfle_engine, snapshot, {},
+                current_generation=lambda: renderer._sfle_generation,
+                previous_input=(
+                    renderer._sfle_prior_solver_input
+                    if renderer._sfle_prior_solver_engine is renderer._sfle_engine else None
+                ),
+                previous_result=(
+                    renderer._sfle_prior_solver_result
+                    if renderer._sfle_prior_solver_engine is renderer._sfle_engine else None
+                ),
+                native_measurement_invalidated=(
+                    renderer._sfle_measurement_invalidations.needs_commit()
+                ),
+            )
         else:
             result = compute_width_dependent(
                 renderer._sfle_engine, snapshot, dependent,
