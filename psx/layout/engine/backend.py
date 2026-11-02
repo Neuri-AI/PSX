@@ -7,6 +7,8 @@ never retried through Python inside the same layout transaction.
 from __future__ import annotations
 
 import importlib
+from collections import OrderedDict
+from dataclasses import replace
 from types import ModuleType
 
 from psx.layout.contracts.capabilities import EngineCapabilities, rust_engine_capabilities
@@ -22,6 +24,57 @@ class RustLayoutEngine:
 
     def __init__(self, module: ModuleType) -> None:
         self._module = module
+        # Exact, bounded, backend-neutral solved-layout reuse. Most GridItem
+        # children have a small immutable subtree; repeated viewport widths
+        # should not re-cross PyO3 and solve every one of those contexts.
+        # Never retain VNodes, native widgets, or renderer state here.
+        self._exact_results: OrderedDict[tuple, LayoutResult] = OrderedDict()
+        self._exact_limit = 4096
+        self._exact_hits = 0
+        self._exact_misses = 0
+
+    def _exact_key(self, request: LayoutInput) -> tuple | None:
+        # Large roots are already solved incrementally by Rust; avoid
+        # allocating enormous keys (and retaining full result trees).
+        if not request.nodes or len(request.nodes) > 24:
+            return None
+        key = (
+            request.schema_version, request.direction, request.constraints,
+            tuple((n.node_id, n.parent_id, n.component, n.style)
+                  for n in request.nodes),
+            tuple((m.node_id, m.intrinsic, m.constraints)
+                  for m in request.measurements),
+        )
+        try:
+            hash(key)
+        except TypeError:
+            return None
+        return key
+
+    def _exact_lookup(self, request: LayoutInput, *, enabled: bool = True) -> LayoutResult | None:
+        if not enabled:
+            return None
+        key = self._exact_key(request)
+        if key is None:
+            return None
+        result = self._exact_results.get(key)
+        if result is None:
+            self._exact_misses += 1
+            return None
+        self._exact_results.move_to_end(key)
+        self._exact_hits += 1
+        return replace(result, generation=request.generation, geometry_commit_error=None)
+
+    def _exact_publish(self, request: LayoutInput, result: LayoutResult) -> None:
+        if result.diagnostics or result.geometry_commit_error not in (None, 0.0):
+            return
+        key = self._exact_key(request)
+        if key is None:
+            return
+        self._exact_results[key] = replace(result, geometry_commit_error=None)
+        self._exact_results.move_to_end(key)
+        while len(self._exact_results) > self._exact_limit:
+            self._exact_results.popitem(last=False)
 
     @property
     def capabilities(self) -> EngineCapabilities:
@@ -55,9 +108,14 @@ class RustLayoutEngine:
         # Rust owns the entire layout computation, including semantic
         # Block/Inline roots via flow_snapshot.rs. Never call the Python
         # measured-block compositor from the Rust engine facade.
-        return deserialize_response(
+        cached = self._exact_lookup(request)
+        if cached is not None:
+            return cached
+        result = deserialize_response(
             self._module.compute_json(serialize_snapshot(request)), request
         )
+        self._exact_publish(request, result)
+        return result
 
     def compute_incremental(
         self,
@@ -69,6 +127,17 @@ class RustLayoutEngine:
         reused_contexts: list[str] | None = None,
     ) -> LayoutResult:
         """Use native optional incremental ABI when a safe prior result exists."""
+        # Geometry is a pure function of the normalized contract. An exact
+        # accepted snapshot is reusable across transaction generations even
+        # when an intermediate resize visited a different width. Never bypass
+        # the invalidated-native-measurement gate.
+        cached = self._exact_lookup(
+            request, enabled=not native_measurement_invalidated,
+        )
+        if cached is not None:
+            if reused_contexts is not None and request.nodes:
+                reused_contexts.append(request.nodes[0].node_id)
+            return cached
         native = getattr(self._module, "compute_incremental_json", None)
         if (native_measurement_invalidated or previous_input is None
                 or previous_result is None or not callable(native)):
@@ -89,6 +158,7 @@ class RustLayoutEngine:
                     "Rust Cinnamon wheel lacks validated incremental-reuse telemetry.",
                 )
             reused_contexts.extend(trace)
+        self._exact_publish(request, result)
         return result
 
     def compute_provisional(self, request: LayoutInput) -> LayoutResult:
