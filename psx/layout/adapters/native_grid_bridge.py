@@ -126,9 +126,9 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                     native_source = TkMeasurementSource({identifier: widget}, idle_synced=True)
                 elif backend is GridCommitBackend.KIVY:
                     from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
-                    refresh = getattr(widget, "texture_update", None)
-                    if callable(refresh):
-                        refresh()
+                    # KivyMeasurementSource.measure_width() already
+                    # refreshes textures when invoked. Do not rasterize
+                    # every native label before checking GridIntrinsicReuse.
                     native_source = KivyMeasurementSource({identifier: widget})
                 else:
                     raise AssertionError("Unexpected native Grid backend.")
@@ -181,11 +181,10 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 renderer.root.update_idletasks()
             elif backend is GridCommitBackend.KIVY:
                 from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
+                # The accepted intrinsic cache is consulted by
+                # measure_cached_leaf below. A cache hit must incur zero
+                # glyph texture updates, including the direct Grid path.
                 source = KivyMeasurementSource(widgets)
-                for widget in widgets.values():
-                    refresh = getattr(widget, "texture_update", None)
-                    if callable(refresh):
-                        refresh()
             else:
                 raise AssertionError("native bridge is only for toolkit backends")
             # The same accepted intrinsic cache also serves the simple Grid
