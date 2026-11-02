@@ -603,6 +603,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         # Without this, Kivy discarded every pending text measurement on
         # each resize, forcing expensive texture_update() on every GridItem.
         mixed_grid.accept_intrinsic()
+        mixed_grid.accept_solved()
         # Preserve only the most recent successful immutable snapshot.
         # Width-dependent provisional computations have separate iterative
         # measurements and cannot reuse this initial snapshot as a receipt.
