@@ -2111,7 +2111,14 @@ class TkinterRenderer:
                     # alone cannot project the authored CSS background/edges.
                     color = background_hex(computed)
                     if color is not None:
-                        config["background"] = color
+                        # The overlaid Canvas owns the authored CSS fill.
+                        # The underlying ttk widget must match the surrounding
+                        # surface or its rectangular blue Aqua background will
+                        # show through the rounded Canvas corners.
+                        config["background"] = (
+                            self._css_corner_parent_surface(widget)
+                            if button_paint else color
+                        )
                     leading = styles.get("line-height")
                     if leading is not None and (
                         "\n" in str(widget.cget("text"))
