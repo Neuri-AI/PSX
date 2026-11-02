@@ -147,7 +147,9 @@ class GridViewportWorkset:
         return frozenset(skipped)
 
     def accept(self, *, root_ids, batch, widgets, viewport_height,
-               epoch, backend, skipped):
+               epoch, backend, skipped, safe_ids=None, viewport_top=0.0):
+        # safe_ids/viewport_top are plan-time hints. Acceptance records
+        # only actually committed geometry after full native validation.
         groups = self._groups(root_ids, batch, widgets)
         if not groups:
             self._accepted.clear()
