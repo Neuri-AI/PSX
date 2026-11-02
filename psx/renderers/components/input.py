@@ -58,57 +58,69 @@ def apply_kivy_input(widget, props):
     widget._psx_updating = False
 
 def apply_tk_input(widget, props, binding=None):
-    """Update the real ttk.Entry value, with a non-value hint overlay.
+    """Render a Tk Entry placeholder in its text plane without an opaque label.
 
-    The hint is a child of the Entry, never inserted into StringVar and
-    therefore never sent through on_change or password-mode state.
+    A separate display StringVar holds hints; widget.var remains the real
+    application value and never contains the placeholder.
     """
-    import tkinter as tk
-    from tkinter import ttk
-
     widget._psx_updating = True
     try:
         if widget.var.get() != props["value"]:
             widget.var.set(props["value"])
         widget._psx_placeholder = props["placeholder"]
+        widget._psx_password = bool(props["password"])
         size = max(1, round(props["font_size"]))
-        font = ("TkDefaultFont", -size)
         widget.configure(
-            font=font,
-            show="*" if props["password"] else "",
+            font=("TkDefaultFont", -size),
             state=(
                 "disabled" if not props["enabled"] else
                 "readonly" if props["read_only"] else "normal"
             ),
         )
-        if not hasattr(widget, "_psx_hint_label"):
-            hint = tk.Label(widget, borderwidth=0, padx=0, pady=0,
-                            anchor="w", takefocus=0)
-            widget._psx_hint_label = hint
+        if not hasattr(widget, "_psx_sync_hint"):
+            widget._psx_input_foreground = str(widget.cget("foreground"))
+            widget._psx_hint_active = False
+
             def sync_hint(*_args):
                 if not widget.winfo_exists():
                     return
-                show = (
-                    bool(getattr(widget, "_psx_placeholder", ""))
-                    and not widget.var.get()
+                actual = widget.var.get()
+                show_hint = (
+                    bool(widget._psx_placeholder)
+                    and not actual
                     and widget.focus_get() is not widget
                     and str(widget.cget("state")) != "disabled"
                 )
-                if show:
-                    hint.configure(text=widget._psx_placeholder)
-                    hint.place(x=4, rely=0.5, anchor="w")
-                else:
-                    hint.place_forget()
+                display = widget._psx_placeholder if show_hint else actual
+                widget._psx_hint_active = show_hint
+                if widget._psx_display_var.get() != display:
+                    previous = widget._psx_updating
+                    widget._psx_updating = True
+                    try:
+                        widget._psx_display_var.set(display)
+                    finally:
+                        widget._psx_updating = previous
+                widget.configure(
+                    show="" if show_hint or not widget._psx_password else "*",
+                    foreground=(
+                        "#777777" if show_hint
+                        else widget._psx_input_foreground
+                    ),
+                )
+
+            def sync_edit(*_args):
+                if (getattr(widget, "_psx_updating", False)
+                        or widget._psx_hint_active):
+                    return
+                entered = widget._psx_display_var.get()
+                if widget.var.get() != entered:
+                    widget.var.set(entered)
+
             widget._psx_sync_hint = sync_hint
+            widget._psx_display_var.trace_add("write", sync_edit)
             widget.var.trace_add("write", sync_hint)
             widget.bind("<FocusIn>", sync_hint, add="+")
             widget.bind("<FocusOut>", sync_hint, add="+")
-            hint.bind("<Button-1>", lambda _event: widget.focus_set())
-        hint = widget._psx_hint_label
-        style = ttk.Style(widget)
-        field_style = str(widget.cget("style")) or "TEntry"
-        field_background = style.lookup(field_style, "fieldbackground") or "white"
-        hint.configure(font=font, fg="#777777", bg=field_background)
         widget._psx_sync_hint()
     finally:
         widget._psx_updating = False
