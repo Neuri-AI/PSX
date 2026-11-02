@@ -172,3 +172,32 @@ def test_qt_unchanged_uses_rollback_rectangles_without_redundant_qt_reads():
             GeometryBackend.TK, nodes, {"root": object(), "child": TkWidget()},
             prior_qt_rectangles=baseline,
         )
+
+
+def test_kivy_width_only_resize_does_not_dispatch_unchanged_position():
+    widget = KivyWidget()
+    committer = NativeGeometryCommitter(
+        GeometryBackend.KIVY,
+        (MarginTreeNode("root", None, 0, 0),
+         MarginTreeNode("child", "root", 0, 0)),
+        {"root": object(), "child": widget}, skip_unchanged=True,
+    )
+    committer(snapshot(40))
+    assert widget.writes == 2
+    committer(snapshot(60))
+    assert widget.writes == 3, "Width-only resize must update size, not pos"
+    assert widget.pos == (10, 55)
+    assert widget.size == (60, 30)
+
+
+def test_kivy_no_skip_mode_preserves_unconditional_writes():
+    widget = KivyWidget()
+    committer = NativeGeometryCommitter(
+        GeometryBackend.KIVY,
+        (MarginTreeNode("root", None, 0, 0),
+         MarginTreeNode("child", "root", 0, 0)),
+        {"root": object(), "child": widget},
+    )
+    committer(snapshot(40))
+    committer(snapshot(40))
+    assert widget.writes == 4
