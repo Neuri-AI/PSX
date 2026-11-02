@@ -197,6 +197,27 @@ jobs:
           assert all(row["native_widgets"] > 0 for row in rows)
           assert {row["adapter"] for row in rows} == {"qt", "tk"}
           PY
+      - name: Compare deferred solved reuse against identical full native commits
+        run: |
+          xvfb-run -a python -u benchmarks/grid_resize_interactive.py --engine rust --adapter qt --cards 60 --cycles 20 --warmup 2 > benchmark-results/solved-reuse-on.json
+          xvfb-run -a python -u benchmarks/grid_resize_interactive.py --engine rust --adapter qt --cards 60 --cycles 20 --warmup 2 --disable-solved-reuse > benchmark-results/solved-reuse-off.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path("benchmark-results/solved-reuse-on.json").read_text())[0]
+          b=json.loads(Path("benchmark-results/solved-reuse-off.json").read_text())[0]
+          assert a["native_widgets"] == b["native_widgets"] == 362
+          assert a["cycles"] == b["cycles"] == 20
+          assert a["deferred_text_subtree_hits"] > 0
+          assert b["deferred_text_subtree_hits"] == 0
+          assert a["rust_actual_compute_abi_calls"] < b["rust_actual_compute_abi_calls"]
+          print("same native geometry workload; no widgets virtualized")
+          print("reuse enabled:", a["mean_event_to_commit_ms"],
+                "ms, real Rust calls:", a["rust_actual_compute_abi_calls"],
+                "text subtree hits:", a["deferred_text_subtree_hits"])
+          print("reuse disabled:", b["mean_event_to_commit_ms"],
+                "ms, real Rust calls:", b["rust_actual_compute_abi_calls"])
+          PY
       - name: Profile N-element resize hot paths (diagnostic only)
         run: |
           xvfb-run -a python -m cProfile -s cumtime benchmarks/native_resize_scaling.py --engine rust --adapter qt --scenarios cards --counts 60 --cycles 3 --warmup 1 > benchmark-results/qt-60-cprofile.txt
