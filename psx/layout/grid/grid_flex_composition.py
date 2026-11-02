@@ -142,6 +142,13 @@ def prepare_composed_flex(
     prepared = _with_auto_root_content_width(
         prepared, flex, content_width, pixel_scale,
     )
+    if flow_reuse is not None:
+        cached = flow_reuse.solved.lookup(
+            flex, content_width, generation, invalidation_epoch,
+            pixel_scale=pixel_scale,
+        )
+        if cached is not None:
+            return cached
     all_nodes = {}
 
     def visit(node):
@@ -213,6 +220,12 @@ def prepare_composed_flex(
     root_id = prepared.snapshot.nodes[0].node_id
     if root_id not in boxes:
         raise GridPackingError("Composed Flex root was not returned by Cinnamon.")
-    return ComposedFlex(
+    composition = ComposedFlex(
         flex, prepared, computed, nested_grids, boxes[root_id].border.height,
     )
+    if flow_reuse is not None:
+        flow_reuse.solved.stage(
+            flex, content_width, invalidation_epoch, composition,
+            pixel_scale=pixel_scale,
+        )
+    return composition
