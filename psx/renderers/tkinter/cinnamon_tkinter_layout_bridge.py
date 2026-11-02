@@ -571,6 +571,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             renderer.grid_result = mixed_receipts[-1]
         native_round.publish()
         mixed_grid.accept_intrinsic()
+        mixed_grid.accept_solved()
         # Preserve only the most recent successful immutable snapshot.
         # Width-dependent provisional computations have separate iterative
         # measurements and cannot reuse this initial snapshot as a receipt.
