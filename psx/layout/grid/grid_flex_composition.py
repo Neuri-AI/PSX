@@ -108,6 +108,8 @@ def prepare_composed_flex(
     is_ui_thread: Callable[[], bool],
     engine: object,
     pixel_scale: float = 1.0,
+    flow_reuse: object | None = None,
+    invalidation_epoch: int = 0,
 ) -> ComposedFlex:
     """Compute one declarative Flex child with strict bounded width remeasurement."""
     if flex.kind is not NodeKind.HOST or flex.type != "Flex":
@@ -117,15 +119,26 @@ def prepare_composed_flex(
     constraints = LayoutConstraints(
         AvailableSize(content_width, True), AvailableSize(None, False),
     )
-    prepared = prepare_native_layout_snapshot(
-        flex, constraints, generation=generation,
-    )
-    if pixel_scale != 1.0:
-        # Preserve certified Qt/Tk 1x composition exactly. Only Kivy
-        # drawable-space projection needs authored CSS px conversion.
-        prepared = replace(
-            prepared, snapshot=prepared.css_geometry_snapshot(pixel_scale=pixel_scale)
+    if flow_reuse is None:
+        prepared = prepare_native_layout_snapshot(
+            flex, constraints, generation=generation,
         )
+        if pixel_scale != 1.0:
+            # Preserve certified Qt/Tk 1x composition exactly. Only Kivy
+            # drawable-space projection needs authored CSS px conversion.
+            prepared = replace(
+                prepared, snapshot=prepared.css_geometry_snapshot(pixel_scale=pixel_scale)
+            )
+    else:
+        # Reuse the bounded, epoch-aware structural/CSS blueprint used by
+        # GridItem Flow. Intrinsic measurements and every solver run remain
+        # fresh; resizing cannot reuse stale native geometry.
+        prepared, css_snapshot = flow_reuse.prepare(
+            flex, constraints, generation, None, invalidation_epoch,
+            pixel_scale=pixel_scale,
+        )
+        if pixel_scale != 1.0:
+            prepared = replace(prepared, snapshot=css_snapshot)
     prepared = _with_auto_root_content_width(
         prepared, flex, content_width, pixel_scale,
     )
