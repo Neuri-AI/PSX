@@ -98,3 +98,52 @@ def test_webview_css_class_preserves_source_and_responsive_dimensions() -> None:
     assert inline.css_source is not None
     assert inline.css_computed is not None
     assert {"width", "height"}.issubset(inline.css_computed.specified)
+
+
+
+def test_webview_src_resolves_absolute_local_paths_and_preserves_urls(tmp_path) -> None:
+    from psx.extensions.qt_webengine import _source_url
+
+    local = tmp_path / "site with spaces" / "index.html"
+    local.parent.mkdir()
+    local.write_text("<html><body>Local page</body></html>", encoding="utf-8")
+    local_url = _source_url(str(local), QUrl)
+    assert local_url.isLocalFile()
+    assert local_url.toLocalFile() == str(local)
+
+    path_object_url = _source_url(local, QUrl)
+    assert path_object_url.toLocalFile() == str(local)
+
+    # Absolute paths may be supplied before the target is created.
+    missing_path = tmp_path / "missing.html"
+    assert _source_url(str(missing_path), QUrl).toLocalFile() == str(missing_path)
+
+    for source in (
+        "https://example.test/path?q=1",
+        "http://example.test/",
+        "file:///tmp/index.html",
+        "about:blank",
+        "data:text/html,Hello",
+    ):
+        assert _source_url(source, QUrl).toString() == QUrl(source).toString()
+
+    existing_url = QUrl("https://example.test/keep")
+    assert _source_url(existing_url, QUrl) is existing_url
+
+
+def test_webview_native_src_loads_local_file(tmp_path) -> None:
+    from psx.extensions.qt_webengine import _create_webview, _update
+
+    local = tmp_path / "index.html"
+    local.write_text("<html><body>Velto</body></html>", encoding="utf-8")
+    widget = _create_webview()
+    try:
+        _update(widget, {"src": str(local)}, frozenset())
+        assert widget.web_view.url().isLocalFile()
+        assert widget.web_view.url().toLocalFile() == str(local)
+
+        _update(widget, {"src": "https://example.test/"}, frozenset())
+        assert widget.web_view.url().scheme() == "https"
+    finally:
+        widget.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
