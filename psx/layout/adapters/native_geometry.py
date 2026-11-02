@@ -50,6 +50,7 @@ class NativeGeometryCommitter:
             raise TypeError("Expected GeometryBackend.")
         self._backend = backend
         self._skip_unchanged = skip_unchanged
+        self.mutated_ids: frozenset[str] = frozenset()
         if prior_tk_placements is not None and backend is not GeometryBackend.TK:
             raise TypeError("Pre-captured Tk placements require the Tk backend.")
         # The caller captured this snapshot on the same UI thread before
@@ -95,6 +96,7 @@ class NativeGeometryCommitter:
 
     def __call__(self, result: RecursiveMeasurementResult | LayoutResult) -> None:
         """Apply either legacy recursive geometry or the F2 snapshot result."""
+        self.mutated_ids = frozenset()
         if isinstance(result, RecursiveMeasurementResult):
             boxes = {box.node_id: box.border for box in result.geometry.boxes}
         elif isinstance(result, LayoutResult):
@@ -181,6 +183,7 @@ class NativeGeometryCommitter:
                          - LayoutUnit.from_nearest(y)
                          - LayoutUnit.from_nearest(border.height)).to_px()
             placements.append((node_id, self._widgets[node_id], x, y, border.width, border.height))
+        mutated = set()
         for node_id, widget, x, y, width, height in placements:
             port = self._external_ports.get(node_id)
             if self._skip_unchanged:
@@ -232,6 +235,7 @@ class NativeGeometryCommitter:
                         prior = (tuple(widget.pos), tuple(widget.size))
                     if prior == ((x, y), (width, height)):
                         continue
+            mutated.add(node_id)
             if port is not None:
                 port.apply(widget, Rect(x, y, width, height))
             elif self._backend == GeometryBackend.QT:
@@ -246,3 +250,4 @@ class NativeGeometryCommitter:
                     widget.pos = (x, y)
                 if not self._skip_unchanged or tuple(widget.size) != (width, height):
                     widget.size = (width, height)
+        self.mutated_ids = frozenset(mutated)
