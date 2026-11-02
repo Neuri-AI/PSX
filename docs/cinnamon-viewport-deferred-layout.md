@@ -136,7 +136,9 @@ Cinnamon-solved rectangles, all mounted widget identities, normal flow extent,
 and the exact native clipping/scroll behavior. After one complete accepted
 native commit, a 96px-overscanned viewport planner can defer *native*
 geometry setters, pre-mutation reads, rollback snapshots and post-commit
-readback for entire previously accepted **below-viewport** GridItem groups.
+readback for entire previously accepted GridItem groups **fully above or
+below the live viewport**. Above-viewport pruning uses a conservative
+whole-subtree bottom bound, not merely the GridItem's own rectangle.
 Such groups are not reported as newly verified native rectangles;
 `GridNativeCommitReceipt.deferred_node_ids` names them precisely.
 
@@ -227,3 +229,18 @@ Compare `p95_event_to_commit_ms`, `native_widgets`,
 deferred native nodes. This is not a compositor FPS certificate. The
 benchmarks measure real Qt/Tk native resize events; Kivy still requires
 the separate three-backend native certification and a paced-window benchmark.
+
+
+### Post-commit scroll reentry and moving ancestors
+
+Qt, Tkinter and Kivy coalesce native Scroll input while Cinnamon is
+committing. If a scroll offset is clamped or a pending callback fires
+during an in-progress generation, a single follow-up owner-thread
+transaction is scheduled **after** the successful native commit.
+HTML/Flex and Grid maintain separate deferred-work flags on a shared
+Scroll host, so neither can accidentally clear the other's outstanding
+reentry request. HTML/Flex deferral receipts additionally stamp the
+containing native parent's identity and solved position; when an
+ancestor moves, its descendants receive fresh native placements rather
+than relying on stale offscreen positions. No deferred box is reported
+as newly read back.
