@@ -425,6 +425,67 @@ mod incremental_sizing_tests {
     }
 
     #[test]
+    fn semantic_flow_replays_offscreen_flex_without_losing_padding_or_margins(){
+        let mut nodes=vec![json!({
+            "node_id":"root","parent_id":null,"component":"div",
+            "style":{"display":"block"}
+        })];
+        let mut metrics=Vec::new();
+        for i in 0..20 {
+            nodes.push(json!({
+                "node_id":format!("flex-{i}"),"parent_id":"root",
+                "component":"Flex",
+                "style":{"direction":"column","width":"140px",
+                         "height":"35px","layout_padding_left":"5px"}
+            }));
+            nodes.push(json!({
+                "node_id":format!("text-{i}"),"parent_id":format!("flex-{i}"),
+                "component":"Text","style":{}
+            }));
+            metrics.push(json!({
+                "node_id":format!("text-{i}"),
+                "intrinsic":{"min_content_width":45.0,"max_content_width":45.0,
+                             "min_content_height":18.0,"max_content_height":18.0,
+                             "preferred_width":45.0,"preferred_height":18.0,
+                             "baseline":null,"orthogonal_baseline":null},
+                "constraints":{"width":{"value":null,"definite":false},
+                               "height":{"value":null,"definite":false}},
+                "revision":1
+            }));
+        }
+        let old_value=json!({
+            "schema_version":1,"generation":1,"direction":"ltr",
+            "constraints":{"width":{"value":220.0,"definite":true},
+                           "height":{"value":80.0,"definite":true}},
+            "nodes":nodes,"measurements":metrics
+        });
+        let old:LayoutInput=serde_json::from_value(old_value.clone()).unwrap();
+        let old_result=compute(&old).unwrap();
+        let mut current=old_value.clone();
+        current["generation"]=json!(2);
+        current["constraints"]["height"]["value"]=json!(100.0);
+        let current:LayoutInput=serde_json::from_value(current).unwrap();
+        let mut reused=Vec::new();
+        let actual=compute_incremental_with_reuse(&current,&old,&old_result,&mut reused).unwrap();
+        assert_eq!(actual.boxes,compute(&current).unwrap().boxes);
+        assert!(reused.contains(&"flex-12".to_owned()));
+        assert!(!reused.contains(&"flex-0".to_owned()));
+
+        let mut width_changed=old_value.clone();
+        width_changed["generation"]=json!(3);
+        width_changed["constraints"]["width"]["value"]=json!(300.0);
+        let resized:LayoutInput=serde_json::from_value(width_changed).unwrap();
+        let mut reused_width=Vec::new();
+        let expected=compute(&resized).unwrap();
+        let found=compute_incremental_with_reuse(
+            &resized,&old,&old_result,&mut reused_width,
+        ).unwrap();
+        assert_eq!(found.boxes,expected.boxes);
+        assert!(reused_width.contains(&"flex-12".to_owned()),
+                "Fixed-width HTML Flex must remain reusable across outer resize");
+    }
+
+    #[test]
     fn changed_viewport_falls_back_to_equivalent_geometry() {
         let initial:LayoutInput=serde_json::from_value(json!({
             "schema_version":1,"generation":1,"direction":"ltr",
