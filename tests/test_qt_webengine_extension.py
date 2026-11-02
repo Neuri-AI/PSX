@@ -77,15 +77,24 @@ def test_webview_css_class_preserves_source_and_responsive_dimensions() -> None:
     from psx.css.markup import compute_markup_styles
     from psx.css.parser import parse_stylesheet
 
-    node = psx('<Webview class="browser" src="about:blank" />')
-    assert isinstance(node.css_source, MarkupStyleSource)
-    assert "browser" in node.css_source.classes
+    for tag in ("WebView", "Webview"):
+        node = psx(f'<{tag} class="browser" src="about:blank" />')
+        assert isinstance(node.css_source, MarkupStyleSource)
+        assert "browser" in node.css_source.classes
 
-    styled = compute_markup_styles(
-        node,
-        parse_stylesheet(".browser { width: 75vw; height: 60%; }"),
+        styled = compute_markup_styles(
+            node,
+            parse_stylesheet(".browser { width: 75vw; height: 60%; }"),
+        )
+        assert isinstance(styled.css_computed, ComputedStyle)
+        assert "width" in styled.css_computed.specified
+        assert "height" in styled.css_computed.specified
+        assert styled.props["src"] == "about:blank"
+
+    inline = psx(
+        '<WebView class="browser" style="width: 400px; height: 50vh" '
+        'src="about:blank" />'
     )
-    assert isinstance(styled.css_computed, ComputedStyle)
-    assert "width" in styled.css_computed.specified
-    assert "height" in styled.css_computed.specified
-    assert styled.props["src"] == "about:blank"
+    assert inline.css_source is not None
+    assert inline.css_computed is not None
+    assert {"width", "height"}.issubset(inline.css_computed.specified)
