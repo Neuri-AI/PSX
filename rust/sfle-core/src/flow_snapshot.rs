@@ -683,10 +683,8 @@ fn flow_reuse_plan(
         ){
             (None,None)=>true,
             (Some(a),Some(b))=>a.node_id==b.node_id
-                && serde_json::to_value(&a.intrinsic).ok()
-                   ==serde_json::to_value(&b.intrinsic).ok()
-                && serde_json::to_value(&a.constraints).ok()
-                   ==serde_json::to_value(&b.constraints).ok(),
+                && a.intrinsic==b.intrinsic
+                && a.constraints==b.constraints,
             _=>false,
         };
         safe[i]=equivalent_measure
