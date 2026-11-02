@@ -46,13 +46,38 @@ def subtree_is_safe_for_root_culling(node: object) -> bool:
             for key, value in mapping.items():
                 normalized = str(key).replace("_", "-").lower()
                 if normalized in _UNSAFE_STYLES:
-                    # A computed 'position: static' is benign; any other
-                    # non-default paint/positioning state must remain live.
-                    if normalized == "position" and value in ("static", None):
-                        continue
-                    if normalized == "overflow" and value in ("hidden", "clip"):
-                        continue
-                    if normalized == "opacity" and value in (1, 1.0, "1"):
+                    # Computed styles contain CSS *defaults* even when the
+                    # developer never authored the property. Rejecting all
+                    # defaults would accidentally disable every workset.
+                    benign = {
+                        "position": ("static", None),
+                        "overflow": ("visible", "hidden", "clip", None),
+                        "opacity": (1, 1.0, "1", None),
+                        "z-index": ("auto", 0, "0", None),
+                        "box-shadow": ("none", None),
+                        "text-shadow": ("none", None),
+                        "outline": ("none", 0, "0", "0px", None),
+                        "transform": ("none", None),
+                        "filter": ("none", None),
+                        "backdrop-filter": ("none", None),
+                        "clip-path": ("none", None),
+                        "mask": ("none", None),
+                        "mix-blend-mode": ("normal", None),
+                        "will-change": ("auto", None),
+                        "contain": ("none", None),
+                        "top": ("auto", None),
+                        "bottom": ("auto", None),
+                        "left": ("auto", None),
+                        "right": ("auto", None),
+                        "inset": ("auto", None),
+                        "translate": ("none", None),
+                        "rotate": ("none", None),
+                        "scale": ("none", None),
+                        "perspective": ("none", None),
+                        "margin-top": (0, "0", "0px", None),
+                        "margin-left": (0, "0", "0px", None),
+                    }
+                    if value in benign.get(normalized, (None,)):
                         continue
                     return False
         if isinstance(style, str) and any(k in style.lower() for k in _UNSAFE_STYLES):
