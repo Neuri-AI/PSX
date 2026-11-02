@@ -54,6 +54,25 @@ class TkMeasurementSource:
         )
 
     @staticmethod
+    def _remove_native_css_padding(
+        widget: object, width: float, height: float,
+    ) -> tuple[float, float]:
+        """Expose content intrinsic sizes; Cinnamon independently adds CSS padding.
+
+        Tk requested sizes already include padding configured on ttk.Entry
+        and ttk.Button for the glyph's native painting. Passing those sizes
+        unchanged to Cinnamon double-counts authored CSS padding and makes
+        auto-height controls considerably too tall.
+        """
+        left, top, right, bottom = getattr(
+            widget, "_psx_css_measured_padding", (0, 0, 0, 0)
+        )
+        return (
+            max(0.0, width - left - right),
+            max(0.0, height - top - bottom),
+        )
+
+    @staticmethod
     def _text_baseline(widget: object, height: float) -> float | None:
         """Read the actual Tk font ascent, including vertical widget chrome."""
         try:
@@ -243,8 +262,9 @@ class TkMeasurementSource:
             # require no Tk idle-drain method.
             if changed_wrap:
                 widget.update_idletasks()
-            width = float(widget.winfo_reqwidth())
-            height = float(widget.winfo_reqheight())
+            width, height = self._remove_native_css_padding(
+                widget, float(widget.winfo_reqwidth()), float(widget.winfo_reqheight())
+            )
         finally:
             if changed_wrap:
                 widget.configure(wraplength=old_wrap)
@@ -286,8 +306,11 @@ class TkMeasurementSource:
                 # wrap constraint when the native requested width already fits.
                 if (self._idle_synced and str(previous) in ("", "0", "0.0")
                         and float(widget.winfo_reqwidth()) <= width):
-                    natural_width = min(float(width), float(widget.winfo_reqwidth()))
-                    natural_height = float(widget.winfo_reqheight())
+                    native_width, native_height = self._remove_native_css_padding(
+                        widget, float(widget.winfo_reqwidth()), float(widget.winfo_reqheight())
+                    )
+                    natural_width = min(float(width), native_width)
+                    natural_height = native_height
                     return IntrinsicSizes(
                         natural_width, natural_width, natural_height,
                         natural_height, natural_width, natural_height,
@@ -301,8 +324,10 @@ class TkMeasurementSource:
             # reading the requested hints is safe without another global drain.
             if changed_wrap or not self._idle_synced:
                 widget.update_idletasks()
-            measured_width = min(float(width), float(widget.winfo_reqwidth()))
-            height = float(widget.winfo_reqheight())
+            natural_width, height = self._remove_native_css_padding(
+                widget, float(widget.winfo_reqwidth()), float(widget.winfo_reqheight())
+            )
+            measured_width = min(float(width), natural_width)
             return IntrinsicSizes(measured_width, measured_width, height, height,
                                   measured_width, height,
                                   baseline=self._text_baseline(widget, height))
