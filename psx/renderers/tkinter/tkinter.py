@@ -1219,6 +1219,131 @@ class TkinterRenderer:
             tk.Misc.tkraise(decoration)
         self._redraw_css_ttk_button(widget)
 
+    def _paint_css_ttk_input(self, widget: ttk.Entry, computed: object) -> None:
+        """Use CSS-owned Entry field geometry and rounded corners.
+
+        ttk's default field adds an OS-dependent bezel (up to several pixels).
+        That bezel cannot be combined with an exact CSS border or radius.
+        Retain the native editable Entry and keyboard/selection machinery,
+        but remove the theme bezel only when CSS authors field paint.
+        """
+        from psx.css.native_paint import background_hex, native_border_paint, native_border_radius
+        from psx.layout.contracts.lengths import LengthKind
+
+        old_corners = getattr(widget, "_psx_css_input_corners", ())
+        specified = frozenset() if computed is None else computed.specified
+        painted = any(name in specified for name in (
+            "background-color", "padding", "padding-top", "padding-right",
+            "padding-bottom", "padding-left", "border-width", "border-color",
+            "border-top-width", "border-right-width", "border-bottom-width",
+            "border-left-width", "border-radius",
+        ))
+        if not painted:
+            if hasattr(widget, "_psx_css_input_original_style"):
+                widget.configure(style=widget._psx_css_input_original_style)
+            for corner in old_corners:
+                corner.destroy()
+            widget._psx_css_input_corners = ()
+            widget._psx_css_background = None
+            return
+
+        style = ttk.Style(widget)
+        if not hasattr(widget, "_psx_css_input_original_style"):
+            widget._psx_css_input_original_style = str(widget.cget("style"))
+            original = widget._psx_css_input_original_style or "TEntry"
+            widget._psx_css_input_original_field = (
+                style.lookup(original, "fieldbackground")
+                or style.lookup("TEntry", "fieldbackground")
+            )
+        name = f"PsxCssField{id(widget)}.TEntry"
+        style.layout(name, [
+            ("Entry.field", {
+                "sticky": "nswe", "border": 0,
+                "children": [("Entry.padding", {
+                    "sticky": "nswe",
+                    "children": [("Entry.textarea", {"sticky": "nswe"})],
+                })],
+            }),
+        ])
+        fill = background_hex(computed)
+        color = fill or widget._psx_css_input_original_field
+        config = {"borderwidth": 0, "relief": "flat"}
+        if color:
+            config["fieldbackground"] = color
+        if any(key in specified for key in (
+            "padding", "padding-top", "padding-right",
+            "padding-bottom", "padding-left",
+        )):
+            values = []
+            for side in ("left", "top", "right", "bottom"):
+                length = computed.properties[f"padding-{side}"]
+                if length.kind is not LengthKind.PX:
+                    raise ValueError("Tk CSS Entry padding requires px units.")
+                values.append(round(length.value))
+            config["padding"] = tuple(values)
+        else:
+            config["padding"] = (0, 0, 0, 0)
+        style.configure(name, **config)
+        if color:
+            style.map(name, fieldbackground=[
+                ("disabled", color), ("readonly", color), ("!disabled", color),
+            ])
+        widget.configure(style=name)
+        widget._psx_css_background = fill
+
+        radius = native_border_radius(computed)
+        if not fill or radius <= 0:
+            for corner in old_corners:
+                corner.destroy()
+            widget._psx_css_input_corners = ()
+            return
+        if radius != int(radius):
+            raise ValueError("Tk rounded CSS Entry requires an integer px radius.")
+        r = int(radius)
+        stroke = native_border_paint(computed)
+        if stroke is not None and (
+            stroke[0] != int(stroke[0]) or stroke[0] > r
+        ):
+            raise ValueError("Tk rounded CSS Entry stroke exceeds corner radius.")
+        if len(old_corners) != 4 or int(old_corners[0].cget("width")) != r:
+            for corner in old_corners:
+                corner.destroy()
+            old_corners = tuple(
+                tk.Canvas(widget, width=r, height=r, borderwidth=0,
+                          highlightthickness=0, takefocus=0)
+                for _ in range(4)
+            )
+            for corner in old_corners:
+                corner.bind("<Button-1>", lambda _event: widget.focus_set())
+            widget._psx_css_input_corners = old_corners
+
+        parent = self._css_corner_parent_surface(widget)
+        placements = (
+            (dict(x=0, y=0), (0, 0, 2*r, 2*r), 90),
+            (dict(relx=1, x=-r, y=0), (-r, 0, r, 2*r), 0),
+            (dict(x=0, rely=1, y=-r), (0, -r, 2*r, r), 180),
+            (dict(relx=1, rely=1, x=-r, y=-r), (-r, -r, r, r), 270),
+        )
+        for corner, (place, bounds, start) in zip(old_corners, placements):
+            corner.configure(background=parent, cursor=str(widget.cget("cursor")))
+            corner.delete("all")
+            outer = stroke[1] if stroke else fill
+            corner.create_arc(
+                *bounds, start=start, extent=90,
+                style="pieslice", fill=outer, outline=outer, width=0,
+            )
+            if stroke:
+                n = int(stroke[0])
+                inset = (bounds[0] + n, bounds[1] + n,
+                         bounds[2] - n, bounds[3] - n)
+                if inset[2] > inset[0] and inset[3] > inset[1]:
+                    corner.create_arc(
+                        *inset, start=start, extent=90,
+                        style="pieslice", fill=fill, outline=fill, width=0,
+                    )
+            corner.place(**place)
+            tk.Misc.tkraise(corner)
+
     def _redraw_css_unified_surface(self, widget: tk.Misc) -> None:
         """Refresh one Canvas for CSS fill, border and antialiased corners."""
         canvas = getattr(widget, "_psx_css_unified_surface", None)
