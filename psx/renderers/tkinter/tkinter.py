@@ -692,6 +692,8 @@ class TkinterRenderer:
                 AvailableSize(size[0], True), AvailableSize(size[1], True),
             ))
             self.commit_layout(root)
+            from psx.layout.adapters.viewport_resize_priority import schedule_resize_settlement
+            schedule_resize_settlement(self, size, lambda ms, callback: self.root.after(ms, callback))
             self._sfle_resize_error = None
         except Exception as exc:
             self._sfle_resize_error = exc
