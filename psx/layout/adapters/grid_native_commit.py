@@ -44,6 +44,7 @@ def commit_grid_native_geometry(
     kivy_window_coordinates: bool = False,
     readback_tolerance: float = 1.0,
     prior_tk_placements: Mapping[str, Mapping[str, object]] | None = None,
+    prior_native_rectangles: Mapping[str, Rect] | None = None,
 ) -> GridNativeCommitReceipt:
     """Commit a complete mounted Grid batch, verifying every native readback.
 
@@ -70,11 +71,20 @@ def commit_grid_native_geometry(
         raise GridPackingError("Per-widget parent heights are only valid for Kivy.")
     if prior_tk_placements is not None and backend is not GridCommitBackend.TK:
         raise GridPackingError("Prior Tk placements require the Tk backend.")
+    if prior_native_rectangles is not None and backend not in (
+        GridCommitBackend.QT, GridCommitBackend.KIVY,
+    ):
+        raise GridPackingError("Pre-captured geometry requires Qt or Kivy backend.")
     ids = tuple(p.node_id for p in placements)
     if any(not isinstance(p, GridNativePlacement) for p in placements):
         raise GridPackingError("Grid commit requires preflighted Cinnamon placements.")
     if len(set(ids)) != len(ids) or set(ids) != set(widgets) or len(ids) != len(widgets):
         raise GridPackingError("Grid native geometry identities do not match mounted widgets.")
+    if prior_native_rectangles is not None and (
+        set(prior_native_rectangles) != set(ids)
+        or any(not isinstance(rect, Rect) for rect in prior_native_rectangles.values())
+    ):
+        raise GridPackingError("Pre-captured native rectangles must match the batch.")
     if parent_heights is not None and set(parent_heights) != set(ids):
         raise GridPackingError("Kivy parent heights must cover exactly the mounted placements.")
     if type(kivy_window_coordinates) is not bool or (
@@ -180,7 +190,14 @@ def commit_grid_native_geometry(
                 originals[node_id] = Rect(0, 0, 0, 0)
                 unplaced.add(node_id)
     else:
-        originals = {node_id: read(widgets[node_id]) for node_id in ids}
+        # For a single Grid batch the outer bridge already captured these
+        # native rectangles for rollback. Reuse that authoritative baseline
+        # instead of repeating thousands of UI-thread property reads.
+        originals = (
+            dict(prior_native_rectangles)
+            if prior_native_rectangles is not None else
+            {node_id: read(widgets[node_id]) for node_id in ids}
+        )
         unplaced = set()
     absent_headless = ({node_id for node_id in ids if widgets[node_id].geometry is None}
                        if backend is GridCommitBackend.HEADLESS else set())
