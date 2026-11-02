@@ -108,3 +108,43 @@ def test_html_flow_inside_native_scroll_fails_closed():
         renderer, prepared, snapshot, result, handles, "kivy", epoch=1
     )
     assert first.workset is None and not first.deferred_ids
+
+
+
+def test_html_card_scroll_reentry_selects_newly_exposed_groups():
+    renderer, prepared, snapshot, result, handles = _world(
+        cards=50, viewport=100, nested_scroll=True,
+    )
+    offset = [0.0]
+    host = SimpleNamespace(
+        _psx_sfle_scroll=True,
+        _psx_canvas=SimpleNamespace(canvasy=lambda _x: offset[0]),
+    )
+    handles["board"] = host
+    boxes = tuple(
+        (key, SimpleNamespace(border=Rect(0, 0, 600, 100)))
+        if key == "board" else (key, item)
+        for key, item in result.boxes
+    )
+    result = SimpleNamespace(boxes=boxes)
+    first = plan_native_flow_viewport(
+        renderer, prepared, snapshot, result, handles, "tk", epoch=1,
+    )
+    assert not first.deferred_ids
+    first.accept()
+    assert not host._psx_viewport_has_deferred
+
+    second = plan_native_flow_viewport(
+        renderer, prepared, snapshot, result, handles, "tk", epoch=1,
+    )
+    assert "card-49" in second.deferred_ids
+    second.accept()
+    assert host._psx_viewport_has_deferred
+
+    offset[0] = 1000.0
+    scrolled = plan_native_flow_viewport(
+        renderer, prepared, snapshot, result, handles, "tk", epoch=1,
+    )
+    # Newly exposed row 25 must receive its latest native rectangle.
+    assert "card-25" not in scrolled.deferred_ids
+    assert "card-49" in scrolled.deferred_ids
