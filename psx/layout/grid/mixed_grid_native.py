@@ -54,6 +54,7 @@ class MountedMixedGrid:
             flow_reuse = FlowBlueprintReuse()
             renderer._psx_grid_flow_blueprints = flow_reuse
         self._flow_reuse = flow_reuse
+        flow_reuse.solved.begin(generation, self._intrinsic_epoch)
 
         def visit(node):
             if node.kind is NodeKind.HOST and node.type == "Grid":
@@ -147,6 +148,9 @@ class MountedMixedGrid:
         reuse_round = getattr(self, "_intrinsic_reuse", None)
         if reuse_round is not None:
             reuse_round.accept(self.renderer._sfle_measurement_invalidations.epoch)
+
+    def accept_solved(self):
+        self._flow_reuse.solved.accept(self.generation, self._intrinsic_epoch)
 
     def intrinsic(self, node_id, width):
         measured = self.compose(node_id, width)
