@@ -766,8 +766,39 @@ class TkinterRenderer:
             and prior_signatures[0][1] == current_signatures[0][1]
             and prior_signatures[1] == current_signatures[1]
         )
-        if semantic_dirty or not same_paint_tree:
+        # A native Grid root has no outer SFLE paint signature.  Previously
+        # this forced an O(N) Aqua background walk over every widget on
+        # *every* resize, issuing Tcl child/cget requests for 3,002 cards.
+        # An unchanged mounted tree and semantic epoch cannot change CSS
+        # ancestry/background. Use an O(N) Python-only structural receipt
+        # and reserve the native background walk for first mount, style
+        # changes and reconciliation. No special developer opt-in required.
+        grid_paint_signature = None
+        if grid_root:
+            pending, identity = [root], []
+            while pending:
+                mounted = pending.pop()
+                handle = getattr(mounted, "handle", None)
+                identity.append((
+                    id(mounted), id(mounted.node),
+                    id(handle.widget) if handle is not None else None,
+                    len(mounted.children),
+                ))
+                pending.extend(mounted.children)
+            grid_paint_signature = (
+                self._sfle_measurement_invalidations.epoch, tuple(identity),
+            )
+        same_grid_paint = (
+            grid_root and grid_paint_signature is not None
+            and getattr(self, "_psx_grid_aqua_paint_signature", None)
+                == grid_paint_signature
+        )
+        if semantic_dirty or not (same_paint_tree or same_grid_paint):
             self._sync_aqua_layout_surfaces()
+        if grid_root:
+            self._psx_grid_aqua_paint_signature = grid_paint_signature
+        else:
+            self._psx_grid_aqua_paint_signature = None
         self._sfle_measurement_invalidations.acknowledge(
             self._sfle_measurement_invalidations.epoch)
 
