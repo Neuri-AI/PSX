@@ -1313,7 +1313,8 @@ class TkinterRenderer:
         widget._psx_css_background = fill
 
         radius = native_border_radius(computed)
-        if not fill or radius <= 0:
+        corner_fill = fill or widget._psx_css_input_original_field
+        if not corner_fill or radius <= 0:
             for corner in old_corners:
                 corner.destroy()
             widget._psx_css_input_corners = ()
@@ -1348,7 +1349,7 @@ class TkinterRenderer:
         for corner, (place, bounds, start) in zip(old_corners, placements):
             corner.configure(background=parent, cursor=str(widget.cget("cursor")))
             corner.delete("all")
-            outer = stroke[1] if stroke else fill
+            outer = stroke[1] if stroke else corner_fill
             corner.create_arc(
                 *bounds, start=start, extent=90,
                 style="pieslice", fill=outer, outline=outer, width=0,
@@ -1360,7 +1361,7 @@ class TkinterRenderer:
                 if inset[2] > inset[0] and inset[3] > inset[1]:
                     corner.create_arc(
                         *inset, start=start, extent=90,
-                        style="pieslice", fill=fill, outline=fill, width=0,
+                        style="pieslice", fill=corner_fill, outline=corner_fill, width=0,
                     )
             corner.place(**place)
             tk.Misc.tkraise(corner)
