@@ -362,3 +362,28 @@ def native_border_radius(computed: ComputedStyle | None) -> float:
     if not isinstance(value, Length) or value.kind != LengthKind.PX or value.value < 0:
         raise ValueError("Native CSS border-radius requires nonnegative px units.")
     return float(value.value)
+
+
+def native_control_padding(computed: ComputedStyle | None) -> tuple[float, float, float, float] | None:
+    """Return explicitly authored CSS padding in CSS px (left, top, right, bottom).
+
+    Tk, Qt and Kivy consume the same normalized CSS side declarations. The
+    native renderer may scale these CSS pixels into its device coordinates,
+    but Cinnamon remains responsible for the outer layout geometry.
+    """
+    from psx.layout.contracts.lengths import Length, LengthKind
+
+    if computed is None or not (
+        "padding" in computed.specified or any(
+            f"padding-{side}" in computed.specified
+            for side in ("top", "right", "bottom", "left")
+        )
+    ):
+        return None
+    values = []
+    for side in ("left", "top", "right", "bottom"):
+        length = computed.properties[f"padding-{side}"]
+        if not isinstance(length, Length) or length.kind is not LengthKind.PX or length.value < 0:
+            raise ValueError("Native control padding requires nonnegative CSS px values.")
+        values.append(float(length.value))
+    return tuple(values)
