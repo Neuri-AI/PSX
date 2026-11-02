@@ -101,3 +101,20 @@ def test_postcommit_reentry_skips_children_fully_accepted_while_committing():
     callbacks = []
     flush_scroll_reentry_after_commit(renderer, callbacks.append)
     assert not callbacks
+
+
+def test_queued_scroll_callback_does_not_disappear_during_other_commit():
+    from psx.layout.adapters.viewport_scroll_reentry import flush_scroll_reentry_after_commit
+    renderer = DummyRenderer()
+    host = SimpleNamespace(_psx_sfle_scroll=True, _psx_viewport_has_deferred=True)
+    schedule = []
+    request_scroll_reentry(renderer, host, schedule.append)
+    assert len(schedule) == 1
+    renderer._sfle_in_commit = True
+    schedule.pop()()
+    assert renderer.calls == 0
+    renderer._sfle_in_commit = False
+    flush_scroll_reentry_after_commit(renderer, schedule.append)
+    assert len(schedule) == 1
+    schedule.pop()()
+    assert renderer.calls == 1

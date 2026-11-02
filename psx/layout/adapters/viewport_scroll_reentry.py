@@ -29,8 +29,17 @@ def request_scroll_reentry(renderer, host, schedule) -> None:
     def perform():
         host._psx_viewport_reentry_pending = False
         root = getattr(renderer, "_sfle_mounted_root", None)
-        if (root is None or getattr(renderer, "_sfle_in_commit", False)
-                or not getattr(host, "_psx_viewport_has_deferred", False)):
+        if root is None or not getattr(host, "_psx_viewport_has_deferred", False):
+            return
+        if getattr(renderer, "_sfle_in_commit", False):
+            # A previously scheduled callback can race with a subsequent
+            # synchronous native commit. Preserve the outstanding scroll
+            # reentry rather than dropping it during that generation.
+            queued = getattr(renderer, "_psx_scroll_after_commit", None)
+            if queued is None:
+                queued = {}
+                renderer._psx_scroll_after_commit = queued
+            queued[id(host)] = host
             return
         # Rust still owns all widths, wrapping and Grid row allocations.
         # The native workset updates only groups whose visibility changed.
