@@ -369,12 +369,14 @@ class TkinterRendererTests(unittest.TestCase):
                     str(ttk.Style(label).lookup(label_style, "font")),
                     str(native_font),
                 )
+                self.assertEqual(
+                    ttk.Style(label).lookup(label_style, "background"), "#ffffff"
+                )
             else:
-                # macOS uses classic tk.Label, which has no ttk style option.
+                # macOS uses classic tk.Label: both font and background
+                # are direct widget options, never ttk style properties.
                 self.assertEqual(str(label.cget("font")), str(native_font))
-            self.assertEqual(
-                ttk.Style(label).lookup(label_style, "background"), "#ffffff"
-            )
+                self.assertEqual(str(label.cget("background")).lower(), "#ffffff")
 
     def test_css_heading_native_pixels_exceed_default_text_and_trace_is_opt_in(self):
         import contextlib
