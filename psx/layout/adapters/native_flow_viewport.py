@@ -31,6 +31,7 @@ class FlowViewportPlan:
     deferred_ids: frozenset[str]
     viewport_top: float = 0.0
     scroll_host: object | None = None
+    contexts: dict[str, object] | None = None
 
     def accept(self) -> None:
         if self.workset is not None:
@@ -38,7 +39,7 @@ class FlowViewportPlan:
                 root_ids=self.roots, batch=self.placements,
                 widgets=self.widgets, viewport_height=self.height,
                 epoch=self.epoch, backend=self.backend, skipped=self.deferred_ids,
-                viewport_top=self.viewport_top,
+                viewport_top=self.viewport_top, contexts=self.contexts,
             )
         if self.scroll_host is not None:
             # Already mounted Qt, Kivy and Tk Scroll hosts observe their
@@ -147,7 +148,19 @@ def plan_native_flow_viewport(renderer, prepared, snapshot, result, bindings,
     grouped = []
     safe_ids = set()
     widgets = {}
+    contexts = {}
     for root_id in group_roots:
+        # All native children are parent-local on Qt/Tk and are translated
+        # by their real native owners on Kivy. Previously accepted child
+        # coordinates cannot be considered offscreen if the ancestor moved.
+        owner_id = parents[root_id]
+        if owner_id is None or owner_id not in bindings:
+            return empty
+        owner_box = boxes[owner_id].border
+        owner_widget = getattr(bindings[owner_id], "widget", bindings[owner_id])
+        contexts[root_id] = (
+            owner_id, id(owner_widget), owner_box.x, owner_box.y
+        )
         stack = [root_id]
         group = []
         safe = True
@@ -187,8 +200,8 @@ def plan_native_flow_viewport(renderer, prepared, snapshot, result, bindings,
     skipped = workset.plan(
         root_ids=group_roots, batch=batch, widgets=widgets,
         viewport_height=float(height), epoch=epoch, backend=backend,
-        safe_ids=safe_ids, viewport_top=viewport_top,
+        safe_ids=safe_ids, viewport_top=viewport_top, contexts=contexts,
     )
     return FlowViewportPlan(workset, group_roots, batch, widgets,
                             float(height), epoch, backend, skipped,
-                            viewport_top, scroll_host)
+                            viewport_top, scroll_host, contexts)

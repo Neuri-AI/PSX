@@ -148,3 +148,28 @@ def test_html_card_scroll_reentry_selects_newly_exposed_groups():
     # Newly exposed row 25 must receive its latest native rectangle.
     assert "card-25" not in scrolled.deferred_ids
     assert "card-49" in scrolled.deferred_ids
+
+
+def test_moving_parent_invalidates_offscreen_native_receipts():
+    renderer, prepared, snapshot, result, handles = _world(
+        cards=30, viewport=100,
+    )
+    first = plan_native_flow_viewport(
+        renderer, prepared, snapshot, result, handles, "qt", epoch=9
+    )
+    first.accept()
+    second = plan_native_flow_viewport(
+        renderer, prepared, snapshot, result, handles, "qt", epoch=9
+    )
+    assert second.deferred_ids
+    moved = tuple(
+        (key, SimpleNamespace(border=Rect(
+            item.border.x, 150, item.border.width, item.border.height
+        ))) if key == "board" else (key, item)
+        for key, item in result.boxes
+    )
+    moved_result = SimpleNamespace(boxes=moved)
+    current = plan_native_flow_viewport(
+        renderer, prepared, snapshot, moved_result, handles, "qt", epoch=9
+    )
+    assert not current.deferred_ids

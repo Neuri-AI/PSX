@@ -92,6 +92,10 @@ class _AcceptedGroup:
     viewport_height: float
     tokens: tuple[tuple[str, int], ...]
     epoch: int
+    # Opaque ancestor placement/identity proof, supplied by flow callers.
+    # A moving ancestor changes a widget's effective screen coordinate
+    # even when the child was not written.
+    context: object = None
 
 class GridViewportWorkset:
     """Keeps only widget identities; no handles or CSS geometry are retained."""
@@ -117,7 +121,7 @@ class GridViewportWorkset:
         return groups if set(groups) == roots else {}
 
     def plan(self, *, root_ids, batch, widgets, viewport_height,
-             epoch, backend, safe_ids, viewport_top=0.0):
+             epoch, backend, safe_ids, viewport_top=0.0, contexts=None):
         if (not isinstance(viewport_height, (int, float))
                 or not isfinite(viewport_height) or viewport_height <= 0
                 or not isinstance(viewport_top, (int, float))
@@ -137,6 +141,9 @@ class GridViewportWorkset:
             )
             if (root_id in safe_ids and geometry_safe and prior is not None
                     and prior.epoch == epoch and prior.tokens == tokens
+                    and prior.context == (
+                        contexts.get(root_id) if contexts is not None else None
+                    )
                     # Test both the last *actually committed* geometry and
                     # Cinnamon's current target against the CURRENT scroll
                     # viewport. A formerly hidden item entering by scroll
@@ -147,7 +154,8 @@ class GridViewportWorkset:
         return frozenset(skipped)
 
     def accept(self, *, root_ids, batch, widgets, viewport_height,
-               epoch, backend, skipped, safe_ids=None, viewport_top=0.0):
+               epoch, backend, skipped, safe_ids=None, viewport_top=0.0,
+               contexts=None):
         # safe_ids/viewport_top are plan-time hints. Acceptance records
         # only actually committed geometry after full native validation.
         groups = self._groups(root_ids, batch, widgets)
@@ -159,12 +167,17 @@ class GridViewportWorkset:
             tokens = tuple((p.node_id, id(widgets[p.node_id])) for p in descendants)
             if root_id in skipped:
                 prior = self._accepted.get(root_id)
-                if prior is None or prior.epoch != epoch or prior.tokens != tokens:
+                if (prior is None or prior.epoch != epoch or prior.tokens != tokens
+                        or prior.context != (
+                            contexts.get(root_id) if contexts is not None else None
+                        )):
+
                     raise RuntimeError("Cannot accept unproven deferred Grid geometry.")
                 accepted[root_id] = prior
             else:
                 accepted[root_id] = _AcceptedGroup(
                     float(descendants[0].y), float(viewport_height), tokens, epoch,
+                    contexts.get(root_id) if contexts is not None else None,
                 )
         self._accepted = accepted
         self._backend = backend
