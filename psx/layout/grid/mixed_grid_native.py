@@ -95,9 +95,11 @@ class MountedMixedGrid:
                 )
             elif self.backend is GridCommitBackend.KIVY:
                 from psx.renderers.kivy.cinnamon_kivy_measurement import KivyMeasurementSource
-                refresh = getattr(handle.widget, "texture_update", None)
-                if callable(refresh):
-                    refresh()
+                # measure_width() already refreshes the native label texture
+                # before and after its width-constrained probe. Refreshing
+                # here ran *even on accepted GridIntrinsicReuse hits*, so a
+                # viewport-only resize needlessly refreshed every text leaf.
+                # Let the source refresh only if an actual measurement is due.
                 source = KivyMeasurementSource({identifier: handle.widget})
             else:
                 raise GridPackingError("Mixed native Grid requires a toolkit backend.")
