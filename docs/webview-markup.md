@@ -27,3 +27,17 @@ a definite reference size. The programmatic `layout_width` and
 
 This native Qt WebView requires PySide6 QtWebView. Unsupported backends
 must report a capability error rather than silently replacing the browser.
+
+## Local HTML files
+
+The `src` attribute also accepts absolute filesystem paths (including paths
+returned by `get_resource`), in addition to existing `https://`, `http://`,
+`file://`, `about:`, and `data:` URLs. Absolute paths are converted with
+`QUrl.fromLocalFile` so that special characters are correctly encoded.
+
+```jsx
+<WebView src="/Users/fredo/Desktop/velto/examples/webview-app/resources/base/html/index.html" />
+```
+
+Loading local subresources or allowing local scripts to access external
+resources remains subject to the platform QtWebView engine's security rules.
