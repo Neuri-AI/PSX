@@ -413,16 +413,16 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             MarginTreeNode(node.node_id, node.parent_id, 0, 0)
             for node in snapshot.nodes
         )
-        committer = NativeGeometryCommitter(
-            GeometryBackend.KIVY, nodes,
-            {node_id: handle.widget for node_id, handle in bindings.items()},
-            external_ports=external,
-            skip_unchanged=True,
-        )
         before = {
             node_id: (tuple(handle.widget.pos), tuple(handle.widget.size))
             for node_id, handle in bindings.items() if node_id != root_id
         }
+        committer = NativeGeometryCommitter(
+            GeometryBackend.KIVY, nodes,
+            {node_id: handle.widget for node_id, handle in bindings.items()},
+            external_ports=external,
+            skip_unchanged=True, prior_kivy_rectangles=before,
+        )
         previous_text_sizes = {
             node_id: bindings[node_id].widget.text_size
             for node_id in dependent if node_id not in external
