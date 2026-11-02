@@ -3670,3 +3670,55 @@ def test_automatic_html_card_flow_deferred_native_resize():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_scroll_newly_visible_grid_items_receive_native_geometry():
+    """Real Qt/Tk/Kivy Scroll moves the native viewport and rehydrates cards.
+
+    This is intentionally a mounted Grid embedded inside a native Scroll
+    owner, not a synthetic viewport-top value. The offscreen receipt must
+    shrink as the last card enters the native clip without remounting it.
+    """
+    from psx import Flex, Scroll
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    scene = Flex(
+        Scroll(
+            Flex(
+                Grid(*(
+                    GridItem(Text(f"Activity {index}", key=f"text-{index}"),
+                             key=f"row-{index}", span=12)
+                    for index in range(48)
+                ), gap=8),
+                direction="column", key="content",
+                width="800px", height="2400px",
+            ),
+            key="viewport", direction="vertical",
+            layout_width="600px", layout_height="120px",
+            flex_basis="600px", flex_shrink=0,
+        ),
+        direction="column", width="800px", height="240px",
+    )
+    try:
+        mounted = reconciler.render(scene)
+        native_scroll = mounted.children[0].handle.widget
+        grid = mounted.children[0].children[0].children[0]
+        last_card = grid.children[-1].handle.widget
+        last_widget_id = id(last_card)
+        renderer.commit_layout(mounted)
+        prepared, receipt = renderer.grid_result
+        last_placement = prepared.placements[-1]
+        assert last_placement.y > 120
+        assert last_placement.node_id in receipt.deferred_node_ids
+        target = max(0.0, float(last_placement.y) - 30.0)
+        set_native_scroll_offset(native_scroll, backend, 0, target)
+        renderer.commit_layout(mounted)
+        assert last_placement.node_id not in renderer.grid_result[1].deferred_node_ids
+        assert id(grid.children[-1].handle.widget) == last_widget_id
+        assert renderer.grid_result[1].max_readback_error <= 1.0
+        assert native_scroll_offset(native_scroll, backend)[1] >= target - 3.0
+    finally:
+        reconciler.unmount()
+        close()
