@@ -64,4 +64,4 @@ jobs:
         run: |
           xvfb-run -a python -m pytest -q \
             tests/test_mounted_grid_native_renderers.py \
-            -k "automatic_grid_viewport_sparse_commit_and_resize_reentry or scroll_wrapped_grid_item_uses_native_viewport_across_backends"
+            -k "automatic_grid_viewport_sparse_commit_and_resize_reentry or automatic_html_card_flow_deferred_native_resize or scroll_wrapped_grid_item_uses_native_viewport_across_backends"
