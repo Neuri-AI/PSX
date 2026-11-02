@@ -579,7 +579,9 @@ def test_mixed_grid_commit_reuses_outer_rollback_snapshot():
     mixed.renderer = SimpleNamespace(
         _sfle_generation=3, _sfle_owner_thread=get_ident(),
     )
-    mixed.handles = {}
+    # The outer mounted tree may contain Scroll hosts outside this Grid.
+    # They must not be touched by the nested rollback/readback transaction.
+    mixed.handles = {"outer_scroll": SimpleNamespace(_psx_sfle_scroll=True)}
     mixed.generation = 3
     mixed.snapshot = lambda: (_ for _ in ()).throw(
         AssertionError("Duplicate native Grid snapshot"),
