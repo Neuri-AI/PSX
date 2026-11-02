@@ -210,6 +210,7 @@ def _element(
         "Slider": "slider", "Spacer": "spacer", "Divider": "divider",
         "Image": "image", "ProgressBar": "progressbar",
         "RadioGroup": "radiogroup", "Switch": "switch",
+        "WebView": "webview", "Webview": "webview",
     }
     if element.name in PORTABLE_HTML_ALIASES or element.name in css_native_tags:
         if "class" in props and "class_name" in props:
