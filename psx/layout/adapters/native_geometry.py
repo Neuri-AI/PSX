@@ -222,5 +222,10 @@ class NativeGeometryCommitter:
             elif self._backend == GeometryBackend.TK:
                 widget.place(x=round(x), y=round(y), width=round(width), height=round(height))
             else:
-                widget.pos = (x, y)
-                widget.size = (width, height)
+                # Kivy dispatches position/size observers independently.
+                # For width-only resizes, avoid invalidating the untouched
+                # position. Keep legacy unconditional writes if requested.
+                if not self._skip_unchanged or tuple(widget.pos) != (x, y):
+                    widget.pos = (x, y)
+                if not self._skip_unchanged or tuple(widget.size) != (width, height):
+                    widget.size = (width, height)
