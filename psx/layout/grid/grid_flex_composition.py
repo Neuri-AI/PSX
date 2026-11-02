@@ -193,7 +193,6 @@ def prepare_composed_flex(
                     generation)
         for identifier in descendants
     )
-    from dataclasses import replace
     snapshot = replace(prepared.snapshot, measurements=metrics)
     # Fixed-height leaves already have their intrinsic inline contributions.
     # Their block size cannot change with line wrapping, so exclude them from
