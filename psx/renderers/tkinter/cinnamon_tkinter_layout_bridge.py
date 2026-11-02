@@ -470,10 +470,16 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             # Apply the SAME measured content width to actual native text
             # painting, otherwise Tk could show a single-line clipped label
             # even though SFLE correctly reserved multiline block height.
-            for node_id in previous_wraps:
-                widgets[node_id].configure(
-                    wraplength=max(1, round(rectangles[node_id].content.width)),
-                )
+            for node_id, old_wrap in previous_wraps.items():
+                desired_wrap = max(1, round(rectangles[node_id].content.width))
+                # Avoid triggering Tcl geometry/idle callbacks for unchanged
+                # wraplength. Reuse the already captured rollback baseline.
+                try:
+                    unchanged = round(float(old_wrap)) == desired_wrap
+                except (TypeError, ValueError, OverflowError):
+                    unchanged = False
+                if not unchanged:
+                    widgets[node_id].configure(wraplength=desired_wrap)
             if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation after native geometry.")
             if renderer._sfle_generation != generation:
