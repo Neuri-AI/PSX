@@ -29,6 +29,8 @@ class GridNativeCommitReceipt:
     generation: int
     node_ids: tuple[str, ...]
     max_readback_error: float
+    # Native geometry is deferred, not freshly read back, for these nodes.
+    deferred_node_ids: tuple[str, ...] = ()
 
 
 def commit_grid_native_geometry(

@@ -1,0 +1,117 @@
+"""Conservative viewport worksets for a mounted application-root Grid.
+
+This module never changes Cinnamon's solved rectangles or deallocates nodes.
+It defers *native writes* only if a group was already committed outside the
+clipped window, remains outside with 96 CSS px overscan, and contains no
+unknown positioning, transforms or independently scrolled native widgets.
+"""
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from math import isfinite
+
+from psx.core.vnode import NodeKind
+
+_OVERSCAN = 96.0
+_UNSAFE_COMPONENTS = frozenset(("Scroll", "WebView", "Canvas", "Video"))
+_UNSAFE_STYLES = frozenset((
+    "transform", "filter", "backdrop-filter", "clip-path", "mask",
+    "position", "top", "bottom", "left", "right", "inset",
+    "translate", "rotate", "scale", "perspective", "mix-blend-mode",
+))
+
+def subtree_is_safe_for_root_culling(node: object) -> bool:
+    """Never infer invisibility from overlap, transparency or z-order."""
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        if current.kind is NodeKind.NATIVE or current.type in _UNSAFE_COMPONENTS:
+            return False
+        source = getattr(current, "source", None)
+        props = getattr(source, "props", {}) or {}
+        style = props.get("style")
+        keys = tuple(props) + (tuple(style) if isinstance(style, Mapping) else ())
+        if any(isinstance(k, str) and k.replace("_", "-").lower() in _UNSAFE_STYLES
+               for k in keys):
+            return False
+        if isinstance(style, str) and any(k in style.lower() for k in _UNSAFE_STYLES):
+            return False
+        stack.extend(getattr(current, "effective_children", ()))
+    return True
+
+@dataclass(frozen=True, slots=True)
+class _AcceptedGroup:
+    # The last actually applied native Y remains unchanged on deferred work.
+    native_y: float
+    viewport_height: float
+    tokens: tuple[tuple[str, int], ...]
+    epoch: int
+
+class GridViewportWorkset:
+    """Keeps only widget identities; no handles or CSS geometry are retained."""
+
+    def __init__(self) -> None:
+        self._accepted: dict[str, _AcceptedGroup] = {}
+        self._backend: object = None
+
+    @staticmethod
+    def _groups(root_ids, batch, widgets):
+        roots = set(root_ids)
+        groups = {}
+        current = None
+        for placement in batch:
+            if placement.node_id in roots:
+                current = placement.node_id
+                if current in groups:
+                    return {}
+                groups[current] = []
+            if current is None or placement.node_id not in widgets:
+                return {}
+            groups[current].append(placement)
+        return groups if set(groups) == roots else {}
+
+    def plan(self, *, root_ids, batch, widgets, viewport_height,
+             epoch, backend, safe_ids):
+        if (not isinstance(viewport_height, (int, float))
+                or not isfinite(viewport_height) or viewport_height <= 0):
+            return frozenset()
+        if self._backend is not None and self._backend != backend:
+            self._accepted.clear()
+        groups = self._groups(root_ids, batch, widgets)
+        skipped = set()
+        for root_id, descendants in groups.items():
+            prior = self._accepted.get(root_id)
+            anchor = descendants[0]
+            tokens = tuple((p.node_id, id(widgets[p.node_id])) for p in descendants)
+            geometry_safe = all(
+                isfinite(p.y) and p.y >= 0 and isfinite(p.height)
+                for p in descendants
+            )
+            if (root_id in safe_ids and geometry_safe and prior is not None
+                    and prior.epoch == epoch and prior.tokens == tokens
+                    and prior.native_y >= prior.viewport_height + _OVERSCAN
+                    and anchor.y >= viewport_height + _OVERSCAN):
+                skipped.update(p.node_id for p in descendants)
+        return frozenset(skipped)
+
+    def accept(self, *, root_ids, batch, widgets, viewport_height,
+               epoch, backend, skipped):
+        groups = self._groups(root_ids, batch, widgets)
+        if not groups:
+            self._accepted.clear()
+            return
+        accepted = {}
+        for root_id, descendants in groups.items():
+            tokens = tuple((p.node_id, id(widgets[p.node_id])) for p in descendants)
+            if root_id in skipped:
+                prior = self._accepted.get(root_id)
+                if prior is None or prior.epoch != epoch or prior.tokens != tokens:
+                    raise RuntimeError("Cannot accept unproven deferred Grid geometry.")
+                accepted[root_id] = prior
+            else:
+                accepted[root_id] = _AcceptedGroup(
+                    float(descendants[0].y), float(viewport_height), tokens, epoch,
+                )
+        self._accepted = accepted
+        self._backend = backend

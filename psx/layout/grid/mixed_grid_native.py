@@ -201,9 +201,12 @@ class MountedMixedGrid:
             visit(node)
         return visited.values()
 
-    def snapshot(self):
+    def snapshot(self, *, only_widget_ids=None):
+        """Capture only widgets that the pending transaction may mutate."""
         result = []
         for widget in self._descendants():
+            if only_widget_ids is not None and id(widget) not in only_widget_ids:
+                continue
             if self.backend is GridCommitBackend.QT:
                 r = widget.geometry()
                 state = (r.x(), r.y(), r.width(), r.height())

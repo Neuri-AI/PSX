@@ -15,7 +15,12 @@ from psx.core.vnode import NodeKind
 
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 from psx.layout.grid.contracts import GridPackingError
-from psx.layout.adapters.grid_native_commit import GridCommitBackend, commit_grid_native_geometry
+from psx.layout.adapters.grid_native_commit import (
+    GridCommitBackend, GridNativeCommitReceipt, commit_grid_native_geometry,
+)
+from psx.layout.adapters.grid_viewport_workset import (
+    GridViewportWorkset, subtree_is_safe_for_root_culling,
+)
 from psx.layout.grid.grid_native_measurement import measure_grid_native
 from psx.layout.grid.grid_native_plan import GridNativePlacement
 from psx.layout.projection.native_layout_snapshot import path_identity
@@ -234,12 +239,39 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 DiagnosticCode.INVALID_SNAPSHOT,
                 "Stale semantic invalidation during Grid intrinsic measurement.",
             )
-        # One transaction must cover the root AND every nested native child.
-        # A semantic invalidation after successful child readback still needs
-        # to restore the already-written children.
+        # Only groups proven offscreen at the previous *accepted* native
+        # commit and still outside the clipped root viewport can be deferred.
+        # Overlapping/positioned/native/scroll descendants fail closed.
+        root_ids = tuple(item.node_id for item in prepared.placements)
+        workset = getattr(renderer, "_psx_grid_viewport_workset", None)
+        if workset is None:
+            workset = GridViewportWorkset()
+            renderer._psx_grid_viewport_workset = workset
+        item_nodes = {
+            path_identity(item.path): item for item in grid.effective_children
+        }
+        safe_ids = frozenset(
+            node_id for node_id, item in item_nodes.items()
+            if subtree_is_safe_for_root_culling(item)
+        )
+        deferred_ids = workset.plan(
+            root_ids=root_ids, batch=batch, widgets=commit_widgets,
+            viewport_height=float(height), epoch=invalidation_epoch,
+            backend=backend, safe_ids=safe_ids,
+        )
+        active_batch = tuple(
+            item for item in batch if item.node_id not in deferred_ids
+        )
+        active_widgets = {
+            node_id: widget for node_id, widget in commit_widgets.items()
+            if node_id not in deferred_ids
+        }
+        # No native getter, setter or rollback write for deferred widgets.
         from psx.layout.grid.mixed_grid_native import MountedMixedGrid
         rollback_scope = MountedMixedGrid(renderer, normalized, handles, backend, generation)
-        previous_descendants = rollback_scope.snapshot()
+        previous_descendants = rollback_scope.snapshot(
+            only_widget_ids={id(widget) for widget in active_widgets.values()}
+        )
         from psx.layout.runtime.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
         scroll_before = capture_scroll_hosts(backend.value, handles)
         # Capture root geometry before ANY native write. Child transaction
@@ -284,13 +316,14 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 if previous_root[1] != (width, height):
                     root_widget.size = (width, height)
             receipt = commit_grid_native_geometry(
-                tuple(batch), backend=backend, widgets=commit_widgets, generation=generation,
+                active_batch, backend=backend, widgets=active_widgets, generation=generation,
                 current_generation=lambda: (renderer._sfle_generation
                     if renderer._sfle_measurement_invalidations.epoch == invalidation_epoch
                     else -1),
                 is_ui_thread=source.is_ui_thread,
                 parent_height=float(height) if backend is GridCommitBackend.KIVY else None,
-                parent_heights=kivy_heights,
+                parent_heights=({key: kivy_heights[key] for key in active_widgets}
+                                if kivy_heights is not None else None),
                 # Kivy canvas and widget positions are in the same window
                 # space. A nested GridItem cannot use parent-local coordinates
                 # or its descendants shift as the viewport height changes.
@@ -298,6 +331,12 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             )
             if nested_content:
                 rollback_scope._bind_nested_scrolls(composed, scroll_before)
+            if deferred_ids:
+                receipt = GridNativeCommitReceipt(
+                    generation, tuple(p.node_id for p in batch),
+                    receipt.max_readback_error,
+                    tuple(p.node_id for p in batch if p.node_id in deferred_ids),
+                )
             if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Grid invalidated after native readback.")
@@ -316,6 +355,14 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             elif backend is GridCommitBackend.KIVY:
                 root_widget.pos, root_widget.size = previous_root
             raise
+        if (renderer._sfle_generation != generation
+                or renderer._sfle_measurement_invalidations.epoch != invalidation_epoch):
+            raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before viewport acceptance.")
+        workset.accept(
+            root_ids=root_ids, batch=batch, widgets=commit_widgets,
+            viewport_height=float(height), epoch=invalidation_epoch,
+            backend=backend, skipped=deferred_ids,
+        )
         renderer.grid_result = (prepared, receipt)
         reuse_transaction.accept(invalidation_epoch)
         flow_reuse.solved.accept(generation, invalidation_epoch)
