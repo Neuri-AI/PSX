@@ -90,7 +90,9 @@ def test_entry_css_background_padding_and_single_rounded_border(tk_root):
     style = ttk.Style(entry)
     assert style.lookup(name, "fieldbackground") == "#f0f0f0"
     assert tuple(int(v) for v in style.lookup(name, "padding")) == (8, 8, 8, 8)
-    assert style.layout(name)[0][1]["border"] == 0
+    field_name, field_options = style.layout(name)[0]
+    assert field_name.endswith("Entry.field") or field_name.startswith("PsxCssEntryField")
+    assert field_options.get("border", 0) == 0
     assert len(entry._psx_css_input_corners) == 4
     assert len(entry._psx_css_border_edges) == 4
     assert entry.var.get() == ""
