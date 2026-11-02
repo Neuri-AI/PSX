@@ -78,7 +78,8 @@ def apply_tk_input(widget, props, binding=None):
             ),
         )
         if not hasattr(widget, "_psx_sync_hint"):
-            widget._psx_input_foreground = str(widget.cget("foreground"))
+            widget._psx_input_native_foreground = str(widget.cget("foreground"))
+            widget._psx_input_foreground = widget._psx_input_native_foreground
             widget._psx_hint_active = False
 
             def sync_hint(*_args):
