@@ -331,7 +331,8 @@ def main():
     print(json.dumps([
         exercise(engine, adapter, args.cards, args.cycles, args.warmup, widths,
                  styled=args.styled, scenario=args.scenario,
-                 rebuild_snapshots=args.rebuild_snapshots)
+                 rebuild_snapshots=args.rebuild_snapshots,
+                 disable_solved_reuse=args.disable_solved_reuse)
         for engine in engines for adapter in adapters
     ], indent=2))
 
