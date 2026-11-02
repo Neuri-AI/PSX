@@ -12,6 +12,9 @@ from dataclasses import dataclass
 from math import isfinite
 
 from psx.core.vnode import NodeKind
+from psx.layout.adapters.viewport_resize_priority import (
+    ViewportPriority, classify_viewport_priority,
+)
 
 _OVERSCAN = 96.0
 _UNSAFE_COMPONENTS = frozenset((
@@ -122,7 +125,7 @@ class GridViewportWorkset:
         return groups if set(groups) == roots else {}
 
     def plan(self, *, root_ids, batch, widgets, viewport_height,
-             epoch, backend, safe_ids, viewport_top=0.0, contexts=None):
+             epoch, backend, safe_ids, viewport_top=0.0, contexts=None, reconcile=None):
         if (not isinstance(viewport_height, (int, float))
                 or not isfinite(viewport_height) or viewport_height <= 0
                 or not isinstance(viewport_top, (int, float))
@@ -149,24 +152,25 @@ class GridViewportWorkset:
                 anchor.y + sum(p.y for p in descendants[1:])
                 + max((p.height for p in descendants), default=0.0)
             )
-            if (root_id in safe_ids and geometry_safe and prior is not None
-                    and prior.epoch == epoch and prior.tokens == tokens
-                    and prior.context == (
-                        contexts.get(root_id) if contexts is not None else None
-                    )
-                    # Test both the last *actually committed* geometry and
-                    # Cinnamon's current target against the CURRENT scroll
-                    # viewport. A formerly hidden item entering by scroll
-                    # becomes active before native readback acceptance.
-                    and (
-                        # Fully below viewport, both before and after.
-                        (prior.native_y >= viewport_top + viewport_height + _OVERSCAN
-                         and anchor.y >= viewport_top + viewport_height + _OVERSCAN)
-                        or
-                        # Fully above viewport, including all descendants.
-                        (prior.native_bottom_bound <= viewport_top - _OVERSCAN
-                         and current_bottom_bound <= viewport_top - _OVERSCAN)
-                    )):
+            certified = (
+                prior is not None and prior.epoch == epoch
+                and prior.tokens == tokens
+                and prior.context == (
+                    contexts.get(root_id) if contexts is not None else None
+                )
+            )
+            priority = classify_viewport_priority(
+                certified=certified, safe=root_id in safe_ids and geometry_safe,
+                old_top=prior.native_y if prior is not None else anchor.y,
+                old_bottom=(prior.native_bottom_bound if prior is not None
+                            else current_bottom_bound),
+                new_top=anchor.y, new_bottom=current_bottom_bound,
+                viewport_top=float(viewport_top),
+                viewport_height=float(viewport_height), overscan=_OVERSCAN,
+            )
+            if priority is ViewportPriority.DEFERRED:
+                if reconcile is not None and reconcile.promote(self, root_id):
+                    continue
                 skipped.update(p.node_id for p in descendants)
         return frozenset(skipped)
 
