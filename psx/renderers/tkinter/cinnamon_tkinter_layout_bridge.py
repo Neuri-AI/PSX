@@ -100,6 +100,9 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         mixed_grid = MountedMixedGrid(
             renderer, normalized, handles, GridCommitBackend.TK, generation,
         )
+        # Index VNodes once per transaction: reconstructing this dict
+        # inside the native text loop was O(N^2) for large HTML flows.
+        identity_by_id = dict(prepared.identities)
         widgets = {node_id: handles[id(node)].widget for node_id, node in prepared.identities}
         external = {
             node_id: port
@@ -343,7 +346,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             snapshot, prepared.identities, result,
             tk_inline_measure({node_id: leaf_widgets[node_id]
                                for node_id in leaf_widgets if node_id in widgets
-                               and dict(prepared.identities)[node_id].type == "Text"}),
+                               and identity_by_id[node_id].type == "Text"}),
             _resolve_semantic_inline,
             engine=renderer._sfle_engine,
         )
@@ -396,7 +399,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 pass
         # Semantic Block roots can be content-height while the Tk window
         # remains viewport-sized. Keep the strict check for Flex roots.
-        semantic_root = dict(prepared.identities)[root_id].type in FORMATTING_TAGS
+        semantic_root = identity_by_id[root_id].type in FORMATTING_TAGS
         if not semantic_root and (
             root_target[2] < 0 or root_target[3] < 0
         ):
@@ -548,7 +551,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             renderer, "tk",
             {node_id: leaf_widgets[node_id]
              for node_id in leaf_widgets
-             if dict(prepared.identities)[node_id].type == "Text"},
+             if identity_by_id[node_id].type == "Text"},
             semantic_inline_paint, rectangles,
         )
         renderer._sfle_physical_commit_error = physical_error_maximum
