@@ -129,3 +129,28 @@ def test_no_deferred_native_groups_means_no_settlement_commit():
     callbacks = []
     schedule_resize_settlement(renderer, (900, 600), lambda ms, cb: callbacks.append(cb))
     assert not callbacks
+
+
+def test_pending_settlement_must_not_commit_a_replaced_mounted_root():
+    from types import SimpleNamespace
+    from psx.layout.adapters.viewport_resize_priority import schedule_resize_settlement
+
+    class Renderer:
+        def __init__(self):
+            self._sfle_mounted_root = SimpleNamespace(disposed=False)
+            self._psx_native_flow_deferred_ids = frozenset({"deferred"})
+            self._sfle_in_commit = False
+            self.calls = 0
+
+        def commit_layout(self, root):
+            self.calls += 1
+
+    renderer = Renderer()
+    scheduled = []
+    schedule_resize_settlement(
+        renderer, (700, 500), lambda _ms, callback: scheduled.append(callback),
+    )
+    renderer._sfle_mounted_root = SimpleNamespace(disposed=False)
+    scheduled.pop()()
+    assert renderer.calls == 0
+    assert not renderer._psx_resize_priority.settling
