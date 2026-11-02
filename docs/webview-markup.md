@@ -41,3 +41,16 @@ returned by `get_resource`), in addition to existing `https://`, `http://`,
 
 Loading local subresources or allowing local scripts to access external
 resources remains subject to the platform QtWebView engine's security rules.
+
+### Platform-native local HTML behavior
+
+For a local `.html` or `.htm` `src`, the QtWebView adapter reads the
+UTF-8 document and calls `QWebView.loadHtml(content, file_url)`. This is
+distinct from HTTP(S) `src`, which continues to use `setUrl`. The local
+file URL is supplied as the base URL for relative stylesheets, images and
+other references. Other local file types still use `setUrl`.
+
+The browser platform controls whether individual local subresources are
+accessible, and this does not constitute permission to load arbitrary local
+URLs from untrusted HTML. Switching code during a running development session
+may require a full application restart before evaluating a changed `src`.
