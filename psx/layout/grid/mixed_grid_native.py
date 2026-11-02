@@ -38,6 +38,8 @@ class MountedMixedGrid:
         # perform root-window culling below a native Scroll owner.
         self._viewport_allowed = {}
         self._viewport_heights = {}
+        self._viewport_tops = {}
+        self._scroll_ancestors = {}
         self._viewport_batches = ()
         # Reuse an immutable composition for repeated width requests within
         # one layout transaction. A new MountedMixedGrid is built per commit.
@@ -66,25 +68,29 @@ class MountedMixedGrid:
         self._flow_reuse = flow_reuse
         flow_reuse.solved.begin(generation, self._intrinsic_epoch)
 
-        def visit(node, clip_safe=True):
-            # Ancestor transforms/positioning can escape the root clip even
-            # if a GridItem's own local rectangle is far offscreen.
+        def visit(node, clip_safe=True, scroll_ancestor=None):
+            # Transforms/fixed positioning can escape a native Scroll clip.
+            # A genuine Scroll is itself a valid clipping owner; its live
+            # offset must be included in every workset decision.
             source = getattr(node, "source", None)
             props = getattr(source, "props", {}) or {}
             style = props.get("style")
             suspicious = ("transform", "filter", "position", "sticky",
                           "fixed", "translate", "perspective", "clip-path")
-            unsafe = (node.kind is NodeKind.NATIVE or node.type == "Scroll"
+            unsafe = (node.kind is NodeKind.NATIVE
                       or any(key in str(props).lower() for key in suspicious)
                       or any(key in str(style).lower() for key in suspicious))
             allowed = clip_safe and not unsafe
+            if node.kind is NodeKind.HOST and node.type == "Scroll":
+                scroll_ancestor = node
             if node.kind is NodeKind.HOST and node.type == "Grid":
                 identifier = path_identity(node.path)
                 self.grids[identifier] = node
                 self._viewport_allowed[identifier] = allowed
+                self._scroll_ancestors[identifier] = scroll_ancestor
                 return
             for child in node.effective_children:
-                visit(child, allowed)
+                visit(child, allowed, scroll_ancestor)
 
         for root in normalized._participating_roots():
             visit(root)
@@ -205,11 +211,38 @@ class MountedMixedGrid:
             # Convert root-window viewport bottom into Grid-local Y, not
             # the Grid content height. A Grid may extend thousands of px
             # below its visible window without being a Scroll host.
-            viewport_height = self.renderer._sfle_constraints.height.value
-            self._viewport_heights[node_id] = (
-                float(viewport_height) - box.y
-                if viewport_height is not None else 0.0
-            )
+            scroll_ancestor = self._scroll_ancestors.get(node_id)
+            if scroll_ancestor is None:
+                viewport_height = self.renderer._sfle_constraints.height.value
+                self._viewport_tops[node_id] = 0.0
+                self._viewport_heights[node_id] = (
+                    float(viewport_height) - box.y
+                    if viewport_height is not None else 0.0
+                )
+            else:
+                scroll_id = path_identity(scroll_ancestor.path)
+                scroll_host = self.handles[id(scroll_ancestor.source)].widget
+                if not getattr(scroll_host, "_psx_sfle_scroll", False):
+                    self._viewport_allowed[node_id] = False
+                scroll_rect = boxes[scroll_id].border
+                if self.backend is GridCommitBackend.QT:
+                    scroll_y = float(scroll_host.verticalScrollBar().value())
+                elif self.backend is GridCommitBackend.TK:
+                    scroll_y = float(scroll_host._psx_canvas.canvasy(0))
+                else:
+                    overflow = getattr(scroll_host, "_psx_scroll_previous_overflow", None)
+                    if overflow is None:
+                        overflow_y = max(
+                            0.0, float(scroll_host._psx_content.height)
+                                 - float(scroll_host.height)
+                        )
+                    else:
+                        overflow_y = float(overflow[1])
+                    scroll_y = (1.0 - float(scroll_host.scroll_y)) * overflow_y
+                self._viewport_tops[node_id] = (
+                    scroll_rect.y - box.y + scroll_y
+                )
+                self._viewport_heights[node_id] = scroll_rect.height
             composition = self.compose(node_id, box.width)
             batch, widgets, heights = compose_geometry_batch(
                 composition,
@@ -253,6 +286,7 @@ class MountedMixedGrid:
                     root_ids=roots, batch=batch, widgets=widgets,
                     viewport_height=self._viewport_heights.get(node_id, 0.0),
                     epoch=epoch, backend=self.backend, safe_ids=safe_ids,
+                    viewport_top=self._viewport_tops.get(node_id, 0.0),
                 )
             else:
                 cache.pop(node_id, None)
