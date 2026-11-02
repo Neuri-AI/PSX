@@ -15,6 +15,7 @@ from threading import get_ident
 from psx.core.grid_contract import GRID_BREAKPOINTS, normalize_grid_props, normalize_grid_item_props, resolve_grid_item_props
 from psx.core.layout_tree import NormalizedLayoutNode
 from psx.core.vnode import NodeKind
+from psx.markup.html_aliases import FORMATTING_TAGS
 
 from psx.layout.grid.contracts import GridSlot, GridPackingError
 from psx.layout.grid.solver import grid_widths
@@ -81,7 +82,8 @@ def measure_grid_native(
             raise GridPackingError("GridItem native measurement requires one mounted leaf.")
         if effective[0].effective_children and not (
             allow_nested and effective[0].kind is NodeKind.HOST
-            and effective[0].type in ("Grid", "Flex", "Scroll", "div", "main", "section", "article", "header", "footer", "h1", "h2", "h3", "h4", "h5", "h6", "p")
+            and (effective[0].type in ("Grid", "Flex", "Scroll")
+                 or effective[0].type in FORMATTING_TAGS)
         ):
             raise GridPackingError("Composite GridItem measurement is not yet supported.")
         identifier = path_identity(child.path)
