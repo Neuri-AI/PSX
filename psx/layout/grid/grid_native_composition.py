@@ -239,7 +239,7 @@ def prepare_composed_flow(flow, *, width, generation, measure_leaf, engine,
         # the regular complete measurement pipeline.
         cached = flow_reuse.solved.lookup(
             flow, width, generation, invalidation_epoch,
-            pixel_scale=pixel_scale,
+            pixel_scale=pixel_scale, prepared=prepared,
         )
         if cached is not None:
             return cached
