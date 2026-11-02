@@ -281,7 +281,7 @@ offscreen native rectangles. The recorded p95 values were:
 | Qt | 724.29 ms | 664.47 ms | 2,760 | -8.3% |
 | Tkinter | 952.47 ms | 669.86 ms | 2,784 | -29.7% |
 
-Source: [Grid resize performance — Cinnamon CPU profile](https://github.com/Neuri-AI/PSX/actions/runs/41499737794/job/125463821915).
+Source: [Grid resize performance — Cinnamon CPU profile](https://github.com/Neuri-AI/PSX/actions/runs/41499738207/job/125463821915).
 
 These are measured **event-to-completed-layout** p95 values, not render
 FPS, and they are not directly comparable to macOS measurements or other
