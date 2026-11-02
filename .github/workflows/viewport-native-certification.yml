@@ -13,6 +13,11 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  # The same feature branch may receive multiple incremental fixes while
+  # platform runners are busy. Certify only the newest commit.
+  group: cinnamon-viewport-native-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   viewport-policy:
     name: Pure viewport workset, CSS safety and scroll reentry

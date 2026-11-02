@@ -168,3 +168,35 @@ Mac resize p95/FPS must be evaluated separately; headless widget-port tests
 cannot certify presented frames. Before/after comparisons should include
 unchanged mount counts, active/deferred native receipt counts and scroll
 reentry/scrollbar extent integrity, not merely cache-hit ratios.
+
+## Ordinary HTML and Flex card lists
+
+A separate `native_flow_viewport` workset detects the largest repeated
+sibling tier in the already resolved Cinnamon tree (at least 12 siblings)
+and groups each card with its nested native descendants. After an accepted
+first commit, the same conservative viewport guard can omit native
+placement, pre-commit geometry reads, rollback snapshots, and readbacks for
+entire known-offscreen card subtrees. These worksets are automatic and do
+not require a new public CSS tag or the developer to manually annotate
+virtual lists. `renderer._psx_native_flow_deferred_ids` exposes a
+diagnostic-only count of the IDs deferred in the latest accepted native
+geometry commit. These are never counted as newly verified rectangles.
+
+Native Scroll owners retain their independent scrolling contract; the
+workset compares solved absolute card coordinates against the actual
+viewport and current native scrollbar offset. Each backend connects the
+native scroll event to a coalesced layout transaction so cards entering
+the viewport regain freshly committed geometry. Explicit CSS
+positioning/transformations, unknown paint overflow, native widgets,
+nested scroll owners, and uncertain subtree bounds are not culled.
+
+These optimizations leave Rust Cinnamon's full fixed-point structural
+geometry, width dependencies, scroll extents and semantic invalidation
+authority intact. They do **not** claim complete offscreen Rust computation
+elimination, FPS certification or safe occlusion culling for arbitrary
+overlapping transformed elements. Tests cover 500-card pure worksets,
+30-card native backend ports, 48-card real native HTML/ Grid flows,
+and deterministic Scroll reentry. The dedicated
+`.github/workflows/viewport-native-certification.yml` provides
+per-backend Qt, Kivy and Tk CI checks. Mac latency p95 must still be
+remeasured on a real display session to claim the 16.67ms target.
