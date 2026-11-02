@@ -44,6 +44,7 @@ class NativeGeometryCommitter:
         skip_unchanged: bool = False,
         prior_tk_placements: Mapping[str, Mapping[str, object]] | None = None,
         prior_qt_rectangles: Mapping[str, tuple[int, int, int, int]] | None = None,
+        prior_kivy_rectangles: Mapping[str, tuple[tuple[float, float], tuple[float, float]]] | None = None,
     ) -> None:
         if not isinstance(backend, GeometryBackend):
             raise TypeError("Expected GeometryBackend.")
@@ -66,6 +67,15 @@ class NativeGeometryCommitter:
         self._prior_qt_rectangles = (
             dict(prior_qt_rectangles)
             if prior_qt_rectangles is not None else None
+        )
+        if prior_kivy_rectangles is not None and backend is not GeometryBackend.KIVY:
+            raise TypeError("Pre-captured Kivy geometry requires the Kivy backend.")
+        # The outer bridge already saved all native widget geometry to
+        # support rollback. Reuse that exact UI-thread baseline to skip
+        # unchanged axes instead of reading Kivy properties twice per node.
+        self._prior_kivy_rectangles = (
+            dict(prior_kivy_rectangles)
+            if prior_kivy_rectangles is not None else None
         )
         self._parents = {node.node_id: node.parent_id for node in nodes}
         if len(self._parents) != len(nodes):
@@ -213,8 +223,15 @@ class NativeGeometryCommitter:
                     if info and all(key in info and round(float(info[key])) == value
                                     for key, value in expected.items()):
                         continue
-                elif tuple(widget.pos) == (x, y) and tuple(widget.size) == (width, height):
-                    continue
+                else:
+                    prior = (
+                        self._prior_kivy_rectangles.get(node_id)
+                        if self._prior_kivy_rectangles is not None else None
+                    )
+                    if prior is None:
+                        prior = (tuple(widget.pos), tuple(widget.size))
+                    if prior == ((x, y), (width, height)):
+                        continue
             if port is not None:
                 port.apply(widget, Rect(x, y, width, height))
             elif self._backend == GeometryBackend.QT:
