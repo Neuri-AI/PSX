@@ -772,6 +772,12 @@ class KivyRenderer:
         self._sfle_invalidation_scheduled = False
         self._sfle_measurement_invalidations.cancel()
         self._sfle_native_intrinsic_cache.clear()
+        # All deferred viewport receipts are bound to the disposed native
+        # mount. Never compare reused Python object IDs against a new tree.
+        self._psx_grid_viewport_workset = None
+        self._psx_mixed_grid_viewport_cache = {}
+        self._psx_native_flow_viewport_workset = None
+        self._psx_native_flow_deferred_ids = frozenset()
         for cache_name in (
             "_psx_grid_intrinsic_reuse", "_psx_grid_flow_blueprints",
             "_sfle_structural_snapshot_reuse",
