@@ -1065,6 +1065,12 @@ class TkinterRenderer:
         their background must track the effective parent paint on every such
         change, without remounting any native widget.
         """
+        input_corners = getattr(widget, "_psx_css_input_corners", ())
+        if input_corners:
+            surrounding = self._css_corner_parent_surface(widget)
+            for corner in input_corners:
+                if str(corner.cget("background")) != surrounding:
+                    corner.configure(background=surrounding)
         fill_corners = getattr(widget, "_psx_css_background_corners", ())
         stroke_corners = getattr(widget, "_psx_css_border_corners", ())
         button_canvas = getattr(widget, "_psx_css_button_surface", None)
@@ -1521,8 +1527,10 @@ class TkinterRenderer:
                     edge.configure(background=color, cursor=str(widget.cget("cursor")))
                     edge.place(**place)
                     edge.lift()
-                if not r or (target.node_type in FORMATTING_TAGS
-                             and background_hex(computed) is not None):
+                if not r or (
+                    target.node_type in (*FORMATTING_TAGS, "Input")
+                    and background_hex(computed) is not None
+                ):
                     # Formatting hosts paint the rounded stroke together
                     # with their fill. A second opaque Canvas would replace
                     # the real parent color around the clipped corner.
@@ -1619,6 +1627,8 @@ class TkinterRenderer:
                 for side in tuple(side_edges):
                     if side not in active_sides:
                         side_edges.pop(side).destroy()
+        if target.node_type == "Input":
+            self._paint_css_ttk_input(target.widget, computed)
         if target.node_type == "Badge":
             from psx.css.native_paint import foreground_hex
             widget = target.widget
@@ -1994,7 +2004,8 @@ class TkinterRenderer:
                         if target.node_type == "Select" and hasattr(widget, "_psx_css_native_original_combobox_style"):
                             widget.configure(style=widget._psx_css_native_original_combobox_style)
                         if target.node_type == "Input":
-                            widget.configure(foreground=widget._psx_css_native_original_foreground)
+                            widget._psx_input_foreground = widget._psx_css_native_original_foreground
+                            widget._psx_sync_hint()
                     if self._sfle_constraints is not None and hasattr(widget, "_psx_css_font_revision"):
                         cleared = tuple((key, None) for key in ("font-family", "font-size", "font-weight", "line-height"))
                         if widget._psx_css_font_revision != cleared:
@@ -2008,7 +2019,8 @@ class TkinterRenderer:
                 if target.node_type == "Select":
                     widget._psx_css_native_original_combobox_style = str(widget.cget("style"))
                 widget._psx_css_native_original_foreground = (
-                    str(widget.cget("foreground")) if target.node_type == "Input" else None
+                    getattr(widget, "_psx_input_native_foreground", str(widget.cget("foreground")))
+                    if target.node_type == "Input" else None
                 )
                 widget._psx_css_native_original_style = (
                     str(widget.cget("style")) if target.node_type not in ("Input", "Select") else None
@@ -2060,6 +2072,11 @@ class TkinterRenderer:
                         theme = ttk.Style(widget)
                         theme.configure(name, foreground=styles["color"])
                         widget.configure(style=name)
+                if target.node_type == "Input":
+                    widget._psx_input_foreground = styles.get(
+                        "color", widget._psx_css_native_original_foreground
+                    )
+                    widget._psx_sync_hint()
                 if "text-align" in styles:
                     widget.configure(justify=styles["text-align"])
                 else:
