@@ -1185,24 +1185,18 @@ class QtRenderer:
             declarations.extend(native_side_border_styles(computed))
             if radius:
                 declarations.append(f"border-radius: {radius:g}px;")
-            if target.node_type == "Button" and computed is not None:
-                from psx.layout.contracts.lengths import LengthKind
-                # Qt owns the button's internal text insets. Reuse the
-                # validated CSS box sides rather than merely resizing its box.
-                if "padding" in computed.specified or any(
-                    f"padding-{side}" in computed.specified
-                    for side in ("top", "right", "bottom", "left")
-                ):
-                    values = []
-                    for side in ("top", "right", "bottom", "left"):
-                        length = computed.properties[f"padding-{side}"]
-                        if length.kind is not LengthKind.PX:
-                            raise ValueError("Qt Button padding requires pixel lengths.")
-                        values.append(length.value)
+            if target.node_type in ("Button", "Input", "TextArea"):
+                from psx.css.native_paint import native_control_padding
+                padding = native_control_padding(computed)
+                if padding is not None:
+                    left, top, right, bottom = padding
                     declarations.append(
-                        "padding: " + " ".join(f"{value:g}px" for value in values) + ";"
+                        "padding: " + " ".join(
+                            f"{value:g}px" for value in (top, right, bottom, left)
+                        ) + ";"
                     )
-                if "border-width" in computed.specified and border is None:
+                if (computed is not None and "border-width" in computed.specified
+                        and border is None):
                     declarations.append("border: none;")
             baseline = widget._psx_css_base_stylesheet
             authored = " ".join(declarations)
