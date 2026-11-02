@@ -598,6 +598,11 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         if mixed_receipts:
             renderer.grid_result = mixed_receipts[-1]
         native_round.publish()
+        # Match Qt/Tk: accept native Grid intrinsic hints only after the
+        # entire Cinnamon geometry transaction and readback have succeeded.
+        # Without this, Kivy discarded every pending text measurement on
+        # each resize, forcing expensive texture_update() on every GridItem.
+        mixed_grid.accept_intrinsic()
         # Preserve only the most recent successful immutable snapshot.
         # Width-dependent provisional computations have separate iterative
         # measurements and cannot reuse this initial snapshot as a receipt.
