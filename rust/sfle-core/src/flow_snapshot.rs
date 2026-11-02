@@ -803,3 +803,65 @@ fn compute_impl(
         geometry_commit_error: None,
     })
 }
+
+#[cfg(test)]
+mod viewport_priority_reuse_tests {
+    use crate::compute::{
+        compute, compute_incremental_with_reuse, LayoutInput,
+    };
+    use serde_json::json;
+
+    fn scene(viewport_width: f64, viewport_height: f64, generation: u64) -> LayoutInput {
+        let mut nodes=vec![json!({
+            "node_id":"root","parent_id":null,"component":"div",
+            "style":{"display":"block"}
+        })];
+        for index in 0..32 {
+            nodes.push(json!({
+                "node_id":format!("card_{index}"),
+                "parent_id":"root",
+                "component":"Flex",
+                "style":{"display":"flex","layout_width":"120px",
+                         "layout_height":"30px"},
+            }));
+        }
+        serde_json::from_value(json!({
+            "schema_version":1,"generation":generation,"direction":"ltr",
+            "constraints":{
+                "width":{"value":viewport_width,"definite":true},
+                "height":{"value":viewport_height,"definite":true}
+            },
+            "nodes":nodes,"measurements":[]
+        })).unwrap()
+    }
+
+    #[test]
+    fn static_offscreen_flex_cards_skip_solver_but_keep_full_geometry() {
+        let old=scene(320.0,180.0,1);
+        let previous=compute(&old).unwrap();
+        let current=scene(440.0,180.0,2);
+        let mut reused=Vec::new();
+        let incremental=compute_incremental_with_reuse(
+            &current,&old,&previous,&mut reused,
+        ).unwrap();
+        let complete=compute(&current).unwrap();
+        assert_eq!(incremental.boxes,complete.boxes);
+        assert!(reused.iter().any(|id|id=="card_28"),"{reused:?}");
+        assert!(!reused.iter().any(|id|id=="card_0"));
+    }
+
+    #[test]
+    fn newly_visible_or_mutated_flex_cards_never_replay_stale_boxes() {
+        let old=scene(320.0,180.0,1);
+        let previous=compute(&old).unwrap();
+        let mut current=scene(440.0,900.0,2);
+        current.nodes[31].style.insert("layout_width".into(),json!("160px"));
+        let mut reused=Vec::new();
+        let incremental=compute_incremental_with_reuse(
+            &current,&old,&previous,&mut reused,
+        ).unwrap();
+        assert_eq!(incremental.boxes,compute(&current).unwrap().boxes);
+        assert!(!reused.iter().any(|id|id=="card_20"));
+        assert!(!reused.iter().any(|id|id=="card_30"));
+    }
+}
