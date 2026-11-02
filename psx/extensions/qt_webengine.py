@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import lru_cache
+from pathlib import Path
+from os import PathLike
 from typing import Any
 
 from psx.core.events import EventSlot
@@ -69,6 +71,31 @@ def _create_webview() -> object:
     return WebViewHost()
 
 
+def _source_url(value: object, QUrl: type[Any]) -> object:
+    """Convert absolute filesystem paths to file URLs, preserving web URLs.
+
+    Qt's QUrl('/path/to/file.html') is a relative URL reference, not a
+    local-file URL. Only local paths are converted; explicit schemes retain
+    Qt's normal URL parsing behavior.
+    """
+    if isinstance(value, QUrl):
+        return value
+    if isinstance(value, PathLike):
+        return QUrl.fromLocalFile(str(Path(value).expanduser().absolute()))
+
+    source = str(value)
+    # Existing URL schemes (including http(s), file, about, data) are passed
+    # through unmodified. Avoid treating their path portions as local files.
+    url = QUrl(source)
+    if not url.isRelative():
+        return url
+
+    path = Path(source).expanduser()
+    if path.is_absolute() or source.startswith("~/"):
+        return QUrl.fromLocalFile(str(path.absolute()))
+    return url
+
+
 def _update(widget: object, changed: dict[str, object], removed: frozenset[str]) -> None:
     _, _, QUrl, _, _ = _load_types()
     view = _native_view(widget)
@@ -78,7 +105,7 @@ def _update(widget: object, changed: dict[str, object], removed: frozenset[str])
         view.loadHtml(str(changed["html"]))  # type: ignore[attr-defined]
     if "src" in changed:
         value = changed["src"]
-        view.setUrl(value if isinstance(value, QUrl) else QUrl(str(value)))  # type: ignore[attr-defined]
+        view.setUrl(_source_url(value, QUrl))  # type: ignore[attr-defined]
 
 
 def _bind_event(widget: object, event: str, slot: EventSlot) -> Callable[[], None]:
