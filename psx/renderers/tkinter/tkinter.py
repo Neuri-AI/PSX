@@ -1245,6 +1245,7 @@ class TkinterRenderer:
             "border-left-width", "border-radius",
         ))
         if not painted:
+            widget._psx_css_measured_padding = (0, 0, 0, 0)
             if hasattr(widget, "_psx_css_input_original_style"):
                 widget.configure(style=widget._psx_css_input_original_style)
             for corner in old_corners:
@@ -1304,6 +1305,7 @@ class TkinterRenderer:
             config["padding"] = tuple(values)
         else:
             config["padding"] = (0, 0, 0, 0)
+        widget._psx_css_measured_padding = tuple(config["padding"])
         style.configure(name, **config)
         if color:
             style.map(name, fieldbackground=[
@@ -2007,6 +2009,8 @@ class TkinterRenderer:
                 repaint()
                 return
             if not styles and not button_paint:
+                if target.node_type == "Button":
+                    widget._psx_css_measured_padding = (0, 0, 0, 0)
                 if target.node_type == "Button" and isinstance(widget, ttk.Button):
                     self._paint_css_ttk_button(widget, None, {}, None)
                 if hasattr(widget, "_psx_css_native_font"):
@@ -2145,6 +2149,9 @@ class TkinterRenderer:
                                 raise ValueError("Tk native Button padding requires pixel lengths.")
                             dimensions.append(round(length.value))
                         l, t, r, b = dimensions
+                        widget._psx_css_measured_padding = (l, t, r, b)
+                    else:
+                        widget._psx_css_measured_padding = (0, 0, 0, 0)
                     config["padding"] = (
                         l, t + extra // 2, r, b + extra - extra // 2
                     )
