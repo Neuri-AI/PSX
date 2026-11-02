@@ -147,7 +147,8 @@ def commit_grid_native_geometry(
             if not info:
                 return Rect(0, 0, 0, 0)
             return Rect(*(float(info[k]) for k in ("x", "y", "width", "height")))
-        return Rect(float(widget.pos[0]), float(widget.pos[1]), float(widget.size[0]), float(widget.size[1]))
+        pos, size = widget.pos, widget.size
+        return Rect(float(pos[0]), float(pos[1]), float(size[0]), float(size[1]))
 
     def write(
         widget: object, rect: Rect, *, restore_unplaced: bool = False,
@@ -225,8 +226,6 @@ def commit_grid_native_geometry(
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before native mutation.")
     try:
         for node_id in ids:
-            if current_generation() != generation or not is_ui_thread():
-                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated during native commit.")
             before = originals[node_id]
             desired = target[node_id]
             # Qt and Tk project logical rectangles to integral native pixels.
@@ -261,6 +260,11 @@ def commit_grid_native_geometry(
                         except (ValueError, TypeError, OverflowError):
                             pass
                 continue
+            # An inert item cannot re-enter the UI event loop. Check the
+            # generation/thread before each actual native mutation, and
+            # once again after the entire batch, not for every cached hit.
+            if current_generation() != generation or not is_ui_thread():
+                raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated during native commit.")
             write(widgets[node_id], desired, prior_rect=before)
         if current_generation() != generation or not is_ui_thread():
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before readback.")

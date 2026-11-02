@@ -387,8 +387,12 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 rect = read_external(port, widget, node_id)
                 return dict(x=rect.x, y=rect.y, width=rect.width, height=rect.height)
             widget = handle.widget
-            return dict(x=float(widget.x), y=float(widget.y),
-                        width=float(widget.width), height=float(widget.height))
+            # Kivy's x/y aliases each traverse the same pos property, as
+            # width/height do size. Read both axes as one owner-thread
+            # snapshot instead of four separate property dispatches.
+            pos, size = widget.pos, widget.size
+            return dict(x=float(pos[0]), y=float(pos[1]),
+                        width=float(size[0]), height=float(size[1]))
 
         ports = SFLEAdapterPorts(
             current_generation=lambda: renderer._sfle_generation,

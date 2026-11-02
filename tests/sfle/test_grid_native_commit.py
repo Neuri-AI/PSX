@@ -663,9 +663,9 @@ def test_kivy_grid_prior_snapshot_preserves_readback_and_rollback():
     assert receipt.max_readback_error == 0
     assert widget._pos == (10, 75)
     assert widget._size == (40, 20)
-    # The captured rollback rectangle supplies the write-time comparison.
-    # Only 4 final live getters remain (2 x pos, 2 x size).
-    assert widget.reads == 4
+    # Rollback supplies the write comparison; final verification reads
+    # pos and size once each, not once per axis.
+    assert widget.reads == 2
     with pytest.raises(GridPackingError, match="Qt or Kivy"):
         commit_grid_native_geometry(
             (placement("child", 10, 5, 40, 20),),
