@@ -141,6 +141,7 @@ def schedule_resize_settlement(renderer, size, schedule_after) -> None:
         coordinator = ViewportResizeCoordinator()
         renderer._psx_resize_priority = coordinator
     generation = coordinator.resize(tuple(size))
+    mounted_root = getattr(renderer, "_sfle_mounted_root", None)
     if (not getattr(renderer, "_psx_native_flow_deferred_ids", frozenset())
             and not getattr(renderer, "_psx_native_grid_deferred_total", 0)):
         coordinator.active = False
@@ -150,7 +151,7 @@ def schedule_resize_settlement(renderer, size, schedule_after) -> None:
         if generation != coordinator.generation or not coordinator.settling:
             return
         root = getattr(renderer, "_sfle_mounted_root", None)
-        if root is None or getattr(root, "disposed", False):
+        if root is None or root is not mounted_root or getattr(root, "disposed", False):
             coordinator.cancel()
             return
         if getattr(renderer, "_sfle_in_commit", False):
