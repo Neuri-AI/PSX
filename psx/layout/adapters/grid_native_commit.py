@@ -150,8 +150,14 @@ def commit_grid_native_geometry(
             else:
                 widget.place(**{k: round(getattr(rect, k)) for k in ("x", "y", "width", "height")})
         else:
-            widget.pos = (rect.x, rect.y)
-            widget.size = (rect.width, rect.height)
+            # Kivy property writes dispatch canvas/geometry observers.
+            # A size-only resize should not re-notify position listeners.
+            desired_pos = (rect.x, rect.y)
+            desired_size = (rect.width, rect.height)
+            if tuple(widget.pos) != desired_pos:
+                widget.pos = desired_pos
+            if tuple(widget.size) != desired_size:
+                widget.size = desired_size
 
     # Capture all original native states before the first mutation.
     if backend is GridCommitBackend.TK:
