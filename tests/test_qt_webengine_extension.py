@@ -143,13 +143,13 @@ def test_webview_native_src_passes_local_file_url_to_qt(tmp_path, monkeypatch) -
     class RecordingWebView:
         def __init__(self) -> None:
             self.urls: list[QUrl] = []
-            self.html: list[str] = []
+            self.html: list[tuple[str, QUrl | None]] = []
 
         def setUrl(self, url: QUrl) -> None:
             self.urls.append(url)
 
-        def loadHtml(self, html: str) -> None:
-            self.html.append(html)
+        def loadHtml(self, html: str, base_url: QUrl | None = None) -> None:
+            self.html.append((html, base_url))
 
     local = tmp_path / "index.html"
     local.write_text("<html><body>Velto</body></html>", encoding="utf-8")
@@ -158,13 +158,26 @@ def test_webview_native_src_passes_local_file_url_to_qt(tmp_path, monkeypatch) -
     monkeypatch.setattr(qt_webengine, "_native_view", lambda widget: view)
 
     qt_webengine._update(host, {"src": str(local)}, frozenset())
-    assert len(view.urls) == 1
-    assert view.urls[0].isLocalFile()
-    assert view.urls[0].toLocalFile() == str(local)
+    assert view.urls == []
+    assert len(view.html) == 1
+    document, base_url = view.html[0]
+    assert "Velto" in document
+    assert base_url is not None and base_url.isLocalFile()
+    assert base_url.toLocalFile() == str(local)
 
     qt_webengine._update(host, {"src": "https://example.test/"}, frozenset())
     assert view.urls[-1].scheme() == "https"
     assert view.urls[-1].toString() == "https://example.test/"
 
     qt_webengine._update(host, {}, frozenset({"src"}))
-    assert view.html == [""]
+    assert view.html[-1] == ("", None)
+
+
+def test_webview_missing_local_html_is_explicit(tmp_path, monkeypatch) -> None:
+    import pytest
+    from psx.extensions import qt_webengine
+
+    monkeypatch.setattr(qt_webengine, "_native_view", lambda widget: object())
+    missing = tmp_path / "missing.html"
+    with pytest.raises(FileNotFoundError):
+        qt_webengine._update(object(), {"src": str(missing)}, frozenset())
