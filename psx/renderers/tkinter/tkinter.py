@@ -1099,12 +1099,34 @@ class TkinterRenderer:
                 corner.configure(background=paint)
 
     @staticmethod
+    def _sync_css_ttk_button_surface(widget: ttk.Button) -> None:
+        """Mirror Cinnamon's *complete* native button border box in its parent.
+
+        Aqua can clip child windows to the themed Button's padded content
+        region, so a Canvas parented to the Button loses its lower CSS padding.
+        The paint-only sibling follows the native control's actual rectangle
+        and never participates in Cinnamon measurement or placement.
+        """
+        canvas = getattr(widget, "_psx_css_button_surface", None)
+        if canvas is None or not canvas.winfo_exists():
+            return
+        if not widget.winfo_exists() or not widget.winfo_manager():
+            canvas.place_forget()
+            return
+        canvas.place(
+            x=widget.winfo_x(), y=widget.winfo_y(),
+            width=max(1, widget.winfo_width()),
+            height=max(1, widget.winfo_height()),
+        )
+        canvas.lift()
+
+    @staticmethod
     def _redraw_css_ttk_button(widget: ttk.Button) -> None:
         """Repaint the CSS-owned button surface, never a theme palette."""
         canvas = getattr(widget, "_psx_css_button_surface", None)
         if canvas is None or not canvas.winfo_exists():
             return
-        fill, ink, radius, label, align, font, left, right = widget._psx_css_button_paint_values
+        fill, ink, radius, label, align, font, left, right, sides = widget._psx_css_button_paint_values
         width, height = max(1, canvas.winfo_width()), max(1, canvas.winfo_height())
         # Share the same border-box rasterizer as rounded CSS divs.
         # Canvas oval primitives have inclusive edge pixels and can leave the
@@ -1114,7 +1136,7 @@ class TkinterRenderer:
         surrounding = str(canvas.cget("background"))
         draw_rounded_surface(
             canvas, width=width, height=height, radius=radius,
-            parent_color=surrounding, fill_color=fill, sides={},
+            parent_color=surrounding, fill_color=fill, sides=sides,
         )
         # Preserve the public paint tag used by existing renderer tests.
         canvas.addtag_withtag("psx-css-button-fill", "psx-css-surface-fill")
@@ -1136,7 +1158,7 @@ class TkinterRenderer:
         layout/measurement identity and native accessibility.  A placed Canvas
         is paint only and never participates in Cinnamon geometry.
         """
-        from psx.css.native_paint import background_hex, native_border_radius
+        from psx.css.native_paint import (background_hex, native_border_radius, native_border_paint, native_side_border_paint)
         from psx.layout.contracts.lengths import LengthKind
 
         painted = getattr(widget, "_psx_css_button_surface", None)
@@ -1175,12 +1197,43 @@ class TkinterRenderer:
             padding.append(round(value.value))
         parent_fill = self._css_corner_parent_surface(widget)
         fill = background if background is not None else parent_fill
+        sides = {}
+        stroke = native_border_paint(computed)
+        if stroke is not None:
+            n, color = stroke
+            sides = {side: (n, color) for side in ("top", "right", "bottom", "left")}
+        for side, n, rgba in native_side_border_paint(computed):
+            if rgba[3] != 1:
+                raise ValueError("Tk CSS button side borders require opaque colors.")
+            sides[side] = (n, "#%02x%02x%02x" % tuple(round(c * 255) for c in rgba[:3]))
+
 
         if painted is None:
-            painted = tk.Canvas(widget, borderwidth=0, highlightthickness=0,
+            painted = tk.Canvas(widget.master, borderwidth=0, highlightthickness=0,
                                 takefocus=0)
             widget._psx_css_button_surface = painted
             widget._psx_css_button_pressed = False
+
+            # The native control remains the event/focus/keyboard owner.
+            # Only the CSS pixels are painted by this parent-owned sibling.
+            def follow_geometry(_event=None):
+                self._sync_css_ttk_button_surface(widget)
+
+            def on_unmap(_event):
+                if painted.winfo_exists():
+                    painted.place_forget()
+
+            def on_map(_event):
+                follow_geometry()
+
+            def on_destroy(event):
+                if event.widget is widget and painted.winfo_exists():
+                    painted.destroy()
+
+            widget.bind("<Configure>", follow_geometry, add="+")
+            widget.bind("<Map>", on_map, add="+")
+            widget.bind("<Unmap>", on_unmap, add="+")
+            widget.bind("<Destroy>", on_destroy, add="+")
 
             def on_press(event):
                 if widget.instate(("disabled",)):
@@ -1210,18 +1263,10 @@ class TkinterRenderer:
         widget._psx_css_button_authored_background = background
         widget._psx_css_button_paint_values = (
             fill, str(foreground), int(radius), str(widget.cget("text")),
-            styles.get("text-align", "center"), font, *padding,
+            styles.get("text-align", "center"), font, *padding, sides,
         )
         painted.configure(background=parent_fill, cursor=str(widget.cget("cursor")))
-        painted.place(x=0, y=0, relwidth=1, relheight=1)
-        tk.Misc.tkraise(painted)
-        # The generic native border overlays are created earlier in apply_css.
-        # Keep them visible over the newly painted control surface.
-        for decoration in (
-            *getattr(widget, "_psx_css_border_edges", ()),
-            *getattr(widget, "_psx_css_border_corners", ()),
-        ):
-            tk.Misc.tkraise(decoration)
+        self._sync_css_ttk_button_surface(widget)
         self._redraw_css_ttk_button(widget)
 
     def _paint_css_ttk_input(self, widget: ttk.Entry, computed: object) -> None:
