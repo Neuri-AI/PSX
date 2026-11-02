@@ -391,6 +391,26 @@ mod incremental_sizing_tests {
         assert!(changed_trace.is_empty(),
             "Width changes invalidate cached leaf wrapping dependencies");
 
+        // Fixed-width offscreen Grid/Flow content can be replayed even when
+        // its *ancestor* becomes wider, provided its own assigned content
+        // width remains exactly the same.
+        let mut fixed=raw.clone();
+        for index in (1..fixed["nodes"].as_array().unwrap().len()).step_by(2) {
+            fixed["nodes"][index]["style"]["layout_width"]=json!("140px");
+        }
+        let initial_fixed:LayoutInput=serde_json::from_value(fixed.clone()).unwrap();
+        let fixed_before=compute(&initial_fixed).unwrap();
+        fixed["generation"]=json!(2);
+        fixed["constraints"]["width"]["value"]=json!(300.0);
+        let fixed_next:LayoutInput=serde_json::from_value(fixed).unwrap();
+        let mut fixed_trace=Vec::new();
+        let fixed_result=compute_incremental_with_reuse(
+            &fixed_next,&initial_fixed,&fixed_before,&mut fixed_trace,
+        ).unwrap();
+        assert_eq!(fixed_result.boxes,compute(&fixed_next).unwrap().boxes);
+        assert!(fixed_trace.contains(&"row-12".to_string()),
+            "Viewport resizing must defer stable fixed-width offscreen nodes");
+
         changed["generation"]=json!(4);
         changed["constraints"]["width"]["value"]=json!(220.0);
         changed["measurements"][12]["intrinsic"]["preferred_height"]=json!(50.0);
