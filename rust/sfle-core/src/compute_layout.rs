@@ -1361,15 +1361,20 @@ pub fn compute_normalized_incremental_report(
                         && a.intrinsic==b.intrinsic,
                     _=>false,
                 };
-                let no_percent=!node.style.values().any(|value| {
-                    if let Some(raw)=value.as_str(){return raw.contains('%');}
-                    value.get("kind").and_then(Value::as_str)==Some("percent")
+                let no_viewport_or_percent=!node.style.values().any(|value| {
+                    if let Some(raw)=value.as_str(){
+                        let lower=raw.to_ascii_lowercase();
+                        return lower.contains('%') || ["vw","vh","vmin","vmax"]
+                            .iter().any(|unit|lower.contains(unit));
+                    }
+                    matches!(value.get("kind").and_then(Value::as_str),
+                             Some("percent"|"vw"|"vh"|"vmin"|"vmax"))
                 });
                 let direct=old_node.node_id==node.node_id
                     && old_node.parent_id==node.parent_id
                     && old_node.component==node.component
                     && old_node.style==node.style
-                    && measured_equal && no_percent
+                    && measured_equal && no_viewport_or_percent
                     && old_boxes.contains_key(node.node_id.as_str());
                 let descendants_safe=children[index].iter().all(|&child|safe[child]);
                 if direct && descendants_safe {
