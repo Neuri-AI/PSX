@@ -29,9 +29,11 @@ class RustLayoutEngine:
         # should not re-cross PyO3 and solve every one of those contexts.
         # Never retain VNodes, native widgets, or renderer state here.
         self._exact_results: OrderedDict[tuple, LayoutResult] = OrderedDict()
-        self._exact_limit = 4096
+        self._exact_limit = 8192
         self._exact_hits = 0
         self._exact_misses = 0
+        self._native_compute_calls = 0
+        self._native_incremental_calls = 0
 
     def _exact_key(self, request: LayoutInput) -> tuple | None:
         # Large roots are already solved incrementally by Rust; avoid
@@ -111,6 +113,7 @@ class RustLayoutEngine:
         cached = self._exact_lookup(request)
         if cached is not None:
             return cached
+        self._native_compute_calls += 1
         result = deserialize_response(
             self._module.compute_json(serialize_snapshot(request)), request
         )
@@ -142,6 +145,7 @@ class RustLayoutEngine:
         if (native_measurement_invalidated or previous_input is None
                 or previous_result is None or not callable(native)):
             return self.compute(request)
+        self._native_incremental_calls += 1
         payload = native(
             serialize_snapshot(request),
             serialize_snapshot(previous_input),
