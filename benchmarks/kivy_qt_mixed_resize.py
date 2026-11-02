@@ -106,7 +106,8 @@ def rectangles(renderer):
             for k, b in result.boxes.items()}
 
 
-def run_cell(adapter, engine_name, warmup, cycles, output, widths):
+def run_cell(adapter, engine_name, warmup, cycles, output, widths, *,
+             disable_viewport_defer=False):
     from psx.core.reconcile import Reconciler
     from psx.layout.fallback.engine import PythonLayoutEngine
     from psx.layout.engine.backend import load_layout_engine
@@ -137,7 +138,17 @@ def run_cell(adapter, engine_name, warmup, cycles, output, widths):
     events, commits, samples, checks = [], [], [], {}
     observer = None
     native = None
+    viewport_control = None
     try:
+        if disable_viewport_defer:
+            # Diagnostic A/B: same native mount, Rust engine and rectangles.
+            # Only the accepted offscreen native workset is disabled.
+            from unittest.mock import patch
+            from psx.layout.adapters.grid_viewport_workset import GridViewportWorkset
+            viewport_control = patch.object(
+                GridViewportWorkset, "plan", return_value=frozenset(),
+            )
+            viewport_control.start()
         mounted = tree.render(scene(image))
         counts = census(mounted)
         native = renderer._sfle_watched_widget
@@ -243,8 +254,15 @@ def run_cell(adapter, engine_name, warmup, cycles, output, widths):
         })
         return {"backend": adapter, "engine": engine_name, "count": counts,
                 "cycles": cycles, "warmup": warmup, "summary": summary,
+                "disable_viewport_defer": disable_viewport_defer,
+                "deferred_native_grid_node_count": len(getattr(
+                    (getattr(renderer, "grid_result", None) or (None, None))[-1],
+                    "deferred_node_ids", (),
+                )),
                 "samples": samples, "rectangles": checks}
     finally:
+        if viewport_control is not None:
+            viewport_control.stop()
         try:
             if adapter == "qt" and observer is not None and native is not None:
                 native.removeEventFilter(observer)
@@ -293,6 +311,8 @@ def main():
     parser.add_argument("--cycles", type=int, default=240)
     parser.add_argument("--output", type=Path, default=Path("benchmark-results/mixed-1000"))
     parser.add_argument("--tolerance", type=float, default=1)
+    parser.add_argument("--disable-viewport-defer", action="store_true",
+                        help="Diagnostic full-native-commit A/B without offscreen pruning")
     args = parser.parse_args()
     if args.warmup < 0 or args.cycles < 100:
         parser.error("warmup >= 0 and at least 100 measured cycles required")
@@ -309,6 +329,8 @@ def main():
                            "--adapter", backend, "--engine", engine,
                            "--warmup", str(args.warmup), "--cycles", str(args.cycles),
                            "--output", str(args.output), "--tolerance", str(args.tolerance)]
+                if args.disable_viewport_defer:
+                    command.append("--disable-viewport-defer")
                 with (args.output / f"{backend}-{engine}.log").open("w") as log:
                     completed = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT)
                 if completed.returncode:
@@ -328,7 +350,8 @@ def main():
             raise SystemExit("Geometry parity failed; see report.json")
         return
     result = run_cell(adapters[0], engines[0], args.warmup, args.cycles,
-                      args.output, WIDTHS)
+                      args.output, WIDTHS,
+                      disable_viewport_defer=args.disable_viewport_defer)
     (args.output / f"{adapters[0]}-{engines[0]}.json").write_text(json.dumps(result, indent=2))
     print(json.dumps(result["summary"], indent=2))
 

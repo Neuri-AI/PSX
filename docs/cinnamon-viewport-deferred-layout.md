@@ -244,3 +244,27 @@ containing native parent's identity and solved position; when an
 ancestor moves, its descendants receive fresh native placements rather
 than relying on stale offscreen positions. No deferred box is reported
 as newly read back.
+
+
+### Kivy/Qt native mixed-widget A/B
+
+The existing `kivy_qt_mixed_resize.py` uses the same 1,000 mixed native
+widget scene, viewport widths and Cinnamon engine in separate GUI processes.
+The additional diagnostic flag disables only accepted viewport skipping,
+so it can reveal whether Kivy's expensive native property writes or
+Rust/CSS/layout solving dominates. It reports event-to-Cinnamon-commit
+latency, **not presented frames per second**.
+
+```bash
+python benchmarks/kivy_qt_mixed_resize.py --adapter kivy --engine rust \
+  --cycles 100 --warmup 10 --output benchmark-results/kivy-viewport-on
+
+python benchmarks/kivy_qt_mixed_resize.py --adapter kivy --engine rust \
+  --cycles 100 --warmup 10 --disable-viewport-defer \
+  --output benchmark-results/kivy-viewport-off
+```
+
+Review `summary.p95_ms`, `summary.p95_commit_ms` and the
+`deferred_native_grid_node_count` diagnostic. Both runs must have identical
+mounted widget counts. A large improvement is not guaranteed for complex
+interactive content, which deliberately uses conservative safety exclusions.
