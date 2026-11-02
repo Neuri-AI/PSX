@@ -121,7 +121,7 @@ def builtin_component_registry() -> ComponentRegistry:
     Importing this function imports only PSX core modules; GUI bindings remain
     lazy and optional. Every call returns an isolated registry.
     """
-    from ..extensions import WebView
+    from ..extensions import WebView, Webview
     from .native import Native
     from .vnode import (
         Button,
@@ -173,6 +173,7 @@ def builtin_component_registry() -> ComponentRegistry:
     registry.register("SpinBox", SpinBox, contract=SPINBOX_CONTRACT)
     registry.register("Scroll", Scroll, contract=SCROLL_CONTRACT)
     registry.register("WebView", WebView)
+    registry.register("Webview", Webview)
     registry.register("Box", Box)
     registry.register("Native", Native)
 
