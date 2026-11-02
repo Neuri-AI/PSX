@@ -34,6 +34,7 @@ class QtImageAdapter:
         widget.setAccessibleName(props["alt"])
         widget._psx_source = None
         widget._psx_pixmap_cache = None
+        widget._psx_sfle_paint_cache = None
         widget._psx_props = props
         widget._psx_sfle_image = renderer._sfle_constraints is not None
 
@@ -45,6 +46,7 @@ class QtImageAdapter:
         handle.props = props
         widget = handle.widget
         widget._psx_props = props
+        widget._psx_sfle_paint_cache = None
         self._load_and_apply(widget, props, renderer._binding_package)
 
     def bind_event(self, renderer, handle, event, slot):
@@ -59,6 +61,7 @@ class QtImageAdapter:
         # A retained native handle must not retain decoded or composed pixmaps.
         widget.clear()
         widget._psx_pixmap_cache = None
+        widget._psx_sfle_paint_cache = None
         widget._psx_source = None
         widget._psx_props = None
         handle.props = {}
@@ -117,9 +120,9 @@ class QtImageAdapter:
     @staticmethod
     def paint_sfle(widget, width: int, height: int, binding: str) -> None:
         """Paint only inside the rectangle computed and applied by SFLE."""
+        pixmap = widget._psx_pixmap_cache
         gui = importlib.import_module(f"{binding}.QtGui")
         core = importlib.import_module(f"{binding}.QtCore")
-        pixmap = widget._psx_pixmap_cache
         if pixmap is None or pixmap.isNull():
             # Keep the alt-text placeholder visible while the resource is unavailable.
             widget.setText(str(widget._psx_props["alt"]))
@@ -127,6 +130,21 @@ class QtImageAdapter:
         if width <= 0 or height <= 0:
             widget.setPixmap(gui.QPixmap())
             return
+        # A completed native image paint is an accepted, reusable bitmap.
+        # Occluded/offscreen images need not be rescaled at every window
+        # resize when neither the source nor the *actual* target rectangle
+        # changed. Do not hide the underlying widget: native exposure,
+        # focus, scroll and stacking semantics remain intact.
+        paint_key = (
+            pixmap.cacheKey(), width, height,
+            widget._psx_props["fit"], id(widget._psx_props),
+        )
+        previous = getattr(widget, "_psx_sfle_paint_cache", None)
+        if previous is not None and previous[0] == paint_key:
+            displayed = widget.pixmap()
+            if (displayed is not None and not displayed.isNull()
+                    and displayed.cacheKey() == previous[1]):
+                return
         x, y, w, h = compute_fit_rect(
             pixmap.width(), pixmap.height(), width, height,
             widget._psx_props["fit"],
@@ -144,3 +162,6 @@ class QtImageAdapter:
         finally:
             painter.end()
         widget.setPixmap(canvas)
+        widget._psx_sfle_paint_cache = (
+            paint_key, widget.pixmap().cacheKey(),
+        )
