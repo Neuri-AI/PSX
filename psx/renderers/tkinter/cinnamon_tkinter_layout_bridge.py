@@ -53,6 +53,22 @@ def _geometry(widget: object) -> dict[str, float]:
     }
 
 
+def _apply_wraplength_if_changed(widget: object, previous: object, desired: int) -> bool:
+    """Suppress a redundant Tcl configure/geometry invalidation.
+
+    The caller supplies the previously captured native option (also used
+    for rollback); no extra cget() round trip is required.
+    """
+    try:
+        unchanged = round(float(previous)) == desired
+    except (TypeError, ValueError, OverflowError):
+        unchanged = False
+    if unchanged:
+        return False
+    widget.configure(wraplength=desired)
+    return True
+
+
 def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None:
     """Preflight, measure, compute, place, and verify one mounted SFLE tree."""
     if renderer._sfle_constraints is None:
@@ -474,15 +490,10 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             # painting, otherwise Tk could show a single-line clipped label
             # even though SFLE correctly reserved multiline block height.
             for node_id, old_wrap in previous_wraps.items():
-                desired_wrap = max(1, round(rectangles[node_id].content.width))
-                # Avoid triggering Tcl geometry/idle callbacks for unchanged
-                # wraplength. Reuse the already captured rollback baseline.
-                try:
-                    unchanged = round(float(old_wrap)) == desired_wrap
-                except (TypeError, ValueError, OverflowError):
-                    unchanged = False
-                if not unchanged:
-                    widgets[node_id].configure(wraplength=desired_wrap)
+                _apply_wraplength_if_changed(
+                    widgets[node_id], old_wrap,
+                    max(1, round(rectangles[node_id].content.width)),
+                )
             if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation after native geometry.")
             if renderer._sfle_generation != generation:
