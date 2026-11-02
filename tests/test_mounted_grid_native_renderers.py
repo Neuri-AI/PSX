@@ -3574,3 +3574,50 @@ def test_kivy_direct_grid_textures_only_update_on_intrinsic_miss(monkeypatch):
     finally:
         tree.unmount()
         close()
+
+
+def test_automatic_grid_viewport_sparse_commit_and_resize_reentry():
+    """Real mounted Qt/Tk/Kivy Grid keeps scroll extent and reenters offscreen.
+
+    The first mount must commit all nodes. Subsequent resizes defer only
+    complete, previously accepted groups below the clipped root viewport.
+    """
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    original = renderer._sfle_constraints
+    try:
+        renderer.set_sfle_constraints(
+            LayoutConstraints(AvailableSize(600, True), AvailableSize(120, True))
+        )
+        root = reconciler.render(Grid(*(
+            GridItem(Text(f"viewport row {i}", key=f"text-{i}"),
+                     key=f"row-{i}", span=12)
+            for i in range(48)
+        ), gap=8))
+        first = renderer.grid_result[1]
+        assert not first.deferred_node_ids
+        last_card = root.children[-1].handle.widget
+        last_id = id(last_card)
+
+        renderer.set_sfle_constraints(
+            LayoutConstraints(AvailableSize(620, True), AvailableSize(120, True))
+        )
+        renderer.commit_layout(root)
+        deferred = renderer.grid_result[1].deferred_node_ids
+        assert deferred, "The viewport must defer native geometry for offscreen rows."
+        assert id(root.children[-1].handle.widget) == last_id
+
+        # Window height expands far enough to expose every row. No widget
+        # can keep a stale geometry once visible, regardless of backend.
+        renderer.set_sfle_constraints(
+            LayoutConstraints(AvailableSize(620, True), AvailableSize(8000, True))
+        )
+        renderer.commit_layout(root)
+        final = renderer.grid_result[1]
+        assert not final.deferred_node_ids
+        assert rectangle(last_card, backend)[2] == pytest.approx(620, abs=1)
+        assert id(root.children[-1].handle.widget) == last_id
+    finally:
+        reconciler.unmount()
+        close()
