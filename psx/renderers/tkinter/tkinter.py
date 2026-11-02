@@ -1262,8 +1262,18 @@ class TkinterRenderer:
                 or style.lookup("TEntry", "fieldbackground")
             )
         name = f"PsxCssField{id(widget)}.TEntry"
+        # Aqua's Entry.field can ignore fieldbackground and draw a native
+        # rectangle around the CSS rounded outline. Clone Tk's own generic
+        # field element only for this instance; keep the native Entry widget.
+        field_element = "Entry.field"
+        if "clam" in style.theme_names():
+            field_element = f"PsxCssEntryField{id(widget)}"
+            if field_element not in style.element_names():
+                style.element_create(
+                    field_element, "from", "clam", "Entry.field"
+                )
         style.layout(name, [
-            ("Entry.field", {
+            (field_element, {
                 "sticky": "nswe", "border": 0,
                 "children": [("Entry.padding", {
                     "sticky": "nswe",
@@ -1276,6 +1286,11 @@ class TkinterRenderer:
         config = {"borderwidth": 0, "relief": "flat"}
         if color:
             config["fieldbackground"] = color
+            # Cloned generic field elements derive their rectangular bezel
+            # from these theme colors; match it to the field so only the
+            # authored CSS stroke/corners remain visible.
+            config["bordercolor"] = color
+            config["lightcolor"] = color
         if any(key in specified for key in (
             "padding", "padding-top", "padding-right",
             "padding-bottom", "padding-left",
