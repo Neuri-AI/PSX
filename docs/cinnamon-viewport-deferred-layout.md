@@ -128,3 +128,43 @@ becomes eligible because of these capacity changes.
 Neither larger cache nor fewer native readbacks constitutes universal
 offscreen geometry virtualization, and cache capacity alone cannot
 guarantee the 60 Hz frame budget for 3,002 mounted native widgets.
+
+## Automatic native Grid viewport worksets (new)
+
+The root Grid and Grid descendants inside Flex/Block/Scroll retain all
+Cinnamon-solved rectangles, all mounted widget identities, normal flow extent,
+and the exact native clipping/scroll behavior. After one complete accepted
+native commit, a 96px-overscanned viewport planner can defer *native*
+geometry setters, pre-mutation reads, rollback snapshots and post-commit
+readback for entire previously accepted **below-viewport** GridItem groups.
+Such groups are not reported as newly verified native rectangles;
+`GridNativeCommitReceipt.deferred_node_ids` names them precisely.
+
+A GridItem is eligible only when the complete group was physically committed
+below the viewport in the previous accepted transaction and its newly
+allocated rectangle also remains below the live clip; a changed native
+identity, semantic invalidation epoch, unknown positioned/overlapping CSS,
+unsupported paint overflow, native leaf, external scroll owner or incomplete
+group forces real native placement and verification. No occlusion inference
+based merely on z-order or overlap is made. Scroll X/Y changes are observed by
+Qt scrollbars, Kivy ScrollView properties and Tk wheel/key handlers. The
+renderer schedules an owner-thread Cinnamon transaction to update elements
+before a previously deferred group is considered accepted onscreen.
+
+A pure window-resize fast path can skip the majority of the 3,002 native
+widgets when those are inside eligible card groups and after the first full
+commit. The Rust engine remains authoritative: this is **sparse native commit
+virtualization**, not wholesale skipping of all Rust CSS/layout computation or
+native mounting. Newly visible groups, complex CSS, repaint invalidations,
+and root Scroll extent changes still require full geometry or measurements.
+It does not provide automatic destruction/recreation of offscreen controls or
+occlusion culling behind arbitrary opaque layers.
+
+Regressions for the three backend-specific native geometry protocols:
+`tests/test_grid_viewport_workset.py`,
+`tests/test_grid_viewport_native_three_backends.py`, and
+`tests/test_viewport_scroll_reentry.py`. Platform-native certification and
+Mac resize p95/FPS must be evaluated separately; headless widget-port tests
+cannot certify presented frames. Before/after comparisons should include
+unchanged mount counts, active/deferred native receipt counts and scroll
+reentry/scrollbar extent integrity, not merely cache-hit ratios.

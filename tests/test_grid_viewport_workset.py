@@ -68,6 +68,17 @@ def test_overlap_is_not_occlusion_proof():
     cache.accept(**args, skipped=frozenset())
     assert "item-0" not in cache.plan(**args)
 
+def test_scroll_offset_reentry_rehydrates_oncoming_cards():
+    roots, batch, widgets = case(30)
+    cache = GridViewportWorkset()
+    kwargs = dict(root_ids=roots, batch=batch, widgets=widgets,
+                  viewport_height=100, epoch=3, backend="qt",
+                  safe_ids=set(roots))
+    cache.accept(**kwargs, skipped=frozenset())
+    assert "item-29" in cache.plan(**kwargs)
+    assert "item-29" not in cache.plan(**dict(kwargs, viewport_top=1050))
+    assert "item-29/leaf" not in cache.plan(**dict(kwargs, viewport_top=1050))
+
 def test_complex_css_and_native_controls_fail_closed():
     def node(props=None, kind=NodeKind.HOST, children=(), tag="Box"):
         return SimpleNamespace(kind=kind, type=tag,
@@ -78,3 +89,12 @@ def test_complex_css_and_native_controls_fail_closed():
         node({"style": {"transform": "translateY(-900px)"}}),)))
     assert not subtree_is_safe_for_root_culling(node(tag="Scroll"))
     assert not subtree_is_safe_for_root_culling(node(kind=NodeKind.NATIVE))
+    assert not subtree_is_safe_for_root_culling(
+        node({"style": {"position": "absolute"}}))
+    assert not subtree_is_safe_for_root_culling(
+        node({"style": {"overflow": "visible"}}))
+    computed = node()
+    computed.source.css_computed = SimpleNamespace(
+        properties={"position": "fixed"}, specified=frozenset({"position"}),
+    )
+    assert not subtree_is_safe_for_root_culling(computed)

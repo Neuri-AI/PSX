@@ -14,11 +14,15 @@ from math import isfinite
 from psx.core.vnode import NodeKind
 
 _OVERSCAN = 96.0
-_UNSAFE_COMPONENTS = frozenset(("Scroll", "WebView", "Canvas", "Video"))
+_UNSAFE_COMPONENTS = frozenset((
+    "Scroll", "WebView", "Canvas", "Video", "WebEngine", "Native",
+))
 _UNSAFE_STYLES = frozenset((
     "transform", "filter", "backdrop-filter", "clip-path", "mask",
     "position", "top", "bottom", "left", "right", "inset",
     "translate", "rotate", "scale", "perspective", "mix-blend-mode",
+    "overflow", "z-index", "opacity", "will-change", "contain",
+    "box-shadow", "text-shadow", "outline", "margin-top", "margin-left",
 ))
 
 def subtree_is_safe_for_root_culling(node: object) -> bool:
@@ -31,10 +35,26 @@ def subtree_is_safe_for_root_culling(node: object) -> bool:
         source = getattr(current, "source", None)
         props = getattr(source, "props", {}) or {}
         style = props.get("style")
-        keys = tuple(props) + (tuple(style) if isinstance(style, Mapping) else ())
-        if any(isinstance(k, str) and k.replace("_", "-").lower() in _UNSAFE_STYLES
-               for k in keys):
+        computed = getattr(source, "css_computed", None)
+        css = getattr(computed, "properties", None)
+        if computed is not None and not isinstance(css, Mapping):
+            # Unknown CSS dependency: never infer native paint bounds.
             return False
+        for mapping in (props, style, css):
+            if not isinstance(mapping, Mapping):
+                continue
+            for key, value in mapping.items():
+                normalized = str(key).replace("_", "-").lower()
+                if normalized in _UNSAFE_STYLES:
+                    # A computed 'position: static' is benign; any other
+                    # non-default paint/positioning state must remain live.
+                    if normalized == "position" and value in ("static", None):
+                        continue
+                    if normalized == "overflow" and value in ("hidden", "clip"):
+                        continue
+                    if normalized == "opacity" and value in (1, 1.0, "1"):
+                        continue
+                    return False
         if isinstance(style, str) and any(k in style.lower() for k in _UNSAFE_STYLES):
             return False
         stack.extend(getattr(current, "effective_children", ()))
