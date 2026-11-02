@@ -5,6 +5,7 @@ on:
     paths:
       - "psx/layout/**"
       - "psx/renderers/**"
+      - "rust/sfle-core/src/**"
       - "tests/test_grid_viewport*"
       - "tests/test_native_flow_viewport.py"
       - "tests/test_viewport_scroll_reentry.py"
@@ -39,6 +40,17 @@ jobs:
             tests/test_viewport_scroll_reentry.py \
             tests/test_viewport_resize_priority.py \
             tests/test_native_flow_viewport.py
+
+  rust-viewport-computation:
+    name: Rust Cinnamon offscreen computation and visible invalidation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify real incremental Rust kernel matches full layout
+        run: |
+          cargo test --manifest-path rust/sfle-core/Cargo.toml --lib viewport_priority_reuse_tests
 
   real-native:
     name: Actual mounted Grid native viewport / ${{ matrix.backend }}
