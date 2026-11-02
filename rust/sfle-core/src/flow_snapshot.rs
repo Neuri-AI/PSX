@@ -74,24 +74,42 @@ impl Flow<'_> {
         if !self.reusable[index] {return Ok(false);}
         let Some(ref prior)=self.prior_boxes else {return Ok(false)};
         let old=&prior[index].content;
-        // A changed viewport may still assign a *fixed-width* child the
-        // exact same used content width. That child's descendants then have
-        // identical wrapping geometry even though its parent changed width.
-        // Any responsive child with changed effective width must run the
-        // full solver, including when it is far outside the viewport.
-        if (old.width-content_width).abs()>1.0/64.0 {
+        let is_flex=self.input.nodes[index].component=="Flex";
+        // Block callers pass the newly resolved content width. Embedded Flex
+        // callers pass their *available* parent width; an explicit, unchanged
+        // pixel width is also safe if the parent's width changes. Never infer
+        // a stable flex sizing dependency from the viewport alone.
+        let stable_width = if is_flex {
+            let style=&self.input.nodes[index].style;
+            let fixed=style.get("layout_width").or_else(||style.get("width"));
+            let absolute=fixed.and_then(|value| {
+                if let Some(width)=value.as_f64(){return Some(width);}
+                if let Some(map)=value.as_object(){
+                    if map.get("kind").and_then(|v|v.as_str())==Some("px"){
+                        return map.get("value").and_then(|v|v.as_f64());
+                    }
+                }
+                value.as_str().and_then(|text|
+                    text.strip_suffix("px").and_then(|v|v.parse::<f64>().ok())
+                )
+            });
+            absolute.filter(|width|width.is_finite()&&*width>=0.0)
+                .unwrap_or(content_width)
+        } else {
+            content_width
+        };
+        if (old.width-stable_width).abs()>1.0/64.0 {
             return Ok(false);
         }
         if content_y <= height+96.0 && content_y+old.height>=-96.0 {
             return Ok(false);
         }
-        // The entire subtree has unchanged styles, pure text measurements,
-        // and no percent/viewport/auto-margin dependencies. Translate its
-        // *previous* exact CSS geometry by the new parent placement.
-        // Copies still undergo regular box-edge reconstruction, snapping
-        // and complete native readback; no stale or partial LayoutResult.
-        let dx=content_x-old.x;
-        let dy=content_y-old.y;
+        // Flex positions its border box at x/y. Block positions the content
+        // box there. Preserve the exact box-edge offset of each native
+        // formatting context when translating its certified descendants.
+        let old_anchor=if is_flex {&prior[index].border} else {old};
+        let dx=content_x-old_anchor.x;
+        let dy=content_y-old_anchor.y;
         let mut todo=vec![index];
         while let Some(current)=todo.pop(){
             let original=&prior[current].content;
@@ -397,6 +415,10 @@ impl Flow<'_> {
     fn flex_node(
         &mut self, index: usize, x: f64, y: f64, available: f64,
     ) -> Result<f64, ComputeError> {
+        self.containing_width[index]=available;
+        if self.replay_offscreen(index, x, y, available)? {
+            return Ok(self.prior_boxes.as_ref().unwrap()[index].margin.height);
+        }
         let mut indices = Vec::new();
         let mut stack = vec![index];
         while let Some(current) = stack.pop() {
@@ -632,7 +654,7 @@ fn flow_reuse_plan(
         // descendants from being silently deferred.
         if !matches!(node.component.as_str(),
                      "div"|"p"|"section"|"main"|"header"|"footer"|
-                     "form"|"ul"|"li"|"Text") {continue;}
+                     "form"|"ul"|"li"|"Flex"|"Text") {continue;}
         if node.component!="Text" && node.style.get("display")
             .and_then(|v|v.as_str()).is_some_and(|v|v!="block") {
             continue;
