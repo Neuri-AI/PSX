@@ -104,8 +104,20 @@ def _update(widget: object, changed: dict[str, object], removed: frozenset[str])
     if "html" in changed:
         view.loadHtml(str(changed["html"]))  # type: ignore[attr-defined]
     if "src" in changed:
-        value = changed["src"]
-        view.setUrl(_source_url(value, QUrl))  # type: ignore[attr-defined]
+        source_url = _source_url(changed["src"], QUrl)
+        if source_url.isLocalFile():
+            # QtWebView is backed by the platform browser on macOS. Loading
+            # local HTML as content with its original base URL makes relative
+            # CSS/images work without requiring the native URL navigation
+            # backend to grant access to an arbitrary file:// request.
+            path = Path(source_url.toLocalFile())
+            if path.suffix.lower() in (".html", ".htm"):
+                html = path.read_text(encoding="utf-8-sig")
+                view.loadHtml(html, source_url)
+            else:
+                view.setUrl(source_url)
+        else:
+            view.setUrl(source_url)
 
 
 def _bind_event(widget: object, event: str, slot: EventSlot) -> Callable[[], None]:
