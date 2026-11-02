@@ -1314,6 +1314,16 @@ class KivyRenderer:
                 if not hasattr(widget, "bold"):
                     raise ValueError(f"Kivy {target.node_type} does not expose native font-weight.")
                 widget.bold = styles["font-weight"] >= 600
+            if target.node_type in ("Input", "TextArea"):
+                from psx.css.native_paint import native_control_padding
+                padding = native_control_padding(computed)
+                if padding is not None:
+                    if not hasattr(widget, "_psx_css_original_input_padding"):
+                        widget._psx_css_original_input_padding = tuple(widget.padding)
+                    widget.padding = tuple(value * pixel_scale for value in padding)
+                elif hasattr(widget, "_psx_css_original_input_padding"):
+                    widget.padding = widget._psx_css_original_input_padding
+                    del widget._psx_css_original_input_padding
             if target.node_type == "Button":
                 authored_padding = computed is not None and (
                     "padding" in computed.specified or any(
