@@ -181,3 +181,55 @@ def test_webview_missing_local_html_is_explicit(tmp_path, monkeypatch) -> None:
     missing = tmp_path / "missing.html"
     with pytest.raises(FileNotFoundError):
         qt_webengine._update(object(), {"src": str(missing)}, frozenset())
+
+
+
+def test_webview_css_survives_expressive_conditional_src() -> None:
+    """The JSX ternary path must treat WebView CSS like ordinary PSX markup."""
+    from psx.markup.transform import transform_source
+    from psx.css.markup import MarkupStyleSource
+
+    source = '''
+from psx import psx
+
+def render(render_html, html, current_url):
+    return psx("""
+        <Webview
+            src={render_html ? html : current_url}
+            class="webview"
+            style="width: 80vw; height: 50vh"
+        />
+    """)
+'''
+    transformed = transform_source(source, filename="<webview-expressive>")
+    assert transformed.transformed_calls == 1
+    assert "_psx_expr_element" in transformed.source
+    namespace: dict[str, object] = {}
+    exec(compile(transformed.source, "<webview-expressive>", "exec"), namespace)
+    render = namespace["render"]
+
+    for enabled, expected in ((False, "https://example.test"), (True, "/tmp/index.html")):
+        node = render(enabled, "/tmp/index.html", "https://example.test")
+        assert node.props["src"] == expected
+        assert "class" not in node.props
+        assert isinstance(node.css_source, MarkupStyleSource)
+        assert node.css_source.tag == "webview"
+        assert node.css_source.classes == frozenset({"webview"})
+        assert {"width", "height"}.issubset(node.css_computed.specified)
+
+
+def test_both_webview_spellings_accept_css_in_expressive_runtime() -> None:
+    from psx.markup.expressive_runtime import element
+
+    for tag in ("WebView", "Webview"):
+        node = element(
+            tag,
+            {"src": "about:blank", "class": "browser", "id": "main-browser"},
+            (),
+            "<test>", 1, 1,
+        )
+        assert node.props["src"] == "about:blank"
+        assert "class" not in node.props
+        assert node.css_source.tag == "webview"
+        assert node.css_source.classes == frozenset({"browser"})
+        assert node.css_source.node_id == "main-browser"
