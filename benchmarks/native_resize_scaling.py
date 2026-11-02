@@ -34,6 +34,8 @@ def main():
     parser.add_argument("--cycles", type=int, default=10)
     parser.add_argument("--warmup", type=int, default=2)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--disable-solved-reuse", action="store_true",
+                        help="Diagnostic A/B control for committed static subtree and Rust result caching")
     args = parser.parse_args()
     if (any(n < 1 for n in args.counts) or len(set(args.counts)) != len(args.counts)
             or args.cycles < 1 or args.warmup < 0):
@@ -50,6 +52,7 @@ def main():
                         row = exercise(
                             engine, adapter, count, args.cycles, args.warmup, WIDTHS,
                             scenario=scenario, styled=(scenario == "cards"),
+                            disable_solved_reuse=args.disable_solved_reuse,
                         )
                     except Exception as exc:
                         row = dict(
