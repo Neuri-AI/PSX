@@ -240,6 +240,30 @@ jobs:
         run: |
           xvfb-run -a python -m cProfile -s cumtime benchmarks/grid_resize_interactive.py --engine rust --adapter tk --cards 6 --cycles 15 --warmup 3 --styled > benchmark-results/styled-cprofile.txt
           sed -n '/function calls in/,+75p' benchmark-results/styled-cprofile.txt
+      - name: Compare 500 styled cards with viewport workset enabled and disabled
+        run: |
+          xvfb-run -a python -u benchmarks/native_resize_scaling.py --engine rust --adapter both --scenarios cards --counts 500 --cycles 8 --warmup 2 --output benchmark-results/viewport-500-on.json
+          xvfb-run -a python -u benchmarks/native_resize_scaling.py --engine rust --adapter both --scenarios cards --counts 500 --cycles 8 --warmup 2 --disable-viewport-defer --output benchmark-results/viewport-500-off.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          enabled = json.loads(Path("benchmark-results/viewport-500-on.json").read_text())["rows"]
+          disabled = json.loads(Path("benchmark-results/viewport-500-off.json").read_text())["rows"]
+          for fast, full in zip(enabled, disabled):
+              assert fast["adapter"] == full["adapter"]
+              assert fast["native_widgets"] == full["native_widgets"]
+              assert fast["logical_items"] == full["logical_items"] == 500
+              assert fast["deferred_native_grid_node_count"] > 0, (
+                  fast["adapter"], "500-card viewport selection remained inactive",
+              )
+              assert full["deferred_native_grid_node_count"] == 0
+              print(
+                  fast["adapter"],
+                  "500-card viewport p95", round(fast["p95_event_to_commit_ms"], 2),
+                  "ms vs full", round(full["p95_event_to_commit_ms"], 2),
+                  "ms, deferred nodes", fast["deferred_native_grid_node_count"],
+              )
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
