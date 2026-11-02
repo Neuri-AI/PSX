@@ -149,7 +149,10 @@ def commit_grid_native_geometry(
             return Rect(*(float(info[k]) for k in ("x", "y", "width", "height")))
         return Rect(float(widget.pos[0]), float(widget.pos[1]), float(widget.size[0]), float(widget.size[1]))
 
-    def write(widget: object, rect: Rect, *, restore_unplaced: bool = False) -> None:
+    def write(
+        widget: object, rect: Rect, *, restore_unplaced: bool = False,
+        prior_rect: Rect | None = None,
+    ) -> None:
         if backend is GridCommitBackend.HEADLESS:
             widget.geometry = rect
         elif backend is GridCommitBackend.QT:
@@ -164,9 +167,20 @@ def commit_grid_native_geometry(
             # A size-only resize should not re-notify position listeners.
             desired_pos = (rect.x, rect.y)
             desired_size = (rect.width, rect.height)
-            if tuple(widget.pos) != desired_pos:
+            # The validated rollback snapshot is a live owner-thread read
+            # from immediately before this batch. Reuse it for per-axis
+            # comparison; do not fetch pos and size twice a second time.
+            current_pos = (
+                (prior_rect.x, prior_rect.y)
+                if prior_rect is not None else tuple(widget.pos)
+            )
+            current_size = (
+                (prior_rect.width, prior_rect.height)
+                if prior_rect is not None else tuple(widget.size)
+            )
+            if current_pos != desired_pos:
                 widget.pos = desired_pos
-            if tuple(widget.size) != desired_size:
+            if current_size != desired_size:
                 widget.size = desired_size
 
     # Capture all original native states before the first mutation.
@@ -247,7 +261,7 @@ def commit_grid_native_geometry(
                         except (ValueError, TypeError, OverflowError):
                             pass
                 continue
-            write(widgets[node_id], desired)
+            write(widgets[node_id], desired, prior_rect=before)
         if current_generation() != generation or not is_ui_thread():
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before readback.")
         # The rollback baseline already holds a real native read from this
