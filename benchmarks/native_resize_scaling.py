@@ -36,6 +36,8 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--disable-solved-reuse", action="store_true",
                         help="Diagnostic A/B control for committed static subtree and Rust result caching")
+    parser.add_argument("--disable-viewport-defer", action="store_true",
+                        help="Diagnostic A/B control that forces full native geometry commits")
     args = parser.parse_args()
     if (any(n < 1 for n in args.counts) or len(set(args.counts)) != len(args.counts)
             or args.cycles < 1 or args.warmup < 0):
@@ -53,6 +55,7 @@ def main():
                             engine, adapter, count, args.cycles, args.warmup, WIDTHS,
                             scenario=scenario, styled=(scenario == "cards"),
                             disable_solved_reuse=args.disable_solved_reuse,
+                            disable_viewport_defer=args.disable_viewport_defer,
                         )
                     except Exception as exc:
                         row = dict(

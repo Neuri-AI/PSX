@@ -200,3 +200,30 @@ and deterministic Scroll reentry. The dedicated
 `.github/workflows/viewport-native-certification.yml` provides
 per-backend Qt, Kivy and Tk CI checks. Mac latency p95 must still be
 remeasured on a real display session to claim the 16.67ms target.
+
+
+## A/B benchmark: same Rust solver with/without sparse native worksets
+
+The diagnostic `--disable-viewport-defer` flag forces the exact same
+Cinnamon/layout/widget tree through a full native commit. It disables only
+native viewport workset pruning for that benchmark process, without
+altering the Rust engine, CSS values or native widget mounting.
+
+Run the same native resize workload twice on the same machine:
+
+```bash
+python benchmarks/native_resize_scaling.py --adapter both --engine rust \
+  --counts 24 100 250 500 --scenarios cards --cycles 40 --warmup 5 \
+  --output benchmark-results/viewport-on.json
+
+python benchmarks/native_resize_scaling.py --adapter both --engine rust \
+  --counts 24 100 250 500 --scenarios cards --cycles 40 --warmup 5 \
+  --disable-viewport-defer --output benchmark-results/viewport-off.json
+```
+
+Compare `p95_event_to_commit_ms`, `native_widgets`,
+`deferred_native_flow_node_count` and
+`deferred_native_grid_node_count`. The disabled control should show zero
+deferred native nodes. This is not a compositor FPS certificate. The
+benchmarks measure real Qt/Tk native resize events; Kivy still requires
+the separate three-backend native certification and a paced-window benchmark.

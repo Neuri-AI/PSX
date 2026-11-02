@@ -81,7 +81,7 @@ def mounted_stats(root):
     return nodes, len(handles)
 
 
-def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled=False, scenario="cards", rebuild_snapshots=False, disable_solved_reuse=False):
+def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled=False, scenario="cards", rebuild_snapshots=False, disable_solved_reuse=False, disable_viewport_defer=False):
     engine = PythonLayoutEngine() if engine_name == "python" else load_layout_engine()
     if engine.backend_name != engine_name:
         raise RuntimeError(f"Expected Cinnamon {engine_name}, got {engine.backend_name}")
@@ -111,7 +111,19 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
     native_observer = None
     tk_observer_tag = None
     tk_observer_commands = ()
+    # A/B controls change only the viewport-native workset selection, not
+    # Cinnamon solver inputs or any CSS geometry.  The first full native
+    # commit remains identical. The monkeypatch is scoped to this benchmark
+    # process; production renderer behavior is never changed by this flag.
+    viewport_patch = None
     try:
+        if disable_viewport_defer:
+            from unittest.mock import patch
+            from psx.layout.adapters.grid_viewport_workset import GridViewportWorkset
+            viewport_patch = patch.object(
+                GridViewportWorkset, "plan", return_value=frozenset(),
+            )
+            viewport_patch.start()
         mounted = tree.render(build_workload(card_count, scenario, styled=styled))
         mounted_nodes, native_widgets = mounted_stats(mounted)
         original_commit = renderer.commit_layout
@@ -247,6 +259,14 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
             "native_widgets": native_widgets,
             "rebuild_snapshots": rebuild_snapshots,
             "disable_solved_reuse": disable_solved_reuse,
+            "disable_viewport_defer": disable_viewport_defer,
+            "deferred_native_flow_node_count": len(getattr(
+                renderer, "_psx_native_flow_deferred_ids", (),
+            )),
+            "deferred_native_grid_node_count": len(getattr(
+                (getattr(renderer, "grid_result", None) or (None, None))[-1],
+                "deferred_node_ids", (),
+            )),
             "rust_actual_compute_abi_calls": getattr(engine, "_native_compute_calls", None),
             "rust_actual_incremental_abi_calls": getattr(engine, "_native_incremental_calls", None),
             "rust_exact_result_cache_hits": getattr(engine, "_exact_hits", None),
@@ -286,6 +306,8 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
             "samples": samples,
         }
     finally:
+        if viewport_patch is not None:
+            viewport_patch.stop()
         if adapter == "qt" and native_observer is not None:
             try:
                 native.removeEventFilter(native_observer)
@@ -320,6 +342,8 @@ def main():
                         help="Diagnostic control: rebuild native PSX and CSS structures each commit")
     parser.add_argument("--disable-solved-reuse", action="store_true",
                         help="A/B control: disable exact Rust and accepted static Flex/HTML solved context caches")
+    parser.add_argument("--disable-viewport-defer", action="store_true",
+                        help="A/B control: process all native widgets even when provably offscreen")
     parser.add_argument("--styled", action="store_true",
                         help="Include CSS rounded cards and native repaint work")
     args = parser.parse_args()
@@ -332,7 +356,8 @@ def main():
         exercise(engine, adapter, args.cards, args.cycles, args.warmup, widths,
                  styled=args.styled, scenario=args.scenario,
                  rebuild_snapshots=args.rebuild_snapshots,
-                 disable_solved_reuse=args.disable_solved_reuse)
+                 disable_solved_reuse=args.disable_solved_reuse,
+                 disable_viewport_defer=args.disable_viewport_defer)
         for engine in engines for adapter in adapters
     ], indent=2))
 

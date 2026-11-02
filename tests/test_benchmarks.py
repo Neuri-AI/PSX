@@ -50,3 +50,11 @@ def test_grid_resize_benchmark_supports_both_native_adapters_and_cinnamon_engine
     assert 'choices=("qt", "tk", "both")' in source
     assert 'choices=("python", "rust", "both")' in source
     assert "p99_wall_ms" in inspect.getsource(profile.measure)
+
+
+def test_native_resize_viewport_ab_has_explicit_control():
+    import inspect
+    from benchmarks.grid_resize_interactive import exercise
+    assert "disable_viewport_defer" in inspect.signature(exercise).parameters
+    from benchmarks.native_resize_scaling import main
+    assert "--disable-viewport-defer" in inspect.getsource(main)
