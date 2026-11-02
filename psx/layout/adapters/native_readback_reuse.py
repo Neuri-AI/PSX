@@ -41,6 +41,7 @@ def readback_reusing_prior(
         ):
             native_scroll_descendants.add(identifier)
         widget = handles[identifier]
+        native_widget = getattr(widget, "widget", widget)
         previous = before.get(identifier)
         # Only *unmodified* ordinary Qt and explicit Tk place placements
         # can rely on the native snapshot already read on the UI thread.
@@ -51,6 +52,7 @@ def readback_reusing_prior(
             and identifier not in mutated_ids
             and identifier not in external_ids
             and identifier not in native_scroll_descendants
+            and not getattr(native_widget, "_psx_sfle_scroll", False)
             and previous is not None
         )
         if allow and backend == "qt":
@@ -66,18 +68,21 @@ def readback_reusing_prior(
             # geometry changes; relative placement coordinates are not.
             if isinstance(previous, Mapping) and all(
                 key in previous for key in ("x", "y", "width", "height")
-            ) and not any(
-                float(previous.get(key) or 0.0)
-                for key in ("relx", "rely", "relwidth", "relheight")
             ):
                 try:
-                    result[identifier] = {
-                        axis: float(previous[axis])
-                        for axis in ("x", "y", "width", "height")
-                    }
+                    relative = any(
+                        float(previous.get(key) or 0.0)
+                        for key in ("relx", "rely", "relwidth", "relheight")
+                    )
+                    if not relative:
+                        result[identifier] = {
+                            axis: float(previous[axis])
+                            for axis in ("x", "y", "width", "height")
+                        }
                 except (ValueError, TypeError, OverflowError):
                     pass
                 else:
-                    continue
+                    if not relative:
+                        continue
         result[identifier] = read_widget(identifier, widget)
     return result
