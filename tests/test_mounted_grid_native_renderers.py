@@ -3275,7 +3275,8 @@ def test_tk_mixed_grid_syncs_native_idle_once_per_composition(monkeypatch):
     """A composed Grid cannot drain the entire Tcl idle queue per leaf."""
     from threading import get_ident
     from types import SimpleNamespace
-    from psx.layout.grid import mixed_grid_native, tk_measurement
+    from psx.layout.grid import mixed_grid_native
+    from psx.renderers.tkinter import cinnamon_tk_measurement as tk_measurement
     from psx.layout.grid.mixed_grid_native import MountedMixedGrid
     from psx.layout.adapters.grid_native_commit import GridCommitBackend
     from psx.layout.contracts.model import IntrinsicSizes
