@@ -16,6 +16,21 @@ from .vnode import NodeKind, VNode
 
 
 
+def _flatten_host_fragments(nodes: tuple[VNode, ...]) -> tuple[VNode, ...]:
+    """Expand transparent fragments before sending host children to renderers.
+
+    Empty fragments contribute no native node. A fragment with children
+    contributes those children in source order without a synthetic layout box.
+    """
+    flattened: list[VNode] = []
+    for child in nodes:
+        if child.kind is NodeKind.FRAGMENT:
+            flattened.extend(_flatten_host_fragments(child.children))
+        else:
+            flattened.append(child)
+    return tuple(flattened)
+
+
 def _raise_cleanup_error(errors: list[Exception]) -> None:
     """Preserve the earliest failure and annotate later cleanup failures."""
     if not errors:
@@ -209,9 +224,10 @@ class Reconciler:
             self._apply_css(instance.handle, node.css_computed)
             self._queue_ref(instance, node.props.get("ref"))
             self._sync_events(instance, {}, node.props)
-            _validate_keys(node.children)
+            children = _flatten_host_fragments(node.children)
+            _validate_keys(children)
             instance.children = [self._mount(
-                child, instance) for child in node.children]
+                child, instance) for child in children]
             self._place_children(instance, [], instance.children)
             return instance
         except Exception:
@@ -288,7 +304,7 @@ class Reconciler:
             self._sync_events(old, previous_node.props, node.props)
             previous_children = old.children
             next_children = self._reconcile_children(
-                old, previous_children, node.children)
+                old, previous_children, _flatten_host_fragments(node.children))
             old.children = next_children
             self._place_children(old, previous_children, next_children)
         except Exception:
