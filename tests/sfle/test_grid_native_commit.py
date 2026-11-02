@@ -769,3 +769,49 @@ def test_grid_tk_relative_placement_keeps_live_readback():
     )
     assert receipt.max_readback_error == 0
     assert widget.reads == 1
+
+
+def test_large_grid_reads_only_mutated_qt_rectangles():
+    """Stress the 500-card scale without timing or toolkit dependencies."""
+    class FakeRect:
+        def __init__(self, axes):
+            self.axes = axes
+        def x(self): return self.axes[0]
+        def y(self): return self.axes[1]
+        def width(self): return self.axes[2]
+        def height(self): return self.axes[3]
+
+    class Widget:
+        def __init__(self, axes):
+            self.axes = axes
+            self.reads = 0
+            self.writes = 0
+        def geometry(self):
+            self.reads += 1
+            return FakeRect(self.axes)
+        def setGeometry(self, *axes):
+            self.writes += 1
+            self.axes = axes
+
+    count = 3000
+    widgets = {}
+    original = {}
+    placements = []
+    expected_changes = 0
+    for index in range(count):
+        identifier = f"item-{index}"
+        previous = (index * 41, 0, 40, 20)
+        delta = 1 if index % 300 == 0 else 0
+        expected_changes += bool(delta)
+        widgets[identifier] = Widget(previous)
+        original[identifier] = Rect(*previous)
+        placements.append(placement(identifier, previous[0] + delta, 0))
+    receipt = commit_grid_native_geometry(
+        tuple(placements), backend=GridCommitBackend.QT,
+        widgets=widgets, generation=2,
+        current_generation=lambda: 2, is_ui_thread=lambda: True,
+        prior_native_rectangles=original,
+    )
+    assert receipt.max_readback_error == 0
+    assert sum(widget.reads for widget in widgets.values()) == expected_changes
+    assert sum(widget.writes for widget in widgets.values()) == expected_changes
