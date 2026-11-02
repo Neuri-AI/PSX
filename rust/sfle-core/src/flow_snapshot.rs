@@ -654,11 +654,22 @@ fn flow_reuse_plan(
         // descendants from being silently deferred.
         if !matches!(node.component.as_str(),
                      "div"|"p"|"section"|"main"|"header"|"footer"|
-                     "form"|"ul"|"li"|"Flex"|"Text") {continue;}
-        if node.component!="Text" && node.style.get("display")
-            .and_then(|v|v.as_str()).is_some_and(|v|v!="block") {
-            continue;
-        }
+                     "form"|"ul"|"li"|"h1"|"h2"|"h3"|"h4"|"h5"|"h6"|
+                     "Flex"|"Text") {continue;}
+        // Embedded Flex has its own closed Rust solver. The prior Flex
+        // result is reusable when all descendants and their measurements
+        // are unchanged AND its solved content width remains definite and
+        // identical. Display:flex is not a Block-flow rejection.
+        let accepted_display=if node.component=="Flex" {
+            matches!(node.style.get("display").and_then(|v|v.as_str()),
+                     None|Some("flex"))
+        }else if node.component=="Text" {
+            true
+        }else{
+            matches!(node.style.get("display").and_then(|v|v.as_str()),
+                     None|Some("block"))
+        };
+        if !accepted_display {continue;}
         if node.style.iter().any(|(name,value)|{
             let raw=value.to_string().to_ascii_lowercase();
             raw.contains('%') || raw.contains("percent")
