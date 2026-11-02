@@ -874,6 +874,7 @@ class TkinterRenderer:
         self._psx_grid_viewport_workset = None
         self._psx_mixed_grid_viewport_cache = {}
         self._psx_native_flow_viewport_workset = None
+        self._psx_scroll_after_commit = {}
         self._psx_native_flow_deferred_ids = frozenset()
         self._psx_grid_aqua_paint_signature = None
         # A full unmount/remount must drop cached VNode blueprints and old

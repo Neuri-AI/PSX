@@ -782,6 +782,7 @@ class KivyRenderer:
         self._psx_grid_viewport_workset = None
         self._psx_mixed_grid_viewport_cache = {}
         self._psx_native_flow_viewport_workset = None
+        self._psx_scroll_after_commit = {}
         self._psx_native_flow_deferred_ids = frozenset()
         for cache_name in (
             "_psx_grid_intrinsic_reuse", "_psx_grid_flow_blueprints",
