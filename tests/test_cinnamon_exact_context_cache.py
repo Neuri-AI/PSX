@@ -64,10 +64,13 @@ def test_exact_cache_reuses_unchanged_html_across_generations_and_width_cycles(m
 def test_exact_cache_invalidates_for_intrinsic_css_and_constraints(monkeypatch):
     fake = FakeRust()
     monkeypatch.setattr(module, "serialize_snapshot", lambda req: req)
-    monkeypatch.setattr(
-        module, "deserialize_response",
-        lambda _wire, request: LayoutResult(1, request.generation, ()),
-    )
+    def deserialize(_wire, request):
+        rect = Rect(0, 0, 100, 20)
+        box = BoxRect(rect, rect, rect, rect)
+        return LayoutResult(1, request.generation, tuple(
+            (node.node_id, box) for node in request.nodes
+        ))
+    monkeypatch.setattr(module, "deserialize_response", deserialize)
     engine = module.RustLayoutEngine(fake)
     for source in (
         snapshot(1), snapshot(2),
@@ -82,10 +85,13 @@ def test_exact_cache_invalidates_for_intrinsic_css_and_constraints(monkeypatch):
 def test_exact_cache_is_bounded_and_never_caches_failed_results(monkeypatch):
     fake = FakeRust()
     monkeypatch.setattr(module, "serialize_snapshot", lambda req: req)
-    monkeypatch.setattr(
-        module, "deserialize_response",
-        lambda _wire, request: LayoutResult(1, request.generation, ()),
-    )
+    def deserialize(_wire, request):
+        rect = Rect(0, 0, 100, 20)
+        box = BoxRect(rect, rect, rect, rect)
+        return LayoutResult(1, request.generation, tuple(
+            (node.node_id, box) for node in request.nodes
+        ))
+    monkeypatch.setattr(module, "deserialize_response", deserialize)
     engine = module.RustLayoutEngine(fake)
     engine._exact_limit = 2
     for width in (120, 130, 140, 120):
@@ -97,10 +103,13 @@ def test_exact_cache_is_bounded_and_never_caches_failed_results(monkeypatch):
 def test_exact_cache_does_not_apply_to_large_snapshots(monkeypatch):
     fake = FakeRust()
     monkeypatch.setattr(module, "serialize_snapshot", lambda req: req)
-    monkeypatch.setattr(
-        module, "deserialize_response",
-        lambda _wire, request: LayoutResult(1, request.generation, ()),
-    )
+    def deserialize(_wire, request):
+        rect = Rect(0, 0, 100, 20)
+        box = BoxRect(rect, rect, rect, rect)
+        return LayoutResult(1, request.generation, tuple(
+            (node.node_id, box) for node in request.nodes
+        ))
+    monkeypatch.setattr(module, "deserialize_response", deserialize)
     engine = module.RustLayoutEngine(fake)
     base = snapshot(1)
     children = tuple(
