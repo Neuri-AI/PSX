@@ -198,3 +198,53 @@ def test_semantic_native_invalidation_disables_incremental_width_free_solve():
     )
     assert result.boxes == engine.compute(next_input).boxes
     assert engine.incremental_calls == 0
+
+
+def test_width_dependent_final_uses_certified_incremental_solver_after_convergence():
+    class Tracking(FixedProvisional):
+        def __init__(self):
+            super().__init__(72)
+            self.incremental_calls = 0
+
+        def compute_incremental(self, source, **kwargs):
+            self.incremental_calls += 1
+            return self.compute(source)
+
+    engine = Tracking()
+    incoming = seed_unconstrained_width_measurements(
+        snapshot(), frozenset({"text"}),
+    )
+    prior = replace(incoming, generation=2)
+    old_result = engine.compute(prior)
+    result = compute_width_dependent(
+        engine, incoming, {"text": lambda width: intrinsic(44)},
+        current_generation=lambda: 3,
+        previous_input=prior, previous_result=old_result,
+    )
+    assert engine.incremental_calls == 1
+    assert dict(result.boxes)["text"].content.height == 44
+
+
+def test_width_dependent_global_resource_invalidation_forces_complete_final_solve():
+    class Tracking(FixedProvisional):
+        def __init__(self):
+            super().__init__(72)
+            self.incremental_calls = 0
+
+        def compute_incremental(self, source, **kwargs):
+            self.incremental_calls += 1
+            return self.compute(source)
+
+    engine = Tracking()
+    incoming = seed_unconstrained_width_measurements(
+        snapshot(), frozenset({"text"}),
+    )
+    prior = replace(incoming, generation=2)
+    old_result = engine.compute(prior)
+    compute_width_dependent(
+        engine, incoming, {"text": lambda width: intrinsic(44)},
+        current_generation=lambda: 3,
+        previous_input=prior, previous_result=old_result,
+        native_measurement_invalidated=True,
+    )
+    assert engine.incremental_calls == 0
