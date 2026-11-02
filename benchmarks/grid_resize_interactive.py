@@ -236,6 +236,15 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
             "mounted_nodes": mounted_nodes,
             "native_widgets": native_widgets,
             "rebuild_snapshots": rebuild_snapshots,
+            "rust_actual_compute_abi_calls": getattr(engine, "_native_compute_calls", None),
+            "rust_actual_incremental_abi_calls": getattr(engine, "_native_incremental_calls", None),
+            "rust_exact_result_cache_hits": getattr(engine, "_exact_hits", None),
+            "rust_exact_result_cache_misses": getattr(engine, "_exact_misses", None),
+            "rust_exact_result_cache_entries": len(getattr(engine, "_exact_results", ())),
+            "deferred_text_subtree_hits": getattr(
+                getattr(getattr(renderer, "_psx_grid_flow_blueprints", None),
+                        "solved", None), "hits", 0,
+            ),
             "structural_snapshot_builds": getattr(
                 getattr(renderer, "_sfle_structural_snapshot_reuse", None), "builds", 0,
             ),
