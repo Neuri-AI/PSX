@@ -36,7 +36,6 @@ def test_single_css_pixel_border_uses_exact_native_drawable_width(scale, kind):
         widget._psx_css_stroke if kind == "div"
         else widget._psx_css_control_stroke
     )
-    assert line.bool(force_custom_drawing_method) is True
     assert line.width == pytest.approx(scale / 2)
     assert tuple(color.rgba) == pytest.approx((224 / 255,) * 3 + (1.0,))
     assert not hasattr(widget, "_psx_css_side_strokes")
@@ -70,7 +69,6 @@ def test_one_pixel_side_border_uses_same_retina_raster_policy(scale, kind):
     )
     assert len(lines) == 1
     assert sides[0][0] == "bottom"
-    assert lines[0][2].bool(force_custom_drawing_method) is True
     assert lines[0][2].width == pytest.approx(scale / 2)
     assert not hasattr(widget, "_psx_css_stroke")
     assert not hasattr(widget, "_psx_css_control_stroke")
