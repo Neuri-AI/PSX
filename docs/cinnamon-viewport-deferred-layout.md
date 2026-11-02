@@ -39,6 +39,18 @@ No public developer opt-in or special VirtualList / VirtualGrid is required.
    widget and apply/verify all changed native geometry. Existing skip-unchanged
    commit optimization prevents redundant property notifications. Scroll
    offsets and rollback remain controlled by toolkit-specific transactions.
+6. **Unchanged native readback.** Qt and Tk reuse the rollback rectangle
+   captured earlier in the same transaction for nodes that were not written.
+   External native ports, Scroll hosts/descendants, image-painted nodes,
+   changed text-wrap lengths, and relative Tk placements still get live
+   native reads. Kivy always performs live readback.
+7. **Conservative bitmap paint reuse.** Qt QLabel and Tk PhotoImage reuse a
+   previously accepted bitmap when source, fit and native target rectangle
+   are unchanged. No new image scaling or Tcl PhotoImage allocation occurs
+   on those hits. Native widgets remain mounted and the accepted pixels
+   remain available to Scroll and window expose events; failed geometry
+   transactions invalidate unaccepted bitmap receipts. Kivy only refreshes
+   text textures when an intrinsic probe or changed wrap width requires it.
 
 ## Fail-closed cases
 
@@ -51,8 +63,9 @@ is never evidence that a subtree has no effect on document height.
 
 Overlapped, transparent, transformed or rounded widgets must not be
 occlusion-culled without a separate backend-aware opaque-region and stacking
-proof. Nothing in this change skips event handlers, focus, accessibility,
-painting, or mounting.
+proof. Nothing in this change skips event handlers, focus,
+accessibility, required redraws after content changes, or mounting. Pure
+repainting of already accepted, byte-identical bitmap content is avoided.
 
 This implementation is *not* universal windowed widget virtualization or
 general occlusion culling. It is a safe first layer of viewport-aware deferred
@@ -66,7 +79,9 @@ Use the Rust core and Python native geometry tests:
 ```bash
 cargo test --manifest-path rust/sfle-core/Cargo.toml --lib html_offscreen_subtrees_defer_recursion_without_stale_geometry
 cargo test --manifest-path rust/sfle-core/Cargo.toml --lib viewport_resize_reuses_still_definite_flex_children
-python -m pytest -q tests/test_grid_solved_subtree_reuse.py tests/test_cinnamon_exact_context_cache.py
+python -m pytest -q tests/test_grid_solved_subtree_reuse.py tests/test_cinnamon_exact_context_cache.py tests/test_native_readback_reuse.py
+# With a real X display, or xvfb-run on Linux:
+python -m pytest -q tests/test_native_image_paint_reuse.py
 ```
 
 The `Grid resize performance` GitHub workflow also certifies native
