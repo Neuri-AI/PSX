@@ -109,7 +109,21 @@ def compute_width_dependent(
             )
             changed = True
         if not changed:
-            final = engine.compute(current)
+            # The provisional pass has certified every leaf's assigned
+            # width. A previous accepted result may now be used for
+            # incremental *final* sizing; Rust still validates unchanged
+            # CSS/measurements and falls back on structural dependencies.
+            incremental = getattr(engine, "compute_incremental", None)
+            if (not native_measurement_invalidated
+                    and previous_input is not None
+                    and previous_result is not None
+                    and callable(incremental)):
+                final = incremental(
+                    current, previous_input=previous_input,
+                    previous_result=previous_result,
+                )
+            else:
+                final = engine.compute(current)
             if final.generation != snapshot.generation or current_generation() != snapshot.generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale SFLE final width-dependent result.")
             boxes = dict(final.boxes)
