@@ -10,6 +10,9 @@ from psx.css.parser import parse_stylesheet
 from psx.renderers.components.button import apply_tk_button
 from psx.renderers.components.input import apply_tk_input, input_props
 from psx.renderers.tkinter.tkinter import TkHandle, TkinterRenderer, _tk_input_factory
+from psx.renderers.tkinter.cinnamon_tk_measurement import TkMeasurementSource
+from psx.layout.contracts.model import AvailableSize, LayoutConstraints
+from psx.layout.runtime.measurement_plan import MeasurementRequest
 
 
 @pytest.fixture
@@ -112,4 +115,38 @@ def test_css_painted_button_uses_css_padding_not_theme_bezel(tk_root):
     layout = ttk.Style(button).layout(name)
     assert layout[0][0] == "Button.padding"
     assert tuple(int(v) for v in ttk.Style(button).lookup(name, "padding")) == (8, 8, 8, 8)
+    renderer.close()
+
+
+def test_css_padding_is_not_counted_twice_by_cinnamon(tk_root):
+    renderer = TkinterRenderer(root=tk_root)
+    for node_type, widget, style_css in (
+        ("Input", _tk_input_factory(tk_root),
+         "input {padding: 8px; background-color: #f0f0f0;}"),
+        ("Button", ttk.Button(tk_root),
+         "button {padding: 8px; border: none; background-color: #007bff;}"),
+    ):
+        if node_type == "Input":
+            apply_tk_input(widget, input_props({
+                "value": "", "placeholder": "Username",
+            }))
+        else:
+            apply_tk_button(widget, {
+                "label": "Sign In", "font_size": 14, "enabled": True,
+            })
+        widget.pack()
+        renderer.apply_css(TkHandle(node_type, widget, {}), _rule(
+            style_css, "input" if node_type == "Input" else "button"
+        ))
+        tk_root.update_idletasks()
+        assert widget._psx_css_measured_padding == (8, 8, 8, 8)
+        source = TkMeasurementSource({"field": widget})
+        constraints = LayoutConstraints(
+            AvailableSize(440, True), AvailableSize(300, True)
+        )
+        measured = source.measure(MeasurementRequest(
+            "field", constraints, 1, 1
+        )).intrinsic
+        assert widget.winfo_reqheight() - measured.preferred_height == 16
+        assert widget.winfo_reqwidth() - measured.preferred_width == 16
     renderer.close()
