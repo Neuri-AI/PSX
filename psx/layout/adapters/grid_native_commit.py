@@ -201,6 +201,12 @@ def commit_grid_native_geometry(
         unplaced = set()
     absent_headless = ({node_id for node_id in ids if widgets[node_id].geometry is None}
                        if backend is GridCommitBackend.HEADLESS else set())
+    # Only native rectangles from this *same* owner-thread transaction can
+    # be used as readback receipts. Qt children use absolute parent-local
+    # pixels; Tk requires explicit pixel placement without relative axes.
+    # Kivy stays live-read: canvas/ScrollView transforms may change geometry
+    # without a direct geometry write from this committer.
+    unchanged_receipts: set[str] = set()
     if current_generation() != generation or not is_ui_thread():
         raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before native mutation.")
     try:
@@ -220,14 +226,41 @@ def commit_grid_native_geometry(
                 unchanged = before == desired
             if (unchanged and node_id not in absent_headless
                     and node_id not in unplaced):
+                if backend is GridCommitBackend.QT:
+                    unchanged_receipts.add(node_id)
+                elif backend is GridCommitBackend.TK:
+                    info = (
+                        prior_tk_placements.get(node_id)
+                        if prior_tk_placements is not None else None
+                    )
+                    # Without an explicit pixel placement receipt, keep
+                    # native readback. Relative Tk placements can shift
+                    # when their parent changes, even if no place() occurs.
+                    if info and all(key in info for key in (
+                        "x", "y", "width", "height",
+                    )):
+                        try:
+                            if not any(float(info.get(key) or 0.0) for key in (
+                                "relx", "rely", "relwidth", "relheight",
+                            )):
+                                unchanged_receipts.add(node_id)
+                        except (ValueError, TypeError, OverflowError):
+                            pass
                 continue
             write(widgets[node_id], desired)
         if current_generation() != generation or not is_ui_thread():
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Grid invalidated before readback.")
-        # Read each native rectangle once. Repeating read() inside the axis
-        # loop performs four full Tcl place_info() round trips per widget,
-        # although all four axes describe the same committed rectangle.
-        observed = {node_id: read(widgets[node_id]) for node_id in ids}
+        # The rollback baseline already holds a real native read from this
+        # transaction. For unchanged, explicitly positioned Qt/Tk children
+        # this is also the final rectangle. Changed children, unplaced Tk
+        # nodes, relative Tk placements, Kivy and headless always read live.
+        # This avoids O(N) redundant native getter calls in large Grid
+        # commits while retaining a complete per-node verification receipt.
+        observed = {
+            node_id: (originals[node_id] if node_id in unchanged_receipts
+                      else read(widgets[node_id]))
+            for node_id in ids
+        }
         error = max((
             abs(getattr(observed[node_id], axis) - getattr(target[node_id], axis))
             for node_id in ids for axis in ("x", "y", "width", "height")

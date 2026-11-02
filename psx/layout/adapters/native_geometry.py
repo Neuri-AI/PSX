@@ -246,8 +246,19 @@ class NativeGeometryCommitter:
                 # Kivy dispatches position/size observers independently.
                 # For width-only resizes, avoid invalidating the untouched
                 # position. Keep legacy unconditional writes if requested.
-                if not self._skip_unchanged or tuple(widget.pos) != (x, y):
+                # The same-transaction rollback snapshot already contains
+                # the actual Kivy pos/size. Do not fetch those properties a
+                # second time after deciding that this node needs an update.
+                prior = (
+                    self._prior_kivy_rectangles.get(node_id)
+                    if self._prior_kivy_rectangles is not None else None
+                )
+                prior_pos, prior_size = (
+                    prior if prior is not None
+                    else (tuple(widget.pos), tuple(widget.size))
+                )
+                if not self._skip_unchanged or prior_pos != (x, y):
                     widget.pos = (x, y)
-                if not self._skip_unchanged or tuple(widget.size) != (width, height):
+                if not self._skip_unchanged or prior_size != (width, height):
                     widget.size = (width, height)
         self.mutated_ids = frozenset(mutated)

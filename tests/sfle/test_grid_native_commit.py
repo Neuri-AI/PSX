@@ -673,3 +673,98 @@ def test_kivy_grid_prior_snapshot_preserves_readback_and_rollback():
             is_ui_thread=lambda: True,
             prior_native_rectangles={"child": Rect(0, 0, 0, 0)},
         )
+
+
+def test_grid_unchanged_qt_child_reuses_owner_thread_rollback_readback():
+    """Grid must read changed Qt widgets, not thousands of inert siblings."""
+    class FakeRect:
+        def __init__(self, axes):
+            self.axes = axes
+        def x(self): return self.axes[0]
+        def y(self): return self.axes[1]
+        def width(self): return self.axes[2]
+        def height(self): return self.axes[3]
+
+    class Widget:
+        def __init__(self, axes):
+            self.axes = axes
+            self.reads = 0
+        def geometry(self):
+            self.reads += 1
+            return FakeRect(self.axes)
+        def setGeometry(self, *axes):
+            self.axes = axes
+
+    unchanged = Widget((10, 5, 40, 20))
+    changed = Widget((70, 5, 40, 20))
+    receipt = commit_grid_native_geometry(
+        (placement("same", 10, 5), placement("changed", 75, 5)),
+        backend=GridCommitBackend.QT,
+        widgets={"same": unchanged, "changed": changed},
+        generation=1, current_generation=lambda: 1,
+        is_ui_thread=lambda: True,
+        prior_native_rectangles={
+            "same": Rect(10, 5, 40, 20),
+            "changed": Rect(70, 5, 40, 20),
+        },
+    )
+    assert receipt.max_readback_error == 0
+    assert unchanged.reads == 0
+    assert changed.reads == 1
+    assert changed.axes == (75, 5, 40, 20)
+
+
+def test_grid_tk_explicit_unchanged_receipt_skips_tcl_readback():
+    class Widget:
+        def __init__(self, axes):
+            self.axes = axes
+            self.reads = 0
+        def place_info(self):
+            self.reads += 1
+            return dict(self.axes)
+        def place(self, **axes):
+            self.axes = {k: str(v) for k, v in axes.items()}
+        def place_forget(self):
+            self.axes = {}
+
+    fixed = {"x": "10", "y": "5", "width": "40", "height": "20"}
+    widgets = {"same": Widget(fixed), "changed": Widget({
+        "x": "70", "y": "5", "width": "40", "height": "20",
+    })}
+    receipt = commit_grid_native_geometry(
+        (placement("same", 10, 5), placement("changed", 75, 5)),
+        backend=GridCommitBackend.TK, widgets=widgets,
+        generation=1, current_generation=lambda: 1,
+        is_ui_thread=lambda: True,
+        prior_tk_placements={
+            name: dict(widget.axes) for name, widget in widgets.items()
+        },
+    )
+    assert receipt.max_readback_error == 0
+    assert widgets["same"].reads == 0
+    assert widgets["changed"].reads == 1
+
+
+def test_grid_tk_relative_placement_keeps_live_readback():
+    class Widget:
+        def __init__(self):
+            self.reads = 0
+        def place_info(self):
+            self.reads += 1
+            return dict(x="10", y="5", width="40", height="20",
+                        relx="0.5")
+        def place(self, **axes):
+            raise AssertionError("Matching explicit axes should not be rewritten")
+    widget = Widget()
+    receipt = commit_grid_native_geometry(
+        (placement("child", 10, 5),),
+        backend=GridCommitBackend.TK, widgets={"child": widget},
+        generation=1, current_generation=lambda: 1,
+        is_ui_thread=lambda: True,
+        prior_tk_placements={
+            "child": dict(x="10", y="5", width="40", height="20",
+                          relx="0.5"),
+        },
+    )
+    assert receipt.max_readback_error == 0
+    assert widget.reads == 1

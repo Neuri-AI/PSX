@@ -40,10 +40,14 @@ No public developer opt-in or special VirtualList / VirtualGrid is required.
    commit optimization prevents redundant property notifications. Scroll
    offsets and rollback remain controlled by toolkit-specific transactions.
 6. **Unchanged native readback.** Qt and Tk reuse the rollback rectangle
-   captured earlier in the same transaction for nodes that were not written.
+   captured earlier in the same transaction for nodes that were not written,
+   including explicitly placed Grid descendants. Changed Grid nodes still
+   receive a fresh native read, and relative Tk placement is excluded.
    External native ports, Scroll hosts/descendants, image-painted nodes,
    changed text-wrap lengths, and relative Tk placements still get live
-   native reads. Kivy always performs live readback.
+   native reads. Kivy always performs live readback. Kivy's outer geometry
+   committer also uses the same-transaction snapshot for unchanged axis
+   comparisons, avoiding duplicate native property getters.
 7. **Conservative bitmap paint reuse.** Qt QLabel and Tk PhotoImage reuse a
    previously accepted bitmap when source, fit and native target rectangle
    are unchanged. No new image scaling or Tcl PhotoImage allocation occurs
