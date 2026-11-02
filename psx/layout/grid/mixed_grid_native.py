@@ -287,6 +287,7 @@ class MountedMixedGrid:
                     viewport_height=self._viewport_heights.get(node_id, 0.0),
                     epoch=epoch, backend=self.backend, safe_ids=safe_ids,
                     viewport_top=self._viewport_tops.get(node_id, 0.0),
+                    reconcile=getattr(self.renderer, '_psx_resize_priority', None),
                 )
             else:
                 cache.pop(node_id, None)
@@ -306,6 +307,9 @@ class MountedMixedGrid:
     def accept_viewport(self):
         """Publish offscreen receipts AFTER the outer native transaction."""
         scroll_deferred = {}
+        self.renderer._psx_native_grid_deferred_total = sum(
+            len(skipped) for _, _, skipped in getattr(self, '_viewport_batches', ())
+        )
         for (node_id, workset, skipped), plan in zip(
             getattr(self, "_viewport_batches", ()),
             getattr(self, "_viewport_plans", ()),
