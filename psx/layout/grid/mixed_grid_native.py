@@ -323,7 +323,13 @@ class MountedMixedGrid:
                 epoch=self._intrinsic_epoch, backend=self.backend, skipped=skipped,
             )
         for host, pending in scroll_deferred.values():
-            host._psx_viewport_has_deferred = pending
+            # Grid and HTML flow may share a Scroll viewport. Never let the
+            # final acceptance step clear the other layout participant's
+            # outstanding deferred native work.
+            host._psx_viewport_grid_deferred = pending
+            host._psx_viewport_has_deferred = (
+                pending or bool(getattr(host, "_psx_viewport_flow_deferred", False))
+            )
 
     def _descendants(self):
         visited = {}

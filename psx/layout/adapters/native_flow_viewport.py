@@ -45,7 +45,13 @@ class FlowViewportPlan:
             # own input; a newly visible subtree requests one coalesced
             # owner-thread Cinnamon transaction, never a second geometry
             # solver or a widget remount.
-            self.scroll_host._psx_viewport_has_deferred = bool(self.deferred_ids)
+            pending = bool(self.deferred_ids)
+            self.scroll_host._psx_viewport_flow_deferred = pending
+            self.scroll_host._psx_viewport_has_deferred = (
+                pending or bool(getattr(
+                    self.scroll_host, "_psx_viewport_grid_deferred", False
+                ))
+            )
 
 
 def plan_native_flow_viewport(renderer, prepared, snapshot, result, bindings,

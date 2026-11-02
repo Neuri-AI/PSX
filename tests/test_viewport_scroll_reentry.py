@@ -52,3 +52,23 @@ def test_scroll_destroy_while_deferred_callback_pending():
     scheduled.pop()()
     assert renderer.calls == 0
     assert not host._psx_viewport_reentry_pending
+
+
+def test_scroll_flow_acceptance_keeps_grid_reentry_enabled():
+    from psx.layout.adapters.native_flow_viewport import FlowViewportPlan
+    host = SimpleNamespace(
+        _psx_sfle_scroll=True,
+        _psx_viewport_grid_deferred=True,
+        _psx_viewport_has_deferred=True,
+    )
+    plan = FlowViewportPlan(
+        workset=None, roots=(), placements=(), widgets={},
+        height=200, epoch=1, backend="tk",
+        deferred_ids=frozenset(), scroll_host=host,
+    )
+    plan.accept()
+    assert host._psx_viewport_flow_deferred is False
+    assert host._psx_viewport_has_deferred is True
+    host._psx_viewport_grid_deferred = False
+    plan.accept()
+    assert host._psx_viewport_has_deferred is False
