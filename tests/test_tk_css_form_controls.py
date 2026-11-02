@@ -171,11 +171,14 @@ def test_button_rounded_bottom_corners_survive_compact_height(tk_root):
     )
     tk_root.update()
     canvas = button._psx_css_button_surface
+    assert canvas.master is button.master
+    assert (canvas.winfo_x(), canvas.winfo_y()) == (button.winfo_x(), button.winfo_y())
     assert (canvas.winfo_width(), canvas.winfo_height()) == (280, 38)
 
     for width, height in ((280, 38), (280, 32), (180, 38)):
         button.place_configure(width=width, height=height)
         tk_root.update()
+        assert (canvas.winfo_x(), canvas.winfo_y()) == (button.winfo_x(), button.winfo_y())
         assert (canvas.winfo_width(), canvas.winfo_height()) == (width, height)
         assert len(canvas.find_withtag("psx-css-surface-corner")) == 4
         corners = {
@@ -190,3 +193,61 @@ def test_button_rounded_bottom_corners_survive_compact_height(tk_root):
         }
         assert len(canvas.find_withtag("psx-css-button-text")) == 1
     renderer.close()
+
+def test_html_form_button_surface_follows_cinnamon_full_border_box(tk_root):
+    """The HTML-like form path must not crop Aqua's CSS Button bottom padding."""
+    from psx import psx
+    from psx.core.reconcile import Reconciler
+    from psx.layout.fallback.engine import PythonLayoutEngine
+    renderer = TkinterRenderer(
+        root=tk_root,
+        sfle_constraints=LayoutConstraints(
+            AvailableSize(440, True), AvailableSize(300, True),
+        ),
+        engine=PythonLayoutEngine(),
+    )
+    reconciler = Reconciler(renderer)
+    try:
+        view = psx(
+            '<div style="display: flex; flex-direction: column; gap: 16px; '
+            'padding: 30px 20px">'
+            '<form style="display: flex; flex-direction: column; gap: 16px">'
+            '<input type="text" placeholder="Username" '
+            'style="padding:8px; background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 4px"/>'
+            '<input type="password" placeholder="Password" '
+            'style="padding:8px; background-color: #f0f0f0; border: 1px solid #ccc; border-radius: 4px"/>'
+            '<button style="padding:8px; background-color:#007bff; '
+            'color:white; border:none; border-radius:4px">Sign In</button>'
+            '</form></div>'
+        )
+        mounted = reconciler.render(view)
+        tk_root.deiconify()
+        tk_root.update()
+        buttons = []
+
+        def gather(node):
+            if node.node.type == "Button":
+                buttons.append(node.handle.widget)
+            for child in node.children:
+                gather(child)
+
+        gather(mounted)
+        assert len(buttons) == 1
+        button = buttons[0]
+        canvas = button._psx_css_button_surface
+        assert canvas.master is button.master
+        assert canvas.winfo_manager() == "place"
+        assert (canvas.winfo_x(), canvas.winfo_y()) == (button.winfo_x(), button.winfo_y())
+        assert (canvas.winfo_width(), canvas.winfo_height()) == (
+            button.winfo_width(), button.winfo_height()
+        )
+        assert canvas.winfo_height() > 20
+        assert canvas.coords(canvas.find_withtag("psx-css-br")[0]) == [
+            float(button.winfo_width() - 4), float(button.winfo_height() - 4)
+        ]
+        button.destroy()
+        tk_root.update()
+        assert not canvas.winfo_exists()
+    finally:
+        reconciler.unmount()
+        renderer.close()
