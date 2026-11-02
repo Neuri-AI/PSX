@@ -201,6 +201,7 @@ def plan_native_flow_viewport(renderer, prepared, snapshot, result, bindings,
         root_ids=group_roots, batch=batch, widgets=widgets,
         viewport_height=float(height), epoch=epoch, backend=backend,
         safe_ids=safe_ids, viewport_top=viewport_top, contexts=contexts,
+        reconcile=getattr(renderer, '_psx_resize_priority', None),
     )
     return FlowViewportPlan(workset, group_roots, batch, widgets,
                             float(height), epoch, backend, skipped,
