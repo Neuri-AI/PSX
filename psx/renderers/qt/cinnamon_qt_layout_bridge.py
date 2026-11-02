@@ -515,6 +515,13 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
         except BaseException:
+            # Bitmap cache receipts from this failed geometry transaction
+            # are not accepted, even if native pixels were painted before
+            # a later readback/scroll validation failed. The next attempt
+            # must compose them again from the decoded source.
+            for image_id in image_ids:
+                image_widget = bindings[image_id].widget
+                image_widget._psx_sfle_paint_cache = None
             if original_root_geometry is not None:
                 root_widget.setGeometry(original_root_geometry)
             restore_scroll_hosts(scroll_before)
