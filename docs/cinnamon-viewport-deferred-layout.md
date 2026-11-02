@@ -268,3 +268,32 @@ Review `summary.p95_ms`, `summary.p95_commit_ms` and the
 `deferred_native_grid_node_count` diagnostic. Both runs must have identical
 mounted widget counts. A large improvement is not guaranteed for complex
 interactive content, which deliberately uses conservative safety exclusions.
+
+
+### Observed 500-card CI A/B result (2026-11-02)
+
+On the same GitHub Actions Ubuntu runner with the Rust engine, 500 styled
+cards and equal native widget counts, the workset selected thousands of
+offscreen native rectangles. The recorded p95 values were:
+
+| Native backend | Full commit A/B control | Viewport workset | Deferred node receipts | Relative p95 change |
+| --- | ---: | ---: | ---: | ---: |
+| Qt | 724.29 ms | 664.47 ms | 2,760 | -8.3% |
+| Tkinter | 952.47 ms | 669.86 ms | 2,784 | -29.7% |
+
+Source: [Grid resize performance — Cinnamon CPU profile](https://github.com/Neuri-AI/PSX/actions/runs/41499737794/job/125463821915).
+
+These are measured **event-to-completed-layout** p95 values, not render
+FPS, and they are not directly comparable to macOS measurements or other
+hardware. The data proves that native-commit culling activates but also
+shows that remaining full-tree CSS projection, intrinsic/structural
+composition and native processing are still too expensive for 16.67 ms
+with 500 cards. Neither the present workset nor larger caches certifies
+interactive 60 FPS. Actual layout-computation virtualization and
+paint/mount virtualization require further architectural work.
+
+The separate viewport native certification runs the same mounted
+Qt/Tk/Kivy lifecycle and scrolling cases first against the Python
+layout backend and then against a compiled, explicitly checked Rust
+Cinnamon wheel. For CI status consult:
+[Viewport native certification](https://github.com/Neuri-AI/PSX/actions/workflows/viewport-native-certification.yml).
