@@ -185,9 +185,11 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 continue
             is_atomic = node_id in atomic_text
             widget._psx_sfle_inline_atomic = is_atomic
-            if is_atomic:
+            if is_atomic and tuple(widget.text_size) != (None, None):
+                # A native Text paint invalidation is triggered by the
+                # property assignment itself. The intrinsic cache's lazy
+                # measurement callback refreshes the texture on misses.
                 widget.text_size = (None, None)
-                widget.texture_update()
         source = KivyMeasurementSource(
             leaf_widgets, textarea_ids=textarea_ids, image_ids=image_ids,
             spacer_ids=spacer_ids, divider_nodes=divider_nodes,
@@ -204,34 +206,48 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             refresh = getattr(widget, "texture_update", None)
             if (bindings[node_id].node_type == "Text"
                     and hasattr(widget, "text_size")):
-                original_text_size = widget.text_size
-                try:
-                    widget.text_size = (None, None)
-                    if callable(refresh):
-                        refresh()
-                    readings.append(native_round.read(
-                        widget=widget, props=declared_props[node_id],
-                        constraints=renderer._sfle_constraints,
-                        node_id=node_id, generation=generation,
-                        measure=lambda node_id=node_id: source.measure(MeasurementRequest(
-                            node_id, renderer._sfle_constraints, generation, generation)),
-                    ))
-                finally:
-                    widget.text_size = original_text_size
-                    if callable(refresh):
-                        refresh()
+                # NativeIntrinsicCache decides whether a glyph probe is
+                # needed. An accepted cache hit must NOT reset text_size or
+                # call texture_update(): on Kivy these operations dispatch
+                # expensive canvas work even for offscreen text.
+                def measure_text(node_id=node_id, widget=widget, refresh=refresh):
+                    original_text_size = widget.text_size
+                    try:
+                        if tuple(widget.text_size) != (None, None):
+                            widget.text_size = (None, None)
+                        if callable(refresh):
+                            refresh()
+                        return source.measure(MeasurementRequest(
+                            node_id, renderer._sfle_constraints,
+                            generation, generation,
+                        ))
+                    finally:
+                        if tuple(widget.text_size) != tuple(original_text_size):
+                            widget.text_size = original_text_size
+                        if callable(refresh):
+                            refresh()
+                readings.append(native_round.read(
+                    widget=widget, props=declared_props[node_id],
+                    constraints=renderer._sfle_constraints,
+                    node_id=node_id, generation=generation,
+                    measure=measure_text,
+                ))
                 if renderer._sfle_generation != generation:
                     raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                     "Kivy measurement became stale.")
                 continue
-            if callable(refresh):
-                refresh()
+            def measure_other(node_id=node_id, refresh=refresh):
+                if callable(refresh):
+                    refresh()
+                return source.measure(MeasurementRequest(
+                    node_id, renderer._sfle_constraints,
+                    generation, generation,
+                ))
             readings.append(native_round.read(
                 widget=widget, props=declared_props[node_id],
                 constraints=renderer._sfle_constraints,
                 node_id=node_id, generation=generation,
-                measure=lambda node_id=node_id: source.measure(MeasurementRequest(
-                    node_id, renderer._sfle_constraints, generation, generation)),
+                measure=measure_other,
             ))
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
@@ -496,11 +512,13 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     KivyDividerAdapter._redraw(widget, widget._psx_props)
             for node_id in previous_text_sizes:
                 widget = bindings[node_id].widget
-                if node_id in atomic_text:
-                    widget.text_size = (None, None)
-                else:
-                    widget.text_size = (boxes[node_id].content.width, None)
-                widget.texture_update()
+                desired_size = (
+                    (None, None) if node_id in atomic_text
+                    else (boxes[node_id].content.width, None)
+                )
+                if tuple(widget.text_size) != desired_size:
+                    widget.text_size = desired_size
+                    widget.texture_update()
             if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Stale semantic invalidation after native geometry.")
