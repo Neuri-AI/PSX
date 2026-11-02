@@ -279,8 +279,31 @@ class MountedMixedGrid:
             if self.backend is GridCommitBackend.TK and len(plans) == 1
             else None
         )
+        reusable_native = (
+            {id(widget): state for widget, state in before}
+            if self.backend in (GridCommitBackend.QT, GridCommitBackend.KIVY)
+               and len(plans) == 1 else None
+        )
         try:
             for composition, batch, widgets, heights, root_height in plans:
+                initial_native = None
+                if reusable_native is not None and all(
+                    id(widget) in reusable_native for widget in widgets.values()
+                ):
+                    from psx.layout.contracts.model import Rect
+                    if self.backend is GridCommitBackend.QT:
+                        initial_native = {
+                            node_id: Rect(*reusable_native[id(widget)])
+                            for node_id, widget in widgets.items()
+                        }
+                    else:
+                        initial_native = {
+                            node_id: Rect(
+                                *reusable_native[id(widget)][0],
+                                *reusable_native[id(widget)][1],
+                            )
+                            for node_id, widget in widgets.items()
+                        }
                 initial = (
                     {node_id: reusable_tk[id(widget)]
                      for node_id, widget in widgets.items()
@@ -290,6 +313,7 @@ class MountedMixedGrid:
                 receipt = commit_grid_native_geometry(
                     batch, backend=self.backend, widgets=widgets,
                     prior_tk_placements=initial,
+                    prior_native_rectangles=initial_native,
                     generation=self.generation,
                     current_generation=lambda: self.renderer._sfle_generation,
                     is_ui_thread=self._on_thread,
