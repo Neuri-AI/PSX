@@ -661,10 +661,10 @@ def test_kivy_grid_prior_snapshot_preserves_readback_and_rollback():
         prior_native_rectangles={"child": Rect(0, 0, 0, 0)},
     )
     assert receipt.max_readback_error == 0
-    assert widget.pos == (10, 75)
-    assert widget.size == (40, 20)
-    # 2 reads for write-time comparisons plus 2 for final verification.
-    assert widget.reads == 6  # +2 for assertions above
+    assert widget._pos == (10, 75)
+    assert widget._size == (40, 20)
+    # 2 reads for write-time comparisons, 4 for final verification.
+    assert widget.reads == 6
     with pytest.raises(GridPackingError, match="Qt or Kivy"):
         commit_grid_native_geometry(
             (placement("child", 10, 5, 40, 20),),
