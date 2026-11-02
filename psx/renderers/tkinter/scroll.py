@@ -95,6 +95,9 @@ class _ScrollFrame(ttk.Frame):
             canvas.xview_moveto(quantized_position / max(1, total))
         else:
             canvas.yview_moveto(quantized_position / max(1, total))
+        callback = getattr(self, "_psx_viewport_scroll_request", None)
+        if callback is not None:
+            callback()
         event._psx_scroll_remainder = remainder + (new_position - quantized_position)
         self._show_thumbs()
         # When the viewport reaches an edge, pass any unconsumed travel to
@@ -140,6 +143,9 @@ class _ScrollFrame(ttk.Frame):
                 canvas.yview_moveto(new_position / max(1, total))
             moved = True
         if moved:
+            callback = getattr(self, "_psx_viewport_scroll_request", None)
+            if callback is not None:
+                callback()
             self._show_thumbs()
             return "break"
         return None
@@ -226,6 +232,11 @@ class TkScrollAdapter:
         outer._psx_window = canvas.create_window(0, 0, window=content, anchor=tk.NW)
         outer._psx_props = props
         outer._psx_sfle_scroll = renderer._sfle_constraints is not None
+        if outer._psx_sfle_scroll:
+            from psx.layout.adapters.viewport_scroll_reentry import request_scroll_reentry
+            outer._psx_viewport_scroll_request = lambda: request_scroll_reentry(
+                renderer, outer, lambda callback: outer.after_idle(callback),
+            )
         content.bind("<Configure>", outer._refresh, add="+")
         canvas.bind("<Configure>", outer._refresh, add="+")
         self._apply(outer, props)
@@ -315,5 +326,7 @@ class TkScrollAdapter:
     def destroy(self, renderer, handle):
         outer = handle.widget
         outer._teardown()
+        outer._psx_viewport_has_deferred = False
+        outer._psx_viewport_scroll_request = None
         if outer.winfo_exists():
             outer.destroy()

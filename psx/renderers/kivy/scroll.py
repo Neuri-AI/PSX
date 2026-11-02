@@ -61,6 +61,18 @@ class KivyScrollAdapter:
         view._psx_content = content
         self._apply(view, props)
         self._connect(view)
+        if sfle:
+            from kivy.clock import Clock
+            from psx.layout.adapters.viewport_scroll_reentry import request_scroll_reentry
+            def on_native_scroll(*_args):
+                request_scroll_reentry(
+                    renderer, view,
+                    lambda callback: Clock.schedule_once(
+                        lambda _dt: callback(), 0
+                    ),
+                )
+            view._psx_viewport_scroll_listener = on_native_scroll
+            view.bind(scroll_x=on_native_scroll, scroll_y=on_native_scroll)
         return KivyHandle("Scroll", view, props)
 
     @staticmethod
@@ -192,6 +204,11 @@ class KivyScrollAdapter:
 
     def destroy(self, renderer, handle):
         view = handle.widget
+        listener = getattr(view, "_psx_viewport_scroll_listener", None)
+        if listener is not None:
+            view.unbind(scroll_x=listener, scroll_y=listener)
+            view._psx_viewport_scroll_listener = None
+        view._psx_viewport_has_deferred = False
         # An unmounted viewport must not keep scheduling kinetic-effect or
         # scrollbar animation updates after its GridItem has been removed.
         from kivy.animation import Animation

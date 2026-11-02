@@ -257,6 +257,15 @@ class QtScrollAdapter:
         area._psx_binding = binding
         area._psx_content = content
         area._psx_layout = layout
+        if sfle:
+            from psx.layout.adapters.viewport_scroll_reentry import request_scroll_reentry
+            def on_native_scroll(_value):
+                request_scroll_reentry(
+                    renderer, area,
+                    lambda callback: renderer._qtcore.QTimer.singleShot(0, callback),
+                )
+            area.horizontalScrollBar().valueChanged.connect(on_native_scroll)
+            area.verticalScrollBar().valueChanged.connect(on_native_scroll)
         self._apply(area, props)
         return QtHandle("Scroll", area, layout=layout, props=props)
 

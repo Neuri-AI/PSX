@@ -301,10 +301,18 @@ class MountedMixedGrid:
 
     def accept_viewport(self):
         """Publish offscreen receipts AFTER the outer native transaction."""
+        scroll_deferred = {}
         for (node_id, workset, skipped), plan in zip(
             getattr(self, "_viewport_batches", ()),
             getattr(self, "_viewport_plans", ()),
         ):
+            owner = self._scroll_ancestors.get(node_id)
+            if owner is not None:
+                host = self.handles[id(owner.source)].widget
+                scroll_deferred[id(host)] = (
+                    host,
+                    bool(skipped) or scroll_deferred.get(id(host), (None, False))[1],
+                )
             if workset is None:
                 continue
             composition, batch, widgets, _heights, _root_height = plan
@@ -314,6 +322,8 @@ class MountedMixedGrid:
                 viewport_height=self._viewport_heights[node_id],
                 epoch=self._intrinsic_epoch, backend=self.backend, skipped=skipped,
             )
+        for host, pending in scroll_deferred.values():
+            host._psx_viewport_has_deferred = pending
 
     def _descendants(self):
         visited = {}
