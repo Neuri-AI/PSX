@@ -3542,3 +3542,35 @@ def test_kivy_mixed_grid_publishes_accepted_text_intrinsic_cache():
     finally:
         tree.unmount()
         close()
+
+
+def test_kivy_direct_grid_textures_only_update_on_intrinsic_miss(monkeypatch):
+    """Unchanged root Grid text must not rerasterize on every commit."""
+    if os.environ.get("PSX_GRID_BACKEND") != "kivy":
+        pytest.skip("Kivy direct Grid text measurement")
+
+    renderer, close = make_renderer("kivy")
+    tree = Reconciler(renderer)
+    try:
+        root = tree.render(Grid(GridItem(Text("Stable label"), span=12)))
+        widget = root.children[0].children[0].handle.widget
+        original = type(widget).texture_update
+        updates = []
+
+        def counted_texture_update(self, *args, **kwargs):
+            if self is widget:
+                updates.append(True)
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(type(widget), "texture_update", counted_texture_update)
+        renderer.commit_layout(root)
+        assert updates == [], (
+            "Accepted unchanged Grid Text still triggers a texture refresh"
+        )
+        renderer.set_sfle_constraints(viewport(640))
+        renderer.commit_layout(root)
+        assert updates, "Changed width must still allow a real glyph measurement"
+        assert renderer.grid_result[1].max_readback_error <= 1
+    finally:
+        tree.unmount()
+        close()
