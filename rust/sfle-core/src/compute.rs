@@ -326,6 +326,85 @@ mod incremental_sizing_tests {
     }
 
     #[test]
+    fn html_offscreen_subtrees_defer_recursion_without_stale_geometry(){
+        let mut nodes=vec![json!({
+            "node_id":"root","parent_id":null,"component":"div",
+            "style":{"display":"block"}
+        })];
+        let mut measurements=Vec::new();
+        for index in 0..24 {
+            nodes.push(json!({
+                "node_id":format!("row-{index}"),
+                "parent_id":"root","component":"div",
+                "style":{"display":"block","layout_height":"35px"}
+            }));
+            nodes.push(json!({
+                "node_id":format!("text-{index}"),
+                "parent_id":format!("row-{index}"),
+                "component":"Text","style":{}
+            }));
+            measurements.push(json!({
+                "node_id":format!("text-{index}"),
+                "intrinsic":{"min_content_width":40.0,"max_content_width":40.0,
+                             "min_content_height":20.0,"max_content_height":20.0,
+                             "preferred_width":40.0,"preferred_height":20.0,
+                             "baseline":null,"orthogonal_baseline":null},
+                "constraints":{"width":{"value":null,"definite":false},
+                               "height":{"value":null,"definite":false}},
+                "revision":1
+            }));
+        }
+        let raw=json!({
+            "schema_version":1,"generation":1,"direction":"ltr",
+            "constraints":{"width":{"value":220.0,"definite":true},
+                           "height":{"value":80.0,"definite":true}},
+            "nodes":nodes,"measurements":measurements
+        });
+        let initial:LayoutInput=serde_json::from_value(raw.clone()).unwrap();
+        let before=compute(&initial).unwrap();
+        let mut changed=raw.clone();
+        changed["generation"]=json!(2);
+        changed["constraints"]["height"]["value"]=json!(90.0);
+        for metric in changed["measurements"].as_array_mut().unwrap(){
+            metric["revision"]=json!(2);
+        }
+        let next:LayoutInput=serde_json::from_value(changed.clone()).unwrap();
+        let mut trace=Vec::new();
+        let reused=compute_incremental_with_reuse(
+            &next,&initial,&before,&mut trace,
+        ).unwrap();
+        assert_eq!(reused.boxes,compute(&next).unwrap().boxes);
+        assert!(trace.contains(&"row-12".to_string()),
+            "Offscreen stable Block must replay exact certified geometry");
+        assert!(!trace.contains(&"row-0".to_string()),
+            "The visible first row is measured normally");
+
+        changed["generation"]=json!(3);
+        changed["constraints"]["width"]["value"]=json!(300.0);
+        let breakpoint:LayoutInput=serde_json::from_value(changed.clone()).unwrap();
+        let mut changed_trace=Vec::new();
+        let full=compute(&breakpoint).unwrap();
+        let replay=compute_incremental_with_reuse(
+            &breakpoint,&initial,&before,&mut changed_trace,
+        ).unwrap();
+        assert_eq!(replay.boxes,full.boxes);
+        assert!(changed_trace.is_empty(),
+            "Width changes invalidate cached leaf wrapping dependencies");
+
+        changed["generation"]=json!(4);
+        changed["constraints"]["width"]["value"]=json!(220.0);
+        changed["measurements"][12]["intrinsic"]["preferred_height"]=json!(50.0);
+        let changed_text:LayoutInput=serde_json::from_value(changed).unwrap();
+        let mut safe_trace=Vec::new();
+        let computed=compute_incremental_with_reuse(
+            &changed_text,&initial,&before,&mut safe_trace,
+        ).unwrap();
+        assert_eq!(computed.boxes,compute(&changed_text).unwrap().boxes);
+        assert!(!safe_trace.contains(&"row-12".to_owned()),
+            "Invalidated offscreen text must be remeasured and laid out");
+    }
+
+    #[test]
     fn changed_viewport_falls_back_to_equivalent_geometry() {
         let initial:LayoutInput=serde_json::from_value(json!({
             "schema_version":1,"generation":1,"direction":"ltr",
