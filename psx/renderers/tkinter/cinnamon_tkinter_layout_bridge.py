@@ -540,6 +540,13 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale generation during native readback.")
         except BaseException:
+            # Bitmap cache receipts from this failed geometry transaction
+            # are not accepted, even if native pixels were painted before
+            # a later readback/scroll validation failed. The next attempt
+            # must compose them again from the decoded source.
+            for image_id in image_ids:
+                image_widget = widgets[image_id]
+                image_widget._psx_sfle_paint_cache = None
             if root_before:
                 widgets[root_id].place_configure(**root_before)
             else:
