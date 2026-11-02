@@ -126,3 +126,28 @@ def test_html_like_flow_reuses_certified_geometry_without_native_text_read():
     cache.solved.begin(3, 0)
     _, reads = layout(3, width=480)
     assert reads
+
+
+def test_solved_cache_reserves_width_sensitive_card_receipts():
+    """Nine sampled resize widths x 500 cards must fit without LRU thrash."""
+    from psx.layout.grid.grid_solved_reuse import SolvedTextSubtreeReuse
+
+    cache = FlowBlueprintReuse()
+    assert cache.limit == 4096, "Structural receipts need only one key per Flow"
+    assert cache.solved.limit >= 500 * 9
+    assert SolvedTextSubtreeReuse().limit >= 500 * 9
+
+    # Simulate accepted (already validated) receipts at the realistic
+    # 500-item / nine-width cardinality. The limit, not eviction order,
+    # is the cause of the pathological 500-card benchmark cliff.
+    solved = cache.solved
+    solved.begin(1, 0)
+    total = 500 * 9
+    solved._pending = {
+        (item, width): (None, None, 0, None)
+        for item in range(500) for width in range(9)
+    }
+    solved.accept(1, 0)
+    assert len(solved._entries) == total
+    assert (0, 0) in solved._entries
+    assert (499, 8) in solved._entries

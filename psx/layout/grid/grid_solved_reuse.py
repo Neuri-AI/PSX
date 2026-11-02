@@ -78,7 +78,7 @@ def _signature(node):
 class SolvedTextSubtreeReuse:
     """Small bounded pure-computation cache, published only after commit."""
 
-    def __init__(self, limit=4096):
+    def __init__(self, limit=8192):
         self.limit = limit
         self._entries = OrderedDict()
         self._pending = {}

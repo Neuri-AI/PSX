@@ -32,7 +32,7 @@ class _Identity:
 
 
 class GridIntrinsicReuse:
-    def __init__(self, limit: int = 4096):
+    def __init__(self, limit: int = 16384):
         self._entries: OrderedDict[tuple, IntrinsicSizes] = OrderedDict()
         self.limit = limit
         self.epoch: int | None = None

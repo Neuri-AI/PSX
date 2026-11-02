@@ -111,3 +111,20 @@ structural blueprint caching or native geometry commits.
 **Performance caveat:** A completed native resize/layout transaction is not
 an actual composited/presented frame. Do not describe `layout_hz` or
 `event_to_commit` as verified display FPS.
+
+## Large-Grid cache capacity
+
+Solved GridItem text contexts are keyed by the item's immutable style/VNode,
+pixel scale, effective content width and invalidation epoch. A cache bounded
+at only 4,096 entries can thrash at 500 cards traversing nine widths
+(4,500 independent solved receipts). Structural Flow blueprints remain
+limited to 4,096 nodes, while the independently bounded solved cache
+retains up to 8,192 width-specific results. Native Grid text intrinsic
+hints have a separate 16,384-entry bound because each card can contain
+multiple text leaves. Reuse is still conditional on unchanged semantic
+identities and successful native commit; no stale or guessed geometry
+becomes eligible because of these capacity changes.
+
+Neither larger cache nor fewer native readbacks constitutes universal
+offscreen geometry virtualization, and cache capacity alone cannot
+guarantee the 60 Hz frame budget for 3,002 mounted native widgets.

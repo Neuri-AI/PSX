@@ -51,11 +51,15 @@ class FlowBlueprintReuse:
     are always fresh. No background work and no native handle retention.
     """
 
-    def __init__(self, limit: int = 4096):
+    def __init__(self, limit: int = 4096, *, solved_limit: int = 8192):
+        # Structural blueprints have one key per mounted Flow. Solved
+        # geometry has a key per Flow *and containing width*, so resizing
+        # through nine widths with 500 cards needs >4096 receipts.
+        # Keep both caches bounded and independently configurable.
         self.limit = limit
         self._entries = OrderedDict()
         from psx.layout.grid.grid_solved_reuse import SolvedTextSubtreeReuse
-        self.solved = SolvedTextSubtreeReuse(limit=limit)
+        self.solved = SolvedTextSubtreeReuse(limit=solved_limit)
 
     def clear(self):
         self._entries.clear()
