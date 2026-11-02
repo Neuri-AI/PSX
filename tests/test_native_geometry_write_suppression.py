@@ -260,3 +260,47 @@ def test_kivy_prior_geometry_avoids_redundant_properties_on_unchanged_commit():
             GeometryBackend.QT, nodes, {"root": object(), "child": QtWidget()},
             prior_kivy_rectangles=prior,
         )
+
+
+def test_kivy_prior_snapshot_avoids_duplicate_reads_for_changed_size():
+    """One prior read is sufficient for unchanged axes in a Kivy resize."""
+    class Observed:
+        def __init__(self):
+            self._pos = (10.0, 55.0)
+            self._size = (40.0, 30.0)
+            self.reads = 0
+            self.writes = 0
+        @property
+        def pos(self):
+            self.reads += 1
+            return self._pos
+        @pos.setter
+        def pos(self, value):
+            self.writes += 1
+            self._pos = tuple(value)
+        @property
+        def size(self):
+            self.reads += 1
+            return self._size
+        @size.setter
+        def size(self, value):
+            self.writes += 1
+            self._size = tuple(value)
+
+    widget = Observed()
+    nodes = (
+        MarginTreeNode("root", None, 0, 0),
+        MarginTreeNode("child", "root", 0, 0),
+    )
+    committer = NativeGeometryCommitter(
+        GeometryBackend.KIVY, nodes, {"root": object(), "child": widget},
+        skip_unchanged=True,
+        prior_kivy_rectangles={
+            "child": ((10.0, 55.0), (40.0, 30.0)),
+        },
+    )
+    committer(snapshot(60))
+    assert widget.reads == 0
+    assert widget.writes == 1
+    assert widget._pos == (10, 55)
+    assert widget._size == (60, 30)
