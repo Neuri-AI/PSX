@@ -66,22 +66,20 @@ fn valid_flow_style(name: &str) -> bool {
 
 impl Flow<'_> {
     fn replay_offscreen(
-        &mut self, index:usize, content_x:f64, content_y:f64, available:f64,
+        &mut self, index:usize, content_x:f64, content_y:f64,
+        content_width:f64,
     )->Result<bool,ComputeError>{
         let Some(height)=self.viewport_height else {return Ok(false)};
         if !self.reusable[index] {return Ok(false);}
         let Some(ref prior)=self.prior_boxes else {return Ok(false)};
         let old=&prior[index].content;
-        // Reuse is valid only with the *same* containing block width;
-        // never assume that an offscreen item keeps its intrinsic wrap on
-        // a breakpoint or responsive-column change.
-        let parent=self.input.nodes[index].parent_id.as_ref();
-        if let Some(parent_id)=parent {
-            let parent_index=self.input.nodes.iter()
-                .position(|n| &n.node_id==parent_id).unwrap_or(0);
-            if (prior[parent_index].content.width-available).abs()>1.0/64.0 {
-                return Ok(false);
-            }
+        // A changed viewport may still assign a *fixed-width* child the
+        // exact same used content width. That child's descendants then have
+        // identical wrapping geometry even though its parent changed width.
+        // Any responsive child with changed effective width must run the
+        // full solver, including when it is far outside the viewport.
+        if (old.width-content_width).abs()>1.0/64.0 {
+            return Ok(false);
         }
         if content_y <= height+96.0 && content_y+old.height>=-96.0 {
             return Ok(false);
@@ -516,7 +514,7 @@ impl Flow<'_> {
         // deferred only with a complete previous layout proof, unchanged
         // containing width, and immutable descendant intrinsic metrics.
         // We still return all exact rectangles for native readback.
-        if self.replay_offscreen(index, content_x, content_y, available)? {
+        if self.replay_offscreen(index, content_x, content_y, parent_content_width)? {
             let old = &self.prior_boxes.as_ref().unwrap()[index].content;
             return Ok(top + old.height + bottom);
         }
