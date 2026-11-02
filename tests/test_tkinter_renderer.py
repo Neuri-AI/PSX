@@ -362,12 +362,16 @@ class TkinterRendererTests(unittest.TestCase):
                              selected.casefold())
             self.assertEqual(str(label.cget("font")), str(native_font))
             from tkinter import ttk
-            label_style = str(label.cget("style"))
-            self.assertTrue(label_style.startswith("PsxCssText"))
-            self.assertEqual(
-                str(ttk.Style(label).lookup(label_style, "font")),
-                str(native_font),
-            )
+            if "style" in label.keys():
+                label_style = str(label.cget("style"))
+                self.assertTrue(label_style.startswith("PsxCssText"))
+                self.assertEqual(
+                    str(ttk.Style(label).lookup(label_style, "font")),
+                    str(native_font),
+                )
+            else:
+                # macOS uses classic tk.Label, which has no ttk style option.
+                self.assertEqual(str(label.cget("font")), str(native_font))
             self.assertEqual(
                 ttk.Style(label).lookup(label_style, "background"), "#ffffff"
             )
@@ -426,10 +430,13 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertGreater(large_font.metrics("linespace"),
                            small_font.metrics("linespace"))
         self.assertGreater(large.winfo_reqheight(), small.winfo_reqheight())
-        # Exactly the same named font must be used by the ttk theme.
+        # ttk uses its named style; macOS classic tk.Label directly owns font.
         from tkinter import ttk
-        self.assertEqual(str(ttk.Style(large).lookup(
-            str(large.cget("style")), "font")), str(large_font))
+        if "style" in large.keys():
+            self.assertEqual(str(ttk.Style(large).lookup(
+                str(large.cget("style")), "font")), str(large_font))
+        else:
+            self.assertEqual(str(large.cget("font")), str(large_font))
 
     @unittest.skipUnless(sys.platform.startswith("linux"),
                          "The fontconfig generic lookup belongs to Linux.")
@@ -838,6 +845,7 @@ class TkinterRendererTests(unittest.TestCase):
         self.assertEqual(label.cget("text"), "1")
 
     def test_text_portable_update_and_clean_destruction(self) -> None:
+        import tkinter as tk
         from tkinter import ttk
         from tkinter.font import Font
         label = self.reconciler.render(Text("old", font_size=24, bold=True, italic=True,
