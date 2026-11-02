@@ -195,10 +195,10 @@ def _literal_child_text(part: syntax.Literal) -> ast.expr:
     value = part.value
     if not isinstance(value, str):
         return ast.Constant(value=value)
-    collapsed = re.sub(r"\\s+", " ", value)
-    if re.match(r"^\\s*\\n", value):
+    collapsed = re.sub(r"\s+", " ", value)
+    if re.match(r"^\s*\n", value):
         collapsed = collapsed.lstrip(" ")
-    if re.search(r"\\n\\s*$", value):
+    if re.search(r"\n\s*$", value):
         collapsed = collapsed.rstrip(" ")
     return ast.Constant(value=collapsed)
 
