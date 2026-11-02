@@ -557,6 +557,8 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         mixed_grid.accept_solved()
         mixed_grid.accept_viewport()
         native_flow_plan.accept()
+        # Diagnostics only: the solver result still contains every node.
+        renderer._psx_native_flow_deferred_ids = native_flow_plan.deferred_ids
         # Preserve only the most recent successful immutable snapshot.
         # Width-dependent provisional computations have separate iterative
         # measurements and cannot reuse this initial snapshot as a receipt.
