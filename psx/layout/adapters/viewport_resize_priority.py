@@ -129,3 +129,49 @@ class ViewportResizeCoordinator:
         self._accepted.clear()
         self._candidate.clear()
         self._remaining = 0
+
+
+def schedule_resize_settlement(renderer, size, schedule_after) -> None:
+    """Debounce a successful native resize; latest generation only.
+
+    schedule_after(milliseconds, callback) belongs to the toolkit UI loop.
+    """
+    coordinator = getattr(renderer, "_psx_resize_priority", None)
+    if coordinator is None:
+        coordinator = ViewportResizeCoordinator()
+        renderer._psx_resize_priority = coordinator
+    generation = coordinator.resize(tuple(size))
+    if (not getattr(renderer, "_psx_native_flow_deferred_ids", frozenset())
+            and not getattr(renderer, "_psx_native_grid_deferred_total", 0)):
+        coordinator.active = False
+        return
+
+    def run_batch():
+        if generation != coordinator.generation or not coordinator.settling:
+            return
+        root = getattr(renderer, "_sfle_mounted_root", None)
+        if root is None or getattr(root, "disposed", False):
+            coordinator.cancel()
+            return
+        if getattr(renderer, "_sfle_in_commit", False):
+            schedule_after(16, run_batch)
+            return
+        if not coordinator.begin_batch(generation):
+            return
+        try:
+            renderer.commit_layout(root)
+        except Exception as exc:
+            renderer._psx_resize_settle_error = exc
+            coordinator.finish_batch(success=False)
+            import logging
+            logging.getLogger(__name__).exception("Deferred viewport settlement failed")
+            return
+        renderer._psx_resize_settle_error = None
+        if coordinator.finish_batch(success=True):
+            schedule_after(16, run_batch)
+
+    def settle():
+        if coordinator.begin_settlement(generation):
+            run_batch()
+
+    schedule_after(125, settle)
