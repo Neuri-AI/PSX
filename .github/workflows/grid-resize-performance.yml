@@ -10,6 +10,7 @@ on:
       - "tests/test_flow_linear_complexity.py"
       - "tests/test_native_structural_snapshot_reuse.py"
       - "tests/test_native_geometry_write_suppression.py"
+      - "tests/test_native_readback_reuse.py"
       - "tests/test_grid_flex_blueprint_reuse.py"
       - "tests/test_mounted_grid_native_renderers.py"
       - "tests/test_grid_solved_subtree_reuse.py"
@@ -63,9 +64,10 @@ jobs:
       - name: Verify viewport-aware Cinnamon Rust HTML differential
         run: |
           cargo test --manifest-path rust/sfle-core/Cargo.toml --lib html_offscreen_subtrees_defer_recursion_without_stale_geometry
+          cargo test --manifest-path rust/sfle-core/Cargo.toml --lib semantic_flow_replays_offscreen_flex_without_losing_padding_or_margins
           cargo test --manifest-path rust/sfle-core/Cargo.toml --lib viewport_resize_reuses_still_definite_flex_children
       - name: Verify intrinsic and immutable Flow reuse contracts
-        run: python -m pytest -q tests/test_grid_intrinsic_reuse.py tests/test_native_intrinsic_cache.py tests/test_grid_flow_blueprint_reuse.py tests/test_grid_flex_blueprint_reuse.py tests/test_grid_solved_subtree_reuse.py tests/test_cinnamon_exact_context_cache.py tests/test_tk_corner_raster_reuse.py tests/test_flow_linear_complexity.py tests/test_native_geometry_write_suppression.py tests/test_tk_wraplength_write_suppression.py
+        run: python -m pytest -q tests/test_grid_intrinsic_reuse.py tests/test_native_intrinsic_cache.py tests/test_grid_flow_blueprint_reuse.py tests/test_grid_flex_blueprint_reuse.py tests/test_grid_solved_subtree_reuse.py tests/test_cinnamon_exact_context_cache.py tests/test_tk_corner_raster_reuse.py tests/test_flow_linear_complexity.py tests/test_native_geometry_write_suppression.py tests/test_native_readback_reuse.py tests/test_tk_wraplength_write_suppression.py
       - name: Verify native Grid overflow projection on Qt and Kivy
         env:
           KIVY_NO_ARGS: "1"
