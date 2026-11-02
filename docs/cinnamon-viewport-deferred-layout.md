@@ -297,3 +297,79 @@ Qt/Tk/Kivy lifecycle and scrolling cases first against the Python
 layout backend and then against a compiled, explicitly checked Rust
 Cinnamon wheel. For CI status consult:
 [Viewport native certification](https://github.com/Neuri-AI/PSX/actions/workflows/viewport-native-certification.yml).
+
+
+## Continuous resize priorities and quiescent reconciliation (2026-11-02)
+
+The automatic, conservative worksets now share a three-tier viewport policy:
+
+- **P0**: a group overlapping the overscanned viewport in either the last
+  accepted native geometry or the current Cinnamon result. Always commit.
+  A newly visible group is immediately P0, even mid-resize or on Scroll.
+- **P1**: a group without a complete accepted receipt, with unsafe CSS,
+  a changed semantic/intrinsic epoch, native identity/context changes, or
+  a possible above-to-below crossing. It must be solved and committed.
+  Grid track sizing, ancestor placement, scroll extents, and auto-height
+  dependencies remain structural work, not candidate P2 work.
+- **P2**: a complete previously accepted subtree whose old and new
+  conservative paint bounds are both wholly above or below the live
+  viewport. It can defer native geometry writes/readback while resizing.
+  The Rust solver independently reuses immutable, definite contexts;
+  P2 classification does not grant permission to invent solver results.
+
+Each accepted interactive viewport resize updates a monotonically increasing
+generation. A **125ms UI-thread idle debounce** discards superseded resize
+generations. If the latest transaction has deferred native groups, the
+coordinator starts reconciliation: at most **64 distinct P2 groups per UI
+event-loop turn**, with subsequent batches scheduled no earlier than 16ms
+later. The group is marked reconciled only after the entire native commit
+succeeds. An unsuccessful batch cannot publish receipts. A new resize cancels
+the pending settle generation. A Scroll reentry continues to promote newly
+visible groups without waiting for the debounce.
+
+The coordinator is backend-neutral and never owns timers or native widgets;
+Qt uses QTimer, Tk uses after(), and Kivy uses Clock. All commits remain on
+the owning UI thread. It performs no asynchronous Rust solves or concurrent
+native mutations. Native paint, focus, accessibility, and full-scroll
+semantics must remain correct even while offscreen P2 placement is pending.
+
+### Additional Rust computation savings
+
+The closed HTML-like normal-flow Rust engine can now replay certified
+**offscreen embedded Flex** contexts with unchanged containing/content widths,
+CSS and intrinsic metrics, in addition to safe Block/Text and heading
+contexts. Newly visible or mutated contexts fall through to the complete
+Rust solver. For normalized Flex, reusable size receipts are populated by a
+single traversal of the accepted subtree; the old eager per-ancestor
+descendant-vector construction could consume quadratic memory on deep trees.
+Equality of immutable intrinsic sizes and constraints is now typed and
+allocation-free rather than JSON-serialized for each comparison.
+
+This is **not** fully universal offscreen computation virtualization:
+Grid track sizing, native intrinsic probes, CSS projection and auto-sized
+offscreen content can still require complete work at every intermediate
+viewport size. Fixed layout/measurement dependencies may qualify for
+incremental reuse, but any unknown dependency fails closed. A 64-group
+native settlement batch may itself require an expensive full Cinnamon
+transaction; limiting groups limits native setters, **not** the solver's
+full-snapshot cost. Therefore do not describe the event-loop batch cadence
+as a 60 FPS or nonblocking guarantee.
+
+### Targeted certification
+
+```bash
+python -m pytest -q tests/test_viewport_resize_priority.py \
+  tests/test_grid_viewport_workset.py tests/test_native_flow_viewport.py \
+  tests/test_viewport_scroll_reentry.py
+
+cargo test --manifest-path rust/sfle-core/Cargo.toml --lib viewport_priority_reuse_tests
+
+# Use a real native display/Xvfb for backend-scroll certification:
+xvfb-run -a python -m pytest -q tests/test_mounted_grid_native_renderers.py \
+  -k 'automatic_grid_viewport_sparse_commit_and_resize_reentry or automatic_html_card_flow_deferred_native_resize or scroll_newly_visible_grid_items_receive_native_geometry'
+```
+
+The dedicated viewport certification workflow compiles a Rust extension and
+exercises real Qt, Tk and Kivy widgets. Its status is independent of any
+preexisting unrelated failures in PSX's broader test matrix. Re-run real
+resize A/B on the same machine before claiming a specific performance gain.
