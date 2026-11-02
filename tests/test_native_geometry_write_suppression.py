@@ -201,3 +201,59 @@ def test_kivy_no_skip_mode_preserves_unconditional_writes():
     committer(snapshot(40))
     committer(snapshot(40))
     assert widget.writes == 4
+
+
+def test_kivy_prior_geometry_avoids_redundant_properties_on_unchanged_commit():
+    class ObservedKivy(KivyWidget):
+        def __init__(self):
+            super().__init__()
+            self.pos_reads = 0
+            self.size_reads = 0
+
+        @property
+        def pos(self):
+            self.pos_reads += 1
+            return self._pos
+
+        @pos.setter
+        def pos(self, value):
+            self._pos = tuple(value)
+            self.writes += 1
+
+        @property
+        def size(self):
+            self.size_reads += 1
+            return self._size
+
+        @size.setter
+        def size(self, value):
+            self._size = tuple(value)
+            self.writes += 1
+
+    widget = ObservedKivy()
+    widget._pos, widget._size = (10, 55), (40, 30)
+    prior = {"child": ((10, 55), (40, 30))}
+    nodes = (
+        MarginTreeNode("root", None, 0, 0),
+        MarginTreeNode("child", "root", 0, 0),
+    )
+    committer = NativeGeometryCommitter(
+        GeometryBackend.KIVY, nodes, {"root": object(), "child": widget},
+        skip_unchanged=True, prior_kivy_rectangles=prior,
+    )
+    # The outer bridge already read pos and size for rollback.
+    committer(snapshot(40))
+    assert widget.writes == 0
+    assert widget.pos_reads == 0
+    assert widget.size_reads == 0
+
+    # Defensive copy: callers may recycle their rollback dictionaries.
+    prior["child"] = ((99, 99), (99, 99))
+    committer(snapshot(60))
+    assert widget.writes == 1
+    assert widget.size == (60, 30)
+    with pytest.raises(TypeError, match="Kivy backend"):
+        NativeGeometryCommitter(
+            GeometryBackend.QT, nodes, {"root": object(), "child": QtWidget()},
+            prior_kivy_rectangles=prior,
+        )
