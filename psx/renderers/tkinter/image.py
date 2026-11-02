@@ -170,7 +170,10 @@ class TkImageAdapter:
         accepted = getattr(widget, "_psx_sfle_paint_cache", None)
         if (accepted is not None and accepted[0] == paint_key
                 and accepted[1] is getattr(widget, "_psx_photo", None)
-                and str(widget.cget("image")) == str(accepted[1])):
+                # ttk returns image names as a Tcl-list tuple rather than
+                # plain text on some Tk builds (notably macOS/Aqua).
+                and tuple(widget.tk.splitlist(widget.cget("image")))
+                    == (str(accepted[1]),)):
             return
         sw, sh = source.size
         x, y, w, h = compute_fit_rect(sw, sh, width, height, props["fit"])
