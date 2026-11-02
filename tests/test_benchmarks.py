@@ -53,8 +53,12 @@ def test_grid_resize_benchmark_supports_both_native_adapters_and_cinnamon_engine
 
 
 def test_native_resize_viewport_ab_has_explicit_control():
-    import inspect
-    from benchmarks.grid_resize_interactive import exercise
-    assert "disable_viewport_defer" in inspect.signature(exercise).parameters
-    from benchmarks.native_resize_scaling import main
-    assert "--disable-viewport-defer" in inspect.getsource(main)
+    # These benchmarks are executable scripts with their own sys.path root,
+    # not importable package modules; inspect sources without executing Tk.
+    from pathlib import Path
+    interactive = Path("benchmarks/grid_resize_interactive.py").read_text()
+    scaling = Path("benchmarks/native_resize_scaling.py").read_text()
+    assert "disable_viewport_defer=False" in interactive
+    assert "disable_viewport_defer=args.disable_viewport_defer" in interactive
+    assert "disable_viewport_defer=args.disable_viewport_defer" in scaling
+    assert "--disable-viewport-defer" in scaling
