@@ -192,9 +192,13 @@ def apply_tk_radio(widget, props):
 
 # factories for creating event callbacks for Tkinter widgets
 def _tk_input_factory(master):
-    var = tk.StringVar()
-    entry = ttk.Entry(master, textvariable=var)
+    # Keep the public value separate from the native text used to display a
+    # placeholder. A hint must never enter the form value or on_change stream.
+    var = tk.StringVar(master=master)
+    display_var = tk.StringVar(master=master)
+    entry = ttk.Entry(master, textvariable=display_var)
     entry.var = var
+    entry._psx_display_var = display_var
     return entry
 
 def _tk_textarea_factory(master):
