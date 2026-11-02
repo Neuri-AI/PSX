@@ -72,9 +72,11 @@ class GridViewportWorkset:
         return groups if set(groups) == roots else {}
 
     def plan(self, *, root_ids, batch, widgets, viewport_height,
-             epoch, backend, safe_ids):
+             epoch, backend, safe_ids, viewport_top=0.0):
         if (not isinstance(viewport_height, (int, float))
-                or not isfinite(viewport_height) or viewport_height <= 0):
+                or not isfinite(viewport_height) or viewport_height <= 0
+                or not isinstance(viewport_top, (int, float))
+                or not isfinite(viewport_top)):
             return frozenset()
         if self._backend is not None and self._backend != backend:
             self._accepted.clear()
@@ -90,8 +92,12 @@ class GridViewportWorkset:
             )
             if (root_id in safe_ids and geometry_safe and prior is not None
                     and prior.epoch == epoch and prior.tokens == tokens
-                    and prior.native_y >= prior.viewport_height + _OVERSCAN
-                    and anchor.y >= viewport_height + _OVERSCAN):
+                    # Test both the last *actually committed* geometry and
+                    # Cinnamon's current target against the CURRENT scroll
+                    # viewport. A formerly hidden item entering by scroll
+                    # becomes active before native readback acceptance.
+                    and prior.native_y >= viewport_top + viewport_height + _OVERSCAN
+                    and anchor.y >= viewport_top + viewport_height + _OVERSCAN):
                 skipped.update(p.node_id for p in descendants)
         return frozenset(skipped)
 
