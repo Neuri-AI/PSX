@@ -145,7 +145,7 @@ def prepare_composed_flex(
     if flow_reuse is not None:
         cached = flow_reuse.solved.lookup(
             flex, content_width, generation, invalidation_epoch,
-            pixel_scale=pixel_scale,
+            pixel_scale=pixel_scale, prepared=prepared,
         )
         if cached is not None:
             return cached
