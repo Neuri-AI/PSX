@@ -22,7 +22,7 @@ _UNSAFE_STYLES = frozenset((
     "position", "top", "bottom", "left", "right", "inset",
     "translate", "rotate", "scale", "perspective", "mix-blend-mode",
     "overflow", "z-index", "opacity", "will-change", "contain",
-    "box-shadow", "text-shadow", "outline", "margin-top", "margin-left",
+    "box-shadow", "text-shadow", "outline",
 ))
 
 def subtree_is_safe_for_root_culling(node: object) -> bool:
