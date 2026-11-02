@@ -72,12 +72,12 @@ def _create_webview() -> object:
 def _update(widget: object, changed: dict[str, object], removed: frozenset[str]) -> None:
     _, _, QUrl, _, _ = _load_types()
     view = _native_view(widget)
-    if "url" in removed or "html" in removed:
+    if "src" in removed or "html" in removed:
         view.loadHtml("")  # type: ignore[attr-defined]
     if "html" in changed:
         view.loadHtml(str(changed["html"]))  # type: ignore[attr-defined]
-    if "url" in changed:
-        value = changed["url"]
+    if "src" in changed:
+        value = changed["src"]
         view.setUrl(value if isinstance(value, QUrl) else QUrl(str(value)))  # type: ignore[attr-defined]
 
 
@@ -132,6 +132,7 @@ def _declaration() -> NativeWidget:
 
 def WebView(
     *,
+    src: str | object | None = None,
     url: str | object | None = None,
     html: str | None = None,
     width: str | int | float | None = None,
@@ -144,13 +145,16 @@ def WebView(
     ref: object | None = None,
     **layout: object,
 ) -> VNode:
-    """Create a platform-native Qt WebView hosted in a PSX QWidget.
+    """Create a native WebView with Cinnamon-owned responsive dimensions.
 
-    ``WebView`` is a built-in PSX tag. ``width`` and ``height`` are aliases
-    for SFLE layout dimensions. ``url`` and ``html`` are mutually exclusive.
+    ``src`` is the public URL attribute. ``url`` is retained as a legacy
+    alias, but cannot be combined with ``src``. CSS sizes are resolved by
+    the stylesheet and layout pipeline, not by the native view.
     """
-    if url is not None and html is not None:
-        raise ValueError("WebView accepts either url or html, not both.")
+    if src is not None and url is not None:
+        raise ValueError("WebView accepts either src or legacy url, not both.")
+    if (src is not None or url is not None) and html is not None:
+        raise ValueError("WebView accepts either src or html, not both.")
     if width is not None and layout_width is not None:
         raise ValueError("WebView accepts either width or layout_width, not both.")
     if height is not None and layout_height is not None:
@@ -160,8 +164,8 @@ def WebView(
         raise TypeError("Unsupported WebView properties: " + ", ".join(sorted(unsupported)))
 
     props: dict[str, object] = dict(layout)
-    if url is not None:
-        props["url"] = url
+    if src is not None or url is not None:
+        props["src"] = src if src is not None else url
     if html is not None:
         props["html"] = html
     if width is not None:
@@ -181,3 +185,7 @@ def WebView(
             raise TypeError("on_url_changed must be callable or None.")
         props["on_native_signal:urlChanged"] = on_url_changed
     return native_widget(_declaration(), key=key, ref=ref, **props)
+
+
+# Alternative spelling for declarative PSX markup.
+Webview = WebView
