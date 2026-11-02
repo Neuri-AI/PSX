@@ -429,13 +429,21 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
             MarginTreeNode(node.node_id, node.parent_id, 0, 0)
             for node in snapshot.nodes
         )
+        from psx.layout.adapters.native_flow_viewport import plan_native_flow_viewport
+        native_flow_plan = plan_native_flow_viewport(
+            renderer, prepared, snapshot, result, widgets,
+            "tk", invalidation_epoch,
+        )
+        deferred_native_ids = native_flow_plan.deferred_ids
         before = {
             node_id: dict(widget.place_info())
-            for node_id, widget in widgets.items() if node_id != root_id
+            for node_id, widget in widgets.items()
+            if node_id != root_id and node_id not in deferred_native_ids
         }
         committer = NativeGeometryCommitter(
             GeometryBackend.TK, nodes, widgets, external_ports=external,
             skip_unchanged=True, prior_tk_placements=before,
+            deferred_ids=deferred_native_ids,
         )
         root_before = root_before_resize
         previous_wraps = {
@@ -514,11 +522,12 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
                 frozenset(external) | frozenset(image_ids)
                 | frozenset(previous_wraps),
                 read_widget,
+                deferred_ids=deferred_native_ids,
             )
             error = 0.0
             physical_error_maximum = 0.0
             for node in snapshot.nodes:
-                if node.parent_id is None:
+                if node.parent_id is None or node.node_id in deferred_native_ids:
                     continue
                 child = rectangles[node.node_id].border
                 parent = rectangles[node.parent_id].border
@@ -589,6 +598,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         mixed_grid.accept_intrinsic()
         mixed_grid.accept_solved()
         mixed_grid.accept_viewport()
+        native_flow_plan.accept()
         # Preserve only the most recent successful immutable snapshot.
         # Width-dependent provisional computations have separate iterative
         # measurements and cannot reuse this initial snapshot as a receipt.

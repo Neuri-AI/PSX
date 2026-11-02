@@ -433,15 +433,23 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             MarginTreeNode(node.node_id, node.parent_id, 0, 0)
             for node in snapshot.nodes
         )
+        from psx.layout.adapters.native_flow_viewport import plan_native_flow_viewport
+        native_flow_plan = plan_native_flow_viewport(
+            renderer, prepared, snapshot, result, bindings,
+            "kivy", invalidation_epoch,
+        )
+        deferred_native_ids = native_flow_plan.deferred_ids
         before = {
             node_id: (tuple(handle.widget.pos), tuple(handle.widget.size))
-            for node_id, handle in bindings.items() if node_id != root_id
+            for node_id, handle in bindings.items()
+            if node_id != root_id and node_id not in deferred_native_ids
         }
         committer = NativeGeometryCommitter(
             GeometryBackend.KIVY, nodes,
             {node_id: handle.widget for node_id, handle in bindings.items()},
             external_ports=external,
             skip_unchanged=True, prior_kivy_rectangles=before,
+            deferred_ids=deferred_native_ids,
         )
         previous_text_sizes = {
             node_id: bindings[node_id].widget.text_size
@@ -531,7 +539,11 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
             if renderer._sfle_generation != generation:
                 raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT,
                                 "Stale Kivy geometry commit.")
-            observed = ports.read_rectangles()
+            observed = {
+                node_id: read_widget(node_id, handle)
+                for node_id, handle in bindings.items()
+                if node_id not in deferred_native_ids
+            }
             maximum = 0.0
             physical_maximum = 0.0
             scroll_descendants = set()
@@ -542,7 +554,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 ):
                     scroll_descendants.add(node.node_id)
             for node in snapshot.nodes:
-                if node.parent_id is None:
+                if node.parent_id is None or node.node_id in deferred_native_ids:
                     continue
                 border = boxes[node.node_id].border
                 if node.node_id in scroll_descendants:
@@ -629,6 +641,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         mixed_grid.accept_intrinsic()
         mixed_grid.accept_solved()
         mixed_grid.accept_viewport()
+        native_flow_plan.accept()
         # Preserve only the most recent successful immutable snapshot.
         # Width-dependent provisional computations have separate iterative
         # measurements and cannot reuse this initial snapshot as a receipt.

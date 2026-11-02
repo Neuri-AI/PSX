@@ -406,9 +406,15 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         # for both atomic rollback and unchanged-placement suppression.
         # The previous implementation issued four reads per node to build
         # this tuple, then a fifth inside the native geometry committer.
+        from psx.layout.adapters.native_flow_viewport import plan_native_flow_viewport
+        native_flow_plan = plan_native_flow_viewport(
+            renderer, prepared, snapshot, result, bindings,
+            "qt", invalidation_epoch,
+        )
+        deferred_native_ids = native_flow_plan.deferred_ids
         before = {}
         for node_id, handle in bindings.items():
-            if node_id == snapshot.nodes[0].node_id:
+            if node_id == snapshot.nodes[0].node_id or node_id in deferred_native_ids:
                 continue
             rect = handle.widget.geometry()
             before[node_id] = (
@@ -420,6 +426,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             external_ports=external,
             skip_unchanged=True,
             prior_qt_rectangles=before,
+            deferred_ids=deferred_native_ids,
         )
         root_id = snapshot.nodes[0].node_id
         root_widget = bindings[root_id].widget
@@ -493,9 +500,10 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                 frozenset(external) | frozenset(image_ids)
                  ,
                 read_widget,
+                deferred_ids=deferred_native_ids,
             )
             for node in snapshot.nodes:
-                if node.parent_id is None:
+                if node.parent_id is None or node.node_id in deferred_native_ids:
                     continue
                 rect, parent = rects[node.node_id].border, rects[node.parent_id].border
                 expected = (rect.x - parent.x, rect.y - parent.y, rect.width, rect.height)
@@ -548,6 +556,7 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
         mixed_grid.accept_intrinsic()
         mixed_grid.accept_solved()
         mixed_grid.accept_viewport()
+        native_flow_plan.accept()
         # Preserve only the most recent successful immutable snapshot.
         # Width-dependent provisional computations have separate iterative
         # measurements and cannot reuse this initial snapshot as a receipt.
