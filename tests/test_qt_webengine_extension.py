@@ -46,3 +46,50 @@ def test_webview_custom_markup_preserves_identity_events_refs_and_cleanup() -> N
     # Deliver Qt's deferred native destruction before pytest tears down.
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     renderer.application.processEvents()
+
+
+def test_webview_src_and_alias_share_native_descriptor() -> None:
+    from psx.extensions import WebView, Webview
+
+    registry = builtin_component_registry()
+    assert registry.contains("WebView")
+    assert registry.contains("Webview")
+    assert Webview is WebView
+
+    for tag in ("WebView", "Webview"):
+        node = psx(f'<{tag} src="https://example.test" width="50%" height="25vh" />', registry=registry)
+        assert node.props["src"] == "https://example.test"
+        assert node.props["layout_width"] == "50%"
+        assert node.props["layout_height"] == "25vh"
+
+    legacy = WebView(url="about:blank")
+    assert legacy.props["src"] == "about:blank"
+    import pytest
+    with pytest.raises(ValueError, match="either src or legacy url"):
+        WebView(src="about:blank", url="https://example.test")
+
+
+def test_webview_css_class_preserves_source_and_responsive_dimensions() -> None:
+    from psx.css.markup import MarkupStyleSource
+    from psx.css.cascade import ComputedStyle
+
+    markup = """
+        <link rel="stylesheet" href="test.css" />
+        <Webview class="browser" src="about:blank" />
+    """
+    # CSS can be applied independently of the browser and native renderer.
+    from psx.css.markup import compute_markup_styles
+    from psx.css.parser import parse_stylesheet
+
+    node = psx('<Webview class="browser" src="about:blank" />')
+    assert isinstance(node.css_source, MarkupStyleSource)
+    assert "browser" in node.css_source.classes
+
+    styled = compute_markup_styles(
+        node,
+        parse_stylesheet(".browser { width: 75vw; height: 60%; }"),
+    )
+    assert isinstance(styled.css_computed, ComputedStyle)
+    assert "width" in styled.css_computed.specified
+    assert "height" in styled.css_computed.specified
+    assert styled.props["src"] == "about:blank"
