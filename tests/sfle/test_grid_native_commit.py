@@ -597,3 +597,79 @@ def test_mixed_grid_commit_reuses_outer_rollback_snapshot():
     receipts = mixed.commit((plan,), prior_snapshot=outer_before)
     assert len(receipts) == 1
     assert tuple(native.size) == (40, 20)
+
+
+def test_qt_grid_prior_snapshot_eliminates_duplicate_widget_geometry_read():
+    class FakeRect:
+        def __init__(self, value):
+            self.value = value
+        def x(self): return self.value[0]
+        def y(self): return self.value[1]
+        def width(self): return self.value[2]
+        def height(self): return self.value[3]
+
+    class Widget:
+        def __init__(self):
+            self.rect = (0, 0, 0, 0)
+            self.reads = 0
+        def geometry(self):
+            self.reads += 1
+            return FakeRect(self.rect)
+        def setGeometry(self, *args):
+            self.rect = args
+
+    widget = Widget()
+    receipt = commit_grid_native_geometry(
+        (placement("child", 10, 15, 40, 20),),
+        backend=GridCommitBackend.QT, widgets={"child": widget},
+        generation=1, current_generation=lambda: 1,
+        is_ui_thread=lambda: True,
+        prior_native_rectangles={"child": Rect(0, 0, 0, 0)},
+    )
+    assert receipt.max_readback_error == 0
+    assert widget.rect == (10, 15, 40, 20)
+    assert widget.reads == 1, "Only postcommit verification may read QWidget.geometry"
+
+
+def test_kivy_grid_prior_snapshot_preserves_readback_and_rollback():
+    class Widget:
+        def __init__(self):
+            self._pos = (0.0, 0.0)
+            self._size = (0.0, 0.0)
+            self.reads = 0
+        @property
+        def pos(self):
+            self.reads += 1
+            return self._pos
+        @pos.setter
+        def pos(self, value):
+            self._pos = tuple(value)
+        @property
+        def size(self):
+            self.reads += 1
+            return self._size
+        @size.setter
+        def size(self, value):
+            self._size = tuple(value)
+
+    widget = Widget()
+    receipt = commit_grid_native_geometry(
+        (placement("child", 10, 5, 40, 20),),
+        backend=GridCommitBackend.KIVY, widgets={"child": widget},
+        generation=1, current_generation=lambda: 1,
+        is_ui_thread=lambda: True, parent_height=100,
+        prior_native_rectangles={"child": Rect(0, 0, 0, 0)},
+    )
+    assert receipt.max_readback_error == 0
+    assert widget.pos == (10, 75)
+    assert widget.size == (40, 20)
+    # 2 reads for write-time comparisons plus 2 for final verification.
+    assert widget.reads == 6  # +2 for assertions above
+    with pytest.raises(GridPackingError, match="Qt or Kivy"):
+        commit_grid_native_geometry(
+            (placement("child", 10, 5, 40, 20),),
+            backend=GridCommitBackend.TK, widgets={"child": widget},
+            generation=1, current_generation=lambda: 1,
+            is_ui_thread=lambda: True,
+            prior_native_rectangles={"child": Rect(0, 0, 0, 0)},
+        )
