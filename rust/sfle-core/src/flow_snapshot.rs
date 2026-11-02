@@ -39,6 +39,7 @@ fn inline_default(tag: &str) -> bool {
 struct Flow<'a> {
     input: &'a LayoutInput,
     children: Vec<Vec<usize>>,
+    parents: Vec<Option<usize>>,
     measurements: HashMap<&'a str, &'a crate::compute::IntrinsicSizes>,
     boxes: Vec<Option<Rect>>,
     containing_width: Vec<f64>,
@@ -99,9 +100,9 @@ impl Flow<'_> {
                 &self.input.nodes[current].node_id,
             )?);
             if current!=index {
-                let parent_id=self.input.nodes[current].parent_id.as_ref().unwrap();
-                let parent_index=self.input.nodes.iter()
-                    .position(|n| &n.node_id==parent_id).unwrap_or(0);
+                // O(1) parent lookup. A linear .position() search for every
+                // deferred descendant would make a 10k-card resize O(N^2).
+                let parent_index=self.parents[current].unwrap();
                 self.containing_width[current]=prior[parent_index].content.width;
             }
             for &child in &self.children[current] {
@@ -712,8 +713,13 @@ fn compute_impl(
     let measurements = input.measurements.iter()
         .map(|item| (item.node_id.as_str(), &item.intrinsic)).collect();
     let (prior_boxes,reusable)=flow_reuse_plan(input,previous,&children);
+    let parents = input.nodes.iter().map(|node|
+        node.parent_id.as_ref().and_then(|parent|
+            ids.get(parent.as_str()).copied(),
+        )
+    ).collect();
     let mut flow = Flow {
-        input, children, measurements,
+        input, children, parents, measurements,
         boxes: vec![None; input.nodes.len()],
         containing_width: vec![width; input.nodes.len()],
         containing_height: vec![
