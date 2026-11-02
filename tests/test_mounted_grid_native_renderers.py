@@ -3699,7 +3699,9 @@ def test_scroll_newly_visible_grid_items_receive_native_geometry():
             layout_width="600px", layout_height="120px",
             flex_basis="600px", flex_shrink=0,
         ),
-        direction="column", width="800px", height="240px",
+        # The SFLE root is exactly the 200px constrained native window.
+        # Kivy correctly rejects a 240px root inside a 200px host.
+        direction="column", width="800px", height="200px",
     )
     try:
         mounted = reconciler.render(scene)
