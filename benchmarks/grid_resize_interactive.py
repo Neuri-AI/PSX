@@ -81,7 +81,7 @@ def mounted_stats(root):
     return nodes, len(handles)
 
 
-def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled=False, scenario="cards", rebuild_snapshots=False):
+def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled=False, scenario="cards", rebuild_snapshots=False, disable_solved_reuse=False):
     engine = PythonLayoutEngine() if engine_name == "python" else load_layout_engine()
     if engine.backend_name != engine_name:
         raise RuntimeError(f"Expected Cinnamon {engine_name}, got {engine.backend_name}")
@@ -93,6 +93,16 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
         )
     else:
         renderer = TkinterRenderer(sfle_constraints=viewport(widths[0]), engine=engine)
+    # A/B diagnostic only: retain the *same* native geometry and intrinsic
+    # measurement path while disabling only accepted solved subtree and
+    # exact Rust compute result reuse. This does not disable the CSS
+    # structural blueprint cache or skip any native widgets.
+    if disable_solved_reuse:
+        from psx.layout.grid.grid_native_composition import FlowBlueprintReuse
+        renderer._psx_grid_flow_blueprints = FlowBlueprintReuse()
+        renderer._psx_grid_flow_blueprints.solved.limit = 0
+        if hasattr(engine, "_exact_limit"):
+            engine._exact_limit = 0
     # Native event benchmarking does not log to stdout.
     tree = Reconciler(renderer)
     events = []
@@ -236,6 +246,7 @@ def exercise(engine_name, adapter, card_count, cycles, warmup, widths, *, styled
             "mounted_nodes": mounted_nodes,
             "native_widgets": native_widgets,
             "rebuild_snapshots": rebuild_snapshots,
+            "disable_solved_reuse": disable_solved_reuse,
             "rust_actual_compute_abi_calls": getattr(engine, "_native_compute_calls", None),
             "rust_actual_incremental_abi_calls": getattr(engine, "_native_incremental_calls", None),
             "rust_exact_result_cache_hits": getattr(engine, "_exact_hits", None),
@@ -307,6 +318,8 @@ def main():
                         help="Independent native UI workloads (count is logical items)")
     parser.add_argument("--rebuild-snapshots", action="store_true",
                         help="Diagnostic control: rebuild native PSX and CSS structures each commit")
+    parser.add_argument("--disable-solved-reuse", action="store_true",
+                        help="A/B control: disable exact Rust and accepted static Flex/HTML solved context caches")
     parser.add_argument("--styled", action="store_true",
                         help="Include CSS rounded cards and native repaint work")
     args = parser.parse_args()
