@@ -2005,6 +2005,16 @@ class TkinterRenderer:
                         config["foreground"] = native_style or "black"
                     if "background" not in config and native_background:
                         config["background"] = native_background
+                if target.node_type == "Button" and button_paint:
+                    # CSS-painted buttons own their surface. Native theme
+                    # borders/focus rings otherwise inflate the intrinsic box
+                    # *in addition* to the author's CSS padding.
+                    style.layout(style_name, [
+                        ("Button.padding", {
+                            "sticky": "nswe",
+                            "children": [("Button.label", {"sticky": "nswe"})],
+                        }),
+                    ])
                 style.configure(style_name, **config)
                 if target.node_type == "Button":
                     # Theme maps can override the configured ordinary-state
