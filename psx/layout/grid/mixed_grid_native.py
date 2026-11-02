@@ -268,14 +268,11 @@ class MountedMixedGrid:
         # capture and the nested Grid batch, so do not repeat every native
         # geometry read on the UI thread.
         before = self.snapshot() if prior_snapshot is None else prior_snapshot
-        # A Grid transaction only needs to snapshot Scroll hosts within
-        # its own pre-captured descendants, not every unrelated widget of
-        # the outer mounted tree.
-        grid_scroll_hosts = {
-            id(widget): widget for widget, _state in before
-            if getattr(widget, "_psx_sfle_scroll", False)
-        }
-        scroll_before = capture_scroll_hosts(self.backend.value, grid_scroll_hosts)
+        # Scroll hosts referenced by nested Grid compositions can lie
+        # outside the geometry rollback descendants. Capture the full
+        # mounted handle set for offset restoration until ownership of
+        # those hosts can be proven by a dedicated reachability test.
+        scroll_before = capture_scroll_hosts(self.backend.value, self.handles)
         receipts = []
         # A single Grid batch has not yet mutated any of its descendants.
         # Its rollback snapshot can also supply the original place_info()
