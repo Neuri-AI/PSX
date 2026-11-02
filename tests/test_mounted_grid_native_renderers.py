@@ -3511,3 +3511,33 @@ def test_tk_grid_resize_does_not_publish_parent_before_child_geometry():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_kivy_mixed_grid_publishes_accepted_text_intrinsic_cache():
+    """A successful Kivy outer Flex->Grid commit must publish native hints.
+
+    Without MountedMixedGrid.accept_intrinsic(), each viewport resize
+    discards the entire pending cache and re-rasterizes every Grid label.
+    """
+    if os.environ.get("PSX_GRID_BACKEND") != "kivy":
+        pytest.skip("Kivy mixed Grid cache")
+    from psx import Flex
+
+    renderer, close = make_renderer("kivy")
+    tree = Reconciler(renderer)
+    try:
+        root = tree.render(Flex(
+            Grid(GridItem(Text("Cached label"), span=12)),
+            direction="column",
+        ))
+        cache = getattr(renderer, "_psx_grid_intrinsic_reuse", None)
+        assert cache is not None
+        assert len(cache) >= 1, (
+            "Successful Kivy mixed Grid transaction did not publish hints"
+        )
+        renderer.set_sfle_constraints(viewport(760))
+        renderer.commit_layout(root)
+        assert len(cache) >= 1
+    finally:
+        tree.unmount()
+        close()
