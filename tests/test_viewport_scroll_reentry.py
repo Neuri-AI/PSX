@@ -72,3 +72,32 @@ def test_scroll_flow_acceptance_keeps_grid_reentry_enabled():
     host._psx_viewport_grid_deferred = False
     plan.accept()
     assert host._psx_viewport_has_deferred is False
+
+
+def test_scroll_bounds_clamp_inside_commit_reenters_after_acceptance():
+    from psx.layout.adapters.viewport_scroll_reentry import flush_scroll_reentry_after_commit
+    renderer = DummyRenderer()
+    host = SimpleNamespace(_psx_sfle_scroll=True, _psx_viewport_has_deferred=True)
+    pending = []
+    renderer._sfle_in_commit = True
+    for _ in range(8):
+        request_scroll_reentry(renderer, host, pending.append)
+    assert not pending
+    assert len(renderer._psx_scroll_after_commit) == 1
+    renderer._sfle_in_commit = False
+    flush_scroll_reentry_after_commit(renderer, pending.append)
+    assert len(pending) == 1
+    pending.pop()()
+    assert renderer.calls == 1
+
+def test_postcommit_reentry_skips_children_fully_accepted_while_committing():
+    from psx.layout.adapters.viewport_scroll_reentry import flush_scroll_reentry_after_commit
+    renderer = DummyRenderer()
+    host = SimpleNamespace(_psx_sfle_scroll=True, _psx_viewport_has_deferred=True)
+    renderer._sfle_in_commit = True
+    request_scroll_reentry(renderer, host, lambda fn: None)
+    renderer._sfle_in_commit = False
+    host._psx_viewport_has_deferred = False
+    callbacks = []
+    flush_scroll_reentry_after_commit(renderer, callbacks.append)
+    assert not callbacks

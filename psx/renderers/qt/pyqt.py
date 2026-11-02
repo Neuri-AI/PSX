@@ -758,6 +758,10 @@ class QtRenderer:
             self._sfle_resize_baseline = (widget.width(), widget.height())
         self._sfle_mounted_root = root
         self._sfle_watch_child_style_events(root)
+        from psx.layout.adapters.viewport_scroll_reentry import flush_scroll_reentry_after_commit
+        flush_scroll_reentry_after_commit(
+            self, lambda callback: self._qtcore.QTimer.singleShot(0, callback),
+        )
         self._sfle_schedule_image_poll()
 
     def invalidate_layout(self) -> None:

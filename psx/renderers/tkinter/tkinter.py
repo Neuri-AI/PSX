@@ -827,6 +827,10 @@ class TkinterRenderer:
                 "<<ThemeChanged>>", self._sfle_on_theme_changed, add="+",
             )
         self._sfle_mounted_root = root
+        from psx.layout.adapters.viewport_scroll_reentry import flush_scroll_reentry_after_commit
+        flush_scroll_reentry_after_commit(
+            self, lambda callback: self.root.after(0, callback),
+        )
         self._sfle_schedule_image_poll()
 
     def _sync_aqua_layout_surfaces(self) -> None:

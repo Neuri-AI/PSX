@@ -763,6 +763,11 @@ class KivyRenderer:
             Window.bind(on_resize=self._sfle_on_window_resize)
             self._sfle_window_bound = True
         self._sfle_mounted_root = root
+        from psx.layout.adapters.viewport_scroll_reentry import flush_scroll_reentry_after_commit
+        from kivy.clock import Clock
+        flush_scroll_reentry_after_commit(
+            self, lambda callback: Clock.schedule_once(lambda _dt: callback(), 0),
+        )
         self._sfle_schedule_image_poll()
 
     def invalidate_layout(self) -> None:
