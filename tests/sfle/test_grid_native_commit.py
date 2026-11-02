@@ -561,3 +561,39 @@ def test_kivy_grid_width_only_resize_skips_position_notifications():
     assert (child.pos_writes, child.size_writes) == (1, 2)
     assert tuple(child.pos) == (10, 75)
     assert tuple(child.size) == (60, 20)
+
+
+def test_mixed_grid_commit_reuses_outer_rollback_snapshot():
+    """Qt/Kivy outer bridge must not snapshot thousands of Grid leaves twice."""
+    from types import SimpleNamespace
+    from threading import get_ident
+    from psx.layout.grid.mixed_grid_native import MountedMixedGrid
+
+    class Native:
+        pos = (0, 0)
+        size = (0, 0)
+
+    native = Native()
+    mixed = object.__new__(MountedMixedGrid)
+    mixed.backend = GridCommitBackend.KIVY
+    mixed.renderer = SimpleNamespace(
+        _sfle_generation=3, _sfle_owner_thread=get_ident(),
+    )
+    mixed.handles = {}
+    mixed.generation = 3
+    mixed.snapshot = lambda: (_ for _ in ()).throw(
+        AssertionError("Duplicate native Grid snapshot"),
+    )
+    mixed._bind_nested_scrolls = lambda *args: None
+    mixed.restore = lambda *args: None
+    plan = (
+        SimpleNamespace(prepared=SimpleNamespace()),
+        (placement("a", 0, 0),),
+        {"a": native},
+        {"a": 100},
+        100,
+    )
+    outer_before = ((native, ((0, 0), (0, 0))),)
+    receipts = mixed.commit((plan,), prior_snapshot=outer_before)
+    assert len(receipts) == 1
+    assert tuple(native.size) == (40, 20)
