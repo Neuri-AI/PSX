@@ -452,8 +452,12 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                 local_x = host.x + root_rect.x
                 local_y = host.y + host.height - root_rect.y - root_rect.height
                 if paint_rect is not None:
-                    paint_rect.pos = (local_x, local_y)
-                    paint_rect.size = (root_rect.width, root_rect.height)
+                    target_pos = (local_x, local_y)
+                    target_size = (root_rect.width, root_rect.height)
+                    if tuple(paint_rect.pos) != target_pos:
+                        paint_rect.pos = target_pos
+                    if tuple(paint_rect.size) != target_size:
+                        paint_rect.size = target_size
                 if native_stroke is not None:
                     from psx.css.native_paint import inset_rounded_border_box
                     native_stroke[3].rounded_rectangle = inset_rounded_border_box(
