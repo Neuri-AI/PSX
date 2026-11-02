@@ -268,7 +268,8 @@ class MountedMixedGrid:
     def accept_viewport(self):
         """Publish offscreen receipts AFTER the outer native transaction."""
         for (node_id, workset, skipped), plan in zip(
-            self._viewport_batches, self._viewport_plans
+            getattr(self, "_viewport_batches", ()),
+            getattr(self, "_viewport_plans", ()),
         ):
             if workset is None:
                 continue
@@ -387,7 +388,7 @@ class MountedMixedGrid:
                and len(plans) == 1 else None
         )
         try:
-            deferred_batches = self._viewport_batches
+            deferred_batches = getattr(self, "_viewport_batches", ())
             for index, (composition, batch, widgets, heights, root_height) in enumerate(plans):
                 deferred = (
                     deferred_batches[index][2] if index < len(deferred_batches)
