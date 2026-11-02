@@ -450,7 +450,9 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         }
         from psx.layout.runtime.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
         scroll_before = capture_scroll_hosts("kivy", bindings)
-        mixed_before = mixed_grid.snapshot()
+        mixed_before = mixed_grid.snapshot(
+            only_widget_ids=mixed_grid.viewport_native_widget_ids(mixed_plans)
+        )
         paint_rect = getattr(host, "_psx_css_paint_rect", None) if semantic_root else None
         paint_before = ((tuple(paint_rect.pos), tuple(paint_rect.size))
                         if paint_rect is not None else None)
@@ -626,6 +628,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         # each resize, forcing expensive texture_update() on every GridItem.
         mixed_grid.accept_intrinsic()
         mixed_grid.accept_solved()
+        mixed_grid.accept_viewport()
         # Preserve only the most recent successful immutable snapshot.
         # Width-dependent provisional computations have separate iterative
         # measurements and cannot reuse this initial snapshot as a receipt.

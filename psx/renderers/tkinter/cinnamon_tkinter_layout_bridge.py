@@ -445,7 +445,9 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         }
         from psx.layout.runtime.native_scroll_transaction import capture_scroll_hosts, restore_scroll_hosts
         scroll_before = capture_scroll_hosts("tk", widgets)
-        mixed_before = mixed_grid.snapshot()
+        mixed_before = mixed_grid.snapshot(
+            only_widget_ids=mixed_grid.viewport_native_widget_ids(mixed_plans)
+        )
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             raise SFLEError(DiagnosticCode.INVALID_SNAPSHOT, "Stale semantic invalidation before native geometry.")
         try:
@@ -586,6 +588,7 @@ def commit_tk_sfle(renderer: "TkinterRenderer", root: "MountedInstance") -> None
         native_round.publish()
         mixed_grid.accept_intrinsic()
         mixed_grid.accept_solved()
+        mixed_grid.accept_viewport()
         # Preserve only the most recent successful immutable snapshot.
         # Width-dependent provisional computations have separate iterative
         # measurements and cannot reuse this initial snapshot as a receipt.

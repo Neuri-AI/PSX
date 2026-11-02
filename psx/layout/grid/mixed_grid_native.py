@@ -12,7 +12,12 @@ from psx.core.grid_contract import GRID_BREAKPOINTS
 from psx.core.vnode import NodeKind
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
 from psx.layout.grid.contracts import GridPackingError
-from psx.layout.adapters.grid_native_commit import GridCommitBackend, commit_grid_native_geometry
+from psx.layout.adapters.grid_native_commit import (
+    GridCommitBackend, GridNativeCommitReceipt, commit_grid_native_geometry,
+)
+from psx.layout.adapters.grid_viewport_workset import (
+    GridViewportWorkset, subtree_is_safe_for_root_culling,
+)
 from psx.layout.grid.grid_native_composition import prepare_composed_grid, compose_geometry_batch
 from psx.layout.contracts.model import IntrinsicSizes, MeasuredBox, LayoutConstraints, AvailableSize
 from psx.layout.projection.native_layout_snapshot import path_identity
@@ -29,6 +34,11 @@ class MountedMixedGrid:
         self.generation = generation
         self.breakpoints = getattr(renderer, "_grid_breakpoints", GRID_BREAKPOINTS)
         self.grids = {}
+        # The outer viewport may clip an ordinary Grid subtree. Never
+        # perform root-window culling below a native Scroll owner.
+        self._viewport_allowed = {}
+        self._viewport_heights = {}
+        self._viewport_batches = ()
         # Reuse an immutable composition for repeated width requests within
         # one layout transaction. A new MountedMixedGrid is built per commit.
         self._composition_cache = {}
@@ -56,12 +66,25 @@ class MountedMixedGrid:
         self._flow_reuse = flow_reuse
         flow_reuse.solved.begin(generation, self._intrinsic_epoch)
 
-        def visit(node):
+        def visit(node, clip_safe=True):
+            # Ancestor transforms/positioning can escape the root clip even
+            # if a GridItem's own local rectangle is far offscreen.
+            source = getattr(node, "source", None)
+            props = getattr(source, "props", {}) or {}
+            style = props.get("style")
+            suspicious = ("transform", "filter", "position", "sticky",
+                          "fixed", "translate", "perspective", "clip-path")
+            unsafe = (node.kind is NodeKind.NATIVE or node.type == "Scroll"
+                      or any(key in str(props).lower() for key in suspicious)
+                      or any(key in str(style).lower() for key in suspicious))
+            allowed = clip_safe and not unsafe
             if node.kind is NodeKind.HOST and node.type == "Grid":
-                self.grids[path_identity(node.path)] = node
+                identifier = path_identity(node.path)
+                self.grids[identifier] = node
+                self._viewport_allowed[identifier] = allowed
                 return
             for child in node.effective_children:
-                visit(child)
+                visit(child, allowed)
 
         for root in normalized._participating_roots():
             visit(root)
@@ -179,6 +202,14 @@ class MountedMixedGrid:
         prepared = []
         for node_id in self.grids:
             box = boxes[node_id].content
+            # Convert root-window viewport bottom into Grid-local Y, not
+            # the Grid content height. A Grid may extend thousands of px
+            # below its visible window without being a Scroll host.
+            viewport_height = self.renderer._sfle_constraints.height.value
+            self._viewport_heights[node_id] = (
+                float(viewport_height) - box.y
+                if viewport_height is not None else 0.0
+            )
             composition = self.compose(node_id, box.width)
             batch, widgets, heights = compose_geometry_batch(
                 composition,
@@ -188,6 +219,66 @@ class MountedMixedGrid:
             )
             prepared.append((composition, batch, widgets, heights, box.height))
         return tuple(prepared)
+
+    def viewport_native_widget_ids(self, plans):
+        """Preflight sparse Grid work BEFORE the expensive rollback snapshot.
+
+        Every offscreen candidate was physically committed and read back in
+        an earlier accepted generation. Structural or semantic invalidation
+        disables all skipping; complex CSS and Scroll descendants fail closed.
+        """
+        cache = getattr(self.renderer, "_psx_mixed_grid_viewport_cache", None)
+        if cache is None:
+            cache = {}
+            self.renderer._psx_mixed_grid_viewport_cache = cache
+        planned = []
+        active_widget_ids = set()
+        epoch = self._intrinsic_epoch
+        for node_id, plan in zip(self.grids, plans):
+            composition, batch, widgets, heights, root_height = plan
+            skipped = frozenset()
+            workset = None
+            if self._viewport_allowed.get(node_id, False):
+                workset = cache.setdefault(node_id, GridViewportWorkset())
+                roots = tuple(p.node_id for p in composition.prepared.placements)
+                items = {
+                    path_identity(item.path): item
+                    for item in composition.grid.effective_children
+                }
+                safe_ids = frozenset(
+                    key for key, item in items.items()
+                    if subtree_is_safe_for_root_culling(item)
+                )
+                skipped = workset.plan(
+                    root_ids=roots, batch=batch, widgets=widgets,
+                    viewport_height=self._viewport_heights.get(node_id, 0.0),
+                    epoch=epoch, backend=self.backend, safe_ids=safe_ids,
+                )
+            else:
+                cache.pop(node_id, None)
+            planned.append((node_id, workset, skipped))
+            active_widget_ids.update(
+                id(widget) for key, widget in widgets.items()
+                if key not in skipped
+            )
+        self._viewport_batches = tuple(planned)
+        self._viewport_plans = plans
+        return active_widget_ids
+
+    def accept_viewport(self):
+        """Publish offscreen receipts AFTER the outer native transaction."""
+        for (node_id, workset, skipped), plan in zip(
+            self._viewport_batches, self._viewport_plans
+        ):
+            if workset is None:
+                continue
+            composition, batch, widgets, _heights, _root_height = plan
+            workset.accept(
+                root_ids=tuple(p.node_id for p in composition.prepared.placements),
+                batch=batch, widgets=widgets,
+                viewport_height=self._viewport_heights[node_id],
+                epoch=self._intrinsic_epoch, backend=self.backend, skipped=skipped,
+            )
 
     def _descendants(self):
         visited = {}
@@ -296,7 +387,19 @@ class MountedMixedGrid:
                and len(plans) == 1 else None
         )
         try:
-            for composition, batch, widgets, heights, root_height in plans:
+            deferred_batches = self._viewport_batches
+            for index, (composition, batch, widgets, heights, root_height) in enumerate(plans):
+                deferred = (
+                    deferred_batches[index][2] if index < len(deferred_batches)
+                    else frozenset()
+                )
+                full_batch = batch
+                if deferred:
+                    batch = tuple(p for p in batch if p.node_id not in deferred)
+                    widgets = {key: widget for key, widget in widgets.items()
+                               if key not in deferred}
+                    heights = {key: value for key, value in heights.items()
+                               if key not in deferred}
                 initial_native = None
                 if reusable_native is not None and all(
                     id(widget) in reusable_native for widget in widgets.values()
@@ -335,6 +438,12 @@ class MountedMixedGrid:
                     kivy_window_coordinates=(self.backend is GridCommitBackend.KIVY),
                 )
                 self._bind_nested_scrolls(composition, scroll_before)
+                if deferred:
+                    receipt = GridNativeCommitReceipt(
+                        self.generation, tuple(p.node_id for p in full_batch),
+                        receipt.max_readback_error,
+                        tuple(p.node_id for p in full_batch if p.node_id in deferred),
+                    )
                 receipts.append((composition.prepared, receipt))
         except BaseException:
             restore_scroll_hosts(scroll_before)
