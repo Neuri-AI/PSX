@@ -206,7 +206,9 @@ jobs:
           from pathlib import Path
           a=json.loads(Path("benchmark-results/solved-reuse-on.json").read_text())[0]
           b=json.loads(Path("benchmark-results/solved-reuse-off.json").read_text())[0]
-          assert a["native_widgets"] == b["native_widgets"] == 362
+          # This benchmark mounts 4 native widgets per card plus the Grid
+          # root: 60 * 4 + 1. The separate Mac benchmark mounts 6 per card.
+          assert a["native_widgets"] == b["native_widgets"] == 241
           assert a["cycles"] == b["cycles"] == 20
           assert a["deferred_text_subtree_hits"] > 0
           assert b["deferred_text_subtree_hits"] == 0
