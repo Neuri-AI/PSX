@@ -43,7 +43,11 @@ def test_resize_activates_newly_visible_groups():
     taller = dict(args, viewport_height=1200)
     assert not cache.plan(**taller)
     cache.accept(**taller, skipped=frozenset())
-    assert not cache.plan(**args)
+    # Shrinking back hides the lower rows again. The prior fully accepted
+    # geometry is safe to defer; they must be rehydrated on future entry.
+    after_shrink = cache.plan(**args)
+    assert "item-29" in after_shrink
+    assert "item-0" not in after_shrink
 
 def test_reconciliation_epoch_style_and_negative_y_fail_closed():
     roots, batch, widgets = case(30)
