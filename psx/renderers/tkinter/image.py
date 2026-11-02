@@ -43,6 +43,7 @@ class TkImageAdapter:
         widget._psx_source = None
         widget._psx_image_cache = None
         widget._psx_photo = None  # keep the PhotoImage alive
+        widget._psx_sfle_paint_cache = None
         widget._psx_props = props
         widget._psx_sfle_image = renderer._sfle_constraints is not None
 
@@ -54,6 +55,7 @@ class TkImageAdapter:
         handle.props = props
         widget = handle.widget
         widget._psx_props = props
+        widget._psx_sfle_paint_cache = None
         self._load_and_apply(widget, props)
 
     def bind_event(self, renderer, handle, event, slot):
@@ -161,6 +163,15 @@ class TkImageAdapter:
             widget._psx_photo = source
             widget.configure(image=source, text="")
             return
+        # A successful PhotoImage composition is an immutable paint receipt.
+        # Keep the existing pixels for future scroll/expose; only re-rasterize
+        # when the source, CSS image fit, or actual native size changes.
+        paint_key = (id(source), width, height, props["fit"], id(props))
+        accepted = getattr(widget, "_psx_sfle_paint_cache", None)
+        if (accepted is not None and accepted[0] == paint_key
+                and accepted[1] is getattr(widget, "_psx_photo", None)
+                and str(widget.cget("image")) == str(accepted[1])):
+            return
         sw, sh = source.size
         x, y, w, h = compute_fit_rect(sw, sh, width, height, props["fit"])
         painted = source.resize(
@@ -171,3 +182,4 @@ class TkImageAdapter:
         photo = ImageTk.PhotoImage(canvas)
         widget._psx_photo = photo
         widget.configure(image=photo, text="")
+        widget._psx_sfle_paint_cache = (paint_key, photo)
