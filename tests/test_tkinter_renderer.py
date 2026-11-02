@@ -46,7 +46,9 @@ class TkinterRendererTests(unittest.TestCase):
         )
         self.renderer.apply_css(instance.handle, rule)
         name = str(widget.cget("style"))
-        self.assertEqual(ttk.Style(widget).lookup(name, "background"), "#3b6ef5")
+        self.assertEqual(ttk.Style(widget).lookup(name, "background"),
+                         self.renderer._css_corner_parent_surface(widget))
+        self.assertEqual(widget._psx_css_button_paint_values[0], "#3b6ef5")
         self.assertEqual(str(widget.cget("cursor")), "hand2")
         padding = ttk.Style(widget).lookup(name, "padding")
         self.assertEqual(tuple(int(x) for x in padding), (10, 0, 10, 0))
@@ -75,7 +77,9 @@ class TkinterRendererTests(unittest.TestCase):
             "button {padding: 0px 10px; background: #3b6ef5; color: #fff;}"
         ), StyleTarget("button"))
         self.renderer.apply_css(instance.handle, selected)
-        self.assertEqual(theme.lookup(name, "background"), "#3b6ef5")
+        self.assertEqual(theme.lookup(name, "background"),
+                         self.renderer._css_corner_parent_surface(widget))
+        self.assertEqual(widget._psx_css_button_paint_values[0], "#3b6ef5")
         self.assertEqual(theme.lookup(name, "foreground"), "#ffffff")
 
     @unittest.skipIf(sys.platform == "darwin", "Aqua buttons use the classic Tk paint bridge.")
