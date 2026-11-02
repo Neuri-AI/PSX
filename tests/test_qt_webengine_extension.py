@@ -73,10 +73,6 @@ def test_webview_css_class_preserves_source_and_responsive_dimensions() -> None:
     from psx.css.markup import MarkupStyleSource
     from psx.css.cascade import ComputedStyle
 
-    markup = """
-        <link rel="stylesheet" href="test.css" />
-        <Webview class="browser" src="about:blank" />
-    """
     # CSS can be applied independently of the browser and native renderer.
     from psx.css.markup import compute_markup_styles
     from psx.css.parser import parse_stylesheet
