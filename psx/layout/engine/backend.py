@@ -68,7 +68,11 @@ class RustLayoutEngine:
         return replace(result, generation=request.generation, geometry_commit_error=None)
 
     def _exact_publish(self, request: LayoutInput, result: LayoutResult) -> None:
-        if result.diagnostics or result.geometry_commit_error not in (None, 0.0):
+        if (result.diagnostics or result.geometry_commit_error not in (None, 0.0)
+                or result.measurement_error not in (None, 0.0)
+                or result.engine_error not in (None, 0.0)
+                or tuple(identifier for identifier, _ in result.boxes)
+                   != tuple(node.node_id for node in request.nodes)):
             return
         key = self._exact_key(request)
         if key is None:
