@@ -138,18 +138,11 @@ class RustLayoutEngine:
         # accepted snapshot is reusable across transaction generations even
         # when an intermediate resize visited a different width. Never bypass
         # the invalidated-native-measurement gate.
-        # A caller asking for actual incremental reuse receipts needs
-        # the native solver's per-context trace, not a synthetic root-level
-        # shortcut from the Python exact-result memo. Keep the optimization
-        # for normal commits without a telemetry request.
-        cached = self._exact_lookup(
-            request, enabled=(not native_measurement_invalidated
-                              and reused_contexts is None),
-        )
-        if cached is not None:
-            if reused_contexts is not None and request.nodes:
-                reused_contexts.append(request.nodes[0].node_id)
-            return cached
+        # Incremental callers explicitly request the native algorithm and
+        # its own per-context reuse decisions. Never satisfy that contract
+        # with an exact-result facade shortcut, even if the resulting boxes
+        # happen to match. The cache remains enabled for compute() and
+        # independently composed static GridItem subtrees.
         native = getattr(self._module, "compute_incremental_json", None)
         if native_measurement_invalidated:
             # A native resource invalidation is an explicit cache barrier,
