@@ -6,6 +6,7 @@ this path, and no evaluation API or frame inspection is used.
 from __future__ import annotations
 
 import ast
+import re
 
 from psx.core.errors import MarkupSyntaxError
 from psx.core.registry import builtin_component_registry
@@ -171,13 +172,35 @@ def lower(node: syntax.Expression, *, filename: str, child: bool = False) -> ast
                 if mixed_inline and 0 < index < len(node.children) - 1:
                     lowered_children.append(ast.Constant(value=" "))
                 continue
-            lowered_children.append(lower(part, filename=filename, child=True))
+            lowered_children.append(
+                _literal_child_text(part) if isinstance(part, syntax.Literal)
+                else lower(part, filename=filename, child=True)
+            )
         children = ast.Tuple(elts=lowered_children, ctx=ast.Load())
         custom = (ast.Constant(None) if tag in _BUILTINS
                   else lower(syntax.Name(tag, node.location), filename=filename))
         return _helper("element", ast.Constant(tag), props, children,
                        *_loc(node, filename), custom)
     raise TypeError(f"Unexpected expressive AST node {type(node).__name__}")
+
+
+def _literal_child_text(part: syntax.Literal) -> ast.expr:
+    """Normalize HTML whitespace at the source-text boundary.
+
+    Multiline JSX indentation is formatting, not authored leading whitespace.
+    Keep intentional inline spaces adjacent to expressions or <span> tags.
+    Only literal text nodes are touched; dynamic expression values retain
+    their original contents.
+    """
+    value = part.value
+    if not isinstance(value, str):
+        return ast.Constant(value=value)
+    collapsed = re.sub(r"\\s+", " ", value)
+    if re.match(r"^\\s*\\n", value):
+        collapsed = collapsed.lstrip(" ")
+    if re.search(r"\\n\\s*$", value):
+        collapsed = collapsed.rstrip(" ")
+    return ast.Constant(value=collapsed)
 
 
 def _blank(node: syntax.Expression) -> bool:
