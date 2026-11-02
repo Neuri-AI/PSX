@@ -142,8 +142,17 @@ class RustLayoutEngine:
                 reused_contexts.append(request.nodes[0].node_id)
             return cached
         native = getattr(self._module, "compute_incremental_json", None)
-        if (native_measurement_invalidated or previous_input is None
-                or previous_result is None or not callable(native)):
+        if native_measurement_invalidated:
+            # A native resource invalidation is an explicit cache barrier,
+            # even if the serialized intrinsic metrics happen to compare
+            # equal during this transaction. Re-certify through Rust.
+            self._native_compute_calls += 1
+            result = deserialize_response(
+                self._module.compute_json(serialize_snapshot(request)), request
+            )
+            self._exact_publish(request, result)
+            return result
+        if previous_input is None or previous_result is None or not callable(native):
             return self.compute(request)
         self._native_incremental_calls += 1
         payload = native(
