@@ -1118,7 +1118,8 @@ class TkinterRenderer:
             width=max(1, widget.winfo_width()),
             height=max(1, widget.winfo_height()),
         )
-        canvas.lift()
+        # tk.Canvas.lift raises Canvas drawing items, not the window.
+        tk.Misc.tkraise(canvas)
 
     @staticmethod
     def _redraw_css_ttk_button(widget: ttk.Button) -> None:
