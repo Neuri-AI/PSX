@@ -497,7 +497,6 @@ struct Context<'a>{
     measurements:HashMap<&'a str,&'a crate::compute::MeasuredBox>,
     used:Vec<Option<(f64,f64)>>,
     reused_sizes:Vec<Option<(f64,f64)>>,
-    reusable_descendants:Vec<Vec<usize>>,
     reused_contexts:Vec<String>,
 }
 fn bounded_intrinsic(style:Style,h:bool,mut value:f64,reference:Option<f64>)->f64{
@@ -603,8 +602,14 @@ impl Context<'_>{
         if let (Some(w),Some(h),Some((prior_w,prior_h)))=
             (forced_w,forced_h,self.reused_sizes[index]) {
             if (w-prior_w).abs() <= 1.0/64.0 && (h-prior_h).abs() <= 1.0/64.0 {
-                for &descendant in &self.reusable_descendants[index] {
+                // The certified reusable subtree is unchanged, but its
+                // full output still needs size receipts. Traverse it once
+                // instead of constructing an O(depth * nodes) ancestor
+                // vector during every resize.
+                let mut todo=vec![index];
+                while let Some(descendant)=todo.pop(){
                     self.used[descendant]=self.reused_sizes[descendant];
+                    todo.extend_from_slice(&self.children[descendant]);
                 }
                 self.reused_contexts.push(id.clone());
                 return Ok((prior_w,prior_h));
@@ -1320,7 +1325,6 @@ pub fn compute_normalized_incremental_report(
         }
     }
     let mut reused_sizes=vec![None;input.nodes.len()];
-    let mut reusable_descendants=vec![Vec::new();input.nodes.len()];
     if let Some((old_input,old_result))=previous {
         let safe_environment=old_input.schema_version==input.schema_version
             && old_input.generation==old_result.generation
@@ -1353,10 +1357,8 @@ pub fn compute_normalized_incremental_report(
                     // to reuse across generations when their constraints
                     // and actual intrinsic values are unchanged.
                     (Some(a),Some(b)) => a.node_id==b.node_id
-                        && serde_json::to_value(&a.constraints).ok()
-                            ==serde_json::to_value(&b.constraints).ok()
-                        && serde_json::to_value(&a.intrinsic).ok()
-                            ==serde_json::to_value(&b.intrinsic).ok(),
+                        && a.constraints==b.constraints
+                        && a.intrinsic==b.intrinsic,
                     _=>false,
                 };
                 let no_percent=!node.style.values().any(|value| {
@@ -1376,11 +1378,6 @@ pub fn compute_normalized_incremental_report(
                     reused_sizes[index]=Some((
                         previous_box.content.width,previous_box.content.height
                     ));
-                    let mut subtree=vec![index];
-                    for &child in &children[index] {
-                        subtree.extend_from_slice(&reusable_descendants[child]);
-                    }
-                    reusable_descendants[index]=subtree;
                 }
             }
         }
@@ -1389,7 +1386,7 @@ pub fn compute_normalized_incremental_report(
         input,styles,children,provisional,
         measurements:input.measurements.iter().map(|m|(m.node_id.as_str(),m)).collect(),
         used:vec![None;input.nodes.len()],
-        reused_sizes,reusable_descendants,
+        reused_sizes,
         reused_contexts:Vec::new(),
     };
     let root_style=context.styles[0];
