@@ -1106,20 +1106,19 @@ class TkinterRenderer:
             return
         fill, ink, radius, label, align, font, left, right = widget._psx_css_button_paint_values
         width, height = max(1, canvas.winfo_width()), max(1, canvas.winfo_height())
-        radius = min(radius, width // 2, height // 2)
-        canvas.delete("all")
-        if radius:
-            canvas.create_rectangle(radius, 0, width - radius, height,
-                                    fill=fill, outline="", tags=("psx-css-button-fill",))
-            canvas.create_rectangle(0, radius, width, height - radius,
-                                    fill=fill, outline="", tags=("psx-css-button-fill",))
-            for x in (0, width - 2 * radius):
-                for y in (0, height - 2 * radius):
-                    canvas.create_oval(x, y, x + 2 * radius, y + 2 * radius,
-                                      fill=fill, outline="", tags=("psx-css-button-fill",))
-        else:
-            canvas.create_rectangle(0, 0, width, height, fill=fill, outline="",
-                                    tags=("psx-css-button-fill",))
+        # Share the same border-box rasterizer as rounded CSS divs.
+        # Canvas oval primitives have inclusive edge pixels and can leave the
+        # lower corners square/clipped on Aqua when the height is compact.
+        from psx.renderers.tkinter.rounded_surface import draw_rounded_surface
+
+        surrounding = str(canvas.cget("background"))
+        draw_rounded_surface(
+            canvas, width=width, height=height, radius=radius,
+            parent_color=surrounding, fill_color=fill, sides={},
+        )
+        # Preserve the public paint tag used by existing renderer tests.
+        canvas.addtag_withtag("psx-css-button-fill", "psx-css-surface-fill")
+        canvas.delete("psx-css-button-text")
         anchors = {
             "left": ("w", max(0, left)),
             "center": ("center", width // 2),
