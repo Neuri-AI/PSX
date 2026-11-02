@@ -443,7 +443,11 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
                                         round(box.width), round(box.height))
                 root_widget.show()
             committer(result)
-            mixed_receipts = mixed_grid.commit(mixed_plans)
+            # The outer rollback transaction already captured the exact
+            # Grid descendants. Avoid a second full native geometry walk.
+            mixed_receipts = mixed_grid.commit(
+                mixed_plans, prior_snapshot=mixed_before,
+            )
             for node in snapshot.nodes:
                 if node.parent_id is not None:
                     parent = bindings[node.parent_id].widget
