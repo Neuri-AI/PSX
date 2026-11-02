@@ -152,3 +152,41 @@ def test_css_padding_is_not_counted_twice_by_cinnamon(tk_root):
         assert widget.winfo_reqheight() - measured.preferred_height == 16
         assert widget.winfo_reqwidth() - measured.preferred_width == 16
     renderer.close()
+
+
+def test_button_rounded_bottom_corners_survive_compact_height(tk_root):
+    """Aqua must paint all four corner pixels inside the allocated CSS box."""
+    renderer = TkinterRenderer(root=tk_root)
+    button = ttk.Button(tk_root)
+    apply_tk_button(button, {
+        "label": "Sign In", "font_size": 14, "enabled": True,
+    })
+    button.place(x=12, y=12, width=280, height=38)
+    renderer.apply_css(
+        TkHandle("Button", button, {}),
+        _rule(
+            "button {padding: 8px; border: none; border-radius: 4px; "
+            "background-color: #007bff; color: white;}", "button"
+        ),
+    )
+    tk_root.update()
+    canvas = button._psx_css_button_surface
+    assert (canvas.winfo_width(), canvas.winfo_height()) == (280, 38)
+
+    for width, height in ((280, 38), (280, 32), (180, 38)):
+        button.place_configure(width=width, height=height)
+        tk_root.update()
+        assert (canvas.winfo_width(), canvas.winfo_height()) == (width, height)
+        assert len(canvas.find_withtag("psx-css-surface-corner")) == 4
+        corners = {
+            kind: canvas.coords(canvas.find_withtag(f"psx-css-{kind}")[0])
+            for kind in ("tl", "tr", "bl", "br")
+        }
+        assert corners == {
+            "tl": [0.0, 0.0],
+            "tr": [float(width - 4), 0.0],
+            "bl": [0.0, float(height - 4)],
+            "br": [float(width - 4), float(height - 4)],
+        }
+        assert len(canvas.find_withtag("psx-css-button-text")) == 1
+    renderer.close()
