@@ -91,8 +91,10 @@ def test_complex_css_and_native_controls_fail_closed():
     assert not subtree_is_safe_for_root_culling(node(kind=NodeKind.NATIVE))
     assert not subtree_is_safe_for_root_culling(
         node({"style": {"position": "absolute"}}))
-    assert not subtree_is_safe_for_root_culling(
+    assert subtree_is_safe_for_root_culling(
         node({"style": {"overflow": "visible"}}))
+    assert not subtree_is_safe_for_root_culling(
+        node({"style": {"overflow": "auto"}}))
     computed = node()
     computed.source.css_computed = SimpleNamespace(
         properties={"position": "fixed"}, specified=frozenset({"position"}),
