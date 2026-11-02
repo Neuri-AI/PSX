@@ -297,6 +297,10 @@ class MountedMixedGrid:
             )
         self._viewport_batches = tuple(planned)
         self._viewport_plans = plans
+        # Preserve the zero-argument snapshot protocol: native integration
+        # and tests wrap snapshot() to audit one rollback capture per commit.
+        # Filtering is transaction-local state, not a new required argument.
+        self._snapshot_widget_ids = active_widget_ids
         return active_widget_ids
 
     def accept_viewport(self):
@@ -345,6 +349,8 @@ class MountedMixedGrid:
 
     def snapshot(self, *, only_widget_ids=None):
         """Capture only widgets that the pending transaction may mutate."""
+        if only_widget_ids is None:
+            only_widget_ids = getattr(self, "_snapshot_widget_ids", None)
         result = []
         for widget in self._descendants():
             if only_widget_ids is not None and id(widget) not in only_widget_ids:
