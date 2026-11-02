@@ -5,13 +5,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct AvailableSize {
     pub value: Option<f64>,
     pub definite: bool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct LayoutConstraints {
     pub width: AvailableSize,
@@ -25,7 +25,7 @@ pub struct LayoutNode {
     pub component: String,
     pub style: serde_json::Map<String,serde_json::Value>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct IntrinsicSizes {
     pub min_content_width: f64,
@@ -126,8 +126,7 @@ fn exact_incremental_hit(
 )->Option<LayoutResult>{
     if input.schema_version!=previous.schema_version
         || input.direction!=previous.direction
-        || serde_json::to_value(&input.constraints).ok()?
-            !=serde_json::to_value(&previous.constraints).ok()?
+        || input.constraints!=previous.constraints
         || input.nodes.len()!=previous.nodes.len()
         || input.measurements.len()!=previous.measurements.len()
         || previous_result.schema_version!=input.schema_version
@@ -143,10 +142,8 @@ fn exact_incremental_hit(
     }
     if !input.measurements.iter().zip(&previous.measurements).all(|(a,b)|
         a.node_id==b.node_id
-        && serde_json::to_value(&a.intrinsic).ok()
-            ==serde_json::to_value(&b.intrinsic).ok()
-        && serde_json::to_value(&a.constraints).ok()
-            ==serde_json::to_value(&b.constraints).ok()) {
+        && a.intrinsic==b.intrinsic
+        && a.constraints==b.constraints) {
         return None;
     }
     // Ensure the recorded layout is complete and in exactly the same order.
