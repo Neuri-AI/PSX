@@ -291,6 +291,11 @@ def run_cell(args):
                     f"{args.timeout}s at width {target}; "
                     f"coordinator={getattr(renderer, '_psx_resize_priority', None)!r}"
                 )
+            failure = getattr(renderer, "_psx_resize_settle_error", None)
+            if failure is not None:
+                raise RuntimeError(
+                    f"{args.adapter}: latest deferred reconciliation rejected"
+                ) from failure
             full_completed = time.perf_counter_ns()
             all_commits = [c for c in commits[prev_commits:] if c[0] == target]
             full_commit_ms = sum(
