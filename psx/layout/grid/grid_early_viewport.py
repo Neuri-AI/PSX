@@ -120,8 +120,15 @@ def _plain_root_grid(normalized, grid):
     if props.get("display", "block") != "block":
         return False
     css = getattr(root.source, "css_computed", None)
-    if css is not None and getattr(css, "specified", ()):
-        return False
+    if css is not None:
+        specified = set(getattr(css, "specified", ()))
+        # The HTML constructor authors display:block by default. That
+        # declaration is not a geometry escape or an external dependency.
+        if specified - {"display"}:
+            return False
+        properties = getattr(css, "properties", {}) or {}
+        if "display" in specified and properties.get("display") != "block":
+            return False
     return subtree_is_safe_for_root_culling(root) and _no_negative_margins(root)
 
 
