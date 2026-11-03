@@ -133,3 +133,32 @@ def test_interactive_and_responsive_grids_are_never_provisionally_skipped():
         viewport_height=650, epoch=4,
     )
     assert not deferred
+
+def test_500_card_native_leaf_reads_drop_by_more_than_half_before_solver():
+    """Structural P1 rows preserve complete visible placement; the other
+    hundreds of Flow cards do not need fresh native width probes at all.
+    """
+    normalized, grid = board(500)
+    full_before, _ = compose(grid, 480, 1)
+    workset = SimpleNamespace(_accepted={
+        placement.node_id: SimpleNamespace(
+            epoch=1, native_y=placement.y
+        ) for placement in full_before.prepared.placements
+    })
+    plan = build_early_viewport_plan(normalized, grid)
+    deferred = select_pre_measurement_deferred_flows(
+        normalized, grid, full_before, workset,
+        viewport_height=100, epoch=1, static_plan=plan,
+    )
+    assert len(deferred) > 250, (
+        "Only the structural and visible prefix should have been measured"
+    )
+    sparse, sparse_reads = compose(grid, 560, 2, deferred=deferred)
+    baseline, baseline_reads = compose(grid, 560, 2)
+    assert len(sparse_reads) < len(baseline_reads) / 2
+    assert sparse.provisional_ids == frozenset(deferred)
+    exact = {placement.node_id: placement
+             for placement in baseline.prepared.placements}
+    for placement in sparse.prepared.placements:
+        if placement.node_id not in deferred:
+            assert placement == exact[placement.node_id]
