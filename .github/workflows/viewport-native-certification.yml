@@ -8,6 +8,7 @@ on:
       - "rust/sfle-core/src/**"
       - "tests/test_grid_viewport*"
       - "tests/test_grid_geometry_reuse.py"
+      - "tests/test_grid_early_viewport.py"
       - "tests/test_native_flow_viewport.py"
       - "tests/test_viewport_scroll_reentry.py"
       - "tests/test_viewport_resize_priority.py"
@@ -40,6 +41,7 @@ jobs:
             tests/test_grid_viewport_workset.py \
             tests/test_grid_viewport_native_three_backends.py \
             tests/test_grid_geometry_reuse.py \
+            tests/test_grid_early_viewport.py \
             tests/test_viewport_scroll_reentry.py \
             tests/test_viewport_resize_priority.py \
             tests/test_width_dependent_intrinsic_measurement.py \
