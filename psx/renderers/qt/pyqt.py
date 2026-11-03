@@ -799,6 +799,10 @@ class QtRenderer:
         self._psx_native_flow_deferred_ids = frozenset()
         self._psx_native_grid_deferred_total = 0
         self._psx_in_native_viewport_resize = False
+        priority = getattr(self, "_psx_resize_priority", None)
+        if priority is not None:
+            priority.cancel()
+        self._psx_resize_settle_error = None
         # A full unmount/remount must drop cached VNode blueprints and old
         # native intrinsic identities; a later tree always starts fresh.
         for cache_name in (
