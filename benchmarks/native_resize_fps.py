@@ -96,6 +96,7 @@ def run_cell(args):
 
     reconciler = Reconciler(renderer)
     early_patch = None
+    early_stage_patch = None
     viewport_patch = None
     commits = []
     events = []
@@ -108,6 +109,10 @@ def run_cell(args):
                 AcceptedGridGeometryReuse, "lookup", return_value=None
             )
             early_patch.start()
+            early_stage_patch = patch.object(
+                AcceptedGridGeometryReuse, "stage", return_value=None
+            )
+            early_stage_patch.start()
         if args.disable_viewport_defer:
             from unittest.mock import patch
             from psx.layout.adapters.grid_viewport_workset import GridViewportWorkset
@@ -300,6 +305,8 @@ def run_cell(args):
     finally:
         if early_patch is not None:
             early_patch.stop()
+        if early_stage_patch is not None:
+            early_stage_patch.stop()
         if viewport_patch is not None:
             viewport_patch.stop()
         try:
