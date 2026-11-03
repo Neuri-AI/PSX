@@ -162,3 +162,16 @@ def test_500_card_native_leaf_reads_drop_by_more_than_half_before_solver():
     for placement in sparse.prepared.placements:
         if placement.node_id not in deferred:
             assert placement == exact[placement.node_id]
+
+def test_early_geometry_rejects_negative_and_unknown_css_margin_values():
+    from psx.layout.grid.grid_early_viewport import _negative
+    from psx.layout.contracts.lengths import Length
+    assert not _negative(0)
+    assert not _negative("12px")
+    assert not _negative("3%")
+    assert not _negative(("0px", "10px", "0px", "0px"))
+    for value in ("-1px", "-12%", "calc(0px - 20px)", "auto",
+                  "var(--gap)", float("nan"), Length.px(-4)):
+        assert _negative(value), (
+            f"Unknown or signed margin escaped the early viewport proof: {value!r}"
+        )
