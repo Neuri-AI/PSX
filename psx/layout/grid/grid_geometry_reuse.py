@@ -35,6 +35,15 @@ def _safe_immutable_grid(grid) -> bool:
         node = stack.pop()
         if node.kind is not NodeKind.HOST or node.type not in _ALLOWED:
             return False
+        props = getattr(node.source, "props", {}) or {}
+        # External refs/handlers can mutate native text or size independently
+        # of a committed immutable VNode. Such a subtree is not eligible for
+        # cross-generation geometry reuse or provisional P2 measurements.
+        if ("ref" in props or any(
+            str(name).startswith("on_") or callable(value)
+            for name, value in props.items()
+        )):
+            return False
         stack.extend(node.effective_children)
     return True
 
