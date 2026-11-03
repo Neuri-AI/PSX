@@ -107,3 +107,46 @@ def test_lru_is_bounded_across_responsive_widths():
     assert cache.lookup(key, grid, 480, viewport(480), 4) is None
     assert cache.lookup(key, grid, 560, viewport(560), 4) is not None
     assert cache.lookup(key, grid, 640, viewport(640), 4) is not None
+
+
+def test_flattened_grid_batch_has_live_widget_identity_fence():
+    from types import SimpleNamespace
+    from psx.layout.grid.grid_native_plan import GridNativePlacement
+
+    grid = original_grid(12)
+    key = path_identity(grid.path)
+    cache = AcceptedGridGeometryReuse()
+    cache.begin(grid, 1, "qt", 1.0, {})
+    first = object()
+    second = object()
+    handles = {
+        101: SimpleNamespace(widget=first),
+        102: SimpleNamespace(widget=second),
+    }
+    placements = (
+        GridNativePlacement("card-a", 1, 2, 100, 30, 100, 30, False, False),
+        GridNativePlacement("card-b", 1, 40, 100, 30, 100, 30, False, False),
+    )
+    widgets = {"card-a": first, "card-b": second}
+    cache.batch_stage(key, grid, 480, viewport(), 650,
+                      placements, widgets, {"card-a": 650, "card-b": 650},
+                      handles)
+    # A rollback cannot leave a valid geometry receipt.
+    cache.discard()
+    assert cache.batch_lookup(key, 480, viewport(), 650, handles) is None
+    cache.batch_stage(key, grid, 480, viewport(), 650,
+                      placements, widgets, {"card-a": 650, "card-b": 650},
+                      handles)
+    cache.accept()
+    batch, rebound, heights = cache.batch_lookup(
+        key, 480, viewport(), 650, handles,
+    )
+    assert batch is placements
+    assert rebound == widgets
+    assert heights["card-b"] == 650
+    assert cache.batch_hits == 1
+    # Replacing the mounted native handle without a matching structural
+    # receipt must never return coordinates bound to the stale widget.
+    handles[102] = SimpleNamespace(widget=object())
+    assert cache.batch_lookup(key, 480, viewport(), 650, handles) is None
+
