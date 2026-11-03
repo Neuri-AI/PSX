@@ -156,6 +156,7 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                 )
         composed_heights = None
         if reused is not None:
+            composed = reused
             prepared = reused.prepared
             flattened = geometry_cache.batch_lookup(
                 grid_id, float(width), renderer._sfle_constraints,
