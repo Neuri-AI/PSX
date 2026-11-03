@@ -3724,3 +3724,34 @@ def test_scroll_newly_visible_grid_items_receive_native_geometry():
     finally:
         reconciler.unmount()
         close()
+
+
+def test_styled_mixed_grid_reuses_accepted_geometry_before_intrinsic_measurement():
+    """A returned viewport width must not re-run the 24-card Grid solver."""
+    from psx import psx
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    cards = "".join(
+        f'<GridItem span="3" key="card-{i}"><div style="padding:12px">'
+        f'<div>Card {i}</div><div>Value {i * 17}</div>'
+        '</div></GridItem>'
+        for i in range(24)
+    )
+    try:
+        root = reconciler.render(psx(f'<div><Grid gap="16px">{cards}</Grid></div>'))
+        for width in (560, 640, 560):
+            renderer.set_sfle_constraints(viewport(width))
+            renderer.commit_layout(root)
+        cache = getattr(renderer, "_psx_accepted_grid_geometry", None)
+        assert cache is not None
+        assert cache.hits >= 1, (
+            "An unchanged responsive width should reuse the accepted mixed "
+            "Grid composition before measuring any native card children"
+        )
+        assert renderer.sfle_result.geometry_commit_error <= 1.0
+    finally:
+        reconciler.unmount()
+        close()
+
