@@ -293,24 +293,11 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
                     placement.used_width, placement.used_height, False, False,
                 ))
                 commit_widgets[leaf_id] = leaf_handles[placement.node_id].widget
-        if reused is None:
-            if not nested_content:
-                composed = ComposedGrid(
-                    grid, prepared, {}, {}, {}, {},
-                    max((p.y + p.height for p in prepared.placements),
-                        default=0.0),
-                )
-            if not composed.provisional_ids:
-                geometry_cache.stage(
-                    grid_id, grid, float(width), renderer._sfle_constraints,
-                    composed,
-                )
-        if (not composed.provisional_ids
-                and (reused is None or flattened is None)):
-            geometry_cache.batch_stage(
-                grid_id, grid, float(width), renderer._sfle_constraints,
-                float(height), batch, commit_widgets,
-                composed_heights, handles,
+        if reused is None and not nested_content:
+            composed = ComposedGrid(
+                grid, prepared, {}, {}, {}, {},
+                max((p.y + p.height for p in prepared.placements),
+                    default=0.0),
             )
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             # Native widget creation can synchronously publish an intrinsic
@@ -464,6 +451,22 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         renderer._psx_native_grid_deferred_total = len(deferred_ids)
         reuse_transaction.accept(invalidation_epoch)
         flow_reuse.solved.accept(generation, invalidation_epoch)
+        # MountedMixedGrid rollback scope created above calls
+        # geometry_cache.begin(), clearing speculative receipts. Stage only
+        # *after* that scope and all native writes/readbacks have succeeded.
+        # This is also the acceptance fence for the direct-Grid fast path.
+        if not composed.provisional_ids:
+            if reused is None:
+                geometry_cache.stage(
+                    grid_id, grid, float(width), renderer._sfle_constraints,
+                    composed,
+                )
+            if reused is None or flattened is None:
+                geometry_cache.batch_stage(
+                    grid_id, grid, float(width), renderer._sfle_constraints,
+                    float(height), batch, commit_widgets,
+                    composed_heights, handles,
+                )
         geometry_cache.accept()
     finally:
         renderer._sfle_in_commit = False
