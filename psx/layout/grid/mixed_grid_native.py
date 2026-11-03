@@ -77,6 +77,7 @@ class MountedMixedGrid:
             geometry_reuse = AcceptedGridGeometryReuse()
             renderer._psx_accepted_grid_geometry = geometry_reuse
         self._geometry_reuse = geometry_reuse
+        self._normalized = normalized
         self._geometry_reuse.begin(
             normalized, self._intrinsic_epoch, backend.value,
             getattr(renderer, "_psx_css_pixel_scale", 1.0)
@@ -132,6 +133,26 @@ class MountedMixedGrid:
         if accepted is not None:
             self._composition_cache[key] = accepted
             return accepted
+        deferred_flows = {}
+        if (geometry_reuse is not None
+                and getattr(self.renderer, "_psx_in_native_viewport_resize", False)):
+            # This runs *before* constructing native measurement callbacks,
+            # scanning a Flow's children or invoking Cinnamon on its subtree.
+            # Only previously accepted groups with proven non-visible future
+            # bounds are eligible; a non-resize, idle or scroll commit always
+            # takes the normal exact path.
+            from psx.layout.grid.grid_early_viewport import (
+                select_pre_measurement_deferred_flows,
+            )
+            worksets = getattr(
+                self.renderer, "_psx_mixed_grid_viewport_cache", None,
+            ) or {}
+            deferred_flows = select_pre_measurement_deferred_flows(
+                getattr(self, "_normalized", None), grid,
+                geometry_reuse.latest(node_id), worksets.get(node_id),
+                viewport_height=self.renderer._sfle_constraints.height.value,
+                epoch=self._intrinsic_epoch,
+            )
         # The native baseline is shared by all width probes in this one
         # transaction, including re-entrant nested Grid compositions.
         if self.backend is GridCommitBackend.TK and not getattr(self, "_tk_idle_synced", False):
@@ -191,10 +212,13 @@ class MountedMixedGrid:
             pixel_scale=(getattr(self.renderer, "_psx_css_pixel_scale", 1.0)
                          if self.backend is GridCommitBackend.KIVY else 1.0),
             kivy_text_basis=(self.backend is GridCommitBackend.KIVY),
+            deferred_flows=deferred_flows,
         )
+        if deferred_flows and geometry_reuse is not None:
+            geometry_reuse.early_provisional_groups += len(deferred_flows)
         # Never publish a partial result after a measurement exception.
         self._composition_cache[key] = composition
-        if geometry_reuse is not None:
+        if geometry_reuse is not None and not composition.provisional_ids:
             geometry_reuse.stage(
                 node_id, grid, width, self.renderer._sfle_constraints, composition,
             )
@@ -294,7 +318,8 @@ class MountedMixedGrid:
                              for identity, handle in self.handles.items()},
                     root_height=box.height,
                 )
-                if geometry_reuse is not None:
+                if (geometry_reuse is not None
+                        and not composition.provisional_ids):
                     geometry_reuse.batch_stage(
                         node_id, self.grids[node_id], box.width,
                         self.renderer._sfle_constraints, box.height,
@@ -341,6 +366,24 @@ class MountedMixedGrid:
                 )
             else:
                 cache.pop(node_id, None)
+            # A provisional Flow has prior-width child rectangles. It must
+            # NEVER reach a native setter: do not silently treat its old
+            # geometry as a full current-width solved result. Refuse the
+            # transaction before any native widget mutation if the P2 proof
+            # was invalidated between measuring and viewport classification.
+            provisional = composition.provisional_ids
+            if provisional:
+                groups = GridViewportWorkset._groups(roots, batch, widgets)
+                for group_id in provisional:
+                    if (group_id not in groups
+                            or not all(
+                                placement.node_id in skipped
+                                for placement in groups[group_id]
+                            )):
+                        raise GridPackingError(
+                            "Provisional offscreen Grid Flow became visible "
+                            "before a fully measured layout."
+                        )
             planned.append((node_id, workset, skipped))
             active_widget_ids.update(
                 id(widget) for key, widget in widgets.items()
