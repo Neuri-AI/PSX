@@ -165,3 +165,11 @@ def test_renderer_unmount_clear_releases_saved_tree_and_receipts():
     assert not cache._safety and not cache._early_plans
     assert cache.lookup(key, grid, 480, viewport(), 2) is None
 
+
+def test_external_text_ref_is_not_certified_as_immutable_native_geometry():
+    grid = normalize_flex_tree(
+        Grid(GridItem(Text("Mutable through a ref", ref=object()), span=12))
+    )
+    cache = AcceptedGridGeometryReuse()
+    cache.begin(grid, 1, "qt", 1.0, {})
+    assert not cache.eligible(path_identity(grid.path), grid)
