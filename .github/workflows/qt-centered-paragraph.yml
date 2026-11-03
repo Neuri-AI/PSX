@@ -77,6 +77,8 @@ jobs:
     env:
       KIVY_NO_ARGS: '1'
       KIVY_NO_FILELOG: '1'
+      # Kivy uses the xvfb-run display; do not probe Tk fonts during pytest setup.
+      PSX_TEST_NATIVE_DISPLAY: 'existing'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
