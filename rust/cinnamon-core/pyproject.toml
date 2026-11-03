@@ -7,7 +7,7 @@ name = "velto-cinnamon-core"
 version = "0.1.0"
 description = "Cinnamon Rust layout engine for Velto"
 requires-python = ">=3.10"
-dependencies = ["velto-core>=0.1.0"]
+dependencies = []
 
 [tool.maturin]
 manifest-path = "rust/cinnamon-core/Cargo.toml"
