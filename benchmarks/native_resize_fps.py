@@ -400,12 +400,20 @@ def run_cell(args):
             "idle_reconciliation_commits": sum(
                 s["idle_reconciliation_commits"] for s in samples
             ),
+            # Idealized urgent transaction capacity excludes intentional idle
+            # debouncing and is not a continuously achieved frame rate.
             "layout_hz": args.cycles / elapsed_sec if elapsed_sec else None,
+            "full_settlement_hz": (
+                args.cycles / (sum(full_settlement) / 1000)
+                if sum(full_settlement) else None
+            ),
             "p95_budget_60hz_pass": pct(latencies,95) <= BUDGET_MS,
             "over_16_67ms_pct": 100*sum(t>BUDGET_MS for t in latencies)/len(latencies),
             "presentation_fps": None,
             "note": (
-                "layout_hz measures urgent native resize transaction throughput, "
+                "layout_hz is idealized urgent layout transaction capacity "
+                "(not observed continuous throughput or compositor FPS). "
+                "full_settlement_hz includes idle completion and is also "
                 "not compositor FPS. request_to_full_settlement includes the "
                 "idle P2 reconciliation; the two intervals are reported "
                 "separately to distinguish avoided work from postponed work."
