@@ -805,6 +805,10 @@ class KivyRenderer:
         self._psx_native_flow_deferred_ids = frozenset()
         self._psx_native_grid_deferred_total = 0
         self._psx_in_native_viewport_resize = False
+        priority = getattr(self, "_psx_resize_priority", None)
+        if priority is not None:
+            priority.cancel()
+        self._psx_resize_settle_error = None
         for cache_name in (
             "_psx_grid_intrinsic_reuse", "_psx_grid_flow_blueprints",
             "_psx_accepted_grid_geometry", "_sfle_structural_snapshot_reuse",
