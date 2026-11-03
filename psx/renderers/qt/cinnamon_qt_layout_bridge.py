@@ -567,9 +567,11 @@ def commit_qt_sfle(renderer: "QtRenderer", root: "MountedInstance") -> None:
             renderer.grid_result = mixed_receipts[-1]
         native_round.publish()
         mixed_grid.accept_intrinsic()
-        mixed_grid.accept_solved()
         mixed_grid.accept_viewport()
         native_flow_plan.accept()
+        # Exact geometry and solved CSS receipts become reusable only after
+        # every P2 workset has passed its native acceptance checks.
+        mixed_grid.accept_solved()
         # Diagnostics only: the solver result still contains every node.
         renderer._psx_native_flow_deferred_ids = native_flow_plan.deferred_ids
         # Preserve only the most recent successful immutable snapshot.
