@@ -243,21 +243,86 @@ def run_cell(args):
             failure = getattr(renderer, "_sfle_resize_error", None)
             if failure is not None:
                 raise RuntimeError(f"{args.adapter}: native resize error") from failure
-            completed = time.perf_counter_ns()
+            primary_completed = time.perf_counter_ns()
             matches = [t for w, t in events[prev_events:] if w == target]
-            matched_commits = [c for c in commits[prev_commits:] if c[0] == target]
-            if not matches or not matched_commits:
+            primary_commits = [c for c in commits[prev_commits:] if c[0] == target]
+            if not matches or not primary_commits:
                 raise RuntimeError(f"Missing native event/commit for {target}px")
             event_at = matches[0]
-            last_commit = matched_commits[-1]
+            last_commit = primary_commits[-1]
+            # The primary commit deliberately leaves proven P2 offscreen.
+            # Observe and drain the 125ms idle reconciliation as a *separate*
+            # metric; otherwise the next resize's samples can absorb stale
+            # deferred callbacks from the previous cycle and the A/B falsely
+            # credits work that was merely postponed.
+            primary_solver_ms = sum(
+                solver["elapsed_ms"].get(k, 0) - v
+                for k, v in solver_before.items()
+            ) + sum(
+                v for k, v in solver["elapsed_ms"].items()
+                if k not in solver_before
+            )
+            primary_solver_calls = sum(
+                solver["calls"].get(k, 0) - v
+                for k, v in calls_before.items()
+            ) + sum(
+                v for k, v in solver["calls"].items()
+                if k not in calls_before
+            )
+            primary_commit_ms = sum(
+                (end - start) / 1e6 for _, start, end in primary_commits
+            )
+            while time.monotonic() < deadline:
+                coordinator = getattr(renderer, "_psx_resize_priority", None)
+                if coordinator is None or (
+                    not coordinator.active and not coordinator.settling
+                ):
+                    break
+                pump()
+                failure = getattr(renderer, "_psx_resize_settle_error", None)
+                if failure is not None:
+                    raise RuntimeError(
+                        f"{args.adapter}: deferred P2 reconciliation failed"
+                    ) from failure
+                time.sleep(0.001)
+            else:
+                raise RuntimeError(
+                    f"{args.adapter}: P2 work did not settle within "
+                    f"{args.timeout}s at width {target}; "
+                    f"coordinator={getattr(renderer, '_psx_resize_priority', None)!r}"
+                )
+            full_completed = time.perf_counter_ns()
+            all_commits = [c for c in commits[prev_commits:] if c[0] == target]
+            full_commit_ms = sum(
+                (end - start) / 1e6 for _, start, end in all_commits
+            )
+            full_solver_ms = sum(
+                solver["elapsed_ms"].get(k, 0) - v
+                for k, v in solver_before.items()
+            ) + sum(
+                v for k, v in solver["elapsed_ms"].items()
+                if k not in solver_before
+            )
+            full_solver_calls = sum(
+                solver["calls"].get(k, 0) - v
+                for k, v in calls_before.items()
+            ) + sum(
+                v for k, v in solver["calls"].items()
+                if k not in calls_before
+            )
             if index >= args.warmup:
                 samples.append({
                     "width": target,
                     "event_to_commit_ms": (last_commit[2] - event_at) / 1e6,
-                    "request_to_settled_ms": (completed - requested) / 1e6,
-                    "commit_ms": sum((end-start)/1e6 for _, start, end in matched_commits),
-                    "solver_ms": sum(solver["elapsed_ms"].get(k, 0) - v for k, v in solver_before.items()) + sum(v for k,v in solver["elapsed_ms"].items() if k not in solver_before),
-                    "solver_calls": sum(solver["calls"].get(k, 0) - v for k,v in calls_before.items()) + sum(v for k,v in solver["calls"].items() if k not in calls_before),
+                    "request_to_settled_ms": (primary_completed - requested) / 1e6,
+                    "request_to_full_settlement_ms": (full_completed - requested) / 1e6,
+                    "deferred_reconciliation_ms": (full_completed - primary_completed) / 1e6,
+                    "commit_ms": primary_commit_ms,
+                    "full_commit_ms": full_commit_ms,
+                    "solver_ms": primary_solver_ms,
+                    "full_solver_ms": full_solver_ms,
+                    "solver_calls": primary_solver_calls,
+                    "full_solver_calls": full_solver_calls,
                     "native_rust_compute_calls": getattr(engine, "_native_compute_calls", 0) - native_counters["_native_compute_calls"],
                     "native_rust_incremental_calls": getattr(engine, "_native_incremental_calls", 0) - native_counters["_native_incremental_calls"],
                     "rust_exact_cache_hits": getattr(engine, "_exact_hits", 0) - native_counters["_exact_hits"],
@@ -265,10 +330,13 @@ def run_cell(args):
                         getattr(getattr(renderer, "_psx_grid_flow_blueprints", None), "solved", None),
                         "hits", 0,
                     ) - solved_before,
-                    "commits": len(matched_commits),
+                    "commits": len(primary_commits),
+                    "full_commits": len(all_commits),
+                    "idle_reconciliation_commits": len(all_commits) - len(primary_commits),
                 })
         latencies = [s["event_to_commit_ms"] for s in samples]
         end_to_end = [s["request_to_settled_ms"] for s in samples]
+        full_settlement = [s["request_to_full_settlement_ms"] for s in samples]
         elapsed_sec = sum(end_to_end) / 1000
         return {
             "adapter": args.adapter, "engine": args.engine, "scenario": args.scenario,
@@ -294,19 +362,34 @@ def run_cell(args):
             ),
             "warmup": args.warmup, "event_to_commit": stats(latencies),
             "request_to_settled": stats(end_to_end),
+            "request_to_full_settlement": stats(full_settlement),
+            "deferred_reconciliation": stats(
+                [s["deferred_reconciliation_ms"] for s in samples],
+            ),
             "solver_total_ms": sum(s["solver_ms"] for s in samples),
+            "full_solver_total_ms": sum(s["full_solver_ms"] for s in samples),
             "solver_calls": sum(s["solver_calls"] for s in samples),
+            "full_solver_calls": sum(s["full_solver_calls"] for s in samples),
             "native_rust_compute_calls": sum(s["native_rust_compute_calls"] for s in samples),
             "native_rust_incremental_calls": sum(s["native_rust_incremental_calls"] for s in samples),
             "rust_exact_cache_hits": sum(s["rust_exact_cache_hits"] for s in samples),
             "deferred_text_subtree_hits": sum(s["deferred_text_subtree_hits"] for s in samples),
             "rust_exact_cache_entries": len(getattr(engine, "_exact_results", ())),
             "commit_total_ms": sum(s["commit_ms"] for s in samples),
+            "full_commit_total_ms": sum(s["full_commit_ms"] for s in samples),
+            "idle_reconciliation_commits": sum(
+                s["idle_reconciliation_commits"] for s in samples
+            ),
             "layout_hz": args.cycles / elapsed_sec if elapsed_sec else None,
             "p95_budget_60hz_pass": pct(latencies,95) <= BUDGET_MS,
             "over_16_67ms_pct": 100*sum(t>BUDGET_MS for t in latencies)/len(latencies),
             "presentation_fps": None,
-            "note": "layout_hz is sequential completed resize transaction throughput; not display FPS. Offscreen or headless modes cannot certify presented frames.",
+            "note": (
+                "layout_hz measures urgent native resize transaction throughput, "
+                "not compositor FPS. request_to_full_settlement includes the "
+                "idle P2 reconciliation; the two intervals are reported "
+                "separately to distinguish avoided work from postponed work."
+            ),
             "samples": samples,
             "environment": {"python": sys.version.split()[0], "system": platform.platform(), "machine": platform.machine()},
         }
