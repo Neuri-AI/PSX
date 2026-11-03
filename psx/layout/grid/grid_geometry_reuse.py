@@ -116,6 +116,18 @@ class AcceptedGridGeometryReuse:
         self.batch_hits = 0
         self.early_provisional_groups = 0
 
+    def clear(self):
+        """Release all retained VNodes/geometry after unmount or renderer close."""
+        self._root = None
+        self._scope = None
+        self._entries.clear()
+        self._pending.clear()
+        self._safety.clear()
+        self._early_plans.clear()
+        self._batch_entries.clear()
+        self._batch_pending.clear()
+        self._latest.clear()
+
     def begin(self, normalized, epoch, backend, pixel_scale, breakpoints):
         # The viewport belongs to the *per-entry* key; retaining other exact
         # widths is what makes a continuous back-and-forth resize cheap.
