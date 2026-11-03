@@ -3800,3 +3800,38 @@ def test_native_grid_provisional_p2_skips_upstream_flow_solve_then_reenters():
         reconciler.unmount()
         close()
 
+
+
+def test_direct_grid_accepted_geometry_survives_rollback_scope_and_returns_on_resize():
+    """A direct mounted Grid must publish a valid exact receipt after the
+    rollback helper initializes; otherwise its cache is always empty.
+    """
+    from psx import Grid, GridItem, Text
+
+    backend = os.environ["PSX_GRID_BACKEND"]
+    renderer, close = make_renderer(backend)
+    reconciler = Reconciler(renderer)
+    try:
+        root = reconciler.render(Grid(*(
+            GridItem(Text(f"Card {i}", key=f"label-{i}"),
+                     span=3, key=f"item-{i}")
+            for i in range(24)
+        ), gap="16px"))
+        cache = getattr(renderer, "_psx_accepted_grid_geometry", None)
+        assert cache is not None
+        assert cache.latest("root") is not None or cache._entries, (
+            "The direct-Grid native commit never published the exact "
+            "geometry receipt after the rollback scope was initialized"
+        )
+        for width in (560, 800, 560, 800):
+            renderer.set_sfle_constraints(viewport(width))
+            renderer.commit_layout(root)
+        assert cache.hits > 0, (
+            "A revisited viewport must reuse an accepted direct-Grid "
+            "composition before native intrinsic measurement"
+        )
+        assert renderer.grid_result[1].max_readback_error <= 1
+    finally:
+        reconciler.unmount()
+        close()
+
