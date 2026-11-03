@@ -122,9 +122,12 @@ class MountedMixedGrid:
         if key in self._composition_cache:
             return self._composition_cache[key]
         grid = self.grids[node_id]
-        accepted = self._geometry_reuse.lookup(
-            node_id, grid, width, self.renderer._sfle_constraints,
-            self.generation,
+        geometry_reuse = getattr(self, "_geometry_reuse", None)
+        accepted = (
+            geometry_reuse.lookup(
+                node_id, grid, width, self.renderer._sfle_constraints,
+                self.generation,
+            ) if geometry_reuse is not None else None
         )
         if accepted is not None:
             self._composition_cache[key] = accepted
@@ -191,9 +194,10 @@ class MountedMixedGrid:
         )
         # Never publish a partial result after a measurement exception.
         self._composition_cache[key] = composition
-        self._geometry_reuse.stage(
-            node_id, grid, width, self.renderer._sfle_constraints, composition,
-        )
+        if geometry_reuse is not None:
+            geometry_reuse.stage(
+                node_id, grid, width, self.renderer._sfle_constraints, composition,
+            )
         return composition
 
     def accept_intrinsic(self):
