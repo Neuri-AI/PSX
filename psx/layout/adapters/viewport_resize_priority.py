@@ -141,6 +141,9 @@ def schedule_resize_settlement(renderer, size, schedule_after) -> None:
         coordinator = ViewportResizeCoordinator()
         renderer._psx_resize_priority = coordinator
     generation = coordinator.resize(tuple(size))
+    # A new successful native resize supersedes any failure in an older
+    # idle generation. It is not evidence that the *new* settlement succeeded.
+    renderer._psx_resize_settle_error = None
     mounted_root = getattr(renderer, "_sfle_mounted_root", None)
     if (not getattr(renderer, "_psx_native_flow_deferred_ids", frozenset())
             and not getattr(renderer, "_psx_native_grid_deferred_total", 0)):
