@@ -237,7 +237,8 @@ class AcceptedGridGeometryReuse:
             bindings.append((placement_id, source_id, id(widget)))
         key = (*self._key(grid_id, width, viewport), float(root_height))
         self._batch_pending[key] = (
-            tuple(placements), tuple(bindings), dict(heights),
+            tuple(placements), tuple(bindings),
+            None if heights is None else dict(heights),
         )
 
     def discard(self):
