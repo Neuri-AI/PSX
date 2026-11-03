@@ -1,4 +1,3 @@
-
 name: Build and publish Velto Core
 
 on:
@@ -10,209 +9,175 @@ permissions:
   contents: read
 
 jobs:
-  build-wheels:
-    name: Build wheel / ${{ matrix.platform }}
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux-x86_64
-            os: ubuntu-24.04
-            interpreter: python3.10
-
-          - platform: linux-aarch64
-            os: ubuntu-24.04-arm
-            interpreter: python3.10
-
-          - platform: windows-x86_64
-            os: windows-2025
-            interpreter: python
-
-          - platform: macos-x86_64
-            os: macos-15-intel
-            interpreter: python3.10
-
-          - platform: macos-aarch64
-            os: macos-15
-            interpreter: python3.10
-
+  build-core:
+    name: Build Velto Core Python distribution
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/setup-python@v6
         with:
-          python-version: "3.10"
-
-      - name: Build native Rust/Python wheel
-        uses: PyO3/maturin-action@v1
-        with:
-          command: build
-          args: >-
-            --release
-            --out dist
-            --interpreter ${{ matrix.interpreter }}
-          manylinux: auto
-
-      - name: Inspect built wheel
+          python-version: '3.10'
+      - name: Build universal wheel and sdist
+        run: |
+          python -m pip install build
+          python -m build --wheel --sdist --outdir dist
+      - name: Validate package
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
-
-          wheels = list(Path("dist").glob("*.whl"))
+          wheels = list(Path('dist').glob('*.whl'))
           assert len(wheels) == 1, wheels
-
-          with ZipFile(wheels[0]) as wheel:
-              files = wheel.namelist()
-
-          assert any(
-              p.startswith("psx/") and p.endswith(".py")
-              for p in files
-          ), "Python package missing"
-
-          assert any(
-              "_sfle_native" in p
-              and p.endswith((".so", ".pyd"))
-              for p in files
-          ), "Compiled Rust extension missing"
-
-          assert "none-any.whl" not in wheels[0].name
-
-          print("Validated:", wheels[0].name)
+          assert wheels[0].name.endswith('py3-none-any.whl'), wheels[0]
+          with ZipFile(wheels[0]) as z:
+              names = z.namelist()
+          assert any(p.startswith('psx/') and p.endswith('.py') for p in names)
+          assert not any('_sfle_native' in p for p in names)
+          assert len(list(Path('dist').glob('*.tar.gz'))) == 1
           PY
-
-      - name: Upload wheel
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: wheel-${{ matrix.platform }}
-          path: dist/*.whl
+          name: velto-core
+          path: dist/*
           if-no-files-found: error
-          retention-days: 14
 
-  python-compatibility:
-    name: Python ${{ matrix.python-version }} / ${{ matrix.platform }}
-    needs: build-wheels
+  build-native:
+    name: Build Cinnamon / ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
-
     strategy:
       fail-fast: false
       matrix:
-        python-version:
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13"
-          - "3.14"
-
-        platform:
-          - linux-x86_64
-          - linux-aarch64
-          - windows-x86_64
-          - macos-x86_64
-          - macos-aarch64
-
         include:
-          - platform: linux-x86_64
-            os: ubuntu-24.04
+          - {platform: linux-x86_64, os: ubuntu-24.04, interpreter: python3.10}
+          - {platform: linux-aarch64, os: ubuntu-24.04-arm, interpreter: python3.10}
+          - {platform: windows-x86_64, os: windows-2025, interpreter: python}
+          - {platform: macos-x86_64, os: macos-15-intel, interpreter: python3.10}
+          - {platform: macos-aarch64, os: macos-15, interpreter: python3.10}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+      - name: Build ABI3 Rust extension
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: >-
+            --release
+            --manifest-path rust/cinnamon-core/Cargo.toml
+            --features python
+            --out dist
+            --interpreter ${{ matrix.interpreter }}
+          manylinux: auto
+      - name: Validate native wheel
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          wheels = list(Path('dist').glob('*.whl'))
+          assert len(wheels) == 1, wheels
+          assert 'abi3' in wheels[0].name, wheels[0]
+          assert wheels[0].name.startswith('velto_cinnamon_core-'), wheels[0]
+          with ZipFile(wheels[0]) as z:
+              names = z.namelist()
+          assert any('_sfle_native' in p and p.endswith(('.so', '.pyd')) for p in names)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cinnamon-${{ matrix.platform }}
+          path: dist/*.whl
+          if-no-files-found: error
 
-          - platform: linux-aarch64
-            os: ubuntu-24.04-arm
-
-          - platform: windows-x86_64
-            os: windows-2025
-
-          - platform: macos-x86_64
-            os: macos-15-intel
-
-          - platform: macos-aarch64
-            os: macos-15
-
+  compatibility:
+    name: Python ${{ matrix.python }} / ${{ matrix.platform }}
+    needs: [build-core, build-native]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        include:
+          - {platform: linux-x86_64, os: ubuntu-24.04}
+          - {platform: linux-aarch64, os: ubuntu-24.04-arm}
+          - {platform: windows-x86_64, os: windows-2025}
+          - {platform: macos-x86_64, os: macos-15-intel}
+          - {platform: macos-aarch64, os: macos-15}
     steps:
       - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Download corresponding platform wheel
-        uses: actions/download-artifact@v4
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@v4
         with:
-          name: wheel-${{ matrix.platform }}
+          name: velto-core
           path: dist/
-
-      - name: Install precompiled wheel, never build from source
+      - uses: actions/download-artifact@v4
+        with:
+          name: cinnamon-${{ matrix.platform }}
+          path: dist/
+      - name: Install wheels (no source builds)
         shell: bash
         run: |
-          python -m pip install \
-            --only-binary=:all: \
-            --no-index \
-            --find-links=dist \
-            velto-core
-
-      - name: Verify installed Python package and real Rust engine
+          python -m pip install --only-binary=:all: --find-links=dist velto-core
+      - name: Validate native module
         shell: bash
         run: |
           python -I - <<'PY'
           import psx
           import _sfle_native
-          from psx.sfle.backend import load_layout_engine
-
           assert _sfle_native.schema_version() == 1
-
-          engine = load_layout_engine()
-          assert engine.backend_name == "rust", engine.backend_name
-
-          print("Installed wheel:", psx.__file__)
-          print("Rust extension:", _sfle_native.__file__)
-          print("Backend:", engine.backend_name)
+          print('PSX:', psx.__file__)
+          print('Cinnamon:', _sfle_native.__file__)
           PY
 
-  pypi-publish:
-    name: Publish wheels to PyPI
-
-    needs:
-      - build-wheels
-      - python-compatibility
-
-    if: >-
-      github.event_name == 'release' &&
-      github.event.action == 'published'
-
+  publish:
+    name: Publish Velto Core and Cinnamon to PyPI
+    needs: [build-core, build-native, compatibility]
+    if: github.event_name == 'release' && github.event.action == 'published'
     runs-on: ubuntu-24.04
-
     permissions:
       id-token: write
-
     environment:
       name: pypi
       url: https://pypi.org/project/velto-core/
-
     steps:
-      - name: Download all wheel artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
-          pattern: wheel-*
+          name: velto-core
+          path: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cinnamon-*
           path: dist/
           merge-multiple: true
-
-      - name: Verify release artifacts
+      - name: Validate versions and artifacts
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
+          python -m pip install packaging
           python - <<'PY'
+          import os
+          import tomllib
           from pathlib import Path
-
-          wheels = list(Path("dist").glob("*.whl"))
-          assert len(wheels) == 5, [
-              wheel.name for wheel in wheels
-          ]
-
-          print("Publishing:")
-          for wheel in sorted(wheels):
-              print(wheel.name)
+          from packaging.utils import parse_wheel_filename
+          wheels = list(Path('dist').glob('*.whl'))
+          sdists = list(Path('dist').glob('*.tar.gz'))
+          assert len(wheels) == 6, [p.name for p in wheels]
+          assert len(sdists) == 1, [p.name for p in sdists]
+          tag = os.environ['RELEASE_TAG'].removeprefix('v')
+          core = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
+          native = tomllib.loads(Path('rust/cinnamon-core/pyproject.toml').read_text())['project']['version']
+          assert tag == core == native, (tag, core, native)
+          for wheel in wheels:
+              _, version, _, _ = parse_wheel_filename(wheel.name)
+              assert str(version) == tag, wheel.name
+          for p in sorted(Path('dist').iterdir()):
+              print(p.name)
           PY
-
-      - name: Publish to PyPI with OpenID Connect
+      - name: Publish to PyPI via trusted publishing
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
