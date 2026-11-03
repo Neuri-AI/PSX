@@ -292,6 +292,29 @@ with 500 cards. Neither the present workset nor larger caches certifies
 interactive 60 FPS. Actual layout-computation virtualization and
 paint/mount virtualization require further architectural work.
 
+### Repeated 500-card CI measurement (commit `1845c55f`, 2026-11-02)
+
+A later same-run A/B sample used 500 cards, 3,002 mounted widgets,
+Cinnamon Rust, eight measured cycles and two warmups per backend.
+The measurements below are event-to-commit, **not displayed FPS**:
+
+| Backend | Viewport enabled mean / p95 | Full commit mean / p95 | Deferred receipts |
+| --- | ---: | ---: | ---: |
+| Qt | 275.57 / 503.34 ms | 326.84 / 480.32 ms | 2,760 |
+| Tkinter | 316.05 / 584.96 ms | 442.56 / 629.44 ms | 2,784 |
+
+The Qt mean improved but its p95 did not. Eight samples are insufficient
+to assert a repeatable p95 speedup, especially across separate process runs.
+This workflow certifies that culling is *active*, not that every workload
+is faster. See the [actual measurements and CI logs](https://github.com/Neuri-AI/PSX/actions/runs/41559213543).
+
+In that same workflow, the macOS ARM runner's native Kivy smoke check
+failed before layout on `Failed creating OpenGL pixel format` while
+initializing SDL2. That is an unavailable native graphics context in the
+CI environment, **not** proof of a Rust geometry regression. Its real
+Apple Silicon Kivy coverage remains unverified in this run; do not turn
+the native smoke check into an unreported pass.
+
 The separate viewport native certification runs the same mounted
 Qt/Tk/Kivy lifecycle and scrolling cases first against the Python
 layout backend and then against a compiled, explicitly checked Rust
