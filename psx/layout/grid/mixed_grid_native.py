@@ -278,12 +278,28 @@ class MountedMixedGrid:
                 )
                 self._viewport_heights[node_id] = scroll_rect.height
             composition = self.compose(node_id, box.width)
-            batch, widgets, heights = compose_geometry_batch(
-                composition,
-                handles={identity: handle.widget
-                         for identity, handle in self.handles.items()},
-                root_height=box.height,
+            geometry_reuse = getattr(self, "_geometry_reuse", None)
+            cached_batch = (
+                geometry_reuse.batch_lookup(
+                    node_id, box.width, self.renderer._sfle_constraints,
+                    box.height, self.handles,
+                ) if geometry_reuse is not None else None
             )
+            if cached_batch is not None:
+                batch, widgets, heights = cached_batch
+            else:
+                batch, widgets, heights = compose_geometry_batch(
+                    composition,
+                    handles={identity: handle.widget
+                             for identity, handle in self.handles.items()},
+                    root_height=box.height,
+                )
+                if geometry_reuse is not None:
+                    geometry_reuse.batch_stage(
+                        node_id, self.grids[node_id], box.width,
+                        self.renderer._sfle_constraints, box.height,
+                        batch, widgets, heights, self.handles,
+                    )
             prepared.append((composition, batch, widgets, heights, box.height))
         return tuple(prepared)
 
