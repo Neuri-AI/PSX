@@ -216,6 +216,12 @@ def run_cell(args):
                 getattr(renderer, "_psx_grid_flow_blueprints", None), "solved", None
             )
             solved_before = getattr(solved_cache, "hits", 0)
+            grid_cache_before = getattr(renderer, "_psx_accepted_grid_geometry", None)
+            grid_hits_before = getattr(grid_cache_before, "hits", 0)
+            batch_hits_before = getattr(grid_cache_before, "batch_hits", 0)
+            early_groups_before = getattr(
+                grid_cache_before, "early_provisional_groups", 0
+            )
             requested = time.perf_counter_ns()
             resize(target)
             deadline = time.monotonic() + args.timeout
@@ -338,6 +344,18 @@ def run_cell(args):
                     "commits": len(primary_commits),
                     "full_commits": len(all_commits),
                     "idle_reconciliation_commits": len(all_commits) - len(primary_commits),
+                    "accepted_grid_geometry_hits": getattr(
+                        getattr(renderer, "_psx_accepted_grid_geometry", None),
+                        "hits", 0,
+                    ) - grid_hits_before,
+                    "accepted_grid_batch_hits": getattr(
+                        getattr(renderer, "_psx_accepted_grid_geometry", None),
+                        "batch_hits", 0,
+                    ) - batch_hits_before,
+                    "early_provisional_p2_groups": getattr(
+                        getattr(renderer, "_psx_accepted_grid_geometry", None),
+                        "early_provisional_groups", 0,
+                    ) - early_groups_before,
                 })
         latencies = [s["event_to_commit_ms"] for s in samples]
         end_to_end = [s["request_to_settled_ms"] for s in samples]
@@ -349,21 +367,18 @@ def run_cell(args):
             "native_widgets": native_widgets, "cycles": args.cycles,
             "disable_early_geometry_reuse": args.disable_early_geometry_reuse,
             "disable_viewport_defer": args.disable_viewport_defer,
-            "accepted_grid_geometry_hits": getattr(
-                getattr(renderer, "_psx_accepted_grid_geometry", None),
-                "hits", 0,
+            "accepted_grid_geometry_hits": sum(
+                sample["accepted_grid_geometry_hits"] for sample in samples
             ),
             "accepted_grid_geometry_misses": getattr(
                 getattr(renderer, "_psx_accepted_grid_geometry", None),
                 "misses", 0,
             ),
-            "accepted_grid_batch_hits": getattr(
-                getattr(renderer, "_psx_accepted_grid_geometry", None),
-                "batch_hits", 0,
+            "accepted_grid_batch_hits": sum(
+                sample["accepted_grid_batch_hits"] for sample in samples
             ),
-            "early_provisional_p2_groups": getattr(
-                getattr(renderer, "_psx_accepted_grid_geometry", None),
-                "early_provisional_groups", 0,
+            "early_provisional_p2_groups": sum(
+                sample["early_provisional_p2_groups"] for sample in samples
             ),
             "warmup": args.warmup, "event_to_commit": stats(latencies),
             "request_to_settled": stats(end_to_end),
