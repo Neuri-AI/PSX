@@ -671,7 +671,11 @@ class QtRenderer:
             self.set_sfle_constraints(LayoutConstraints(
                 AvailableSize(size[0], True), AvailableSize(size[1], True),
             ))
-            self.commit_layout(root)
+            self._psx_in_native_viewport_resize = True
+            try:
+                self.commit_layout(root)
+            finally:
+                self._psx_in_native_viewport_resize = False
             from psx.layout.adapters.viewport_resize_priority import schedule_resize_settlement
             schedule_resize_settlement(self, size, lambda ms, callback: self._qtcore.QTimer.singleShot(ms, callback))
             self._sfle_resize_error = None
