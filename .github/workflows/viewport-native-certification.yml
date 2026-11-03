@@ -102,4 +102,35 @@ jobs:
           xvfb-run -a python -m pytest -q \
             tests/test_mounted_grid_native_renderers.py \
             -k "automatic_grid_viewport_sparse_commit_and_resize_reentry or automatic_html_card_flow_deferred_native_resize or scroll_newly_visible_grid_items_receive_native_geometry or scroll_wrapped_grid_item_uses_native_viewport_across_backends or styled_mixed_grid_reuses_accepted_geometry_before_intrinsic_measurement"
+      - name: Measure actual native early-cache usage on responsive cards
+        run: |
+          xvfb-run -a python -u benchmarks/native_resize_fps.py \
+            --adapters "${PSX_GRID_BACKEND}" --engine rust --scenario cards \
+            --counts 24 100 --cycles 12 --warmup 3 --timeout 10 \
+            --output "benchmark-results/early-grid-${PSX_GRID_BACKEND}"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          source = Path("benchmark-results") / f"early-grid-{os.environ['PSX_GRID_BACKEND']}"
+          results = json.loads((source / "summary.json").read_text())
+          assert len(results) == 2 and all("error" not in row for row in results)
+          for row in results:
+              assert row["engine"] == "rust"
+              assert row["accepted_grid_geometry_hits"] > 0, (
+                  row["adapter"], row["logical_items"],
+                  "The native resize reused no accepted Grid computations",
+              )
+              assert row["solver_calls"] > 0
+              assert row["presentation_fps"] is None
+              print(row["adapter"], row["logical_items"],
+                    "early cache hits:", row["accepted_grid_geometry_hits"],
+                    "p95 layout:", round(row["event_to_commit"]["p95_ms"], 2),
+                    "ms; solver calls:", row["solver_calls"])
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: early-grid-native-${{ matrix.backend }}
+          path: benchmark-results/
+          if-no-files-found: warn
 
