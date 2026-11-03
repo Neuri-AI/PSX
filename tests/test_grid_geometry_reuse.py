@@ -150,3 +150,18 @@ def test_flattened_grid_batch_has_live_widget_identity_fence():
     handles[102] = SimpleNamespace(widget=object())
     assert cache.batch_lookup(key, 480, viewport(), 650, handles) is None
 
+
+def test_renderer_unmount_clear_releases_saved_tree_and_receipts():
+    grid = original_grid(8)
+    key = path_identity(grid.path)
+    cache = AcceptedGridGeometryReuse()
+    cache.begin(grid, 1, "qt", 1.0, {})
+    cache.stage(key, grid, 480, viewport(), calculate(grid))
+    cache.accept()
+    assert cache._root is grid and cache._entries
+    cache.clear()
+    assert cache._root is None
+    assert not cache._entries and not cache._latest and not cache._batch_entries
+    assert not cache._safety and not cache._early_plans
+    assert cache.lookup(key, grid, 480, viewport(), 2) is None
+
