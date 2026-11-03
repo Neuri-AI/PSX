@@ -63,7 +63,7 @@ def _no_negative_margins(node):
         css = getattr(getattr(source, "css_computed", None), "properties", None)
         if css is not None:
             for name, value in css.items():
-                if "margin" in str(name).lower() and str(value).strip().startswith("-"):
+                if "margin" in str(name).lower() and _negative(value):
                     return False
         pending.extend(current.effective_children)
     return True
