@@ -819,7 +819,7 @@ mod viewport_priority_reuse_tests {
                 "node_id":format!("card_{index}"),
                 "parent_id":"root",
                 "component":"Flex",
-                "style":{"display":"flex","layout_width":"120px",
+                "style":{"layout_width":"120px",
                          "layout_height":"30px"},
             }));
         }
