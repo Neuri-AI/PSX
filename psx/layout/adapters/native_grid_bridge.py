@@ -137,11 +137,18 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
         composed_heights = None
         if reused is not None:
             prepared = reused.prepared
-            batch, commit_widgets, composed_heights = compose_geometry_batch(
-                reused, handles={identity: handle.widget
-                                 for identity, handle in handles.items()},
-                root_height=float(height),
+            flattened = geometry_cache.batch_lookup(
+                grid_id, float(width), renderer._sfle_constraints,
+                float(height), handles,
             )
+            if flattened is not None:
+                batch, commit_widgets, composed_heights = flattened
+            else:
+                batch, commit_widgets, composed_heights = compose_geometry_batch(
+                    reused, handles={identity: handle.widget
+                                     for identity, handle in handles.items()},
+                    root_height=float(height),
+                )
             source = SimpleNamespace(
                 is_ui_thread=lambda: get_ident() == renderer._sfle_owner_thread,
             )
@@ -272,6 +279,12 @@ def commit_native_grid(renderer: object, root: object, *, backend: GridCommitBac
             geometry_cache.stage(
                 grid_id, grid, float(width), renderer._sfle_constraints,
                 composed,
+            )
+        if reused is None or flattened is None:
+            geometry_cache.batch_stage(
+                grid_id, grid, float(width), renderer._sfle_constraints,
+                float(height), batch, commit_widgets,
+                (composed_heights or {}), handles,
             )
         if renderer._sfle_measurement_invalidations.epoch != invalidation_epoch:
             # Native widget creation can synchronously publish an intrinsic
