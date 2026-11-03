@@ -17,13 +17,14 @@ from dataclasses import replace
 from threading import get_ident
 from typing import TYPE_CHECKING
 
-from psx.core.layout_tree import normalize_flex_tree
+from psx.layout.projection.native_structural_snapshot_reuse import (
+    NativeStructuralSnapshotReuse, mounted_structural_token,
+)
 from psx.layout.grid.mixed_grid_native import MountedMixedGrid
 from psx.layout.adapters.grid_native_commit import GridCommitBackend
 from psx.core.vnode import NodeKind
 from psx.layout.runtime.adapter_contract import SFLEAdapterPorts, validate_adapter_commit
 from psx.layout.contracts.errors import DiagnosticCode, SFLEError
-from psx.layout.projection.native_layout_snapshot import prepare_native_layout_snapshot
 from psx.layout.adapters.external_native_geometry_ports import external_port_for, measure_external, read_external
 from psx.layout.projection.native_component_capabilities import native_leaf_needs_measurement
 from psx.layout.contracts.fixed_point import LayoutUnit
@@ -63,6 +64,7 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
         invalidation_epoch = renderer._sfle_measurement_invalidations.epoch
         component_roots: dict[int, object] = {}
         handles: dict[int, object] = {}
+        mounted_stamp = []
 
         def gather(instance: "MountedInstance") -> None:
             if instance.disposed:
@@ -78,17 +80,25 @@ def commit_kivy_sfle(renderer: "KivyRenderer", root: "MountedInstance") -> None:
                     raise SFLEError(DiagnosticCode.INVALID_TREE,
                                     "Missing or duplicated Kivy layout handle.")
                 handles[id(instance.node)] = instance.handle
+            mounted_stamp.append(mounted_structural_token(instance))
             for child in instance.children:
                 gather(child)
 
         gather(root)
-        normalized = normalize_flex_tree(
-            root.node, component_roots=component_roots)
+        reuse = getattr(renderer, "_sfle_structural_snapshot_reuse", None)
+        if reuse is None:
+            reuse = NativeStructuralSnapshotReuse()
+            renderer._sfle_structural_snapshot_reuse = reuse
+        # Match Qt/Tk: keep a stable normalized VNode/CSS tree across
+        # viewport-only commits while rebinding the current constraints
+        # and generation. Reconstructing this tree on every Kivy resize
+        # invalidated every accepted Grid geometry and early-P2 receipt.
+        normalized, prepared = reuse.prepare(
+            root.node, component_roots, mounted_stamp,
+            renderer._sfle_constraints, generation, invalidation_epoch,
+        )
         mixed_grid = MountedMixedGrid(
             renderer, normalized, handles, GridCommitBackend.KIVY, generation,
-        )
-        prepared = prepare_native_layout_snapshot(
-            normalized, renderer._sfle_constraints, generation=generation,
         )
         bindings = {node_id: handles[id(source)]
                     for node_id, source in prepared.identities}
