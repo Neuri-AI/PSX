@@ -106,6 +106,9 @@ class AcceptedGridGeometryReuse:
         self._entries = OrderedDict()
         self._pending = {}
         self._safety = {}
+        self._batch_entries = OrderedDict()
+        self._batch_pending = {}
+        self.batch_hits = 0
 
     def begin(self, normalized, epoch, backend, pixel_scale, breakpoints):
         # The viewport belongs to the *per-entry* key; retaining other exact
@@ -114,9 +117,11 @@ class AcceptedGridGeometryReuse:
         if normalized is not self._root or scope != self._scope:
             self._entries.clear()
             self._safety.clear()
+            self._batch_entries.clear()
             self._root = normalized
             self._scope = scope
         self._pending.clear()
+        self._batch_pending.clear()
 
     def _key(self, grid_id, width, viewport):
         return (grid_id, float(width),
@@ -154,6 +159,61 @@ class AcceptedGridGeometryReuse:
         while len(self._entries) > self.limit:
             self._entries.popitem(last=False)
         self._pending.clear()
+        for key, batch in self._batch_pending.items():
+            self._batch_entries[key] = batch
+            self._batch_entries.move_to_end(key)
+        while len(self._batch_entries) > self.limit:
+            self._batch_entries.popitem(last=False)
+        self._batch_pending.clear()
+
+    def batch_lookup(self, grid_id, width, viewport, root_height, handles):
+        """Replay flattened immutable rectangles; bind *current* UI widgets.
+
+        No native widget is retained between transactions. The original
+        widget identity is verified against the live mounted handle before
+        returning a cached batch. A mismatched handle safely misses.
+        """
+        key = (*self._key(grid_id, width, viewport), float(root_height))
+        cached = self._batch_entries.get(key)
+        if cached is None:
+            return None
+        placements, bindings, heights = cached
+        widgets = {}
+        for placement_id, source_id, expected_widget_id in bindings:
+            handle = handles.get(source_id)
+            if (handle is None
+                    or id(getattr(handle, "widget", None)) != expected_widget_id):
+                self._batch_entries.pop(key, None)
+                return None
+            widgets[placement_id] = handle.widget
+        self._batch_entries.move_to_end(key)
+        self.batch_hits += 1
+        return placements, widgets, heights
+
+    def batch_stage(self, grid_id, grid, width, viewport, root_height,
+                    placements, widgets, heights, handles):
+        """Stage placement geometry only; never stage native handles."""
+        if not self.eligible(grid_id, grid):
+            return
+        native_to_source = {
+            id(handle.widget): source_id
+            for source_id, handle in handles.items()
+        }
+        if len(native_to_source) != len(handles):
+            # Multiple normalized sources sharing one native widget cannot
+            # produce an unambiguous identity receipt.
+            return
+        bindings = []
+        for placement_id, widget in widgets.items():
+            source_id = native_to_source.get(id(widget))
+            if source_id is None:
+                return
+            bindings.append((placement_id, source_id, id(widget)))
+        key = (*self._key(grid_id, width, viewport), float(root_height))
+        self._batch_pending[key] = (
+            tuple(placements), tuple(bindings), dict(heights),
+        )
 
     def discard(self):
         self._pending.clear()
+        self._batch_pending.clear()
